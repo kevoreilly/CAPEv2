@@ -45,6 +45,9 @@ class LogServerThread(Thread):
     def stop(self):
         """Stop Log Server."""
         self.do_run = False
+        self.resultserver_socket.close()
+        if self.h_pipe != 0:
+            KERNEL32.CloseHandle(self.h_pipe)
 
     def handle_logs(self):
         # Read the data submitted to the Log Server.
@@ -84,6 +87,9 @@ class LogServerThread(Thread):
             return True
         except Exception as e:
             print(e)
+            self.resultserver_socket.close()
+            if self.h_pipe != 0:
+                KERNEL32.CloseHandle(self.h_pipe)
             error_exc = traceback.format_exc()
             log.exception(error_exc)
             return True

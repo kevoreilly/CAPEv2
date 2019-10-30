@@ -138,6 +138,7 @@ class RansomwareFiles(Signature):
             (".*\\\\SGUARD-README\.(txt|TXT)$", ["SGuard"]),
             (".*\\\\RyukReadMe\.html$", ["Ryuk"]),
             (".*\\\\HOW_TO_RECOVER_DATA\.html$", ["MedusaLocker"]),
+            (".*\\\\ClopReadMe\.txt$", ["Clop-CryptoMix"]),
         ]
 
         for ioc in file_list:

@@ -1,0 +1,103 @@
+<section id="file">
+    <h4>File Details</h4>
+    <div class="panel panel-default">
+        <table class="table table-striped" style="table-layout: fixed;">
+            <tr>
+                <th style="border-top: 0; width: 15%;">File Name</th>
+                <td style="border-top: 0; word-wrap: break-word;">{{analysis.target.file.name}}</td>
+            </tr>
+            <tr>
+                <th>File Size</th>
+                <td>{{analysis.target.file.size}} bytes</td>
+            </tr>
+            <tr>
+                <th>File Type</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.type}}</td>
+            </tr>
+            <tr>
+                <th>MD5</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.md5}}</td>
+            </tr>
+            <tr>
+                <th>SHA1</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha1}}</td>
+            </tr>
+            <tr>
+                <th>SHA256</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha256}}</td>
+            </tr>
+            <tr>
+                <th>SHA512</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha512}}</td>
+            </tr>
+            <tr>
+                <th>CRC32</th>
+                <td>{{analysis.target.file.crc32}}</td>
+            </tr>
+            <tr>
+                <th>Ssdeep</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.ssdeep}}</td>
+            </tr>
+            <tr>
+                <th>TrID</th>
+                <td style="word-wrap: break-word;">
+                {% if analysis.trid %}
+                    <ul style="margin-top: 0;margin-bottom: 0;">
+                    {% for str in analysis.trid %}
+                        <li>{{str}}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    None matched
+                {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>ClamAV</th>
+                <td>
+                {% if analysis.target.file.clamav %}
+                    {{analysis.target.file.clamav}}
+                {% else %}
+                    None matched
+                {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>Yara</th>
+                <td>
+                {% if analysis.target.file.yara %}
+                    <ul style="margin-bottom: 0;">
+                    {% for sign in analysis.target.file.yara %}
+                        <li>{{sign.name}} - {{sign.meta.description}}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    None matched
+                {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>CAPE Yara</th>
+                <td>
+                {% if analysis.target.file.cape_yara %}
+                    <ul style="margin-bottom: 0;">
+                    {% for sign in analysis.target.file.cape_yara %}
+                        <li>{{sign.meta.cape_type}}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    None matched
+                {% endif %}
+                </td>
+            </tr>            
+            <tr>
+                <th></th>
+                <td>
+                    <a class="btn btn-primary btn-small" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}">Download</a>
+                    <a class="btn btn-primary btn-small" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}">Download ZIP</a>
+                    <a class="btn btn-default btn-small" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Resubmit sample</a>
+                </td>
+            </tr>
+        </table>
+    </div>
+</section>

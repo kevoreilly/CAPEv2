@@ -1,0 +1,21 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th width="10%">Time</th>
+            <th width="3%">TID</th>
+            <th width="8%">Caller</th>
+            <th width="15%">API</th>
+            <th width="42%">Arguments</th>
+            <th width="5%">Status</th>
+            <th width="11%">Return</th>
+            <th width="6%">Repeated</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for call in chunk.calls %}
+        <tr class="{{call.category}}" id="call_{{call.id}}">
+            {% include "analysis/behavior/_api_call.html" %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,29 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:             moloch 
+# Required-Start:       $remote_fs $syslog
+# Required-Stop:        $remote_fs $syslog
+# Default-Start:        2 3 4 5
+# Default-Stop:         
+# Short-Description:    moloch 
+### END INIT INFO
+
+case "$1" in
+  start)
+    su cuckoo -c "cd /data/moloch/bin/ && ./run_es.sh"
+    sleep 10
+    su cuckoo -c "cd /data/moloch/bin/ && screen -d -m ./run_viewer.sh"
+;;
+  stop)
+    pkill -f "elasticsearch-0.90.10.jar"
+    pkill -f "/data/moloch/bin/node viewer.js -c /data/moloch/etc/config.ini" 
+;;
+
+ restart)
+   $0 stop
+   sleep 10
+   $0 start
+   ;;
+
+esac
+exit 0

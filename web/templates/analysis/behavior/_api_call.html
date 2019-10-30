@@ -1,0 +1,37 @@
+<td>{{call.timestamp}}</td>
+<td>{{call.thread_id}}</td>
+<td>{{call.caller}}<br />{{call.parentcaller}}</td>
+<td><strong>{{call.api}}</strong></td>
+<td style="word-wrap: break-word;">
+    {% for argument in call.arguments %}
+        <span class="gray">{{argument.name}}:</span>
+        {% if argument.pretty_value %}
+            <span class="mono" title="{{argument.value}}">{{argument.pretty_value}}</span>
+        {% else %}
+            <span class="mono">{{argument.value}}</span>
+        {% endif %}
+        <br />
+    {% endfor %}
+</td>
+<td>
+    {% if call.status %}
+        success
+    {% else %}
+        failed
+    {% endif %}
+</td>
+{% if call.pretty_return %}
+    <td style="word-wrap: break-word"><span class="mono" title="{{call.return}}">{{call.pretty_return}}</span></td>
+{% else %}
+    <td style="word-wrap: break-word"><span class="mono">{{call.return}}</span></td>
+{% endif %}
+<td>
+    {% if call.repeated > 0 %}
+        {{call.repeated}}
+        {% if call.repeated > 1 %}
+            times
+        {% else %}
+            time
+        {% endif %}
+    {% endif %}
+</td>

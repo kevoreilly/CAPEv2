@@ -1,0 +1,15 @@
+[Unit]
+Description=Cuckoo
+Documentation=https://github.com/kevoreilly/CAPE
+Wants=cuckoo-cuckoo-processor.service
+After=cuckoo-cuckoo-processor.service
+
+[Service]
+ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/cuckoo.py
+User=cuckoo
+Group=cuckoo
+Restart=always
+RestartSec=5m
+
+[Install]
+WantedBy=multi-user.target

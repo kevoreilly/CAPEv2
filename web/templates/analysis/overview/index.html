@@ -1,0 +1,28 @@
+{% include "analysis/overview/_info.html" %}
+<hr />
+{% if analysis.info.category != "pcap" %}
+{% if analysis.info.category in "file,static" and analysis.target %}
+    {% include "analysis/overview/_file.html" %}
+{% elif analysis.info.category == "url" %}
+    {% include "analysis/overview/_url.html" %}
+{% endif %}
+{% endif %}
+<hr/>
+{% include "analysis/overview/_signatures.html" %}
+{% if analysis.info.category != "pcap" %}
+{% if analysis.usage %}
+<hr />
+{% include "analysis/overview/_usage.html" %}
+{% endif %}
+<hr />
+{% include "analysis/overview/_screenshots.html" %}
+<hr />
+{% endif %}
+<div class="row">
+    <div class="col-xs-6">{% include "analysis/network/_hosts.html" %}</div>
+    <div class="col-xs-6">{% include "analysis/network/_dns.html" %}</div>
+</div>
+<hr />
+{% if analysis.info.category != "pcap" %}
+{% include "analysis/overview/_summary.html" %}
+{% endif %}

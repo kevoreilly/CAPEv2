@@ -1,0 +1,85 @@
+<!--
+__author__  = "Jeff White [karttoon] @noottrak"
+__email__   = "jwhite@paloaltonetworks.com"
+__version__ = "1.0.1"
+__date__    = "29NOV2017
+-->
+
+<div class="panel panel-default">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="tabbable tabs">
+                        <ul class="nav nav-pills" style="margin-bottom: 0;">
+                            <li class="active">
+                                <a href="#curtain_orig_tab" data-toggle="tab">Original Events</a>
+                            </li>
+                            <li>
+                                <a href="#curtain_altr_tab" data-toggle="tab">Altered Events</a>
+                            </li>
+                            <li>
+                                <a href="#curtain_filt_tab" data-toggle="tab">Filtered Events</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade in active" id="curtain_orig_tab">
+                                 {% if analysis.curtain %} 
+                                    {% for pid,dict in analysis.curtain.items %}
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            PID: {{pid}} - {% for entry in dict.behaviors %}
+                                            <a class="btn btn-primary btn-xs">{{ entry }}</a>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="panel-body">
+                                            {% for entry in dict.events %} {% for event,message in entry.items %}
+                                            <b>Event: {{ event }}</b>
+                                            <pre>{{ message.original|linebreaksbr }}</pre> {% endfor %} {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endfor %} 
+                                {% endif %}
+                            </div>
+                            <div class="tab-pane fade" id="curtain_altr_tab">
+                                 {% if analysis.curtain %} 
+                                    {% for pid,dict in analysis.curtain.items %}
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            PID: {{pid}} - {% for entry in dict.behaviors %}
+                                            <a class="btn btn-primary btn-xs">{{ entry }}</a>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="panel-body">
+                                            {% for entry in dict.events %} {% for event,message in entry.items %} Event:
+                                            <b>{{ event }}</b>
+                                            <pre>{{ message.altered|linebreaksbr }}</pre> {% endfor %} {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endfor %} 
+                                {% endif %}
+                            </div>
+                            <div class="tab-pane fade" id="curtain_filt_tab">
+                                 {% if analysis.curtain %} {% for pid,dict in analysis.curtain.items %}
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        PID: {{pid}} - {% for entry in dict.behaviors %}
+                                        <a class="btn btn-primary btn-xs">{{ entry }}</a>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="panel-body">
+                                        {% for entry in dict.filter %} 
+                                        {% for event,message in entry.items %}
+                                        <b>Event: {{ event }}</b>
+                                        <pre>
+                                            {{ message|linebreaksbr }}
+                                        </pre> {% endfor %} {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %} {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+</div>

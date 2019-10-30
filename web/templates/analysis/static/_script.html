@@ -1,0 +1,15 @@
+<section id="static_script">
+    {% if analysis.static and analysis.static.wsf %}
+    {% for script in analysis.static.wsf %}
+    <div class="well" style="font-family: monospace;">
+        <div><pre>{{script}}</pre></div>
+    </div>
+    {% endfor %}
+    {% else %}
+    {% if analysis.static and analysis.static.encscript %}
+    <div class="well" style="font-family: monospace;">
+        <div><pre>{{analysis.static.encscript}}</pre></div>
+    </div>
+    {% endif %}
+    {% endif %}
+</section>

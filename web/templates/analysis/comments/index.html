@@ -1,0 +1,19 @@
+<h4>Comments</h4><br />
+<form class="form-horizontal" role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
+<div class="row">
+  <div class="form group col-lg-10">
+      <textarea class="form-control" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
+      <div style="margin-top: 5px;">
+        <button class="btn btn-primary pull-right" type="submit">Submit</button>
+      </div>
+  </div>
+</div>
+</form>
+<hr>
+{% if analysis.info.comments %}
+{% for comment in analysis.info.comments %}
+<div class="alert alert-info"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
+{% endfor %}
+{% else %}
+<div class="alert alert-info center">No comments posted</div>
+{% endif %}

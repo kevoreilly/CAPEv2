@@ -1,0 +1,109 @@
+{% load key_tags %}
+<script src="{{ STATIC_URL }}js/hexdump.js"></script>
+{% if analysis.procdump|length > 0 %}
+    {% for file in analysis.procdump %}
+        <div class="panel panel-default">
+            <table class="table table-striped" style="table-layout: fixed;">
+                <tr>
+                    <th style="border-top: 0; width: 15%;">Process Name</th>
+                    <td style="border-top: 0; word-wrap: break-word;">{{file.process_name}}</td>
+                </tr>
+                <tr>
+                    <th>PID</th>
+                    <td>{{file.pid}}</td>
+                </tr>
+                <tr>
+                    <th>Dump Size</th>
+                    <td>{{file.size}} bytes</td>
+                </tr>
+                <tr>
+                    <th>Module Path</th>
+                    <td>{{file.module_path}}</td>
+                </tr>
+                <tr>
+                    <th>Type</th>
+                    <td style="word-wrap: break-word;">{{file.cape_type}}</td>
+                </tr>
+                <tr>
+                    <th>MD5</th>
+                    <td style="word-wrap: break-word;">{{file.md5}}</td>
+                </tr>
+                <tr>
+                    <th>SHA1</th>
+                    <td style="word-wrap: break-word;">{{file.sha1}}</td>
+                </tr>
+                <tr>
+                    <th>SHA256</th>
+                    <td style="word-wrap: break-word;">{{file.sha256}}</td>
+                </tr>
+                <tr>
+                    <th>CRC32</th>
+                    <td>{{file.crc32}}</td>
+                </tr>
+                <tr>
+                    <th>Ssdeep</th>
+                    <td style="word-wrap: break-word;">{{file.ssdeep}}</td>
+                </tr>
+                <tr>
+                    <th>ClamAV</th>
+                    <td>{{file.clamav}}</td>
+                </tr>
+                <tr>
+                    <th>Yara</th>
+                    <td>
+                    {% if file.yara %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.yara %}
+                            <li>{{sign.name}} - {{sign.meta.description}}</li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>CAPE Yara</th>
+                    <td>
+                    {% if file.cape_yara %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.cape_yara %}
+                            {% if sign.meta.cape_type %}
+                                <li>{{sign.meta.cape_type}}</li>
+                            {% endif %}
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>Dump Filename</th>
+                    <td style="word-wrap: break-word;">{{file.name}}</td>
+                </tr>
+                {% if file.dropdir %}
+                <tr>
+                    <th></th>
+                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-primary btn-small">Download</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <th></th>
+                    <td>
+                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
+                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download Zip</a>
+                    </td>
+                </tr>
+                {% endif %}
+            </table>
+            {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
+                <h4>BinGraph</h4>
+                {{ graphs.bingraph.content|getkey:file.sha256|safe }}
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info"><b>Sorry!</b> No process dumps.</div>
+{% endif %}

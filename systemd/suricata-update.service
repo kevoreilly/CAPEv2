@@ -1,0 +1,11 @@
+[Unit]
+Description=suricata-update
+
+[Service]
+User=root
+Group=root
+Type=oneshot
+ExecStart=/opt/CAPE/venv/bin/suricata-update
+
+[Install]
+WantedBy=multi-user.target

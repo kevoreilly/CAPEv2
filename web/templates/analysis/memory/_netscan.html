@@ -1,0 +1,26 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Offset</th>
+            <th>PID</th>
+            <th>Local Address</th>
+            <th>Local Port</th>
+            <th>Remote Address</th>
+            <th>Remote Port</th>
+            <th>Protocol</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for sock in analysis.memory.netscan.data %}
+        <tr>
+            <td>{{sock.offset}}</td>
+            <td>{{sock.process_id}}</td>
+            <td>{{sock.local_address}}</td>
+            <td>{{sock.local_port}}</td>
+            <td>{{sock.remote_address}}</td>
+            <td>{{sock.remote_port}}</td>
+            <td>{{sock.protocol}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

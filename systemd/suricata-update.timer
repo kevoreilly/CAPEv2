@@ -1,0 +1,10 @@
+[Unit]
+Description=Run suricata-update hourly and at boot
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1h
+unit=suricata-update.service
+
+[Install]
+WantedBy=timers.target

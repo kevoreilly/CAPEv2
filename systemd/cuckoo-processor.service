@@ -1,0 +1,15 @@
+[Unit]
+Description=Cuckoo report processor
+Documentation=https://github.com/kevoreilly/CAPE
+Wants=cuckoo-rooter.service
+After=cuckoo-rooter.service
+
+[Service]
+ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/process.py -p7 auto
+User=cuckoo
+Group=cuckoo
+Restart=always
+RestartSec=5m
+
+[Install]
+WantedBy=multi-user.target

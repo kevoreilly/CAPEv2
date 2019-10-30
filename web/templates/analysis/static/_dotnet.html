@@ -1,0 +1,92 @@
+<section id="static_analysis">
+    {% if analysis.static and analysis.static.dotnet %}
+        {% if analysis.static.dotnet.typerefs or analysis.static.dotnet.assemblyrefs or analysis.static.dotnet.assemblyinfo or analysis.static.dotnet.customattrs %}
+            <div>
+                <h4>Assembly Information</h4>
+                <div id="dotnet_assembly_information">
+                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                        {% if analysis.static.dotnet.assemblyinfo %}
+                            <tr>
+                                <th style="width: 15%;">Name</th>
+                                <td>{{analysis.static.dotnet.assemblyinfo.name}}</td>
+                            </tr>
+                            <tr>
+                                <th style="width: 15%;">Version</th>
+                                <td>{{analysis.static.dotnet.assemblyinfo.version}}</td>
+                            </tr>
+                        {% endif %}
+                     </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+
+        {% if analysis.static.dotnet.assemblyrefs %}
+            <div>
+                <h4>Assembly References</h4>
+                <div id="dotnet_assembly_references">
+                    <table class="table table-striped table-bordered">
+                    <tr>
+                        <th>Name</th>
+                        <th>Version</th>
+                    </tr>
+                    {% for asm in analysis.static.dotnet.assemblyrefs %}
+                    <tr>
+                        <td>{{asm.name}}</td>
+                        <td>{{asm.version}}</td>
+                    </tr>
+                    {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+
+        {% if analysis.static.dotnet.customattrs %}
+            <div>
+                <h4>Custom Attributes</h4>
+                <div id="dotnet_custom_attributes">
+                    <table class="table table-striped table-bordered">
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Value</th>
+                    </tr>
+                    {% for attr in analysis.static.dotnet.customattrs %}
+                    <tr>
+                        <td>{{attr.type}}</td>
+                        <td>{{attr.name}}</td>
+                        <td>{{attr.value}}</td>
+                    </tr>
+                    {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+
+        {% if analysis.static.dotnet.typerefs %}
+            <div>
+                <h4>Type References</h4>
+                <div id="dotnet_type_references">
+                    <table class="table table-striped table-bordered">
+                    <tr>
+                        <th>Assembly</th>
+                        <th>Type Name</th>
+                    </tr>
+                    {% for typeref in analysis.static.dotnet.typerefs %}
+                    <tr>
+                        <td>{{typeref.assembly}}</td>
+                        <td>{{typeref.typename}}</td>
+                    </tr>
+                    {% endfor %}
+                    </table>
+                </div>
+            </div>
+            <hr />
+        {% endif %}
+
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>

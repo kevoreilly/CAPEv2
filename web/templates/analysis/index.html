@@ -1,0 +1,835 @@
+{% extends "base.html" %}
+{% block content %}
+<p style="margin-bottom: 10px;"><center><img height="100" width="200" src="{{ STATIC_URL }}graphic/cape.png" /></p></center>
+<ul class="nav nav-tabs">
+    <li class="active"><a href="#files" data-toggle="tab">Files</a></li>
+    <li><a href="#urls" data-toggle="tab">URLs</a></li>
+    <li><a href="#pcaps" data-toggle="tab">PCAPs</a></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade in active" id="files">
+    {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
+        <nav>
+           <ul class="pager">
+           {% if paging.show_file_prev == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+           {% endif %}
+           {% if paging.files_page_range %}
+               {% for page in paging.files_page_range %}
+                   {% if page == paging.current_page %}
+                   <li><a style="background-color:#eee;">{{page}}</a></li>
+                   {% else %}
+                   <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   {% endif %}
+               {% endfor %}
+           {% endif %}
+           {% if paging.show_file_next == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+           {% endif %}
+           </ul>
+        </nav>
+    {% endif %}
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">Recent Files</h3>
+            </div>
+            {% if files %}
+            <table class="table table-striped" style="table-layout: fixed;">
+                <thead>
+                <tr>
+                    <th width="5%">ID</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="7%">Machine</th>
+                    <th width="8%">Package</th>
+                    <th width="33%">Filename</th>
+                    <th width="18%">MD5</th>
+                    <th width="7%">MalFamily</th>
+                    {% if config.expanded_dashboard %}
+                    <th width="2.5%">PKG</th>
+                    {% endif %}
+                    {% if config.moloch %}
+                    <th width="4%">Moloch</th>
+                    {% endif %}
+                    {% if config.display_office_martians %}
+                    <th width="5%">Martians</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="7%">SuriAlert
+                        {% if config.expanded_dashboard %}
+                        /HTTP/TLS/Files
+                        {% endif %}
+                    </th>
+                    {% endif %}
+                    {% if config.virustotal %}
+                    <th width="4%">VT</th>
+                    {% endif %}
+                    <th width="3%">MalScore</th>
+                    {% if config.expanded_dashboard %}
+                    <th width="4%">MalFamily</th>
+                    <th width="3%">PCAP</th>
+                    <th width="5%">ClamAV</th>
+                    <th width="10%">Custom</th>
+                    {% endif %}
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="6%" style="text-align: right;">Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for analysis in files %}
+                    <tr>
+                        <td>
+                            {{analysis.id}}
+                        </td>
+                        <td>
+                        {% if analysis.status == "reported" %}
+                            {{analysis.completed_on}}
+                        {% else %}
+                            <span class="muted">{{analysis.added_on}} (added on)</span>
+                        {% endif %}
+                        </td>
+                        <td>
+                        {{analysis.machine}}
+                        </td>
+                        <td>
+                        {{analysis.package}}
+                        </td>
+                        <td>
+                        {{analysis.filename}}
+                        </td>
+                        <td style="word-wrap: break-word;">
+                            {% if analysis.status == "reported" %}
+                                <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
+                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                                <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
+                            {% else %}
+                                <span class="mono">{{analysis.sample.md5}}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.cape != None %}
+                                <span class="text-primary"><b>{{analysis.cape}}</b></span>
+                            {% elif analysis.malfamily != None %}
+                                <span class="text-primary"><b>{{analysis.malfamily}}</b></span>
+                            {% endif %}
+                        </td>
+                        {% if config.expanded_dashboard %}
+                        <td>
+                            {% if analysis.package %}
+                                  <span class="mono">{{analysis.package}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if config.moloch %}
+                        <td>
+                            {% if analysis.moloch_url %}
+                                <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if config.display_office_martians %}
+                        <td>
+                            <span class="mono">
+                            {% if analysis.f_mlist_cnt %}
+                            {{analysis.f_mlist_cnt}}
+                            {% else %}
+                            None
+                            {% endif %}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if config.suricata %}
+                        <td>
+                            <span class="mono">
+                            {% if analysis.suri_alert_cnt %}
+                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
+                            {% else %}
+                            0<!--
+                            {% endif %}
+                            {% if config.expanded_dashboard %}
+                                {% if analysis.suri_http_cnt %}
+                                -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_tls_cnt %}
+                                -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_file_cnt %}
+                                -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                            {% endif %}
+                            --></span>
+                        </td>
+                        {% endif %}
+                        {% if config.virustotal %}
+                        <td>
+                            {% if analysis.virustotal_summary %}
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if analysis.malscore != None %}
+                                <span
+                                {% if analysis.malscore <= 2.0 %}
+                                class="label label-success"
+                                {% elif analysis.malscore <= 6.0 %}
+                                class="label label-warning"
+                                {% else %}
+                                class="label label-danger"
+                                {% endif %}
+                                {% if analysis.malfamily %}
+                                title="{{analysis.malfamily}}"
+                                {% endif %}
+                                >{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                                <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% if config.expanded_dashboard %}
+                        <td>
+                            <span class="mono">
+                                {% if analysis.malfamily %}
+                                {{analysis.malfamily}}
+                                {% else %}
+                                None
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.pcap_sha256 %}
+                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
+                            {% else %}
+                            None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.clamav %}
+                                {{analysis.clamav}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.custom %}
+                                {{analysis.custom}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if config.display_shrike %}
+                        <td>
+                            {% if analysis.shrike_msg %}
+                                 {% if analysis.status == "reported" %}
+                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                                 {% else %}
+                                     <span class="mono">{{analysis.shrike_msg}}</span>
+                                 {% endif %}
+                            {% else %}
+                                 <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                       {% endif %}
+                        <td style="text-align: right;">
+                            {% if analysis.status == "pending" %}
+                                <span class="text-muted">pending</span>
+                            {% elif analysis.status == "running" %}
+                                <span class="text-warning">running</span>
+                            {% elif analysis.status == "distributed" %}
+                                <span class="text-warning">distributed</span>
+                            {% elif analysis.status == "completed" %}
+                                <span class="text-info">processing</span>
+                            {% elif analysis.status == "reported" %}
+                                {% if analysis.errors %}
+                                    <span class="text-danger">
+                                {% else %}
+                                    <span class="text-success">
+                                {% endif%}
+
+                                reported</span>
+                            {% else %}
+                                <span class="text-danger">{{analysis.status}}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="panel-body">No files to display on this page.</div>
+            {% endif %}
+        </div>
+    {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
+        <nav>
+           <ul class="pager">
+           {% if paging.show_file_prev == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+           {% endif %}
+                   {% if paging.files_page_range %}
+               {% for page in paging.files_page_range %}
+                   {% if page == paging.current_page %}
+                   <li><a style="background-color:#eee;">{{page}}</a></li>
+                   {% else %}
+                   <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   {% endif %}
+               {% endfor %}
+           {% endif %}
+           {% if paging.show_file_next == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+           {% endif %}
+           </ul>
+        </nav>
+    {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="urls">
+    {% if paging.show_url_next == "show" or paging.show_url_prev == "show" %}
+        <nav>
+           <ul class="pager">
+           {% if paging.show_url_prev == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+           {% endif %}
+                      {% if paging.urls_page_range %}
+               {% for page in paging.urls_page_range %}
+                   {% if page == paging.current_page %}
+                   <li><a style="background-color:#eee;">{{page}}</a></li>
+                   {% else %}
+                   <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   {% endif %}
+               {% endfor %}
+              {% endif %}
+           {% if paging.show_url_next == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+           {% endif %}
+           </ul>
+        </nav>
+    {% endif %}
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">Recent URLs</h3>
+            </div>
+            {% if urls %}
+            <table class="table table-striped" style="table-layout: fixed;">
+                <thead>
+                <tr>
+                  {% if config.expanded_dashboard %}
+                    <th width="5%">ID</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="30%">URL</th>
+                    {% if config.moloch %}
+                    <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if config.display_browser_martians %}
+                    <th width="5%">Martians</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="10%">Suricata Alerts/HTTP/TLS/Files</th>
+                    {% endif %}
+                    {% if config.virustotal %}
+                    <th width="5%">VT</th>
+                    {% endif %}
+                    <th width="5%">MalScore</th>
+                    <th width="10%">MalFamily</th>
+                    <th width="5%">PCAP</th>
+                    <th width="10%">ClamAV</th>
+                    <th width="5%">Custom</th>
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="5%" style="text-align: right;">Status</th>
+                  {% else %}
+                    <th width="5%">ID</th>
+                    <th width="12%">Timestamp</th>
+                    <th width="61%">URL</th>
+                    {% if config.moloch %}
+                    <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if config.display_browser_martians %}
+                    <th width="5%">Martians</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="7%">SuriAlert</th>
+                    {% endif %}
+                    {% if config.virustotal %}
+                    <th width="5%">VT</th>
+                    {% endif %}
+                    <th width="5%">MalScore</th>
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="7%" style="text-align: right;">Status</th>
+                  {% endif %}
+                </tr>
+                </thead>
+                <tbody>
+                {% for analysis in urls %}
+                    <tr>
+                        <td>
+                            {{analysis.id}}
+                        </td>
+                        <td>
+                        {% if analysis.status == "reported" %}
+                            {{analysis.completed_on}}
+                        {% else %}
+                            <span class="muted">{{analysis.added_on}} (added on)</span>
+                        {% endif %}
+                        </td>
+                        <td style="word-wrap: break-word;">
+                            {% if analysis.status == "reported" %}
+                                <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
+                            {% elif analysis.status == "running" or analysis.status == "completed" %}
+                                <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.target}}</span></a>
+                            {% else %}
+                                <span class="mono">{{analysis.target}}</span>
+                            {% endif %}
+                        </td>
+                        {% if config.moloch %}
+                        <td>
+                            {% if analysis.moloch_url %}
+                                <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if config.display_browser_martians %}
+                        <td>
+                            <span class="mono">
+                            {% if analysis.mlist_cnt %}
+                            {{analysis.mlist_cnt}}
+                            {% else %}
+                            None
+                            {% endif %}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if config.suricata %}
+                        <td>
+                            <span class="mono">
+                                {% if analysis.suri_alert_cnt %}
+                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
+                                {% else %}
+                                0<!--
+                                {% endif %}
+                                {% if config.expanded_dashboard %}
+                                    {% if analysis.suri_http_cnt %}
+                                    -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
+                                    {% else %}
+                                    -->/0<!--
+                                    {% endif %}
+                                    {% if analysis.suri_tls_cnt %}
+                                    -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
+                                    {% else %}
+                                    -->/0<!--
+                                    {% endif %}
+                                    {% if analysis.suri_file_cnt %}
+                                    -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
+                                    {% else %}
+                                    -->/0<!--
+                                    {% endif %}
+                                {% endif %}
+                            --></span>
+                        </td>
+                        {% endif %}
+                        {% if config.virustotal %}
+                        <td>
+                            {% if analysis.virustotal_summary %}
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if analysis.malscore != None %}
+                                <span
+                                {% if analysis.malscore <= 2.0 %}
+                                class="label label-success"
+                                {% elif analysis.malscore <= 6.0 %}
+                                class="label label-warning"
+                                {% else %}
+                                class="label label-danger"
+                                {% endif %}
+                                {% if analysis.malfamily %}
+                                title="{{analysis.malfamily}}"
+                                {% endif %}
+                                >{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                                <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% if config.expanded_dashboard %}
+                        <td>
+                            <span class="mono">
+                                {% if analysis.malfamily %}
+                                {{analysis.malfamily}}
+                                {% else %}
+                                None
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.pcap_sha256 %}
+                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
+                            {% else %}
+                            None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.clamav %}
+                                {{analysis.clamav}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.custom %}
+                                {{analysis.custom}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if config.display_shrike %}
+                        <td>
+                            {% if analysis.shrike_msg %}
+                                 {% if analysis.status == "reported" %}
+                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                                 {% else %}
+                                     <span class="mono">{{analysis.shrike_msg}}</span>
+                                 {% endif %}
+                            {% else %}
+                                 <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                       {% endif %}
+
+                        <td style="text-align: right;">
+                            {% if analysis.status == "pending" %}
+                                <span class="text-muted">pending</span>
+                            {% elif analysis.status == "running" %}
+                                <span class="text-warning">running</span>
+                            {% elif analysis.status == "completed" %}
+                                <span class="text-info">processing</span>
+                            {% elif analysis.status == "reported" %}
+                                <span class="text-success">reported</span>
+                            {% else %}
+                                <span class="text-danger">{{analysis.status}}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="panel-body">No URLS to display on this page.</div>
+            {% endif %}
+        </div>
+    {% if paging.show_url_next == "show" or paging.show_url_prev == "show" %}
+        <nav>
+           <ul class="pager">
+           {% if paging.show_url_prev == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+           {% endif %}
+                      {% if paging.urls_page_range %}
+               {% for page in paging.urls_page_range %}
+                   {% if page == paging.current_page %}
+                   <li><a style="background-color:#eee;">{{page}}</a></li>
+                   {% else %}
+                   <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   {% endif %}
+               {% endfor %}
+           {% endif %}
+           {% if paging.show_url_next == "show" %}
+               <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+           {% endif %}
+           </ul>
+        </nav>
+    {% endif %}
+    </div>
+
+<div class="tab-pane fade" id="pcaps">
+    {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
+    <nav>
+        <ul class="pager">
+            {% if paging.show_pcap_prev == "show" %}
+            <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+            {% endif %}
+            {% if paging.pcaps_page_range %}
+            {% for page in paging.pcaps_page_range %}
+            {% if page == paging.current_page %}
+            <li><a style="background-color:#eee;">{{page}}</a></li>
+            {% else %}
+            <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% if paging.show_pcap_next == "show" %}
+            <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h3 class="panel-title">Recent PCAPs</h3>
+        </div>
+        {% if pcaps %}
+        <table class="table table-striped" style="table-layout: fixed;">
+            <thead>
+                <tr>
+                  {% if config.expanded_dashboard %}
+                    <th width="5%">ID</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="20%">Filename</th>
+                    <th width="15%">MD5</th>
+                    {% if config.moloch %}
+                    <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="10%">Suricata Alerts/HTTP/TLS/Files</th>
+                    {% endif %}
+                    <th width="5%">MalScore</th>
+                    <th width="10%">MalFamily</th>
+                    <th width="5%">PCAP</th>
+                    <th width="5%">Custom</th>
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="5%" style="text-align: right;">Status</th>
+                  {% else %}
+                    <th width="5%">ID</th>
+                    <th width="12%">Timestamp</th>
+                    <th width="37%">Filename</th>
+                    <th width="20%">MD5</th>
+                    {% if config.moloch %}
+                    <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="7%">SuriAlert</th>
+                    {% endif %}
+                    <th width="5%">MalScore</th>
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="6%" style="text-align: right;">Status</th>
+                  {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for analysis in pcaps %}
+                <tr>
+                    <td>
+                        {{analysis.id}}
+                    </td>
+                    <td>
+                        {% if analysis.status == "reported" %}
+                        {{analysis.completed_on}}
+                        {% else %}
+                        <span class="muted">{{analysis.added_on}} (added on)</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{analysis.filename}}
+                    </td>
+                    <td style="word-wrap: break-word;">
+                        {% if analysis.status == "reported" %}
+                        <a href="{% url "report" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
+                        {% elif analysis.status == "running" or analysis.status == "completed" %}
+                        <a href="{% url "submission_status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
+                        {% else %}
+                        <span class="mono">{{analysis.sample.md5}}</span>
+                        {% endif %}
+                    </td>
+                    {% if config.moloch %}
+                    <td>
+                        {% if analysis.moloch_url %}
+                        <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                        {% else %}
+                        <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <td>
+                        <span class="mono">
+                            {% if analysis.suri_alert_cnt %}
+                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
+                            {% else %}
+                            0<!--
+                            {% endif %}
+                            {% if config.expanded_dashboard %}
+                                {% if analysis.suri_http_cnt %}
+                                -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_tls_cnt %}
+                                -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_file_cnt %}
+                                -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                           {% endif %}
+                           -->
+                        </span>
+                    </td>
+                    {% endif %}
+                    <td>
+                        {% if analysis.malscore != None %}
+                        <span {% if analysis.malscore <= 2.0 %}
+                                class="label label-success"
+                                {% elif analysis.malscore <= 6.0 %}
+                                class="label label-warning"
+                                {% else %}
+                                class="label label-danger"
+                                {% endif %}
+                                {% if analysis.malfamily %}
+                                title="{{analysis.malfamily}}"
+                                {% endif %}
+                                >{{analysis.malscore|floatformat:1}}</span>
+                        {% else %}
+                        <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% if config.expanded_dashboard %}
+                    <td>
+                        <span class="mono">
+                            {% if analysis.malfamily %}
+                            {{analysis.malfamily}}
+                            {% else %}
+                            None
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="mono">
+                            {% if analysis.pcap_sha256 %}
+                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
+                            {% else %}
+                            None
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="mono">
+                            {% if analysis.custom %}
+                            {{analysis.custom}}
+                            {% else %}
+                            None
+                            {% endif %}
+                        </span>
+                    </td>
+                    {% endif %}
+                    {% if config.display_shrike %}
+                    <td>
+                        {% if analysis.shrike_msg %}
+                        {% if analysis.status == "reported" %}
+                        <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                        {% else %}
+                        <span class="mono">{{analysis.shrike_msg}}</span>
+                        {% endif %}
+                        {% else %}
+                        <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td style="text-align: right;">
+                        {% if analysis.status == "pending" %}
+                        <span class="text-muted">pending</span>
+                        {% elif analysis.status == "running" %}
+                        <span class="text-warning">running</span>
+                        {% elif analysis.status == "completed" %}
+                        <span class="text-info">processing</span>
+                        {% elif analysis.status == "reported" %}
+                        {% if analysis.errors %}
+                        <span class="text-danger">
+                            {% else %}
+                            <span class="text-success">
+                                {% endif%}
+
+                                reported
+                            </span>
+                            {% else %}
+                            <span class="text-danger">{{analysis.status}}</span>
+                            {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel-body">No PCAPs to display on this page.</div>
+        {% endif %}
+    </div>
+    {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
+    <nav>
+        <ul class="pager">
+            {% if paging.show_pcap_prev == "show" %}
+            <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+            {% endif %}
+            {% if paging.pcaps_page_range %}
+            {% for page in paging.pcaps_page_range %}
+            {% if page == paging.current_page %}
+            <li><a style="background-color:#eee;">{{page}}</a></li>
+            {% else %}
+            <li><a href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% if paging.show_pcap_next == "show" %}
+            <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+</div>
+
+<script>
+$(function() {
+  //for bootstrap 3 use 'shown.bs.tab' instead of 'shown' in the next line
+  $('a[data-toggle="tab"]').on('click', function (e) {
+    //save the latest tab; use cookies if you like 'em better:
+    localStorage.setItem('lastTab', $(e.target).attr('href'));
+  });
+
+  //go to the latest tab, if it exists:
+  var lastTab = localStorage.getItem('lastTab');
+
+  if (lastTab) {
+      $('a[href="'+lastTab+'"]').click();
+  }
+});
+</script>
+{% endblock %}

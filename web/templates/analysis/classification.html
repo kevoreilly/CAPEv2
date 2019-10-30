@@ -1,0 +1,108 @@
+<p>
+  The table below presents matching against Cuckoo sanboxing of similar samples.<br/>
+  The score is computed from the comparison of the graph of API call observed during the execution of the different sample identified below by their SHA256.<br>
+  A graph is built for each process using the tuple (thread id, caller address) as node id and the API call name as symbol.
+  As a result the matching is per process, e.g. if the present sample is executing the command <b>cmd.exe</b> it will match at 100% or so any other sample executing the same process with similar arguments. For this reasons the matching table below is presented per process.<br>
+  In order to compute a numeric matching score, the API call graph is exploded into sub-graphs, lets denote SG(A) the set of subgraphs associated to the execution of a process A. Then the score relies on the cannonic set metric, that is the matching score of two processes A and B is size(SG(A) &amp; SG(B)) / size(SG(A) | SG(B)) where &amp; and | respectively denotes the set intersection and union.<br>
+  We also reference family names, note that is indicative only; the family names are extracted from the Cuckoo sanboxing of the referenced sample which can be subject to error and misclassifications. Also keep in mind the <b>cmd.exe</b> example presented above and only consider discriminative processes in the table below.
+</p>
+
+{% if analysis.classification.family_top %}
+<h2>Overall classfication</h2>
+<table class="table table-bordered" style="table-layout: fixed;">
+  <thead>
+    <tr>
+    <th width="100px">Family</td>
+    <th>Score</td>
+  </tr>
+</thead>
+<tbody>
+  {% for score in analysis.classification.family_top %}
+  <tr>
+    {% for entry in score %}
+    <td>{{entry}}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</tbody>
+</table>
+{% endif %}
+
+<h2>Per thread classfication</h2>
+<table class="table table-bordered" style="table-layout: fixed;">
+  <tbody>
+    {% if analysis.classification.details %}
+    {% for block in analysis.classification.details %}
+    <tr>
+      <td width=115px><b>Meta</b></td>
+      <td>{{block.meta}}</td>
+    </tr>
+    <tr>
+      <td>Thread</td>
+      <td>
+      {% if block.pid %} Pid: {{block.pid}} {% endif %}
+      {% if block.tid %} Tid: {{block.tid}} {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td>Details</td>
+      <td>
+        {% if block.results %}
+            {% for sub_block in block.results %}
+                {% for key, value in sub_block.iteritems %}
+                    {% if key == "samples" %}
+                        {% for sub_value in value %}
+                            {% for skey, svalue in sub_value.iteritems %}
+                                <li>{{ skey }}: {{ svalue }}</li>
+                            {% endfor %}
+                            <br>
+                        {% endfor %}
+                    {% else %}
+                        <li>{{ key }}: {{value}}</li>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        {% endif %}
+        <br>
+      </td>
+    </tr>
+    {% endfor %}
+    {% else %}
+    {% for block in analysis.classification %}
+    <tr>
+      <td width=115px><b>Meta</b></td>
+      <td>{{block.meta}}</td>
+    </tr>
+    <tr>
+      <td>Thread</td>
+      <td>
+  {% if block.pid %} Pid: {{block.pid}} {% endif %}
+  {% if block.tid %} Tid: {{block.tid}} {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td>Details</td>
+      <td>
+        {% if block.results %}
+        {% for sub_block in block.results %}
+        {% for key, value in sub_block.iteritems %}
+        {% if key == "samples" %}
+        {% for sub_value in value %}
+        {% for skey, svalue in sub_value.iteritems %}
+  <li>{{ skey }}: {{ svalue }}</li>
+        {% endfor %}
+  {% endfor %}
+        {% else %}
+        <li>{{ key }}: {{value}}</li>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endif %}
+        <br>
+      </td>
+    </tr>
+    {% endfor %}
+    <hr>
+    {% endif %}
+  </tbody>
+</table>

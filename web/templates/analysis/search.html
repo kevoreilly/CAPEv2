@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+{% block content %}
+<p style="margin-bottom: 10px;"><center><img height="100" width="200" src="{{ STATIC_URL }}graphic/cape.png" /></p></center>
+<div class="row">
+    <div class="col-md-6 col-md-offset-3 center">
+        <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
+            <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" data-toggle="collapse">help</a>.</p>
+
+            <div class="form-group">
+                <label class="sr-only" for="form_search">Search term</label>
+                <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term" />
+            </div>
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+        <div id="help" class="collapse">
+            <p class="text-muted" style="margin-top: 10px;">ElasticSearch queries do not use a prefix. ie: '*windows.*' would match 'time.windows.com'</p>
+            <p class="text-muted" style="margin-top: 10px;">For MD5, SHA1, SHA256 and SHA512 no prefix is needed.</p>
+            <table class="table table-striped table-centered">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">Prefix</th>
+                        <th style="text-align: center;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>name:</code></td>
+                        <td>File name pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>type:</code></td>
+                        <td>File type/format</td>
+                    </tr>
+                    <tr>
+                        <td><code>string:</code></td>
+                        <td>String contained in the binary</td>
+                    </tr>
+                    <tr>
+                        <td><code>ssdeep:</code></td>
+                        <td>Fuzzy hash</td>
+                    </tr>
+                    <tr>
+                        <td><code>crc32:</code></td>
+                        <td>CRC32 hash</td>
+                    </tr>
+                    <tr>
+                        <td><code>imphash:</code></td>
+                        <td>Search for PE Imphash</td>
+                    </tr>
+                    <tr>
+                        <td><code>iconhash:</code></td>
+                        <td>Search for exact hash of the icon associated with the PE</td>
+                    </tr>
+                    <tr>
+                        <td><code>iconfuzzy:</code></td>
+                        <td>Search for hash designed to match on similar-looking icons</td>
+                    </tr>
+                    <tr>
+                        <td><code>file:</code></td>
+                        <td>Open files matching the pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>command:</code></td>
+                        <td>Executed commands matching the pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>resolvedapi:</code></td>
+                        <td>APIs resolved at runtime matching the pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>key:</code></td>
+                        <td>Open registry keys matching the pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>mutex:</code></td>
+                        <td>Open mutexes matching the pattern</td>
+                    </tr>
+                    <tr>
+                        <td><code>ip:</code></td>
+                        <td>Contact the specified IP address</td>
+                    </tr>
+                    <tr>
+                        <td><code>domain:</code></td>
+                        <td>Contact the specified domain</td>
+                    </tr>
+                    <tr>
+                        <td><code>url:</code></td>
+                        <td>Search for CAPE Sandbox URL analysis</td>
+                    </tr>
+                    <tr>
+                        <td><code>signame:</code></td>
+                        <td>Search for CAPE Sandbox signatures through signature names</td>
+                    </tr>
+                    <tr>
+                        <td><code>signature:</code></td>
+                        <td>Search for CAPE Sandbox signatures through signature descriptions</td>
+                    </tr>
+                    <tr>
+                        <td><code>malfamily:</code></td>
+                        <td>Search for samples associated with malware family</td>
+                    </tr>
+                    <tr>
+                        <td><code>surimsg:</code></td>
+                        <td>Search for Suricata Alerts MSG</td>
+                    </tr>
+                    <tr>
+                        <td><code>surialert:</code></td>
+                        <td>Search for Suricata Alerts</td>
+                    </tr>
+                    <tr>
+                        <td><code>surisid:</code></td>
+                        <td>Search for Suricata Alerts SID</td>
+                    </tr>
+                    <tr>
+                        <td><code>suriurl:</code></td>
+                        <td>Search for URL in Suricata HTTP Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>suriua:</code></td>
+                        <td>Search for User-Agent in Suricata HTTP Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>surireferrer:</code></td>
+                        <td>Search for Referrer in Suricata HTTP Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>surihhost:</code></td>
+                        <td>Search for Host in Suricata HTTP Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>suritlssubject:</code></td>
+                        <td>Search for TLS Subject in Suricata TLS Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>suritlsissuerdn:</code></td>
+                        <td>Search for TLS Issuer DN in Suricata TLS Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>suritlsfingerprint:</code></td>
+                        <td>Search for TLS Fingerprint in Suricata TLS Logs</td>
+                    </tr>
+                    <tr>
+                        <td><code>suritls:</code></td>
+                        <td>Search for Suricata TLS</td>
+                    </tr>
+                    <tr>
+                        <td><code>surihttp:</code></td>
+                        <td>Search for Suricata HTTP</td>
+                    </tr>
+                    <tr>
+                        <td><code>clamav:</code></td>
+                        <td>Local ClamAV detections</td>
+                    </tr>
+                    <tr>
+                        <td><code>yaraname:</code></td>
+                        <td>Yara Rule Name for analysis samples</td>
+                    </tr>
+                    <tr>
+                        <td><code>capeyara:</code></td>
+                        <td>Yara Rule Name for CAPE Yara hits</td>
+                    </tr>
+                    <tr>
+                        <td><code>procmemyara:</code></td>
+                        <td>Yara Rule Name for process memory dumps</td>
+                    </tr>
+                    <tr>
+                        <td><code>virustotal:</code></td>
+                        <td>Virus Total Detected Name</td>
+                    </tr>
+                    <tr>
+                        <td><code>machinename:</code></td>
+                        <td>Name of the Target Machine</td>
+                    </tr>
+                    <tr>
+                        <td><code>machinelabel:</code></td>
+                        <td>Label of the Target Machine</td>
+                    </tr>
+                    <tr>
+                        <td><code>custom:</code></td>
+                        <td>Custom data</td>
+                    </tr>
+                    <tr>
+                        <td><code>shrikemsg:</code></td>
+                        <td>Shrike Suri Alert MSG</td>
+                    </tr>
+                    <tr>
+                        <td><code>shrikesid:</code></td>
+                        <td>Shrike Suri Alert Sid (exact int)</td>
+                    </tr>
+                    <tr>
+                        <td><code>shrikeurl:</code></td>
+                        <td>Shrike url before mangling</td>
+                    </tr>
+                    <tr>
+                        <td><code>shrikerefer:</code></td>
+                        <td>Shrike Referrer</td>
+                    </tr>
+                    <tr>
+                        <td><code>comment:</code></td>
+                        <td>Search for Analysis Comments</td>
+                    </tr>
+                    <tr>
+                        <td><code>malscore:</code></td>
+                        <td>Search for Malscore greater than the value</td>
+                    </tr>
+                    <!--<tr>
+                        <td><code>ttp:</code></td>
+                        <td>TTP id, ex: T1053</td>
+                    </tr>-->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% if term %}
+    <h3>Term <span class="text-info"><i>{{term}}</i></span></h3>
+{% endif %}
+{% if analyses != None %}
+    {% if analyses|length > 0 %}
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h3 class="panel-title">Search Results</h3>
+            </div>
+            <table class="table table-striped" style="table-layout: fixed;">
+                <thead>
+                <tr>
+                    <th width="5%">ID</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="8%">Package</th>
+                    <th width="37%">Filename</th>
+                    <th width="20%">Target</th>
+                    <th width="7%">CAPE</th>
+                    {% if config.expanded_dashboard %}
+                    <th width="2.5%">PKG</th>
+                    {% endif %}
+                    {% if config.moloch %}
+                    <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if config.display_office_martians or config.display_browser_martians%}
+                    <th width="5%">Martians</th>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <th width="7%">SuriAlert
+                        {% if config.expanded_dashboard %}
+                        /HTTP/TLS/Files
+                        {% endif %}
+                    </th>
+                    {% endif %}
+                    {% if config.virustotal %}
+                    <th width="5%">VT</th>
+                    {% endif %}
+                    <th width="5%">MalScore</th>
+                    {% if config.expanded_dashboard %}
+                    <th width="4%">MalFamily</th>
+                    <th width="3%">PCAP</th>
+                    <th width="5%">ClamAV</th>
+                    <th width="10%">Custom</th>
+                    {% endif %}
+                    {% if config.display_shrike %}
+                    <th width="5%">Shrike</th>
+                    {% endif %}
+                    <th width="6%" style="text-align: right;">Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for analysis in analyses %}
+                    <tr>
+                        <td>
+                            {{analysis.id}}
+                        </td>
+                        <td>
+                        {% if analysis.status == "reported" %}
+                            {{analysis.completed_on}}
+                        {% else %}
+                            <span class="muted">{{analysis.added_on}} (added on)</span>
+                        {% endif %}
+                        </td>
+                        <td>
+                        {{analysis.package}}
+                        </td>
+                        <td>
+                        {% if analysis.filename %}
+                            {{analysis.filename}}
+                        {% else %}
+                            None
+                        {% endif %}
+                        </td>
+                        <td style="word-wrap: break-word;">
+                            {% if analysis.status == "reported" %}
+                                <a href="{% url "report" analysis.id %}">
+                                {% if analysis.category == "url" %}
+                                    <span class="mono">{{analysis.target}}</span>
+                                {% else %}
+                                    <span class="mono">{{analysis.sample.md5}}</span>
+                                {% endif %}
+                                </a>
+                            {% else %}
+                                {% if analysis.category == "url" %}
+                                    <span class="mono">{{analysis.target}}</span>
+                                {% else %}
+                                    <span class="mono">{{analysis.sample.md5}}</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.cape != None %}
+                                <span class="text-primary"><b>{{analysis.cape}}</b></span>
+                            {% endif %}
+                        </td>
+                        {% if config.expanded_dashboard %}
+                        <td>
+                            {% if analysis.package %}
+                                  <span class="mono">{{analysis.package}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if config.moloch %}
+                        <td>
+                            {% if analysis.moloch_url %}
+                                <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if analysis.category == "url" %}
+                            {% if config.display_browser_martians %}
+                                 <td>
+                                     <span class="mono">
+                                     {% if analysis.mlist_cnt %}
+                                         {{analysis.mlist_cnt}}
+                                     {% else %}
+                                         None
+                                     {% endif %}
+                                    </span>
+                                </td>
+                            {% endif %}
+                        {% else %}
+                            {% if config.display_office_martians %}
+                                <td>
+                                    <span class="mono">
+                                    {% if analysis.f_mlist_cnt %}
+                                        {{analysis.f_mlist_cnt}}
+                                    {% else %}
+                                        None
+                                    {% endif %}
+                                    </span>
+                                </td>
+                            {% endif %}
+                        {% endif %}
+                        {% if config.suricata %}
+                        <td>
+                            <span class="mono">
+                            {% if analysis.suri_alert_cnt %}
+                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
+                            {% else %}
+                            0<!--
+                            {% endif %}
+                            {% if config.expanded_dashboard %}
+                                {% if analysis.suri_http_cnt %}
+                                -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_tls_cnt %}
+                                -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                                {% if analysis.suri_file_cnt %}
+                                -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
+                                {% else %}
+                                -->/0<!--
+                                {% endif %}
+                            {% endif %}
+                            --></span>
+                        </td>
+                        {% endif %}
+                        {% if config.virustotal %}
+                        <td>
+                            {% if analysis.virustotal_summary %}
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if analysis.malscore != None %}
+                                <span
+                                {% if analysis.malscore <= 2.0 %}
+                                class="label label-success"
+                                {% elif analysis.malscore <= 6.0 %}
+                                class="label label-warning"
+                                {% else %}
+                                class="label label-danger"
+                                {% endif %}
+                                {% if analysis.malfamily %}
+                                title="{{analysis.malfamily}}"
+                                {% endif %}
+                                >{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                                <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        {% if config.expanded_dashboard %}
+                        <td>
+                            <span class="mono">
+                                {% if analysis.malfamily %}
+                                {{analysis.malfamily}}
+                                {% else %}
+                                None
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.pcap_sha256 %}
+                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
+                            {% else %}
+                            None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.clamav %}
+                                {{analysis.clamav}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="mono">
+                            {% if analysis.custom %}
+                                {{analysis.custom}}
+                            {% else %}
+                                None
+                            {% endif %}
+                            </span>
+                        </td>
+                        {% endif %}
+                        {% if config.display_shrike %}
+                        <td>
+                            {% if analysis.shrike_msg %}
+                                 {% if analysis.status == "reported" %}
+                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                                 {% else %}
+                                     <span class="mono">{{analysis.shrike_msg}}</span>
+                                 {% endif %}
+                            {% else %}
+                                 <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                       {% endif %}
+                        <td style="text-align: right;">
+                            {% if analysis.status == "pending" %}
+                                <span class="text-muted">pending</span>
+                            {% elif analysis.status == "running" %}
+                                <span class="text-warning">running</span>
+                            {% elif analysis.status == "completed" %}
+                                <span class="text-info">processing</span>
+                            {% elif analysis.status == "reported" %}
+                                {% if analysis.errors %}
+                                    <span class="text-danger">
+                                {% else %}
+                                    <span class="text-success">
+                                {% endif%}
+
+                                reported</span>
+                            {% else %}
+                                <span class="text-danger">{{analysis.status}}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" style="text-align: center;"><b>No results found.</b></div>
+    {% endif %}
+{% else %}
+    {% if error %}
+        <div class="alert alert-error" style="text-align: center;"><b>{{error}}</b></div>
+    {% endif %}
+{% endif %}
+{% endblock %}

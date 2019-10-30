@@ -1,0 +1,17 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <tbody>
+        <tr>
+        {% for category in analysis.mitre_attck %}
+            <th>{{ category }}</th>
+        {% endfor %}
+        </tr>
+        {% for category, ttps in analysis.mitre_attck.items %}
+            <td>
+                {% for ttp in ttps %}
+                    <li width=115px><a href="https://attack.mitre.org/techniques/{{ttp.t_id}}/" title="{{ttp.description}}"> {{ttp.t_id}}</a> - {{ ttp.ttp_name }}</li>
+                    <ul><li>Signature - {{ttp.signature}}</ul></li>
+                {% endfor %}
+            </td>
+        {% endfor %}
+    </tbody>
+</table>

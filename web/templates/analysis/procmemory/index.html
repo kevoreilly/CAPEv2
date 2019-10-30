@@ -1,0 +1,108 @@
+{% if analysis.procmemory %}
+    <div class="tabbable tabs">
+        <ul class="nav nav-pills" style="margin-bottom: 0;">
+            {% for proc in analysis.procmemory %}
+                <li {%if forloop.first %}class="active"{% endif %}><a href="#procmemory_{{proc.pid}}" data-toggle="tab">{{proc.pid}}</a></li>
+            {% endfor %}
+        </ul>
+        <div class="tab-content">
+            {% for proc in analysis.procmemory %}
+                {% if forloop.first %}
+                <div class="tab-pane fade in active" id="procmemory_{{proc.pid}}">
+                {% else %}
+                <div class="tab-pane fade" id="procmemory_{{proc.pid}}">
+                {% endif %}
+                    <h4>Full Dump Information</h4>
+                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                        <tr>
+                            <th width="15%">Process Name</th>
+                            <td>{{proc.name}}</td>
+                        </tr>
+                        <tr>
+                            <th>Executable Path</th>
+                            <td>{{proc.path}}</td>
+                        </tr>
+                        <tr>
+                            <th>Yara</th>
+                            <td>
+                            {% if proc.yara %}
+                                {% for match in proc.yara %}
+                                    <p>Match: {{match.name}} - {{match.meta.description}}
+                                    {% for string in match.strings %}
+                                        <div>{{string}}</div>
+                                    {% endfor %}
+                                    </p>
+                                {% endfor %}
+                            {% else %}
+                                None matched
+                            {% endif %}
+                            </td>
+                        </tr>
+                        {% if proc.file %}
+                            <tr>
+                                <th>Full Dump</th>
+                                <td>
+                                    <a class="btn btn-primary btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}">Download</a>
+                                    <a class="btn btn-primary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}">Download ZIP</a>
+                                </td>
+                            </tr>
+                        {% endif %}
+                        {% if proc.strings_path %}
+                            <tr>
+                                <th>Process Strings</th>
+                                <td><a class="btn btn-primary btn-small" href="{% url "file" "memdumpstrings" analysis.info.id proc.pid %}">Download</a></td>
+                            </tr>
+                        {% endif %}
+                    </table>
+                    {% if proc.address_space %}
+                    <h4>Address Space</h4>
+                    <table class="table table-bordered">
+                            <tr>
+                                <th width="15%">Start</th>
+                                <th>End</th>
+                                <th>Size</th>
+                                <th>Protection</th>
+                                <th>PE</th>
+                                <th>Download</th>
+                            </tr>
+                            {% for memmap in proc.address_space %}
+                                <tr>
+                                    {% if memmap.chunks|length >= 2 %}
+                                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href=".map_{{memmap.start}}">{{memmap.start}}</a></td>
+                                    {% else %}
+                                    <td>{{memmap.start}}</td>
+                                    {% endif %}
+                                    <td>{{memmap.end}}</td>
+                                    <td>{{memmap.size}}</td>
+                                    <td>{{memmap.prot}}</td>
+                                    {% if memmap.PE %}
+                                    <td><span class="label label-success">Yes</span></td>
+                                    {% else %}
+                                    <td><span class="label label-primary">No</span></td>
+                                    {% endif %}
+                                    {% if proc.file %}
+                                    <td><a class="btn btn-primary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}">Download</a></td>
+                                    {% endif %}
+                                </tr>
+                                {% if memmap.chunks|length >= 2 %}
+                                {% for chunk in memmap.chunks %}
+                                    <tr class="collapse map_{{memmap.start}}" style="background-color: #f9f9f9;">
+                                        <td>{{chunk.start}}</td>
+                                        <td>{{chunk.end}}</td>
+                                        <td>{{chunk.size}}</td>
+                                        <td>{{chunk.prot}}</td>
+                                        <td></td>
+                                        {% if proc.file %}
+                                        <td><a class="btn btn-primary btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}">Download</a></td>
+                                        {% endif %}
+                                    </tr>
+                                {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                    </table>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}

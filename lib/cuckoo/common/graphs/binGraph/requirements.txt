@@ -1,0 +1,5 @@
+matplotlib==2.2.2
+numpy==1.15.0
+six==1.11.0
+statistics==1.0.3.5
+lief==0.9.0

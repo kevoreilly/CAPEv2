@@ -1,0 +1,24 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Offset</th>
+            <th>PID</th>
+            <th>Local Address</th>
+            <th>Local Port</th>
+            <th>Protocol</th>
+            <th>Creation Time</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for sock in analysis.memory.sockscan.data %}
+        <tr>
+            <td>{{sock.offset}}</td>
+            <td>{{sock.process_id}}</td>
+            <td>{{sock.address}}</td>
+            <td>{{sock.port}}</td>
+            <td>{{sock.protocol}}</td>
+            <td>{{sock.create_time}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

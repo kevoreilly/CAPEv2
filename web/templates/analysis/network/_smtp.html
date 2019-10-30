@@ -1,0 +1,17 @@
+<h4>SMTP traffic</h4>
+{% if analysis.network.smtp %}
+<table class="table table-striped table-bordered" style="table-layout: fixed;">
+    <tr>
+        <th>Destination</th>
+        <th>Data</th>
+    </tr>
+    {% for req in analysis.network.smtp %}
+    <tr>
+        <td style="word-wrap: break-word;">{{req.dst}}</td>
+        <td style="word-wrap: break-word;"><pre>{{req.raw}}</pre></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>No SMTP traffic performed.</p>
+{% endif %}

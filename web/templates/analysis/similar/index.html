@@ -1,0 +1,115 @@
+{% if similar|length > 0 %}
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h3 class="panel-title">Similar Analyses</h3>
+        </div>
+        <table class="table table-striped" style="table-layout: fixed;">
+            <thead>
+            <tr>
+                <th width="5%">ID</th>
+                <th width="12%">Timestamp</th>
+                <th width="37%">Filename</th>
+                <th width="20%">Target/MD5</th>
+                {% if config.moloch %}
+                <th width="5%">Moloch</th>
+                {% endif %}
+                {% if config.suricata %}
+                <th width="5%">SuriAlert</th>
+                {% endif %}
+                {% if config.virustotal %}
+                <th width="5%">VT</th>
+                {% endif %}
+                <th width="5%">MalScore</th>
+                <th width="6%" style="text-align: right;">MalFamily</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for analysis in similar %}
+                <tr>
+                    <td>
+                        {{analysis.id}}
+                    </td>
+                    <td>
+                    {% if analysis.status == "reported" %}
+                        {{analysis.completed_on}}
+                    {% else %}
+                        <span class="muted">{{analysis.added_on}} (added on)</span>
+                    {% endif %}
+                    </td>
+                    <td>
+                    {{analysis.filename}}
+                    </td>
+                    <td style="word-wrap: break-word;">
+                        {% if analysis.status == "reported" %}
+                            <a href="{% url "report" analysis.id %}">
+                            {% if analysis.category == "url" %}
+                                <span class="mono">{{analysis.target}}</span>
+                            {% else %}
+                                <span class="mono">{{analysis.sample.md5}}</span>
+                            {% endif %}
+                            </a>
+                        {% else %}
+                            {% if analysis.category == "url" %}
+                                <span class="mono">{{analysis.target}}</span>
+                            {% else %}
+                                <span class="mono">{{analysis.sample.md5}}</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    {% if config.moloch %}
+                    <td>
+                        {% if analysis.moloch_url %}
+                            <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                        {% else %}
+                            <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    {% if config.suricata %}
+                    <td>
+                        {% if analysis.suri_alert_cnt %}
+                            <span class="mono">{{analysis.suri_alert_cnt}}</span>
+                        {% else %}
+                            <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    {% if config.virustotal %}
+                    <td>
+                        {% if analysis.virustotal_summary %}
+                            <span class="mono">{{analysis.virustotal_summary}}</span>
+                        {% else %}
+                            <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        {% if analysis.malscore != None %}
+                            <span 
+                            {% if analysis.malscore <= 2.0 %}
+                            class="label label-success"
+                            {% elif analysis.malscore <= 6.0 %}
+                            class="label label-warning"
+                            {% else %}
+                            class="label label-danger"
+                            {% endif %}
+                            >{{analysis.malscore|floatformat:1}}</span>
+                        {% else %}
+                            <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if analysis.malfamily %}
+                            <span class="mono">{{analysis.malfamily}}</span>
+                        {% else %}
+                            <span class="mono">None</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert alert-info" style="text-align: center;"><b>No similar analyses found.</b></div>
+{% endif %}

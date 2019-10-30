@@ -1,0 +1,43 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <tbody>
+        {% for key, value in analysis.backscatter.items %}
+            {% if key == "sample_hashes" %}
+            <tr>
+                <td width="20%"><strong>Hashes</strong></td>
+                <td>
+                    {% for hash_type, hash in value.items %}
+                        <li>{{hash}}</li>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% elif key == "bot" %}
+            <tr>
+                <td width="20%"><strong>C&C</strong></td>
+                <td>
+                    {% for _, cncs in value.items %}
+                        {% for cnc in cncs %}
+                            <li>{{cnc.url}}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </td>
+            </tr>
+            {% elif key == "downloads" %}
+            <tr>
+                <td width="20%"><strong>Downloads</strong></td>
+                <td>
+                    {% for downloads in value %}
+                       <li>{{downloads.inet.url}}</li>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% else %}
+                    {% for skey, svalue in value.iteritems %}
+                        <tr>
+                            <td width=115px>{{ skey }}</td>
+                            <td>{{ svalue }}</td>
+                        </tr>
+                    {% endfor %}
+            {% endif %}
+        {% endfor %}
+    </tbody>
+</table>

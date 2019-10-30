@@ -1,0 +1,130 @@
+{% if analysis.suricata.files|length > 0 %}
+    <div class="alert alert-info center"><a class="btn btn-primary btn-small" href="{% url "file" "zip" analysis.info.id "files" %}">Download Suri Extracted</a></div>
+    {% for file in analysis.suricata.files %}
+        <div class="panel panel-default">
+            <table class="table table-striped">
+                <tr>
+                    <th style="border-top: 0;" width="15%">File name</th>
+                    <td style="border-top: 0;"><b>{{file.filename}}</b></td>
+                </tr>
+                <tr>
+                    <th>Expected File Size</th>
+                    <td>{{file.size}} bytes</td>
+                </tr>
+                <tr>
+                    <th>Actual File Size</th>
+                    <td>{{file.file_info.size}} bytes</td>
+                </tr>
+                <tr>
+                    <th>File Type</th>
+                    {% if file.file_info.type %}
+                    <td>{{file.file_info.type}}</td>
+                    {% else %}
+                    <td>{{file.magic}}</td>
+                    {% endif %}
+                </tr>
+                <tr>
+                    <th>File URI</th>
+                    <td>{{file.http_uri}} 
+                        {% if file.moloch_uri_url %}
+                            <a href={{file.moloch_uri_url}} target="_blank">[MLCH]</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>Host</th>
+                    <td>{{file.http_host}} 
+                        {% if file.moloch_host_url %}
+                            <a href={{file.moloch_host_url}} target="_blank">[MLCH]</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>HTTP Referrer</th>
+                    <td>{{file.http_referer}}</td>
+                </tr>
+                <tr>
+                    <th>MD5</th>
+                    <td>{{file.md5}} 
+                        {% if file.moloch_md5_url %}
+                            <a href={{file.moloch_md5_url}} target="_blank">[MLCH]</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>SHA1</th>
+                    <td>{{file.file_info.sha1}}</td>
+                </tr>
+                <tr>
+                    <th>SHA256</th>
+                    <td>{{file.file_info.sha256}}
+                        {% if file.moloch_sha256_url %} 
+                            <a href={{file.moloch_sha256_url}} target="_blank">[MLCH]</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>CRC32</th>
+                    <td>{{file.file_info.crc32}}</td>
+                </tr>
+                <tr>
+                    <th>Ssdeep</th>
+                    <td>{{file.file_info.ssdeep}}</td>
+                </tr>
+                <tr>
+                    <th>ClamAV</th>
+                    <td>{{file.file_info.clamav}} 
+                        {% if file.moloch_clamav_url %} 
+                            <a href={{file.moloch_clamav_url}} target="_blank">[MLCH]</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>Yara</th>
+                    <td>
+                    {% if file.yara %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.fileinfo.yara %}
+                            <li>{{sign.name}} - {{sign.meta.description}} 
+                                {% if sign.moloch_yara_url %}
+                                    <a href={{file.moloch_yara_url}} target="_blank">[MLCH]</a>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>VirusTotal</th>
+                    <td><a href="https://www.virustotal.com/en/file/{{file.file_info.sha256}}/analysis/">Search for Analysis</a></td>
+                </tr>
+                {% if config.display_et_portal %}
+                <tr>
+                    <th>EmergingThreats</th>
+                    <td><a href="https://threatintel.proofpoint.com/search?q={{file.md5}}" target="_blank">Search for Analysis</a></td>
+                </tr>
+                {% endif %}
+                {% if file.id %}
+                <tr>
+                    <th></th>
+                    <td><a href="{% url "file" "suricata" analysis.info.id file.id %}" class="btn btn-primary btn-small">Download</a>
+                    {% if file.file_info.data %}
+                    &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sp}}{{file.dp}}{{file.id}}">Display Text</a>
+                    {% endif %}
+                    </td>
+                </tr>
+                {% if file.file_info.data %}
+                <tr class="collapse" id="{{file.sp}}{{file.dp}}{{file.id}}">
+                    <td colspan="2"><pre>{{file.file_info.data}}</pre></td>
+                </tr>
+                {% endif %}
+                {% endif %}
+            </table>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info"><b>Sorry!</b> No dropped Suricata Extracted files.</div>
+{% endif %}

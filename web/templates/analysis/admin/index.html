@@ -1,0 +1,32 @@
+{% load analysis_tags %}
+<div class="panel panel-default">
+    <table class="table table-striped">
+        <tr>
+            <th>Task ID</th>
+            <td>{{analysis.info.id}}</td>
+        </tr>
+        {% if config.mongodb %}
+        <tr>
+            <th>Mongo ID</th>
+            <td>{{analysis|mongo_id}}</td>
+        </tr>
+        {% elif config.elasticsearchdb %}
+        <tr>
+            <th>ElasticSearch Index</th>
+            <td>{{analysis.es.index}}
+        </tr>
+        <tr>
+            <th>ElasticSearch ID</th>
+            <td>{{analysis.es.id}}
+        </tr>
+        {% endif %}
+        <tr>
+            <th>Cuckoo release</th>
+            <td>{{analysis.info.version}}</td>
+        </tr>
+        <tr>
+            <th></th>
+            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-primary btn-small">Delete</a></td>
+        </tr>
+    </table>
+</div>

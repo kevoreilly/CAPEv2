@@ -1248,7 +1248,6 @@ class Analyzer:
         if pids:
             #ToDo
             self.process_list.add_pids(pids)
-            #add_pids(pids)
             pid_check = True
 
         # If the package didn't return any process ID (for example in the case
@@ -1304,9 +1303,8 @@ class Analyzer:
                                     except Exception as e:
                                         log.error(e)
                                 log.info("Process with pid %s has terminated", pid)
-                                #PROCESS_LIST.remove(pid)
-                                #ToDo
-                                self.process_list.remove_pid(pid)
+                                if pid in self.process_list:
+                                    self.process_list.remove_pid(pid)
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.

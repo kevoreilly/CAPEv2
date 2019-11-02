@@ -15,5 +15,15 @@
 *  Sandor Nemes (@sandornemes), 
 *  Kevin Ross
 *  Enzo (@enzok)
+*  redsand
+*  ditekshen
+*  bartblaze
+*  seanthegeek
+*  naxonez
+*  wesinator
+*  marirs
+*  kalos
+*  Spiralem
+*  John Peng
 * And many others <3
 

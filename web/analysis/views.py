@@ -710,17 +710,17 @@ def report(request, task_id):
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
     if enabledconf["compressresults"]:
-        # analysis.behavior.summary
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
-            # If compressed, decompress data
             if report.get(keyword, False):
                 try:
                     report[keyword] = json.loads(zlib.decompress(report[keyword]))
-                except Exception as e:
+                except Exception:
                     pass
-        if report.get("analysis", {}).get("behavior", {}).get("summary", {}):
-            report["analysis"]["behavior"]["summary"] = json.loads(zlib.decompress(report["analysis"]["behavior"]["summary"]))
-
+        if report.get("behavior", {}).get("summary", {}):
+            try:
+                report["behavior"]["summary"] = json.loads(zlib.decompress(report["behavior"]["summary"]))
+            except Exception:
+                pass
     children = 0
     if "CAPE_children" in report:
         children = report["CAPE_children"]

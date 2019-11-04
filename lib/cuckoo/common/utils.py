@@ -115,9 +115,13 @@ def create_folder(root=".", folder=None):
         try:
             os.makedirs(folder_path)
         except OSError as e:
+            print(e)
             if e.errno != errno.EEXIST:
                 raise CuckooOperationalError("Unable to create folder: %s" %
                                             folder_path)
+        except Exception as e:
+            print(e)
+
 
 def delete_folder(folder):
     """Delete a folder and all its subdirectories.

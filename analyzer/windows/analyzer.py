@@ -1521,6 +1521,7 @@ class Files(object):
         self.add_pid(filepath, pid, verbose=False)
 
     def dump_file(self, filepath):
+        log.info(("dump_file", filepath))
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -1572,8 +1573,8 @@ class Files(object):
 
     def dump_files(self):
         """Dump all pending files."""
+        log.info(self.files)
         while self.files:
-            log.info(self.files)
             self.delete_file(list(self.files.keys())[0])
 
 
@@ -2077,7 +2078,7 @@ class CommandPipeHandler(object):
         """Notification of a new dropped file."""
         self.analyzer.files.add_file(data.decode("utf8"), self.pid)
         #ToDo
-        #self.analyzer.files.dump_file(file_path)
+        self.analyzer.files.dump_file(file_path)
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""

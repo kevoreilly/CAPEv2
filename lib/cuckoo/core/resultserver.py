@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import json
 import socket
 import select
 import errno
@@ -45,8 +46,8 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = ("files", "shots", "buffer",  "extracted", "memory", "sysmon", "curtain")
-RESULT_DIRECTORIES = RESULT_UPLOADABLE + ("reports", "logs")
+RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain")
+RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
@@ -180,7 +181,7 @@ class FileUpload(ProtocolHandler):
         if self.version and self.version >= 2:
             # NB: filepath is only used as metadata
             filepath = self.handler.read_newline()
-            pids = map(int, self.handler.read_newline().split())
+            pids = list(map(int, self.handler.read_newline().split()))
         else:
             filepath, pids = None, []
 
@@ -197,12 +198,12 @@ class FileUpload(ProtocolHandler):
             raise
 
         # Append-writes are atomic
-        with open(self.filelog, "a+b") as f:
+        with open(self.filelog, "a") as f:
             print(json.dumps({
-                "path": dump_path,
-                "filepath": filepath,
+                "path": dump_path.decode("utf-8", "replace"),
+                "filepath": filepath.decode("utf-8", "replace"),
                 "pids": pids,
-            }), file=f)
+            }, ensure_ascii=False), file=f)
 
         self.handler.sock.settimeout(None)
         try:
@@ -314,14 +315,18 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = "shots", "files", "logs", "aux"
+        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon")
 
         for folder in folders:
             try:
                 create_folder(self.storagepath, folder=folder)
-            except CuckooOperationalError:
-                log.error("Unable to create folder %s" % folder)
-                return False
+            except Exception as e:
+                print(e)
+            #ToDo
+            #except CuckooOperationalError as e:
+            #    print(e)
+            #    log.error("Unable to create folder %s" % folder)
+            #    return False
 
     def handle(self, sock, addr):
         """Handle the incoming connection.

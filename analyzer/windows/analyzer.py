@@ -87,6 +87,7 @@ PPID = Process(pid=PID).get_parent_pid()
 HIDE_PIDS = None
 
 def pid_from_service_name(servicename):
+    #ToDo OpenSCManagerW
     sc_handle = ADVAPI32.OpenSCManagerA(None, None, 0x0001)
     serv_handle = ADVAPI32.OpenServiceA(sc_handle, servicename, 0x0005)
     buf = create_unicode_buffer(36)
@@ -340,9 +341,9 @@ def upload_debugger_logs():
     log_folder = PATHS["root"] + b"\\debugger"
     try:
         if os.path.exists(log_folder):
-            log.info("Uploading debugger log at path \"%s\" ", log_folder)
+            log.info("Uploading debugger log at path \"%s\" ", log_folder.decode("utf-8"))
         else:
-            log.warning("File at path \"%s\" does not exist, skip.", log_folder)
+            log.warning("File at path \"%s\" does not exist, skip.", log_folder.decode("utf-8"))
             return
     except IOError as e:
         log.warning("Unable to access file at path \"%s\": %s", log_folder, e)
@@ -1147,8 +1148,8 @@ class Analyzer:
 
         for module in Auxiliary.__subclasses__():
             # Try to start the auxiliary module.
-            if module.__name__ == "Screenshots" and disable_screens:
-                continue
+            #if module.__name__ == "Screenshots" and disable_screens:
+            #    continue
             try:
                 log.debug("Trying to initialize auxiliary module \"%s\"...", module.__name__)
                 aux = module(self.options, self.config)
@@ -1244,7 +1245,6 @@ class Analyzer:
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
         if pids:
-            #ToDo
             self.process_list.add_pids(pids)
             pid_check = True
 
@@ -1348,6 +1348,7 @@ class Analyzer:
                 KERNEL32.Sleep(1000)
 
         # Create the shutdown mutex.
+        #ToDo CreateMutexW
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)
         log.info("Created shutdown mutex.")
         # since the various processes poll for the existence of the mutex, sleep
@@ -1458,7 +1459,7 @@ class Analyzer:
         # Let's invoke the completion procedure.
         log.info("Shutting down pipe server and dumping dropped files.")
         # Dump all the notified files.
-        self.complete()
+        #self.complete()
 
         return True
 
@@ -1553,6 +1554,7 @@ class Files(object):
 
     def delete_file(self, filepath, pid=None):
         """A file is about to removed and thus should be dumped right away."""
+        log.info(("delete_file", filepath))
         self.add_pid(filepath, pid)
         self.dump_file(filepath)
 
@@ -1571,6 +1573,7 @@ class Files(object):
     def dump_files(self):
         """Dump all pending files."""
         while self.files:
+            log.info(self.files)
             self.delete_file(list(self.files.keys())[0])
 
 
@@ -1934,6 +1937,7 @@ class CommandPipeHandler(object):
         self.analyzer.process_lock.acquire()
         for process_id in PROCESS_LIST:
             event_name = TERMINATE_EVENT + str(process_id)
+            #OpenEventW
             event_handle = KERNEL32.OpenEventA(
                 EVENT_MODIFY_STATE,
                 False,
@@ -1957,6 +1961,7 @@ class CommandPipeHandler(object):
         if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.process_list.pids:
             # only notify processes we've hooked
             event_name = TERMINATE_EVENT + str(process_id)
+            #Todo OpenEventW
             event_handle = KERNEL32.OpenEventA(EVENT_MODIFY_STATE, False, event_name)
             if not event_handle:
                 log.warning("Unable to open termination event for pid %u.", process_id)
@@ -2166,10 +2171,7 @@ class CommandPipeHandler(object):
     def dispatch(self, data):
         response = "NOPE"
         #print(data, "dispatch")
-        #ToDo temp hack
-        if data == b"GETPIDS":
-            data = b"GETPIDS:"
-        if not data or (b":" not in data and data != b"GETPIDS"):
+        if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %r",
                          data.strip())
         else:

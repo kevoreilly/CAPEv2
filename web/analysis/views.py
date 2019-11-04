@@ -194,11 +194,11 @@ def index(request, page=1):
     tasks_urls_number = db.count_matching_tasks(category="url", not_status=TASK_PENDING) or 0
     tasks_pcaps_number = db.count_matching_tasks(category="pcap", not_status=TASK_PENDING) or 0
     if tasks_files_number:
-        pages_files_num = tasks_files_number / TASK_LIMIT + 1
+        pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
     if tasks_urls_number:
-        pages_urls_num = tasks_urls_number / TASK_LIMIT + 1
+        pages_urls_num = int(tasks_urls_number / TASK_LIMIT + 1)
     if tasks_pcaps_number:
-        pages_pcaps_num = tasks_pcaps_number / TASK_LIMIT + 1
+        pages_pcaps_num = int(tasks_pcaps_number / TASK_LIMIT + 1)
     files_pages = []
     urls_pages = []
     pcaps_pages = []

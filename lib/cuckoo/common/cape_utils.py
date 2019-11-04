@@ -90,9 +90,12 @@ parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers")
 if parser_path not in sys.path:
     sys.path.append(parser_path)
 
-from malwareconfig import JavaDropper
-from plugxconfig import plugx
-from mwcp import reporter
+try:
+    from malwareconfig import JavaDropper
+    from plugxconfig import plugx
+    from mwcp import reporter
+except ImportError as e:
+    print(e)
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 

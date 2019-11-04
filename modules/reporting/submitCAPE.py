@@ -138,7 +138,7 @@ class SubmitCAPE(Report):
             if task_id:
                 children = []
                 children.append([task_id, self.task["package"]])
-                results["CAPE_childrens"] = children
+                results["CAPE_children"] = children
 
             return
 
@@ -520,6 +520,6 @@ class SubmitCAPE(Report):
                     children.append([task_id, dumper])
 
         if children:
-            results["CAPE_childrens"] = children
+            results["CAPE_children"] = children
 
         return

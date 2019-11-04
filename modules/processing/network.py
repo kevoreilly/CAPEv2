@@ -60,9 +60,10 @@ Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
 
 log = logging.getLogger(__name__)
+proc_cfg = Config("processing")
 
-enabled_whitelist = Config("processing").network.dnswhitelist
-whitelist_file = Config("processing").network.dnswhitelist_file
+enabled_whitelist = proc_cfg.network.dnswhitelist
+whitelist_file = proc_cfg.network.dnswhitelist_file
 
 class Pcap:
     """Reads network data from PCAP file."""
@@ -1062,7 +1063,7 @@ def next_connection_packets(piter, linktype=1):
 
         yield {
             "src": sip, "dst": dip, "sport": sport, "dport": dport,
-            "raw": b64encode(payload_from_raw(raw, linktype)),
+            "raw": b64encode(payload_from_raw(raw, linktype)).decode("utf-8"),
             "direction": first_ft == ft,
         }
 

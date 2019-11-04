@@ -358,7 +358,7 @@ def upload_debugger_logs():
                 log.error("Unable to upload dropped file at path \"%s\": %s",
                           file_path, e)
 
-
+'''
 class PipeHandler(Thread):
     """Pipe Handler.
 
@@ -798,7 +798,7 @@ class PipeHandler(Thread):
             log.exception(error_exc)
             print(e)
             return True
-'''
+
 class PipeServer(Thread):
     """Cuckoo PIPE server.
 
@@ -1026,8 +1026,6 @@ class Analyzer:
 
         # Copy the debugger log.
         upload_debugger_logs()
-        disconnect_logger()
-
         """End analysis."""
         # Stop the Pipe Servers.
         self.command_pipe.stop()
@@ -2168,7 +2166,10 @@ class CommandPipeHandler(object):
     def dispatch(self, data):
         response = "NOPE"
         #print(data, "dispatch")
-        if not data or b":" not in data:
+        #ToDo temp hack
+        if data == b"GETPIDS":
+            data = b"GETPIDS:"
+        if not data or (b":" not in data and data != b"GETPIDS"):
             log.critical("Unknown command received from the monitor: %r",
                          data.strip())
         else:
@@ -2181,7 +2182,7 @@ class CommandPipeHandler(object):
             #self.pid, command, arguments = data.strip().split(b":", 2)
 
             fn = getattr(self, "_handle_%s" % command.lower().decode("utf-8"), None)
-            #print(fn, command.lower())
+            print(fn, command.lower().decode("utf-8"))
             if not fn:
                 log.critical("Unknown command received from the monitor: %r",
                              data.strip())

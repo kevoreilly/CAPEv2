@@ -18,7 +18,7 @@ def upload_to_host(file_path, dump_path, pids=[]):# duplicate=False):
     try:
         nc = NetlogFile()
         #nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
-        nc.init(dump_path, file_path.encode("utf-8", "replace"), pids)
+        nc.init(dump_path, file_path, pids)
         infd = open(file_path, "rb") #rb
         buf = infd.read(BUFSIZE)
         while buf:
@@ -106,9 +106,9 @@ class NetlogConnection(object):
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
-            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8"), guest_path))
+            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         else:
-            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8"), guest_path))
+            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         self.connect()
 
 
@@ -118,12 +118,11 @@ class NetlogFile(NetlogConnection):
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n" % (
                 dump_path,#.encode("utf8"),
-                filepath.encode("utf8"),
-                b" ".join([pids])
+                filepath.encode("utf-8", "replace"),
+                b" ".join(pids)
             )
         else:
            self.proto = b"FILE\n%s\n" % dump_path
-
         self.connect()
 
 class NetlogHandler(logging.Handler, NetlogConnection):
@@ -135,4 +134,3 @@ class NetlogHandler(logging.Handler, NetlogConnection):
     def emit(self, record):
         msg = self.format(record)
         self.send(msg.encode("utf-8")+b"\n")
-

@@ -495,7 +495,7 @@ class Process:
             config.write("host-port={0}\n".format(self.config.port))
             config.write("pipe={0}\n".format(PIPE))
             config.write("logserver={0}\n".format(logserver_path))
-            config.write("results={0}\n".format(PATHS["root"]))
+            config.write("results={0}\n".format(PATHS["root"].decode("utf-8")))
             config.write("analyzer={0}\n".format(os.getcwd()))
             config.write("first-process={0}\n".format("1" if firstproc else "0"))
             config.write("startup-time={0}\n".format(Process.startup_time))
@@ -601,15 +601,21 @@ class Process:
         """Upload process memory dump.
         @return: operation status.
         """
+        file_path = PATHS["memory"]+ "\\"+ str(self.pid)+".dmp"
+        log.info((self.pid, file_path, os.path.join("memory", str(self.pid)+".dmp")))
         if not self.pid:
             log.warning("No valid pid specified, memory dump cannot be uploaded")
             return False
 
-        file_path = os.path.join(PATHS["memory"], str(self.pid) + ".dmp")#.format(self.pid))
-        if os.path.exists(file_path):
-            upload_to_host(os.path.join("memory", str(self.pid)+".dmp"), file_path)
-            log.info("Memory dump of process %d uploaded", self.pid)
-            os.unlink(file_path)
+        try:
+            file_path = PATHS["memory"] +"\\"+ str(self.pid) + ".dmp"#.format(self.pid))
+            if os.path.exists(file_path):
+                upload_to_host(os.path.join("memory", str(self.pid)+".dmp"), file_path)
+                log.info("Memory dump of process %d uploaded", self.pid)
+                os.unlink(file_path)
+        except Exception as e:
+            print(e)
+            log.error(e, exc_info=True)
         return True
 
 
@@ -649,9 +655,17 @@ class Process:
         else:
             log.error("Please place the %s binary from cuckoomon into analyzer/windows/bin in order to analyze %s binaries.", os.path.basename(bin_name), bit_str)
             return False
-
-        file_path = os.path.join(PATHS["memory"], str(self.pid).encode()+b".dmp")
-        nf = NetlogFile(os.path.join(b"memory", str(self.pid).encode()+b".dmp"))
+        """
+        try:
+            file_path = os.path.join(PATHS["memory"], str(self.pid).encode()+b".dmp")
+            log.info((file_path, os.path.join(b"memory", str(self.pid).encode()+b".dmp")))
+            upload_to_host(file_path, os.path.join(b"memory", str(self.pid).encode()+b".dmp"))
+        except Exception as e:
+            print(e)
+            log.error(e, exc_info=True)
+            log.error(os.path.join(b"memory", str(self.pid).encode()+b".dmp"), file_path)
+        """
+        nf = NetlogFile(os.path.join("memory", str(self.pid)+".dmp"))
         infd = open(file_path, "rb")
         buf = infd.read(1024*1024)
         try:

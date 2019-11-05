@@ -46,7 +46,7 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain")
+RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain", b"CAPE")
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
@@ -315,7 +315,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon")
+        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon", "CAPE")
 
         for folder in folders:
             try:

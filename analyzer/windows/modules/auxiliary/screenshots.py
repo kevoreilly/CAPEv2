@@ -8,14 +8,14 @@ log = logging.getLogger(__name__)
 log.debug("Importing 'time'")
 import time
 log.debug("Importing 'StringIO'")
-import StringIO
+from io import BytesIO
 log.debug("Importing 'Thread'")
 from threading import Thread
 
 log.debug("Importing 'Auxiliary'")
 from lib.common.abstracts import Auxiliary
 log.debug("Importing 'NetlogFile'")
-from lib.common.results import NetlogFile
+from lib.common.results import upload_to_host
 log.debug("Importing 'Screenshot'")
 from lib.api.screenshot import Screenshot
 log.debug("Imports OK")
@@ -64,20 +64,18 @@ class Screenshots(Auxiliary, Thread):
                     continue
 
             img_counter += 1
-
+            #ToDo broken upload
             # workaround as PIL can't write to the socket file object :(
-            tmpio = StringIO.StringIO()
-            img_current.save(tmpio, format="JPEG")
-            tmpio.seek(0)
+            #tmpio = BytesIO()
+            #img_current.save(tmpio, format="JPEG")
+            #tmpio.seek(0)
 
+            #upload_to_host()
             # now upload to host from the StringIO
-            nf = NetlogFile("shots/%s.jpg" % str(img_counter).rjust(4, "0"))
-
-            for chunk in tmpio:
-                nf.sock.sendall(chunk)
-
-            nf.close()
-
+            #nf = NetlogFile("shots/%s.jpg" % str(img_counter).rjust(4, "0"))
+            #for chunk in tmpio:
+            #    nf.sock.sendall(chunk)
+            #nf.close()
             img_last = img_current
 
         return True

@@ -193,7 +193,7 @@ def dump_file(file_path):
     except (IOError, socket.error) as e:
         log.error("Unable to upload dropped file at path \"%s\": %s",
                   file_path.encode("utf-8", "replace"), e)
-
+'''
 def cape_file(file_path):
     """Create a copy of the given CAPE file path."""
     try:
@@ -228,14 +228,15 @@ def cape_file(file_path):
         metastring = file_path
 
     try:
-        upload_to_host_with_metadata(file_path, upload_path, metastring)
+        #upload_to_host_with_metadata(file_path, upload_path, metastring)
+        upload_to_host(file_path, upload_path)
         CAPE_DUMPED_LIST.append(sha256)
         CAPE_DUMPED_LIST.append(upload_path)
         log.info("Added new CAPE file to list with path: %s", six.text_type(file_path).encode("utf-8", "replace"))
     except (IOError, socket.error) as e:
         log.error("Unable to upload CAPE file at path \"%s\": %s",
                   file_path.encode("utf-8", "replace"), e)
-
+'''
 def proc_dump(file_path):
     """Create a copy of the given process dump file path."""
     try:
@@ -986,7 +987,6 @@ class Analyzer:
         #    self.pipes[x].daemon = True
         #    self.pipes[x].start()
 
-        print(9)
         self.command_pipe = PipeServer(
             PipeDispatcher, self.config.pipe, message=True,
             dispatcher=CommandPipeHandler(self)
@@ -1295,7 +1295,7 @@ class Analyzer:
                         #for pid in PROCESS_LIST:
                         for pid in self.process_list.pids:
                             if not Process(pid=pid).is_alive():
-                                if self.options.get("procmemdump", False) or self.options.get("procdump", False):
+                                if self.options.get("procmemdump", False):
                                     try:
                                         Process(pid=pid).upload_memdump()
                                     except Exception as e:
@@ -1306,8 +1306,6 @@ class Analyzer:
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
-                        #ToDo
-                        #if not PROCESS_LIST and (not LASTINJECT_TIME or (datetime.now() >= (LASTINJECT_TIME + timedelta(seconds=15)))):
                         if not self.process_list.pids and (not self.LASTINJECT_TIME or (datetime.now() >= (self.LASTINJECT_TIME + timedelta(seconds=15)))):
                             if emptytime and (datetime.now() >= (emptytime + timedelta(seconds=5))):
                                 log.info("Process list is empty, "
@@ -1348,7 +1346,6 @@ class Analyzer:
                 KERNEL32.Sleep(1000)
 
         # Create the shutdown mutex.
-        #ToDo CreateMutexW
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)
         log.info("Created shutdown mutex.")
         # since the various processes poll for the existence of the mutex, sleep
@@ -1418,7 +1415,6 @@ class Analyzer:
 
         # Tell all processes to complete their monitoring
         if not kernel_analysis:
-            #for pid in PROCESS_LIST:
             for pid in self.process_list.pids:
                 proc = Process(pid=pid)
                 if proc.is_alive() and not pid in CRITICAL_PROCESS_LIST and not proc.is_critical():
@@ -1548,10 +1544,14 @@ class Files(object):
             )
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
+            print(e)
             log.error(
                 "Unable to upload dropped file at path \"%s\": %s",
                 filepath, e
             )
+        except Exception as e:
+            print(e)
+            log.error(e, exc_info=True)
 
     def delete_file(self, filepath, pid=None):
         """A file is about to removed and thus should be dumped right away."""
@@ -1649,20 +1649,34 @@ class CommandPipeHandler(object):
         log.critical(data)
 
     def _handle_loaded(self, data):
+        """
+         command.startswith(b"LOADED:"):
+        PROCESS_LOCK.acquire()
+
+        PROCESS_LOCK.release()
+        NUM_INJECTED += 1
+        log.info("Monitor successfully loaded in process with pid %u.", process_id)
+        """
+        #LOADED:2012
         """The monitor has loaded into a particular process."""
-        if not data or data.count(b",") != 1:
+        if not data:# or data.count(b",") != 1:
             log.warning("Received loaded command with incorrect parameters, "
                         "skipping it.")
             return
 
-        pid, track = data.split(b",")
-        if not pid.isdigit() or not track.isdigit():
-            log.warning("Received loaded command with incorrect parameters, "
-                        "skipping it.")
-            return
+        #pid, track = data.split(b",")
+        #if not pid.isdigit() or not track.isdigit():
+        #    log.warning("Received loaded command with incorrect parameters, "
+        #                "skipping it.")
+        #    return
 
         self.analyzer.process_lock.acquire()
-        self.analyzer.process_list.add_pid(int(pid), track=int(track))
+        pid = int(data)
+        if pid not in self.analyzer.process_list.pids:
+            self.analyzer.process_list.add_pid(int(pid))#, track=int(track))
+        #ToDo verify
+        if pid in INJECT_LIST:
+            INJECT_LIST.remove(pid)
         self.analyzer.process_lock.release()
 
         log.debug("Loaded monitor into process with pid %s", pid)
@@ -1680,8 +1694,8 @@ class CommandPipeHandler(object):
     # from kernel land
     def _handle_kterminate(self, data):
         process_id = int(data)
-        if process_id:
-            self.process_list.remove_pid(process_id)
+        if process_id and process_id in self.analyzer.process_list.pids:
+            self.analyzer.process_list.remove_pid(process_id)
 
     # same than below but we don't want to inject any DLLs because
     # it's a kernel analysis
@@ -1689,30 +1703,28 @@ class CommandPipeHandler(object):
         self.analyzer.process_lock.acquire()
         process_id = int(data)
         thread_id = None
-        if process_id:
-            if process_id not in (self.analyzer.pid, self.analyzer.ppid) and \
-                    process_id not in self.process_list.pids:
-                proc = Process(
-                    options=self.options,
-                    config=self.config,
-                    pid=process_id,
-                    thread_id=thread_id
-                )
-                filepath = proc.get_filepath()
-                filename = os.path.basename(filepath)
-                if not in_protected_path(filename):
-                    self.process_list.add_pid(process_id)
-                    log.info("Announce process name : %s", filename)
+        if process_id and process_id not in (self.analyzer.pid, self.analyzer.ppid, self.analyzer.process_list.pids):
+            proc = Process(
+                options=self.analyzer.options,
+                config=self.config,
+                pid=process_id,
+                thread_id=thread_id
+            )
+            filepath = proc.get_filepath()
+            filename = os.path.basename(filepath)
+            if not in_protected_path(filename):
+                self.analyzer.process_list.add_pid(process_id)
+                log.info("Announce process name : %s", filename)
         self.analyzer.process_lock.release()
-
-    # if a new driver has been loaded, we stop the analysis
-    def _handle_ksubvert(self, data):
-        for pid in self.process_list.pids:
-            log.info("Process with pid %s has terminated", pid)
-            self.process_list.remove_pid(pid)
 
     def _handle_kerror(self, error_msg):
         log.error("Error : %s", str(error_msg))
+
+    # if a new driver has been loaded, we stop the analysis
+    def _handle_ksubvert(self, data):
+        for pid in self.analyzer.process_list.pids:
+            log.info("Process with pid %s has terminated", pid)
+            self.analyzer.process_list.remove_pid(pid)
 
     def _handle_interop(self, data):
         if not self.analyzer.MONITORED_DCOM:
@@ -1720,7 +1732,7 @@ class CommandPipeHandler(object):
             dcom_pid = pid_from_service_name("DcomLaunch")
             if dcom_pid:
                 servproc = Process(
-                    options=self.options,
+                    options=self.analyzer.options,
                     config=self.config,
                     pid=dcom_pid,
                     suspended=False
@@ -1737,7 +1749,7 @@ class CommandPipeHandler(object):
                 KERNEL32.Sleep(2000)
 
     def _handle_wmi(self, data):
-        if not self.analyzer.MONITORED_WMI:
+        if not self.analyzer.MONITORED_WMI and ANALYSIS_TIMED_OUT is False:
             self.analyzer.MONITORED_WMI = True
             si = subprocess.STARTUPINFO()
             # STARTF_USESHOWWINDOW
@@ -1754,7 +1766,7 @@ class CommandPipeHandler(object):
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
                     servproc = Process(
-                        options=self.options,
+                        options=self.analyzer.options,
                         config=self.config,
                         pid=dcom_pid,
                         suspended=False
@@ -1777,7 +1789,7 @@ class CommandPipeHandler(object):
             wmi_pid = pid_from_service_name("winmgmt")
             if wmi_pid:
                 servproc = Process(
-                    options=self.options,
+                    options=self.analyzer.options,
                     config=self.config,
                     pid=wmi_pid,
                     suspended=False
@@ -1794,7 +1806,7 @@ class CommandPipeHandler(object):
                 KERNEL32.Sleep(2000)
 
     def _handle_tasksched(self, data):
-        if not self.analyzer.MONITORED_TASKSCHED:
+        if not self.analyzer.MONITORED_TASKSCHED and ANALYSIS_TIMED_OUT is False:
             self.analyzer.MONITORED_TASKSCHED = True
             si = subprocess.STARTUPINFO()
             # STARTF_USESHOWWINDOW
@@ -1806,12 +1818,14 @@ class CommandPipeHandler(object):
             log.info("Stopped Task Scheduler Service")
             subprocess.call("sc config schedule type= own", startupinfo=si)
             log.info("Starting Task Scheduler Service")
+
             subprocess.call("net start schedule", startupinfo=si)
             log.info("Started Task Scheduler Service")
+
             sched_pid = pid_from_service_name("schedule")
             if sched_pid:
                 servproc = Process(
-                    options=self.options,
+                    options=self.analyzer.options,
                     config=self.config,
                     pid=sched_pid,
                     suspended=False
@@ -1828,26 +1842,29 @@ class CommandPipeHandler(object):
                 KERNEL32.Sleep(2000)
 
     def _handle_bits(self, data):
-        if not self.analyzer.MONITORED_BITS:
+        if not self.analyzer.MONITORED_BITS and ANALYSIS_TIMED_OUT is False:
             self.analyzer.MONITORED_BITS = True
             si = subprocess.STARTUPINFO()
             # STARTF_USESHOWWINDOW
             si.dwFlags = 1
             # SW_HIDE
             si.wShowWindow = 0
+
             log.info("Stopping BITS Service")
             subprocess.call(['net', 'stop', 'BITS', '/y'], startupinfo=si)
             log.info("Stopped BITS Service")
             subprocess.call("sc config BITS type= own", startupinfo=si)
+
             if not self.analyzer.MONITORED_DCOM:
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
                     servproc = Process(
-                        options=self.options,
+                        options=self.analyzer.options,
                         config=self.config,
                         pid=dcom_pid,
                         suspended=False)
+
                     CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
                     servproc.inject(
@@ -1858,13 +1875,14 @@ class CommandPipeHandler(object):
                     self.analyzer.LASTINJECT_TIME = datetime.now()
                     servproc.close()
                     KERNEL32.Sleep(2000)
+
             log.info("Starting BITS Service")
             subprocess.call("net start BITS", startupinfo=si)
             log.info("Started BITS Service")
             bits_pid = pid_from_service_name("BITS")
             if bits_pid:
                 servproc = Process(
-                    options=self.options,
+                    options=self.analyzer.options,
                     config=self.config,
                     pid=bits_pid,
                     suspended=False)
@@ -1883,45 +1901,47 @@ class CommandPipeHandler(object):
     # Switch the service type to own process behind its back so we
     # can monitor the service more easily with less noise
     def _handle_service(self, servname):
-        si = subprocess.STARTUPINFO()
-        # STARTF_USESHOWWINDOW
-        si.dwFlags = 1
-        # SW_HIDE
-        si.wShowWindow = 0
-        subprocess.call("sc config " + servname + " type= own", startupinfo=si)
-        log.info("Announced starting service \"%s\"", servname)
-        if not self.analyzer.MONITORED_SERVICES:
-            # Inject into services.exe so we can monitor service creation
-            # if tasklist previously failed to get the services.exe PID we'll be
-            # unable to inject
-            if self.SERVICES_PID:
-                servproc = Process(
-                    options=self.options,
-                    config=self.config,
-                    pid=self.SERVICES_PID,
-                    suspended=False
-                )
-                CRITICAL_PROCESS_LIST.append(int(self.SERVICES_PID))
-                filepath = servproc.get_filepath()
-                servproc.inject(
-                    injectmode=INJECT_QUEUEUSERAPC,
-                    interest=filepath,
-                    nosleepskip=True
-                )
-                self.analyzer.LASTINJECT_TIME = datetime.now()
-                servproc.close()
-                KERNEL32.Sleep(1000)
-                self.analyzer.MONITORED_SERVICES = True
-            else:
-                log.error('Unable to monitor service %s' % (servname))
+        if ANALYSIS_TIMED_OUT is False:
+            si = subprocess.STARTUPINFO()
+            # STARTF_USESHOWWINDOW
+            si.dwFlags = 1
+            # SW_HIDE
+            si.wShowWindow = 0
+            subprocess.call("sc config " + servname + " type= own", startupinfo=si)
+            log.info("Announced starting service \"%s\"", servname)
+            if not self.analyzer.MONITORED_SERVICES:
+                # Inject into services.exe so we can monitor service creation
+                # if tasklist previously failed to get the services.exe PID we'll be
+                # unable to inject
+                if self.SERVICES_PID:
+                    servproc = Process(
+                        options=self.analyzer.options,
+                        config=self.config,
+                        pid=self.SERVICES_PID,
+                        suspended=False
+                    )
+                    CRITICAL_PROCESS_LIST.append(int(self.SERVICES_PID))
+                    filepath = servproc.get_filepath()
+                    servproc.inject(
+                        injectmode=INJECT_QUEUEUSERAPC,
+                        interest=filepath,
+                        nosleepskip=True
+                    )
+                    self.analyzer.LASTINJECT_TIME = datetime.now()
+                    servproc.close()
+                    KERNEL32.Sleep(1000)
+                    self.analyzer.MONITORED_SERVICES = True
+                else:
+                    log.error('Unable to monitor service %s' % (servname))
 
     # For now all we care about is bumping up our LASTINJECT_TIME to account for long delays between
     # injection and actual resume time where the DLL would have a chance to load in the new process
     # and report back to have its pid added to the list of monitored processes
     def _handle_resume(self, data):
+        #RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = datetime.now()
-        if self.options.get("unpack", "").lower() in ("yes", "true", "enabled", "on", "y"):
-            data = map(int, data.split(","))
+        if self.analyzer.options.get("unpack", "").lower() in ("yes", "true", "enabled", "on", "y"):
+            data = list(map(int, data.split(b",")))
             if len(data) == 1:
                 pid, tid = data[0], 0
             elif len(data) == 2:
@@ -1936,9 +1956,8 @@ class CommandPipeHandler(object):
     def _handle_shutdown(self, data):
         log.info("Received shutdown request")
         self.analyzer.process_lock.acquire()
-        for process_id in PROCESS_LIST:
+        for process_id in self.analyzer.process_list.pids:
             event_name = TERMINATE_EVENT + str(process_id)
-            #OpenEventW
             event_handle = KERNEL32.OpenEventA(
                 EVENT_MODIFY_STATE,
                 False,
@@ -1947,7 +1966,7 @@ class CommandPipeHandler(object):
             if event_handle:
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
-                if self.options.get("procmemdump"):
+                if self.analyzer.options.get("procmemdump"):
                     p = Process(pid=process_id)
                     p.dump_memory()
                 self.files.dump_files()
@@ -1959,17 +1978,19 @@ class CommandPipeHandler(object):
         self.analyzer.process_lock.acquire()
 
         process_id = int(data)
-        if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.process_list.pids:
+        if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.analyzer.process_list.pids:
             # only notify processes we've hooked
+
             event_name = TERMINATE_EVENT + str(process_id)
-            #Todo OpenEventW
+            log.info(event_name)
             event_handle = KERNEL32.OpenEventA(EVENT_MODIFY_STATE, False, event_name)
+            log.info((event_handle, dir(event_handle)))
             if not event_handle:
                 log.warning("Unable to open termination event for pid %u.", process_id)
             else:
                 log.info("Notified of termination of process with pid %u.", process_id)
                 # dump the memory of exiting processes
-                if self.options.get("procmemdump"):
+                if self.analyzer.options.get("procmemdump") or  self.analyzer.options.get("procdump"):
                     p = Process(pid=process_id)
                     p.dump_memory()
                 # make sure process is aware of the termination
@@ -1977,16 +1998,15 @@ class CommandPipeHandler(object):
                 KERNEL32.CloseHandle(event_handle)
 
         self.analyzer.process_lock.release()
-
-    # Handle notification of cuckoomon loading in a process
-    def _handle_loader(self, process_id):
-        self.analyzer.process_lock.acquire()
-        process_id = int(process_id)
-        if process_id not in self.process_list.pids:
-            self.process_list.add_pids(process_id)
-        self.analyzer.process_lock.release()
-        self.analyzer.NUM_INJECTED += 1
-        log.info("Monitor successfully loaded in process with pid %u.", process_id)
+        # check if exist at
+        #b'DoProcessDump: Full process memory dump saved to file: C:\\ppblMa\\memory\\3104.dmp.'
+        #Todo improve this
+        try:
+            tmp_path = PATHS["root"]+b"\\memory\\"+str(self.pid).encode("utf-8")
+            if os.path.exists(tmp_path):
+                upload_to_host(tmp_path, "memory/"+str(self.pid)+"dmp")
+        except Exception as e:
+            log.error(e, exc_info=True)
 
     def _inject_process(self, process_id, thread_id, mode):
         """Helper function for injecting the monitor into a process."""
@@ -2051,12 +2071,68 @@ class CommandPipeHandler(object):
     def _handle_process(self, data):
         """Request for injection into a process."""
         # Parse the process identifier.
-        if not data or not data.isdigit():
-            log.warning("Received PROCESS command from monitor with an "
-                        "incorrect argument.")
-            return
-
-        return self._inject_process(int(data), None, 0)
+        # PROCESS:1:1824,2856
+        #if not data or not data.isdigit():
+        #    log.warning("Received PROCESS command from monitor with an incorrect argument.")
+        #    return
+        #ToDo move to func
+        suspended = False
+        # We parse the process ID.
+        if len(data) > 2 and data[1] == b':':
+            if data[0] == b'1':
+                suspended = True
+            data = data[2:]
+        process_id = thread_id = None
+        if b"," not in data:
+            if data.isdigit():
+                process_id = int(data)
+        elif data.count(b",") == 1:
+            process_id, param = data.split(b",")
+            thread_id = None
+            if process_id.isdigit():
+                process_id = int(process_id)
+            else:
+                process_id = None
+            if param.isdigit():
+                thread_id = int(param)
+        if process_id and ANALYSIS_TIMED_OUT is False:
+            if process_id not in (self.PID, self.PPID):
+                # We inject the process only if it's not being
+                # monitored already, otherwise we would generate
+                # polluted logs.
+                if process_id not in self.analyzer.process_list:
+                    self.analyzer.process_list.add_pid(int(process_id))
+                    # Open the process and inject the DLL.
+                    proc = Process(options=self.analyzer.options,
+                                    config=self.config,
+                                    pid=process_id,
+                                    thread_id=thread_id,
+                                    suspended=suspended)
+                    filepath = proc.get_filepath()#.encode('utf8', 'replace')
+                    # if it's a URL analysis, provide the URL to all processes as
+                    # the "interest" -- this will allow capemon to see in the
+                    # child browser process that a URL analysis is occurring
+                    log.info(self.config.category)
+                    if self.config.category == "file" or self.NUM_INJECTED > 1:
+                        interest = filepath
+                    else:
+                        interest = self.config.target
+                    is_64bit = proc.is_64bit()
+                    filename = os.path.basename(filepath)
+                    if self.SERVICES_PID and process_id == self.SERVICES_PID:
+                        CRITICAL_PROCESS_LIST.append(int(self.SERVICES_PID))
+                    log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
+                    # We want to prevent multiple injection attempts if one is already underway
+                    if not in_protected_path(filename):
+                        res = proc.inject(INJECT_QUEUEUSERAPC, interest)
+                        self.LASTINJECT_TIME = datetime.now()
+                        self.NUM_INJECTED += 1
+                    proc.close()
+            else:
+                log.warning("Received request to inject Cuckoo "
+                            "process with pid %d, skip", process_id)
+        #return self._inject_process(int(data), None, 0)
+        return
 
     def _handle_process2(self, data):
         """Request for injection into a process using APC."""
@@ -2076,16 +2152,21 @@ class CommandPipeHandler(object):
 
     def _handle_file_new(self, data):
         """Notification of a new dropped file."""
-        self.analyzer.files.add_file(data.decode("utf8"), self.pid)
-        #ToDo
-        self.analyzer.files.dump_file(file_path)
+        file_path = data.decode("utf8")
+        #self.analyzer.files.add_file(file_path, self.pid)
+        #self.analyzer.files_list_lock.acquire()
+        if os.path.exists(file_path):
+            self.analyzer.files.dump_file(file_path)
+        #self.analyzer.files_list_lock.release()
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
-        self.analyzer.files.add_file(data.decode("utf8"), self.pid)
-        #ToDo
+        file_path = data.decode("utf8")
+        #self.analyzer.files.add_file(file_path, self.pid)
         # We dump immediately.
-        #cape_file(file_path)
+        cape_file(file_path)
+        if os.path.exists(file_path):
+            self.analyzer.files.dump_file(file_path)
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -2093,54 +2174,26 @@ class CommandPipeHandler(object):
     def _handle_file_del(self, data):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
+        file_path = data.decode("utf8")
         self.analyzer.files_list_lock.acquire()
-        filepath = data.decode("utf8")
-        if os.path.exists(filepath):
-            self.analyzer.files.delete_file(filepath, self.pid)
+        if os.path.exists(file_path):
+            self.analyzer.files.delete_file(file_path, self.pid)
         self.analyzer.files_list_lock.release()
 
-    def _handle_file_move(self, data):
-        """A file is being moved - track these changes."""
-        if b"::" not in data:
-            log.warning("Received FILE_MOVE command from monitor with an "
-                        "incorrect argument.")
-            return
-
-        self.analyzer.files_list_lock.acquire()
-        old_filepath, new_filepath = data.split(b"::", 1)
-        self.analyzer.files.move_file(
-            old_filepath.decode("utf8"), new_filepath.decode("utf8"), self.pid
-        )
-        self.analyzer.files_list_lock.release()
-        """
-        # Syntax = "FILE_MOVE:old_file_path::new_file_path".
-        if "::" in command[10:]:
-            old_fname, new_fname = command[10:].split("::", 1)
-            move_file(unicode(old_fname.decode("utf-8")),
-                        unicode(new_fname.decode("utf-8")))
-            dump_file(unicode(new_fname.decode("utf-8")))
-        """
-
-    '''
-    def _handle_kill(self, data):
-        """A process is being killed."""
-        if not data.isdigit():
-            log.warning("Received KILL command with an incorrect argument.")
-            return
-      if self.analyzer.config.options.get("procmemdump"):
-            dump_memory(int(data))
-    '''
-    def _handle_dump(self, data):
+    def _handle_file_dump(self, data):
         # We extract the file path.
-        file_path = unicode(data.decode("utf-8"))
+        file_path = data.decode("utf-8")
         # We dump immediately.
-        #ToDo
-        #proc_dump(file_path)
+        if os.path.exists(file_path):
+            self.analyzer.files.dump_file(file_path, self.pid)
+
     def _handle_dumpmem(self, data):
+        #TODo dump by pid
         """Dump the memory of a process as it is right now."""
         if not data.isdigit():
             log.warning("Received DUMPMEM command with an incorrect argument.")
             return
+
         dump_memory(int(data))
 
     def _handle_dumpreqs(self, data):
@@ -2169,9 +2222,26 @@ class CommandPipeHandler(object):
             self.tracked[pid][scope] = []
         self.tracked[pid][scope].append(paramtuple)
 
+    def _handle_file_move(self, data):
+        """A file is being moved - track these changes."""
+        # Syntax = "FILE_MOVE:old_file_path::new_file_path".
+        if b"::" not in data:
+            log.warning("Received FILE_MOVE command from monitor with an "
+                        "incorrect argument.")
+            return
+
+        self.analyzer.files_list_lock.acquire()
+        old_filepath, new_filepath = data.split(b"::", 1)
+        new_filepath = new_filepath.decode("utf8")
+        self.analyzer.files.move_file(
+            old_filepath.decode("utf8"), new_filepath, self.pid
+        )
+        if os.path.exists(new_filepath):
+            self.analyzer.files.dump_file(new_filepath, self.pid)
+        self.analyzer.files_list_lock.release()
+
     def dispatch(self, data):
         response = "NOPE"
-        #print(data, "dispatch")
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %r",
                          data.strip())
@@ -2180,6 +2250,8 @@ class CommandPipeHandler(object):
             # new syntax, e.g., "1234:FILE_NEW:").
             #if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
+            if command not in (b"DEBUG", b"INFO"):
+                log.info((data, "dispatch"))
             self.pid = None
             #else:
             #self.pid, command, arguments = data.strip().split(b":", 2)

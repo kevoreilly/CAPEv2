@@ -175,7 +175,7 @@ def move_mouse():
 
 def click_mouse():
     # Move mouse to top-middle position.
-    USER32.SetCursorPos(RESOLUTION["x"] / 2, 0)
+    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
     # Mouse down.
     USER32.mouse_event(2, 0, 0, 0, None)
     KERNEL32.Sleep(50)

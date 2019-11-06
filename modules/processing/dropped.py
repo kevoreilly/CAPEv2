@@ -1,10 +1,10 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation.
+# Copyright (C) 2010-2019 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
 import os
-
+import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
@@ -18,7 +18,7 @@ class Dropped(Processing):
         @return: list of dropped files with related information.
         """
         self.key = "dropped"
-        dropped_files = []
+        dropped_files, meta = [], {}
         buf = self.options.get("buffer", 8192)
 
         if self.task["category"] in ("pcap", "static"):
@@ -27,6 +27,31 @@ class Dropped(Processing):
         if not os.path.exists(self.dropped_path):
             return dropped_files
 
+        if os.path.exists(self.dropped_meta_path):
+            for line in open(self.dropped_meta_path, "rb"):
+                entry = json.loads(line)
+                filepath = os.path.join(self.analysis_path, entry["path"])
+                meta[filepath] = {
+                    "pids": entry["pids"],
+                    "filepath": entry["filepath"],
+                }
+
+        for dir_name, dir_names, file_names in os.walk(self.dropped_path):
+            for file_name in file_names:
+                file_path = os.path.join(dir_name, file_name)
+                file_info = File(file_path=file_path).get_all()
+                file_info.update(meta.get(file_info["path"], {}))
+                dropped_files.append(file_info)
+
+        for dir_name, dir_names, file_names in os.walk(self.package_files):
+            for file_name in file_names:
+                file_path = os.path.join(dir_name, file_name)
+                file_info = File(file_path=file_path).get_all()
+                dropped_files.append(file_info)
+
+        return dropped_files
+
+        # ToDo adapt
         textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
         is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
         file_names = os.listdir(self.dropped_path)

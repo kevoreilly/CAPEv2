@@ -58,7 +58,7 @@ def netlog_sanitize_fname(path):
                                      % path)
     if any(c in BANNED_PATH_CHARS for c in name):
         for c in BANNED_PATH_CHARS:
-            path = path.replace(c, b"X")
+            path.replace(bytes([c]), b"X")
 
     return path
 
@@ -196,7 +196,7 @@ class FileUpload(ProtocolHandler):
                                              "overwrite an existing file" %
                                              self.task_id)
             raise
-
+        #ToDo we need Windows path
         # Append-writes are atomic
         with open(self.filelog, "a") as f:
             print(json.dumps({

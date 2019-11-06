@@ -175,9 +175,10 @@ class Process:
         if NT_SUCCESS(ret) and size.value > 8:
             try:
                 fbuf = pbi.raw[8:]
-                fbuf = fbuf[:fbuf.find('\0\0')+1]
+                fbuf = fbuf[:fbuf.find(b'\0\0')+1]
                 return fbuf.decode('utf16', errors="ignore")
-            except:
+            except Exception as e:
+                log.info(e)
                 return ""
 
         return ""
@@ -601,21 +602,36 @@ class Process:
         """Upload process memory dump.
         @return: operation status.
         """
-        file_path = PATHS["memory"]+ "\\"+ str(self.pid)+".dmp"
-        log.info((self.pid, file_path, os.path.join("memory", str(self.pid)+".dmp")))
         if not self.pid:
             log.warning("No valid pid specified, memory dump cannot be uploaded")
             return False
 
+        file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
+
+        nf = NetlogFile(os.path.join("memory", "{0}.dmp".format(self.pid)))
         try:
-            file_path = PATHS["memory"] +"\\"+ str(self.pid) + ".dmp"#.format(self.pid))
-            if os.path.exists(file_path):
-                upload_to_host(os.path.join("memory", str(self.pid)+".dmp"), file_path)
-                log.info("Memory dump of process %d uploaded", self.pid)
-                os.unlink(file_path)
-        except Exception as e:
-            print(e)
-            log.error(e, exc_info=True)
+            infd = open(file_path, "rb")
+        except:
+            nf.close()
+            log.warning("Unable to find process dump for process %d.", self.pid)
+            return False
+
+        buf = infd.read(1024*1024)
+        try:
+            while buf:
+                nf.send(buf, retry=True)
+                buf = infd.read(1024*1024)
+        except:
+            infd.close()
+            nf.close()
+            log.warning("Upload of memory dump for process %d failed.", self.pid)
+            return False
+
+        infd.close()
+        nf.close()
+
+        log.info("Memory dump of process %d uploaded", self.pid)
+
         return True
 
 
@@ -685,3 +701,4 @@ class Process:
         log.info("Memory dump of process with pid %d completed", self.pid)
 
         return True
+

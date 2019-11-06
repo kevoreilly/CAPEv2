@@ -267,7 +267,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if value.filename:
                     request.files[key] = value.file
                 else:
-                    request.form[key] = value.value.decode("utf8")
+                    request.form[key] = value.value#.decode("utf8")
 
         self.httpd.handle(self)
 
@@ -315,7 +315,7 @@ class MiniHTTPServer(object):
         obj.end_headers()
 
         if isinstance(ret, jsonify):
-            obj.wfile.write(ret.json())
+            obj.wfile.write(ret.json().encode("utf-8"))
         elif isinstance(ret, send_file):
             ret.write(obj.wfile)
 
@@ -511,7 +511,7 @@ def do_extract():
         return json_error(400, "No zip file has been provided")
 
     try:
-        with zipfile.ZipFile(request.files["zipfile"], "r") as archive:
+        with ZipFile(request.files["zipfile"], "r") as archive:
             archive.extractall(request.form["dirpath"])
     except:
         return json_exception("Error extracting zip file")

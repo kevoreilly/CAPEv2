@@ -30,7 +30,7 @@ $(function() {
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
         {% if analysis.dropped|length %}<li><a href="#dropped" data-toggle="tab">Dropped Files ({{analysis.dropped|length}})</a></li>{% endif %}
-        {% if analysis.procmemory %}<li><a href="#procmemory" data-toggle="tab">Process Memory</a></li>{% endif %}
+        {% if analysis.procmemory|length %}<li><a href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
         {% if analysis.memory %}<li><a href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
         {% if analysis.procdump|length %}<li><a href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}
         {% if analysis.CAPE|length %}<li><a href="#CAPE" data-toggle="tab">CAPE ({{analysis.CAPE|length}})</a></li>{% endif %}

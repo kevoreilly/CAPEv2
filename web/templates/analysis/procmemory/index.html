@@ -28,9 +28,9 @@
                             {% if proc.yara %}
                                 {% for match in proc.yara %}
                                     <p>Match: {{match.name}} - {{match.meta.description}}
-                                    {% for string in match.strings %}
+                                    <!--{% for string in match.strings %}
                                         <div>{{string}}</div>
-                                    {% endfor %}
+                                    {% endfor %}-->
                                     </p>
                                 {% endfor %}
                             {% else %}

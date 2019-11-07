@@ -784,10 +784,12 @@ class StatusThread(threading.Thread):
                         log.info('[-] {} dead'.format(node.name))
                         node.enabled = False
                         db.commit()
+                        statuses[node.name]["enabled"] = False
                     continue
                 failed_count[node.name] = 0
                 log.info("Status.. %s -> %s", node.name, status)
                 statuses[node.name] = status
+                statuses[node.name]["enabled"] = True
                 STATUSES = statuses
 
                 # Balance the tasks, works fine if no tags are set

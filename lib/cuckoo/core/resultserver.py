@@ -46,7 +46,7 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain", b"CAPE")
+RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain", b"CAPE", b"memory")
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
@@ -158,7 +158,7 @@ class WriteLimiter(object):
             if not self.warned:
                 log.warning("Uploaded file length larger than upload_max_size, "
                             "stopping upload.")
-                self.fd.write("... (truncated)")
+                self.fd.write(b"... (truncated)")
                 self.warned = True
 
     def flush(self):
@@ -315,7 +315,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon", "CAPE")
+        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon", "CAPE", "memory")
 
         for folder in folders:
             try:

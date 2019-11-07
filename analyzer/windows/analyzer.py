@@ -787,7 +787,6 @@ class Analyzer:
                     #self.process_list.add_pids(zer0m0n.getpids())
                     if not kernel_analysis:
                         for pid in self.process_list.pids:
-                            log.info(str(pid))
                             if not Process(pid=pid).is_alive():
                                 if self.options.get("procmemdump", False):
                                     try:
@@ -1501,9 +1500,9 @@ class CommandPipeHandler(object):
         #b'DoProcessDump: Full process memory dump saved to file: C:\\ppblMa\\memory\\3104.dmp.'
         #Todo improve this
         try:
-            tmp_path = PATHS["root"]+b"\\memory\\"+str(self.pid).encode("utf-8")
+            tmp_path = PATHS["root"].decode("utf-8")+"\\memory\\{}.{}".format(process_id, "dmp")
             if os.path.exists(tmp_path):
-                upload_to_host(tmp_path, "memory/"+str(self.pid)+"dmp")
+                upload_to_host(tmp_path, "memory/"+str(process_id)+".dmp")
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -1737,13 +1736,13 @@ class CommandPipeHandler(object):
     def dispatch(self, data):
         response = "NOPE"
         if not data or b":" not in data:
-            log.critical("Unknown command received from the monitor: %r",
-                         data.strip())
+            log.critical("Unknown command received from the monitor: %r", data.strip())
         else:
             # Backwards compatibility (old syntax is, e.g., "FILE_NEW:" vs the
             # new syntax, e.g., "1234:FILE_NEW:").
             #if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
+            #ToDo remove
             if command not in (b"DEBUG", b"INFO"):
                 log.info((data, "dispatch"))
             self.pid = None
@@ -1822,10 +1821,6 @@ if __name__ == "__main__":
         # Report that we're finished. First try with the XML RPC thing and
         # if that fails, attempt the new Agent.
         try:
-            urlopen("http://127.0.0.1:8000/status",
-                            urlencode(data).encode("utf-8")).read()
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
         except Exception as e:
             print(e)
-            #server = six.moves.xmlrpc.client.Server("http://127.0.0.1:8000")
-            #server.complete(success, error, completion_key)
-

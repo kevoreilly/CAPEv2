@@ -9,13 +9,14 @@ import tempfile
 import ntpath
 import shutil
 import errno
-
+import logging
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.misc import getuser
-import six
 
 cuckoo_conf = Config()
+
+log = logging.getLogger()
 
 def temppath():
     """Return the true temporary directory."""
@@ -35,7 +36,8 @@ def open_exclusive(path, mode='xb', bufsize=-1):
     fd = os.open(path, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0o644)
     try:
         return os.fdopen(fd, mode, bufsize)
-    except:
+    except OSError as e:
+        log.error(e, "You migth need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
 

@@ -1495,17 +1495,7 @@ class CommandPipeHandler(object):
                 KERNEL32.CloseHandle(event_handle)
 
         self.analyzer.process_lock.release()
-        # check if exist at
-        #b'DoProcessDump: Full process memory dump saved to file: C:\\ppblMa\\memory\\3104.dmp.'
-        #Todo improve this
-        """
-        try:
-            tmp_path = PATHS["root"].decode("utf-8")+"\\memory\\{}.{}".format(process_id, "dmp")
-            if os.path.exists(tmp_path):
-                upload_to_host(tmp_path, "memory/"+str(process_id)+".dmp")
-        except Exception as e:
-            log.error(e, exc_info=True)
-        """
+
     def _inject_process(self, process_id, thread_id, mode):
         """Helper function for injecting the monitor into a process."""
         # We acquire the process lock in order to prevent the analyzer to

@@ -7,7 +7,7 @@ import os
 import json
 import logging
 import locale
-from io import StringIO
+from io import BytesIO
 
 from lib.api.utils import Utils
 from lib.common.abstracts import Auxiliary
@@ -91,13 +91,13 @@ class DigiSig(Auxiliary):
         buf = dict()
         lastnum = "0"
         for item in signers:
-            num = str(item.split(b":")[0].count(b"-"))
+            num = str(item.split(":")[0].count("-"))
             signed = signType + " " + num
             if lastnum != num and buf:
                 self.json_data["signers"].append(buf)
                 buf = dict()
-            key = item.split(b":")[0].replace(b"-", b"")
-            value = b"".join(item.split(b":")[1:]).strip()
+            key = item.split(":")[0].replace("-", "")
+            value = "".join(item.split(":")[1:]).strip()
             buf["name"] = signed
             # Lower case hashes to match the format of other hashes in Django
             if key == "SHA1 hash":
@@ -143,7 +143,7 @@ class DigiSig(Auxiliary):
             else:
                 self.json_data["error"] = True
                 errmsg = b" ".join(b"".join(err.split(b":")[1:]).split())
-                self.json_data["error_desc"] = errmsg
+                self.json_data["error_desc"] = errmsg.decode("utf-8")
                 if b"file format cannot be verified" in err:
                     log.debug("File format not recognized.")
                 elif b"No signature found" not in err:
@@ -156,14 +156,14 @@ class DigiSig(Auxiliary):
 
             if self.json_data:
                 log.info("Uploading signature results to aux/{0}.json".format(
-                             self.__class__.__name__))
-                upload = StringIO()
-                #ToDo Fails
-                upload.write(json.dumps(self.json_data, ensure_ascii=False))
+                    self.__class__.__name__))
+                upload = BytesIO()
+                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode("utf-8"))
                 upload.seek(0)
-                nf = NetlogFile("aux/{0}.json".format(self.__class__.__name__))
+                nf = NetlogFile()
+                nf.init("aux/DigiSig.json")
                 for chunk in upload:
-                    nf.sock.sendall(chunk)
+                    nf.sock.send(chunk)
                 nf.close()
 
         except Exception as e:
@@ -172,4 +172,3 @@ class DigiSig(Auxiliary):
             log.exception(traceback.format_exc())
 
         return True
-

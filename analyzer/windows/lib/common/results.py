@@ -70,7 +70,6 @@ class NetlogConnection(object):
 
             self.sock = s
             self.sock.settimeout(None)
-            print(self.proto)
             self.sock.sendall(self.proto)
             self.connected = True
 
@@ -126,7 +125,7 @@ class NetlogFile(NetlogConnection):
                 pids
             )
         else:
-           self.proto = b"FILE\n%s\n" % dump_path
+           self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
         self.connect()
 
 class NetlogHandler(logging.Handler, NetlogConnection):

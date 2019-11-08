@@ -46,7 +46,7 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b"files", b"shots", b"buffer",  b"extracted", b"memory", b"sysmon", b"curtain", b"CAPE", b"memory")
+RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'memory', b'shots', b'sysmon')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
@@ -201,7 +201,7 @@ class FileUpload(ProtocolHandler):
         with open(self.filelog, "a") as f:
             print(json.dumps({
                 "path": dump_path.decode("utf-8", "replace"),
-                "filepath": filepath.decode("utf-8", "replace"),
+                "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                 "pids": pids,
             }, ensure_ascii=False), file=f)
 
@@ -315,7 +315,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("shots", "files", "logs", "aux", "curtain", "sysmon", "CAPE", "memory")
+        folders = ('CAPE', 'aux', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon')
 
         for folder in folders:
             try:

@@ -897,18 +897,17 @@ def file(request, category, task_id, dlfile):
         cd = "application/vnd.tcpdump.pcap"
     elif category == "screenshot":
         file_name += ".jpg"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "shots", file_name)
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
         cd = "image/jpeg"
     elif category == "usage":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "aux", "usage.svg")
+            task_id, "aux", "usage.svg")
         file_name = "usage.svg"
         cd = "image/svg+xml"
     elif category in extmap:
         file_name += extmap[category]
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "memory", file_name)
+            task_id, "memory", file_name)
         if not os.path.exists(path):
             file_name += ".zip"
             path += ".zip"
@@ -933,28 +932,27 @@ def file(request, category, task_id, dlfile):
     elif category == "zip":
         file_name = "files.zip"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "logs", "files.zip")
+            task_id, "logs", "files.zip")
         cd = "application/zip"
     elif category == "suricata":
         file_name = "file." + dlfile
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "logs", "files", file_name)
+            task_id, "logs", "files", file_name)
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "rtf_objects", file_name)
+            task_id, "rtf_objects", file_name)
     else:
         return render(request, "error.html",
-                                  {"error": "Category not defined"})
+            {"error": "Category not defined"})
 
     if not cd:
         cd = "application/octet-stream"
 
     try:
-        resp = StreamingHttpResponse(FileWrapper(open(path), 8192),
-                                     content_type=cd)
+        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
     except:
         return render(request, "error.html",
-                                  {"error": "File {} not found".format(path)})
+            {"error": "File {} not found".format(path)})
 
     resp["Content-Length"] = os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name

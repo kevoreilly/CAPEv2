@@ -370,7 +370,6 @@ class Analyzer:
     PIPE_SERVER_COUNT = 4
 
     def __init__(self):
-        #self.pipes = [None]*self.PIPE_SERVER_COUNT
         self.config = None
         self.target = None
         self.do_run = True
@@ -1499,13 +1498,14 @@ class CommandPipeHandler(object):
         # check if exist at
         #b'DoProcessDump: Full process memory dump saved to file: C:\\ppblMa\\memory\\3104.dmp.'
         #Todo improve this
+        """
         try:
             tmp_path = PATHS["root"].decode("utf-8")+"\\memory\\{}.{}".format(process_id, "dmp")
             if os.path.exists(tmp_path):
                 upload_to_host(tmp_path, "memory/"+str(process_id)+".dmp")
         except Exception as e:
             log.error(e, exc_info=True)
-
+        """
     def _inject_process(self, process_id, thread_id, mode):
         """Helper function for injecting the monitor into a process."""
         # We acquire the process lock in order to prevent the analyzer to
@@ -1678,7 +1678,11 @@ class CommandPipeHandler(object):
         file_path = data.decode("utf-8")
         # We dump immediately.
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path)#, self.pid)
+            # ToDo improve this
+            if PATHS["root"].decode("utf-8") in file_path:
+                upload_to_host(file_path, file_path.replace(PATHS["root"].decode("utf-8")+"\\", ""))
+            else:
+                self.analyzer.files.dump_file(file_path)#, self.pid)
 
     def _handle_dumpmem(self, data):
         #TODo dump by pid

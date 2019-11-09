@@ -59,6 +59,7 @@ def analyzer_zipfile(platform):
             path = os.path.join(root, name)
             archive_name = os.path.join(archive_root, name)
             zip_file.write(path, archive_name)
+        #ToDo remove
         """
         for name in os.listdir(dirpath):
             zip_file.write(

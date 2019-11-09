@@ -29,7 +29,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("target", type=str, help="URL, path to the file or folder to analyze")
+    parser.add_argument("target", help="URL, path to the file or folder to analyze")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--remote", type=str, action="store", default=None, help="Specify IP:port to a Cuckoo API server to submit remotely", required=False)
     parser.add_argument("--user", type=str, action="store", default=None, help="Username for Basic Auth", required=False)
@@ -253,7 +253,7 @@ def main():
                         continue
 
                 try:
-                    task_ids = db.demux_sample_and_add_to_db(file_path=file_path, package=args.package, timeout=sane_timeout, options=args.options,
+                    task_ids = db.demux_sample_and_add_to_db(file_path=file_path.encode("utf-8"), package=args.package, timeout=sane_timeout, options=args.options,
                             priority=args.priority, machine=args.machine, platform=args.platform, memory=args.memory,
                             custom=args.custom, enforce_timeout=args.enforce_timeout, clock=args.clock, tags=args.tags)
                 except CuckooDemuxError as e:

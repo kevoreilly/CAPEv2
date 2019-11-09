@@ -12,7 +12,6 @@ import struct
 import pkgutil
 import logging
 import hashlib
-#import six.moves.xmlrpc_client
 import traceback
 import subprocess
 from ctypes import create_string_buffer, create_unicode_buffer, POINTER
@@ -46,8 +45,6 @@ from lib.core.packages import choose_package
 from lib.core.privileges import grant_debug_privilege
 from lib.core.startup import create_folders, init_logging, disconnect_logger, set_clock
 from modules import auxiliary
-from six.moves import map
-import six
 
 log = logging.getLogger()
 
@@ -160,7 +157,7 @@ def add_file(file_path):
     """Add a file to file list."""
     if file_path not in FILES_LIST:
         log.info("Added new file to list with path: %s",
-                 six.text_type(file_path).encode("utf-8", "replace"))
+                 str(file_path).encode("utf-8", "replace"))
         FILES_LIST.append(file_path)
 '''
 def dump_file(file_path):
@@ -232,7 +229,7 @@ def cape_file(file_path):
         upload_to_host(file_path, upload_path)
         CAPE_DUMPED_LIST.append(sha256)
         CAPE_DUMPED_LIST.append(upload_path)
-        log.info("Added new CAPE file to list with path: %s", six.text_type(file_path).encode("utf-8", "replace"))
+        log.info("Added new CAPE file to list with path: %s", str(file_path).encode("utf-8", "replace"))
     except (IOError, socket.error) as e:
         log.error("Unable to upload CAPE file at path \"%s\": %s",
                   file_path.encode("utf-8", "replace"), e)
@@ -271,7 +268,7 @@ def proc_dump(file_path):
         upload_to_host_with_metadata(file_path, upload_path, metastring)
         CAPE_DUMPED_LIST.append(sha256)
         CAPE_DUMPED_LIST.append(upload_path)
-        log.info("Added new CAPE file to list with path: %s", six.text_type(file_path).encode("utf-8", "replace"))
+        log.info("Added new CAPE file to list with path: %s", str(file_path).encode("utf-8", "replace"))
     except (IOError, socket.error) as e:
         log.error("Unable to upload process dump at path \"%s\": %s",
                   file_path.encode("utf-8", "replace"), e)

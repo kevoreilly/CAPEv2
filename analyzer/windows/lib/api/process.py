@@ -32,7 +32,6 @@ from lib.common.rand import random_string
 from lib.common.results import NetlogFile
 from lib.core.config import Config
 from lib.core.log import LogServer
-import six
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC       = 1
@@ -321,7 +320,7 @@ class Process:
             msg = str(self.pid)+"_"+str(ppid)+"_"+str(os.getpid())+"_"+str(pi.dwProcessId)+"_"+str(pid_vboxservice)+"_"+str(pid_vboxtray)+'\0'
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
             msg = os.getcwd()+'\0'
-            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, six.text_type(msg), len(six.text_type(msg)), None, 0, byref(bytes_returned), None)
+            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, str(msg, 'utf-8'), len(str(msg, 'utf-8')), None, 0, byref(bytes_returned), None)
         else:
             log.warning("Failed to access kernel driver")
 

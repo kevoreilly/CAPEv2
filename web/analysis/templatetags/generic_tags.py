@@ -24,11 +24,11 @@ def proctreetolist(tree):
             newnode["module_path"] = node["module_path"]
             if "environ" in node and "CommandLine" in node["environ"]:
                 cmdline = node["environ"]["CommandLine"]
-                if cmdline.startswith(b"\""):
-                    splitcmdline = cmdline[cmdline[1:].index(b"\"")+2:].split()
-                    argv0 = cmdline[:cmdline[1:].index(b"\"")+1].lower()
+                if cmdline.startswith("\""):
+                    splitcmdline = cmdline[cmdline[1:].index("\"")+2:].split()
+                    argv0 = cmdline[:cmdline[1:].index("\"")+1].lower()
                     if node["module_path"].lower() in argv0:
-                        cmdline = b" ".join(splitcmdline).strip()
+                        cmdline = " ".join(splitcmdline).strip()
                     else:
                         cmdline = node["environ"]["CommandLine"]
                 elif cmdline:
@@ -36,7 +36,7 @@ def proctreetolist(tree):
                     if splitcmdline:
                         argv0 = splitcmdline[0].lower()
                         if node["module_path"].lower() in argv0:
-                            cmdline = b" ".join(splitcmdline[1:]).strip()
+                            cmdline = " ".join(splitcmdline[1:]).strip()
                         else:
                             cmdline = node["environ"]["CommandLine"]
                 if len(cmdline) >= 200 + 15:

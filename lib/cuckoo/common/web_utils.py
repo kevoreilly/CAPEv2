@@ -110,7 +110,7 @@ def fix_section_permission(path):
 # Submission hooks to set options based on some naming patrons
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
-    if "name" in filename :
+    if b"name" in filename :
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True
@@ -190,9 +190,6 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
                             {"error": "Sorry no x64 support yet"})
 
     orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
-    if "pony" in filename:
-        fix_section_permission(filename)
-
     for entry in task_machines:
         task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock, static=static)

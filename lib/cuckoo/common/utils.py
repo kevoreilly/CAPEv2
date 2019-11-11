@@ -149,6 +149,8 @@ def convert_char(c):
     @param c: dirty char.
     @return: sanitized char.
     """
+    if isinstance(c, int):
+        c = chr(c)
     if c in PRINTABLE_CHARACTERS:
         return c
     else:
@@ -184,12 +186,58 @@ def is_sane_filename(s):
             return False
     return True
 
+
+# ToDo improve
+def bytes2str(convert):
+    """Converts bytes to string
+    @param convert: string as bytes.
+    @return: string.
+    """
+    if isinstance(convert, bytes):
+        try:
+            convert = convert.decode('utf-8')
+        except UnicodeDecodeError:
+            convert = ''.join(chr(_) for _ in convert)
+
+        return convert
+
+    items = list()
+    if isinstance(convert, dict):
+        tmp_dict = dict()
+        items = convert.items()
+        for k, v in items:
+            if type(v) is bytes:
+                try:
+                    tmp_dict[k] = v.decode('utf-8')
+                except UnicodeDecodeError:
+                    tmp_dict[k] = ''.join(str(ord(_)) for _ in v)
+        return tmp_dict
+    elif isinstance(convert, list):
+        converted_list = list()
+        items = enumerate(convert)
+        for k, v in items:
+            if type(v) is bytes:
+                try:
+                    converted_list.append(v.decode('utf-8'))
+                except UnicodeDecodeError:
+                    converted_list.append(''.join(str(ord(_)) for _ in v))
+
+        return converted_list
+
+    return convert
+
 def convert_to_printable(s, cache=None):
     """Convert char to printable.
     @param s: string.
     @param cache: an optional cache
     @return: sanitized string.
     """
+    #ToDo cleanup
+    #print(s, "sssss")
+    if isinstance(s, int):
+        #print(s)
+        return str(s)
+
     if is_printable(s):
         return s
 
@@ -234,43 +282,43 @@ def pretty_print_retval(category, api_name, status, retval):
     except ValueError:
         return None
     return {
-            0x00000103 : "NO_MORE_ITEMS",
-            0x00002af9 : "WSAHOST_NOT_FOUND",
-            0x80000005 : "BUFFER_OVERFLOW",
-            0x80000006 : "NO_MORE_FILES",
-            0x8000000a : "HANDLES_CLOSED",
-            0x8000001a : "NO_MORE_ENTRIES",
-            0xc0000001 : "UNSUCCESSFUL",
-            0xc0000002 : "NOT_IMPLEMENTED",
-            0xc0000004 : "INFO_LENGTH_MISMATCH",
-            0xc0000005 : "ACCESS_VIOLATION",
-            0xc0000008 : "INVALID_HANDLE",
-            0xc000000b : "INVALID_CID",
-            0xc000000d : "INVALID_PARAMETER",
-            0xc000000f : "NO_SUCH_FILE",
-            0xc0000011 : "END_OF_FILE",
-            0xc0000018 : "CONFLICTING_ADDRESSES",
-            0xc0000022 : "ACCESS_DENIED",
-            0xc0000023 : "BUFFER_TOO_SMALL",
-            0xc0000024 : "OBJECT_TYPE_MISMATCH",
-            0xc0000033 : "OBJECT_NAME_INVALID",
-            0xc0000034 : "OBJECT_NAME_NOT_FOUND",
-            0xc0000035 : "OBJECT_NAME_COLLISION",
-            0xc0000039 : "OBJECT_PATH_INVALID",
-            0xc000003a : "OBJECT_PATH_NOT_FOUND",
-            0xc000003c : "DATA_OVERRUN",
-            0xc0000043 : "SHARING_VIOLATION",
-            0xc0000045 : "INVALID_PAGE_PROTECTION",
-            0xc000007a : "PROCEDURE_NOT_FOUND",
-            0xc00000ac : "PIPE_NOT_AVAILABLE",
-            0xc00000ba : "FILE_IS_A_DIRECTORY",
-            0xc000010a : "PROCESS_IS_TERMINATING",
-            0xc0000121 : "CANNOT_DELETE",
-            0xc0000135 : "DLL_NOT_FOUND",
-            0xc0000139 : "ENTRYPOINT_NOT_FOUND",
-            0xc0000142 : "DLL_INIT_FAILED",
-            0xc000014b : "PIPE_BROKEN",
-            0xc0000225 : "NOT_FOUND"
+        0x00000103 : "NO_MORE_ITEMS",
+        0x00002af9 : "WSAHOST_NOT_FOUND",
+        0x80000005 : "BUFFER_OVERFLOW",
+        0x80000006 : "NO_MORE_FILES",
+        0x8000000a : "HANDLES_CLOSED",
+        0x8000001a : "NO_MORE_ENTRIES",
+        0xc0000001 : "UNSUCCESSFUL",
+        0xc0000002 : "NOT_IMPLEMENTED",
+        0xc0000004 : "INFO_LENGTH_MISMATCH",
+        0xc0000005 : "ACCESS_VIOLATION",
+        0xc0000008 : "INVALID_HANDLE",
+        0xc000000b : "INVALID_CID",
+        0xc000000d : "INVALID_PARAMETER",
+        0xc000000f : "NO_SUCH_FILE",
+        0xc0000011 : "END_OF_FILE",
+        0xc0000018 : "CONFLICTING_ADDRESSES",
+        0xc0000022 : "ACCESS_DENIED",
+        0xc0000023 : "BUFFER_TOO_SMALL",
+        0xc0000024 : "OBJECT_TYPE_MISMATCH",
+        0xc0000033 : "OBJECT_NAME_INVALID",
+        0xc0000034 : "OBJECT_NAME_NOT_FOUND",
+        0xc0000035 : "OBJECT_NAME_COLLISION",
+        0xc0000039 : "OBJECT_PATH_INVALID",
+        0xc000003a : "OBJECT_PATH_NOT_FOUND",
+        0xc000003c : "DATA_OVERRUN",
+        0xc0000043 : "SHARING_VIOLATION",
+        0xc0000045 : "INVALID_PAGE_PROTECTION",
+        0xc000007a : "PROCEDURE_NOT_FOUND",
+        0xc00000ac : "PIPE_NOT_AVAILABLE",
+        0xc00000ba : "FILE_IS_A_DIRECTORY",
+        0xc000010a : "PROCESS_IS_TERMINATING",
+        0xc0000121 : "CANNOT_DELETE",
+        0xc0000135 : "DLL_NOT_FOUND",
+        0xc0000139 : "ENTRYPOINT_NOT_FOUND",
+        0xc0000142 : "DLL_INIT_FAILED",
+        0xc000014b : "PIPE_BROKEN",
+        0xc0000225 : "NOT_FOUND"
     }.get(val, None)
 
 def pretty_print_arg(category, api_name, arg_name, arg_val):

@@ -9,8 +9,6 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
-import six
-from six import unichr
 from six.moves import zip
 
 MONGOSIZELIMIT = 0x1000000
@@ -62,7 +60,7 @@ class MongoDB(Report):
         totals = dict((k, 0) for k in dct)
         def walk(root, key, val):
             if isinstance(val, dict):
-                for k, v in six.iteritems(val):
+                for k, v in val.items():
                     walk(root, k, v)
 
             elif isinstance(val, (list, tuple, set)):
@@ -72,7 +70,7 @@ class MongoDB(Report):
             elif isinstance(val, str):
                 totals[root] += len(val)
 
-        for key, val in six.iteritems(dct):
+        for key, val in dct.items():
             walk(key, key, val)
 
         return sorted(list(totals.items()), key=lambda item: item[1], reverse=True)
@@ -88,7 +86,7 @@ class MongoDB(Report):
 
         items = []
         if isinstance(obj, dict):
-            items = six.iteritems(obj)
+            items = obj.items()
         elif isinstance(obj, list):
             items = enumerate(obj)
 
@@ -100,7 +98,7 @@ class MongoDB(Report):
                 try:
                     v.decode('utf-8')
                 except UnicodeDecodeError:
-                    obj[k] = u''.join(unichr(ord(_)) for _ in v).encode('utf-8')
+                    obj[k] = ''.join(str(ord(_)) for _ in v).encode('utf-8')
             else:
                 cls.ensure_valid_utf8(v)
 
@@ -113,7 +111,7 @@ class MongoDB(Report):
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_MONGO:
             raise CuckooDependencyError("Unable to import pymongo "
-                                        "(install with `pip install pymongo`)")
+                                        "(install with `pip3 install pymongo`)")
 
         self.connect()
 
@@ -158,7 +156,7 @@ class MongoDB(Report):
             chunk = []
             chunks_ids = []
             # Loop on each process call.
-            for index, call in enumerate(process["calls"]):
+            for _, call in enumerate(process["calls"]):
                 # If the chunk size is 100 or if the loop is completed then
                 # store the chunk in MongoDB.
                 if len(chunk) == 100:
@@ -218,7 +216,7 @@ class MongoDB(Report):
                 self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
             log.debug("Deleted previous MongoDB data for Task %s" % report["info"]["id"])
 
-        #self.ensure_valid_utf8(report)
+        self.ensure_valid_utf8(report)
 
         # Store the report and retrieve its object id.
         try:

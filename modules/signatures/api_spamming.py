@@ -41,12 +41,12 @@ class APISpamming(Signature):
              "c:\\windows\\system32\\wscript.exe": ["GetLocalTime", "NtQuerySystemTime"],
         }
         ret = False
-        for pid, apis in self.spam.iteritems():
+        for pid, apis in self.spam.items():
             modulepathlower = self.processes[pid]["module_path"].lower()
             do_check = False
             if modulepathlower in spam_apis_whitelist:
                 do_check = True
-            for apiname, count in apis.iteritems():
+            for apiname, count in apis.items():
                 if not do_check or apiname not in spam_apis_whitelist[modulepathlower]:
                     self.data.append({"Spam": "{0} ({1}) called API {2} {3} times".format(
                             self.processes[pid]["process_name"], self.processes[pid]["process_id"], apiname, count)})

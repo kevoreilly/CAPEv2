@@ -1604,7 +1604,7 @@ class CommandPipeHandler(object):
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
-                        res = proc.inject(INJECT_QUEUEUSERAPC, interest)
+                        _ = proc.inject(INJECT_QUEUEUSERAPC, interest)
                         self.LASTINJECT_TIME = datetime.now()
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()
@@ -1726,6 +1726,9 @@ class CommandPipeHandler(object):
 
     def dispatch(self, data):
         response = "NOPE"
+        # ToDo remove hack and fix in monitor
+        if b'GETPIDS' in data:
+            data = b'GETPIDS:'
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %r", data.strip())
         else:

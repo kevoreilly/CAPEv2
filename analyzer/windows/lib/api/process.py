@@ -482,7 +482,7 @@ class Process:
 
         config_path = "C:\\%s.ini" % self.pid
 
-        with open(config_path, "w") as config:
+        with open(config_path, "w", encoding="utf-8") as config:
             # start the logserver for this monitored process
             logserver_path = LOGSERVER_PREFIX + str(self.pid)
             if logserver_path not in LOGSERVER_POOL:

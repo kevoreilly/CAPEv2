@@ -4,6 +4,7 @@
 #https://github.com/cuckoosandbox/cuckoo/blob/master/cuckoo/core/guest.py
 from __future__ import absolute_import
 import os
+import sys
 import json
 import time
 import socket
@@ -515,9 +516,7 @@ class GuestManager(object):
         else:
             # Execute the analyzer that we just uploaded.
             data = {
-                #ToDo fix it to pyw
-                "command": "C:\\Windows\\pyw.exe %s\\analyzer.py" % self.analyzer_path,
-                #"command": "sys.executable %s\\analyzer.py" % self.analyzer_path,
+                "command": "%s %s\\analyzer.py" % (sys.executable, self.analyzer_path),
                 "async": "yes",
                 "cwd": self.analyzer_path,
             }

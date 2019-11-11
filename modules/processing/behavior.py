@@ -11,7 +11,7 @@ import struct
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter
+from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter, bytes2str
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -23,6 +23,7 @@ def fix_key(key):
     """
     # all normalization is done on the cuckoomon end, so this is now a no-op
     return key
+
 
 class ParseProcessLog(list):
     """Parses process log file."""
@@ -215,8 +216,7 @@ class ParseProcessLog(list):
         @param context: ignored
         @param environdict: dict of the various collected information, which will expand over time
         """
-
-        self.environdict.update(environdict)
+        self.environdict.update(bytes2str(environdict))
 
     def log_anomaly(self, subcategory, tid, funcname, msg):
         """ log an anomaly parsed from data file
@@ -306,7 +306,8 @@ class ParseProcessLog(list):
                 continue
 
             argument["name"] = arg_name
-
+            if isinstance(arg_value, bytes):
+                arg_value = bytes2str(arg_value)
             argument["value"] = convert_to_printable(str(arg_value), self.conversion_cache)
             if not self.reporting_mode:
                 argument["raw_value"] = arg_value
@@ -384,9 +385,9 @@ class Processes:
             # the results list.
             results.append({
                 "process_id": current_log.process_id,
-                "process_name": current_log.process_name,
+                "process_name": bytes2str(current_log.process_name),
                 "parent_id": current_log.parent_id,
-                "module_path": current_log.module_path,
+                "module_path": bytes2str(current_log.module_path),
                 "first_seen": logtime(current_log.first_seen),
                 "calls": current_log.calls,
                 "threads": current_log.threads,
@@ -990,6 +991,7 @@ class Enhanced(object):
 
 
 class Anomaly(object):
+
     """Anomaly detected during analysis.
     For example: a malware tried to remove Cuckoo's hooks.
     """
@@ -1194,7 +1196,6 @@ class BehaviorAnalysis(Processing):
             Enhanced(),
             EncryptedBuffers(),
         ]
-
         # Iterate calls and tell interested signatures about them
         for process in behavior["processes"]:
             for call in process["calls"]:

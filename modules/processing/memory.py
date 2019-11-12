@@ -2,10 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+# Based on work of Xabier Ugarte-Pedrero
+# https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
+
 from __future__ import absolute_import
 import os
-import logging
 import time
+import logging
 
 try:
     import re2 as re
@@ -17,6 +20,82 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
+try:
+    import volatility.plugins
+    import volatility.symbols
+    from volatility import framework
+    from volatility.cli import text_renderer
+    from volatility.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
+    from volatility.framework.configuration import requirements
+    from typing import Any, Dict, List, Optional, Tuple, Union, Type
+    from volatility.framework import interfaces, constants
+    from volatility.framework.configuration import requirements
+    #from volatility.plugins.windows import pslist
+    HAVE_VOLATILITY = True
+except Exception as e:
+    HAVE_VOLATILITY = False
+
+vollog = logging.getLogger()
+
+# Log everything:
+#vollog.setLevel(1)
+
+# Log only Warnings
+vollog.setLevel(logging.WARNING)
+
+# Trim the console down by default
+console = logging.StreamHandler()
+console.setLevel(logging.WARNING)
+formatter = logging.Formatter('%(levelname)-8s %(name)-12s: %(message)s')
+console.setFormatter(formatter)
+vollog.addHandler(console)
+
+
+class VolatilityAPI(object):
+
+    def __init__(self, memdump):
+        self.context = None
+        self.automagics = None
+        self.base_config_path = "plugins"
+        # Instance of the plugin
+        self.volatility_interface = None
+        if not memdump.startswith("file:///") and os.path.exists(memdump):
+            self.memdump = "file:///"+memdump
+        else:
+            self.memdump = memdump
+
+    def init(self, plugin_class, memdump):
+        """ Module which initialize all volatility 3 internals
+        @param plugin_class: plugin class. Ex. windows.pslist.PsList
+        @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
+        @return: Volatility3 interface.
+
+        """
+
+        volatility.framework.require_interface_version(1, 0, 0)
+        # Set the PARALLELISM
+        #constants.PARALLELISM = constants.Parallelism.Multiprocessing
+        #constants.PARALLELISM = constants.Parallelism.Threading
+        constants.PARALLELISM = constants.Parallelism.Off
+
+        # Do the initialization
+        self.context = contexts.Context()  # Construct a blank context
+        # Will not log as console's default level is WARNING
+        failures = framework.import_files(volatility.plugins, True)
+
+        self.automagics = automagic.available(self.context)
+        # Initialize the list of plugins in case the plugin needs it
+        plugin_list = framework.list_plugins()
+
+        self.context.config['automagic.LayerStacker.single_location'] = self.memdump
+
+        automagics = automagic.choose_automagic(self.automagics, plugin_class)
+        volatility_interface = plugins.construct_plugin(
+            self.context, self.automagics, plugin_class, self.base_config_path, None, None)
+
+        return volatility_interface
+
+'''
 try:
     import volatility.conf as conf
     import volatility.registry as registry
@@ -1124,6 +1203,7 @@ class VolatilityManager(object):
             f=open(self.memfile + ".strings", "w")
             f.write("\n".join(strings))
             f.close()
+'''
 
 class Memory(Processing):
     """Volatility Analyzer."""

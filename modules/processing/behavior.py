@@ -693,12 +693,14 @@ class Enhanced(object):
 
         def _get_service_action(control_code):
             """@see: http://msdn.microsoft.com/en-us/library/windows/desktop/ms682108%28v=vs.85%29.aspx"""
-            codes = {1: "stop",
-                     2: "pause",
-                     3: "continue",
-                     4: "info"}
+            codes = {
+                1: "stop",
+                2: "pause",
+                3: "continue",
+                4: "info"
+            }
 
-            default = "user" if control_code >= 128 else "notify"
+            default = "user" if int(control_code) >= 128 else "notify"
             return codes.get(control_code, default)
 
         event = None

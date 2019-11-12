@@ -5,6 +5,7 @@
 # Based on work of Xabier Ugarte-Pedrero
 # https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
 
+# Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
 import os
 import time

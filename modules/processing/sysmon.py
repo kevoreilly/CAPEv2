@@ -11,6 +11,15 @@ log = logging.getLogger(__name__)
 __author__  = "@FernandoDoming"
 __version__ = "1.0.0"
 
+def parseXmlToJson(xml):
+    response = {}
+    for child in list(xml):
+        if len(list(child)) > 0:
+            response[child.tag] = parseXmlToJson(child)
+        else:
+            response[child.tag] = child.text or ''
+    return response
+
 class Sysmon(Processing):
 
     def remove_noise(self, data):
@@ -59,10 +68,15 @@ class Sysmon(Processing):
 
         data = None
         try:
-            xml = open("%s/sysmon/sysmon.xml" % self.analysis_path).read()
-            xml = xml.decode("latin1").encode("utf8")
-            data = xmltodict.parse(xml)["Events"]["Event"]
+            tree = ET.parse("%s/sysmon/sysmon.xml" % self.analysis_path)
+            root = tree.getroot()
+            data = parseXmlToJson(root.attrib)
         except Exception as e:
-            raise CuckooProcessingError("Failed parsing sysmon.xml: %s" % e.message)
+            raise CuckooProcessingError("Failed parsing sysmon.xml with ET: %s" % e.message)
 
-        return self.remove_noise(data)
+        if root is False:
+            return
+
+        data = self.remove_noise(data)
+        log.debug(data)
+        return data

@@ -38,17 +38,28 @@ class SetsAutoconfigURL(Signature):
         self.configkey = (r"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\"
                           r"CurrentVersion\\Internet Settings\\AutoConfigURL")
 
+        self.procwhitelist = [
+            "acrobat.exe",
+            "acrord32.exe",
+            "chrome.exe",
+            "firefox.exe",
+            "iexplore.exe",
+            "java.exe",
+            "outlook.exe",
+        ]
+
     filter_apinames = set(["RegSetValueExA", "NtWriteFile"])
 
     def on_call(self, call, process):
-        if call["api"] == "RegSetValueExA":
+        pname = process["process_name"].lower()
+        if call["api"] == "RegSetValueExA" and pname not in self.procwhitelist:
             key = self.get_argument(call, "FullName")
             if key and re.match(self.configkey, key):
                 value = self.get_argument(call, "ValueName").lower()
                 if value == "autoconfigurl":
                     self.keybuf = self.get_argument(call, "Buffer")
 
-        elif call["api"] == "NtWriteFile":
+        elif call["api"] == "NtWriteFile" and pname not in self.procwhitelist:
             path = self.get_argument(call, "HandleName")
             if path and re.match(self.configpath, path):
                 buf = self.get_argument(call, "Buffer")

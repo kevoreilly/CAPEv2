@@ -62,7 +62,7 @@ class BinGraph(Report):
 
             for key in ("dropped", "procdump", "CAPE"):
                 for block in results.get(key, []) or []:
-                    if block.get("size", 0) != 0 and block.get("type", "").startswith("PE32") and \
+                    if block.get("size", 0) != 0 and \
                             not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"]))):
                         bingraph_args_dict.update({
                             "prefix": block["sha256"],

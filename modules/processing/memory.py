@@ -90,7 +90,7 @@ class VolatilityAPI(object):
 
         self.context.config['automagic.LayerStacker.single_location'] = self.memdump
 
-        automagics = automagic.choose_automagic(self.automagics, plugin_class)
+        self.automagics = automagic.choose_automagic(self.automagics, plugin_class)
         volatility_interface = plugins.construct_plugin(
             self.context, self.automagics, plugin_class, self.base_config_path, None, None)
 

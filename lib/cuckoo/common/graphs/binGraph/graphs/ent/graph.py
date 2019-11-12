@@ -227,11 +227,13 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
                 log.debug('Adding PE customisations')
 
                 # # Entrypoint (EP) pointer and vline
-                phy_ep_pointer = bp.get_physical_from_rva(bp.get_virtual_ep()) / nr_chunksize
-                log.debug('{}: {}'.format('Entrypoint', hex(bp.get_virtual_ep())))
+                phy_ep_pointer = bp.get_physical_from_rva(bp.get_virtual_ep())
+                if phy_ep_pointer:
+                    phy_ep_pointer = phy_ep_pointer / nr_chunksize
+                    log.debug('{}: {}'.format('Entrypoint', hex(bp.get_virtual_ep())))
 
-                host.axvline(x=phy_ep_pointer, linestyle=':', c='#0000ff', zorder=zorder-1)
-                host.text(x=phy_ep_pointer, y=1.07, s='EntryPoint', color='b', rotation=45, va='bottom', ha='left')
+                    host.axvline(x=phy_ep_pointer, linestyle=':', c='#0000ff', zorder=zorder-1)
+                    host.text(x=phy_ep_pointer, y=1.07, s='EntryPoint', color='b', rotation=45, va='bottom', ha='left')
 
                 end_of_last_section = 0
                 longest_section_name = 0

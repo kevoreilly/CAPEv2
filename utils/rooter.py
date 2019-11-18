@@ -14,7 +14,6 @@ import stat
 import subprocess
 import sys
 import errno
-import six
 
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -321,7 +320,7 @@ if __name__ == "__main__":
         args = obj.get("args", [])
         kwargs = obj.get("kwargs", {})
 
-        if not isinstance(command, six.string_types) or command not in handlers:
+        if not isinstance(command, str) or command not in handlers:
             log.info("Received incorrect command: %r", command)
             continue
 
@@ -334,7 +333,7 @@ if __name__ == "__main__":
             continue
 
         for arg in args + list(kwargs.keys()) + list(kwargs.values()):
-            if not isinstance(arg, six.string_types):
+            if not isinstance(arg, str):
                 log.info("Invalid argument detected: %r", arg)
                 break
         else:

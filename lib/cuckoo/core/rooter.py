@@ -83,5 +83,5 @@ def rooter(command, *args, **kwargs):
     if ret["exception"]:
         log.warning("Rooter returned error: %s", ret["exception"])
 
-    return ret["output"]
+    return ret
 

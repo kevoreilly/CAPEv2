@@ -79,6 +79,7 @@ class AnalysisManager(threading.Thread):
         self.interface = None
         self.rt_table = None
         self.route = None
+        self.rooter_response = ""
 
     def init_storage(self):
         """Initialize analysis storage folder."""
@@ -510,6 +511,10 @@ class AnalysisManager(threading.Thread):
 
         active_analysis_count -= 1
 
+    def _rooter_response_check(self):
+        if self.rooter_response and self.rooter_response["exception"] is not None:
+            raise CuckooCriticalError("Error execution rooter command: %s" % self.rooter_response["exception"])
+
     def route_network(self):
         """Enable network routing if desired."""
         # Determine the desired routing strategy (none, internet, VPN).
@@ -557,15 +562,15 @@ class AnalysisManager(threading.Thread):
             self.rt_table = None
 
         if self.route == "inetsim":
-            rooter(
+            self.rooter_response = rooter(
                 "inetsim_enable", self.machine.ip,
                 str(self.cfg.routing.inetsim_server),
                 str(self.cfg.routing.inetsim_dnsport),
                 str(self.cfg.resultserver.port),
             )
 
-        if self.route == "tor":
-            rooter(
+        elif self.route == "tor":
+            self.rooter_response = rooter(
                 "socks5_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
@@ -573,8 +578,8 @@ class AnalysisManager(threading.Thread):
                 str(self.cfg.routing.tor_proxyport)
             )
 
-        if self.route in self.socks5s:
-            rooter(
+        elif self.route in self.socks5s:
+            self.rooter_response = rooter(
                 "socks5_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
@@ -582,37 +587,43 @@ class AnalysisManager(threading.Thread):
                 str(self.socks5s[self.route]["port"])
             )
 
-        if self.route in("none", "None", "drop"):
-            rooter(
+        elif self.route in("none", "None", "drop"):
+            self.rooter_response = rooter(
                 "drop_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port)
             )
 
+        self._rooter_response_check()
+
         if self.interface:
-            rooter("forward_enable", self.machine.interface,
+            self.rooter_response = rooter("forward_enable", self.machine.interface,
                    self.interface, self.machine.ip)
+            self._rooter_response_check()
 
         log.info("Enabled route '%s'", self.route)
 
         if self.rt_table:
-            rooter("srcroute_enable", self.rt_table, self.machine.ip)
+            self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
+            self._rooter_response_check()
 
     def unroute_network(self):
         if self.interface:
-            rooter("forward_disable", self.machine.interface,
+            self.rooter_response = rooter("forward_disable", self.machine.interface,
                    self.interface, self.machine.ip)
             log.info("Disabled route '%s'", self.route)
+            self._rooter_response_check()
 
         if self.rt_table:
-            rooter("srcroute_disable", self.rt_table, self.machine.ip)
+            self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)
+            self._rooter_response_check()
 
         if self.route in vpns:
-            rooter("vpn_disable", self.route)
+            self.rooter_response = rooter("vpn_disable", self.route)
             time.sleep(1)
 
         if self.route == "inetsim":
-            rooter(
+            self.rooter_response = rooter(
                 "inetsim_disable",
                 self.machine.ip,
                 self.cfg.routing.inetsim_server,
@@ -620,8 +631,8 @@ class AnalysisManager(threading.Thread):
                 str(self.cfg.resultserver.port),
             )
 
-        if self.route == "tor":
-            rooter(
+        elif self.route == "tor":
+            self.rooter_response = rooter(
                 "socks5_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
@@ -629,8 +640,8 @@ class AnalysisManager(threading.Thread):
                 str(self.cfg.routing.tor_proxyport),
             )
 
-        if self.route in self.socks5s:
-            rooter(
+        elif self.route in self.socks5s:
+            self.rooter_response = rooter(
                 "socks5_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
@@ -638,12 +649,14 @@ class AnalysisManager(threading.Thread):
                 str(self.socks5s[self.route]["port"])
             )
 
-        if self.route in("none", "None", "drop"):
-            rooter(
+        elif self.route in("none", "None", "drop"):
+            self.rooter_response = rooter(
                 "drop_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port)
             )
+
+        self._rooter_response_check()
 
 
 class Scheduler:

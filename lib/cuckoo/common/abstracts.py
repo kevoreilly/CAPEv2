@@ -686,7 +686,7 @@ class Processing(object):
         self.package_files = os.path.join(self.analysis_path, "package_files")
         self.file_path = os.path.realpath(os.path.join(self.analysis_path, "binary"))
         self.dropped_path = os.path.join(self.analysis_path, "files")
-        self.dropped_meta_path = os.path.join(self.analysis_path, "files.json")
+        self.files_metadata = os.path.join(self.analysis_path, "files.json")
         self.procdump_path = os.path.join(self.analysis_path, "procdump")
         self.CAPE_path = os.path.join(self.analysis_path, "CAPE")
         self.logs_path = os.path.join(self.analysis_path, "logs")

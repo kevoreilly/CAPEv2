@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False)
     parser.add_argument("--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False)
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
+    parser.add_argument("--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False)
 
     try:
         args = parser.parse_args()
@@ -77,6 +78,12 @@ def main():
     target = to_unicode(args.target)
 
     sane_timeout = min(args.timeout, 60 * 60 * 24)
+
+    if args.procdump:
+        if args.options:
+            args.options = ",procdump=1"
+        else:
+            args.options = "procdump=1"
 
     if args.url:
         if args.remote:

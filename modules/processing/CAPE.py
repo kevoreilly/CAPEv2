@@ -31,7 +31,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx
+from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
 
 try:
     import pydeep
@@ -132,7 +132,7 @@ class CAPE(Processing):
             infofd.close()
 
             # Recursive process of unpacked file
-            upx_extract = self.process_file(newname, CAPE_output, True)
+            upx_extract = self.process_file(newname, CAPE_output, True, "")
             if upx_extract["type"]:
                 upx_extract["cape_type"] = "UPX-extracted "
                 type_strings = upx_extract["type"].split()
@@ -143,7 +143,7 @@ class CAPE(Processing):
                     else:
                         upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, CAPE_output, append_file):
+    def process_file(self, file_path, CAPE_output, append_file, metastring):
         """Process file.
         @return: file_info
         """
@@ -165,11 +165,11 @@ class CAPE(Processing):
         textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
         is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
-        if os.path.exists(file_path + "_info.txt"):
-            with open(file_path + "_info.txt", 'r') as f:
-                metastring = f.readline()
-        else:
-            metastring = ""
+        #if os.path.exists(file_path + "_info.txt"):
+        #    with open(file_path + "_info.txt", 'r') as f:
+        #        metastring = f.readline()
+        #else:
+        #    metastring = ""
 
         file_info = File(file_path, metastring).get_all()
 
@@ -233,6 +233,7 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL"
                 else:
                     file_info["cape_type"] += "executable"
+            """
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
@@ -246,7 +247,7 @@ class CAPE(Processing):
                 else:
                     log.error("CAPE: PlugX config parsing failure - size many not be handled.")
                 append_file = False
-
+            """
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
                 if file_info["cape_type_code"] in config_mapping:
@@ -623,6 +624,16 @@ class CAPE(Processing):
         self.key = "CAPE"
         CAPE_output = []
         self.script_dump_files = []
+        meta = dict()
+        if os.path.exists(self.files_metadata):
+            for line in open(self.files_metadata, "rb"):
+                entry = json.loads(line)
+                filepath = os.path.join(self.analysis_path, entry["path"])
+                meta[filepath] = {
+                    "pids": entry["pids"],
+                    "filepath": entry["filepath"],
+                    "metadata": entry["metadata"],
+                }
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path"):
             if hasattr(self, folder):
@@ -633,22 +644,22 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True)
-                        else:
+                            self.process_file(file_path, CAPE_output, True, meta[file_path]["metadata"])
+                        #else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(file_path, CAPE_output, False)
+                            #self.process_file(file_path, CAPE_output, False)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    self.process_file(file_path, CAPE_output, False)
+                    self.process_file(file_path, CAPE_output, False, meta[file_path]["metadata"])
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
 
-        self.process_file(self.file_path, CAPE_output, False)
+        self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}.get("metadata", "")))
         if "cape_config" in cape_config:
             CAPE_output.append(cape_config)
 

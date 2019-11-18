@@ -27,8 +27,8 @@ class Dropped(Processing):
         if not os.path.exists(self.dropped_path):
             return dropped_files
 
-        if os.path.exists(self.dropped_meta_path):
-            for line in open(self.dropped_meta_path, "rb"):
+        if os.path.exists(self.files_metadata):
+            for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {

@@ -130,7 +130,7 @@ def add_protected_path(name):
         PROTECTED_PATH_LIST.append(name.lower() + b"\\")
     else:
         PROTECTED_PATH_LIST.append(name.lower())
-
+'''
 def add_pid(pid):
     """Add a process to process list."""
     if isinstance(pid, (int, int, str)):
@@ -159,7 +159,7 @@ def add_file(file_path):
         log.info("Added new file to list with path: %s",
                  str(file_path).encode("utf-8", "replace"))
         FILES_LIST.append(file_path)
-'''
+
 def dump_file(file_path):
     """Create a copy of the given file path."""
     try:
@@ -197,11 +197,8 @@ def cape_file(file_path):
         if os.path.exists(file_path):
             sha256 = hash_file(hashlib.sha256, file_path)
             if sha256 in CAPE_DUMPED_LIST:
-                newname = sha256 + '_1'
-                while newname in CAPE_DUMPED_LIST:
-                    index = int(newname.split('_')[1])
-                    newname = sha256 + '_' + str(index+1)
-                sha256 = newname
+                # We don't want duplicated
+                return
         else:
             log.warning("CAPE file at path \"%s\" does not exist, skip.",
                         file_path.encode("utf-8", "replace"))
@@ -212,6 +209,7 @@ def cape_file(file_path):
 
     if os.path.isdir(file_path):
         return
+
     file_name = os.path.basename(file_path)
     upload_path = os.path.join("CAPE", sha256)
 
@@ -225,114 +223,13 @@ def cape_file(file_path):
         metastring = file_path
 
     try:
-        #upload_to_host_with_metadata(file_path, upload_path, metastring)
-        upload_to_host(file_path, upload_path)
+        upload_to_host(file_path, upload_path, metadata=metastring)
         CAPE_DUMPED_LIST.append(sha256)
         CAPE_DUMPED_LIST.append(upload_path)
         log.info("Added new CAPE file to list with path: %s", str(file_path).encode("utf-8", "replace"))
     except (IOError, socket.error) as e:
         log.error("Unable to upload CAPE file at path \"%s\": %s",
                   file_path.encode("utf-8", "replace"), e)
-'''
-def proc_dump(file_path):
-    """Create a copy of the given process dump file path."""
-    try:
-        if os.path.exists(file_path):
-            sha256 = hash_file(hashlib.sha256, file_path)
-            if sha256 in PROC_DUMPED_LIST:
-                # The file was already uploaded, forget it
-                return
-        else:
-            log.warning("Process dump at path \"%s\" does not exist, skip.",
-                        file_path.encode("utf-8", "replace"))
-            return
-    except IOError as e:
-        log.warning("Unable to access process dump at path \"%s\"", file_path.encode("utf-8", "replace"))
-        return
-
-    if os.path.isdir(file_path):
-        return
-    file_name = os.path.basename(file_path)
-    upload_path = os.path.join("procdump", sha256)
-
-    if os.path.exists(file_path + "_info.txt"):
-        metadata = [line.strip() for line in open(file_path + "_info.txt")]
-        metastring = ""
-        for line in metadata:
-            metastring = metastring + line + ','
-    else:
-        log.warning("No metadata file for process dump at path \"%s\": %s", file_path.encode("utf-8", "replace"), e)
-        metastring = file_path
-
-    try:
-        upload_to_host_with_metadata(file_path, upload_path, metastring)
-        CAPE_DUMPED_LIST.append(sha256)
-        CAPE_DUMPED_LIST.append(upload_path)
-        log.info("Added new CAPE file to list with path: %s", str(file_path).encode("utf-8", "replace"))
-    except (IOError, socket.error) as e:
-        log.error("Unable to upload process dump at path \"%s\": %s",
-                  file_path.encode("utf-8", "replace"), e)
-
-def del_file(fname):
-    global FILES_LIST
-
-    deleted_idxes = []
-
-    # Filenames are case-insensitive in windows.
-    fnamelower = fname.lower()
-
-    # we only dump files during deletion that we were previously aware of
-    for idx, name in enumerate(FILES_LIST):
-        namelower = name.lower()
-        # dump streams associated with the file too
-        if namelower == fnamelower or (namelower.startswith(fnamelower) and namelower[len(fnamelower)] == ':'):
-            dump_file(name)
-            deleted_idxes.append(idx)
-
-    # If this filename exists in the FILES_LIST, then delete it, because it
-    # doesn't exist anymore anyway.
-    if len(deleted_idxes) == 1:
-        FILES_LIST.pop(deleted_idxes[0])
-    else:
-        FILES_LIST = [name for idx, name in enumerate(FILES_LIST) if idx not in deleted_idxes]
-
-def move_file(old_fname, new_fname):
-    # Filenames are case-insensitive in windows.
-    fnames = [x.lower() for x in FILES_LIST]
-    lower_old_fname = old_fname.lower()
-    # Check whether the old filename is in the FILES_LIST or if we moved a directory containing an existing dropped file
-    for idx in range(len(fnames)):
-        fname = fnames[idx]
-        matchpath = None
-        if fname == lower_old_fname:
-            matchpath = lower_old_fname
-            replacepath = new_fname
-        elif lower_old_fname[-1] == u'\\' and fname.startswith(lower_old_fname):
-           matchpath = lower_old_fname
-           if new_fname[-1] == u'\\':
-               replacepath = new_fname
-           else:
-               replacepath = new_fname + u"\\"
-        elif fname.startswith(lower_old_fname + u"\\"):
-           matchpath = lower_old_fname + u"\\"
-           if new_fname[-1] == u'\\':
-               replacepath = new_fname
-           else:
-               replacepath = new_fname + u"\\"
-        elif fname.startswith(lower_old_fname + u":"):
-            matchpath = lower_old_fname + u":"
-            replacepath = new_fname + u":"
-
-        if matchpath:
-            # Replace the old filename by the new filename, or replace the subdirectory if moved
-            FILES_LIST[idx] = fname.replace(matchpath, replacepath, 1)
-
-def dump_files():
-    """Dump all the dropped files."""
-    for file_path in FILES_LIST:
-        dump_file(file_path)
-
-'''
 
 def upload_debugger_logs():
     """Create a copy of the given file path."""
@@ -1666,8 +1563,16 @@ class CommandPipeHandler(object):
         # We dump immediately.
         if os.path.exists(file_path):
             # ToDo improve this
+            # aka send this as data for the command
+            metastring = ""
+            log.info(file_path)
+            if os.path.exists(file_path+"_info.txt"):
+                metadata = [line.strip() for line in open(file_path + "_info.txt")]
+                metastring = ""
+                for line in metadata:
+                    metastring = metastring + line + ','
             if PATHS["root"].decode("utf-8") in file_path:
-                upload_to_host(file_path, file_path.replace(PATHS["root"].decode("utf-8")+"\\", ""))
+                upload_to_host(file_path, file_path.replace(PATHS["root"].decode("utf-8")+"\\", ""), metadata=metastring)
             else:
                 self.analyzer.files.dump_file(file_path)#, self.pid)
 

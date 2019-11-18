@@ -13,12 +13,12 @@ log = logging.getLogger(__name__)
 
 BUFSIZE = 1024*1024
 
-def upload_to_host(file_path, dump_path, pids=[]):# duplicate=False):
+def upload_to_host(file_path, dump_path, pids=[], metadata=""):
     nc = infd = None
     try:
         nc = NetlogFile()
         #nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
-        nc.init(dump_path, file_path, pids)
+        nc.init(dump_path, file_path, pids, metadata)
         infd = open(file_path, "rb") #rb
         buf = infd.read(BUFSIZE)
         while buf:
@@ -92,7 +92,6 @@ class NetlogConnection(object):
             # So we just fail silently.
             self.close()
 
-
     def close(self):
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
@@ -112,17 +111,18 @@ class NetlogBinary(NetlogConnection):
 
 
 class NetlogFile(NetlogConnection):
-    def init(self, dump_path, filepath=False, pids=False):
-        print("file2", dump_path, filepath)
+    def init(self, dump_path, filepath=False, pids=False, metadata=""):
+        print("file2", dump_path, filepath, metadata)
         if pids:
             pids = " ".join(pids)
         else:
             pids = b""
         if filepath:
-            self.proto = b"FILE 2\n%s\n%s\n%s\n" % (
+            self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n" % (
                 dump_path.encode("utf8"),
                 filepath.encode("utf-8", "replace"),
-                pids
+                pids,
+                metadata.encode("utf-8", "replace"),
             )
         else:
            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")

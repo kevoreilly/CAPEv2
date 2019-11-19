@@ -320,35 +320,35 @@ def cuckoo_clean():
     except:
         log.warning("Unable to drop MongoDB database: %s", mdb)
 
-    es = False
     if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
+        es = False
         es, delidx = connect_to_es()
-    if not es:
-        return
-    analyses = es.search(
-        index=delidx,
-        doc_type="analysis",
-        q="*"
-        )["hits"]["hits"]
-    if analyses:
-        for analysis in analyses:
-            esidx = analysis["_index"]
-            esid = analysis["_id"]
-            # Check if behavior exists
-            if analysis["_source"]["behavior"]:
-                for process in analysis["_source"]["behavior"]["processes"]:
-                    for call in process["calls"]:
-                        es.delete(
-                            index=esidx,
-                            doc_type="calls",
-                            id=call,
-                        )
-            # Delete the analysis results
-            es.delete(
-                index=esidx,
-                doc_type="analysis",
-                id=esid,
-            )
+        if not es:
+            return
+        analyses = es.search(
+            index=delidx,
+            doc_type="analysis",
+            q="*"
+            )["hits"]["hits"]
+        if analyses:
+            for analysis in analyses:
+                esidx = analysis["_index"]
+                esid = analysis["_id"]
+                # Check if behavior exists
+                if analysis["_source"]["behavior"]:
+                    for process in analysis["_source"]["behavior"]["processes"]:
+                        for call in process["calls"]:
+                            es.delete(
+                                index=esidx,
+                                doc_type="calls",
+                                id=call,
+                            )
+                # Delete the analysis results
+                es.delete(
+                    index=esidx,
+                    doc_type="analysis",
+                    id=esid,
+                )
 
     # Paths to clean.
     paths = [

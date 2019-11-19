@@ -3,8 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
+import gc
+import logging
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.exceptions import CuckooReportError
@@ -96,7 +97,7 @@ class MongoDB(Report):
             # we do not want to convert that.
             if type(v) is str:
                 try:
-                    v.decode('utf-8')
+                    v.encode('utf-8')
                 except UnicodeDecodeError:
                     obj[k] = ''.join(str(ord(_)) for _ in v).encode('utf-8')
             else:
@@ -217,6 +218,7 @@ class MongoDB(Report):
             log.debug("Deleted previous MongoDB data for Task %s" % report["info"]["id"])
 
         self.ensure_valid_utf8(report)
+        gc.collect()
 
         # Store the report and retrieve its object id.
         try:

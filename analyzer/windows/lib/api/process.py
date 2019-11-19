@@ -29,7 +29,6 @@ from lib.common.defines import MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE
 from lib.common.defines import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
-from lib.common.results import NetlogFile
 from lib.core.config import Config
 from lib.core.log import LogServer
 
@@ -495,7 +494,7 @@ class Process:
             config.write("host-port={0}\n".format(self.config.port))
             config.write("pipe={0}\n".format(PIPE))
             config.write("logserver={0}\n".format(logserver_path))
-            config.write("results={0}\n".format(PATHS["root"].decode("utf-8")))
+            config.write("results={0}\n".format(PATHS["root"]))
             config.write("analyzer={0}\n".format(os.getcwd()))
             config.write("first-process={0}\n".format("1" if firstproc else "0"))
             config.write("startup-time={0}\n".format(Process.startup_time))
@@ -606,30 +605,13 @@ class Process:
             return False
 
         file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
-        nf = NetlogFile(os.path.join("memory", "{0}.dmp".format(self.pid)))
         try:
-            infd = open(file_path, "rb")
+            file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
+            upload_to_host(file_path, os.path.join("memory", "{0}.dmp".format(self.pid)))
         except Exception as e:
+            print(e)
             log.error(e, exc_info=True)
-            nf.close()
-            log.warning("Unable to find process dump for process %d.", self.pid)
-            return False
-
-        buf = infd.read(1024*1024)
-        try:
-            while buf:
-                nf.send(buf, retry=True)
-                buf = infd.read(1024*1024)
-        except Exception as e:
-            log.error(e, exc_info=True)
-            infd.close()
-            nf.close()
-            log.warning("Upload of memory dump for process %d failed.", self.pid)
-            return False
-
-        infd.close()
-        nf.close()
-
+            log.error(os.path.join("memory", "{0}.dmp".format(self.pid)), file_path)
         log.info("Memory dump of process %d uploaded", self.pid)
 
         return True
@@ -651,7 +633,7 @@ class Process:
         bin_name = ""
         bit_str = ""
         #file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
-        file_path = (os.path.join(PATHS["memory"].decode(), str(self.pid) + ".dmp"))
+        file_path = (os.path.join(PATHS["memory"], str(self.pid) + ".dmp"))
         if self.is_64bit():
             orig_bin_name = LOADER64_NAME
             bit_str = "64-bit"
@@ -671,32 +653,14 @@ class Process:
         else:
             log.error("Please place the %s binary from cuckoomon into analyzer/windows/bin in order to analyze %s binaries.", os.path.basename(bin_name), bit_str)
             return False
-        """
+
         try:
-            file_path = os.path.join(PATHS["memory"], str(self.pid).encode()+b".dmp")
-            log.info((file_path, os.path.join(b"memory", str(self.pid).encode()+b".dmp")))
-            upload_to_host(file_path, os.path.join(b"memory", str(self.pid).encode()+b".dmp"))
+            file_path = os.path.join(PATHS["memory"], str(self.pid)+".dmp")
+            upload_to_host(file_path, os.path.join("memory", str(self.pid)+".dmp"))
         except Exception as e:
             print(e)
             log.error(e, exc_info=True)
-            log.error(os.path.join(b"memory", str(self.pid).encode()+b".dmp"), file_path)
-        """
-        nf = NetlogFile(os.path.join("memory", str(self.pid)+".dmp"))
-        infd = open(file_path, "rb")
-        buf = infd.read(1024*1024)
-        try:
-            while buf:
-                nf.send(buf, retry=True)
-                buf = infd.read(1024*1024)
-        except Exception as e:
-            log.error(e, exc_info=True)
-            infd.close()
-            nf.close()
-            log.warning("Memory dump of process with pid %d failed", self.pid)
-            return False
-
-        infd.close()
-        nf.close()
+            log.error(os.path.join("memory", "{0}.dmp".format(self.pid)), file_path)
 
         log.info("Memory dump of process with pid %d completed", self.pid)
 

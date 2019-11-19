@@ -7,14 +7,14 @@ import os
 from lib.common.rand import random_string
 
 
-ROOT = (os.path.join(os.getenv("SystemDrive"), "\\", random_string(6, 10))).encode("utf-8")
+ROOT = os.path.join(os.getenv("SystemDrive"), "\\", random_string(6, 10))
 
 PATHS = {"root"  : ROOT,
-         "logs"  : os.path.join(ROOT, b"logs"),
-         "files" : os.path.join(ROOT, b"files"),
-         "shots" : os.path.join(ROOT, b"shots"),
-         "memory": os.path.join(ROOT, b"memory"),
-         "drop"  : os.path.join(ROOT, b"drop")}
+         "logs"  : os.path.join(ROOT, "logs"),
+         "files" : os.path.join(ROOT, "files"),
+         "shots" : os.path.join(ROOT, "shots"),
+         "memory": os.path.join(ROOT, "memory"),
+         "drop"  : os.path.join(ROOT, "drop")}
 
 PIPE = "\\\\.\\PIPE\\" + random_string(6, 10)
 SHUTDOWN_MUTEX = "Global\\" + random_string(6, 10)

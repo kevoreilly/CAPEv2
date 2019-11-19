@@ -199,14 +199,18 @@ class FileUpload(ProtocolHandler):
                                              self.task_id)
             raise
         #ToDo we need Windows path
-        # Append-writes are atomic
-        with open(self.filelog, "a") as f:
-            print(json.dumps({
-                "path": dump_path.decode("utf-8", "replace"),
-                "filepath": filepath.decode("utf-8", "replace") if filepath else "",
-                "pids": pids,
-                "metadata": metadata.decode("utf-8", "replace"),
-            }, ensure_ascii=False), file=f)
+        # filter screens/curtain/sysmon
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/")):
+            # Append-writes are atomic
+            category = os.path.dirname(dump_path)
+            with open(self.filelog, "a") as f:
+                print(json.dumps({
+                    "path": dump_path.decode("utf-8", "replace"),
+                    "filepath": filepath.decode("utf-8", "replace") if filepath else "",
+                    "pids": pids,
+                    "metadata": metadata.decode("utf-8", "replace"),
+                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory") else ""
+                }, ensure_ascii=False), file=f)
 
         self.handler.sock.settimeout(None)
         try:

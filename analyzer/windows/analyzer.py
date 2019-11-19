@@ -233,7 +233,7 @@ def cape_file(file_path):
 
 def upload_debugger_logs():
     """Create a copy of the given file path."""
-    log_folder = PATHS["root"] + b"\\debugger"
+    log_folder = PATHS["root"] + "\\debugger"
     try:
         if os.path.exists(log_folder):
             log.info("Uploading debugger log at path \"%s\" ", log_folder.decode("utf-8"))
@@ -337,7 +337,7 @@ class Analyzer:
         create_folders()
 
         add_protected_path(os.getcwd().encode("utf-8"))
-        add_protected_path(PATHS["root"])
+        add_protected_path(PATHS["root"].encode("utf-8"))
 
         # Initialize logging.
         init_logging()
@@ -1571,8 +1571,8 @@ class CommandPipeHandler(object):
                 metastring = ""
                 for line in metadata:
                     metastring = metastring + line + ','
-            if PATHS["root"].decode("utf-8") in file_path:
-                upload_to_host(file_path, file_path.replace(PATHS["root"].decode("utf-8")+"\\", ""), metadata=metastring)
+            if PATHS["root"] in file_path:
+                upload_to_host(file_path, file_path.replace(PATHS["root"]+"\\", ""), metadata=metastring)
             else:
                 self.analyzer.files.dump_file(file_path)#, self.pid)
 

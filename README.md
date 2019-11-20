@@ -1,7 +1,13 @@
-## First BETA of CAPEv2! you are welcome to test and report any bug
+## CAPEv2! you are welcome to test and report any bug
+
 * Python3 
-* agent.py is tested with python 3.7.2 x86
+* agent.py is tested with python (3.7.2|3.8) x86
 * host python3 vetsion 3.6.8
+
+#### What doesn't work
+* peepdf as it's a py2
+* volatility details, the bridge exist to use VolatilityAPI with vol3, but not to run the default modules
+* malware config parsers as they are also py2
 
 ## CAPE: Malware Configuration And Payload Extraction
 

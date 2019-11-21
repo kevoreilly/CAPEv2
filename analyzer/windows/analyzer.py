@@ -60,23 +60,12 @@ PROC_DUMPED_LIST = []
 UPLOADPATH_LIST = []
 PROCESS_LIST = []
 INJECT_LIST = []
-CRITICAL_PROCESS_LIST = []
 PROTECTED_PATH_LIST = []
 AUX_ENABLED = []
-PROCESS_LOCK = Lock()
 MONITOR_DLL = None
 MONITOR_DLL_64 = None
 LOADER32 = None
 LOADER64 = None
-
-SERVICES_PID = None
-MONITORED_SERVICES = False
-MONITORED_WMI = False
-MONITORED_DCOM = False
-MONITORED_BITS = False
-MONITORED_TASKSCHED = False
-LASTINJECT_TIME = None
-NUM_INJECTED = 0
 ANALYSIS_TIMED_OUT = False
 
 PID = os.getpid()
@@ -130,115 +119,16 @@ def add_protected_path(name):
         PROTECTED_PATH_LIST.append(name.lower() + b"\\")
     else:
         PROTECTED_PATH_LIST.append(name.lower())
-'''
-def add_pid(pid):
-    """Add a process to process list."""
-    if isinstance(pid, (int, int, str)):
-        log.info("Added new process to list with pid: %s", pid)
-        PROCESS_LIST.append(int(pid))
-        add_pid_to_aux_modules(int(pid))
 
-def remove_pid(pid):
-    """Remove a process to process list."""
-    if isinstance(pid, (int, int, str)):
-        log.info("Process with pid %s has terminated", pid)
-        PROCESS_LIST.remove(int(pid))
-        del_pid_from_aux_modules(int(pid))
-
-def add_pids(pids):
-    """Add PID."""
-    if isinstance(pids, (tuple, list)):
-        for pid in pids:
-            add_pid(pid)
-    else:
-        add_pid(pids)
-
-def add_file(file_path):
-    """Add a file to file list."""
-    if file_path not in FILES_LIST:
-        log.info("Added new file to list with path: %s",
-                 str(file_path).encode("utf-8", "replace"))
-        FILES_LIST.append(file_path)
-
-def dump_file(file_path):
-    """Create a copy of the given file path."""
-    try:
-        if os.path.exists(file_path):
-            sha256 = hash_file(hashlib.sha256, file_path)
-            if sha256 in DUMPED_LIST:
-                # The file was already dumped, just upload the alternate name for it.
-                return
-                #duplicate = True
-        else:
-            log.warning("File at path \"%s\" does not exist, skip.",
-                        file_path.encode("utf-8", "replace"))
-            return
-    except IOError as e:
-        log.warning("Unable to access file at path \"%s\": %s", file_path.encode("utf-8", "replace"), e)
-        return
-
-    if os.path.isdir(file_path):
-        return
-
-    upload_path = os.path.join("files", sha256)
-    try:
-        upload_to_host(file_path, upload_path)
-        upload_to_host(self.files_orig.get(filepath.lower(), filepath),
-                upload_path, self.files.get(filepath.lower(), []))
-        DUMPED_LIST.append(sha256)
-        UPLOADPATH_LIST.append(upload_path)
-    except (IOError, socket.error) as e:
-        log.error("Unable to upload dropped file at path \"%s\": %s",
-                  file_path.encode("utf-8", "replace"), e)
-'''
-def cape_file(file_path):
-    """Create a copy of the given CAPE file path."""
-    try:
-        if os.path.exists(file_path):
-            sha256 = hash_file(hashlib.sha256, file_path)
-            if sha256 in CAPE_DUMPED_LIST:
-                # We don't want duplicated
-                return
-        else:
-            log.warning("CAPE file at path \"%s\" does not exist, skip.",
-                        file_path.encode("utf-8", "replace"))
-            return
-    except IOError as e:
-        log.warning("Unable to access CAPE file at path \"%s\": %s", file_path.encode("utf-8", "replace"), e)
-        return
-
-    if os.path.isdir(file_path):
-        return
-
-    file_name = os.path.basename(file_path)
-    upload_path = os.path.join("CAPE", sha256)
-
-    if os.path.exists(file_path + "_info.txt"):
-        metadata = [line.strip() for line in open(file_path + "_info.txt")]
-        metastring = ""
-        for line in metadata:
-            metastring = metastring + line + ','
-    else:
-        log.warning("No metadata file for CAPE dump at path \"%s\"", file_path.encode("utf-8", "replace"))
-        metastring = file_path
-
-    try:
-        upload_to_host(file_path, upload_path, metadata=metastring)
-        CAPE_DUMPED_LIST.append(sha256)
-        CAPE_DUMPED_LIST.append(upload_path)
-        log.info("Added new CAPE file to list with path: %s", str(file_path).encode("utf-8", "replace"))
-    except (IOError, socket.error) as e:
-        log.error("Unable to upload CAPE file at path \"%s\": %s",
-                  file_path.encode("utf-8", "replace"), e)
 
 def upload_debugger_logs():
     """Create a copy of the given file path."""
     log_folder = PATHS["root"] + "\\debugger"
     try:
         if os.path.exists(log_folder):
-            log.info("Uploading debugger log at path \"%s\" ", log_folder.decode("utf-8"))
+            log.info("Uploading debugger log at path \"%s\" ", log_folder)
         else:
-            log.warning("File at path \"%s\" does not exist, skip.", log_folder.decode("utf-8"))
+            log.warning("File at path \"%s\" does not exist, skip.", log_folder)
             return
     except IOError as e:
         log.warning("Unable to access file at path \"%s\": %s", log_folder, e)
@@ -247,7 +137,7 @@ def upload_debugger_logs():
     for root, dirs, files in os.walk(log_folder):
         for file in files:
             file_path = os.path.join(root, file)
-            upload_path = os.path.join(b"debugger", file)
+            upload_path = os.path.join("debugger", file)
             try:
                 upload_to_host(file_path, upload_path, False)
             except (IOError, socket.error) as e:
@@ -900,14 +790,14 @@ class Files(object):
         if filepath.lower() not in self.files:
             log.info(
                 "Added new file to list with pid %s and path %s",
-                pid, filepath.encode("utf8")
+                pid, filepath
             )
             self.files[filepath.lower()] = []
             self.files_orig[filepath.lower()] = filepath
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath):
+    def dump_file(self, filepath, metadata=b"", pids=False, category="files"):
         log.info(("dump_file", filepath))
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
@@ -924,17 +814,15 @@ class Files(object):
             return
 
         filename = "%s_%s" % (sha256[:16], os.path.basename(filepath))
-        #https://www.capesandbox.com/analysis/7237/
-        #dropped 'dump_file', 'C:\\Users\\Veronica\\AppData\\Local\\Temp\\formbok_injection.exe:Zone.Identifier')
-        #procdump ('dump_file', 'C:\\jHoOJasfk\\CAPE\\2192_213069593647451963112019')
-        upload_path = os.path.join("files", filename)
+        upload_path = os.path.join(category, filename)
 
         try:
             upload_to_host(
                 # If available use the original filepath, the one that is
                 # not lowercased.
                 self.files_orig.get(filepath.lower(), filepath),
-                upload_path, self.files.get(filepath.lower(), [])
+                upload_path, self.files.get(filepath.lower(), pids),
+                metadata=metadata, category=category,
             )
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
@@ -967,7 +855,6 @@ class Files(object):
 
     def dump_files(self):
         """Dump all pending files."""
-        log.info(self.files)
         while self.files:
             self.delete_file(list(self.files.keys())[0])
 
@@ -1538,12 +1425,12 @@ class CommandPipeHandler(object):
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
-        file_path = data.decode("utf8")
-        #self.analyzer.files.add_file(file_path, self.pid)
+        # Syntax -> PATH|PID|Metadata
+        file_path, pid, metadata = data.split(b"|")
+        #self.analyzer.files.add_file(file_path)
         # We dump immediately.
-        cape_file(file_path)
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path)
+            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1559,22 +1446,12 @@ class CommandPipeHandler(object):
 
     def _handle_file_dump(self, data):
         # We extract the file path.
-        file_path = data.decode("utf-8")
+        # Syntax -> PATH|PID|Metadata
+        file_path, pid, metadata = data.split(b"|")
         # We dump immediately.
         if os.path.exists(file_path):
-            # ToDo improve this
             # aka send this as data for the command
-            metastring = ""
-            log.info(file_path)
-            if os.path.exists(file_path+"_info.txt"):
-                metadata = [line.strip() for line in open(file_path + "_info.txt")]
-                metastring = ""
-                for line in metadata:
-                    metastring = metastring + line + ','
-            if PATHS["root"] in file_path:
-                upload_to_host(file_path, file_path.replace(PATHS["root"]+"\\", ""), metadata=metastring)
-            else:
-                self.analyzer.files.dump_file(file_path)#, self.pid)
+            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid], metadata=metadata, category="CAPE")
 
     def _handle_dumpmem(self, data):
         #TODo dump by pid
@@ -1643,7 +1520,7 @@ class CommandPipeHandler(object):
             command, arguments = data.strip().split(b":", 1)
             #ToDo remove
             if command not in (b"DEBUG", b"INFO"):
-                log.info((data, "dispatch"))
+                log.info((command, arguments, "dispatch"))
             self.pid = None
             #else:
             #self.pid, command, arguments = data.strip().split(b":", 2)
@@ -1716,9 +1593,6 @@ if __name__ == "__main__":
                 )
             else:
                 data["description"] = complete_excp
-
-        # Report that we're finished. First try with the XML RPC thing and
-        # if that fails, attempt the new Agent.
         try:
             urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
         except Exception as e:

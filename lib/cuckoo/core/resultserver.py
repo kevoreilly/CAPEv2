@@ -183,10 +183,10 @@ class FileUpload(ProtocolHandler):
             filepath = self.handler.read_newline()
             pids = list(map(int, self.handler.read_newline().split()))
             metadata = self.handler.read_newline()
+            category = self.handler.read_newline()
         else:
-            filepath, pids, metadata = None, [], b""
+            filepath, pids, metadata, category = None, [], b"", b""
 
-        print(dump_path, filepath, pids, metadata)
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
 
@@ -202,7 +202,6 @@ class FileUpload(ProtocolHandler):
         # filter screens/curtain/sysmon
         if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/")):
             # Append-writes are atomic
-            category = os.path.dirname(dump_path)
             with open(self.filelog, "a") as f:
                 print(json.dumps({
                     "path": dump_path.decode("utf-8", "replace"),

@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 BUFSIZE = 1024*1024
 
-def upload_to_host(file_path, dump_path, pids=[], metadata=""):
+def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
     try:
         nc = NetlogFile()
@@ -111,18 +111,21 @@ class NetlogBinary(NetlogConnection):
 
 
 class NetlogFile(NetlogConnection):
-    def init(self, dump_path, filepath=False, pids=False, metadata=""):
-        print("file2", dump_path, filepath, metadata)
+    def init(self, dump_path, filepath=False, pids="", metadata="", category="files"):
+        """
+            All arguments should be strings
+        """
         if pids:
             pids = " ".join(pids)
         else:
-            pids = b""
+            pids = ""
         if filepath:
-            self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n" % (
+            self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n" % (
                 dump_path.encode("utf8"),
                 filepath.encode("utf-8", "replace"),
-                pids,
-                metadata.encode("utf-8", "replace"),
+                pids.encode("utf8") if isinstance(pids, str) else pids,
+                metadata.encode("utf8") if isinstance(metadata, str) else metadata,
+                category.encode("utf8") if isinstance(category, str) else category,
             )
         else:
            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")

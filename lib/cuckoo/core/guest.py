@@ -377,5 +377,4 @@ class GuestManager(object):
                     self.vmid, self.task_id, status["description"]
                 )
                 db.guest_set_status(self.task_id, "failed")
-
                 return

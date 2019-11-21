@@ -73,6 +73,17 @@ def forward_drop():
     """Disable any and all forwarding unless explicitly said so."""
     run(settings.iptables, "-P", "FORWARD", "DROP")
 
+def state_enable():
+    """Enable stateful connection tracking."""
+    run(settings.iptables, "-A", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+
+def state_disable():
+    """Disable stateful connection tracking."""
+    while True:
+        _, err = run(settings.iptables, "-D", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+        if err:
+            break
+
 def enable_nat(interface):
     """Enable NAT on this interface."""
     run(settings.iptables, "-t", "nat", "-A", "POSTROUTING",
@@ -235,6 +246,8 @@ handlers = {
     "vpn_enable": vpn_enable,
     "vpn_disable": vpn_disable,
     "forward_drop": forward_drop,
+    "state_enable": state_enable,
+    "state_disable": state_disable,
     "enable_nat": enable_nat,
     "disable_nat": disable_nat,
     "init_rttable": init_rttable,

@@ -10,16 +10,12 @@ import cgi
 import sys
 import json
 import stat
-import time
 import shutil
-import string
-import random
 import traceback
 import platform
 import tempfile
 import argparse
 import subprocess
-import configparser
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -37,176 +33,10 @@ STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
-COMPLETION_KEY = ""
 state = dict()
 state["status"] = STATUS_INIT
 #sys.stdout = BytesIO()
 #sys.stderr = BytesIO()
-
-class Agent:
-    """Cuckoo agent, it runs inside guest."""
-
-    def __init__(self):
-        self.system = platform.system().lower()
-        self.analyzer_path = ""
-        self.analyzer_pid = 0
-
-    def _initialize(self):
-        global ANALYZER_FOLDER
-        global COMPLETION_KEY
-
-        if not ANALYZER_FOLDER:
-            random.seed(time.time())
-            container = "".join(random.choice(string.ascii_lowercase) for x in range(random.randint(5, 10)))
-            COMPLETION_KEY = "".join(random.choice(string.ascii_lowercase) for x in range(random.randint(16, 20)))
-            if self.system == "windows":
-                system_drive = os.environ["SYSTEMDRIVE"] + os.sep
-                ANALYZER_FOLDER = os.path.join(system_drive, container)
-            elif self.system == "linux" or self.system == "darwin":
-                ANALYZER_FOLDER = os.path.join(os.environ["HOME"], container)
-            else:
-                state["description"] = "Unable to identify operating system"
-                return False
-
-            try:
-                os.makedirs(ANALYZER_FOLDER)
-            except OSError as e:
-                state["description"] = e
-                return False
-
-        return True
-
-    def add_malware(self, data, name):
-        """Get analysis data.
-        @param data: analysis data.
-        @param name: file name.
-        @return: operation status.
-        """
-        data = data.data
-
-        if self.system == "windows":
-            root = os.environ["TEMP"]
-        elif self.system in("linux", "darwin"):
-            root = tempfile.gettempdir()
-        else:
-            state["description"] = "Unable to write malware to disk because of " \
-                            "failed identification of the operating system"
-            return False
-
-        file_path = os.path.join(root, name)
-
-        try:
-            with open(file_path, "w") as sample:
-                sample.write(data)
-        except IOError as e:
-            state["description"] = "Unable to write sample to disk: {0}".format(e)
-            return False
-
-        return True
-
-    def add_config(self, options):
-        """Creates analysis.conf file from current analysis options.
-        @param options: current configuration options, dict format.
-        @return: operation status.
-        """
-
-        if not isinstance(options, dict):
-            return False
-
-        config = configparser.RawConfigParser()
-        config.add_section("analysis")
-
-        try:
-            for key, value in options.items():
-                # Options can be UTF encoded.
-                if isinstance(value, str):
-                    try:
-                        value = value.encode("utf-8")
-                    except UnicodeEncodeError:
-                        pass
-
-                config.set("analysis", key, value)
-            config.set("analysis", "completion_key", COMPLETION_KEY)
-            config_path = os.path.join(ANALYZER_FOLDER, "analysis.conf")
-
-            with open(config_path, "w") as config_file:
-                config.write(config_file)
-        except Exception as e:
-            print(e)
-            state["description"] = str(e)
-            return False
-
-        return True
-
-    def add_analyzer(self, data):
-        """Add analyzer.
-        @param data: analyzer data.
-        @return: operation status.
-        """
-        data = data.data
-
-        if state["status"] != STATUS_INIT:
-            return False
-
-        if not self._initialize():
-            return False
-
-        try:
-            zip_data = BytesIO()
-            zip_data.write(data)
-
-            with ZipFile(zip_data, "r") as archive:
-                archive.extractall(ANALYZER_FOLDER)
-        finally:
-            zip_data.close()
-
-        self.analyzer_path = os.path.join(ANALYZER_FOLDER, "analyzer.py")
-
-        return True
-
-    def execute(self):
-        """Execute analysis.
-        @return: analyzer PID.
-        """
-
-        if state["status"] != STATUS_INIT:
-            return False
-
-        if not self.analyzer_path or not os.path.exists(self.analyzer_path):
-            return False
-
-        try:
-            proc = subprocess.Popen([sys.executable, self.analyzer_path],
-                cwd=os.path.dirname(self.analyzer_path))
-            self.analyzer_pid = proc.pid
-        except OSError as e:
-            state["description"] = str(e)
-            return False
-
-        state["status"] = STATUS_RUNNING
-        return self.analyzer_pid
-
-    def complete(self, success=True, error="", results=""):
-        """Complete analysis.
-        @param success: success status.
-        @param error: error status.
-        """
-        global RESULTS_FOLDER
-
-        if results != COMPLETION_KEY:
-            return False
-
-        if success:
-            state["status"] = STATUS_COMPLETED
-        else:
-            if error:
-                state["description"] = str(error)
-
-            state["status"] = STATUS_FAILED
-
-        RESULTS_FOLDER = results
-
-        return True
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "Cuckoo Agent"
@@ -536,8 +366,11 @@ def do_execute():
             )
             stdout, stderr = p.communicate()
     except:
+        state["status"] = STATUS_FAILED
+        state["description"] = "Error execute command"
         return json_exception("Error executing command")
 
+    state["status"] = STATUS_RUNNING
     return json_success("Successfully executed command",
                         stdout=stdout, stderr=stderr)
 

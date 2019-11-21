@@ -12,7 +12,6 @@ import logging
 import datetime
 import requests
 
-import xmlrpc.client
 from io import BytesIO
 from zipfile import ZipFile, ZIP_STORED
 

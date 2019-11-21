@@ -399,8 +399,11 @@ def do_execpy():
                                  stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except:
+        state["status"] = STATUS_FAILED
+        state["description"] = "Error executing command"
         return json_exception("Error executing command")
 
+    state["status"] = STATUS_RUNNING
     return json_success("Successfully executed command",
                         stdout=stdout, stderr=stderr)
 

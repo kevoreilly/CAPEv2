@@ -797,7 +797,7 @@ class Files(object):
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath, metadata=b"", pids=False, category="files"):
+    def dump_file(self, filepath, metadata="", pids=False, category="files"):
         log.info(("dump_file", filepath))
         """Dump a file to the host."""
         if not os.path.isfile(filepath):

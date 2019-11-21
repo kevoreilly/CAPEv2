@@ -35,12 +35,11 @@ STATUS_INIT = 0x0001
 STATUS_RUNNING = 0x0002
 STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
-CURRENT_STATUS = STATUS_INIT
 
-ERROR_MESSAGE = ""
 ANALYZER_FOLDER = ""
 COMPLETION_KEY = ""
-
+state = dict()
+state["status"] = STATUS_INIT
 #sys.stdout = BytesIO()
 #sys.stderr = BytesIO()
 
@@ -53,7 +52,6 @@ class Agent:
         self.analyzer_pid = 0
 
     def _initialize(self):
-        global ERROR_MESSAGE
         global ANALYZER_FOLDER
         global COMPLETION_KEY
 
@@ -67,28 +65,16 @@ class Agent:
             elif self.system == "linux" or self.system == "darwin":
                 ANALYZER_FOLDER = os.path.join(os.environ["HOME"], container)
             else:
-                ERROR_MESSAGE = "Unable to identify operating system"
+                state["description"] = "Unable to identify operating system"
                 return False
 
             try:
                 os.makedirs(ANALYZER_FOLDER)
             except OSError as e:
-                ERROR_MESSAGE = e
+                state["description"] = e
                 return False
 
         return True
-
-    def get_status(self):
-        """Get current status.
-        @return: status.
-        """
-        return CURRENT_STATUS
-
-    def get_error(self):
-        """Get error message.
-        @return: error message.
-        """
-        return str(ERROR_MESSAGE)
 
     def add_malware(self, data, name):
         """Get analysis data.
@@ -96,7 +82,6 @@ class Agent:
         @param name: file name.
         @return: operation status.
         """
-        global ERROR_MESSAGE
         data = data.data
 
         if self.system == "windows":
@@ -104,7 +89,7 @@ class Agent:
         elif self.system in("linux", "darwin"):
             root = tempfile.gettempdir()
         else:
-            ERROR_MESSAGE = "Unable to write malware to disk because of " \
+            state["description"] = "Unable to write malware to disk because of " \
                             "failed identification of the operating system"
             return False
 
@@ -114,7 +99,7 @@ class Agent:
             with open(file_path, "w") as sample:
                 sample.write(data)
         except IOError as e:
-            ERROR_MESSAGE = "Unable to write sample to disk: {0}".format(e)
+            state["description"] = "Unable to write sample to disk: {0}".format(e)
             return False
 
         return True
@@ -124,7 +109,6 @@ class Agent:
         @param options: current configuration options, dict format.
         @return: operation status.
         """
-        global ERROR_MESSAGE
 
         if not isinstance(options, dict):
             return False
@@ -149,7 +133,7 @@ class Agent:
                 config.write(config_file)
         except Exception as e:
             print(e)
-            ERROR_MESSAGE = str(e)
+            state["description"] = str(e)
             return False
 
         return True
@@ -161,7 +145,7 @@ class Agent:
         """
         data = data.data
 
-        if CURRENT_STATUS != STATUS_INIT:
+        if state["status"] != STATUS_INIT:
             return False
 
         if not self._initialize():
@@ -184,10 +168,8 @@ class Agent:
         """Execute analysis.
         @return: analyzer PID.
         """
-        global ERROR_MESSAGE
-        global CURRENT_STATUS
 
-        if CURRENT_STATUS != STATUS_INIT:
+        if state["status"] != STATUS_INIT:
             return False
 
         if not self.analyzer_path or not os.path.exists(self.analyzer_path):
@@ -195,14 +177,13 @@ class Agent:
 
         try:
             proc = subprocess.Popen([sys.executable, self.analyzer_path],
-                                    cwd=os.path.dirname(self.analyzer_path))
+                cwd=os.path.dirname(self.analyzer_path))
             self.analyzer_pid = proc.pid
         except OSError as e:
-            ERROR_MESSAGE = str(e)
+            state["description"] = str(e)
             return False
 
-        CURRENT_STATUS = STATUS_RUNNING
-
+        state["status"] = STATUS_RUNNING
         return self.analyzer_pid
 
     def complete(self, success=True, error="", results=""):
@@ -210,20 +191,18 @@ class Agent:
         @param success: success status.
         @param error: error status.
         """
-        global ERROR_MESSAGE
-        global CURRENT_STATUS
         global RESULTS_FOLDER
 
         if results != COMPLETION_KEY:
             return False
 
         if success:
-            CURRENT_STATUS = STATUS_COMPLETED
+            state["status"] = STATUS_COMPLETED
         else:
             if error:
-                ERROR_MESSAGE = str(error)
+                state["description"] = str(error)
 
-            CURRENT_STATUS = STATUS_FAILED
+            state["status"] = STATUS_FAILED
 
         RESULTS_FOLDER = results
 
@@ -371,7 +350,6 @@ class request(object):
     }
 
 app = MiniHTTPServer()
-state = {}
 
 def json_error(error_code, message):
     r = jsonify(message=message, error_code=error_code)
@@ -619,4 +597,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     app.run(host=args.host, port=int(args.port))
-

@@ -589,8 +589,7 @@ class Analyzer:
                         # can terminate the analysis.
                         if not self.process_list.pids and (not self.LASTINJECT_TIME or (datetime.now() >= (self.LASTINJECT_TIME + timedelta(seconds=15)))):
                             if emptytime and (datetime.now() >= (emptytime + timedelta(seconds=5))):
-                                log.info("Process list is empty, "
-                                        "terminating analysis.")
+                                log.info("Process list is empty, terminating analysis.")
                                 break
                             elif not emptytime:
                                 emptytime = datetime.now()
@@ -735,8 +734,6 @@ class Analyzer:
 
         # Let's invoke the completion procedure.
         log.info("Shutting down pipe server and dumping dropped files.")
-        # Dump all the notified files.
-        #self.complete()
 
         return True
 

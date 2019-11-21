@@ -81,187 +81,6 @@ def analyzer_zipfile(platform):
 
     return data
 
-class OldGuestManager:
-    """Guest Manager.
-
-    This class handles the communications with the agents running in the
-    machines.
-    """
-
-    def __init__(self, vm_id, ip, platform, task_id, analysis_manager):
-        """@param ip: guest's IP address.
-        @param platform: guest's operating system type.
-        """
-        self.id = vm_id
-        self.ip = ip
-        self.platform = platform
-
-        # initialized in start_analysis so we can update the critical timeout
-        # TODO, pull options parameter into __init__ so we can do this here
-        self.timeout = None
-        self.server = None
-
-    def wait(self, status):
-        """Waiting for status.
-        @param status: status.
-        @return: always True.
-        """
-        log.debug("%s: waiting for status 0x%.04x", self.id, status)
-
-        end = time.time() + self.timeout
-        self.server._set_timeout(self.timeout)
-
-        while True:
-            # Check if we've passed the timeout.
-            if time.time() > end:
-                raise CuckooGuestError("{0}: the guest initialization hit the "
-                                       "critical timeout, analysis "
-                                       "aborted.".format(self.id))
-
-            try:
-                # If the server returns the given status, break the loop
-                # and return.
-                if self.server.get_status() == status:
-                    log.debug("%s: status ready", self.id)
-                    break
-            except Exception as e:
-                print(e)
-                pass
-
-            log.debug("%s: not ready yet", self.id)
-            time.sleep(1)
-
-        self.server._set_timeout(None)
-        return True
-
-    def upload_analyzer(self):
-        """Upload analyzer to guest.
-        @return: operation status.
-        """
-
-        zip_data = analyzer_zipfile(self.platform)
-        data = xmlrpc.client.Binary(zip_data)
-        log.debug("Uploading analyzer to guest (id=%s, ip=%s)",
-                  self.id, self.ip)
-
-        # Send the zip containing the analyzer to the agent running inside
-        # the guest.
-        try:
-            self.server.add_analyzer(data)
-        except socket.timeout:
-            raise CuckooGuestError("{0}: guest communication timeout: unable "
-                                   "to upload agent, check networking or try "
-                                   "to increase timeout".format(self.id))
-
-    def start_analysis(self, options):
-        """Start analysis.
-        @param options: options.
-        @return: operation status.
-        """
-        log.info("Starting analysis on guest (id=%s, ip=%s)", self.id, self.ip)
-
-        # TODO: deal with unicode URLs.
-        if options["category"] == "file":
-            options["file_name"] = "'" + sanitize_filename(options["file_name"]) + "'"
-
-        self.timeout = options["timeout"] + cfg.timeouts.critical
-        # Get and set dynamically generated resultserver port.
-        options["port"] = str(ResultServer().port)
-
-        url = "http://{0}:{1}".format(self.ip, CUCKOO_GUEST_PORT)
-        self.server = TimeoutServer(url, allow_none=True,
-                                    timeout=self.timeout)
-
-        try:
-            # Wait for the agent to respond. This is done to check the
-            # availability of the agent and verify that it's ready to receive
-            # data.
-            self.wait(CUCKOO_GUEST_INIT)
-
-            # Invoke the upload of the analyzer to the guest.
-            self.upload_analyzer()
-
-            # Give the analysis options to the guest, so it can generate the
-            # analysis.conf inside the guest.
-            try:
-                self.server.add_config(options)
-            except:
-                raise CuckooGuestError("{0}: unable to upload config to "
-                                       "analysis machine".format(self.id))
-
-            # If the target of the analysis is a file, upload it to the guest.
-            if options["category"] == "file":
-                try:
-                    file_data = open(options["target"], "rb").read()
-                except (IOError, OSError) as e:
-                    raise CuckooGuestError("Unable to read {0}, error: "
-                                           "{1}".format(options["target"], e))
-
-                data = xmlrpc.client.Binary(file_data)
-
-                try:
-                    # strip off the added surrounding quotes
-                    self.server.add_malware(data, options["file_name"][1:-1])
-                except Exception as e:
-                    raise CuckooGuestError("{0}: unable to upload malware to "
-                                           "analysis machine: {1}".format(self.id, e))
-
-            #Debug analyzer.py in vm
-            if "CUCKOO_DBG" in os.environ:
-                while True:
-                    pass
-            # Launch the analyzer.
-            pid = self.server.execute()
-            log.debug("%s: analyzer started with PID %d", self.id, pid)
-        # If something goes wrong when establishing the connection, raise an
-        # exception and abort the analysis.
-        except (socket.timeout, socket.error):
-            raise CuckooGuestError("{0}: guest communication timeout, check "
-                                   "networking or try to increase "
-                                   "timeout".format(self.id))
-
-    def wait_for_completion(self):
-        """Wait for analysis completion.
-        @return: operation status.
-        """
-        log.debug("%s: waiting for completion", self.id)
-
-        end = time.time() + self.timeout
-        self.server._set_timeout(self.timeout)
-
-        while True:
-            time.sleep(1)
-
-            # If the analysis hits the critical timeout, just return straight
-            # away and try to recover the analysis results from the guest.
-            if time.time() > end:
-                raise CuckooGuestError("The analysis hit the critical timeout, terminating.")
-
-            try:
-                status = self.server.get_status()
-            except Exception as e:
-                log.debug("%s: error retrieving status: %s", self.id, e)
-                continue
-
-            # React according to the returned status.
-            if status == CUCKOO_GUEST_COMPLETED:
-                log.info("%s: analysis completed successfully", self.id)
-                break
-            elif status == CUCKOO_GUEST_FAILED:
-                error = self.server.get_error()
-                if not error:
-                    error = "unknown error"
-
-                raise CuckooGuestError("Analysis failed: {0}".format(error))
-            elif status == CUCKOO_GUEST_INIT:
-                # means the system must have bluescreened or restarted and now we're getting the initial agent.py request again
-                raise CuckooGuestError("Analysis failed: system restarted unexpectedly")
-            else:
-                log.debug("%s: analysis not completed yet (status=%s)",
-                          self.id, status)
-
-        self.server._set_timeout(None)
-
 class GuestManager(object):
     """This class represents the new Guest Manager. It operates on the new
     Cuckoo Agent which features a more abstract but more feature-rich API."""
@@ -274,11 +93,6 @@ class GuestManager(object):
         self.task_id = task_id
         self.analysis_manager = analysis_manager
         self.timeout = None
-
-        # Just in case we have an old agent inside the Virtual Machine. This
-        # allows us to remain backwards compatible (for now).
-        self.old = OldGuestManager(vm_id, ip, platform, task_id, analysis_manager)
-        self.is_old = False
 
         # We maintain the path of the Cuckoo Analyzer on the host.
         self.analyzer_path = None
@@ -293,8 +107,6 @@ class GuestManager(object):
 
     def stop(self):
         self.do_run = False
-        if self.is_old:
-            self.old.do_run = False
 
     def get(self, method, *args, **kwargs):
         """Simple wrapper around requests.get()."""
@@ -435,14 +247,7 @@ class GuestManager(object):
         if db.guest_get_status(self.task_id) != "starting":
             return
 
-        # Check whether this is the new Agent or the old one (by looking at
-        # the status code of the index page).
         r = self.get("/", do_raise=False)
-        if r.status_code == 501:
-            self.is_old = True
-            self.aux.callback("legacy_agent")
-            self.old.start_analysis(options)
-            return
 
         if r.status_code != 200:
             log.critical(
@@ -461,7 +266,7 @@ class GuestManager(object):
             features = status.get("features", [])
         except:
             log.critical(
-                "We were unable to detect either the Old or New Agent in the "
+                "We were unable to detect Agent in the "
                 "Guest VM, are you sure you have set it up correctly? Please "
                 "go through the documentation once more and otherwise inform "
                 "the Cuckoo Developers of your issue."
@@ -523,9 +328,6 @@ class GuestManager(object):
             self.post("/execute", data=data)
 
     def wait_for_completion(self):
-        if self.is_old:
-            self.old.wait_for_completion()
-            return
 
         count = 0
         end = time.time() + self.timeout
@@ -567,17 +369,13 @@ class GuestManager(object):
 
             if status["status"] == "complete":
                 log.info("%s: analysis completed successfully", self.vmid)
+                db.guest_set_status(self.task_id, "complete")
                 return
             elif status["status"] == "exception":
                 log.warning(
                     "%s: analysis #%s caught an exception\n%s",
                     self.vmid, self.task_id, status["description"]
                 )
-                return
+                db.guest_set_status(self.task_id, "failed")
 
-    @property
-    def server(self):
-        """Currently the Physical machine manager is using GuestManager in
-        an incorrect way. This should be fixed up later but for now this
-        workaround will do."""
-        return self.old.server
+                return

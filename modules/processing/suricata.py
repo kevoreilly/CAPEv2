@@ -24,9 +24,9 @@ from lib.cuckoo.common.utils import convert_to_printable
 log = logging.getLogger(__name__)
 class Suricata(Processing):
     """Suricata processing."""
-    def cmd_wrapper(self,cmd):
+    def cmd_wrapper(self, cmd):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        stdout,stderr = p.communicate()
+        stdout, stderr = p.communicate()
         return (p.returncode, stdout, stderr)
 
     def sort_by_timestamp(self, unsorted):
@@ -276,35 +276,13 @@ class Suricata(Processing):
                         hlog["dstport"] = parsed["dest_port"]
                         hlog["dstip"] = parsed["dest_ip"]
                         hlog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                        try:
-                            hlog["uri"] = parsed["http"]["url"]
-                        except:
-                            hlog["uri"] = "None"
-                        hlog["length"] = parsed["http"]["length"]
-                        try:
-                            hlog["hostname"] = parsed["http"]["hostname"]
-                        except:
-                            hlog["hostname"] = "None"
-                        try:
-                            hlog["status"] = str(parsed["http"]["status"])
-                        except:
-                            hlog["status"] = "None"
-                        try:
-                           hlog["method"] = parsed["http"]["http_method"]
-                        except:
-                            hlog["method"] = "None"
-                        try:
-                           hlog["contenttype"] = parsed["http"]["http_content_type"]
-                        except:
-                            hlog["contenttype"] = "None"
-                        try:
-                            hlog["ua"] = parsed["http"]["http_user_agent"]
-                        except:
-                            hlog["ua"] = "None"
-                        try:
-                            hlog["referrer"] = parsed["http"]["http_refer"]
-                        except:
-                            hlog["referrer"] = "None"
+                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua", "referrer")
+                        keyword_suri = ("url", "length", "hostname", "status", "http_method", "http_content_type", "http_user_agent", "http_refer")
+                        for key, key_s in zip(keyword, keyword_suri):
+                            try:
+                                hlog[key] = parsed["http"].get(key_s, "None")
+                            except:
+                                hlog[key] = "None"
                         suricata["http"].append(hlog)
 
                     elif parsed["event_type"] == "tls":

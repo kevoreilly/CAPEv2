@@ -64,7 +64,6 @@ class MISP(Report):
         comment = f"{info}"
 
         if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
-            #iocs.append({"uri": results["target"]["url"]})
             filtered_iocs.append(results["target"]["url"])
             parsed = urlsplit(results["target"]["url"])
             url_object = MISPObject(name="url")
@@ -77,14 +76,12 @@ class MISP(Report):
         if self.options.get("network", False) and "network" in results.keys():
             for block in results["network"].get("hosts", []):
                 if block.get("hostname", "") and (block["hostname"] not in whitelist and block["hostname"] not in filtered_iocs):
-                    #iocs.append({"domain": block["hostname"]})
                     hostname_object = MISPObject(name="hostname")
                     hostname_object.add_attribute("domain", value=block["hostname"])
                     misp_objects.append(hostname_object)
                     filtered_iocs.append(block["hostname"])
 
                 if block.get("ip", "") and (block["ip"] not in whitelist and block["ip"] not in filtered_iocs):
-                    #iocs.append({"ip": block["ip"]})
                     filtered_iocs.append(block["ip"])
                     ip_object = MISPObject(name="ip")
                     ip_object.add_attribute("ip", value=block["ip"])
@@ -93,7 +90,6 @@ class MISP(Report):
             for req in results["network"].get("http", []):
                 if "uri" in req and req["uri"] not in whitelist:
                     if req["uri"] not in filtered_iocs:
-                        #iocs.append({"uri": req["uri"]})
                         filtered_iocs.append(req["uri"])
                         parsed = urlsplit(req["uri"])
                         url_object = MISPObject(name="url")
@@ -104,7 +100,6 @@ class MISP(Report):
                         misp_objects.append(url_object)
 
                     if "user-agent" in req and req["user-agent"] not in filtered_iocs:
-                        #iocs.append({"ua": req["user-agent"]})
                         filtered_iocs.append(req["user-agent"])
                         url_object = MISPObject(name="user-agent")
                         url_object.add_attribute("url", value=req["user-agent"])
@@ -112,7 +107,6 @@ class MISP(Report):
 
             for block in results["network"].get("dns", []): #Added DNS
                 if block.get("request", "") and (block["request"] not in whitelist and block["request"] not in filtered_iocs):
-                    #iocs.append({"domain": block["request"]})
                     filtered_iocs.append(block["request"])
                     hostname_object = MISPObject(name="domain")
                     hostname_object.add_attribute("domain", value=block["request"])
@@ -123,7 +117,6 @@ class MISP(Report):
                 for section in results["CAPE"][i]:
                     try:
                         for ip in results.get("CAPE", {}).get(i, {}).get("cape_config", {}).get("address", [])  or []:
-                            #iocs.append({"ip": ip.split(":")[0]})
                             ip_object = MISPObject(name="ip")
                             ip_object.add_attribute("ip", value=ip.split(":")[0])
                             misp_objects.append(ip_object)
@@ -163,7 +156,6 @@ class MISP(Report):
             if "read_keys" in results["behavior"].get("summary", {}):
                 for regkey in results["behavior"]["summary"]["read_keys"]:
                     if regkey not in whitelist and regkey not in filtered_iocs:
-                        #iocs.append({"regkey": regkey})
                         filtered_iocs.append(regkey)
                         regkey_object = MISPObject(name="Dropped")
                         regkey_object.add_attribute("regkey", value=regkey),
@@ -177,6 +169,7 @@ class MISP(Report):
             #    misp_event = self.misp.get_event(response["Attribute"][0]["event_id"])
             #else:
             misp_event = self.misp.new_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
+            event_id = response["Attribute"][0]["event_id"]
 
             self.misp.tag(event["Event"]["uuid"], ''.join(e for e in malfamily if e.isalnum()).replace("-",""))
 
@@ -200,20 +193,8 @@ class MISP(Report):
             file_object.add_attribute("comment", value='File: {} uploaded to cuckoo'.format(results.get('target').get('file').get('name')))
             misp_objects.append(file_object)
 
-            misp_event = MISPEvent()
-            misp_event.load(event)
-            self.submit_to_misp(misp_event, misp_objects)
-
-    def submit_to_misp(self, id, misp_objects):
-        '''
-        Submit a list of MISP objects to a MISP event
-        :misp: PyMISP API object for interfacing with MISP
-        :misp_event: MISPEvent object
-        :misp_objects: List of MISPObject objects. Must be a list
-        '''
-    # go through round one and only add MISP objects
-        for misp_object in misp_objects:
-            self.misp.add_object(misp_event.id, misp_object)
+            for misp_object in misp_objects:
+                self.misp.add_object(event_id, misp_object)
 
     def misper_thread(self, url):
         while self.iocs:

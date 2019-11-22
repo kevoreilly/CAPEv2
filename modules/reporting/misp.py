@@ -165,10 +165,10 @@ class MISP(Report):
         if misp_objects and "Malicious" not in malfamily and results["ttps"]:
             response = self.misp.search("attributes", value=results.get('target').get('file').get('sha256'))
 
-            #if response.get("Attribute", []):
-            #    misp_event = self.misp.get_event(response["Attribute"][0]["event_id"])
-            #else:
-            misp_event = self.misp.new_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
+            if response.get("Attribute", []):
+                misp_event = self.misp.get_event(response["Attribute"][0]["event_id"])
+            else:
+                misp_event = self.misp.new_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
             event_id = response["Attribute"][0]["event_id"]
 
             self.misp.tag(event["Event"]["uuid"], ''.join(e for e in malfamily if e.isalnum()).replace("-",""))

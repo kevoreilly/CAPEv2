@@ -9,6 +9,14 @@
   (4,"Undefined","*undefined* no risk","No risk");
 """
 
+# Updated by doomedraven 22.11.2019 for NaxoneZ
+# But due to frequent updates on misp server/api/client, im not maintaining it
+# You need it you fix it!
+# MISP server 2.4.118
+# PyMISP 2.4.117.2
+
+# you migth need to run self.misp.update_object_templates()
+
 import os
 import json
 import logging
@@ -18,10 +26,13 @@ from datetime import datetime
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from urllib.parse import urlsplit
+
+
 
 PYMISP = False
 try:
-    from pymisp import PyMISP
+    from pymisp import ExpandedPyMISP, MISPObject, MISPEvent
     PYMISP = True
 except ImportError:
     pass
@@ -33,121 +44,140 @@ class MISP(Report):
 
     order = 1
 
-    def cuckoo2misp_thread(self, iocs, event):
-
-        while iocs:
-
-            ioc = iocs.pop()
-            if ioc.get("md5"):
-                self.misp.add_hashes(event,
-                                 md5=ioc["md5"],
-                                 sha1=ioc["sha1"],
-                                 sha256=ioc["sha256"]
-                )
-            elif ioc.get("domain", ""):
-                self.misp.add_domain(event, ioc["domain"])
-            elif ioc.get("ip", ""):
-                self.misp.add_ipdst(event, ioc["ip"])
-            elif ioc.get("uri", ""):
-                self.misp.add_url(event, ioc["uri"])
-            elif ioc.get("ua", ""):
-                self.misp.add_useragent(event, ioc["ua"])
-            elif ioc.get("mutex", ""):
-                self.misp.add_mutex(event, ioc["mutex"])
-            elif ioc.get("regkey", ""):
-                self.misp.add_regkey(event, ioc["regkey"])
-
     def cuckoo2misp(self, results, whitelist):
 
         distribution = int(self.options.get("distribution", 0))
         threat_level_id = int(self.options.get("threat_level_id", 2))
         analysis = int(self.options.get("analysis", 2))
 
-        iocs = deque()
         malfamily = ""
         filtered_iocs = deque()
         threads_list = list()
 
+        misp_objects = []
+
         if results.get("malfamily", ""):
-            malfamily = " - {}".format(results["malfamily"])
+            malfamily = results["malfamily"]
 
-        comment = "{} {}{}".format(self.options.get("title", ""), results.get('info', {}).get('id'), malfamily)
-
+        cuckoo_id = results.get('info', {}).get('id')
+        info = self.options.get("title", "")
+        comment = f"{info}"
 
         if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
-            iocs.append({"uri": results["target"]["url"]})
+            #iocs.append({"uri": results["target"]["url"]})
             filtered_iocs.append(results["target"]["url"])
+            parsed = urlsplit(results["target"]["url"])
+            url_object = MISPObject(name="url")
+            url_object.add_attribute("url", value=parsed.geturl())
+            url_object.add_attribute("host", value=parsed.hostname)
+            url_object.add_attribute("scheme", value=parsed.scheme)
+            url_object.add_attribute("port", value=parsed.port)
+            misp_objects.append(url_object)
 
         if self.options.get("network", False) and "network" in results.keys():
             for block in results["network"].get("hosts", []):
                 if block.get("hostname", "") and (block["hostname"] not in whitelist and block["hostname"] not in filtered_iocs):
-                    iocs.append({"domain": block["hostname"]})
+                    #iocs.append({"domain": block["hostname"]})
+                    hostname_object = MISPObject(name="hostname")
+                    hostname_object.add_attribute("domain", value=block["hostname"])
+                    misp_objects.append(hostname_object)
                     filtered_iocs.append(block["hostname"])
+
                 if block.get("ip", "") and (block["ip"] not in whitelist and block["ip"] not in filtered_iocs):
-                    iocs.append({"ip": block["ip"]})
+                    #iocs.append({"ip": block["ip"]})
                     filtered_iocs.append(block["ip"])
+                    ip_object = MISPObject(name="ip")
+                    ip_object.add_attribute("ip", value=block["ip"])
+                    misp_objects.append(ip_object)
 
             for req in results["network"].get("http", []):
                 if "uri" in req and req["uri"] not in whitelist:
                     if req["uri"] not in filtered_iocs:
-                        iocs.append({"uri": req["uri"]})
+                        #iocs.append({"uri": req["uri"]})
                         filtered_iocs.append(req["uri"])
+                        parsed = urlsplit(req["uri"])
+                        url_object = MISPObject(name="url")
+                        url_object.add_attribute("url", value=parsed.geturl())
+                        url_object.add_attribute("host", value=parsed.hostname)
+                        url_object.add_attribute("scheme", value=parsed.scheme)
+                        url_object.add_attribute("port", value=parsed.port)
+                        misp_objects.append(url_object)
+
                     if "user-agent" in req and req["user-agent"] not in filtered_iocs:
-                        iocs.append({"ua": req["user-agent"]})
+                        #iocs.append({"ua": req["user-agent"]})
                         filtered_iocs.append(req["user-agent"])
+                        url_object = MISPObject(name="user-agent")
+                        url_object.add_attribute("url", value=req["user-agent"])
+                        misp_objects.append(url_object)
 
             for block in results["network"].get("dns", []): #Added DNS
                 if block.get("request", "") and (block["request"] not in whitelist and block["request"] not in filtered_iocs):
-                    iocs.append({"domain": block["request"]})
+                    #iocs.append({"domain": block["request"]})
                     filtered_iocs.append(block["request"])
+                    hostname_object = MISPObject(name="domain")
+                    hostname_object.add_attribute("domain", value=block["request"])
+                    misp_objects.append(hostname_object)
+                    filtered_iocs.append(block["hostname"])
 
-            for i in range(0,len(results["CAPE"])): #Added CAPE Addresses
+            for i in range(0, len(results["CAPE"])): #Added CAPE Addresses
                 for section in results["CAPE"][i]:
                     try:
-                        if(results["CAPE"][i]["cape_config"]["address"]):
-                            for ip in results["CAPE"][i]["cape_config"]["address"]:
-                                iocs.append({"ip": ip.split(":")[0]})
+                        for ip in results.get("CAPE", {}).get(i, {}).get("cape_config", {}).get("address", [])  or []:
+                            #iocs.append({"ip": ip.split(":")[0]})
+                            ip_object = MISPObject(name="ip")
+                            ip_object.add_attribute("ip", value=ip.split(":")[0])
+                            misp_objects.append(ip_object)
                     except:
                         pass
 
+        # ToDo migth be outdated!
         if self.options.get("ids_files", False) and "suricata" in results.keys():
             for surifile in results["suricata"]["files"]:
                 if "file_info" in surifile.keys():
-                    iocs.append({"md5": surifile["file_info"]["md5"],
-                                "sha1": surifile["file_info"]["sha1"],
-                                "sha256": surifile["file_info"]["sha256"]
-                    })
+                    file_object = MISPObject(name="Suricata file")
+                    file_object.add_attribute("md5", value=surifile["file_info"]["md5"]),
+                    file_object.add_attribute("sha1", value=surifile["file_info"]["sha1"]),
+                    file_object.add_attribute("sha256", value=surifile["file_info"]["sha256"]),
+                    misp_objects.append(file_object)
 
         if self.options.get("mutexes", False) and "behavior" in results and "summary" in results["behavior"]:
             if "mutexes" in results.get("behavior", {}).get("summary", {}):
                 for mutex in results["behavior"]["summary"]["mutexes"]:
                     if mutex not in whitelist and mutex not in filtered_iocs:
-                        iocs.append({"mutex": mutex})
                         filtered_iocs.append(mutex)
+                        mutex_object = MISPObject(name="Mutex")
+                        mutex_object.add_attribute("mutex", value=mutex),
+                        misp_objects.append(mutex_object)
 
         if self.options.get("dropped", False) and "dropped" in results:
             for entry in results["dropped"]:
                 if entry["md5"] and (entry["md5"] not in filtered_iocs and entry["md5"] not in whitelist):
                     filtered_iocs.append(entry["md5"])
-                    iocs.append({"md5": entry["md5"],
-                                "sha1": entry["sha1"],
-                                "sha256": entry["sha256"]
-                    })
+                    file_object = MISPObject(name="Dropped")
+                    file_object.add_attribute("md5", value=entry.get('md5')),
+                    file_object.add_attribute("sha1", value=entry.get('sha1')),
+                    file_object.add_attribute("sha256", value=entry.get('sha256')),
+                    misp_objects.append(file_object)
 
         if self.options.get("registry", False) and "behavior" in results and "summary" in results["behavior"]:
             if "read_keys" in results["behavior"].get("summary", {}):
                 for regkey in results["behavior"]["summary"]["read_keys"]:
                     if regkey not in whitelist and regkey not in filtered_iocs:
-                        iocs.append({"regkey": regkey})
+                        #iocs.append({"regkey": regkey})
                         filtered_iocs.append(regkey)
+                        regkey_object = MISPObject(name="Dropped")
+                        regkey_object.add_attribute("regkey", value=regkey),
+                        misp_objects.append(regkey_object)
 
-        if iocs and "Malicious" not in malfamily and results["ttps"]:
-            response = self.misp.search_all(results.get('target').get('file').get('sha256'))
+        ### Manipulating misp event
+        if misp_objects and "Malicious" not in malfamily and results["ttps"]:
+            response = self.misp.search("attributes", value=results.get('target').get('file').get('sha256'))
 
-            if (len(response["response"])>0):
-                    event = response["response"][0]
-            else:
-                    event = self.misp.new_event(0,4,0,"[Malware] " + malfamily)
+            #if response.get("Attribute", []):
+            #    misp_event = self.misp.get_event(response["Attribute"][0]["event_id"])
+            #else:
+            misp_event = self.misp.new_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
+
             self.misp.tag(event["Event"]["uuid"], ''.join(e for e in malfamily if e.isalnum()).replace("-",""))
 
             for ttp in results["ttps"]: #Added TTPs
@@ -155,35 +185,41 @@ class MISP(Report):
                      data = json.load(json_file)
                      for i in data["objects"]:
                          try:
-                             if (i["external_references"][0]["external_id"] == ttp):
+                             if i["external_references"][0]["external_id"] == ttp:
                                  self.misp.tag(event["Event"]["uuid"],'misp-galaxy:mitre-attack-pattern="'+i["name"]+' - '+ttp+'"')
-                         except:
-                             pass
+                         except Exception as e:
+                             print(e)
 
             # Add Payload delivery hash about the details of the analyzed file
-            self.misp.add_hashes(event, category='Payload delivery',
-                                        filename=results.get('target').get('file').get('name'),
-                                        md5=results.get('target').get('file').get('md5'),
-                                        sha1=results.get('target').get('file').get('sha1'),
-                                        sha256=results.get('target').get('file').get('sha256'),
-                                        ssdeep=results.get('target').get('file').get('ssdeep'),
-                                        comment='File: {} uploaded to cuckoo'.format(results.get('target').get('file').get('name')))
+            file_object = MISPObject(name="Payload delivery")
+            file_object.add_attribute("name", value=results.get('target').get('file').get('name')),
+            file_object.add_attribute("md5", value=results.get('target').get('file').get('md5')),
+            file_object.add_attribute("sha1", value=results.get('target').get('file').get('sha1')),
+            file_object.add_attribute("sha256", value=results.get('target').get('file').get('sha256')),
+            file_object.add_attribute("ssdeep", value=results.get('target').get('file').get('ssdeep'))
+            file_object.add_attribute("comment", value='File: {} uploaded to cuckoo'.format(results.get('target').get('file').get('name')))
+            misp_objects.append(file_object)
 
-            for thread_id in xrange(int(self.threads)):
-                thread = threading.Thread(target=self.cuckoo2misp_thread, args=(iocs, event))
-                thread.daemon = True
-                thread.start()
+            misp_event = MISPEvent()
+            misp_event.load(event)
+            self.submit_to_misp(misp_event, misp_objects)
 
-                threads_list.append(thread)
-
-            for thread in threads_list:
-                thread.join()
+    def submit_to_misp(self, id, misp_objects):
+        '''
+        Submit a list of MISP objects to a MISP event
+        :misp: PyMISP API object for interfacing with MISP
+        :misp_event: MISPEvent object
+        :misp_objects: List of MISPObject objects. Must be a list
+        '''
+    # go through round one and only add MISP objects
+        for misp_object in misp_objects:
+            self.misp.add_object(misp_event.id, misp_object)
 
     def misper_thread(self, url):
         while self.iocs:
             ioc = self.iocs.pop()
             try:
-                response = self.misp.search_all(ioc)
+                response = self.misp.search("attributes", value=ioc)
                 if not response or not response.get("response", {}):
                     continue
                 self.lock.acquire()
@@ -250,24 +286,22 @@ class MISP(Report):
                 if whitelist:
                     whitelist = [ioc.strip() for ioc in whitelist.split(",")]
 
-            self.misp = PyMISP(url, apikey, False, "json")
+            self.misp = ExpandedPyMISP(url, apikey, False, "json")
+            for drop in results.get("dropped", []):
+                if drop.get("md5", "") and drop["md5"] not in self.iocs and drop["md5"] not in whitelist:
+                    self.iocs.append(drop["md5"])
+            if results.get("target", {}).get("file", {}).get("md5", "") and results["target"]["file"]["md5"] not in whitelist:
+                self.iocs.append(results["target"]["file"]["md5"])
+            for block in results.get("network", {}).get("hosts", []):
+                if block.get("ip", "") and block["ip"] not in self.iocs and block["ip"] not in whitelist:
+                    self.iocs.append(block["ip"])
+                if block.get("hostname", "") and block["hostname"] not in self.iocs and block["hostname"] not in whitelist:
+                    self.iocs.append(block["hostname"])
+
+            if not self.iocs:
+                return
 
             if self.options.get("extend_context", ""):
-                for drop in results.get("dropped", []):
-                    if drop.get("md5", "") and drop["md5"] not in self.iocs and drop["md5"] not in whitelist:
-                        self.iocs.append(drop["md5"])
-
-                if results.get("target", {}).get("file", {}).get("md5", "") and results["target"]["file"]["md5"] not in whitelist:
-                    self.iocs.append(results["target"]["file"]["md5"])
-                for block in results.get("network", {}).get("hosts", []):
-                    if block.get("ip", "") and block["ip"] not in self.iocs and block["ip"] not in whitelist:
-                        self.iocs.append(block["ip"])
-                    if block.get("hostname", "") and block["hostname"] not in self.iocs and block["hostname"] not in whitelist:
-                        self.iocs.append(block["hostname"])
-
-                if not self.iocs:
-                    return
-
                 for thread_id in xrange(int(self.threads)):
                     thread = threading.Thread(target=self.misper_thread, args=(url,))
                     thread.daemon = True
@@ -289,6 +323,4 @@ class MISP(Report):
                 self.cuckoo2misp(results, whitelist)
 
         except Exception as e:
-            log.error("Failed to generate JSON report: %s" % e)
-
-
+            log.error("Failed to generate JSON report: %s" % e, exc_info=True)

@@ -17,12 +17,12 @@ from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, 
 from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDisableModule
+from lib.cuckoo.common.exceptions import CuckooDisableModule
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
-import six
+from lib.cuckoo.core.database import Database
 
 try:
     import re2 as re
@@ -30,7 +30,7 @@ except ImportError:
     import re
 
 log = logging.getLogger(__name__)
-
+db = Database()
 _modules = defaultdict(dict)
 
 def import_plugin(name):
@@ -584,7 +584,7 @@ class RunSignatures(object):
         self.results["signatures"] = matched
 
         # Add in statistics for evented signatures that took at least some time
-        for key, value in six.iteritems(stats):
+        for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append({
                     "name": key,
@@ -690,6 +690,9 @@ class RunReporting:
             pretime = datetime.now()
 
             if module_name == "submitCAPE" and self.reprocess:
+                tasks = db.list_parents(self.task["id"])
+                if tasks:
+                    self.results["CAPE_children"] = tasks
                 return
             else:
                 current.run(self.results)

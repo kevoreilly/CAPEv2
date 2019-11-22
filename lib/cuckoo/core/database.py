@@ -1304,6 +1304,24 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
+    @classlock
+    def list_parents(self, parent_id):
+        """
+            Retrieve tasks created by ID
+            @param parent_id: filter tasks created by parent ID
+        """
+        session = self.Session()
+        try:
+            tasks = session.query(Task).filter(Task.parent_id==parent_id).all()
+            if tasks:
+                return [[task.id, task.package] for task in tasks]
+            else:
+                return []
+        except SQLAlchemyError as e:
+            log.debug("Database error listing tasks: {0}".format(e))
+            return []
+        finally:
+            session.close()
 
     @classlock
     def list_tasks(self, limit=None, details=False, category=None,

@@ -9,13 +9,11 @@
   (4,"Undefined","*undefined* no risk","No risk");
 """
 
-# Updated by doomedraven 22.11.2019 for NaxoneZ
-# But due to frequent updates on misp server/api/client, im not maintaining it
-# You need it you fix it!
-# MISP server 2.4.118
-# PyMISP 2.4.117.2
-
-# you migth need to run self.misp.update_object_templates()
+#partially updated by doomedraven 22.11.2019 for NaxoneZ
+#But due to frequent updates on misp server/api/client, im not maintaining it
+#You need it you fix it!
+#MISP server 2.4.118
+#PyMISP 2.4.117.2
 
 import os
 import json
@@ -102,7 +100,7 @@ class MISP(Report):
                     if "user-agent" in req and req["user-agent"] not in filtered_iocs:
                         filtered_iocs.append(req["user-agent"])
                         url_object = MISPObject(name="user-agent")
-                        url_object.add_attribute("url", value=req["user-agent"])
+                        url_object.add_attribute("ua", value=req["user-agent"])
                         misp_objects.append(url_object)
 
             for block in results["network"].get("dns", []): #Added DNS
@@ -111,7 +109,7 @@ class MISP(Report):
                     hostname_object = MISPObject(name="domain")
                     hostname_object.add_attribute("domain", value=block["request"])
                     misp_objects.append(hostname_object)
-                    filtered_iocs.append(block["hostname"])
+                    filtered_iocs.append(block["request"])
 
             for i in range(0, len(results["CAPE"])): #Added CAPE Addresses
                 for section in results["CAPE"][i]:
@@ -161,14 +159,20 @@ class MISP(Report):
                         regkey_object.add_attribute("regkey", value=regkey),
                         misp_objects.append(regkey_object)
 
-        ### Manipulating misp event
         if misp_objects and "Malicious" not in malfamily and results["ttps"]:
-            response = self.misp.search("attributes", value=results.get('target').get('file').get('sha256'))
+            response = self.misp.search("attributes", value=results.get('target').get('file').get('sha256'), return_format="json")
 
             if response.get("Attribute", []):
                 misp_event = self.misp.get_event(response["Attribute"][0]["event_id"])
             else:
-                misp_event = self.misp.new_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
+                misp_event = self.misp.add_event(distribution, threat_level_id, analysis, comment,  date=datetime.now().strftime('%Y-%m-%d'), published=True)
+                event = MISPEvent()
+                event.distribution = misp_dict["distribution"]
+                event.threat_level_id = misp_dict["threat_level_id"]
+                event.analysis = misp_dict["analysis"]
+                event.info = misp_dict["comment"]
+                event.date = datetime.now()#.strftime('%Y-%m-%d')
+                event.published = True
             event_id = response["Attribute"][0]["event_id"]
 
             self.misp.tag(event["Event"]["uuid"], ''.join(e for e in malfamily if e.isalnum()).replace("-",""))
@@ -181,7 +185,7 @@ class MISP(Report):
                              if i["external_references"][0]["external_id"] == ttp:
                                  self.misp.tag(event["Event"]["uuid"],'misp-galaxy:mitre-attack-pattern="'+i["name"]+' - '+ttp+'"')
                          except Exception as e:
-                             print(e)
+                             pass
 
             # Add Payload delivery hash about the details of the analyzed file
             file_object = MISPObject(name="Payload delivery")
@@ -200,7 +204,7 @@ class MISP(Report):
         while self.iocs:
             ioc = self.iocs.pop()
             try:
-                response = self.misp.search("attributes", value=ioc)
+                response = self.misp.search("attributes", value=ioc, return_format="json")
                 if not response or not response.get("response", {}):
                     continue
                 self.lock.acquire()

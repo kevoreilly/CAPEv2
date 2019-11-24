@@ -273,18 +273,22 @@ class RunProcessing(object):
             log.info("No processing modules loaded")
 
         # For correct error log on webgui
-        for file_name in os.listdir(os.path.join(self.analysis_path, "logs")):
-            file_path = os.path.join(self.analysis_path, "logs", file_name)
+        logs = os.path.join(self.analysis_path, "logs")
+        if os.path.exists(logs):
+            for file_name in os.listdir():
+                file_path = os.path.join(logs, file_name)
 
-            if os.path.isdir(file_path):
-                continue
+                if os.path.isdir(file_path):
+                    continue
 
-            # Skipping the current log file if it's too big.
-            if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
-                if not hasattr(self.results, "debug"):
-                    self.results.setdefault("debug", dict()).setdefault("errors", list())
-                self.results["debug"]["errors"].append("Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(file_name))
-                continue
+                # Skipping the current log file if it's too big.
+                if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
+                    if not hasattr(self.results, "debug"):
+                        self.results.setdefault("debug", dict()).setdefault("errors", list())
+                    self.results["debug"]["errors"].append("Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(file_name))
+                    continue
+        else:
+            log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
         family = ""
         self.results["malfamily_tag"] = ""

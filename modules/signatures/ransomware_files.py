@@ -108,7 +108,7 @@ class RansomwareFiles(Signature):
             (".*\\\\READ-ME-NOW\.txt$", ["LockerGoga"]),
             (".*\\\\@Please_Read_Me\.txt$", ["LooCipher"]),
             (".*\\\\!INSTRUCTI0NS!\.TXT$", ["Maoloa"]),
-            (".*\\\\DECRYPT-FILES\.html$", ["Maze"]),
+            (".*\\\\DECRYPT-FILES\.(html|txt)$", ["Maze"]),
             (".*\\\\help\ to\ decrypt\.html$", ["MorrisBatchCrypt"]),
             (".*\\\\_Decrypt_Files\.html$", ["Robinhood"]),
             (".*\\\\_Help_Help_Help\.html$", ["Robinhood"]),

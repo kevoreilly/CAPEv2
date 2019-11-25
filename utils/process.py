@@ -153,7 +153,7 @@ def autoprocess(parallel=1, failed_processing=False):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
-    pool = multiprocessing.Pool(parallel, init_worker)
+    pool = multiprocessing.Pool(parallel, init_worker, maxtasksperchild=100)
     pending_results = []
 
     try:

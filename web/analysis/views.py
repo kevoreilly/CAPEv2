@@ -318,7 +318,6 @@ def load_files(request, task_id, category):
             bingraph_dict_content = {}
             bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
             if os.path.exists(bingraph_path):
-                #load hashes
                 for block in files.get(category, []):
                     tmp_file = os.path.join(bingraph_path, block["sha256"]+"-ent.svg")
                     if os.path.exists(tmp_file):
@@ -332,7 +331,6 @@ def load_files(request, task_id, category):
     else:
         raise PermissionDenied
 
-### end
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def chunk(request, task_id, pid, pagenum):

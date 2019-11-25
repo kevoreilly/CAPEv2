@@ -120,28 +120,27 @@ def add_protected_path(name):
     else:
         PROTECTED_PATH_LIST.append(name.lower())
 
-
-def upload_debugger_logs():
+def upload_files(folder):
     """Create a copy of the given file path."""
-    log_folder = PATHS["root"] + "\\debugger"
+    log_folder = PATHS["root"] + "\\" + folder
     try:
         if os.path.exists(log_folder):
-            log.info("Uploading debugger log at path \"%s\" ", log_folder)
+            log.info("Uploading files at path \"%s\" ", log_folder)
         else:
-            log.warning("File at path \"%s\" does not exist, skip.", log_folder)
+            log.warning("Folder at path \"%s\" does not exist, skip.", log_folder)
             return
     except IOError as e:
-        log.warning("Unable to access file at path \"%s\": %s", log_folder, e)
+        log.warning("Unable to access folder at path \"%s\": %s", log_folder, e)
         return
 
     for root, dirs, files in os.walk(log_folder):
         for file in files:
             file_path = os.path.join(root, file)
-            upload_path = os.path.join("debugger", file)
+            upload_path = os.path.join(folder, file)
             try:
-                upload_to_host(file_path, upload_path, False)
+                upload_to_host(file_path, upload_path, category=folder)
             except (IOError, socket.error) as e:
-                log.error("Unable to upload dropped file at path \"%s\": %s",
+                log.error("Unable to upload file at path \"%s\": %s",
                           file_path, e)
 
 class Analyzer:
@@ -302,8 +301,10 @@ class Analyzer:
         # Dump all the notified files.
         self.files.dump_files()
 
+        #Upload memory files
+        upload_files("memory")
         # Copy the debugger log.
-        upload_debugger_logs()
+        upload_files("debugger")
         """End analysis."""
         # Stop the Pipe Servers.
         self.command_pipe.stop()
@@ -1411,13 +1412,12 @@ class CommandPipeHandler(object):
 
         return self._inject_process(int(pid), int(tid), int(mode))
 
-    def _handle_file_new(self, data):
+    def _handle_file_new(self, file_path):
         """Notification of a new dropped file."""
-        file_path = data.decode("utf8")
         #self.analyzer.files.add_file(file_path, self.pid)
         #self.analyzer.files_list_lock.acquire()
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path)
+            self.analyzer.files.dump_file(file_path.decode("utf-8"))
         #self.analyzer.files_list_lock.release()
 
     def _handle_file_cape(self, data):
@@ -1441,14 +1441,13 @@ class CommandPipeHandler(object):
             self.analyzer.files.delete_file(file_path, self.pid)
         self.analyzer.files_list_lock.release()
 
-    def _handle_file_dump(self, data):
+    def _handle_file_dump(self, file_path):
         # We extract the file path.
-        # Syntax -> PATH|PID|Metadata
-        file_path, pid, metadata = data.split(b"|")
+        # Syntax -> PATH
         # We dump immediately.
         if os.path.exists(file_path):
             # aka send this as data for the command
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
 
     def _handle_dumpmem(self, data):
         #TODo dump by pid

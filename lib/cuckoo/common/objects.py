@@ -266,7 +266,7 @@ class File(object):
             return None
 
         try:
-            return pydeep.hash_file(self.file_path)
+            return pydeep.hash_file(self.file_path).decode("utf-8")
         except Exception:
             return None
 

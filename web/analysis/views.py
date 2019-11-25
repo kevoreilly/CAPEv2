@@ -299,9 +299,40 @@ def pending(request):
     for task in tasks:
         pending.append(task.to_dict())
 
-    return render(request, "analysis/pending.html",
-                              {"tasks": pending})
+    return render(request, "analysis/pending.html", {"tasks": pending})
 
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+### load files by key as ajax to avoid huge load
+def load_files(request, task_id, category):
+    """Filters calls for call category.
+    @param task_id: cuckoo task id
+    """
+    if request.is_ajax():
+        files = dict()
+        # Search calls related to your PID.
+        if enabledconf["mongodb"]:
+            files = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1})
+
+            bingraph = False
+            bingraph_dict_content = {}
+            bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+            if os.path.exists(bingraph_path):
+                #load hashes
+                for block in files.get(category, []):
+                    tmp_file = os.path.join(bingraph_path, block["sha256"]+"-ent.svg")
+                    if os.path.exists(tmp_file):
+                        with open(tmp_file, "r") as f:
+                            bingraph_dict_content.setdefault(block["sha256"], f.read())
+            if bingraph_dict_content:
+                bingraph = True
+
+            #ES isn't supported
+        return render(request, "analysis/dropped/index.html", {"files": files.get("dropped", {}), "id": task_id, "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},})
+    else:
+        raise PermissionDenied
+
+### end
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def chunk(request, task_id, pid, pagenum):
@@ -341,8 +372,7 @@ def chunk(request, task_id, pid, pagenum):
         else:
             chunk = dict(calls=[])
 
-        return render(request, "analysis/behavior/_chunk.html",
-                                  {"chunk": chunk})
+        return render(request, "analysis/behavior/_chunk.html", {"chunk": chunk})
     else:
         raise PermissionDenied
 
@@ -855,7 +885,7 @@ def file(request, category, task_id, dlfile):
 
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-    elif category in ("samplezip", "droppedzip", "CAPE", "CAPEZIP", "procdump", "procdumpzip", "memdumpzip"):
+    elif category in ("samplezip", "dropped", "droppedzip", "CAPE", "CAPEZIP", "procdump", "procdumpzip", "memdumpzip"):
         # ability to download password protected zip archives
         path = ""
         if category == "samplezip":

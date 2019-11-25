@@ -603,7 +603,7 @@ class CAPE(Processing):
         for cape_file in CAPE_output:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
-                    ssdeep_grade = pydeep.compare(file_info["ssdeep"], cape_file["ssdeep"])
+                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint", False) and file_info.get("ep_bytes", False):

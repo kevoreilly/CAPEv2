@@ -1,6 +1,6 @@
 {% load key_tags %}
-{% if analysis.dropped|length > 0 %}
-    {% for file in analysis.dropped %}
+{% if files|length > 0 %}
+    {% for file in files %}
         <div class="panel panel-default">
             <table class="table table-striped" style="table-layout: fixed;">
                 <tr>
@@ -82,7 +82,7 @@
                 {% if file.dropdir %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "dropped" analysis.info.id file.dropdir %}" class="btn btn-primary btn-small">Download</a>
+                    <td><a href="{% url "file" "dropped" id file.dropdir %}" class="btn btn-primary btn-small">Download</a>
                         {% if file.data %}
                         &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                         {% endif %}
@@ -92,8 +92,8 @@
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "dropped" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
-                        <a href="{% url "file" "droppedzip" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download ZIP</a>
+                        <a href="{% url "file" "dropped" id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
+                        <a href="{% url "file" "droppedzip" id file.sha256 %}" class="btn btn-primary btn-small">Download ZIP</a>
                         <a class="btn btn-default btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Submit file</a>
                         {% if file.data %}
                         &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>

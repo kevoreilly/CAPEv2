@@ -10,6 +10,7 @@ urlpatterns = [
     url(r"^$", views.index, name='analysis'),
     url(r"^page/(?P<page>\d+)/$", views.index, name='index'),
     url(r"^(?P<task_id>\d+)/$", views.report, name='report'),
+    url(r"^load_files/(?P<task_id>\d+)/(?P<category>\w+)/$", views.load_files, name='load_files'),
     url(r"^surialert/(?P<task_id>\d+)/$", views.surialert, name='surialert'),
     url(r"^surihttp/(?P<task_id>\d+)/$", views.surihttp, name='surihttp'),
     url(r"^suritls/(?P<task_id>\d+)/$", views.suritls, name='suritls'),

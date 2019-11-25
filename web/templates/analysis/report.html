@@ -15,6 +15,22 @@ $(function() {
         $('a[href="'+lastAnalysisTab+'"]').click();
     }
   }
+  // ajax req for dropped tab
+  $('[data-toggle="tabajax"]').click(function(e) {
+    var $this = $(this),
+        url = $(this).attr("data-url");
+
+    if (typeof url !== "undefined") {
+        var pane = $(this), href = this.hash;
+        $(href).load(url,function(result){
+            pane.tab('show');
+        });
+    } else {
+         $(this).tab('show');
+    }
+    return false;
+    });
+    //end
 });
 </script>
 <div class="row">
@@ -29,7 +45,7 @@ $(function() {
     {% if analysis.behavior.processes %}<li><a href="#behavior" data-toggle="tab" id="graph_hook">Behavioral Analysis</a></li>{% endif %}
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
-        {% if analysis.dropped|length %}<li><a href="#dropped" data-toggle="tab">Dropped Files ({{analysis.dropped|length}})</a></li>{% endif %}
+        {% if analysis.dropped|length %}<li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped|length}})</a></li>{% endif %}
         {% if analysis.procmemory|length %}<li><a href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
         {% if analysis.memory %}<li><a href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
         {% if analysis.procdump|length %}<li><a href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}

@@ -563,7 +563,7 @@ class Pcap:
         """Process SMTP flow."""
         for conn, data in six.iteritems(self.smtp_flow):
             # Detect new SMTP flow.
-            if data.startswith(("EHLO", "HELO")):
+            if data.startswith((b"EHLO", b"HELO")):
                 self.smtp_requests.append({"dst": conn,
                                            "raw": convert_to_printable(data)})
 

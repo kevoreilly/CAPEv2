@@ -18,7 +18,7 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     try:
         nc = NetlogFile()
         #nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
-        nc.init(dump_path, file_path, pids, metadata)
+        nc.init(dump_path, file_path, pids, metadata, category)
         infd = open(file_path, "rb") #rb
         buf = infd.read(BUFSIZE)
         while buf:

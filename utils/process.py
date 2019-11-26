@@ -149,11 +149,11 @@ def init_logging(auto=False, tid=0, debug=False):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-def autoprocess(parallel=1, failed_processing=False):
+def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
-    pool = multiprocessing.Pool(parallel, init_worker, maxtasksperchild=100)
+    pool = multiprocessing.Pool(parallel, init_worker, maxtasksperchild=maxtasksperchild)
     pending_results = []
 
     try:
@@ -240,6 +240,7 @@ def main():
     parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False)
     parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1)
     parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
+    parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7)
     args = parser.parse_args()
 
     init_yara()
@@ -247,7 +248,7 @@ def main():
 
     if args.id == "auto":
         init_logging(auto=True, debug=args.debug)
-        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing)
+        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing, maxtasksperchild=args.maxtasksperchild)
     else:
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id)):
             sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))

@@ -301,8 +301,6 @@ class Analyzer:
         # Dump all the notified files.
         self.files.dump_files()
 
-        #Upload memory files
-        upload_files("memory")
         # Copy the debugger log.
         upload_files("debugger")
         """End analysis."""
@@ -811,7 +809,8 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
-        filename = "%s_%s" % (sha256[:16], os.path.basename(filepath))
+        #filename = "%s_%s" % (sha256[:16], os.path.basename(filepath))
+        filename = os.path.basename(filepath)
         upload_path = os.path.join(category, filename)
 
         try:

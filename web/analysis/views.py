@@ -327,7 +327,7 @@ def load_files(request, task_id, category):
                 bingraph = True
 
             #ES isn't supported
-        return render(request, "analysis/dropped/index.html", {"files": files.get("dropped", {}), "id": task_id, "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},})
+        return render(request, "analysis/{}/index.html".format(category), {"files": files.get("category", {}), "id": task_id, "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},})
     else:
         raise PermissionDenied
 

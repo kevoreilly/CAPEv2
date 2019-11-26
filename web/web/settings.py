@@ -72,7 +72,7 @@ OPT_ZER0M0N = False
 # To disable comment support, change the below to False
 COMMENTS = True
 
-DEBUG = True
+DEBUG = False
 
 # Database settings. We don't need it.
 DATABASES = {

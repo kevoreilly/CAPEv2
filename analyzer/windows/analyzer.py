@@ -37,7 +37,7 @@ from lib.common.defines import SYSTEM_PROCESS_INFORMATION
 from lib.common.defines import EVENT_MODIFY_STATE, SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SYSTEMTIME
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
-from lib.common.results import upload_to_host, upload_to_host_with_metadata
+from lib.common.results import upload_to_host
 from lib.core.config import Config
 from lib.core.pipe import PipeServer, PipeForwarder, PipeDispatcher
 from lib.core.pipe import disconnect_pipes
@@ -794,7 +794,7 @@ class Files(object):
         self.add_pid(filepath, pid, verbose=False)
 
     def dump_file(self, filepath, metadata="", pids=False, category="files"):
-        log.info(("dump_file", filepath))
+        log.info(("dump_file", filepath, metadata, pids, category))
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -984,7 +984,7 @@ class CommandPipeHandler(object):
         if process_id and process_id not in (self.analyzer.pid, self.analyzer.ppid, self.analyzer.process_list.pids):
             proc = Process(
                 options=self.analyzer.options,
-                config=self.config,
+                config=self.analyzer.config,
                 pid=process_id,
                 thread_id=thread_id
             )
@@ -1011,7 +1011,7 @@ class CommandPipeHandler(object):
             if dcom_pid:
                 servproc = Process(
                     options=self.analyzer.options,
-                    config=self.config,
+                    config=self.analyzer.config,
                     pid=dcom_pid,
                     suspended=False
                 )
@@ -1045,7 +1045,7 @@ class CommandPipeHandler(object):
                 if dcom_pid:
                     servproc = Process(
                         options=self.analyzer.options,
-                        config=self.config,
+                        config=self.analyzer.config,
                         pid=dcom_pid,
                         suspended=False
                     )
@@ -1068,7 +1068,7 @@ class CommandPipeHandler(object):
             if wmi_pid:
                 servproc = Process(
                     options=self.analyzer.options,
-                    config=self.config,
+                    config=self.analyzer.config,
                     pid=wmi_pid,
                     suspended=False
                 )
@@ -1104,7 +1104,7 @@ class CommandPipeHandler(object):
             if sched_pid:
                 servproc = Process(
                     options=self.analyzer.options,
-                    config=self.config,
+                    config=self.analyzer.config,
                     pid=sched_pid,
                     suspended=False
                 )
@@ -1139,7 +1139,7 @@ class CommandPipeHandler(object):
                 if dcom_pid:
                     servproc = Process(
                         options=self.analyzer.options,
-                        config=self.config,
+                        config=self.analyzer.config,
                         pid=dcom_pid,
                         suspended=False)
 
@@ -1161,7 +1161,7 @@ class CommandPipeHandler(object):
             if bits_pid:
                 servproc = Process(
                     options=self.analyzer.options,
-                    config=self.config,
+                    config=self.analyzer.config,
                     pid=bits_pid,
                     suspended=False)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
@@ -1185,7 +1185,7 @@ class CommandPipeHandler(object):
             si.dwFlags = 1
             # SW_HIDE
             si.wShowWindow = 0
-            subprocess.call("sc config " + servname + " type= own", startupinfo=si)
+            subprocess.call("sc config " + servname.decode("utf-8") + " type= own", startupinfo=si)
             log.info("Announced starting service \"%s\"", servname)
             if not self.analyzer.MONITORED_SERVICES:
                 # Inject into services.exe so we can monitor service creation
@@ -1194,7 +1194,7 @@ class CommandPipeHandler(object):
                 if self.analyzer.SERVICES_PID:
                     servproc = Process(
                         options=self.analyzer.options,
-                        config=self.config,
+                        config=self.analyzer.config,
                         pid=self.analyzer.SERVICES_PID,
                         suspended=False
                     )
@@ -1498,7 +1498,7 @@ class CommandPipeHandler(object):
             old_filepath.decode("utf8"), new_filepath, self.pid
         )
         if os.path.exists(new_filepath):
-            self.analyzer.files.dump_file(new_filepath, self.pid)
+            self.analyzer.files.dump_file(new_filepath, pids=self.pid)
         self.analyzer.files_list_lock.release()
 
     def dispatch(self, data):

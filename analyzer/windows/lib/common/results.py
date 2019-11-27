@@ -32,23 +32,6 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
         if nc:
             nc.close()
 
-def upload_to_host_with_metadata(file_path, dump_path, metadata):
-    nc = infd = None
-    duplicate = 0
-    try:
-        nc = NetlogBinary(metadata, dump_path, duplicate)#.encode("utf-8", "replace")
-        infd = open(file_path, "r") #rb
-        buf = infd.read(BUFSIZE)
-        while buf:
-            nc.send(buf, retry=True)
-            buf = infd.read(BUFSIZE)
-    except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)#.encode("utf-8", "replace")
-    finally:
-        if infd:
-            infd.close()
-        if nc:
-            nc.close()
 
 class NetlogConnection(object):
     def __init__(self, proto=""):
@@ -115,6 +98,7 @@ class NetlogFile(NetlogConnection):
         """
             All arguments should be strings
         """
+        log.info((dump_path, filepath, pids, metadata, category))
         if pids:
             pids = " ".join(pids)
         else:

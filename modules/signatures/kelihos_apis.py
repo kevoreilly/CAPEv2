@@ -40,7 +40,6 @@ class Kelihos_APIs(Signature):
         if call["api"] == "RegSetValueExA":
             buf = self.get_argument(call, "Buffer")
             if buf and buf.startswith(r"\xa2IM\xf3\xd9\x1e\x9f\x88\x01"):
-                print "Check"
                 self.bad_pid = process["process_id"]
                 self.config_key = self.get_argument(call, "FullName")
                 return None

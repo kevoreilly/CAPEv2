@@ -21,6 +21,9 @@ try:
     mwcp_parsers = {block.name.split(".")[-1]:block.name for block in mwcp.get_parser_descriptions(config_only=False)}
     HAS_MWCP = True
 
+    #disable logging
+    #[mwcp.parser] WARNING: Missing identify() function for: a35a622d01f83b53d0407a3960768b29.Emotet.Emotet
+
 except ImportError:
     HAS_MWCP = False
     print("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP")
@@ -101,8 +104,6 @@ def upx_harness(raw_data):
     return
 
 def convert(data):
-    if isinstance(data, unicode):
-        return str(data)
     if isinstance(data, str):
         return str(data)
     elif isinstance(data, Mapping):
@@ -130,12 +131,24 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                     log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
                     mwcp_loaded = True
                     try:
+                        tmp_dict = dict()
+                        if reporter.metadata.get("debug"):
+                            del reporter.metadata["debug"]
+                        if reporter.metadata.get("other"):
+                            for key, value in reporter.metadata["other"].items():
+                                tmp_dict.setdefault(key, [])
+                                if value not in tmp_dict[key]:
+                                    tmp_dict[key].append(value)
+                            del reporter.metadata["other"]
+
+                        tmp_dict.update(reporter.metadata)
+
                         if "cape_config" not in cape_config:
                             cape_config.setdefault("cape_config", dict())
-                            cape_config["cape_config"] = convert(reporter.metadata)
-                            #ToDo add parse others key
+                            #ToDo do we really need to convert it?
+                            cape_config["cape_config"] = convert(tmp_dict)
                         else:
-                            new = convert(reporter.metadata)
+                            new = convert(tmp_dict)
                             for key in new.keys():
                                 cape_config["cape_config"][key] = list(set(cape_config["cape_config"][key] + new[key]))
                     except Exception as e:

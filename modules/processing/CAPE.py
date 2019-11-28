@@ -185,7 +185,7 @@ class CAPE(Processing):
             else:
                 file_info["data"] = convert_to_printable(file_data)
 
-        metastrings = metastring.split(",")
+        metastrings = metastring.split(";?")
         if len(metastrings) > 1:
             file_info["pid"] = metastrings[1]
         if len(metastrings) > 2:

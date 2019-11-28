@@ -7,7 +7,6 @@
 #### What doesn't work
 * peepdf as it's a py2
 * volatility details, the bridge exist to use VolatilityAPI with vol3, but not to run the default modules
-* malware config parsers as they are also py2
 
 ## CAPE: Malware Configuration And Payload Extraction
 

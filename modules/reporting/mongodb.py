@@ -98,7 +98,7 @@ class MongoDB(Report):
             if type(v) is str:
                 try:
                     v.encode('utf-8')
-                except UnicodeDecodeError:
+                except UnicodeEncodeError:
                     obj[k] = ''.join(str(ord(_)) for _ in v).encode('utf-8')
             else:
                 cls.ensure_valid_utf8(v)

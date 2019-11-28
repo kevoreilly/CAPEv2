@@ -121,9 +121,6 @@ def check_version(filedata):
     return
 
 class Remcos(Parser):
-    def __init__(self, reporter=None):
-        Parser.__init__(self, description='Remcos configuration parser.', author='Talos', reporter=reporter)
-
     DESCRIPTION = 'Remcos configuration parser.'
     AUTHOR = 'kevoreilly'
 

@@ -13,10 +13,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from mwcp.parser import Parser
-import struct, socket
+import struct
+import socket
 import pefile
 import yara
-import os.path
 
 rule_source = '''
 rule DridexDropper

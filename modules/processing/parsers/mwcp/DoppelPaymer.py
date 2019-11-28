@@ -13,9 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from mwcp.parser import Parser
-import struct
 import string
-import socket
 import pefile
 import yara
 from Crypto.Cipher import ARC4

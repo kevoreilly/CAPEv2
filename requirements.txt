@@ -46,7 +46,6 @@ xmltodict
 sflock
 git+https://github.com/doomedraven/socks5man
 git+https://github.com/swimlane/pyattck
-malwareconfig
 gevent>=1.2, <1.3
 pyelftools
 git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP

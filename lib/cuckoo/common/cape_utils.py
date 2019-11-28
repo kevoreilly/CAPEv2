@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 import os
+import imp
 import sys
+import glob
 import logging
 import tempfile
 import hashlib
@@ -12,21 +14,35 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 
-#Use latest MWCP
+malware_parsers = {}
+#Import All config parsers
 try:
     import mwcp
-    #mwcp.register_entry_points()
     mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp", "parsers"))
-    #{'Azorult': 'Azorultv2.Azorult', 'Emotet': 'Emotet.Emotet'}
-    mwcp_parsers = {block.name.split(".")[-1]:block.name for block in mwcp.get_parser_descriptions(config_only=False)}
+    malware_parsers = {block.name.split(".")[-1]:block.name for block in mwcp.get_parser_descriptions(config_only=False)}
     HAS_MWCP = True
 
     #disable logging
     #[mwcp.parser] WARNING: Missing identify() function for: a35a622d01f83b53d0407a3960768b29.Emotet.Emotet
-
 except ImportError:
     HAS_MWCP = False
     print("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP")
+
+RATDecoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malwareconfig")
+RAT_DECODERS = [
+    os.path.basename(decoder)[:-3]
+    for decoder in glob.glob(RATDecoders + "/[!_]*.py")
+]
+
+for name in RAT_DECODERS:
+    if name == 'TEMPLATE':
+        continue
+    try:
+        file, pathname, description = imp.find_module(name, [RATDecoders])
+        module = imp.load_module(name, file, pathname, description)
+        malware_parsers[name] = module
+    except (ImportError, IndexError) as e:
+        print("CAPE: malwareconfig.com parser: No module named %s - %s", (name, e))
 
 parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers")
 if parser_path not in sys.path:
@@ -38,17 +54,6 @@ except ImportError as e:
     print(e)
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
-
-#will be done later and as extranal dependencie
-#https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP/blob/master/mwcp/resources/techanarchy_bridge.py
-try:
-    from malwareconfig import JavaDropper
-    from malwareconfig import fileparser
-    from malwareconfig.modules import __decoders__, __preprocessors__
-    HAVE_malwareconfig = True
-except ImportError as e:
-    HAVE_malwareconfig = False
-    print()
 
 log = logging.getLogger(__name__)
 
@@ -123,10 +128,10 @@ def static_config_parsers(yara_hit, file_data, cape_config):
         # DC3-MWCP
         mwcp_loaded = False
         #import code;code.interact(local=dict(globals(), **locals()))
-        if cape_name and HAS_MWCP and cape_name in mwcp_parsers:
+        if cape_name and HAS_MWCP and cape_name in malware_parsers:
             try:
                 reporter = mwcp.Reporter()
-                reporter.run_parser(mwcp_parsers[cape_name], data=file_data)
+                reporter.run_parser(malware_parsers[cape_name], data=file_data)
                 if reporter.errors == []:
                     log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
                     mwcp_loaded = True
@@ -162,24 +167,12 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 del reporter
             except (ImportError, IndexError) as e:
                 log.error(e)
-            """
-            # Get config data #ToD fix it
-            if not mwcp_loaded:
-                try:
-                    if cape_name in __decoders__:
-                        module = __decoders__[cape_name]['obj']()
-                        log.info("CAPE: Imported malwareconfig.com parser %s", cape_name)
-                except (ImportError, IndexError):
-                    log.info("CAPE: malwareconfig.com parser: No module named %s", cape_name)
-                    return cape_config
 
+            if not mwcp_loaded and cape_name in malware_parsers:
                 try:
                     if "cape_config" not in cape_config:
                         cape_config.setdefault("cape_config", dict())
-                    file_info = fileparser.FileParser(file_path=BytesIO(file_data))
-                    module.set_file(file_info)
-                    module.get_config()
-                    malwareconfig_config = module.config
+                    malwareconfig_config = malware_parsers[cape_name].config(file_data)
                     if isinstance(malwareconfig_config, list):
                         for (key, value) in malwareconfig_config[0].items():
                             cape_config["cape_config"].update({key: [value]})
@@ -188,7 +181,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                             cape_config["cape_config"].update({key: [value]})
                 except Exception as e:
                     log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
-            """
+
             if "cape_config" in cape_config:
                 if cape_config["cape_config"] == {}:
                     del cape_config["cape_config"]

@@ -13,8 +13,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from mwcp.parser import Parser
-import struct
-import pefile
 import yara
 
 rule_source = '''
@@ -47,12 +45,12 @@ def yara_scan(raw_data, rule_name):
     return addresses
 
 def string_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split("\0")[0]
+    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
 def list_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split("\0")[0]
-    list = string.split(",")
+    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
+    list = string.split(b",")
     return list
 
 class enfal(Parser):
@@ -90,7 +88,7 @@ class enfal(Parser):
 
             if filebuf[yara_offset+0x14a2:yara_offset+0x14a3] == "C":
                 filepaths = list_from_offset(filebuf, yara_offset+0x14a2)
-                filepaths[0] = filepaths[0].split(" ")[0]
+                filepaths[0] = filepaths[0].split(b" ")[0]
                 servicename = ""
             elif filebuf[yara_offset+0x14b0:yara_offset+0x14b1] != "\0":
                 servicename = string_from_offset(filebuf, yara_offset+0x14b0)

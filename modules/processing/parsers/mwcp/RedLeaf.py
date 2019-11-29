@@ -59,11 +59,11 @@ def pe_data(pe, va, size):
     return data
 
 def string_from_offset(buffer, offset):
-    string = buffer[offset:offset+MAX_STRING_SIZE].split("\0")[0]
+    string = buffer[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
 def unicode_string_from_offset(buffer, offset):
-    string = buffer[offset:offset+MAX_STRING_SIZE].split("\x00\x00")[0]
+    string = buffer[offset:offset+MAX_STRING_SIZE].split(b"\x00\x00")[0]
     return string
 
 class redleaf(Parser):

@@ -47,7 +47,7 @@ def yara_scan(raw_data, rule_name):
     return addresses
 
 def string_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split("\0")[0]
+    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
 class ChChes(Parser):

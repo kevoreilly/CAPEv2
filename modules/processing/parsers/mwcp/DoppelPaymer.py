@@ -72,16 +72,15 @@ class DoppelPaymer(Parser):
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        blobs = filter(None, [x.strip("\x00\x00\x00\x00") for x in extract_rdata(pe).split("\x00\x00\x00\x00")])
+        blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])
         for blob in blobs:
             if len(blob) < LEN_BLOB_KEY:
                 continue
             raw = decrypt_rc4(blob[:LEN_BLOB_KEY][::-1], blob[LEN_BLOB_KEY:])
             if not raw:
                 continue
-            for item in raw.split("\x00"):
+            for item in raw.split(b"\x00"):
                 data = "".join(convert_char(c) for c in item)
                 if len(data) == 406:
                     self.reporter.add_metadata('other', {'RSA public key': data})

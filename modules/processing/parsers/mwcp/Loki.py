@@ -160,8 +160,6 @@ def decoder(data):
     return urls
 
 class Loki(Parser):
-    #def __init__(self, reporter=None):
-    #    Parser.__init__(self, description='Loki configuration parser.', author='Jason Reaves', reporter=reporter)
 
     DESCRIPTION = 'Loki configuration parser.'
     AUTHOR = 'kevoreilly'

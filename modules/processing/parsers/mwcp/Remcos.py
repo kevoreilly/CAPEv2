@@ -150,7 +150,7 @@ class Remcos(Parser):
         C2 = get_C2(clear_text)
         if C2 != None:
             for C2_server in C2:
-                host, port, password = C2_server.split(':')
+                host, port, password = C2_server.split(b':')
                 self.reporter.add_metadata('address', host+':'+port)
                 self.reporter.add_metadata('password', password)
 

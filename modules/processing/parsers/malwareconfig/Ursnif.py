@@ -45,13 +45,13 @@ SECTION_KEYS = {
 }
 
 def string_from_offset(buffer, offset):
-    string = buffer[offset:offset+MAX_STRING_SIZE].split("\0")[0]
+    string = buffer[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
 def get_config_item(config, offset):
     config_string = string_from_offset(config, offset)
-    if ' ' in config_string:
-        config_list = config_string.split(' ')
+    if b' ' in config_string:
+        config_list = config_string.split(b' ')
         return config_list
     else:
         return config_string

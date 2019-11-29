@@ -5,7 +5,7 @@ qakbot_map = {
     "10": "Botnet name",
     "11": "Number of C2 servers",
     "47": "Bot ID"
-        }
+}
 id_map = {
     b"22": "#1",
     b"23": "#2",
@@ -29,10 +29,9 @@ class QakBot(Parser):
                     if ConfigData:
                         self.reporter.add_metadata('other', {ConfigItem: ConfigData})
                 if index == b'3':
-                    ConfigItem = "Config timestamp"
-                    ConfigData = datetime.datetime.fromtimestamp(int(data)).strftime('%H:%M:%S %d-%m-%Y')
-                    if ConfigData:
-                        self.reporter.add_metadata('other', {ConfigItem: ConfigData})
+                    self.reporter.add_metadata('other', {
+                        "Config timestamp": datetime.datetime.fromtimestamp(int(data)).strftime('%H:%M:%S %d-%m-%Y')}
+                    )
                 if index in (b'22', b'23', b'24', b'24', b'25', b'26'):
                     values = data.split(b':')
                     try:

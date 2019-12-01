@@ -4,6 +4,18 @@
 * agent.py is tested with python (3.7.2|3.8) x86
 * host python3 vetsion 3.6.8
 
+## Installation recommendations and scripts for optimal performance
+1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)
+2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
+ * `sudo ./kvm-qemu.sh all <username>`
+3. To install CAPE itself, [cuckoo.sh](https://github.com/doomedraven/Tools/blob/master/Cuckoo/cuckoo3.sh) with all optimizations
+ * `sudo ./cuckoo3.sh all cape`
+4. Reboot and enjoy
+
+\* All scripts contain __help__ `-h`, but please check the scripts to understand what they are doing.
+
+__requirements.txt is decpricated now in favour of the script__
+
 #### What doesn't work
 * peepdf as it's a py2
 * volatility details, the bridge exist to use VolatilityAPI with vol3, but not to run the default modules
@@ -71,13 +83,3 @@ Processes, modules and memory regions can variously be dumped by CAPE through us
 The repository containing the code for the monitor DLLs which form the basis of these packages is a distinct one: https://github.com/kevoreilly/capemon. This repository is organised in branches for the various packages.
 
 Please contribute to this project by helping create new packages for further malware families, packers, techniques or configuration parsers. Alternatively contact @CapeSandbox or Kevin O'Reilly for further details of CAPE development.
-
-## Installation recommendations and scripts for optimal performance
-1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)
-2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
- * `sudo ./kvm-qemu.sh all <username>`
-3. To install CAPE itself, [cuckoo.sh](https://github.com/doomedraven/Tools/blob/master/Cuckoo/cuckoo3.sh) with all optimizations
- * `sudo ./cuckoo3.sh all cape`
-4. Reboot and enjoy
-
-\* All scripts contain __help__ `-h`, but please check the scripts to understand what they are doing.

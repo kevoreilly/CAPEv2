@@ -22,7 +22,7 @@ from collections import deque
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 
 from pymisp import MISPEvent
 

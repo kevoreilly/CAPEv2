@@ -72,7 +72,9 @@ OPT_ZER0M0N = False
 # To disable comment support, change the below to False
 COMMENTS = True
 
-DEBUG = False
+#If false run next command
+#python3 manage.py runserver 0.0.0.0:8000 --insecure
+DEBUG = True
 
 # Database settings. We don't need it.
 DATABASES = {

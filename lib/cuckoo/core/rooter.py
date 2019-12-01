@@ -26,7 +26,8 @@ log = logging.getLogger(__name__)
 unixpath = tempfile.mktemp()
 lock = threading.Lock()
 
-vpns = {}
+vpns = dict()
+socks5s = dict()
 
 def _load_socks5_operational():
 

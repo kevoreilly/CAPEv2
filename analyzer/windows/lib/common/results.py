@@ -98,7 +98,6 @@ class NetlogFile(NetlogConnection):
         """
             All arguments should be strings
         """
-        log.info((dump_path, filepath, pids, metadata, category))
         if pids:
             pids = " ".join(pids)
         else:

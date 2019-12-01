@@ -31,6 +31,7 @@ except ImportError:
     print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
+logging.getLogger('pymisp').setLevel(logging.INFO)
 
 class MISP(Report):
     """MISP Analyzer."""

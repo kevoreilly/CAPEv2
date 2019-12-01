@@ -10,12 +10,9 @@
 """
 
 #Updated by doomedraven 30.11.2019 for NaxoneZ
-#But due to frequent updates on misp server/api/client, im not maintaining it
-#You need it you fix it!
 
 import os
 import logging
-import warnings
 from io import BytesIO
 from collections import deque
 from lib.cuckoo.common.config import Config
@@ -24,6 +21,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from urllib.parse import urlsplit
 
 try:
+    import pymisp
     from pymisp import MISPEvent
     HAVE_PYMISP = True
 except ImportError:
@@ -38,9 +36,15 @@ class MISP(Report):
 
     order = 1
 
+    #DeprecationWarning: Call to deprecated method add_hashes. (Use ExpandedPyMISP.add_attribute and MISPAttribute)
     def sample_hashes(self, results, event):
         if results.get("target", {}).get("file", {}):
             f = results["target"]["file"]
+            """
+            event.add_attribute('md5', value=f["md5"], comment="File submitted to CAPEv2")
+            event.add_attribute('sha1', value=f["sha1"], comment="File submitted to CAPEv2")
+            event.add_attribute('sha256', value=f["sha256"], comment="File submitted to CAPEv2")
+            """
             self.misp.add_hashes(
                 event,
                 category="Payload delivery",
@@ -114,22 +118,6 @@ class MISP(Report):
         for r in results.get("dropped", []) or []:
             with open(r.get("path"), 'rb') as f:
                 event.add_attribute('malware-sample', value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand='binary')
-
-        """
-        try:
-            #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)
-            self.misp.upload_samplelist(
-                    filepaths=filepaths,
-                    event_id=event["Event"]["id"],
-                    category="Artifacts dropped",
-                    comment="Dropped file",
-            )
-        except:
-            log.error(
-                "Couldn't upload the dropped file, maybe "
-                "the max upload size has been reached."
-            )
-            return False
         """
         # Load the event from MISP (we cannot use event as it
         # does not contain the sample uploaded above, nor it is
@@ -158,6 +146,7 @@ class MISP(Report):
 
         # Update the event
         self.misp.update_event(event_id=event["Event"]["id"], event=e)
+        """
 
 
     def run(self, results):
@@ -171,10 +160,6 @@ class MISP(Report):
         if not url or not apikey:
             log.error("MISP URL or API key not configured.")
             return
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import pymisp
 
         self.misp = pymisp.ExpandedPyMISP(url, apikey, False, "json")
 
@@ -202,7 +187,6 @@ class MISP(Report):
                 upload_sample = self.options.get("upload_sample")
 
                 malfamily = ""
-                filtered_iocs = deque()
                 if results.get("malfamily", ""):
                     malfamily = results["malfamily"]
 
@@ -215,9 +199,7 @@ class MISP(Report):
 
                 # Add a specific tag to flag Cuckoo's event
                 if tag:
-                    mispresult = self.misp.tag(event["Event"]["uuid"], tag)
-                    if mispresult.has_key("message"):
-                        log.debug("tag event: %s" % mispresult["message"])
+                    event.add_tag(tag)
 
 
                 #ToDo?
@@ -227,26 +209,16 @@ class MISP(Report):
                 self.all_network(results, event, whitelist)
                 self.dropped_files(results, event, whitelist)
 
-
-                #ToDo add? upload sample
-                """
                 #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)
                 if upload_sample:
                     target = results.get("target", {})
                     f = target.get("file", {})
                     if target.get("category") == "file" and f:
-                        self.misp.upload_sample(
-                            filename=os.path.basename(f["name"]),
-                            filepath_or_bytes=f["path"],
-                            event_id=event["Event"]["id"],
-                            category="Payload delivery",
-                            comment="Sample run",
-                        )
-                """
+                        with open(f["path"], 'rb') as f:
+                            event.add_attribute('malware-sample', value=os.path.basename(f["path"]), data=BytesIO(f.read()), expand='binary', comment="Sample run",)
 
-                #if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
-                #    filtered_iocs.append(results["target"]["url"])
-                #    #parsed = urlsplit(results["target"]["url"])
+                if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
+                    event.add_named_attribute(event, 'url', [results["target"]["url"]])
 
                 # ToDo migth be outdated!
                 #if self.options.get("ids_files", False) and "suricata" in results.keys():

@@ -8,7 +8,6 @@
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
 import os
-import time
 import logging
 
 try:
@@ -36,20 +35,20 @@ try:
 except Exception as e:
     HAVE_VOLATILITY = False
 
-vollog = logging.getLogger()
+log = logging.getLogger()
 
 # Log everything:
-#vollog.setLevel(1)
+#log.setLevel(1)
 
 # Log only Warnings
-vollog.setLevel(logging.WARNING)
+#log.setLevel(logging.WARNING)
 
 # Trim the console down by default
-console = logging.StreamHandler()
-console.setLevel(logging.WARNING)
-formatter = logging.Formatter('%(levelname)-8s %(name)-12s: %(message)s')
-console.setFormatter(formatter)
-vollog.addHandler(console)
+#console = logging.StreamHandler()
+#console.setLevel(logging.WARNING)
+#formatter = logging.Formatter('%(levelname)-8s %(name)-12s: %(message)s')
+#console.setFormatter(formatter)
+#log.addHandler(console)
 
 
 class VolatilityAPI(object):

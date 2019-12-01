@@ -7,11 +7,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import sys
-import time
 import logging
-import argparse
-import signal
-import multiprocessing
 
 try:
     import yara
@@ -23,6 +19,7 @@ log = logging.getLogger()
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -45,7 +42,7 @@ def init_yara():
 
     # We divide yara rules in three categories.
     # CAPE adds a fourth
-    categories = ["binaries", "urls", "memory", "CAPE"]
+    categories = ["binaries", "memory", "CAPE"] #"urls"
     generated = []
     # Loop through all categories.
     for category in categories:
@@ -59,6 +56,10 @@ def init_yara():
         for entry in os.listdir(category_root):
             if entry.endswith(".yara") or entry.endswith(".yar"):
                 signatures.append(os.path.join(category_root, entry))
+                try:
+                    compile_yara(os.path.join(category_root, entry))
+                except Exception as e:
+                    print(os.path.join(category_root, entry), e)
 
         if not signatures:
             continue
@@ -99,14 +100,14 @@ def compile_yara(rulepath=""):
     except:
         print("Unexpected error:", sys.exc_info()[0])
         raise
-        #if 'duplicated identifier' in e.args[0]:
-        #    print("Duplicate rule in {}, rulepath")
-        #    print(e.args[0])
-        #else:
-        #    print("ERROR: SyntaxError in rules: {}".format(e.args))
-        #    return
-            
-def test_yara():  
+        if 'duplicated identifier' in e.args[0]:
+            print("Duplicate rule in {}, rulepath")
+            print(e.args[0])
+        else:
+            print("ERROR: SyntaxError in rules: {}".format(e.args))
+            return
+
+def test_yara():
     print("About to attempt to compile yara rules...")
 
     # Generate root directory for yara rules.
@@ -121,7 +122,7 @@ def test_yara():
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
         if not os.path.exists(category_root):
-            continue           
+            continue
 
         # Generate path for the category's index file.
         index_name = "index_{0}.yar".format(category)
@@ -129,16 +130,15 @@ def test_yara():
 
         print(("Compiling {}", format(index_path)))
         compile_yara(index_path)
-            
+
 def main():
-    cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
     init_yara()
     test_yara()
-    
+
     print("Complete")
-    
+
 if __name__ == "__main__":
     cfg = Config()
 

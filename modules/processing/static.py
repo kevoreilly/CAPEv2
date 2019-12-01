@@ -75,7 +75,7 @@ try:
     HAVE_OLEFILE = True
 except ImportError:
     HAVE_OLEFILE = False
-    print("Missed olefile dependency: pip install olefile")
+    print("Missed olefile dependency: pip3 install olefile")
 
 try:
     from oletools import oleobj
@@ -90,7 +90,7 @@ try:
     from oletools.msodde import process_file as extract_dde
     HAVE_OLETOOLS = True
 except ImportError:
-    print("Ensure oletools are installed")
+    print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
 from lib.cuckoo.common.utils import convert_to_printable

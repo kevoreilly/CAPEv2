@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 import codecs
 import time
-import json
 import logging
 import os
 from datetime import datetime

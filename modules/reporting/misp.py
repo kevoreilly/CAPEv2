@@ -9,7 +9,7 @@
   (4,"Undefined","*undefined* no risk","No risk");
 """
 
-#Updated by doomedraven 22.11.2019 for NaxoneZ
+#Updated by doomedraven 30.11.2019 for NaxoneZ
 #But due to frequent updates on misp server/api/client, im not maintaining it
 #You need it you fix it!
 
@@ -17,11 +17,14 @@ import os
 import logging
 import warnings
 import threading
+from io import BytesIO
 from collections import deque
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from urlparse import urlsplit
+
+from pymisp import MISPEvent
 
 log = logging.getLogger(__name__)
 
@@ -52,7 +55,8 @@ class MISP(Report):
                 if "uri" in req and req["uri"] not in whitelist:
                     urls.add(req["uri"])
                 if "user-agent" in req:
-                    self.misp.add_useragent(event, req["user-agent"])
+                    #self.misp.add_useragent(event, req["user-agent"])
+                    event.add_named_attribute(event, 'user-agent', req["user-agent"])#, category, to_ids, comment, distribution, proposal, **kwargs)
 
             domains, ips = {}, set()
             for domain in results.get("network", {}).get("domains", []):
@@ -64,9 +68,7 @@ class MISP(Report):
                 ips.add(block["ip"])
 
             for block in results["network"].get("dns", []): #Added DNS
-                if block.get("request", "") and (block["request"] not in whitelist):# and block["request"] not in filtered_iocs):
-                    #filtered_iocs.append(block["request"])
-                    #self.misper["iocs"].append({"domain": block["request"]})
+                if block.get("request", "") and (block["request"] not in whitelist):
                     if block["request"] not in domains and block["request"] not in whitelist:
                         if block["answers"]:
                             domains[block["request"]] = block["answers"][0]["data"]
@@ -83,11 +85,14 @@ class MISP(Report):
                         print(e)
 
             if urls:
-                self.misp.add_url(event, sorted(list(urls)))
+                #self.misp.add_url(event, sorted(list(urls)))
+                #[self.add_named_attribute(event, 'url', url) for url in sorted(list(urls))]#, category, to_ids, comment, distribution, proposal, **kwargs)
+                event.add_named_attribute(event, 'url', sorted(list(urls)))
             if domains:
                 self.misp.add_domains_ips(event, domains)
             if ips:
-                self.misp.add_ipdst(event, sorted(list(ips)))
+                #self.misp.add_ipdst(event, sorted(list(ips)))
+                event.add_named_attribute(event, 'ip-dst', sorted(list(ips)))#, category, to_ids, comment, distribution, proposal, **kwargs)
 
     def dropped_files(self, results, event, whitelist):
         if self.options.get("dropped", False) and "dropped" in results:
@@ -100,14 +105,14 @@ class MISP(Report):
         """
         Add all the dropped files as MISP attributes.
         """
-        from pymisp import MISPEvent
-
         # Upload all the dropped files at once
-        filepaths = [r.get("path") for r in results.get("dropped", [])]
-        if not filepaths:
-            return
+        for r in results.get("dropped", []) or []:
+            with open(r.get("path"), 'rb') as f:
+                event.add_attribute('malware-sample', value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand='binary')
 
+        """
         try:
+            #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)
             self.misp.upload_samplelist(
                     filepaths=filepaths,
                     event_id=event["Event"]["id"],
@@ -120,7 +125,7 @@ class MISP(Report):
                 "the max upload size has been reached."
             )
             return False
-
+        """
         # Load the event from MISP (we cannot use event as it
         # does not contain the sample uploaded above, nor it is
         # a MISPEvent but a simple dict)
@@ -166,7 +171,7 @@ class MISP(Report):
             warnings.simplefilter("ignore")
             import pymisp
 
-        self.misp = pymisp.PyMISP(url, apikey, False, "json")
+        self.misp = pymisp.ExpandedPyMISP(url, apikey, False, "json")
 
         self.threads = self.options.get("threads", "")
         if not self.threads:
@@ -175,8 +180,6 @@ class MISP(Report):
         whitelist = list()
         self.iocs = deque()
         self.misper = dict()
-        self.misp_full_report = dict()
-        self.lock = threading.Lock()
 
         try:
             # load whitelist if exists
@@ -198,12 +201,12 @@ class MISP(Report):
                 if results.get("malfamily", ""):
                     malfamily = results["malfamily"]
 
-                event = self.misp.new_event(
-                    distribution=distribution,
-                    threat_level_id=threat_level_id,
-                    analysis=analysis,
-                    info="{} {} - {}".format(info, malfamily, results.get('info', {}).get('id'))
-                )
+                event = MISPEvent()
+                event.distribution = distribution
+                event.threat_level_id = threat_level_id
+                event.analysis = analysis
+                event.info = "{} {} - {}".format(info, malfamily, results.get('info', {}).get('id'))
+                event = self.misp.add_event(event, pythonify=True)
 
                 # Add a specific tag to flag Cuckoo's event
                 if tag:
@@ -222,6 +225,7 @@ class MISP(Report):
 
                 #ToDo add? upload sample
                 """
+                #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)
                 if upload_sample:
                     target = results.get("target", {})
                     f = target.get("file", {})
@@ -234,7 +238,6 @@ class MISP(Report):
                             comment="Sample run",
                         )
                 """
-                self.misper.setdefault("iocs", list())
 
                 #if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
                 #    filtered_iocs.append(results["target"]["url"])

@@ -3,9 +3,9 @@ from __future__ import print_function
 import re
 import struct
 import string
-import StringIO
+from io import StringIO
 
-class Stream(StringIO.StringIO):
+class Stream(StringIO):
 
     def string(self):
         r=[]
@@ -56,13 +56,13 @@ def append_http(x):
 class NymCfgStream(Stream):
     def __iter__(self):
         return self
-    
+
     def next(self):
         try:
             h = self.dword()
         except:
             raise StopIteration
-        
+
         s = self.dword()
         data = self.read(s)
         return h,data
@@ -76,12 +76,12 @@ class M(object):
 
     def worker(self,name):
         return self._workers[name]
-        
+
     def regex(self,patt,flags=0,a=0,n=None):
         data = self.read(a,n)
         for g in re.finditer(patt,data,flags=flags):
             yield a+g.start()
-        
+
     def read(self,a,n):
         if self.mem:
             return self.mem[a:(a+n )if n else None]
@@ -108,7 +108,7 @@ class Mem(M):
     def read(self,a=0,n=None):
         a = (a-self.base )if a >= self.base else a
         return self._data[a:(a+n )if n else None]
-        
+
 class NymaimExtractor:
 
     CFG_DNS = 0x1b69e661

@@ -16,7 +16,6 @@
 import os
 import logging
 import warnings
-import threading
 from io import BytesIO
 from collections import deque
 from lib.cuckoo.common.config import Config
@@ -24,7 +23,12 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from urllib.parse import urlsplit
 
-from pymisp import MISPEvent
+try:
+    from pymisp import MISPEvent
+    HAVE_PYMISP = True
+except ImportError:
+    HAVE_PYMISP = True
+    print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
 

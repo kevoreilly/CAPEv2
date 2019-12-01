@@ -19,7 +19,7 @@ except ImportError:
     import re
 
 import hashlib
-from urlparse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse
 
 from lib.cuckoo.common.abstracts import Signature
 

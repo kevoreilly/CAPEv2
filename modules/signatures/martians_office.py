@@ -86,7 +86,7 @@ class MartiansOffice(Signature):
             try:
                 self.white_list_re_compiled.append(re.compile(entry,re.I))
             except Exception as e:
-                print "failed to compile expression %s error:%s" % (entry,e)
+                print("failed to compile expression %s error:%s" % (entry,e))
         self.white_list_re_compiled.append(self.office_paths_re)
 
         # Sometimes if we get a service loaded we get out of order processes in tree need iterate over IE processes get the path of the initial monitored executable
@@ -102,4 +102,3 @@ class MartiansOffice(Signature):
                             self.data.append({"office_martian": martian})
                         return True
         return False
-

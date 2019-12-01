@@ -275,12 +275,11 @@ class RunProcessing(object):
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")
         if os.path.exists(logs):
-            for file_name in os.listdir():
+            for file_name in os.listdir(logs):
                 file_path = os.path.join(logs, file_name)
 
                 if os.path.isdir(file_path):
                     continue
-
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):

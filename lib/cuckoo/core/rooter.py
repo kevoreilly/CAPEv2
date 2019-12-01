@@ -34,20 +34,20 @@ def _load_socks5_operational():
     if not HAVE_SOCKS5MANAGER:
         return socks5s
 
-    for socks5 in Manager().list_socks5(operational=True):
-        if not hasattr(socks5, "description"):
-            continue
+    try:
+        for socks5 in Manager().list_socks5(operational=True):
+            if not hasattr(socks5, "description"):
+                continue
 
-        name = socks5.description
-        if not name:
-            continue
+            name = socks5.description
+            if not name:
+                continue
 
-        socks5s[name] = socks5.to_dict()
+            socks5s[name] = socks5.to_dict()
+    except socks5man.exceptions.Socks5manDatabaseError as e:
+        print(e, "you migth have an outdated database at $HOME/.socks5man")
 
     return socks5s
-
-socks5s = _load_socks5_operational()
-
 
 def rooter(command, *args, **kwargs):
     if not os.path.exists(cfg.cuckoo.rooter):

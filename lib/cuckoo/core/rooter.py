@@ -15,6 +15,7 @@ from lib.cuckoo.common.config import Config
 
 try:
     from socks5man.manager import Manager
+    from socks5man.exceptions import Socks5manDatabaseError
     HAVE_SOCKS5MANAGER = True
 except (ImportError, OSError) as e:
     print(e)
@@ -44,7 +45,7 @@ def _load_socks5_operational():
                 continue
 
             socks5s[name] = socks5.to_dict()
-    except socks5man.exceptions.Socks5manDatabaseError as e:
+    except Socks5manDatabaseError as e:
         print(e, "you migth have an outdated database at $HOME/.socks5man")
 
     return socks5s

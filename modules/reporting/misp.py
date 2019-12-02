@@ -204,8 +204,8 @@ class MISP(Report):
                 event = self.misp.add_event(event, pythonify=True)
 
                 # Add a specific tag to flag Cuckoo's event
-                #if tag:
-                #    event.add_tag(tag)
+                if tag:
+                    self.misp.tag(event["uuid"], tag)
 
 
                 #ToDo?

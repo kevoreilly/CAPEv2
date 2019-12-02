@@ -103,9 +103,10 @@ class MISP(Report):
                     print(e)
 
             if urls:
-                #self.misp.add_url(event, sorted(list(urls)))
+                self.misp.add_url(event, sorted(list(urls)))
                 #[self.add_named_attribute(event, 'url', url) for url in sorted(list(urls))]#, category, to_ids, comment, distribution, proposal, **kwargs)
-                event.add_named_attribute(event, 'url', sorted(list(urls)))
+                #event.add_named_attribute(event, 'url', sorted(list(urls)))
+
             if domains:
                 self.misp.add_domains_ips(event, domains)
             if ips:

@@ -79,7 +79,10 @@ def rooter(command, *args, **kwargs):
         "kwargs": kwargs,
     }).encode("utf-8"))
 
-    ret = json.loads(s.recv(0x10000))
+    try:
+        ret = json.loads(s.recv(0x10000))
+    except socket.timeout:
+        ret["exception"] = "rooter response timeout"
 
     lock.release()
 
@@ -87,4 +90,3 @@ def rooter(command, *args, **kwargs):
         log.warning("Rooter returned error: %s", ret["exception"])
 
     return ret
-

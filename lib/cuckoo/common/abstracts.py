@@ -6,7 +6,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import json
 import socket
 import dns.resolver
 import requests
@@ -61,7 +60,7 @@ if repconf.mitre.enabled:
            attack_file = os.path.join(CUCKOO_ROOT, attack_file)
         else:
            attack_file = False
-        mitre = Attck(attack_file)
+        mitre = Attck(local_file_path=attack_file)
         HAVE_MITRE = True
     except ImportError:
         log.error("Missed pyattck dependency")

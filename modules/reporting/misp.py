@@ -92,15 +92,15 @@ class MISP(Report):
                             domains[block["request"]] = block["answers"][0]["data"]
                             ips.add(domain[block["answers"][0]["data"]])
 
-            for i in range(0, len(results["CAPE"])): #Added CAPE Addresses
-                for section in results["CAPE"][i]:
-                    try:
-                        if results["CAPE"][i].get("cape_config", {}).get("address", []) or []:
-                            for ip in results["CAPE"][i]["cape_config"]["address"]:
-                                if ip not in ips:
-                                    ips.add(ip)
-                    except Exception as e:
-                        print(e)
+            #Added CAPE Addresses
+            for section in results.get("CAPE", []) or []:
+                try:
+                    if section.get("cape_config", {}).get("address", []) or []:
+                        for ip in section["cape_config"]["address"]:
+                            if ip not in ips:
+                                ips.add(ip)
+                except Exception as e:
+                    print(e)
 
             if urls:
                 #self.misp.add_url(event, sorted(list(urls)))

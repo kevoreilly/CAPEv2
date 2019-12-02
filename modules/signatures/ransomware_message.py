@@ -97,7 +97,7 @@ class RansomwareMessage(Signature):
             "enter code",
             "your key",
             "unique key"
-    ]
+        ]
 
 
     filter_apinames = set(["NtWriteFile"])
@@ -114,11 +114,11 @@ class RansomwareMessage(Signature):
 
     def on_complete(self):
         if "dropped" in self.results:
-            for dropped in self.results["dropped"]:
+            for dropped in self.results.get("dropped", []) or []:
                 mimetype = dropped["type"]
                 if "ASCII text" in mimetype:
                     filename = dropped["name"]
-                    data = dropped["data"]
+                    data = dropped.get("data", "")
                     patterns = "|".join(self.indicators)
                     if len(data) >= 128:
                         if len(set(re.findall(patterns, data))) > 1:
@@ -127,7 +127,7 @@ class RansomwareMessage(Signature):
 
         if len(self.ransomfile) > 0:
             for filename in self.ransomfile:
-                self.data.append({"ransom_file" : "%s" % (filename)})
+                self.data.append({"ransom_file": "%s" % (filename)})
             return True
 
         return False
@@ -146,12 +146,10 @@ class RansomwareMessageMultipleLocations(Signature):
 
     def run(self):
         ret = False
-        if "dropped" in self.results:
-            for dropped in self.results["dropped"]:
-                filename = dropped["name"]
-                if "ASCII text" in dropped["type"] or filename.endswith((".txt", ".html")):
-                    if len(dropped["guest_paths"]) > 50:
-                        ret = True
-                        self.data.append({"filename": filename})
+        for dropped in self.results.get("dropped", []) or []:
+            if dropped is not None and "ASCII text" in dropped["type"] or dropped["name"].endswith((".txt", ".html")):
+                if dropped.get("guest_paths", "") is not None and len(dropped.get("guest_paths", "")) > 50:
+                    ret = True
+                    self.data.append({"filename": dropped["name"]})
 
         return ret

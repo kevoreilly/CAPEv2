@@ -35,7 +35,7 @@ PLUGX_SIGNATURE                     = 0x5658
 def IsPEImage(buf, size):
     if size < DOS_HEADER_LIMIT:
         return False
-
+    buf = buf.encode("utf-8")
     dos_header = buf[:DOS_HEADER_LIMIT]
     nt_headers = None
 
@@ -47,6 +47,7 @@ def IsPEImage(buf, size):
     if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
         offset = 0
         while offset < PE_HEADER_LIMIT-86:
+            #ToDo
             machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
             if machine_probe == IMAGE_FILE_MACHINE_I386 or machine_probe == IMAGE_FILE_MACHINE_AMD64:
                 nt_headers = buf[offset-4:offset+252]
@@ -55,7 +56,7 @@ def IsPEImage(buf, size):
     else:
         nt_headers = buf[e_lfanew:e_lfanew+256]
 
-    if nt_headers == None:
+    if nt_headers is None:
         return False
 
     #if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
@@ -99,7 +100,7 @@ class CAPE_Compression(Signature):
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.compressed_binary == True:
+        if self.compressed_binary is True:
             return True
 
 class CAPE_RegBinary(Signature):
@@ -124,7 +125,7 @@ class CAPE_RegBinary(Signature):
             self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.reg_binary == True:
+        if self.reg_binary is True:
             return True
 
 class CAPE_Decryption(Signature):
@@ -149,7 +150,7 @@ class CAPE_Decryption(Signature):
             self.encrypted_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.encrypted_binary == True:
+        if self.encrypted_binary is True:
             return True
 
 class CAPE_RegBinary(Signature):
@@ -174,7 +175,7 @@ class CAPE_RegBinary(Signature):
             self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.reg_binary == True:
+        if self.reg_binary is True:
             return True
 
 class CAPE_Extraction(Signature):
@@ -238,11 +239,11 @@ class CAPE_InjectionCreateRemoteThread(Signature):
             self.process_pids = set()
             self.lastprocess = process
 
-        if call["api"] == "OpenProcess" and call["status"] == True:
+        if call["api"] == "OpenProcess" and call["status"] is True:
             if self.get_argument(call, "ProcessId") != process["process_id"]:
                 self.process_handles.add(call["return"])
                 self.process_pids.add(self.get_argument(call, "ProcessId"))
-        elif call["api"] == "NtOpenProcess" and call["status"] == True:
+        elif call["api"] == "NtOpenProcess" and call["status"] is True:
             if self.get_argument(call, "ProcessIdentifier") != process["process_id"]:
                 self.process_handles.add(self.get_argument(call, "ProcessHandle"))
                 self.process_pids.add(self.get_argument(call, "ProcessIdentifier"))
@@ -285,7 +286,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                 self.remote_thread = True
 
     def on_complete(self):
-        if self.write_detected == True and self.remote_thread == True:
+        if self.write_detected is True and self.remote_thread is True:
             return True
 
 class CAPE_InjectionProcessHollowing(Signature):
@@ -385,10 +386,10 @@ class CAPE_InjectionSetWindowLong(Signature):
             name = self.get_argument(call, "ObjectAttributes")
             if name.lower() in self.sharedsections:
                 self.sharedmap = True
-        elif call["api"].startswith("FindWindow") and call["status"] == True:
+        elif call["api"].startswith("FindWindow") and call["status"] is True:
             self.windowfound = True
-        elif call["api"].startswith("SetWindowLong") and call["status"] == True:
-            if self.sharedmap == True and self.windowfound == True:
+        elif call["api"].startswith("SetWindowLong") and call["status"] is True:
+            if self.sharedmap is True and self.windowfound is True:
                 return True
 
 class CAPE_Injection(Signature):
@@ -428,7 +429,7 @@ class CAPE_Injection(Signature):
             self.write_handles.add(whandle)
 
     def on_complete(self):
-        if self.injection_detected == True:
+        if self.injection_detected is True:
             return True
         elif self.process_handles:
             for handle in self.process_handles:
@@ -460,11 +461,11 @@ class CAPE_EvilGrab(Signature):
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
             length = self.get_raw_argument(call, "BufferLength")
-            if length > 0x10000 and self.reg_evilgrab_keyname == True:
+            if length > 0x10000 and self.reg_evilgrab_keyname is True:
                 self.reg_binary = True
 
     def on_complete(self):
-        if self.reg_binary == True:
+        if self.reg_binary is True:
             return True
         else:
             return False
@@ -514,7 +515,7 @@ class CAPE_PlugX(Signature):
                 self.config_copy = True
 
     def on_complete(self):
-        if self.config_copy == True and self.compressed_binary == True:
+        if self.config_copy is True and self.compressed_binary is True:
             return True
 
 class CAPE_Doppelganging(Signature):
@@ -573,16 +574,16 @@ class CAPE_TransactedHollowing(Signature):
             self.transaction_set = True
 
         if call["api"] == "NtRollbackTransaction":
-            if self.transaction_set == True:
+            if self.transaction_set is True:
                 self.transaction_rollback = True
 
         if (call["api"] == "NtMapViewOfSection"):
             handle = self.get_argument(call, "ProcessHandle")
-            if handle != "0xffffffff" and self.transaction_rollback == True:
+            if handle != "0xffffffff" and self.transaction_rollback is True:
                 self.transacted_hollowing = True
 
     def on_complete(self):
-        if self.transacted_hollowing == True:
+        if self.transacted_hollowing is True:
             return True
 
 class CAPEDetectedThreat(Signature):

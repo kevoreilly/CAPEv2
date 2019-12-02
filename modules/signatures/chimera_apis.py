@@ -41,7 +41,7 @@ class Chimera_APIs(Signature):
             for i in range(8):
                 serialnum = (((0x19660d * serialnum) & 0xffffffff) + 0x3c6ef35f) & 0xffffffff
                 buf[i] = serialnum & 0xff
-            word4, dword5, word6 = struct.unpack("<HIH", str(buf))
+            word4, dword5, word6 = struct.unpack("<HIH", buf)
             self.mutexmatch = "{{{0:08X}-{1:04X}-{2:04X}-{3:04X}-{4:08X}{5:04X}}}".format(dword1, word2, word3, word4, dword5, word6)
 
     filter_apinames = set(["NtCreateMutant"])

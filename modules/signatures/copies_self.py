@@ -36,12 +36,11 @@ class CopiesSelf(Signature):
             initialpath = initialproc["module_path"].lower()
         target_sha1 = self.results["target"]["file"]["sha1"]
 
-        if self.results.get("dropped", []):
-            for drop in self.results["dropped"]:
-                if drop["sha1"] == target_sha1:
-                    for path in drop["guest_paths"]:
-                        if initialpath and initialpath != path.lower():
-                            self.data.append({"copy" : path})
-                            created_copy = True
-                    return created_copy
+        for drop in self.results.get("dropped", {}) or []:
+            if drop["sha1"] == target_sha1:
+                for path in drop.get("guest_paths", []) or []:
+                    if initialpath and initialpath != path.lower():
+                        self.data.append({"copy": path})
+                        created_copy = True
+                return created_copy
         return created_copy

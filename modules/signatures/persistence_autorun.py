@@ -90,9 +90,9 @@ class Autorun_scheduler(Signature):
         ]
 
         for indicator in indicators:
-            if "dropped" in self.results and len(self.results["dropped"]):
+            if "dropped" in self.results and len(self.results.get("dropped", [])):
                 for drop in self.results["dropped"]:
-                    for path in drop["guest_paths"]:
+                    for path in drop.get("guest_paths", []) or []:
                         if re.match(indicator, path, re.IGNORECASE):
                             self.data.append({"file": path})
                             self.found_autorun = True
@@ -201,8 +201,8 @@ class Autorun(Signature):
 
         for indicator in indicators:
             if "dropped" in self.results and len(self.results["dropped"]):
-                for drop in self.results["dropped"]:
-                    for path in drop["guest_paths"]:
+                for drop in self.results.get("dropped", []) or []:
+                    for path in drop.get("guest_paths", []) or []:
                         if re.match(indicator, path, re.IGNORECASE):
                             self.data.append({"file": path})
                             self.found_autorun = True

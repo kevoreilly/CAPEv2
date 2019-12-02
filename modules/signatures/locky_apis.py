@@ -67,7 +67,7 @@ class Locky_APIs(Signature):
                     name = name[10:-1]
                     if name not in self.volumes:
                         self.volumes.add(name)
-                        md5 = hashlib.md5(name).hexdigest()[:16].upper()
+                        md5 = hashlib.md5(name.encode("utf-8")).hexdigest()[:16].upper()
                         self.hashes.add(md5)
 
         elif call["api"] == "CryptHashData":

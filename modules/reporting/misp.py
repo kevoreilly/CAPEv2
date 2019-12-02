@@ -74,7 +74,7 @@ class MISP(Report):
                     urls.add(req["uri"])
                 if "user-agent" in req:
                     #self.misp.add_useragent(event, req["user-agent"])
-                    event.add_named_attribute(event, 'user-agent', req["user-agent"])#, category, to_ids, comment, distribution, proposal, **kwargs)
+                    self.misp.add_named_attribute(event, 'user-agent', req["user-agent"])#, category, to_ids, comment, distribution, proposal, **kwargs)
 
             domains, ips = {}, set()
             for domain in results.get("network", {}).get("domains", []):
@@ -103,15 +103,11 @@ class MISP(Report):
                     print(e)
 
             if urls:
-                self.misp.add_url(event, sorted(list(urls)))
-                #[self.add_named_attribute(event, 'url', url) for url in sorted(list(urls))]#, category, to_ids, comment, distribution, proposal, **kwargs)
-                #event.add_named_attribute(event, 'url', sorted(list(urls)))
-
+                self.misp.add_named_attribute(event, 'url', sorted(list(urls)))
             if domains:
                 self.misp.add_domains_ips(event, domains)
             if ips:
-                #self.misp.add_ipdst(event, sorted(list(ips)))
-                event.add_named_attribute(event, 'ip-dst', sorted(list(ips)))#, category, to_ids, comment, distribution, proposal, **kwargs)
+                self.misp.add_named_attribute(event, 'ip-dst', sorted(list(ips)))#, category, to_ids, comment, distribution, proposal, **kwargs)
 
     def dropped_files(self, results, event, whitelist):
         if self.options.get("dropped", False) and "dropped" in results:
@@ -228,7 +224,7 @@ class MISP(Report):
                             event.add_attribute('malware-sample', value=os.path.basename(f["path"]), data=BytesIO(f.read()), expand='binary', comment="Sample run",)
 
                 if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
-                    event.add_named_attribute(event, 'url', [results["target"]["url"]])
+                    self.misp.add_named_attribute(event, 'url', [results["target"]["url"]])
 
                 # ToDo migth be outdated!
                 #if self.options.get("ids_files", False) and "suricata" in results.keys():

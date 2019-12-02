@@ -36,9 +36,10 @@ except ImportError:
     HAS_MALWARECONFIGS = False
     print("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
 
+cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malwareconfig")
 CAPE_DECODERS = [
     os.path.basename(decoder)[:-3]
-    for decoder in glob.glob(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE") + "/[!_]*.py")
+    for decoder in glob.glob(cape_decoders + "/[!_]*.py")
 ]
 
 for name in CAPE_DECODERS:

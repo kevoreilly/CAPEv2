@@ -22,14 +22,14 @@ from urllib.parse import urlsplit
 
 try:
     import pymisp
-    from pymisp import MISPEvent
+    from pymisp import MISPEvent, MISPAttribute
     HAVE_PYMISP = True
 except ImportError:
     HAVE_PYMISP = True
     print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
-logging.getLogger('pymisp').setLevel(logging.INFO)
+logging.getLogger('pymisp').setLevel(logging.WARNING)
 
 class MISP(Report):
     """MISP Analyzer."""
@@ -41,9 +41,15 @@ class MISP(Report):
         if results.get("target", {}).get("file", {}):
             f = results["target"]["file"]
             """
-            event.add_attribute('md5', value=f["md5"], comment="File submitted to CAPEv2")
-            event.add_attribute('sha1', value=f["sha1"], comment="File submitted to CAPEv2")
-            event.add_attribute('sha256', value=f["sha256"], comment="File submitted to CAPEv2")
+            file_data = MISPAttribute()
+            file_data.md5 = f["md5"]
+            file_data.sha1 = f["sha1"]
+            file_data.sha256 = f["sha256"]
+            file_data.filename = f["name"]
+            file_data.comment = "File submitted to CAPEv2"
+            self.misp.add_attribute(event, file_data)
+            #file_data.add_attribute('sha1', value=f["sha1"], comment="File submitted to CAPEv2")
+            #file_data.add_attribute('sha256', value=f["sha256"], comment="File submitted to CAPEv2")
             """
             self.misp.add_hashes(
                 event,
@@ -54,6 +60,9 @@ class MISP(Report):
                 sha256=f["sha256"],
                 comment="File submitted to CAPEv2",
             )
+            #"""
+
+        #return event
 
     def all_network(self, results, event, whitelist):
         """All of the accessed URLS as per the PCAP."""

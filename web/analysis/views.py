@@ -737,8 +737,8 @@ def report(request, task_id):
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
-
-    report["dropped"] = results_db.analysis.find({"info.id": int(task_id)}, {"dropped": 1}).count()
+    #ToDo migth be old bottleneck?
+    report["dropped"] = len(results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 1}).get("dropped", []))
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
             if report.get(keyword, False):

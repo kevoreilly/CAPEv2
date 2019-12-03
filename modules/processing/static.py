@@ -95,14 +95,14 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
-"""
+
 try:
-    from lib.cuckoo.common.peepdf.PDFCore import PDFParser
-    from lib.cuckoo.common.peepdf.JSAnalysis import analyseJS
+    from peepdf.PDFCore import PDFParser
+    from peepdf.JSAnalysis import analyseJS
     HAVE_PEEPDF = True
 except ImportError as e:
     HAVE_PEEPDF = False
-"""
+
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
@@ -1579,9 +1579,8 @@ class Static(Processing):
                 static = PortableExecutable(self.file_path, self.results).run()
                 if static and "Mono" in thetype:
                     static.update(DotNETExecutable(self.file_path, self.results).run())
-            #Somepone port peepdf to py3?
-            #elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
-            #    static = PDF(self.file_path).run()
+            elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
+                static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
                 static = Office(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):

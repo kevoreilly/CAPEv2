@@ -132,7 +132,7 @@ class CAPE(Processing):
             infofd.close()
 
             # Recursive process of unpacked file
-            upx_extract = self.process_file(newname, CAPE_output, True, "")
+            upx_extract = self.process_file(newname, CAPE_output, True, {})
             if upx_extract["type"]:
                 upx_extract["cape_type"] = "UPX-extracted "
                 type_strings = upx_extract["type"].split()
@@ -143,7 +143,7 @@ class CAPE(Processing):
                     else:
                         upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, CAPE_output, append_file, metastring):
+    def process_file(self, file_path, CAPE_output, append_file, metadata):
         """Process file.
         @return: file_info
         """
@@ -165,13 +165,7 @@ class CAPE(Processing):
         textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
         is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
-        #if os.path.exists(file_path + "_info.txt"):
-        #    with open(file_path + "_info.txt", 'r') as f:
-        #        metastring = f.readline()
-        #else:
-        #    metastring = ""
-
-        file_info = File(file_path, metastring).get_all()
+        file_info = File(file_path, metadata["metadata"]).get_all()
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
@@ -185,14 +179,17 @@ class CAPE(Processing):
             else:
                 file_info["data"] = convert_to_printable(file_data)
 
-        metastrings = metastring.split(";?")
-        if len(metastrings) > 1:
-            file_info["pid"] = metastrings[1]
+        if metadata["pids"]:
+            if len(metadata["pids"]) == 1:
+                file_info["pid"] = metadata["pids"][0]
+            else:
+                file_info["pid"] = ",".join(metadata["pids"])
+        metastrings = metadata["metadata"].split(";?")
         if len(metastrings) > 2:
-            file_info["process_path"] = metastrings[2]
-            file_info["process_name"] = metastrings[2].split("\\")[-1]
+            file_info["process_path"] = metastrings[1]
+            file_info["process_name"] = metastrings[1].split("\\")[-1]
         if len(metastrings) > 3:
-            file_info["module_path"] = metastrings[3]
+            file_info["module_path"] = metastrings[2]
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
@@ -644,7 +641,7 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True, meta[file_path]["metadata"])
+                            self.process_file(file_path, CAPE_output, True, meta[file_path])
                         #else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
@@ -652,14 +649,14 @@ class CAPE(Processing):
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    self.process_file(file_path, CAPE_output, False, meta[file_path]["metadata"])
+                    self.process_file(file_path, CAPE_output, False, meta[file_path])
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
 
-        self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}.get("metadata", "")))
+        self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
         if "cape_config" in cape_config:
             CAPE_output.append(cape_config)
 

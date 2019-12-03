@@ -258,25 +258,37 @@ class SubmitCAPE(Report):
                     if 'bp0' in item:
                         self.task_options_stack.remove(item)
                 self.task_options_stack.append("bp0={0}".format(anti_sandbox))
-                detections.add('QakBot')
             decrypt_config = cape_yara["addresses"].get("decrypt_config1")
             if decrypt_config:
                 decrypt_config = decrypt_config +  16  # Offset of "CALL" (decrypt)
+                duplicate = False
+                bp1_set = False
+                bp2_set = False
                 for item in self.task_options_stack:
+                    if format(decrypt_config) in item:
+                        duplicate = True
                     if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                self.task_options_stack.append(
-                    "bp1={0}".format(decrypt_config))
-                detections.add('QakBot')
+                            bp1_set = True
+                    if 'bp2' in item:
+                        bp2_set = True
+                if not duplicate and not bp1_set:
+                    self.task_options_stack.append("bp1={0}".format(decrypt_config))
+                elif not duplicate and not bp2_set:
+                    self.task_options_stack.append("bp2={0}".format(decrypt_config))
+                    detections.add('QakBot')
             decrypt_config = cape_yara["addresses"].get("decrypt_config2")
             if decrypt_config:
                 decrypt_config = decrypt_config +  30  # Offset of "CALL" (decrypt)
                 for item in self.task_options_stack:
                     if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                self.task_options_stack.append(
-                    "bp1={0}".format(decrypt_config))
-                detections.add('QakBot')
+                            bp1_set = True
+                    if 'bp2' in item:
+                        bp2_set = True
+                if not duplicate and not bp1_set:
+                    self.task_options_stack.append("bp1={0}".format(decrypt_config))
+                elif not duplicate and not bp2_set:
+                    self.task_options_stack.append("bp2={0}".format(decrypt_config))
+                    detections.add('QakBot')
 
         if cape_yara["name"] == "IcedID":
             detections.add('IcedID')
@@ -450,7 +462,7 @@ class SubmitCAPE(Report):
             elif parent_package in ('exe', 'Extraction'):
                 package = 'Emotet'
 
-        elif parent_package == 'exe':
+        elif parent_package == 'exe' or parent_package == 'Extraction':
             if 'QakBot' in detections:
                 package = 'QakBot'
 

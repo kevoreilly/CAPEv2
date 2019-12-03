@@ -17,13 +17,14 @@ class QakBot(Package):
         self.options = options
         self.pids = []
         self.options["dll"] = "QakBot.dll"
-        self.options["base-on-api"] = "NtWaitForSingleObject"
+        self.options["base-on-api"] = "GetComputerNameW"
+        self.options["dump-on-api"] = "GetComputerNameW"
 
     def start(self, path):
         args = self.options.get("arguments")
         appdata = self.options.get("appdata")
         runasx86 = self.options.get("runasx86")
-        
+
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does

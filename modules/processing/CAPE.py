@@ -557,4 +557,3 @@ class CAPE(Processing):
             CAPE_output.append(cape_config)
 
         return CAPE_output
-

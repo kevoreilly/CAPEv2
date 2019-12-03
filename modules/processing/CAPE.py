@@ -17,7 +17,6 @@ import os
 import shutil
 import json
 import logging
-import six
 try:
     import re2 as re
 except ImportError:
@@ -109,6 +108,20 @@ sedreco_map = {
     "0x9": "C&C3",
 }
 
+qakbot_map = {
+    "10": "Botnet name",
+    "11": "Number of C2 servers",
+    "47": "Bot ID"
+}
+
+qakbot_id_map = {
+    b"22": "#1",
+    b"23": "#2",
+    b"24": "#3",
+    b"25": "#4",
+    b"26": "#5",
+}
+
 class CAPE(Processing):
     """CAPE output file processing."""
 
@@ -127,9 +140,9 @@ class CAPE(Processing):
                 os.makedirs(self.CAPE_path)
             newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
             shutil.move(unpacked_file, newname)
-            infofd = open(newname + "_info.txt", "a")
-            infofd.write(os.path.basename(unpacked_file) + "\n")
-            infofd.close()
+            #infofd = open(newname + "_info.txt", "a")
+            #infofd.write(os.path.basename(unpacked_file) + "\n")
+            #infofd.close()
 
             # Recursive process of unpacked file
             upx_extract = self.process_file(newname, CAPE_output, True, {})
@@ -270,9 +283,7 @@ class CAPE(Processing):
                 if not "cape_config" in cape_config:
                     cape_config["cape_config"] = {}
                 if file_info["size"] == 256 or file_info["size"] == 260:
-                    ConfigItem = "filepath"
-                    ConfigData = format(file_data)
-                    cape_config["cape_config"].update({ConfigItem: [ConfigData]})
+                    cape_config["cape_config"].update({"filepath": [format(file_data)]})
                 if file_info["size"] > 0x1000:
                     append_file = True
                 else:
@@ -301,10 +312,8 @@ class CAPE(Processing):
                 cape_name = "Cerber"
                 if not "cape_config" in cape_config:
                     cape_config["cape_config"] = {}
-                ConfigItem = "JSON Data"
                 parsed = json.loads(file_data.rstrip(b'\0'))
-                ConfigData = json.dumps(parsed, indent=4, sort_keys=True)
-                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
+                cape_config["cape_config"].update({"JSON Data": [json.dumps(parsed, indent=4, sort_keys=True)]})
                 append_file = True
             # Ursnif
             if file_info["cape_type_code"] == URSNIF_PAYLOAD:
@@ -330,10 +339,10 @@ class CAPE(Processing):
                             cape_config["cape_config"] = {}
                         malwareconfig_config = module.config(file_data)
                         if isinstance(malwareconfig_config, list):
-                            for (key, value) in six.iteritems(malwareconfig_config[0]):
+                            for (key, value) in malwareconfig_config[0].items():
                                 cape_config["cape_config"].update({key: [value]})
                         elif isinstance(malwareconfig_config, dict):
-                            for (key, value) in six.iteritems(malwareconfig_config):
+                            for (key, value) in malwareconfig_config.items():
                                 cape_config["cape_config"].update({key: [value]})
                     except Exception as e:
                         log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
@@ -349,157 +358,43 @@ class CAPE(Processing):
                 file_info["cape_type"] = "Hancitor Config"
                 if not "cape_config" in cape_config:
                     cape_config["cape_config"] = {}
-                ConfigStrings = file_data.split('\0')
+                ConfigStrings = file_data.split(b'\0')
                 ConfigStrings = [_f for _f in ConfigStrings if _f]
                 ConfigItem = "Campaign Code"
                 cape_config["cape_config"].update({ConfigItem: [ConfigStrings[0]]})
-                GateURLs = ConfigStrings[1].split('|')
+                GateURLs = ConfigStrings[1].split(b'|')
                 for index, value in enumerate(GateURLs):
                     ConfigItem = "Gate URL " + str(index+1)
                     cape_config["cape_config"].update({ConfigItem: [value]})
                 append_file = False
             # QakBot
-
-            qakbot_map = {
-                "10": "Botnet name",
-                "11": "Number of C2 servers",
-                "47":  "Bot ID"
-            }
             if file_info["cape_type_code"] == QAKBOT_CONFIG:
                 file_info["cape_type"] = "QakBot Config"
                 cape_config["cape_type"] = "QakBot Config"
                 cape_name = "QakBot"
-                if not "cape_config" in cape_config:
+                if "cape_config" not in cape_config:
                     cape_config["cape_config"] = {}
                 for line in file_data.splitlines():
-                    if '=' in line:
+                    if b'=' in line:
                         index = line.split('=')[0]
                         data = line.split('=')[1]
-                    if index in qakbot_map:
-                        ConfigItem = qakbot_map[index]
-                        ConfigData = data
-                        if ConfigData:
-                            cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                    if index == '3':
-                        ConfigItem = "Config timestamp"
-                        ConfigData = datetime.datetime.fromtimestamp(int(data)).strftime('%H:%M:%S %d-%m-%Y')
-                        if ConfigData:
-                            cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                    if index == '22':
-                        values = data.split(':')
-                        ConfigItem = "Password #1"
-                        try:
-                            ConfigData = values[2]
+                        if index in qakbot_map:
+                            ConfigItem = qakbot_map[index]
+                            ConfigData = data
                             if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "Username #1"
-                        try:
-                            ConfigData = values[1]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "C2 #1"
-                        try:
-                            ConfigData = values[0]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                    if index == '23':
-                        values = data.split(':')
-                        ConfigItem = "Password #2"
-                        try:
-                            ConfigData = values[2]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "Username #2"
-                        try:
-                            ConfigData = values[1]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "C2 #2"
-                        try:
-                            ConfigData = values[0]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                    if index == '24':
-                        values = data.split(':')
-                        ConfigItem = "Password #3"
-                        try:
-                            ConfigData = values[2]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "Username #3"
-                        try:
-                            ConfigData = values[1]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "C2 #3"
-                        try:
-                            ConfigData = values[0]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                    if index == '25':
-                        values = data.split(':')
-                        ConfigItem = "Password #4"
-                        try:
-                            ConfigData = values[2]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "Username #4"
-                        try:
-                            ConfigData = values[1]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "C2 #4"
-                        try:
-                            ConfigData = values[0]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                    if index == '26':
-                        values = data.split(':')
-                        ConfigItem = "Password #5"
-                        try:
-                            ConfigData = values[2]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "Username #5"
-                        try:
-                            ConfigData = values[1]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
-                        ConfigItem = "C2 #5"
-                        try:
-                            ConfigData = values[0]
-                            if ConfigData:
-                                cape_config["cape_config"].update({ConfigItem: [ConfigData]})
-                        except:
-                            pass
+                                self.reporter.add_metadata('other', {ConfigItem: ConfigData})
+                        if index == b'3':
+                            cape_config["cape_config"].update({
+                                "Config timestamp": datetime.datetime.fromtimestamp(int(data)).strftime('%H:%M:%S %d-%m-%Y')}
+                            )
+                        if index in (b'22', b'23', b'24', b'24', b'25', b'26'):
+                            values = data.split(b':')
+                            try:
+                                cape_config["cape_config"].update({"Password {}".format(qakbot_id_map[index]): values[2]})
+                                cape_config["cape_config"].update({ "Username {}".format(qakbot_id_map[index]): values[1]})
+                                cape_config["cape_config"].update({"C2 {}".format(qakbot_id_map[index]): values[0]})
+                            except:
+                                pass
                 append_file = False
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:

@@ -143,7 +143,7 @@ class CAPE(Processing):
                     else:
                         upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, CAPE_output, append_file, metadata):
+    def process_file(self, file_path, CAPE_output, append_file, metadata={}):
         """Process file.
         @return: file_info
         """
@@ -165,7 +165,7 @@ class CAPE(Processing):
         textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
         is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
-        file_info = File(file_path, metadata["metadata"]).get_all()
+        file_info = File(file_path, metadata.get("metadata", "")).get_all()
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
@@ -179,12 +179,13 @@ class CAPE(Processing):
             else:
                 file_info["data"] = convert_to_printable(file_data)
 
-        if metadata["pids"]:
+        if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
                 file_info["pid"] = metadata["pids"][0]
             else:
                 file_info["pid"] = ",".join(metadata["pids"])
-        metastrings = metadata["metadata"].split(";?")
+
+        metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
             file_info["process_path"] = metastrings[1]
             file_info["process_name"] = metastrings[1].split("\\")[-1]

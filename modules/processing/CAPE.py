@@ -373,7 +373,6 @@ class CAPE(Processing):
                 file_info["cape_type"] = "QakBot Config"
                 cape_config["cape_type"] = "QakBot Config"
                 cape_name = "QakBot"
-                append_file = False
                 cape_config = static_config_parsers(cape_name, file_data, cape_config)
                 append_file = False
             # Attempt to decrypt script dump

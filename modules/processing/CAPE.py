@@ -373,29 +373,8 @@ class CAPE(Processing):
                 file_info["cape_type"] = "QakBot Config"
                 cape_config["cape_type"] = "QakBot Config"
                 cape_name = "QakBot"
-                if "cape_config" not in cape_config:
-                    cape_config["cape_config"] = {}
-                for line in file_data.splitlines():
-                    if b'=' in line:
-                        index = line.split('=')[0]
-                        data = line.split('=')[1]
-                        if index in qakbot_map:
-                            ConfigItem = qakbot_map[index]
-                            ConfigData = data
-                            if ConfigData:
-                                self.reporter.add_metadata('other', {ConfigItem: ConfigData})
-                        if index == b'3':
-                            cape_config["cape_config"].update({
-                                "Config timestamp": datetime.datetime.fromtimestamp(int(data)).strftime('%H:%M:%S %d-%m-%Y')}
-                            )
-                        if index in (b'22', b'23', b'24', b'24', b'25', b'26'):
-                            values = data.split(b':')
-                            try:
-                                cape_config["cape_config"].update({"Password {}".format(qakbot_id_map[index]): values[2]})
-                                cape_config["cape_config"].update({ "Username {}".format(qakbot_id_map[index]): values[1]})
-                                cape_config["cape_config"].update({"C2 {}".format(qakbot_id_map[index]): values[0]})
-                            except:
-                                pass
+                append_file = False
+                cape_config = static_config_parsers(cape_name, file_data, cape_config)
                 append_file = False
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:

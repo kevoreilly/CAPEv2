@@ -17,7 +17,6 @@
 __requirements.txt is decpricated now in favour of the script__
 
 #### What doesn't work
-* peepdf as it's a py2
 * volatility details, the bridge exist to use VolatilityAPI with vol3, but not to run the default modules
 
 ## CAPE: Malware Configuration And Payload Extraction

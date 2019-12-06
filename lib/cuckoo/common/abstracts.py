@@ -15,7 +15,6 @@ import logging
 import time
 
 from urllib.parse import urlparse
-import six
 try:
     import re2 as re
 except ImportError:
@@ -113,7 +112,6 @@ class Machinery(object):
         self.options = None
         # Database pointer.
         self.db = Database()
-
         # Machine table is cleaned to be filled from configuration file
         # at each start.
         self.db.clean_machines()
@@ -186,7 +184,7 @@ class Machinery(object):
 
                 # Strip parameters.
                 for key, value in machine.items():
-                    if value and isinstance(value, six.string_types):
+                    if value and isinstance(value, str):
                         machine[key] = value.strip()
 
                 self.db.add_machine(name=machine.id,

@@ -15,6 +15,7 @@ from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
+from lib.cuckoo.common.config import Config
 
 try:
     from pyVim.connect import SmartConnection
@@ -24,7 +25,7 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 logging.getLogger("requests").setLevel(logging.WARNING)
-
+cfg = Config()
 
 class vSphere(Machinery):
     """vSphere/ESXi machinery class based on pyVmomi Python SDK."""
@@ -47,7 +48,7 @@ class vSphere(Machinery):
         @param module_name: module name.
         """
         super(vSphere, self)._initialize(module_name)
-        
+
         # Initialize random number generator
         random.seed()
 
@@ -64,7 +65,7 @@ class vSphere(Machinery):
         else:
             raise CuckooCriticalError("vSphere host address setting not found, "
                                       "please add it to the config file.")
-        
+
         if self.options.vsphere.port:
             self.connect_opts["port"] = self.options.vsphere.port
         else:
@@ -284,7 +285,7 @@ class vSphere(Machinery):
 
     def _download_snapshot(self, conn, vm, name, path):
         """Download snapshot file from host to local path"""
-        
+
         # Get filespec to .vmsn file of named snapshot
         snapshot = self._get_snapshot_by_name(vm, name)
         if not snapshot:
@@ -353,7 +354,7 @@ class vSphere(Machinery):
 
     def _wait_task(self, task):
         """Wait for a task to complete with timeout"""
-        limit = timedelta(seconds=int(self.options_globals.timeouts.vm_state))
+        limit = timedelta(seconds=int(cfg.timeouts.vm_state))
         start = datetime.utcnow()
 
         while True:
@@ -375,4 +376,3 @@ class vSphere(Machinery):
                 for child in self._traverseSnapshots(node.childSnapshotList):
                     yield child
             yield node
-

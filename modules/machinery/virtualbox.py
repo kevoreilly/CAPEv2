@@ -17,8 +17,10 @@ except ImportError:
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
+cfg = Config()
 
 class VirtualBox(Machinery):
     """Virtualization layer for VirtualBox."""
@@ -120,7 +122,7 @@ class VirtualBox(Machinery):
             # to add a timeout and kill it after that.
             stop_me = 0
             while proc.poll() is None:
-                if stop_me < int(self.options_globals.timeouts.vm_state):
+                if stop_me < int(cfg.timeouts.vm_state):
                     time.sleep(1)
                     stop_me += 1
                 else:
@@ -128,7 +130,7 @@ class VirtualBox(Machinery):
                     proc.terminate()
 
             if proc.returncode != 0 and \
-                    stop_me < int(self.options_globals.timeouts.vm_state):
+                    stop_me < int(cfg.timeouts.vm_state):
                 log.debug("VBoxManage exited with error "
                           "powering off the machine")
         except OSError as e:

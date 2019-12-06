@@ -29,6 +29,3 @@ class KVM(LibVirtMachinery):
         super(KVM, self).start(label)
         if not self.db.view_machine_by_label(label).interface:
             self.db.set_machine_interface(label, self._get_interface(label))
-
-
-

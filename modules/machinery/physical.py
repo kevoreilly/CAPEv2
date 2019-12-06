@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 import socket
 import logging
-import xmlrpc.client.
+import xmlrpc.client
 import subprocess
 
 from lib.cuckoo.common.abstracts import Machinery

@@ -48,6 +48,7 @@ class VMware(Machinery):
         @param vmx_path: path to vmx file
         @raise CuckooMachineError: if file not found or not ending with .vmx
         """
+        #b".vms"? someone can test?
         if not vmx_path.endswith(".vmx"):
             raise CuckooMachineError("Wrong configuration: vm path not "
                                      "ending with .vmx: %s)" % vmx_path)

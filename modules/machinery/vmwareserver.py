@@ -3,11 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import glob
 import logging
 import subprocess
 import os.path
-import shutil
 import time
 
 from lib.cuckoo.common.abstracts import Machinery
@@ -57,7 +55,7 @@ class VMwareServer(Machinery):
                        " -u " + self.options.vmwareserver.username + \
                        " -p " + self.options.vmwareserver.password + \
                        " listSnapshots " + "\"" + vmx_path + "\""
-        
+
         try:
             p = subprocess.Popen(check_string, shell=True)
             output, _ = p.communicate()
@@ -95,9 +93,9 @@ class VMwareServer(Machinery):
                        " -u " + self.options.vmwareserver.username + \
                        " -p " + self.options.vmwareserver.password + \
                        " start " + "\"" + vmx_path + "\""
-        
+
         log.debug("Starting vm %s" % vmx_path)
-        
+
         try:
             p = subprocess.Popen(start_string, shell=True)
             if self.options.vmwareserver.mode.lower() == "gui":
@@ -125,7 +123,7 @@ class VMwareServer(Machinery):
 
         log.debug("Stopping vm %s" % vmx_path)
         #log.debug("Stop string: %s" % stop_string)
- 
+
         if self._is_running(vmx_path):
             try:
                 if subprocess.call(stop_string, shell=True):
@@ -146,14 +144,14 @@ class VMwareServer(Machinery):
         @raise CuckooMachineError: if unable to revert
         """
         log.debug("Revert snapshot for vm %s: %s" % (vmx_path, snapshot))
-        
+
         revert_string = self.options.vmwareserver.path + \
                         " -T ws-shared -h " + \
                         self.options.vmwareserver.vmware_url + \
                         " -u " + self.options.vmwareserver.username + \
                         " -p " + self.options.vmwareserver.password + \
                         " revertToSnapshot " + "\"" + vmx_path + "\" " + snapshot
-               
+
         #log.debug("Revert string: %s" % revert_string)
 
         try:
@@ -161,7 +159,7 @@ class VMwareServer(Machinery):
                 raise CuckooMachineError("Unable to revert snapshot for "
                                          "machine %s: vmrun exited with "
                                          "error" % vmx_path)
-                                         
+
         except OSError as e:
             raise CuckooMachineError("Unable to revert snapshot for "
                                      "machine %s: %s" % (vmx_path, e))
@@ -179,7 +177,7 @@ class VMwareServer(Machinery):
                       " list " + "\"" + vmx_path + "\""
 
         #log.debug("List string: %s" % list_string)
-					  
+
         try:
             p = subprocess.Popen(list_string, stdout=subprocess.PIPE, shell=True)
             output, error = p.communicate()

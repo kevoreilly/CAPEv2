@@ -4,7 +4,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import libvirt
 
 from lib.cuckoo.common.abstracts import LibVirtMachinery
@@ -24,10 +23,10 @@ class ESX(LibVirtMachinery):
         if not self.options.esx.password:
             raise CuckooMachineError("ESX(i) password is missing, please add it to the config file")
 
-        self.dsn = self.options.esx.dsn 
+        self.dsn = self.options.esx.dsn
         self.global_conn = self._global_connect()
         super(ESX, self)._initialize_check()
-  
+
     def _auth_callback(self, credentials, user_data):
         for credential in credentials:
             if credential[0] == libvirt.VIR_CRED_AUTHNAME:
@@ -38,11 +37,11 @@ class ESX(LibVirtMachinery):
                 raise CuckooCriticalError("ESX machinery did not recieve an object to inject a username or password into")
 
         return 0
-    
-    def _connect(self, label=None):     
+
+    def _connect(self, label=None):
         """
         return the already-connected single connection handle if set, otherwise set it.
-        """  
+        """
         if self.global_conn == None:
             self.global_conn = self._global_connect()
         return self.global_conn
@@ -56,12 +55,12 @@ class ESX(LibVirtMachinery):
             return libvirt.openAuth(self.dsn, self.auth, 0)
         except libvirt.libvirtError as libvex:
             raise CuckooCriticalError("libvirt returned an exception on connection: %s" % libvex)
-    
+
     def _disconnect(self, conn):
         """
         Using one global connection we now disconnect in the destructor, ignore requests to disconnect
         """
-        pass            
-        
+        pass
+
     def __del__(self):
         self.global_conn.close()

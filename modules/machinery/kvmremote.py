@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os, subprocess
+import subprocess
 import xml.etree.ElementTree as ET
 import libvirt
 import logging
@@ -47,7 +47,7 @@ class KVMRemote(LibVirtMachinery):
         super(KVMRemote, self)._initialize(module_name)
 
         hypervs_labels = self.options.get("kvmremote")["hypervisors"]
-        hypervs_labels = ("".join(hypervs_labels.split())).split(",")
+        hypervs_labels = ("".join(hypervs_labels.split())).split(b",")
 
         for machine in self.machines():
             machine_cfg = self.options.get(machine.label)

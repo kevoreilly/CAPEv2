@@ -141,20 +141,21 @@ class VirtualBox(Machinery):
         @return: virtual machine names list.
         """
         try:
-            proc = subprocess.Popen([self.options.virtualbox.path,
-                                     "list", "vms"],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    close_fds=True)
+            proc = subprocess.Popen([
+                self.options.virtualbox.path, "list", "vms"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True
+            )
             output, _ = proc.communicate()
         except OSError as e:
             raise CuckooMachineError("VBoxManage error listing "
                                      "installed machines: %s" % e)
 
         machines = []
-        for line in output.split("\n"):
+        for line in output.split(b"\n"):
             try:
-                label = line.split('"')[1]
+                label = line.split(b'"')[1]
                 if label == "<inaccessible>":
                     log.warning("Found an inaccessible virtual machine, "
                                 "please check its state.")
@@ -194,7 +195,7 @@ class VirtualBox(Machinery):
                         label, e)
             status = self.ERROR
         if not status:
-            for line in output.split("\n"):
+            for line in output.split(b"\n"):
                 state = re.match(r"VMState=\"(\w+)\"", line, re.M|re.I)
                 if state:
                     status = state.group(1)

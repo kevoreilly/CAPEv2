@@ -41,7 +41,7 @@ class MultiMachinery(Machinery):
     def set_options(self, options):
         if getattr(self, "options", None) is None:
             # First time being called, gather the configs of our sub-machineries
-            for machinery_name in options.get("multi").get("machinery").split(","):
+            for machinery_name in options.get("multi").get("machinery").split(b","):
                 machinery = {
                     "config": Config(machinery_name),
                     "module": import_plugin("modules.machinery."
@@ -66,7 +66,7 @@ class MultiMachinery(Machinery):
                     list_machines,
                     machinery["module"])
 
-                for machine_name in [machine.strip() for machine in machinery_machines.split(",")]:
+                for machine_name in [machine.strip() for machine in machinery_machines.split(b",")]:
                     machine = machinery["config"].get(machine_name)
                     machine["machinery"] = machinery_name
 

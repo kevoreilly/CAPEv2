@@ -41,6 +41,11 @@ bingraph_args_dict = {
 }
 
 
+excluded_filetypes = (
+  "HTML document, ASCII text, with CRLF line terminators",
+  "ASCII text, with CRLF line terminators",
+)
+
 class BinGraph(Report):
     "Generate bingraphs"
 
@@ -62,7 +67,7 @@ class BinGraph(Report):
 
             for key in ("dropped", "procdump", "CAPE"):
                 for block in results.get(key, []) or []:
-                    if block.get("size", 0) != 0 and \
+                    if block.get("size", 0) != 0 and block.get("type", "") not in excluded_filetypes and \
                             not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"]))):
                         bingraph_args_dict.update({
                             "prefix": block["sha256"],

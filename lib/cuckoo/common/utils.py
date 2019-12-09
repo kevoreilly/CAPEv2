@@ -49,16 +49,12 @@ else:
 log = logging.getLogger(__name__)
 
 def free_space_monitor():
-    # TODO: Windows support
-    if hasattr(os, "statvfs") and HAVE_RAMFS and ramfs.enabled:
+    if HAVE_RAMFS and ramfs.enabled:
         while True:
-            dir_stats = os.statvfs(ramfs.path)
-            # Calculate the free disk space in megabytes.
-            space_available = dir_stats.f_bavail * dir_stats.f_frsize
-            space_available /= 1024 * 1024
+             # Calculate the free disk space in megabytes.
+            space_available = shutil.disk_usage(ramfs.path).free >> 20
             if space_available < ramfs.freespace:
-                log.error("Not enough free disk space! (Only %d MB!)",
-                            space_available)
+                log.error("Not enough free disk space! (Only %d MB!)", space_available)
                 time.sleep(5)
             else:
                 break
@@ -73,7 +69,6 @@ def get_memdump_path(id, analysis_folder=False):
         memdump_path = os.path.join(ramfs.path, id + ".dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
-
     return memdump_path
 
 

@@ -801,24 +801,19 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                try:
+                    dir_stats = shutil.disk_usage(dir_path).free
+                except FileNotFoundError:
+                    log.error("Folder doesn't exist, maybe due to clean")
+                    os.makedirs(dir_path)
+                    dir_stats = shutil.disk_usage(dir_path).free
 
-                # TODO: Windows support
-                if hasattr(os, "statvfs"):
-                    try:
-                        dir_stats = os.statvfs(dir_path)
-                    except FileNotFoundError:
-                        log.error("Folder doesn't exist, maybe due to clean")
-                        os.makedirs(dir_path)
-                        dir_stats = os.statvfs(dir_path)
+                space_available = dir_stats.free >> 20
 
-                    # Calculate the free disk space in megabytes.
-                    space_available = dir_stats.f_bavail * dir_stats.f_frsize
-                    space_available /= 1024 * 1024
-
-                    if space_available < self.cfg.cuckoo.freespace:
-                        log.error("Not enough free disk space! (Only %d MB!)",
-                                  space_available)
-                        continue
+                if space_available < self.cfg.cuckoo.freespace:
+                    log.error("Not enough free disk space! (Only %d MB!)",
+                                space_available)
+                    continue
 
             # Have we limited the number of concurrently executing machines?
             if self.cfg.cuckoo.max_machines_count > 0:
@@ -843,6 +838,7 @@ class Scheduler:
                     task = self.db.fetch(machine=machine.name)
                     if task:
                         break
+                #fix tag problem here
                 else:
                     task = self.db.fetch()
                 if task:

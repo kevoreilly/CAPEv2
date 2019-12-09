@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import shutil
 
 from lib.common.abstracts import Package
 
@@ -19,7 +18,7 @@ class Extraction_Regsvr(Package):
         self.config = config
         self.options = options
         self.options["dll"] = "Extraction.dll"
-        #self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["dll_64"] = "Extraction_x64.dll"
 
     def start(self, path):
         regsvr32 = self.get_path("regsvr32.exe")

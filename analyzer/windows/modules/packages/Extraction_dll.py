@@ -19,7 +19,7 @@ class Extraction_dll(Package):
         self.config = config
         self.options = options
         self.options["dll"] = "Extraction.dll"
-        #self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["dll_64"] = "Extraction_x64.dll"
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")

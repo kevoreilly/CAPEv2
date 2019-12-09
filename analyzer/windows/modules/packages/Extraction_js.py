@@ -18,7 +18,7 @@ class Extraction_JS(Package):
         self.config = config
         self.options = options
         self.options["dll"] = "Extraction.dll"
-        #self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["dll_64"] = "Extraction_x64.dll"
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")

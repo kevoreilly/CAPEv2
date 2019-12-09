@@ -18,7 +18,7 @@ class PS1(Package):
         self.config = config
         self.options = options
         self.options["dll"] = "Extraction.dll"
-        #self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["dll_64"] = "Extraction_x64.dll"
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

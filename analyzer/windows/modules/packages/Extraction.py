@@ -4,15 +4,11 @@
 
 from __future__ import absolute_import
 import os
-import shutil
 
 from lib.common.abstracts import Package
 
 class Extraction(Package):
     """CAPE Extraction analysis package."""
-    #PATHS = [
-    #    ("SystemRoot", "system32"),
-    #]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
@@ -24,7 +20,7 @@ class Extraction(Package):
 
     def start(self, path):
         arguments = self.options.get("arguments")
-        
+
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does
@@ -33,5 +29,5 @@ class Extraction(Package):
             new_path = path + ".exe"
             os.rename(path, new_path)
             path = new_path
-        
+
         return self.execute(path, arguments, path)

@@ -83,10 +83,7 @@ class AnalysisManager(threading.Thread):
 
     def init_storage(self):
         """Initialize analysis storage folder."""
-        self.storage = os.path.join(CUCKOO_ROOT,
-                                    "storage",
-                                    "analyses",
-                                    str(self.task.id))
+        self.storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id))
 
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
@@ -348,7 +345,7 @@ class AnalysisManager(threading.Thread):
             if self.cfg.cuckoo.memory_dump or self.task.memory:
                 try:
                     dump_path = get_memdump_path(self.task.id)
-                    free_space_monitor()
+                    free_space_monitor(RAM=True)
                     machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
                     log.error("The memory dump functionality is not available "
@@ -801,18 +798,9 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                try:
-                    dir_stats = shutil.disk_usage(dir_path).free
-                except FileNotFoundError:
-                    log.error("Folder doesn't exist, maybe due to clean")
-                    os.makedirs(dir_path)
-                    dir_stats = shutil.disk_usage(dir_path).free
-
-                space_available = dir_stats.free >> 20
-
-                if space_available < self.cfg.cuckoo.freespace:
-                    log.error("Not enough free disk space! (Only %d MB!)",
-                                space_available)
+                need_space, space_available = free_space_monitor(dir_path, return_value=True)
+                if need_space:
+                    log.error("Not enough free disk space! (Only %d MB!)", space_available)
                     continue
 
             # Have we limited the number of concurrently executing machines?
@@ -838,7 +826,6 @@ class Scheduler:
                     task = self.db.fetch(machine=machine.name)
                     if task:
                         break
-                #fix tag problem here
                 else:
                     task = self.db.fetch()
                 if task:

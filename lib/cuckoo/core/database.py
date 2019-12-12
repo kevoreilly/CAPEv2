@@ -58,6 +58,7 @@ tasks_tags = Table(
     Column("tag_id", Integer, ForeignKey("tags.id"))
 )
 
+
 class Machine(Base):
     """Configured virtual machines to be used as guests."""
     __tablename__ = "machines"
@@ -126,6 +127,7 @@ class Tag(Base):
     def __init__(self, name):
         self.name = name
 
+
 class Guest(Base):
     """Tracks guest run."""
     __tablename__ = "guests"
@@ -170,6 +172,7 @@ class Guest(Base):
         self.name = name
         self.label = label
         self.manager = manager
+
 
 class Sample(Base):
     """Submitted files details."""
@@ -220,6 +223,7 @@ class Sample(Base):
         if parent:
             self.parent = parent
 
+
 class Error(Base):
     """Analysis errors."""
     __tablename__ = "errors"
@@ -249,6 +253,7 @@ class Error(Base):
 
     def __repr__(self):
         return "<Error('{0}','{1}','{2}')>".format(self.id, self.message, self.task_id)
+
 
 class Task(Base):
     """Analysis task queue."""
@@ -346,11 +351,13 @@ class Task(Base):
     def __repr__(self):
         return "<Task('{0}','{1}')>".format(self.id, self.target)
 
+
 class AlembicVersion(Base):
     """Table used to pinpoint actual database schema release."""
     __tablename__ = "alembic_version"
 
     version_num = Column(String(32), nullable=False, primary_key=True)
+
 
 class Database(object, metaclass=Singleton):
     """Analysis queue database.
@@ -397,6 +404,13 @@ class Database(object, metaclass=Singleton):
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)
+        #load vms tags
+        self.vms_tags = dict()
+        session = self.Session()
+        machines = session.query(Machine).options(joinedload("tags")).all()
+        for machine in machines:
+            self.vms_tags[machine.name] = [tag.name for tag in machine.tags]
+        session.close()
 
         @event.listens_for(self.Session, 'after_flush')
         def delete_tag_orphans(session, ctx):
@@ -620,9 +634,12 @@ class Database(object, metaclass=Singleton):
         row = None
         try:
             if machine != "":
-                row = session.query(Task).filter_by(status=TASK_PENDING).filter_by(machine=machine).order_by(text("priority desc, added_on")).first()
+                row = session.query(Task).filter_by(status=TASK_PENDING).filter_by(machine=machine).order_by(Task.priority.desc(), Task.added_on).first()
+                if not row and self.vms_tags.get(machine, False):
+                    cond = or_(* [Task.tags.any(name=machine_tag) for machine_tag in self.vms_tags[machine]])
+                    row = session.query(Task).options(joinedload("tags")).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(cond).first()
             else:
-                row = session.query(Task).filter_by(status=TASK_PENDING).order_by(text("priority desc, added_on")).first()
+                row = session.query(Task).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(Task.tags==None).first()
             if not row:
                 return None
 
@@ -1327,7 +1344,7 @@ class Database(object, metaclass=Singleton):
     def list_tasks(self, limit=None, details=False, category=None,
                    offset=None, status=None, sample_id=None, not_status=None,
                    completed_after=None, order_by=None, added_before=None,
-                   id_before=None, id_after=None):
+                   id_before=None, id_after=None, options_like=False):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
         @param details: if details about must be included
@@ -1341,6 +1358,7 @@ class Database(object, metaclass=Singleton):
         @param added_before: tasks added before a specific timestamp
         @param id_before: filter by tasks which is less than this value
         @param id_after filter by tasks which is greater than this value
+        @param options_like: filter tasks by specific option insde of the options
         @return: list of tasks.
         """
         session = self.Session()
@@ -1369,6 +1387,8 @@ class Database(object, metaclass=Singleton):
                 search = search.order_by(order_by)
             else:
                 search = search.order_by(Task.added_on.desc())
+            if options_like:
+                search = search.filter(Task.options.like("%{}%".format(options_like)))
 
             tasks = search.limit(limit).offset(offset).all()
             return tasks

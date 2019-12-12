@@ -11,7 +11,6 @@ import os
 import sys
 import time
 import json
-jdec = json.JSONDecoder()
 import shutil
 import queue
 import hashlib
@@ -98,13 +97,11 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 
 def node_status(url, name, ht_user, ht_pass):
     try:
-        r = requests.get(os.path.join(url, "cuckoo", "status"),
-                        auth = HTTPBasicAuth(ht_user, ht_pass),
-                        verify = False, timeout=200)
+        r = requests.get(
+            os.path.join(url, "cuckoo", "status"), auth=HTTPBasicAuth(ht_user, ht_pass), verify=False, timeout=200)
         return r.json()["tasks"]
     except Exception as e:
-        log.critical("Possible invalid Cuckoo node (%s): %s",
-                        name, e)
+        log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}
 
 def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
@@ -113,9 +110,10 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params,
-                        auth=HTTPBasicAuth(ht_user, ht_pass),
-                        verify=False)
+        r = requests.get(
+            url, params=params,
+            auth=HTTPBasicAuth(ht_user, ht_pass),
+            verify=False)
         return r.json()["tasks"]
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
@@ -125,8 +123,8 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
 def node_list_machines(url, ht_user, ht_pass):
     try:
         r = requests.get(os.path.join(url, "machines", "list"),
-                        auth = HTTPBasicAuth(ht_user, ht_pass),
-                        verify = False)
+                        auth=HTTPBasicAuth(ht_user, ht_pass),
+                        verify=False)
 
         for machine in r.json()["machines"]:
             yield Machine(name=machine["name"],
@@ -283,9 +281,10 @@ class Retriever(threading.Thread):
                     thread.daemon = True
                     thread.start()
 
-        thread = threading.Thread(target=self.failed_cleaner, args=())
-        thread.daemon = True
-        thread.start()
+        if reporting_conf.distributed.failed_cleaner:
+            thread = threading.Thread(target=self.failed_cleaner, args=())
+            thread.daemon = True
+            thread.start()
 
         thread = threading.Thread(target=self.free_space_mon, args=())
         thread.daemon = True
@@ -296,6 +295,7 @@ class Retriever(threading.Thread):
             thread.daemon = True
             thread.start()
 
+    #ToDo move to latest free_space_mon
     def free_space_mon(self):
         # If not enough free disk space is available, then we print an
         # error message and wait another round (this check is ignored
@@ -409,25 +409,25 @@ class Retriever(threading.Thread):
             db = session()
             for node in db.query(Node).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
-                #"ToDo add failed_processing"
-                for task in node_fetch_tasks("failed_analysis", node.url, node.ht_user, node.ht_pass, action="delete"):
-                    t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
-                    if t is not None:
-                        log.info("Cleaning failed_analysis for id:{}, node:{}".format(t.id, t.node_id))
-                        main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
-                        t.finished = True
-                        t.retrieved = True
-                        db.commit()
-                        lock_retriever.acquire()
-                        if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
-                            self.cleaner_queue.put((t.node_id, t.task_id))
-                        lock_retriever.release()
-                    else:
-                        log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
-                        lock_retriever.acquire()
-                        if (node.id, task["id"]) not in self.cleaner_queue.queue:
-                            self.cleaner_queue.put((node.id, task["id"]))
-                        lock_retriever.release()
+                for status in ("failed_analysis", "failed_processing"):
+                    for task in node_fetch_tasks(status, node.url, node.ht_user, node.ht_pass, action="delete"):
+                        t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
+                        if t is not None:
+                            log.info("Cleaning failed_analysis for id:{}, node:{}".format(t.id, t.node_id))
+                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
+                            t.finished = True
+                            t.retrieved = True
+                            db.commit()
+                            lock_retriever.acquire()
+                            if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
+                                self.cleaner_queue.put((t.node_id, t.task_id))
+                            lock_retriever.release()
+                        else:
+                            log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
+                            lock_retriever.acquire()
+                            if (node.id, task["id"]) not in self.cleaner_queue.queue:
+                                self.cleaner_queue.put((node.id, task["id"]))
+                            lock_retriever.release()
             db.close()
             time.sleep(600)
     """
@@ -481,9 +481,9 @@ class Retriever(threading.Thread):
                         log.info(e)
                         if self.status_count[node.name] == dead_count:
                             log.info('[-] {} dead'.format(node.name))
-                            node_data = db.query(Node).filter_by(name=node.name).first()
-                            node_data.enabled = False
-                            db.commit()
+                            #node_data = db.query(Node).filter_by(name=node.name).first()
+                            #node_data.enabled = False
+                            #db.commit()
             db.close()
             time.sleep(5)
 
@@ -555,7 +555,7 @@ class Retriever(threading.Thread):
                             sample_sha256 = hashlib.sha256(sample).hexdigest()
                             destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
                             if not os.path.exists(destination):
-                                os.mkdir(destination, mode=0o755)
+                                os.makedirs(destination, mode=0o755)
                             destination = os.path.join(destination, sample_sha256)
                             if not os.path.exists(destination):
                                 shutil.move(t.path, destination)
@@ -609,27 +609,29 @@ class Retriever(threading.Thread):
 
 class StatusThread(threading.Thread):
 
-    def submit_tasks(self, node_id, pend_tasks_num, STATUSES, SERVER_TAGS):
+    def submit_tasks(self, node_id, pend_tasks_num, options_like=False, force_push_push=False):
         db = session()
         node = db.query(Node).filter_by(id=node_id).first()
+        limit = 0
         if node.name != "master":
             # don't do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
-            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"))#, limit=pend_tasks_num)
+            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"), options_like=options_like)#, limit=pend_tasks_num)
             if main_db_tasks:
-                limit = 0
                 for t in main_db_tasks:
                     force_push = False
                     try:
                         # convert the options string to a dict, e.g. {'opt1': 'val1', 'opt2': 'val2', 'opt3': 'val3'}
                         options = dict((value.strip() for value in option.split("=", 1)) for option in t.options.split(",") if option and '=' in option)
-                        if "node=" in t.options and options.get("node", node.name) != node.name and options.get("node") in STATUSES:
-                            # check if node exist and its correct
-                                #node = db.query(Node).filter_by(name=options.get("node", node.name)).first()
-                                ##or options.get("node") not in STATUSES
-                                #log.debug("Skipping task: {}. node: {} - dest node: {}".format(t.id, node.name, options.get("node")))
-                                continue
+                        # check if node exist and its correct
+                        if "node=" in t.options:
+                            requested_node = options.get("node")
+                            if requested_node not in STATUSES:
+                                # if the requested node is not available
                                 force_push = True
+                            elif requested_node != node.name:
+                                # otherwise keep looping
+                                continue
                         if "timeout=" in t.options:
                             t.timeout = options["timeout"]
                     except Exception as e:
@@ -666,7 +668,6 @@ class StatusThread(threading.Thread):
                     db.add(task)
                     try:
                         db.commit()
-                        #print("adding tasks with id", task.id, t.id)
                     except Exception as e:
                         log.exception(e)
                         log.info("TASK_FAILED_REPORTING")
@@ -674,62 +675,63 @@ class StatusThread(threading.Thread):
                         log.info(e)
                         continue
 
-                    if force_push:
+                    if force_push or force_push_push:
                         # Submit appropriate tasks to node
                         submitted = node_submit_task(task.id, node.id)
                         if submitted:
                             if node.name == "master":
-                                main_db.set_status(t.main_task_id, TASK_RUNNING)
+                                main_db.set_status(t.id, TASK_RUNNING)
                             else:
-                                main_db.set_status(t.main_task_id, TASK_DISTRIBUTED)
+                                main_db.set_status(t.id, TASK_DISTRIBUTED)
                         limit += 1
                         if limit == pend_tasks_num:
                             db.close()
                             return
 
-            # Only get tasks that have not been pushed yet.
-            q = db.query(Task).filter(or_(Task.node_id==None, Task.task_id==None), Task.finished==False)
-            if q is None:
-                db.close()
-                return
-            # Order by task priority and task id.
-            q = q.order_by(-Task.priority, Task.main_task_id)
-            # if we have node set in options push                         if reporting_conf.distributed.enable_tags:
-            # Create filter query from tasks in ta
-            tags = [getattr(Task, "tags") == ""]
-            for tg in SERVER_TAGS[node.name]:
-                if len(tg.split(',')) == 1:
-                    tags.append(getattr(Task, "tags") == (tg + ','))
-                else:
-                    tg = tg.split(',')
-                    # ie. LIKE '%,%,%,'
-                    t_combined = [getattr(Task, "tags").like("%s" % ('%,' * len(tg)))]
-                    for tag in tg:
-                        t_combined.append(getattr(Task, "tags").like("%%%s%%" % (tag + ',')))
-                    tags.append(and_(*t_combined))
-            # Filter by available tags
-            q = q.filter(or_(*tags))
-            to_upload = q.limit(pend_tasks_num).all()
-            if not to_upload:
-                db.close()
-                return
-            # Submit appropriate tasks to node
-            log.debug("going to upload {} tasks to node id {}".format(pend_tasks_num, node.name))
-            for task in to_upload:
-                submitted = node_submit_task(task.id, node.id)
-                if submitted:
-                    if node.name == "master":
-                        main_db.set_status(task.main_task_id, TASK_RUNNING)
-                    else:
-                        main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
-                else:
-                    print(("something is wrong with submission of task: {}".format(task.id)))
-                    db.delete(task)
-                    db.commit()
-                limit += 1
-                if limit == pend_tasks_num:
+                # Only get tasks that have not been pushed yet.
+                q = db.query(Task).filter(or_(Task.node_id==None, Task.task_id==None), Task.finished==False)
+                if q is None:
                     db.close()
                     return
+                # Order by task priority and task id.
+                q = q.order_by(-Task.priority, Task.main_task_id)
+                # if we have node set in options push
+                if reporting_conf.distributed.enable_tags:
+                    # Create filter query from tasks in ta
+                    tags = [getattr(Task, "tags") == ""]
+                    for tg in SERVER_TAGS[node.name]:
+                        if len(tg.split(',')) == 1:
+                            tags.append(getattr(Task, "tags") == (tg + ','))
+                        else:
+                            tg = tg.split(',')
+                            # ie. LIKE '%,%,%,'
+                            t_combined = [getattr(Task, "tags").like("%s" % ('%,' * len(tg)))]
+                            for tag in tg:
+                                t_combined.append(getattr(Task, "tags").like("%%%s%%" % (tag + ',')))
+                            tags.append(and_(*t_combined))
+                    # Filter by available tags
+                    q = q.filter(or_(*tags))
+                to_upload = q.limit(pend_tasks_num).all()
+                if not to_upload:
+                    db.close()
+                    return
+                # Submit appropriate tasks to node
+                log.debug("going to upload {} tasks to node id {}".format(pend_tasks_num, node.name))
+                for task in to_upload:
+                    submitted = node_submit_task(task.id, node.id)
+                    if submitted:
+                        if node.name == "master":
+                            main_db.set_status(task.main_task_id, TASK_RUNNING)
+                        else:
+                            main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
+                    else:
+                        print("something is wrong with submission of task: {}".format(task.id))
+                        db.delete(task)
+                        db.commit()
+                    limit += 1
+                    if limit == pend_tasks_num:
+                        db.close()
+                        return
 
         db.close()
 
@@ -759,14 +761,12 @@ class StatusThread(threading.Thread):
 
             # Get available node tags
             machines = db.query(Machine).filter_by(node_id=node.id).all()
-
             # Get available tag combinations
             ta = set()
             for m in machines:
                 for i in range(1, len(m.tags) + 1):
                     for tag in combinations(m.tags, i):
                         ta.add(','.join(tag))
-
             SERVER_TAGS[node.name] = list(ta)
 
         db.close()
@@ -782,26 +782,31 @@ class StatusThread(threading.Thread):
                     # This will declare slave as dead after X failed connections checks
                     if failed_count[node.name] == dead_count:
                         log.info('[-] {} dead'.format(node.name))
-                        node.enabled = False
-                        db.commit()
+                        #node.enabled = False
+                        #db.commit()
+                        #STATUSES[node.name]["enabled"] = False
                     continue
                 failed_count[node.name] = 0
                 log.info("Status.. %s -> %s", node.name, status)
                 statuses[node.name] = status
+                statuses[node.name]["enabled"] = True
                 STATUSES = statuses
 
+                #first submit tasks with specified node
+                self.submit_tasks(node.id, MINIMUMQUEUE[node.name]*2, "%node={}%".format(node.name), force_push_push=True)
+
                 # Balance the tasks, works fine if no tags are set
-                #node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"])
-                #if node_name != node.name:
-                #    node = db.query(Node).filter_by(name=node_name).first()
+                node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"])
+                if node_name != node.name:
+                    node = db.query(Node).filter_by(name=node_name).first()
 
                 try:
-                    pend_tasks_num = MINIMUMQUEUE[node.name] - STATUSES[node.name]["pending"]
+                    pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["pending"])
                 except KeyError:
                     # servers hotplug
                     MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
+                    # Get available node tags
                     machines = db.query(Machine).filter_by(node_id=node.id).all()
-
                     # Get available tag combinations
                     ta = set()
                     for m in machines:
@@ -816,9 +821,9 @@ class StatusThread(threading.Thread):
                 # elif -  master also analyze samples, check master queue
                 # send tasks to slaves if master queue has extra tasks(pending)
                 if master_storage_only:
-                    self.submit_tasks(node.id, pend_tasks_num, STATUSES, SERVER_TAGS)
+                    self.submit_tasks(node.id, pend_tasks_num)
                 elif statuses.get("master", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["pending"] < MINIMUMQUEUE[node.name]:
-                    self.submit_tasks(node.id, pend_tasks_num, STATUSES, SERVER_TAGS)
+                    self.submit_tasks(node.id, pend_tasks_num)
             db.close()
             time.sleep(INTERVAL)
 

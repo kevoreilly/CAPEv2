@@ -40,6 +40,8 @@ except ImportError:
     HAVE_CHARDET = False
 
 config = Config()
+
+#it called ramfs, but it is tmpfs
 if hasattr(config, "ramfs"):
     ramfs = Config().ramfs
     HAVE_RAMFS = True
@@ -48,16 +50,30 @@ else:
 
 log = logging.getLogger(__name__)
 
-def free_space_monitor():
-    if HAVE_RAMFS and ramfs.enabled:
-        while True:
-             # Calculate the free disk space in megabytes.
-            space_available = shutil.disk_usage(ramfs.path).free >> 20
-            if space_available < ramfs.freespace:
-                log.error("Not enough free disk space! (Only %d MB!)", space_available)
-                time.sleep(5)
+def free_space_monitor(path=False, RAM=False, return_value=False):
+    need_space, space_available = False, 0
+    while True:
+        try:
+            # Calculate the free disk space in megabytes.
+            if RAM and HAVE_RAMFS and ramfs.enabled:
+                space_available = shutil.disk_usage(ramfs.path).free >> 20
+                need_space = space_available < ramfs.freespace
             else:
-                break
+                space_available = shutil.disk_usage(path).free >> 20
+                need_space = space_available < config.cuckoo.freespace
+        except FileNotFoundError:
+            log.error("Folder doesn't exist, maybe due to clean")
+            os.makedirs(path)
+            continue
+
+        if return_value:
+            return need_space, space_available
+
+        if need_space:
+            log.error("Not enough free disk space! (Only %d MB!)", space_available)
+            time.sleep(5)
+        else:
+            break
 
 def get_memdump_path(id, analysis_folder=False):
     """
@@ -1768,6 +1784,7 @@ def to_unicode(s):
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
             try:
+                #ToDo text_type is unicode py2 str py3
                 return six.text_type(s2, enc)
             except UnicodeDecodeError:
                 pass

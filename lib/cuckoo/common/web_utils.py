@@ -100,7 +100,7 @@ def fix_section_permission(path):
                    log.info(pe.sections[id].Characteristics)
                    pe.write(filename=path)
            pe.close()
-           log.info("clsoe")
+           log.info("close")
        except Exception as e:
            log.info(e)
    else:
@@ -110,7 +110,7 @@ def fix_section_permission(path):
 # Submission hooks to set options based on some naming patrons
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
-    if b"name" in filename :
+    if "name" in filename :
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True
@@ -143,7 +143,7 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
             else:
                 return "error", render(request, "error.html", {"error":  "Provided hash not found on {}".format(service)})
 
-        if r.status_code == 200 and r.content != "Hash Not Present" and "The request requires higher privileges than provided by the access token" not in r.content:
+        if r.status_code == 200 and r.content != b"Hash Not Present" and b"The request requires higher privileges than provided by the access token" not in r.content:
             content = r.content
         elif r.status_code == 403:
             if api:
@@ -191,7 +191,7 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
 
     orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
     for entry in task_machines:
-        task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
+        task_ids_new = db.demux_sample_and_add_to_db(file_path=filename.encode("utf-8"), package=package, timeout=timeout, options=options, priority=priority,
                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock, static=static)
         if isinstance(task_ids, list):
             task_ids.extend(task_ids_new)

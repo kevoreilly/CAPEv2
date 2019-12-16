@@ -406,10 +406,12 @@ class Database(object, metaclass=Singleton):
         self.Session = sessionmaker(bind=self.engine)
         #load vms tags
         self.vms_tags = dict()
+        self.tasks_filters = dict()
         session = self.Session()
         machines = session.query(Machine).options(joinedload("tags")).all()
         for machine in machines:
             self.vms_tags[machine.name] = [tag.name for tag in machine.tags]
+            self.tasks_filters[machine.name] = or_(*[Task.tags.any(name=tag.name) for tag in machine.tags])
         session.close()
 
         @event.listens_for(self.Session, 'after_flush')
@@ -636,7 +638,7 @@ class Database(object, metaclass=Singleton):
             if machine != "":
                 row = session.query(Task).filter_by(status=TASK_PENDING).filter_by(machine=machine).order_by(Task.priority.desc(), Task.added_on).first()
                 if not row and self.vms_tags.get(machine, False):
-                    cond = or_(* [Task.tags.any(name=machine_tag) for machine_tag in self.vms_tags[machine]])
+                    cond = self.tasks_filters[machine]
                     row = session.query(Task).options(joinedload("tags")).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(cond).first()
             else:
                 row = session.query(Task).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(Task.tags==None).first()

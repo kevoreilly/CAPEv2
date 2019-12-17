@@ -281,8 +281,6 @@ def index(request, resubmit_hash=False):
                             continue
 
                     orig_options, timeout, enforce_timeout = recon(path, orig_options, timeout, enforce_timeout)
-                    if "pony" in path:
-                        fix_section_permission(path)
 
                 for entry in task_machines:
                     try:

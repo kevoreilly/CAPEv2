@@ -58,7 +58,7 @@ def choose_package(file_type, file_name, exports, target):
         return "rar"
     elif "Macromedia Flash" in file_type or file_name.endswith(".swf"):
         return "swf"
-    elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
+    elif file_name.endswith((b".py", ".pyc")) or "Python script" in file_type:
         return "python"
     elif file_name.endswith(".msi"):
         return "msi"
@@ -84,12 +84,12 @@ def choose_package(file_type, file_name, exports, target):
         return "mht"
     elif b'mso-application' in file_content and b'Word.Document' in file_content:
         return "doc"
-    elif file_name.endswith(b".vbs") or file_name.endswith(b".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
+    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:
-            if re.findall(rb"\s?Dim\s", data, re.I):
+            if re.findall(br"\s?Dim\s", data, re.I):
                 return "vbs"
             else:
                 return "js"

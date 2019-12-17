@@ -195,7 +195,6 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                     module.get_config()
                     malwareconfig_config = module.config
                     #ToDo remove
-                    print(malwareconfig_config)
                     if isinstance(malwareconfig_config, list):
                         for (key, value) in malwareconfig_config[0].items():
                             cape_config["cape_config"].update({key: [value]})

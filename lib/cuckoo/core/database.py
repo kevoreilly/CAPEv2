@@ -20,7 +20,7 @@ from lib.cuckoo.common.cape_utils import static_extraction
 
 try:
     from sqlalchemy import create_engine, Column, event
-    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func
+    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_
     from sqlalchemy import ForeignKey, Text, Index, Table, text
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.exc import SQLAlchemyError, IntegrityError

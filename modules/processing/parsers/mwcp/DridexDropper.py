@@ -20,7 +20,7 @@ import yara
 from mwcp.parser import Parser
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-yara_path = os.path.join(CUCKOO_ROOT, "data", "CAPE", "DridexLoader.yar")
+yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "DridexLoader.yar")
 rule_source = open(yara_path, "r").read()
 
 MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0

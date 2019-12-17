@@ -14,9 +14,9 @@ class AntiAVSRP(Signature):
     ttp = ["T1089"]
 
     def run(self):
-        match_key = self.check_write_key(".*\\\\Policies\\\\Microsoft\\\\Windows\\\\Safer\\\\\CodeIdentifiers\\\\0\\\\Paths\\\\.*", regex=True, all=True)
+        match_key = self.check_write_key(".*\\\\Policies\\\\Microsoft\\\\Windows\\\\Safer\\\\CodeIdentifiers\\\\0\\\\Paths\\\\.*", regex=True, all=True)
         if match_key:
             for match in match_key:
-                self.data.append({"key" : match})
+                self.data.append({"key": match})
             return True
         return False

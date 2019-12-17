@@ -82,14 +82,14 @@ def choose_package(file_type, file_name, exports, target):
         return "html"
     elif file_name.endswith(".mht"):
         return "mht"
-    elif 'mso-application' in file_content and 'Word.Document' in file_content:
+    elif b'mso-application' in file_content and b'Word.Document' in file_content:
         return "doc"
-    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall("\s?Dim\s", file_content, re.I):
+    elif file_name.endswith(b".vbs") or file_name.endswith(b".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
-    elif "#@~^" in file_content[:100]:
+    elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:
-            if re.findall("\s?Dim\s", data, re.I):
+            if re.findall(rb"\s?Dim\s", data, re.I):
                 return "vbs"
             else:
                 return "js"

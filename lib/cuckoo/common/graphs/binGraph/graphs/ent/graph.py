@@ -345,10 +345,10 @@ class bin_proxy(object):
             self.lib = lib
         else:
 
-            if 'lief' in sys.modules:
-                self.lib = 'lief'
-            elif 'pefile' in sys.modules:
+            if 'pefile' in sys.modules:
                 self.lib = 'pefile'
+            elif 'lief' in sys.modules:
+                self.lib = 'lief'
             else:
                 # # We dont have a parser
                 return None, None

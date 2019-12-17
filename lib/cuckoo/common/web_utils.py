@@ -110,7 +110,10 @@ def fix_section_permission(path):
 # Submission hooks to set options based on some naming patrons
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
-    if "name" in filename :
+    #ToDo why sometimes is bytes?
+    if isinstance(filename, bytes):
+        filename = filename.decode("utf-8")
+    if "name" in filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True

@@ -161,7 +161,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                             #ToDo do we really need to convert it?
                             cape_config["cape_config"] = convert(tmp_dict)
                         else:
-                            cape_config["cape_config"].update(convert(mwcp.metadata))
+                            cape_config["cape_config"].update(convert(tmp_dict))
                     except Exception as e:
                         log.error("CAPE: DC3-MWCP config parsing error with %s: %s", cape_name, e)
                 else:

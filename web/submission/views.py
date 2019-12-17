@@ -275,8 +275,7 @@ def index(request, resubmit_hash=False):
                     magic_type = get_magic_type(path)
                     if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
                         if len(samples) == 1:
-                            return render(request, "error.html",
-                                    {"error": "Sorry no x64 support yet"})
+                            return render(request, "error.html", {"error": "Sorry no x64 support yet"})
                         else:
                             continue
 

@@ -1552,6 +1552,9 @@ class Signature(object):
         """Properties as a dict (for results).
         @return: result dictionary.
         """
+        if isinstance(self.data, set):
+            self.data = list(self.data)
+
         return dict(
             name=self.name,
             description=self.description,

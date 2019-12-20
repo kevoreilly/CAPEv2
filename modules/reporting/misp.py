@@ -10,9 +10,11 @@
 """
 
 #Updated by doomedraven 30.11.2019 for NaxoneZ
+#Updated by NaxoneZ 20.12.2019 for the rest of the world :)
 
 import os
 import logging
+import json
 from io import BytesIO
 from collections import deque
 from lib.cuckoo.common.config import Config
@@ -31,26 +33,26 @@ except ImportError:
 log = logging.getLogger(__name__)
 logging.getLogger('pymisp').setLevel(logging.WARNING)
 
+ttps_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')))
+
 class MISP(Report):
     """MISP Analyzer."""
 
     order = 1
 
+    def signature(self, results, event):
+        for ttp in results.get("ttps", []) or []:
+            for i in ttps_json.get("objects", []) or []:
+                try:
+                    if i["external_references"][0]["external_id"] == ttp:
+                        self.misp.tag(event["uuid"], 'misp-galaxy:mitre-attack-pattern="'+i["name"]+' - '+ttp+'"')
+                except:
+                    pass
+
     #DeprecationWarning: Call to deprecated method add_hashes. (Use ExpandedPyMISP.add_attribute and MISPAttribute)
     def sample_hashes(self, results, event):
         if results.get("target", {}).get("file", {}):
             f = results["target"]["file"]
-            """
-            file_data = MISPAttribute()
-            file_data.md5 = f["md5"]
-            file_data.sha1 = f["sha1"]
-            file_data.sha256 = f["sha256"]
-            file_data.filename = f["name"]
-            file_data.comment = "File submitted to CAPEv2"
-            self.misp.add_attribute(event, file_data)
-            #file_data.add_attribute('sha1', value=f["sha1"], comment="File submitted to CAPEv2")
-            #file_data.add_attribute('sha256', value=f["sha256"], comment="File submitted to CAPEv2")
-            """
             self.misp.add_hashes(
                 event,
                 category="Payload delivery",
@@ -60,9 +62,6 @@ class MISP(Report):
                 sha256=f["sha256"],
                 comment="File submitted to CAPEv2",
             )
-            #"""
-
-        #return event
 
     def all_network(self, results, event, whitelist):
         """All of the accessed URLS as per the PCAP."""
@@ -98,7 +97,7 @@ class MISP(Report):
                     if section.get("cape_config", {}).get("address", []) or []:
                         for ip in section["cape_config"]["address"]:
                             if ip not in ips:
-                                ips.add(ip)
+                                ips.add(ip.split(":")[0])
                 except Exception as e:
                     print(e)
 
@@ -209,11 +208,12 @@ class MISP(Report):
 
 
                 #ToDo?
-                #self.signature(results, event)
+                self.signature(results, event)
 
                 self.sample_hashes(results, event)
                 self.all_network(results, event, whitelist)
                 self.dropped_files(results, event, whitelist)
+
 
                 #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)
                 if upload_sample:
@@ -244,6 +244,11 @@ class MISP(Report):
                     if "read_keys" in results["behavior"].get("summary", {}):
                         for regkey in results["behavior"]["summary"]["read_keys"]:
                             self.misp.add_regkey(event, regkey)
+
+                #Make event public
+                if self.options.get("published", True):
+                   event.published = True
+                   self.misp.publish(event)
 
         except Exception as e:
             log.error("Failed to generate JSON report: %s" % e, exc_info=True)

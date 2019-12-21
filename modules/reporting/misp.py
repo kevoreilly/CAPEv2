@@ -35,6 +35,14 @@ logging.getLogger('pymisp').setLevel(logging.WARNING)
 
 ttps_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')))
 
+# load whitelist if exists
+whitelist = list()
+if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
+    whitelist = Config("misp").whitelist.whitelist
+    if whitelist:
+        whitelist = [ioc.strip() for ioc in whitelist.split(",")]
+
+
 class MISP(Report):
     """MISP Analyzer."""
 
@@ -63,7 +71,7 @@ class MISP(Report):
                 comment="File submitted to CAPEv2",
             )
 
-    def all_network(self, results, event, whitelist):
+    def all_network(self, results, event):
         """All of the accessed URLS as per the PCAP."""
         urls = set()
         if self.options.get("network", False) and "network" in results.keys():
@@ -108,7 +116,7 @@ class MISP(Report):
             if ips:
                 self.misp.add_named_attribute(event, 'ip-dst', sorted(list(ips)))#, category, to_ids, comment, distribution, proposal, **kwargs)
 
-    def dropped_files(self, results, event, whitelist):
+    def dropped_files(self, results, event):
         if self.options.get("dropped", False) and "dropped" in results:
             for entry in results["dropped"]:
                 if entry["md5"] and  entry["md5"] not in whitelist:
@@ -172,17 +180,10 @@ class MISP(Report):
         if not self.threads:
             self.threads = 5
 
-        whitelist = list()
         self.iocs = deque()
         self.misper = dict()
 
         try:
-            # load whitelist if exists
-            if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
-                whitelist = Config("misp").whitelist.whitelist
-                if whitelist:
-                    whitelist = [ioc.strip() for ioc in whitelist.split(",")]
-
             if self.options.get("upload_iocs", False) and results.get("malscore", 0) >= self.options.get("min_malscore", 0):
                 distribution = int(self.options.get("distribution", 0))
                 threat_level_id = int(self.options.get("threat_level_id", 4))
@@ -196,11 +197,16 @@ class MISP(Report):
                     malfamily = results["malfamily"]
 
                 event = MISPEvent()
-                event.distribution = distribution
-                event.threat_level_id = threat_level_id
-                event.analysis = analysis
-                event.info = "{} {} - {}".format(info, malfamily, results.get('info', {}).get('id'))
-                event = self.misp.add_event(event, pythonify=True)
+                response = self.misp.search("attributes", value=results["target"]["file"]["sha256"], return_format="json")
+                if response.get("Attribute", []):
+                    res = self.misp.get_event(response["Attribute"][0]["event_id"])["Event"]
+                    event.load(res)
+                else:
+                    event.distribution = distribution
+                    event.threat_level_id = threat_level_id
+                    event.analysis = analysis
+                    event.info = "{} {} - {}".format(info, malfamily, results.get('info', {}).get('id'))
+                    event = self.misp.add_event(event, pythonify=True)
 
                 # Add a specific tag to flag Cuckoo's event
                 if tag:
@@ -211,8 +217,8 @@ class MISP(Report):
                 self.signature(results, event)
 
                 self.sample_hashes(results, event)
-                self.all_network(results, event, whitelist)
-                self.dropped_files(results, event, whitelist)
+                self.all_network(results, event)
+                self.dropped_files(results, event)
 
 
                 #DeprecationWarning: Call to deprecated method upload_samplelist. (Use MISPEvent.add_attribute with the expand='binary' key)

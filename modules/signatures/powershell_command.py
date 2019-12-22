@@ -348,11 +348,11 @@ class PowerShellScriptBlockLogging(Signature):
 
     def run(self):
         ret = False
-        if "curtain" in self.results:
-            for pid, detection in self.results.get("curtain", {}).items():
+        if "curtain" in self.results and self.results["curtain"] is not None:
+            for pid, detection in self.results["curtain"].items():
                 if len(detection["behaviors"]) > 0:
                     joined = ', '.join(detection["behaviors"])
                     ret = True
-                    self.data.append({pid : joined})
+                    self.data.append({pid: joined})
 
         return ret

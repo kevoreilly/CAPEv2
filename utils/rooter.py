@@ -156,9 +156,31 @@ def dns_forward(action, vm_ip, dns_ip, dns_port="53"):
         "--dport", "53", "--source", vm_ip, "-j", "DNAT",
         "--to-destination", "%s:%s" % (dns_ip, dns_port))
 
-def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port):
+def inetsim_redirect_port(action, srcip, dstip, ports):
+    """Note that the parameters (probably) mean the opposite of what they
+    imply; this method adds or removes an iptables rule for redirect traffic
+    from (srcip, srcport) to (dstip, dstport).
+    E.g., if 192.168.56.101:80 -> 192.168.56.1:8080, then it redirects
+    outgoing traffic from 192.168.56.101 to port 80 to 192.168.56.1:8080.
+    """
+    for entry in ports.split():
+        if entry.count(":") != 1:
+            log.debug("Invalid inetsim ports entry: %s", entry)
+            continue
+        srcport, dstport = entry.split(":")
+        if not srcport.isdigit() or not dstport.isdigit():
+            log.debug("Invalid inetsim ports entry: %s", entry)
+            continue
+        run(settings.iptables,
+            "-t", "nat", action, "PREROUTING", "--source", srcip,
+            "-p", "tcp", "--syn", "--dport", srcport,
+            "-j", "DNAT", "--to-destination", "%s:%s" % (dstip, dstport)
+        )
+
+def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     """Enable hijacking of all traffic and send it to InetSIM."""
     log.info("Enabling inetsim route.")
+    inetsim_redirect_port("-A", ipaddr, inetsim_ip, ports)
     run(settings.iptables, "-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "DNAT",
         "--to-destination", "{}".format(inetsim_ip))
@@ -169,9 +191,10 @@ def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port):
     dns_forward("-A", ipaddr, inetsim_ip, dns_port)
     run(settings.iptables, "-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
-def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port):
+def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     """Disable hijacking of all traffic and send it to InetSIM."""
     log.info("Disabling inetsim route.")
+    inetsim_redirect_port("-D", ipaddr, inetsim_ip, ports)
     run(settings.iptables, "-D", "PREROUTING", "-t", "nat", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "DNAT",
         "--to-destination", "{}".format(inetsim_ip))

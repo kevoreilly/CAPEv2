@@ -10,7 +10,7 @@ import sys
 import copy
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import modules.auxiliary
 import modules.processing
@@ -32,7 +32,7 @@ from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 log = logging.getLogger()
 
 cuckoo = Config()
-vpn = Config("vpn")
+routing = Config("routing")
 
 rep_config = Config("reporting")
 
@@ -42,7 +42,7 @@ def check_python_version():
     """
     if sys.version_info[:2] < (3, 6):
         raise CuckooStartupError("You are running an incompatible version "
-                                 "of Python, please use 3.6")
+                                 "of Python, please use >= 3.6")
 
 
 def check_working_directory():
@@ -623,7 +623,7 @@ def init_rooter():
     connect to it."""
 
     # The default configuration doesn't require the rooter to be ran.
-    if not vpn.vpn.enabled and cuckoo.routing.route == "none":
+    if not routing.vpn.enabled and routing.routing.route == "none":
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -637,7 +637,7 @@ def init_rooter():
                 "has been configured to a different Unix socket path. "
                 "(In order to disable the use of rooter, please set route "
                 "and internet to none in cuckoo.conf and enabled to no in "
-                "vpn.conf)."
+                "routing.conf)."
             )
 
         if e.strerror == "Connection refused":
@@ -645,8 +645,7 @@ def init_rooter():
                 "The rooter is required but we can't connect to it as the "
                 "rooter is not actually running. "
                 "(In order to disable the use of rooter, please set route "
-                "and internet to none in cuckoo.conf and enabled to no in "
-                "vpn.conf)."
+                "and internet to none in routing.conf)."
             )
 
         if e.strerror == "Permission denied":
@@ -654,8 +653,7 @@ def init_rooter():
                 "The rooter is required but we can't connect to it due to "
                 "incorrect permissions. Did you assign it the correct group? "
                 "(In order to disable the use of rooter, please set route "
-                "and internet to none in cuckoo.conf and enabled to no in "
-                "vpn.conf)."
+                "and internet to none in routing.conf)."
             )
 
         raise CuckooStartupError("Unknown rooter error: %s" % e)
@@ -670,18 +668,33 @@ def init_routing():
 
     # Check whether all VPNs exist if configured and make their configuration
     # available through the vpns variable. Also enable NAT on each interface.
-    if vpn.vpn.enabled:
-        for name in vpn.vpn.vpns.split(","):
+
+    if routing.socks5.enabled:
+        for name in routing.socks5.proxies.split(","):
             name = name.strip()
             if not name:
                 continue
 
-            if not hasattr(vpn, name):
+            if not hasattr(routing, name):
+                raise CuckooStartupError(
+                    "Could not find socks5 configuration for %s" % name
+                )
+
+            entry = routing.get(name)
+            socks5s[entry.name] = entry
+
+    if routing.vpn.enabled:
+        for name in routing.vpn.vpns.split(","):
+            name = name.strip()
+            if not name:
+                continue
+
+            if not hasattr(routing, name):
                 raise CuckooStartupError(
                     "Could not find VPN configuration for %s" % name
                 )
 
-            entry = vpn.get(name)
+            entry = routing.get(name)
             #add = 1
             #if not rooter("nic_available", entry.interface):
                 #raise CuckooStartupError(
@@ -702,33 +715,33 @@ def init_routing():
             rooter("enable_nat", entry.interface)
 
             # Populate routing table with entries from main routing table.
-            if cuckoo.routing.auto_rt:
+            if routing.routing.auto_rt:
                 rooter("flush_rttable", entry.rt_table)
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
     # Check whether the default VPN exists if specified.
-    if cuckoo.routing.route not in ("none", "internet", "tor", "inetsim"):
-        if not vpn.vpn.enabled:
+    if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
+        if not routing.vpn.enabled:
             raise CuckooStartupError(
                 "A VPN has been configured as default routing interface for "
                 "VMs, but VPNs have not been enabled in vpn.conf"
             )
 
-        if cuckoo.routing.route not in vpns:
+        if routing.routing.route not in vpns and routing.routing.route not in socks5s:
             raise CuckooStartupError(
-                "The VPN defined as default routing target has not been "
-                "configured in vpn.conf."
+                "The VPN/Socks5 defined as default routing target has not been "
+                "configured in routing.conf."
             )
 
     # Check whether the dirty line exists if it has been defined.
-    if cuckoo.routing.internet != "none":
-        if not rooter("nic_available", cuckoo.routing.internet):
+    if routing.routing.internet != "none":
+        if not rooter("nic_available", routing.routing.internet):
             raise CuckooStartupError(
                 "The network interface that has been configured as dirty "
                 "line is not available."
             )
 
-        if not rooter("rt_available", cuckoo.routing.rt_table):
+        if not rooter("rt_available", routing.routing.rt_table):
             raise CuckooStartupError(
                 "The routing table that has been configured for dirty "
                 "line interface is not available."
@@ -736,18 +749,18 @@ def init_routing():
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
-        rooter("disable_nat", cuckoo.routing.internet)
-        rooter("enable_nat", cuckoo.routing.internet)
+        rooter("disable_nat", routing.routing.internet)
+        rooter("enable_nat", routing.routing.internet)
 
         # Populate routing table with entries from main routing table.
-        if cuckoo.routing.auto_rt:
-            rooter("flush_rttable", cuckoo.routing.rt_table)
-            rooter("init_rttable", cuckoo.routing.rt_table,
-                   cuckoo.routing.internet)
+        if routing.routing.auto_rt:
+            rooter("flush_rttable", routing.routing.rt_table)
+            rooter("init_rttable", routing.routing.rt_table,
+                   routing.routing.internet)
 
     # Check if tor interface exists, if yes then enable nat
-    if cuckoo.routing.tor and cuckoo.routing.tor_interface:
-        if not rooter("nic_available", cuckoo.routing.tor_interface):
+    if routing.tor.enabled and routing.tor.interface:
+        if not rooter("nic_available", routing.tor.interface):
             raise CuckooStartupError(
                 "The network interface that has been configured as tor "
                 "line is not available."
@@ -755,21 +768,21 @@ def init_routing():
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
-        rooter("disable_nat", cuckoo.routing.tor_interface)
-        rooter("enable_nat", cuckoo.routing.tor_interface)
+        rooter("disable_nat", routing.tor.interface)
+        rooter("enable_nat", routing.tor.interface)
 
         # Populate routing table with entries from main routing table.
-        if cuckoo.routing.auto_rt:
-            rooter("flush_rttable", cuckoo.routing.rt_table)
-            rooter("init_rttable", cuckoo.routing.rt_table,
-                   cuckoo.routing.internet)
+        if routing.routing.auto_rt:
+            rooter("flush_rttable", routing.routing.rt_table)
+            rooter("init_rttable", routing.routing.rt_table,
+                   routing.routing.internet)
 
 
     # Check if inetsim interface exists, if yes then enable nat, if interface is not the same as tor
-    #if cuckoo.routing.inetsim_interface and cuckoo.routing.inetsim_interface !=  cuckoo.routing.tor_interface:
+    #if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
     # Check if inetsim interface exists, if yes then enable nat
-    if cuckoo.routing.inetsim and cuckoo.routing.inetsim_interface:
-        if not rooter("nic_available", cuckoo.routing.inetsim_interface):
+    if routing.inetsim.enabled and routing.inetsim.interface:
+        if not rooter("nic_available", routing.inetsim.interface):
             raise CuckooStartupError(
                 "The network interface that has been configured as inetsim "
                 "line is not available."
@@ -777,11 +790,11 @@ def init_routing():
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
-        rooter("disable_nat", cuckoo.routing.inetsim_interface)
-        rooter("enable_nat", cuckoo.routing.inetsim_interface)
+        rooter("disable_nat", routing.inetsim.interface)
+        rooter("enable_nat", routing.inetsim.interface)
 
         # Populate routing table with entries from main routing table.
-        if cuckoo.routing.auto_rt:
-            rooter("flush_rttable", cuckoo.routing.rt_table)
-            rooter("init_rttable", cuckoo.routing.rt_table,
-                   cuckoo.routing.internet)
+        if routing.routing.auto_rt:
+            rooter("flush_rttable", routing.routing.rt_table)
+            rooter("init_rttable", routing.routing.rt_table,
+                   routing.routing.internet)

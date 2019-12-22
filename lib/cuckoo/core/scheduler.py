@@ -71,6 +71,7 @@ class AnalysisManager(threading.Thread):
         self.task = task
         self.errors = error_queue
         self.cfg = Config()
+        self.routing = Config("routing")
         self.aux_cfg = Config("auxiliary")
         self.storage = ""
         self.binary = ""
@@ -248,12 +249,10 @@ class AnalysisManager(threading.Thread):
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file():
-                log.debug("check file")
                 return False
 
             # Store a copy of the original file.
             if not self.store_file():
-                log.debug("store file")
                 return False
 
         if self.task.category in ("pcap", "static"):
@@ -529,9 +528,9 @@ class AnalysisManager(threading.Thread):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
-            self.interface = self.cfg.routing.inetsim_interface
+            self.interface = self.routing.inetsim.interface
         elif self.route == "tor":
-            self.interface = self.cfg.routing.tor_interface
+            self.interface = self.routing.tor.interface
         elif self.route == "internet" and self.cfg.routing.internet != "none":
             self.interface = self.cfg.routing.internet
             self.rt_table = self.cfg.routing.rt_table
@@ -561,9 +560,10 @@ class AnalysisManager(threading.Thread):
         if self.route == "inetsim":
             self.rooter_response = rooter(
                 "inetsim_enable", self.machine.ip,
-                str(self.cfg.routing.inetsim_server),
-                str(self.cfg.routing.inetsim_dnsport),
+                str(self.routing.inetsim.server),
+                str(self.routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
+                str(self.routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -571,8 +571,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.cfg.routing.tor_dnsport),
-                str(self.cfg.routing.tor_proxyport)
+                str(self.routing.tor.dnsport),
+                str(self.routing.tor.proxyport)
             )
 
         elif self.route in self.socks5s:
@@ -623,9 +623,10 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "inetsim_disable",
                 self.machine.ip,
-                self.cfg.routing.inetsim_server,
-                str(self.cfg.routing.inetsim_dnsport),
+                self.routing.inetsim.server,
+                str(self.routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
+                str(self.routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -633,8 +634,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.cfg.routing.tor_dnsport),
-                str(self.cfg.routing.tor_proxyport),
+                str(self.routing.tor.dnsport),
+                str(self.routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:

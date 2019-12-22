@@ -706,9 +706,10 @@ class PortableExecutable(object):
     def _get_guest_digital_signers(self):
         retdata = dict()
         cert_data = dict()
-        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                 str(self.results["info"]["id"]), "aux",
-                                 "DigiSig.json")
+        cert_info = os.path.join(
+            CUCKOO_ROOT, "storage", "analyses",
+            str(self.results["info"]["id"]), "aux", "DigiSig.json"
+        )
 
         if os.path.exists(cert_info):
             with open(cert_info, "r") as cert_file:
@@ -729,13 +730,31 @@ class PortableExecutable(object):
         return retdata
 
     def _get_digital_signers(self):
+        """If this executable is signed, get its signature(s)."""
+        dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
+        if len(self.pe.OPTIONAL_HEADER.DATA_DIRECTORY) < dir_index:
+            return []
+
+        dir_entry = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index]
+        if not dir_entry or not dir_entry.VirtualAddress or not dir_entry.Size:
+            return []
+
+        if not HAVE_CRYPTO:
+            log.critical(
+                "You do not have the m2crypto library installed preventing "
+                "certificate extraction. Please read the Cuckoo "
+                "documentation on installing m2crypto (you need SWIG "
+                "installed and then `pip3 install m2crypto`)!"
+            )
+            return []
+
         if not self.pe:
             return None
 
         retlist = None
 
         if HAVE_CRYPTO:
-            address = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']].VirtualAddress
+            address = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index].VirtualAddress
 
             #check if file is digitally signed
             if address == 0:
@@ -743,33 +762,63 @@ class PortableExecutable(object):
 
             signature = self.pe.write()[address+8:]
 
-            # BIO.MemoryBuffer expects an argument of type 'str'
+            # BIO.MemoryBuffer expects an argument of type 'bytes'
             if type(signature) is bytearray:
-                signature = str(signature)
+                signature = bytes(signature)
 
             bio = BIO.MemoryBuffer(signature)
 
-            if bio:
-                swig_pkcs7 = m2.pkcs7_read_bio_der(bio.bio_ptr())
+            if not bio:
+                return []
 
-                if swig_pkcs7:
-                    p7 = SMIME.PKCS7(swig_pkcs7)
-                    xst = p7.get0_signers(X509.X509_Stack())
-                    retlist = []
-                    if xst:
-                        for cert in xst:
-                            sn = cert.get_serial_number()
-                            sha1_fingerprint = cert.get_fingerprint('sha1').lower().rjust(40, '0')
-                            md5_fingerprint = cert.get_fingerprint('md5').lower().rjust(32, '0')
-                            subject_str = str(cert.get_subject())
-                            cn = subject_str.split("/CN=", 1)[-1]
-                            cn = cn.decode("string_escape", errors="ignore").decode("utf-8", errors="ignore")
-                            retlist.append({
-                                "sn": str(sn),
-                                "cn": cn,
-                                "sha1_fingerprint": sha1_fingerprint,
-                                "md5_fingerprint": md5_fingerprint
-                            })
+            swig_pkcs7 = m2.pkcs7_read_bio_der(bio.bio_ptr())
+            if not swig_pkcs7:
+                return []
+
+            p7 = SMIME.PKCS7(swig_pkcs7)
+
+            def get_m2crypto_subject_attr(subject_obj, attr_name):
+                try:
+                    return subject_obj.__getattr__(attr_name)
+                except TypeError as err1:
+                    log.info("Missing certificate attribute '%s'. Error: %s", attr_name, err1)
+                    return ""
+
+            retlist = []
+            for cert in p7.get0_signers(X509.X509_Stack()) or []:
+                subject = cert.get_subject()
+                #subject_str = str(cert.get_subject())
+                #cn = subject_str.split("/CN=", 1)[-1]
+                    #cn = cn.decode("string_escape", errors="ignore").decode("utf-8", errors="ignore")
+                """
+                retdata = {
+                    "aux_sha1": cert_data["sha1"],
+                    "aux_timestamp": cert_data["timestamp"],
+                    "aux_valid": cert_data["valid"],
+                    "aux_error": cert_data["error"],
+                    "aux_error_desc": cert_data["error_desc"],
+                    "aux_signers": cert_data["signers"]
+                }
+                """
+                retlist.append({
+                    "sn": "%032x" % cert.get_serial_number(),
+                    "cn": get_m2crypto_subject_attr(subject,"CN"),
+                    "country": get_m2crypto_subject_attr(subject,"C"),
+                    "locality": get_m2crypto_subject_attr(subject,"L"),
+                    "organization": get_m2crypto_subject_attr(subject,"O"),
+                    "email": get_m2crypto_subject_attr(subject,"Email"),
+                    "sha1_fingerprint": "%040x" % int(cert.get_fingerprint("sha1"), 16),
+                    "md5_fingerprint": "%032x" % int(cert.get_fingerprint("md5"), 16),
+                    "cert_issuer": cert.get_issuer().as_text(),
+                    "cert_not_before": cert.get_not_before().get_datetime().isoformat(),
+                    "cert_not_after": cert.get_not_after().get_datetime().isoformat()
+                })
+                if get_m2crypto_subject_attr(subject,"GN") != "" and get_m2crypto_subject_attr(subject,"SN") != "":
+                    retlist[-1]["full_name"] = "%s %s" % (subject.GN, subject.SN)
+                elif get_m2crypto_subject_attr(subject,"GN") != "":
+                    retlist[-1]["full_name"] = subject.GN
+                elif get_m2crypto_subject_attr(subject,"SN") != "":
+                    retlist[-1]["full_name"] = subject.SN
 
         return retlist
 
@@ -1548,7 +1597,7 @@ class WindowsScriptFile(object):
 
             # Decode JScript.Encode encoding.
             if language in ("jscript.encode", "vbscript.encode"):
-                source = EncodedScriptFile(filepath).decode(source)
+                source = EncodedScriptFile(self.filepath).decode(source)
 
             if (len(source) > 65536):
                 source = source[:65536] + "\r\n<truncated>"

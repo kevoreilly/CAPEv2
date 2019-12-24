@@ -73,10 +73,9 @@ PPID = Process(pid=PID).get_parent_pid()
 HIDE_PIDS = None
 
 def pid_from_service_name(servicename):
-    #ToDo OpenSCManagerW
     sc_handle = ADVAPI32.OpenSCManagerA(None, None, 0x0001)
     serv_handle = ADVAPI32.OpenServiceA(sc_handle, servicename, 0x0005)
-    buf = create_unicode_buffer(36)
+    buf = create_string_buffer(36)
     needed = c_int(0)
     ADVAPI32.QueryServiceStatusEx(serv_handle, 0, buf, sizeof(buf), byref(needed))
     thepid = struct.unpack("IIIIIIIII", buf.raw)[7]

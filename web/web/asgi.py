@@ -17,15 +17,15 @@ webdir = abspath(join(dirname(abspath(__file__)), '..'))
 sys.path.append(abspath(join(webdir, '..')))
 sys.path.append(webdir)
 
-# Have WSGI run out of the WebDir
+# Have ASGI run out of the WebDir
 from os import chdir, environ
 chdir(webdir)
 
 # Set django settings
 environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
 
-# This application object is used by any WSGI server configured to use this
-# file. This includes Django's development server, if the WSGI_APPLICATION
+# This application object is used by any ASGI server configured to use this
+# file. This includes Django's development server, if the ASGI_APPLICATION
 # setting points here.
 from django.core.asgi import get_asgi_application
 application = get_asgi_application()

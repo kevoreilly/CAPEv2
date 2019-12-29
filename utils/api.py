@@ -24,10 +24,11 @@ except ImportError:
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
-from lib.cuckoo.common.utils import store_temp_file, delete_folder
+from lib.cuckoo.common.utils import store_temp_file, delete_folder, check_file_uniq
 from lib.cuckoo.common.email_utils import find_attachments_in_email
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.core.database import Database, TASK_RUNNING, Task
@@ -106,6 +107,7 @@ def tasks_create_file():
     shrike_sid = request.forms.get("shrike_sid", None)
     shrike_refer = request.forms.get("shrike_refer", None)
     static = bool(request.POST.get("static", False))
+    unique = bool(request.form.get("unique", False))
     if memory.upper() == 'FALSE' or memory == '0':
         memory = False
     else:
@@ -118,6 +120,11 @@ def tasks_create_file():
         enforce_timeout = True
 
     temp_file_path = store_temp_file(data.file.read(), data.filename)
+
+    if unique and check_file_uniq(File(temp_file_path).get_sha256()):
+        resp = {"error": True,
+            "error_value": "Duplicated file, disable unique option to force submission"}
+        return jsonize(resp, response=True)
 
     if pcap:
         if data.filename.lower().endswith(".saz"):

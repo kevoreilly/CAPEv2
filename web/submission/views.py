@@ -23,7 +23,7 @@ from django.contrib.auth.decorators import login_required
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name
+from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, check_file_uniq
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -199,6 +199,8 @@ def index(request, resubmit_hash=False):
                 options += ","
             options += "unpack=yes"
 
+        unique = request.POST.get("unique", False)
+
         orig_options = options
 
         db = Database()
@@ -271,6 +273,9 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
+
+                if unique and check_file_uniq(File(path).get_sha256()):
+                    return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
                 if disable_x64 is True:
                     magic_type = get_magic_type(path)
                     if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):

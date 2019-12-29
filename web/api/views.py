@@ -29,7 +29,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
-from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
+from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options, check_file_uniq
 from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.core.database import TASK_REPORTED
@@ -438,6 +438,7 @@ def tasks_create_file(request):
         shrike_msg = request.POST.get("shrike_msg", None)
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
+        unique = bool(request.form.get("unique", 0))
 
         if request.POST.get("process_dump"):
             if options:
@@ -491,6 +492,10 @@ def tasks_create_file(request):
 
 
                 tmp_path = store_temp_file(sample.read(), sample.name)
+                if unique and check_file_uniq(File(tmp_path).get_sha256()):
+                    #Todo handle as for VTDL submitted and omitted
+                    continue
+
                 if pcap:
                     if sample.name.lower().endswith(".saz"):
                         saz = saz_to_pcap(tmp_path)
@@ -567,6 +572,10 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
+            if unique and check_file_uniq(File(tmp_path).get_sha256()):
+                resp = {"error": True,
+                        "error_value": "Duplicated file, disable unique option to force submission"}
+                return jsonize(resp, response=True)
             if sample.size == 0:
                 resp = {"error": True,
                         "error_value": "You submitted an empty file"}
@@ -937,6 +946,10 @@ def tasks_vtdl(request):
         task_machines = []
         vm_list = []
         task_ids = []
+        opt_apikey = False
+        opts = get_options(options)
+        if opts:
+            opt_apikey = opts.get("apikey", False)
 
         for vm in db.list_machines():
             vm_list.append(vm.label)

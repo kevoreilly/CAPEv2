@@ -72,6 +72,7 @@ class VirtualBox(Machinery):
 
         try:
             if subprocess.call(virtualbox_args,
+                               universal_newlines=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
                                close_fds=True):
@@ -89,6 +90,7 @@ class VirtualBox(Machinery):
                                      label,
                                      "--type",
                                      self.options.virtualbox.mode],
+                                    universal_newlines=True,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
                                     close_fds=True)
@@ -115,6 +117,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen([self.options.virtualbox.path,
                                      "controlvm", label, "poweroff"],
+                                    universal_newlines=True,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
                                     close_fds=True)
@@ -145,6 +148,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen([
                 self.options.virtualbox.path, "list", "vms"],
+                universal_newlines=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True
@@ -155,9 +159,9 @@ class VirtualBox(Machinery):
                                      "installed machines: %s" % e)
 
         machines = []
-        for line in output.split(b"\n"):
+        for line in output.split("\n"):
             try:
-                label = line.split(b'"')[1]
+                label = line.split('"')[1]
                 if label == "<inaccessible>":
                     log.warning("Found an inaccessible virtual machine, "
                                 "please check its state.")
@@ -180,6 +184,7 @@ class VirtualBox(Machinery):
                                      "showvminfo",
                                      label,
                                      "--machinereadable"],
+                                    universal_newlines=True,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
                                     close_fds=True)
@@ -197,8 +202,8 @@ class VirtualBox(Machinery):
                         label, e)
             status = self.ERROR
         if not status:
-            for line in output.split(b"\n"):
-                state = re.match(rb"VMState=\"(\w+)\"", line, re.M|re.I)
+            for line in output.split("\n"):
+                state = re.match(r"VMState=\"(\w+)\"", line, re.M|re.I)
                 if state:
                     status = state.group(1)
                     log.debug("Machine %s status %s" % (label, status))
@@ -217,6 +222,7 @@ class VirtualBox(Machinery):
 
         try:
             proc = subprocess.Popen([self.options.virtualbox.path, "-v"],
+                                    universal_newlines=True,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
                                     close_fds=True)
@@ -241,6 +247,7 @@ class VirtualBox(Machinery):
         try:
             subprocess.call([self.options.virtualbox.path, "debugvm",
                              label, dumpcmd, "--filename", path],
+                            universal_newlines=True,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=True)

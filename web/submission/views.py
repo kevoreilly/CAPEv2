@@ -30,7 +30,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, _download_file
-
+from lib.cuckoo.common.objects import File
 
 # this required for hash searches
 FULL_DB = False

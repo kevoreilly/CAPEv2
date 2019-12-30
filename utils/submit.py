@@ -22,7 +22,7 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.colors import bold, green, red, yellow
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import to_unicode, check_file_uniq
+from lib.cuckoo.common.utils import to_unicode
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -251,7 +251,7 @@ def main():
                 task_ids = [ json.get("task_ids",None) ]
 
             else:
-                if args.unique and check_file_uniq(File(file_path).get_sha256()):
+                if args.unique and db.check_file_uniq(File(file_path).get_sha256()):
                     msg = ": Sample {0} (skipping file)".format(file_path)
                     if not args.quiet:
                         print((bold(yellow("Duplicate")) + msg))

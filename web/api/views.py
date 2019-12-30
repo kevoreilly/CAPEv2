@@ -29,7 +29,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
-from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options, check_file_uniq
+from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
 from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.core.database import TASK_REPORTED
@@ -492,7 +492,7 @@ def tasks_create_file(request):
 
 
                 tmp_path = store_temp_file(sample.read(), sample.name)
-                if unique and check_file_uniq(File(tmp_path).get_sha256()):
+                if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                     #Todo handle as for VTDL submitted and omitted
                     continue
 
@@ -572,7 +572,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
-            if unique and check_file_uniq(File(tmp_path).get_sha256()):
+            if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
                 return jsonize(resp, response=True)

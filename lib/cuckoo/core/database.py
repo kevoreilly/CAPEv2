@@ -1323,6 +1323,12 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
+    def check_file_uniq(sha256):
+        if not Database.find_sample(sha256=sha256) is None:
+            return False
+        else:
+            return True
+
     @classlock
     def list_parents(self, parent_id):
         """

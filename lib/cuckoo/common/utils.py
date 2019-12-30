@@ -23,7 +23,6 @@ import operator
 from datetime import datetime
 from collections import defaultdict
 
-#from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
@@ -41,8 +40,6 @@ except ImportError:
     HAVE_CHARDET = False
 
 config = Config()
-
-#db = Database()
 
 #it called ramfs, but it is tmpfs
 if hasattr(config, "ramfs"):
@@ -1937,10 +1934,3 @@ def get_ip_address(ifname):
         0x8915,  # SIOCGIFADDR
         struct.pack('256s', ifname[:15])
     )[20:24])
-
-#temp fix, will work on this in abit
-def check_file_uniq(sha256):
-    #if not db.find_sample(sha256=sha256) is None:
-    #    return False
-    #else:
-    return True

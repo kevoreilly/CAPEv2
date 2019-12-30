@@ -34,31 +34,31 @@ class Virtualcheck_JS(Signature):
 
     def on_call(self, call, process):
         indicators = [
-                "vmusbmouse",
-                "vmhgfs",
-                "vboxguest",
-                "vboxmouse",
-                "vmmouse",
-                "vm3dmp",
-                "prl_boot",
-                "prl_fs",
-                "prl_kmdd",
-                "prl_memdev",
-                "prl_mouf",
-                "prl_pv32",
-                "prl_sound",
-                "prl_prl_strg",
-                "prl_tg",
-                "prl_time",
-                "Kaspersky.IeVirtualKeyboardPlugin",
-                "isPhantom",
-                "isNodeJs",
-                "isCouchJs",
-                "isRhino",
-                "isDebugger"
-                "IE_DEVTOOLBAR_CONSOLE_COMMAND_LINE"
-                "BROWSERTOOLS_CONSOLE_SAFEFUNC"
-            ]
+            "vmusbmouse",
+            "vmhgfs",
+            "vboxguest",
+            "vboxmouse",
+            "vmmouse",
+            "vm3dmp",
+            "prl_boot",
+            "prl_fs",
+            "prl_kmdd",
+            "prl_memdev",
+            "prl_mouf",
+            "prl_pv32",
+            "prl_sound",
+            "prl_prl_strg",
+            "prl_tg",
+            "prl_time",
+            "Kaspersky.IeVirtualKeyboardPlugin",
+            "isPhantom",
+            "isNodeJs",
+            "isCouchJs",
+            "isRhino",
+            "isDebugger"
+            "IE_DEVTOOLBAR_CONSOLE_COMMAND_LINE"
+            "BROWSERTOOLS_CONSOLE_SAFEFUNC"
+        ]
 
         if call["api"] == "JsEval":
             buf = self.get_argument(call, "Javascript")
@@ -66,7 +66,7 @@ class Virtualcheck_JS(Signature):
             buf = self.get_argument(call, "Script")
 
         # As second test we bring everything together to remove split string obfuscation and see if we have any in remaining buffer too
-        buf2 = buf.translate(None, " \"+'")
+        buf2 = buf.translate(str.maketrans("", "", " \"+'"))
 
         for indicator in indicators:
             if indicator.lower() in buf.lower() or indicator.lower() in buf2.lower():

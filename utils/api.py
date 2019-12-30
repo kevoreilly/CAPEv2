@@ -28,7 +28,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
-from lib.cuckoo.common.utils import store_temp_file, delete_folder, check_file_uniq
+from lib.cuckoo.common.utils import store_temp_file, delete_folder
 from lib.cuckoo.common.email_utils import find_attachments_in_email
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.core.database import Database, TASK_RUNNING, Task
@@ -121,7 +121,7 @@ def tasks_create_file():
 
     temp_file_path = store_temp_file(data.file.read(), data.filename)
 
-    if unique and check_file_uniq(File(temp_file_path).get_sha256()):
+    if unique and db.check_file_uniq(File(temp_file_path).get_sha256()):
         resp = {"error": True,
             "error_value": "Duplicated file, disable unique option to force submission"}
         return jsonize(resp, response=True)

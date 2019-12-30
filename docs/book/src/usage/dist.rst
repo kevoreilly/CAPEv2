@@ -25,7 +25,7 @@ Dependencies
 The distributed script uses a few Python libraries which can be installed
 through the following command (on Debian/Ubuntu)::
 
-    $ sudo pip install flask flask-restful flask-sqlalchemy requests
+    $ sudo pip3 install flask flask-restful flask-sqlalchemy requests
 
 Starting the Distributed REST API
 =================================
@@ -482,11 +482,11 @@ Where 192.168.1.(2,3,4,5) is our cuckoo slaves::
 
     mongo
     use cuckoo
-    # 10 days
+    # 5 days, last number is days
     db.analysis.insert({"name":"tutorials point"})
     db.calls.insert({"name":"tutorials point"})
-    db.analysis.createIndex ( {"_id": "hashed" }, {expireAfterSeconds:864000} )
-    db.calls.createIndex ( {"_id": "hashed"}, {expireAfterSeconds:864000} )
+    db.analysis.createIndex ( {"_id": "hashed" }, {expireAfterSeconds:60*60*24*5} )
+    db.calls.createIndex ( {"_id": "hashed"}, {expireAfterSeconds:60*60*24*5} )
 
     mongo --port 27020
     sh.enableSharding("cuckoo")

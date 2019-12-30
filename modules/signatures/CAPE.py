@@ -33,6 +33,8 @@ EXTRACTION_MIN_SIZE                 = 0x1001
 PLUGX_SIGNATURE                     = 0x5658
 
 def IsPEImage(buf, size):
+    if not size:
+        return False
     if size < DOS_HEADER_LIMIT:
         return False
     buf = buf.encode("utf-8")
@@ -461,7 +463,7 @@ class CAPE_EvilGrab(Signature):
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
             length = self.get_raw_argument(call, "BufferLength")
-            if length > 0x10000 and self.reg_evilgrab_keyname is True:
+            if length and length > 0x10000 and self.reg_evilgrab_keyname is True:
                 self.reg_binary = True
 
     def on_complete(self):

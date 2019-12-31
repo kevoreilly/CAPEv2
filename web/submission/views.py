@@ -75,7 +75,7 @@ def load_vms_tags():
     if HAVE_DIST and repconf.distributed.enabled:
         try:
             tmp_db = session()
-            for vm in db.query(Machine).all():
+            for vm in tmp_db.query(Machine).all():
                 all_tags += vm.tags
             all_tags = sorted([_f for _f in all_tags if _f])
             tmp_db.close()

@@ -545,26 +545,26 @@ def tasks_create_file(request):
                             continue
                 for entry in task_machines:
                     try:
-                        task_ids_new = db.demux_sample_and_add_to_db(file_path=path,
-                                          package=package,
-                                          timeout=timeout,
-                                          priority=priority,
-                                          options=options,
-                                          machine=entry,
-                                          platform=platform,
-                                          tags=tags,
-                                          custom=custom,
-                                          memory=memory,
-                                          enforce_timeout=enforce_timeout,
-                                          clock=clock,
-                                          shrike_url=shrike_url,
-                                          shrike_msg=shrike_msg,
-                                          shrike_sid=shrike_sid,
-                                          shrike_refer=shrike_refer
-                                          )
+                        task_ids_new = db.demux_sample_and_add_to_db(
+                            file_path=path,
+                            package=package,
+                            timeout=timeout,
+                            priority=priority,
+                            options=options,
+                            machine=entry,
+                            platform=platform,
+                            tags=tags,
+                            custom=custom,
+                            memory=memory,
+                            enforce_timeout=enforce_timeout,
+                            clock=clock,
+                            shrike_url=shrike_url,
+                            shrike_msg=shrike_msg,
+                            shrike_sid=shrike_sid,
+                            shrike_refer=shrike_refer
+                        )
                     except CuckooDemuxError as e:
-                        resp = {"error": True,
-                                "error_value": e}
+                        resp = {"error": True, "error_value": e}
                         return jsonize(resp, response=True)
 
                     if task_ids_new:

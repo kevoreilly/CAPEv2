@@ -35,9 +35,11 @@ from lib.cuckoo.common.objects import File
 # this required for hash searches
 FULL_DB = False
 HAVE_DIST = False
-repconf = Config("reporting")
 cfg = Config("cuckoo")
+routing = Config("routing")
+repconf = Config("reporting")
 processing = Config("processing")
+
 db = Database()
 
 if repconf.distributed.enabled:
@@ -72,11 +74,11 @@ def load_vms_tags():
     all_tags = list()
     if HAVE_DIST and repconf.distributed.enabled:
         try:
-            db = session()
+            tmp_db = session()
             for vm in db.query(Machine).all():
                 all_tags += vm.tags
             all_tags = sorted([_f for _f in all_tags if _f])
-            db.close()
+            tmp_db.close()
         except Exception as e:
             print(e)
 
@@ -561,10 +563,10 @@ def index(request, resubmit_hash=False):
             "vpns": list(vpns.values()),
             "socks5s": list(socks5s.values()),
             "socks5s_random": socks5s_random,
-            "route": cfg.routing.route,
-            "internet": cfg.routing.internet,
-            "inetsim": cfg.routing.inetsim,
-            "tor": cfg.routing.tor,
+            "route": routing.routing.route,
+            "internet": routing.routing.internet,
+            "inetsim": routing.inetsim.enabled,
+            "tor": routing.tor.enabled,
             "config": enabledconf,
             "resubmit": resubmit_hash,
             "tags": sorted(list(set(all_tags))),

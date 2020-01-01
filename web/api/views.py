@@ -630,8 +630,6 @@ def tasks_create_file(request):
                         return jsonize({"error":True, "error_value": "Sorry no x64 support yet"}, response=True)
 
             options, timeout, enforce_timeout = recon(path, options, timeout, enforce_timeout)
-            if "pony" in path:
-                fix_section_permission(path)
 
             for entry in task_machines:
                 if not pcap:

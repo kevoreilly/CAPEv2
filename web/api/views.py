@@ -438,7 +438,7 @@ def tasks_create_file(request):
         shrike_msg = request.POST.get("shrike_msg", None)
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
-        unique = bool(request.form.get("unique", 0))
+        unique = bool(request.POST.get("unique", False))
 
         if request.POST.get("process_dump"):
             if options:

@@ -100,7 +100,8 @@ def demux_vhd(filename):
         try:
             g.mount_ro("/dev/sda1", "/")
         except RuntimeError as msg:
-            log.error("Error mounting Microsft Disk Image: {} - {}".format((filename, msg)))
+            log.error("Error mounting Microsoft Disk Image: {} - {}".format((filename, msg)))
+            g.close()
             return [filename]
         files = g.ls("/")
         if files:

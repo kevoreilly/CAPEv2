@@ -16,7 +16,8 @@ try:
     from lib.cuckoo.common.exceptions import CuckooCriticalError
     from lib.cuckoo.common.exceptions import CuckooDependencyError
     from lib.cuckoo.core.database import Database
-    from lib.cuckoo.core.startup import check_working_directory, check_configs, cuckoo_clean, cuckoo_clean_failed_tasks, cuckoo_clean_failed_url_tasks,cuckoo_clean_before_day,cuckoo_clean_sorted_pcap_dump,cuckoo_clean_bson_suri_logs, cuckoo_clean_pending_tasks
+    from lib.cuckoo.core.startup import check_working_directory, check_configs, cuckoo_clean, cuckoo_clean_failed_tasks, cuckoo_clean_failed_url_tasks,cuckoo_clean_before_day
+    from lib.cuckoo.core.startup import cuckoo_clean_sorted_pcap_dump, cuckoo_clean_bson_suri_logs, cuckoo_clean_pending_tasks, cuckoo_clean_lower_score
     from lib.cuckoo.core.startup import create_structure
     from lib.cuckoo.core.startup import init_logging, init_modules, init_console_logging
     from lib.cuckoo.core.startup import init_tasks, init_yara
@@ -104,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--custom-include-filter",help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
     parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
     parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
+    parser.add_argument("--malscore-clean",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
     args = parser.parse_args()
 
     if args.clean:
@@ -132,6 +134,10 @@ if __name__ == "__main__":
 
     if args.pending_clean:
         cuckoo_clean_pending_tasks()
+        sys.exit(0)
+
+    if args.malscore_clean:
+        cuckoo_clean_lower_score()
         sys.exit(0)
 
     try:

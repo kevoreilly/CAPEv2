@@ -8,9 +8,12 @@ import os
 import shutil
 import sys
 import copy
+import socket
 import logging
 import logging.handlers
+from bson.objectid import ObjectId
 from datetime import datetime, timedelta
+from multiprocessing.pool import ThreadPool
 
 import modules.auxiliary
 import modules.processing
@@ -26,15 +29,14 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
 from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
-import socket
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
 log = logging.getLogger()
 
 cuckoo = Config()
 routing = Config("routing")
-
 rep_config = Config("reporting")
+resolver_pool = ThreadPool(50)
 
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
@@ -268,11 +270,11 @@ def connect_to_mongo():
                 username=user,
                 password=password,
                 authSource=mdb
-            )
+            )[mdb]
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))
 
-    return conn, mdb
+    return conn
 
 def connect_to_es():
     es = None
@@ -292,6 +294,39 @@ def connect_to_es():
         log.warning("Unable to connect to ElasticSearch")
 
     return es, delidx
+
+def delete_data(tid, db):
+    if isinstance(tid, dict):
+        if "info.id" in tid:
+            tid = tid["info.id"]
+        elif tid.get("info", {}).get("id", 0):
+            tid = tid["info"]["id"]
+        elif "id" in tid:
+            tid = tid["id"]
+    try:
+        print(("removing %s from analysis db" % (id)))
+        delete_mongo_data(id)
+    except:
+        print(("failed to remove analysis info (may not exist) %s" % (id)))
+    if db.delete_task(e):
+        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id))
+    else:
+         print(("failed to remove faile task %s from DB" % (id)))
+
+def delete_mongo_data(tid):
+    try:
+        results_db = connect_to_mongo()
+        analyses = results_db.analysis.find({"info.id": int(tid)})
+        if analyses.count > 0:
+            for analysis in analyses:
+                log.info("deleting MongoDB data for Task #{0}".format(tid))
+                for process in analysis.get("behavior", {}).get("processes", []):
+                    for call in process["calls"]:
+                        results_db.calls.remove({"_id": ObjectId(call)})
+                results_db.analysis.remove(
+                    {"_id": ObjectId(analysis["_id"])})
+    except Exception as e:
+        print(e)
 
 def cuckoo_clean():
     """Clean up cuckoo setup.
@@ -392,24 +427,16 @@ def cuckoo_clean_failed_tasks():
     # Initialize the database connection.
     db = Database()
 
-    results_db, mdb = connect_to_mongo()
+    results_db = connect_to_mongo()
 
     failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
     failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
     failed_tasks_r = db.list_tasks(status=TASK_FAILED_REPORTING)
     failed_tasks_rc = db.list_tasks(status=TASK_RECOVERED)
-    for e in failed_tasks_a, failed_tasks_p, failed_tasks_r, failed_tasks_rc:
-        for el2 in e:
-            new = el2.to_dict()
-            print((int(new["id"])))
-            try:
-                results_db.analysis.remove({"info.id": int(new["id"])})
-            except:
-                print(("failed to remove analysis info (may not exist) %s" % (int(new["id"]))))
-            if db.delete_task(new["id"]):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % int(new["id"])))
-            else:
-                print(("failed to remove failed task %s from DB" % (int(new["id"]))))
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_a)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_p)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_r)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_rc)
 
 def cuckoo_clean_bson_suri_logs():
     """Clean up raw suri log files probably not needed if storing in mongo. Does not remove extracted files
@@ -458,31 +485,45 @@ def cuckoo_clean_failed_url_tasks():
     # Initialize the database connection.
     db = Database()
 
-    results_db, mdb = connect_to_mongo()
+    results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
         return
 
-    done = False
-    while not done:
-        rtmp = results_db.analysis.find({"info.category": "url", "network.http.0": {"$exists": False}},{"info.id": 1},sort=[("_id", -1)]).limit( 100 )
-        if rtmp and rtmp.count() > 0:
-            for e in rtmp:
-                if e["info"]["id"]:
-                    print((e["info"]["id"]))
-                    if db.delete_task(e["info"]["id"]):
-                        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                    "%s" % e["info"]["id"]))
-                    else:
-                        print(("failed to remove %s" % (e["info"]["id"])))
-                    try:
-                        results_db.analysis.remove({"info.id": int(e["info"]["id"])})
-                    except:
-                        print(("failed to remove %s" % (e["info"]["id"])))
-                else:
-                    done = True
-        else:
-            done = True
+    rtmp = results_db.analysis.find({"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]).limit(100)
+    if rtmp and rtmp.count() > 0:
+        resolver_pool.map(lambda tid: delete_data(tid, db), rtmp)
+
+
+def cuckoo_clean_lower_score(args):
+    """Clean up tasks with score <= X
+    It deletes all stored data from file system and configured databases (SQL
+    and MongoDB for tasks.
+    """
+    # Init logging.
+    # This need to init a console logger handler, because the standard
+    # logger (init_logging()) logs to a file which will be deleted.
+    if not args.malscore:
+        print("No malscore argument provided bailing")
+        return
+
+    create_structure()
+    init_console_logging()
+    id_arr = []
+
+    # Initialize the database connection.
+    db = Database()
+
+    results_db = connect_to_mongo()
+    if not results_db:
+        log.info("Can't connect to mongo")
+        return
+
+    result = list(results_db.analysis.find({"malscore": {"$lte": args.malscore}}))
+    id_arr = [entry["info"]["id"] for entry in result]
+    print(("number of matching records %s" % len(id_arr)))
+    resolver_pool.map(lambda tid: delete_data(tid, db), id_arr)
+
 
 def cuckoo_clean_before_day(args):
     """Clean up failed tasks
@@ -504,7 +545,7 @@ def cuckoo_clean_before_day(args):
     # Initialize the database connection.
     db = Database()
 
-    results_db, mdb = connect_to_mongo()
+    results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
         return
@@ -527,27 +568,12 @@ def cuckoo_clean_before_day(args):
     print(("number of matching records %s before suri/custom filter " % len(id_arr)))
     if id_arr and args.suricata_zero_alert_filter:
         result = list(results_db.analysis.find({"suricata.alerts.alert": {"$exists": False}, "$or": id_arr},{"info.id":1}))
-        tmp_arr = []
-        for entry in result:
-            tmp_arr.append(entry["info"]["id"])
-        id_arr = tmp_arr
+        id_arr = [entry["info"]["id"] for entry in result]
     if id_arr and args.custom_include_filter:
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},"$or": id_arr},{"info.id":1}))
-        tmp_arr = []
-        for entry in result:
-            tmp_arr.append(entry["info"]["id"])
-        id_arr = tmp_arr
+        id_arr = [entry["info"]["id"] for entry in result]
     print(("number of matching records %s" % len(id_arr)))
-    for e in id_arr:
-        try:
-            print(("removing %s from analysis db" % (e)))
-            results_db.analysis.remove({"info.id": e})
-        except:
-            print(("failed to remove analysis info (may not exist) %s" % (e)))
-        if db.delete_task(e):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % e))
-        else:
-            print(("failed to remove faile task %s from DB" % (e)))
+    resolver_pool.map(lambda tid: delete_data(tid, db), id_arr)
 
 def cuckoo_clean_sorted_pcap_dump():
     """Clean up failed tasks
@@ -560,14 +586,14 @@ def cuckoo_clean_sorted_pcap_dump():
     create_structure()
     init_console_logging()
 
-    results_db, mdb = connect_to_mongo()
+    results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
         return
 
     done = False
     while not done:
-        rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}},{"info.id": 1},sort=[("_id", -1)]).limit( 100 )
+        rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}},{"info.id": 1},sort=[("_id", -1)]).limit(100)
         if rtmp and rtmp.count() > 0:
             for e in rtmp:
                 if e["info"]["id"]:
@@ -600,23 +626,13 @@ def cuckoo_clean_pending_tasks():
     # Initialize the database connection.
     db = Database()
 
-    results_db, mdb = connect_to_mongo()
+    results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
         return
 
     pending_tasks = db.list_tasks(status=TASK_PENDING)
-    for e in pending_tasks:
-        new = e.to_dict()
-        print((int(new["id"])))
-        try:
-            results_db.analysis.remove({"info.id": int(new["id"])})
-        except:
-            print(("failed to remove analysis info (may not exist) %s" % (int(new["id"]))))
-        if db.delete_task(new["id"]):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % int(new["id"])))
-        else:
-            print(("failed to remove pending task %s from DB" % (int(new["id"]))))
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), pending_tasks)
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can

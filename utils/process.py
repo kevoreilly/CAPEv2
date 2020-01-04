@@ -79,11 +79,12 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             host = repconf.mongodb.host
             port = repconf.mongodb.port
             db = repconf.mongodb.db
-            conn = MongoClient( host,
-                                port=port,
-                                username=repconf.mongodb.get("username", None),
-                                password=repconf.mongodb.get("password", None),
-                                authSource=db)
+            conn = MongoClient(
+                host,
+                port=port,
+                username=repconf.mongodb.get("username", None),
+                password=repconf.mongodb.get("password", None),
+                 authSource=db)
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses.count() > 0:
@@ -214,8 +215,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
             # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
             for task in tasks:
                 # Not-so-efficient lock.
-                if task.id in [tid for ar, tid, target, copy_path
-                               in pending_results]:
+                if task.id in [tid for ar, tid, target, copy_path in pending_results]:
                     continue
 
                 log.info("Processing analysis data for Task #%d", task.id)
@@ -223,8 +223,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
 
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage",
-                                             "binaries", sample.sha256)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
                 else:
                     copy_path = None
 

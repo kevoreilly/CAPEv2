@@ -16,8 +16,7 @@ try:
     from lib.cuckoo.common.exceptions import CuckooCriticalError
     from lib.cuckoo.common.exceptions import CuckooDependencyError
     from lib.cuckoo.core.database import Database
-    from lib.cuckoo.core.startup import check_working_directory, check_configs, cuckoo_clean, cuckoo_clean_failed_tasks, cuckoo_clean_failed_url_tasks,cuckoo_clean_before_day
-    from lib.cuckoo.core.startup import cuckoo_clean_sorted_pcap_dump, cuckoo_clean_bson_suri_logs, cuckoo_clean_pending_tasks, cuckoo_clean_lower_score
+    from lib.cuckoo.core.startup import check_working_directory, check_configs,
     from lib.cuckoo.core.startup import create_structure
     from lib.cuckoo.core.startup import init_logging, init_modules, init_console_logging
     from lib.cuckoo.core.startup import init_tasks, init_yara
@@ -94,56 +93,10 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
-    parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action='store_true', required=False)
-    parser.add_argument("--failed-clean", help="Remove all tasks marked as failed", action='store_true', required=False)
-    parser.add_argument("--failed-url-clean", help="Remove all tasks that are url tasks but we don't have any HTTP traffic", action='store_true', required=False)
-    parser.add_argument("--delete-older-than-days", help="Remove all tasks older than X number of days", type=int, required=False)
-    parser.add_argument("--pcap-sorted-clean", help="remove sorted pcap from jobs", action="store_true", required=False)
-    parser.add_argument("--suricata-zero-alert-filter",help="only remove events with zero suri alerts DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--urls-only-filter",help="only remove url events filter DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--files-only-filter",help="only remove files events filter DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--custom-include-filter",help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
-    parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
-    parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
-    parser.add_argument("--malscore-clean",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
     args = parser.parse_args()
 
-    if args.clean:
-        cuckoo_clean()
-        sys.exit(0)
-
-    if args.failed_clean:
-        cuckoo_clean_failed_tasks()
-        sys.exit(0)
-
-    if args.failed_url_clean:
-        cuckoo_clean_failed_url_tasks()
-        sys.exit(0)
-
-    if args.delete_older_than_days:
-        cuckoo_clean_before_day(args)
-        sys.exit(0)
-
-    if args.pcap_sorted_clean:
-        cuckoo_clean_sorted_pcap_dump()
-        sys.exit(0)
-
-    if args.bson_suri_logs_clean:
-        cuckoo_clean_bson_suri_logs()
-        sys.exit(0)
-
-    if args.pending_clean:
-        cuckoo_clean_pending_tasks()
-        sys.exit(0)
-
-    if args.malscore_clean:
-        cuckoo_clean_lower_score()
-        sys.exit(0)
-
     try:
-        cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork,
-                    test=args.test)
-
+        cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
         if not args.artwork and not args.test:
             cuckoo_main(max_analysis_count=args.max_analysis_count)
     except CuckooCriticalError as e:

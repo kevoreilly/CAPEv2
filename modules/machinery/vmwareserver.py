@@ -57,7 +57,7 @@ class VMwareServer(Machinery):
                        " listSnapshots " + "\"" + vmx_path + "\""
 
         try:
-            p = subprocess.Popen(check_string, shell=True)
+            p = subprocess.Popen(check_string, universal_newlines=True,, shell=True)
             output, _ = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to get snapshot list for %s. "
@@ -97,7 +97,7 @@ class VMwareServer(Machinery):
         log.debug("Starting vm %s" % vmx_path)
 
         try:
-            p = subprocess.Popen(start_string, shell=True)
+            p = subprocess.Popen(start_string, universal_newlines=True, shell=True)
             if self.options.vmwareserver.mode.lower() == "gui":
                 output, _ = p.communicate()
                 if output:
@@ -126,7 +126,7 @@ class VMwareServer(Machinery):
 
         if self._is_running(vmx_path):
             try:
-                if subprocess.call(stop_string, shell=True):
+                if subprocess.call(stop_string, universal_newlines=True, shell=True):
                     raise CuckooMachineError("Error shutting down "
                                              "machine %s" % vmx_path)
             except OSError as e:
@@ -155,7 +155,7 @@ class VMwareServer(Machinery):
         #log.debug("Revert string: %s" % revert_string)
 
         try:
-            if subprocess.call(revert_string, shell=True):
+            if subprocess.call(revert_string, universal_newlines=True, shell=True):
                 raise CuckooMachineError("Unable to revert snapshot for "
                                          "machine %s: vmrun exited with "
                                          "error" % vmx_path)
@@ -179,7 +179,7 @@ class VMwareServer(Machinery):
         #log.debug("List string: %s" % list_string)
 
         try:
-            p = subprocess.Popen(list_string, stdout=subprocess.PIPE, shell=True)
+            p = subprocess.Popen(list_string, universal_newlines=True, stdout=subprocess.PIPE, shell=True)
             output, error = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to check running status for %s. "

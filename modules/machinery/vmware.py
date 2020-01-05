@@ -63,10 +63,12 @@ class VMware(Machinery):
         @raise CuckooMachineError: if snapshot not found
         """
         try:
-            p = subprocess.Popen([self.options.vmware.path,
-                                  "listSnapshots", vmx_path],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                [self.options.vmware.path,
+                "listSnapshots", vmx_path],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             output, _ = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to get snapshot list for %s. "
@@ -97,11 +99,13 @@ class VMware(Machinery):
 
         log.debug("Starting vm %s" % vmx_path)
         try:
-            p = subprocess.Popen([self.options.vmware.path,
-                                  "start", vmx_path,
-                                  self.options.vmware.mode],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                [self.options.vmware.path,
+                "start", vmx_path,
+                self.options.vmware.mode],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             if self.options.vmware.mode.lower() == "gui":
                 output, _ = p.communicate()
                 if output:
@@ -120,10 +124,12 @@ class VMware(Machinery):
         log.debug("Stopping vm %s" % vmx_path)
         if self._is_running(vmx_path):
             try:
-                if subprocess.call([self.options.vmware.path,
-                                    "stop", vmx_path, "hard"],
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE):
+                if subprocess.call(
+                    [self.options.vmware.path,
+                    "stop", vmx_path, "hard"],
+                    universal_newlines=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE):
                     raise CuckooMachineError("Error shutting down "
                                              "machine %s" % vmx_path)
             except OSError as e:
@@ -141,10 +147,12 @@ class VMware(Machinery):
         """
         log.debug("Revert snapshot for vm %s" % vmx_path)
         try:
-            if subprocess.call([self.options.vmware.path,
-                                "revertToSnapshot", vmx_path, snapshot],
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE):
+            if subprocess.call(
+                [self.options.vmware.path,
+                "revertToSnapshot", vmx_path, snapshot],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE):
                 raise CuckooMachineError("Unable to revert snapshot for "
                                          "machine %s: vmrun exited with "
                                          "error" % vmx_path)
@@ -158,9 +166,11 @@ class VMware(Machinery):
         @return: running status
         """
         try:
-            p = subprocess.Popen([self.options.vmware.path, "list"],
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                [self.options.vmware.path, "list"],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             output, error = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to check running status for %s. "
@@ -186,10 +196,12 @@ class VMware(Machinery):
             raise CuckooMachineError("Can't find .vmx file {0}. Ensure to configure a fully qualified path in vmware.conf (key = vmx_path)".format(vmx_path))
 
         try:
-            subprocess.call([self.options.vmware.path, "snapshot",
-                             vmx_path, "memdump"],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+            subprocess.call(
+                [self.options.vmware.path, "snapshot",
+                vmx_path, "memdump"],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
         except OSError as e:
             raise CuckooMachineError("vmrun failed to take a memory dump of the machine with label %s: %s" % (vmx_path, e))
 
@@ -203,10 +215,12 @@ class VMware(Machinery):
 
         # Old snapshot can be deleted, as it isn't needed any longer.
         try:
-            subprocess.call([self.options.vmware.path, "deleteSnapshot",
-                             vmx_path, "memdump"],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+            subprocess.call(
+                [self.options.vmware.path, "deleteSnapshot",
+                vmx_path, "memdump"],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
         except OSError as e:
             raise CuckooMachineError("vmrun failed to delete the temporary snapshot in %s: %s" % (vmx_path, e))
 

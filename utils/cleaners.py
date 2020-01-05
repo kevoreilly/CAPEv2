@@ -17,7 +17,6 @@ from multiprocessing.pool import ThreadPool
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from queue import Queue
 from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask

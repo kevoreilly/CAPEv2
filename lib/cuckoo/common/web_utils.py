@@ -19,7 +19,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.rooter import _load_socks5_operational
-from lib.cuckoo.common.utils import get_ip_address
+from lib.cuckoo.common.utils import get_ip_address, bytes2str
 
 
 cfg = Config("cuckoo")
@@ -110,6 +110,8 @@ def fix_section_permission(path):
 # Submission hooks to set options based on some naming patrons
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
+    if not isinstance(filename, str):
+        filename = bytes2str(filename)
     if "name" in filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400

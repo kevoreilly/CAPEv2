@@ -421,7 +421,8 @@ Depend of your hardware you may prepend next command before mongod
         numactl --interleave=all
 
 This execute on all nodes, master included:
-     mkdir -p /data/{config,}db
+    * Very important, before creation or recreation of cluster, all /data should be removed to avoid problems with metadata
+    mkdir -p /data/{config,}db
 
 This commands should be executed only on master::
 
@@ -485,8 +486,11 @@ Where 192.168.1.(2,3,4,5) is our cuckoo slaves::
     # 5 days, last number is days
     db.analysis.insert({"name":"tutorials point"})
     db.calls.insert({"name":"tutorials point"})
-    db.analysis.createIndex ( {"_id": "hashed" }, {expireAfterSeconds:60*60*24*5} )
-    db.calls.createIndex ( {"_id": "hashed"}, {expireAfterSeconds:60*60*24*5} )
+    db.analysis.createIndex ( {"_id": "hashed" })
+    db.calls.createIndex ( {"_id": "hashed"})
+
+    db.analysis.createIndex ( {"createdAt": 1 }, {expireAfterSeconds:60*60*24*5} )
+    db.calls.createIndex ( {"createdAt": 1}, {expireAfterSeconds:60*60*24*5} )
 
     mongo --port 27020
     sh.enableSharding("cuckoo")

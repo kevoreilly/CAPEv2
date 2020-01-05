@@ -17,10 +17,14 @@ from multiprocessing.pool import ThreadPool
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+from queue import Queue
+from sqlalchemy import desc
+from lib.cuckoo.common.dist_db import create_session
+from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.startup import create_structure, init_console_logging
-from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
 
 
 log = logging.getLogger()
@@ -28,6 +32,9 @@ log = logging.getLogger()
 cuckoo = Config()
 rep_config = Config("reporting")
 resolver_pool = ThreadPool(50)
+
+# Initialize the database connection.
+db = Database()
 
 def connect_to_mongo():
     conn = False
@@ -71,7 +78,7 @@ def connect_to_es():
 
     return es, delidx
 
-def delete_data(tid, db):
+def delete_data(tid):
     if isinstance(tid, dict):
         if "info.id" in tid:
             tid = tid["info.id"]
@@ -104,6 +111,22 @@ def delete_mongo_data(tid):
     except Exception as e:
         print(e)
 
+def dist_delete_data(data, dist_db):
+    for id, file in data:
+        try:
+            if os.path.exists(file):
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    print(e)
+            db.delete_task(id)
+            # clean dist_db
+            dist_task = dist_db.query(Task).filter(DTask.main_task.id==id).first()
+            if dist_task:
+                dist_db.delete(dist_task.id)
+        except Exception as e:
+            print(e)
+
 def cuckoo_clean():
     """Clean up cuckoo setup.
     It deletes logs, all stored data from file system and configured databases (SQL
@@ -115,9 +138,6 @@ def cuckoo_clean():
     create_structure()
     init_console_logging()
 
-    # Initialize the database connection.
-    db = Database()
-
     # Drop all tables.
     db.drop()
 
@@ -126,10 +146,10 @@ def cuckoo_clean():
         print("Can't connect to mongo")
         return
     try:
-        conn.drop_database(mdb)
+        conn.drop_database(conn._Database__name)
         conn.close()
     except:
-        log.warning("Unable to drop MongoDB database: %s", mdb)
+        log.warning("Unable to drop MongoDB database: %s", conn._Database__name)
 
     if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
         es = False
@@ -200,19 +220,14 @@ def cuckoo_clean_failed_tasks():
     create_structure()
     init_console_logging()
 
-    # Initialize the database connection.
-    db = Database()
-
-    results_db = connect_to_mongo()
-
     failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
     failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
     failed_tasks_r = db.list_tasks(status=TASK_FAILED_REPORTING)
     failed_tasks_rc = db.list_tasks(status=TASK_RECOVERED)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_a)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_p)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_r)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), failed_tasks_rc)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_a)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_p)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_r)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), failed_tasks_rc)
 
 def cuckoo_clean_bson_suri_logs():
     """Clean up raw suri log files probably not needed if storing in mongo. Does not remove extracted files
@@ -223,8 +238,6 @@ def cuckoo_clean_bson_suri_logs():
     create_structure()
     init_console_logging()
     from glob import glob
-    # Initialize the database connection.
-    db = Database()
     failed_tasks_a = db.list_tasks(status=TASK_FAILED_ANALYSIS)
     failed_tasks_p = db.list_tasks(status=TASK_FAILED_PROCESSING)
     failed_tasks_r = db.list_tasks(status=TASK_FAILED_REPORTING)
@@ -258,9 +271,6 @@ def cuckoo_clean_failed_url_tasks():
     create_structure()
     init_console_logging()
 
-    # Initialize the database connection.
-    db = Database()
-
     results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
@@ -268,7 +278,7 @@ def cuckoo_clean_failed_url_tasks():
 
     rtmp = results_db.analysis.find({"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]).limit(100)
     if rtmp and rtmp.count() > 0:
-        resolver_pool.map(lambda tid: delete_data(tid, db), rtmp)
+        resolver_pool.map(lambda tid: delete_data(tid), rtmp)
 
 def cuckoo_clean_lower_score(args):
     """Clean up tasks with score <= X
@@ -286,9 +296,6 @@ def cuckoo_clean_lower_score(args):
     init_console_logging()
     id_arr = []
 
-    # Initialize the database connection.
-    db = Database()
-
     results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
@@ -297,7 +304,7 @@ def cuckoo_clean_lower_score(args):
     result = list(results_db.analysis.find({"malscore": {"$lte": args.malscore}}))
     id_arr = [entry["info"]["id"] for entry in result]
     print(("number of matching records %s" % len(id_arr)))
-    resolver_pool.map(lambda tid: delete_data(tid, db), id_arr)
+    resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 def cuckoo_clean_before_day(args):
     """Clean up failed tasks
@@ -316,9 +323,6 @@ def cuckoo_clean_before_day(args):
     init_console_logging()
     id_arr = []
 
-    # Initialize the database connection.
-    db = Database()
-
     results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
@@ -327,10 +331,10 @@ def cuckoo_clean_before_day(args):
     added_before = datetime.now() - timedelta(days=int(days))
     if args.files_only_filter:
         print("file filter applied")
-        old_tasks = db.list_tasks(added_before=added_before,category="file")
+        old_tasks = db.list_tasks(added_before=added_before, category="file")
     elif args.urls_only_filter:
         print("url filter applied")
-        old_tasks = db.list_tasks(added_before=added_before,category="url")
+        old_tasks = db.list_tasks(added_before=added_before, category="url")
     else:
         old_tasks = db.list_tasks(added_before=added_before)
 
@@ -347,7 +351,7 @@ def cuckoo_clean_before_day(args):
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},"$or": id_arr},{"info.id":1}))
         id_arr = [entry["info"]["id"] for entry in result]
     print(("number of matching records %s" % len(id_arr)))
-    resolver_pool.map(lambda tid: delete_data(tid, db), id_arr)
+    resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 def cuckoo_clean_sorted_pcap_dump():
     """Clean up failed tasks
@@ -397,16 +401,51 @@ def cuckoo_clean_pending_tasks():
     create_structure()
     init_console_logging()
 
-    # Initialize the database connection.
-    db = Database()
-
     results_db = connect_to_mongo()
     if not results_db:
         log.info("Can't connect to mongo")
         return
 
     pending_tasks = db.list_tasks(status=TASK_PENDING)
-    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"], db), pending_tasks)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
+
+def cuckoo_clean_range_tasks(start, end):
+    """Clean up tasks between start and end
+    It deletes all stored data from file system and configured databases (SQL
+    and MongoDB for selected tasks.
+    """
+    # Init logging.
+    # This need to init a console logger handler, because the standard
+    # logger (init_logging()) logs to a file which will be deleted.
+    create_structure()
+    init_console_logging()
+    pending_tasks = db.list_tasks(id_after=start, id_before=end)
+    resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
+
+def cuckoo_dedup_cluster_queue():
+
+    """
+    Cleans duplicated pending tasks from cluster queue
+    """
+
+    main_db = Database()
+    session = main_db.Session()
+    dist_session = create_session(rep_config.distributed.db, echo=False)
+    dist_db = dist_session()
+    hash_dict = dict()
+    duplicated = session.query(Sample, Task).join(Task).filter(Sample.id==Task.sample_id, Task.status=="pending").order_by(Sample.sha256)
+
+    for sample, task in duplicated:
+        try:
+            # hash -> [[id, file]]
+            hash_dict.setdefault(sample.sha256, list())
+            hash_dict[sample.sha256].append((task.id, task.target))
+        except UnicodeDecodeError:
+            pass
+
+    resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -422,6 +461,9 @@ if __name__ == "__main__":
     parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
     parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
     parser.add_argument("--malscore-clean",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
+    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", raction="store", type=int, equired=False)
+    parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False)
+    parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False)
     args = parser.parse_args()
 
     if args.clean:
@@ -454,4 +496,12 @@ if __name__ == "__main__":
 
     if args.malscore_clean:
         cuckoo_clean_lower_score()
+        sys.exit(0)
+
+    if args.delete_range_start and args.delete_range_end:
+        cuckoo_clean_range_tasks(args.delete_range_start, args.delete_range_end)
+        sys.exit(0)
+
+    if args.deduplicated_cluster_queue:
+        cuckoo_dedup_cluster_queue()
         sys.exit(0)

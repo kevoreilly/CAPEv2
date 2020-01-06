@@ -11,14 +11,12 @@ import sys
 
 try:
     from lib.cuckoo.common.logo import logo
-    from lib.cuckoo.common.config import Config
     from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
     from lib.cuckoo.common.exceptions import CuckooCriticalError
     from lib.cuckoo.common.exceptions import CuckooDependencyError
-    from lib.cuckoo.core.database import Database
     from lib.cuckoo.core.startup import check_working_directory, check_configs
     from lib.cuckoo.core.startup import create_structure
-    from lib.cuckoo.core.startup import init_logging, init_modules, init_console_logging
+    from lib.cuckoo.core.startup import init_logging, init_modules
     from lib.cuckoo.core.startup import init_tasks, init_yara
     from lib.cuckoo.core.scheduler import Scheduler
     from lib.cuckoo.core.resultserver import ResultServer
@@ -93,12 +91,13 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
+    parser.add_argument("-md", "--memory-debugging", help="Debug memory usage", default=False, required=False)
     args = parser.parse_args()
 
     try:
         cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
         if not args.artwork and not args.test:
-            cuckoo_main(max_analysis_count=args.max_analysis_count)
+            cuckoo_main(max_analysis_count=args.max_analysis_count, memory_debugging=args.memory_debugging)
     except CuckooCriticalError as e:
         message = "{0}: {1}".format(e.__class__.__name__, e)
         if len(log.handlers):

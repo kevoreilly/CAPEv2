@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import gc
 import time
 import shutil
 import logging
@@ -667,12 +668,13 @@ class Scheduler:
     take care of running the full analysis process and operating with the
     assigned analysis machine.
     """
-    def __init__(self, maxcount=None):
+    def __init__(self, maxcount=None, memory_debugging=False):
         self.running = True
         self.cfg = Config()
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
+         self.memory_debugging = memory_debugging
 
     def initialize(self):
         """Initialize the machine manager."""
@@ -830,12 +832,21 @@ class Scheduler:
                 else:
                     task = self.db.fetch()
                 if task:
+                    if self.memory_debugging:
+                        gc.collect()
+                        log.info("[%s] (1) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
                     log.debug("Task #{0}: Processing task".format(task.id))
                     self.total_analysis_count += 1
                     # Initialize and start the analysis manager.
                     analysis = AnalysisManager(task, errors)
                     analysis.daemon = True
                     analysis.start()
+
+                    if self.memory_debugging:
+                        gc.collect()
+                        log.info("[%s] (2) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                        for i, obj in enumerate(gc.garbage):
+                            log.info("[%s] (garbage) GC object #%d: type=%s", task.id, i, type(obj).__name__)
 
             # Deal with errors.
             try:

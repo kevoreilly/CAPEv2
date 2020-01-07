@@ -494,7 +494,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.malscore_clean:
-        cuckoo_clean_lower_score()
+        cuckoo_clean_lower_score(args)
         sys.exit(0)
 
     if args.delete_range_start and args.delete_range_end:

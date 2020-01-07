@@ -86,14 +86,14 @@ def delete_data(tid):
         elif "id" in tid:
             tid = tid["id"]
     try:
-        print(("removing %s from analysis db" % (id)))
-        delete_mongo_data(id)
+        print(("removing %s from analysis db" % (tid)))
+        delete_mongo_data(tid)
     except:
-        print(("failed to remove analysis info (may not exist) %s" % (id)))
-    if db.delete_task(e):
-        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id))
+        print(("failed to remove analysis info (may not exist) %s" % (tid)))
+    if db.delete_task(tid):
+        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
-         print(("failed to remove faile task %s from DB" % (id)))
+         print(("failed to remove faile task %s from DB" % (tid)))
 
 def delete_mongo_data(tid):
     try:

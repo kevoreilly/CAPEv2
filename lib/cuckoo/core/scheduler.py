@@ -674,7 +674,7 @@ class Scheduler:
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
-         self.memory_debugging = memory_debugging
+        self.memory_debugging = memory_debugging
 
     def initialize(self):
         """Initialize the machine manager."""

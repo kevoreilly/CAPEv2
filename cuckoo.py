@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
-    parser.add_argument("-md", "--memory-debugging", help="Debug memory usage", default=False, required=False)
+    parser.add_argument("-md", "--memory-debugging", help="Debug memory usage", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     try:

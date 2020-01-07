@@ -460,7 +460,7 @@ if __name__ == "__main__":
     parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
     parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
     parser.add_argument("--malscore-clean",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
-    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", raction="store", type=int, equired=False)
+    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", araction="store", type=int, equired=False)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False)
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False)
     args = parser.parse_args()

@@ -68,15 +68,14 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
         return
 
     ResultServer()
-
     os.chdir(cur_path)
 
-def cuckoo_main(max_analysis_count=0):
+def cuckoo_main(max_analysis_count=0, memory_debugging=False):
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
     try:
-        sched = Scheduler(max_analysis_count)
+        sched = Scheduler(max_analysis_count, memory_debugging)
         sched.start()
     except KeyboardInterrupt:
         sched.stop()

@@ -242,11 +242,11 @@ def convert_to_printable(s, cache=None):
     @param cache: an optional cache
     @return: sanitized string.
     """
-    #ToDo cleanup
-    #print(s, "sssss")
     if isinstance(s, int):
-        #print(s)
         return str(s)
+
+    if isinstance(s, bytes):
+        return bytes2str(s)
 
     if is_printable(s):
         return s

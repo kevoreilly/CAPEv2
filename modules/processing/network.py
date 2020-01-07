@@ -504,7 +504,7 @@ class Pcap:
             entry = {"count": 1}
 
             if "host" in http.headers and re.match(
-                    b'^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$',
+                    '^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$',
                     http.headers["host"], re.IGNORECASE):
                 entry["host"] = convert_to_printable(http.headers["host"])
             else:
@@ -527,10 +527,8 @@ class Pcap:
                 netloc += ":" + str(entry["port"])
 
             entry["data"] = convert_to_printable(tcpdata)
-            entry["uri"] = convert_to_printable(urlunparse(("http",
-                                                            netloc,
-                                                            http.uri, None,
-                                                            None, None)))
+            entry["uri"] = convert_to_printable(
+                urlunparse(("http", netloc, http.uri, None, None, None)))
             entry["body"] = convert_to_printable(http.body)
             entry["path"] = convert_to_printable(http.uri)
 
@@ -694,8 +692,7 @@ class Pcap:
             return self.results
 
         if not os.path.exists(self.filepath):
-            log.warning("The PCAP file does not exist at path \"%s\".",
-                        self.filepath)
+            log.warning("The PCAP file does not exist at path \"%s\".", self.filepath)
             return self.results
 
         if os.path.getsize(self.filepath) == 0:

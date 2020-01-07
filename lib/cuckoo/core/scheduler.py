@@ -104,11 +104,10 @@ class AnalysisManager(threading.Thread):
 
         return True
 
-    def check_file(self):
+    def check_file(self, sha256):
         """Checks the integrity of the file to be analyzed."""
         sample = self.db.view_sample(self.task.sample_id)
 
-        sha256 = File(self.task.target).get_sha256()
         if sha256 != sample.sha256:
             log.error("Task #{0}: Target file has been modified after submission: "
                       "'{1}'".format(self.task.id, convert_to_printable(self.task.target)))
@@ -116,14 +115,13 @@ class AnalysisManager(threading.Thread):
 
         return True
 
-    def store_file(self):
+    def store_file(self, sha256):
         """Store a copy of the file being analyzed."""
         if not os.path.exists(self.task.target):
             log.error("Task #{0}: The file to analyze does not exist at path '{1}', "
                       "analysis aborted".format(self.task.id, convert_to_printable(self.task.target)))
             return False
 
-        sha256 = File(self.task.target).get_sha256()
         self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
         if os.path.exists(self.binary):
@@ -246,14 +244,16 @@ class AnalysisManager(threading.Thread):
             log.debug("Failed to initialize the analysis folder")
             return False
 
+        sha256 = File(self.task.target).get_sha256()
+
         if self.task.category in ["file", "pcap", "static"]:
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
-            if not self.check_file():
+            if not self.check_file(sha256):
                 return False
 
             # Store a copy of the original file.
-            if not self.store_file():
+            if not self.store_file(sha256):
                 return False
 
         if self.task.category in ("pcap", "static"):

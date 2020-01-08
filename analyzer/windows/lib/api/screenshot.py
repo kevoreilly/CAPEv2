@@ -19,10 +19,14 @@ try:
     from PIL import ImageGrab
     log.debug("Importing 'PIL.ImageDraw'")
     from PIL import ImageDraw
-    from PIL import PILLOW_VERSION
+    try:
+        from PIL import __version__
+    except ImportError:
+        from PIL import PILLOW_VERSION as __version__
     HAVE_PIL = True
-    if int(PILLOW_VERSION[0]) < 5:
+    if int(__version__[0]) < 5:
         log.info("Please upgrade Pillow to >= 5.4.1 for best performance")
+
 except Exception as e:
     HAVE_PIL = False
     log.error(e)

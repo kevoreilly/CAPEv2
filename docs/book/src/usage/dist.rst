@@ -2,6 +2,9 @@
 Distributed Cuckoo
 ==================
 
+This works under the main server webgui, so everything is transparent for end user
+You will use the same api/web to see all analysis, even if they were analyzer on another server
+
 As mentioned in :doc:`submit`, Cuckoo provides a REST API for Distributed
 Cuckoo usage. The standalone distributed script allows one to setup a single
 REST API point to which samples and URLs can be submitted which will then, in

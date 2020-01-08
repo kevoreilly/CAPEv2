@@ -308,7 +308,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax():
+    if request.is_ajax() and category in ("cape", "dropped"):
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
@@ -737,8 +737,6 @@ def report(request, task_id):
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
-    #ToDo migth be old bottleneck?
-    report["dropped"] = len(results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 1}).get("dropped", []))
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
             if report.get(keyword, False):

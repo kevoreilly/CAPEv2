@@ -16,7 +16,7 @@ import platform
 import tempfile
 import argparse
 import subprocess
-from io import BytesIO
+from io import BytesIO,StringIO
 from zipfile import ZipFile
 
 import http.server
@@ -35,8 +35,6 @@ STATUS_FAILED = 0x0004
 ANALYZER_FOLDER = ""
 state = dict()
 state["status"] = STATUS_INIT
-#sys.stdout = BytesIO()
-#sys.stderr = BytesIO()
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "Cuckoo Agent"
@@ -430,6 +428,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", nargs="?", default="8000")
+    parser.add_argument("redirout", nargs="?", default="0")
     args = parser.parse_args()
+    if int(args.redirout) > 0:
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
 
     app.run(host=args.host, port=int(args.port))

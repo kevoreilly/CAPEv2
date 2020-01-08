@@ -5,22 +5,7 @@ Distributed Cuckoo
 This works under the main server webgui, so everything is transparent for end user
 You will use the same api/web to see all analysis, even if they were analyzer on another server
 
-As mentioned in :doc:`submit`, Cuckoo provides a REST API for Distributed
-Cuckoo usage. The standalone distributed script allows one to setup a single
-REST API point to which samples and URLs can be submitted which will then, in
-turn, be submitted to one of the configured Cuckoo nodes.
-
-A typical setup thus includes a machine on which the distributed script is run
-and one or more machines running an instance of the Cuckoo daemon
-(``./cuckoo.py``) and the :doc:`Cuckoo REST API <api>`.
-
-A few notes;
-
-* Using the distributed script makes more sense when running at least two
-  cuckoo nodes.
-* The distributed script can be run on a machine that also runs a Cuckoo
-  daemon and REST API, however, make sure it has enough disk space if the
-  intention is to submit a lot of samples.
+Deploy each server as normal serve and later just register it as worker on master server where dist.py is running
 
 Dependencies
 ============
@@ -39,21 +24,29 @@ Following is a listing of all available commandline options::
     $ ./utils/dist.py -h
 
     usage: dist.py [-h] [-d] [--uptime-logfile UPTIME_LOGFILE] [--node NODE]
-               [--delete-vm DELETE_VM] [--disable] [--enable]
-               [host] [port]
+                [--delete-vm DELETE_VM] [--disable] [--enable] [--clean-slaves]
+                [-ec] [-fr FORCE_REPORTED]
+                [host] [port]
 
     positional arguments:
-        host                              Host to listen on
-        port                              Port to listen on
+    host                  Host to listen on
+    port                  Port to listen on
 
     optional arguments:
-        -h, --help                        show this help message and exit
-        -d, --debug                       Enable debug logging
-        --uptime-logfile UPTIME_LOGFILE   Uptime logfile path
-        --node NODE                       Node name to update in distributed DB
-        --delete-vm DELETE_VM             VM name to delete from Node
-        --disable                         Disable Node provided in --node
-        --enable                          Enable Node provided in --node
+    -h, --help            show this help message and exit
+    -d, --debug           Enable debug logging
+    --uptime-logfile UPTIME_LOGFILE
+                            Uptime logfile path
+    --node NODE           Node name to update in distributed DB
+    --delete-vm DELETE_VM
+                            VM name to delete from Node
+    --disable             Disable Node provided in --node
+    --enable              Enable Node provided in --node
+    --clean-slaves        Delete reported and notificated tasks from slaves
+    -ec, --enable-clean   Enable delete tasks from nodes, also will remove tasks
+                            submited by humands and not dist
+    -fr FORCE_REPORTED, --force-reported FORCE_REPORTED
+                            change report to reported
 
 
 RESTful resources

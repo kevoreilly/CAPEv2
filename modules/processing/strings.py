@@ -11,6 +11,7 @@ try:
 except ImportError:
     import re
 
+from lib.cuckoo.common.utils import bytes2str
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
@@ -47,7 +48,7 @@ class Strings(Processing):
                 apat = b"[\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
                 upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
 
-            strings = re.findall(apat, data)
+            strings = [bytes2str(string) for string in re.findall(apat, data)]
             for ws in re.findall(upat, data):
                 strings.append(str(ws.decode("utf-16le")))
 

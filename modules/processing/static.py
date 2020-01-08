@@ -5,21 +5,18 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import json
-from lib.cuckoo.common.utils import store_temp_file
 import logging
 import os
 import re
 import math
 import array
+import struct
 import base64
 import hashlib
-
-from lib.cuckoo.common.icon import PEGroupIconDir
 from PIL import Image
 from io import StringIO
-from datetime import datetime, date, time, timedelta
 from subprocess import Popen, PIPE
-import struct
+from datetime import datetime, date, time, timedelta
 
 try:
     import bs4
@@ -41,10 +38,10 @@ except ImportError:
     HAVE_PEFILE = False
 
 try:
-    import PyV8
-    HAVE_PYV8 = True
+    import v8py
+    HAVE_V8PY = True
 except ImportError:
-    HAVE_PYV8 = False
+    HAVE_V8PY = False
 
 try:
     from M2Crypto import m2, BIO, X509, SMIME
@@ -64,6 +61,8 @@ try:
 except ImportError:
     HAVE_VBA2GRAPH = False
 
+from lib.cuckoo.common.utils import store_temp_file, bytes2str
+from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
@@ -302,11 +301,11 @@ class PortableExecutable(object):
             return None
 
         try:
-            sig_path = os.path.join(CUCKOO_ROOT, "data",
-                                    "peutils", "UserDB.TXT")
+            sig_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
             signatures = peutils.SignatureDatabase(sig_path)
             return set(list(signatures.match_all(self.pe, ep_only=True)))
-        except:
+        except Exception as e:
+            log.error(e, exc_info=True)
             return None
 
     def _get_pdb_path(self):
@@ -325,8 +324,8 @@ class PortableExecutable(object):
                         return convert_to_printable(str(dbgdata[24:]).rstrip('\0'))
                     elif dbgdata[:4] == "NB10":
                         return convert_to_printable(str(dbgdata[16:]).rstrip('\0'))
-        except:
-            pass
+        except Exception as e:
+            log.error(e, exc_info=True)
 
         return None
 
@@ -346,14 +345,15 @@ class PortableExecutable(object):
                     for imported_symbol in entry.imports:
                         symbol = {}
                         symbol["address"] = hex(imported_symbol.address)
-                        symbol["name"] = imported_symbol.name
+                        symbol["name"] = bytes2str(imported_symbol.name)
                         symbols.append(symbol)
 
                     imports_section = {}
-                    imports_section["dll"] = convert_to_printable(entry.dll)
+                    imports_section["dll"] = bytes2str(entry.dll)
                     imports_section["imports"] = symbols
                     imports.append(imports_section)
-                except:
+                except Exception as e:
+                    log.error(e, exc_info=True)
                     continue
 
         return imports
@@ -454,7 +454,7 @@ class PortableExecutable(object):
         for entry in self.pe.sections:
             try:
                 section = {}
-                section["name"] = convert_to_printable(entry.Name.strip("\x00"))
+                section["name"] = convert_to_printable(entry.Name.strip(b"\x00"))
                 section["raw_address"] = "0x{0:08x}".format(entry.PointerToRawData)
                 section["virtual_address"] = "0x{0:08x}".format(entry.VirtualAddress)
                 section["virtual_size"] = "0x{0:08x}".format(entry.Misc_VirtualSize)
@@ -463,7 +463,8 @@ class PortableExecutable(object):
                 section["characteristics_raw"] = "0x{0:08x}".format(entry.Characteristics)
                 section["entropy"] = "{0:.02f}".format(float(entry.get_entropy()))
                 sections.append(section)
-            except:
+            except Exception as e:
+                log.error(e, exc_info=True)
                 continue
 
         return sections
@@ -919,7 +920,7 @@ class PDF(object):
             pass
 
     def _parse(self, filepath):
-        """Parses the PDF for static information. Uses PyV8 from peepdf to
+        """Parses the PDF for static information. Uses V8Py from peepdf to
         extract JavaScript from PDF objects.
         @param filepath: Path to file to be analyzed.
         @return: results dict or None.
@@ -987,7 +988,7 @@ class PDF(object):
                 if details.type == 'stream':
                     encoded_stream = details.encodedStream
                     decoded_stream = details.decodedStream
-                    if HAVE_PYV8:
+                    if HAVE_V8PY:
                         jsdata = None
                         try:
                             jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
@@ -1234,7 +1235,7 @@ class Office(object):
                     if temp_results:
                         results["office_rtf"] = temp_results
                 except Exception as e:
-                    log.error(e)
+                    log.error(e, exc_info=True)
             else:
                 try:
                     vba = VBA_Parser(filepath)
@@ -1251,7 +1252,7 @@ class Office(object):
             if dde:
                 results["office_dde"] = convert_to_printable(dde)
         except Exception as e:
-            log.error(e)
+            log.error(e, exc_info=True)
 
         metares = officeresults["Metadata"] = dict()
         # The bulk of the metadata checks are in the OLE Structures
@@ -1295,7 +1296,7 @@ class Office(object):
                     try:
                         iocs = vbadeobf.parse_macro(vba_code)
                     except Exception as e:
-                        log.error(e)
+                        log.error(e, exc_info=True)
                     hex_strs = detect_hex_strings(vba_code)
                     if autoexec:
                         for keyword, description in autoexec:

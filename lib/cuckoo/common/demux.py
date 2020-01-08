@@ -36,7 +36,7 @@ demux_extensions_list = [
 ]
 
 whitelist_extensions = (
-    "doc", "xls", "ppt", "pub"
+    "doc", "xls", "ppt", "pub", "jar",
 )
 
 # list of valid file types to extract - TODO: add more types

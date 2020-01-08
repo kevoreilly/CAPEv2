@@ -351,7 +351,7 @@ class RunProcessing(object):
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
-        if not family and self.results["info"]["category"] == "file" and "clamav" in self.results["target"]["file"] and self.results["target"]["file"]["clamav"] and self.results["target"]["file"]["clamav"].startswith("Win.Trojan."):
+        if not family and self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"] and self.results["target"]["file"]["clamav"].startswith("Win.Trojan."):
             words = re.findall(r"[A-Za-z0-9]+", self.results["target"]["file"]["clamav"])
             family = words[2]
             self.results["malfamily_tag"] = "ClamAV"

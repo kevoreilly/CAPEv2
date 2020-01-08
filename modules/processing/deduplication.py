@@ -44,7 +44,9 @@ class Deduplicate(Processing):
             images[hash] = images.get(hash, []) + [img]
         for k, img_list in six.iteritems(images):
             dd_img_set.append(os.path.basename(img_list[0]))
-        dd_img_set.sort()
+        #Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
+        #We flip the list back around after prune.
+        dd_img_set.sort(reverse=True)    
         return dd_img_set
 
     def run(self):
@@ -53,9 +55,8 @@ class Deduplicate(Processing):
         """
         self.key = "deduplicated_shots"
         shots = []
-
+        hashmethod = self.options.get("hashmethod", 'ahash')
         try:
-            hashmethod = "whash-db4"
             if hashmethod == 'ahash':
                 hashfunc = imagehash.average_hash
             elif hashmethod == 'phash':
@@ -70,6 +71,7 @@ class Deduplicate(Processing):
             shots_path = os.path.join(self.analysis_path, "shots")
             if os.path.exists(shots_path):
                 screenshots = self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc)
+                screenshots.sort()
                 for screenshot in screenshots:
                     shots.append(screenshot.replace(".jpg",""))
         except Exception as e:

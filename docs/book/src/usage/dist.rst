@@ -2,8 +2,7 @@
 Distributed Cuckoo
 ==================
 
-This works under the main server webgui, so everything is transparent for end user
-You will use the same api/web to see all analysis, even if they were analyzer on another server
+This works under the main server web interface/api, so everything is transparent for end user, even if they were analyzer on another server(s)
 
 Deploy each server as normal serve and later just register it as worker on master server where dist.py is running
 

@@ -13,6 +13,7 @@ import array
 import struct
 import base64
 import hashlib
+import binascii
 from PIL import Image
 from io import StringIO
 from subprocess import Popen, PIPE
@@ -44,10 +45,14 @@ except ImportError:
     HAVE_V8PY = False
 
 try:
-    from M2Crypto import m2, BIO, X509, SMIME
+    import cryptography
+    from cryptography.hazmat.backends.openssl.backend import backend
+    from cryptography.hazmat.backends.openssl import x509
+    from cryptography.hazmat.primitives import hashes
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
+    print("Missed cryptography library: pip3 install cryptography")
 
 try:
     from whois import whois
@@ -310,6 +315,9 @@ class PortableExecutable(object):
 
     def _get_pdb_path(self):
         if not self.pe:
+            return None
+
+        if not hasattr(self.pe, "DIRECTORY_ENTRY_DEBUG"):
             return None
 
         try:
@@ -742,84 +750,89 @@ class PortableExecutable(object):
 
         if not HAVE_CRYPTO:
             log.critical(
-                "You do not have the m2crypto library installed preventing "
-                "certificate extraction. Please read the Cuckoo "
-                "documentation on installing m2crypto (you need SWIG "
-                "installed and then `pip3 install m2crypto`)!"
+                "You do not have the cryptography library installed preventing "
+                "certificate extraction. pip3 install cryptography"
             )
             return []
 
         if not self.pe:
-            return None
+            return []
 
-        retlist = None
+        retlist = []
 
-        if HAVE_CRYPTO:
-            address = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index].VirtualAddress
+        address = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index].VirtualAddress
 
-            #check if file is digitally signed
-            if address == 0:
-                return retlist
+        #check if file is digitally signed
+        if address == 0:
+            return retlist
 
-            signature = self.pe.write()[address+8:]
+        signatures = self.pe.write()[address+8:]
 
-            # BIO.MemoryBuffer expects an argument of type 'bytes'
-            if type(signature) is bytearray:
-                signature = bytes(signature)
+        if type(signatures) is bytearray:
+            signatures = bytes(signatures)
 
-            bio = BIO.MemoryBuffer(signature)
+        bio = backend._bytes_to_bio(signatures)
 
-            if not bio:
-                return []
+        if not bio:
+            return []
 
-            swig_pkcs7 = m2.pkcs7_read_bio_der(bio.bio_ptr())
-            if not swig_pkcs7:
-                return []
+        pkcs7_obj = backend._lib.d2i_PKCS7_bio(bio.bio, backend._ffi.NULL)
+        if not pkcs7_obj:
+            return []
 
-            p7 = SMIME.PKCS7(swig_pkcs7)
+        signers = backend._lib.PKCS7_get0_signers(pkcs7_obj, backend._ffi.NULL, 0)
 
-            def get_m2crypto_subject_attr(subject_obj, attr_name):
-                try:
-                    return subject_obj.__getattr__(attr_name)
-                except TypeError as err1:
-                    log.info("Missing certificate attribute '%s'. Error: %s", attr_name, err1)
-                    return ""
+        for i in range(backend._lib.sk_X509_num(signers)):
+            x509_ptr = backend._lib.sk_X509_value(signers, i)
+            cert = x509._Certificate(backend, x509_ptr)
 
-            retlist = []
-            for cert in p7.get0_signers(X509.X509_Stack()) or []:
-                subject = cert.get_subject()
-                #subject_str = str(cert.get_subject())
-                #cn = subject_str.split("/CN=", 1)[-1]
-                    #cn = cn.decode("string_escape", errors="ignore").decode("utf-8", errors="ignore")
-                """
-                retdata = {
-                    "aux_sha1": cert_data["sha1"],
-                    "aux_timestamp": cert_data["timestamp"],
-                    "aux_valid": cert_data["valid"],
-                    "aux_error": cert_data["error"],
-                    "aux_error_desc": cert_data["error_desc"],
-                    "aux_signers": cert_data["signers"]
-                }
-                """
-                retlist.append({
-                    "sn": "%032x" % cert.get_serial_number(),
-                    "cn": get_m2crypto_subject_attr(subject,"CN"),
-                    "country": get_m2crypto_subject_attr(subject,"C"),
-                    "locality": get_m2crypto_subject_attr(subject,"L"),
-                    "organization": get_m2crypto_subject_attr(subject,"O"),
-                    "email": get_m2crypto_subject_attr(subject,"Email"),
-                    "sha1_fingerprint": "%040x" % int(cert.get_fingerprint("sha1"), 16),
-                    "md5_fingerprint": "%032x" % int(cert.get_fingerprint("md5"), 16),
-                    "cert_issuer": cert.get_issuer().as_text(),
-                    "cert_not_before": cert.get_not_before().get_datetime().isoformat(),
-                    "cert_not_after": cert.get_not_after().get_datetime().isoformat()
-                })
-                if get_m2crypto_subject_attr(subject,"GN") != "" and get_m2crypto_subject_attr(subject,"SN") != "":
-                    retlist[-1]["full_name"] = "%s %s" % (subject.GN, subject.SN)
-                elif get_m2crypto_subject_attr(subject,"GN") != "":
-                    retlist[-1]["full_name"] = subject.GN
-                elif get_m2crypto_subject_attr(subject,"SN") != "":
-                    retlist[-1]["full_name"] = subject.SN
+            md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()
+            sha1 = binascii.hexlify(cert.fingerprint(hashes.SHA1())).decode()
+            sha256 = binascii.hexlify(cert.fingerprint(hashes.SHA256())).decode()
+            cert_data = {
+                'md5_fingerprint': md5,
+                'sha1_fingerprint': sha1,
+                'sha256_fingerprint': sha256,
+                'serial_number': str(cert.serial_number),
+                "not_before": cert.not_valid_before.isoformat(),
+                "not_after": cert.not_valid_after.isoformat(),
+            }
+            for attribute in cert.subject:
+                cert_data['subject_{}'.format(attribute.oid._name)] = attribute.value
+            for attribute in cert.issuer:
+                cert_data['issuer_{}'.format(attribute.oid._name)] = attribute.value
+            try:
+                for extension in cert.extensions:
+                    if extension.oid._name == 'authorityKeyIdentifier':
+                        cert_data['extensions_{}'.format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier)
+                    elif extension.oid._name == 'subjectKeyIdentifier':
+                        cert_data['extensions_{}'.format(extension.oid._name)] = base64.b64encode(extension.value.digest)
+                    elif extension.oid._name == 'certificatePolicies':
+                        for index, policy in enumerate(extension.value):
+                            if policy.policy_qualifiers:
+                                for qualifier in policy.policy_qualifiers:
+                                    if qualifier.__class__ is not cryptography.x509.extensions.UserNotice:
+                                        cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = qualifier
+                    elif extension.oid._name == 'cRLDistributionPoints':
+                        for index, point in enumerate(extension.value):
+                            for full_name in point.full_name:
+                                cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = full_name.value
+                    elif extension.oid._name == 'authorityInfoAccess':
+                        for authority_info in extension.value:
+                            if authority_info.access_method._name == 'caIssuers':
+                                cert_data['extensions_{}_caIssuers'.format(extension.oid._name)] = authority_info.access_location.value
+                            elif authority_info.access_method._name == 'OCSP':
+                                cert_data['extensions_{}_OCSP'.format(extension.oid._name)] = authority_info.access_location.value
+                    elif extension.oid._name == 'subjectAltName':
+                        for index, name in enumerate(extension.value._general_names):
+                            if isinstance(name.value, bytes):
+                                cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = base64.b64encode(name.value)
+                            else:
+                                cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = name.value
+            except ValueError:
+                continue
+
+            retlist.append(cert_data)
 
         return retlist
 

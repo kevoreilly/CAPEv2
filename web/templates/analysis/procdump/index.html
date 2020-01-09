@@ -46,7 +46,17 @@
                 </tr>
                 <tr>
                     <th>ClamAV</th>
-                    <td>{{file.clamav}}</td>
+                    <td>
+                    {% if file.clamav %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.clamav %}
+                            <li>{{sign}}</li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
                 </tr>
                 <tr>
                     <th>Yara</th>

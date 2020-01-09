@@ -35,7 +35,7 @@ except ImportError:
     HAVE_YARA = False
 
 try:
-    import clamd
+    import pyclamd
     HAVE_CLAMAV = True
 except ImportError:
     HAVE_CLAMAV = False
@@ -448,25 +448,36 @@ class File(object):
 
     def get_clamav(self):
         """Get ClamAV signatures matches.
+        Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
+        apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
+        pip3 install -U pyclamd
+        systemctl enable clamav-daemon
+        systemctl start clamav-daemon
+        usermod -a -G cuckoo clamav
+        echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
         @return: matched ClamAV signatures.
         """
-        matches = None
+        matches = []
 
         if HAVE_CLAMAV:
             if os.path.getsize(self.file_path) > 0:
                 try:
-                    cd = clamd.ClamdUnixSocket()
+                    cd = pyclamd.ClamdUnixSocket()
                 except:
                     log.warning("failed to connect to clamd socket")
                     return matches
                 try:
-                    r=cd.scan(self.file_path)#.decode())
+                    results = cd.allmatchscan(self.file_path)
                 except Exception as e:
-                    log.warning("failed to scan file with clamav %s",e)
+                    log.warning("failed to scan file with clamav {0}".format(e))
                     return matches
-                for key in r:
-                    if r[key][0] == "FOUND":
-                        matches = r[key][1]
+                if results:
+                    for key in results:
+                        for entry in results[key]:
+                            if entry[0] == "FOUND":
+                                if entry[1] not in matches:
+                                    matches.append(entry[1])
+
         return matches
 
     def get_all(self):

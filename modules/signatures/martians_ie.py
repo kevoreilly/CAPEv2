@@ -20,6 +20,27 @@ except ImportError:
 
 from lib.cuckoo.common.abstracts import Signature
 
+ie_paths_re = re.compile(r"^c:\\program files(?:\s\(x86\))?\\internet explorer\\iexplore.exe$",re.I)
+#run through re.escape()
+white_list_re = [
+    "^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Adobe\\\\Reader\\ \\d+\\.\\d+\\\\Reader\\\\AcroRd32\\.exe$",
+    "^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Java\\\\jre\\d+\\\\bin\\\\j(?:avaw?|p2launcher)\\.exe$",
+    "^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Microsoft SilverLight\\\\(?:\\d+\\.)+\\d\\\\agcp.exe$",
+    "^C\\:\\\\Windows\\\\System32\\\\ntvdm\\.exe$",
+    "^C\\:\\\\Windows\\\\system32\\\\rundll32\\.exe$",
+    "^C\\:\\\\Windows\\\\syswow64\\\\rundll32\\.exe$",
+    "^C\\:\\\\Windows\\\\system32\\\\drwtsn32\\.exe$",
+    "^C\\:\\\\Windows\\\\syswow64\\\\drwtsn32\\.exe$",
+    "^C\\:\\\\Windows\\\\system32\\\\dwwin\\.exe$",
+    "^C\\:\\\\Windows\\\\system32\\\\WerFault\\.exe$",
+    "^C\\:\\\\Windows\\\\syswow64\\\\WerFault\\.exe$"
+]
+#means we can be evaded but also means we can have relatively tight paths between 32-bit and 64-bit
+white_list_re_compiled = []
+for entry in self.white_list_re:
+    white_list_re_compiled.append(re.compile(entry,re.I))
+white_list_re_compiled.append(ie_paths_re)
+
 class MartiansIE(Signature):
     name = "ie_martian_children"
     description = "Martian Subprocess Started By IE"
@@ -53,37 +74,16 @@ class MartiansIE(Signature):
     def run(self):
         if self.results["target"]["category"] == "file":
             return False
- 
-        self.ie_paths_re = re.compile(r"^c:\\program files(?:\s\(x86\))?\\internet explorer\\iexplore.exe$",re.I)
-        #run through re.escape()
-        self.white_list_re = ["^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Adobe\\\\Reader\\ \\d+\\.\\d+\\\\Reader\\\\AcroRd32\\.exe$",
-                         "^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Java\\\\jre\\d+\\\\bin\\\\j(?:avaw?|p2launcher)\\.exe$",
-                         "^C\\:\\\\Program Files(?:\s\\(x86\\))?\\\\Microsoft SilverLight\\\\(?:\\d+\\.)+\\d\\\\agcp.exe$",
-                         "^C\\:\\\\Windows\\\\System32\\\\ntvdm\\.exe$",
-                         "^C\\:\\\\Windows\\\\system32\\\\rundll32\\.exe$",
-                         "^C\\:\\\\Windows\\\\syswow64\\\\rundll32\\.exe$",
-                         "^C\\:\\\\Windows\\\\system32\\\\drwtsn32\\.exe$",
-                         "^C\\:\\\\Windows\\\\syswow64\\\\drwtsn32\\.exe$",
-                         "^C\\:\\\\Windows\\\\system32\\\\dwwin\\.exe$",
-                         "^C\\:\\\\Windows\\\\system32\\\\WerFault\\.exe$",
-                         "^C\\:\\\\Windows\\\\syswow64\\\\WerFault\\.exe$"
-                        ]
-        #means we can be evaded but also means we can have relatively tight paths between 32-bit and 64-bit
-        self.white_list_re_compiled = []
-        for entry in self.white_list_re:
-            self.white_list_re_compiled.append(re.compile(entry,re.I))
-        self.white_list_re_compiled.append(self.ie_paths_re)
 
         # Sometimes if we get a service loaded we get out of order processes in tree need iterate over IE processes get the path of the initial monitored executable
         self.initialpath = None
-        processes = self.results["behavior"]["processtree"]
-        if len(processes):
-            for p in processes:
-                initialpath = p["module_path"].lower()
-                if initialpath and self.ie_paths_re.match(initialpath) and "children" in p:
-                    self.martians = self.find_martians(p,self.white_list_re_compiled)
-                    if len(self.martians) > 0:
-                        for martian in self.martians:
-                            self.data.append({"ie_martian": martian})
-                        return True 
+        processes = self.results.get("behavior", {}).get("processtree", [])
+        for p in processes or []:
+            initialpath = p["module_path"].lower()
+            if initialpath and ie_paths_re.match(initialpath) and "children" in p:
+                self.martians = self.find_martians(p, white_list_re_compiled)
+                if len(self.martians) > 0:
+                    for martian in self.martians:
+                        self.data.append({"ie_martian": martian})
+                    return True 
         return False

@@ -474,9 +474,8 @@ class File(object):
                 if results:
                     for key in results:
                         for entry in results[key]:
-                            if entry[0] == "FOUND":
-                                if entry[1] not in matches:
-                                    matches.append(entry[1])
+                            if entry[0] == "FOUND" and entry[1] not in matches:
+                                 matches.append(entry[1])
 
         return matches
 

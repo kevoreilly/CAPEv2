@@ -428,9 +428,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", nargs="?", default="8000")
-    parser.add_argument("redirout", nargs="?", default="0")
+    parser.add_argument("--redirout", action="store_true", default=False)
     args = parser.parse_args()
-    if int(args.redirout) > 0:
+    if args.redirout:
         sys.stdout = StringIO()
         sys.stderr = StringIO()
 

@@ -37,7 +37,7 @@ white_list_re = [
 ]
 #means we can be evaded but also means we can have relatively tight paths between 32-bit and 64-bit
 white_list_re_compiled = []
-for entry in self.white_list_re:
+for entry in white_list_re:
     white_list_re_compiled.append(re.compile(entry,re.I))
 white_list_re_compiled.append(ie_paths_re)
 

@@ -56,7 +56,11 @@
                 <th>ClamAV</th>
                 <td>
                 {% if analysis.target.file.clamav %}
-                    {{analysis.target.file.clamav}}
+                  <ul style="margin-bottom: 0;">
+                    {% for sign in analysis.target.file.clamav %}
+                   <li>{{sign}}</li>
+                    {% endfor %}
+                    </ul>
                 {% else %}
                     None matched
                 {% endif %}

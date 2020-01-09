@@ -87,7 +87,7 @@ class RansomwareFiles(Signature):
             (".*\\\\!!!\ YOUR\ FILES\ ARE\ ENCRYPTED\ !!!\.TXT$", ["Buran"]),
             (".*\\\\!!!CHEKYSHKA_DECRYPT_README\.TXT$", ["Chekyshka"]),
             (".*\\\\HOW_TO_BACK_YOUR_FILES\.txt$", ["ChineseRarypt"]),
-            (".*\\\\CIopReadMe\.txt$", ["CryptoMix"]),
+            (".*\\\\CIopReadMe\.txt$", ["Clop-CryptoMix"]),
             (".*\\\\_HELP_INSTRUCTION\.TXT$", ["CryptoMix"]),
             (".*\\\\!=How_recovery_files=!\.html$", ["Everbe"]),
             (".*\\\\\.FreezedByMagic\.README\.txt$", ["FreeMe"]),
@@ -139,6 +139,7 @@ class RansomwareFiles(Signature):
             (".*\\\\RyukReadMe\.html$", ["Ryuk"]),
             (".*\\\\HOW_TO_RECOVER_DATA\.html$", ["MedusaLocker"]),
             (".*\\\\ClopReadMe\.txt$", ["Clop-CryptoMix"]),
+            (".*\\\\Fix-Your-Files\.txt$", ["SNAKE"])
         ]
 
         for ioc in file_list:

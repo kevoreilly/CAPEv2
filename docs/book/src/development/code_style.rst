@@ -110,8 +110,7 @@ In case you really need to print a string to standard output, use the
 Checking for keys in data structures
 ------------------------------------
 
-When checking for a key in a data structure use the clause "in" instead of
-methods like "has_key()", for example::
+When checking for a key in a data structure use the clause "in" for example::
 
     if "bar" in foo:
         do_something(foo["bar"])

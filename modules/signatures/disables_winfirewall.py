@@ -15,28 +15,26 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
-class QuasarRATMutexes(Signature):
-    name = "quasarrat_mutexes"
-    description = "Creates QuasarRAT RAT mutexes"
+class DisablesWindowsFirewall(Signature):
+    name = "disables_winfirewall"
+    description = "Disables Windows firewall"
     severity = 3
-    categories = ["RAT"]
-    families = ["QuasarRAT"]
+    categories = ["generic"]
     authors = ["ditekshen"]
     minimum = "0.5"
+    ttp = ["T1089"]
 
     def run(self):
         indicators = [
-            "^QSR_MUTEX_[A-Z0-9a-z]{18}$",
-            "VMFvdCsC7RFqerZinfV0sxJFo",
-            "9s1IUBvnvFDb76ggOFFmnhIK",
-            "ERveMB6XRx2pmYdoKjMnoN1f",
-            "ABCDEFGHIGKLMNOPQRSTUVWXYZ",
+            "netsh\s+firewall\s+set.*disable",
+            "netsh\s+advfirewall\s+set.*off",
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True)
+            match = self.check_executed_command(pattern=indicator, regex=True, all=True)
             if match:
-                self.data.append({"mutex": match})
+                for fwcmd in match:
+                    self.data.append({"command": fwcmd})
                 return True
 
         return False

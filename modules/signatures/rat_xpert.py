@@ -15,28 +15,48 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
-class QuasarRATMutexes(Signature):
-    name = "quasarrat_mutexes"
-    description = "Creates QuasarRAT RAT mutexes"
+class XpertRATMutexes(Signature):
+    name = "xpertrat_mutexes"
+    description = "Creates Xpert RAT mutexes"
     severity = 3
     categories = ["RAT"]
-    families = ["QuasarRAT"]
+    families = ["Xpert"]
     authors = ["ditekshen"]
     minimum = "0.5"
 
     def run(self):
         indicators = [
-            "^QSR_MUTEX_[A-Z0-9a-z]{18}$",
-            "VMFvdCsC7RFqerZinfV0sxJFo",
-            "9s1IUBvnvFDb76ggOFFmnhIK",
-            "ERveMB6XRx2pmYdoKjMnoN1f",
-            "ABCDEFGHIGKLMNOPQRSTUVWXYZ",
+            "G2L6E3O1-E775-G5J4-R4C2-P5F660S1R4A8",
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True)
+            match_mutex = self.check_mutex(pattern=indicator, regex=True)
+            if match_mutex:
+                self.data.append({"mutex": match_mutex})
+                return True
+
+        return False
+
+class XpertRATFiles(Signature):
+    name = "xpertrat_files"
+    description = "Creates Xpert RAT files"
+    severity = 3
+    categories = ["RAT"]
+    families = ["Xpert"]
+    authors = ["ditekshen"]
+    minimum = "0.5"
+
+    def run(self):
+        indicators = [
+            ".*\\\\ut$",
+            ".*\\\\Temp\\\\.*\.bmp"
+            ".*\\\\G2L6E3O1-E775-G5J4-R4C2-P5F660S1R4A8$"
+        ]
+
+        for indicator in indicators:
+            match = self.check_write_file(pattern=indicator, regex=True)
             if match:
-                self.data.append({"mutex": match})
+                self.data.append({"file": match})
                 return True
 
         return False

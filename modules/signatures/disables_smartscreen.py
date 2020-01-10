@@ -15,28 +15,37 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
-class QuasarRATMutexes(Signature):
-    name = "quasarrat_mutexes"
-    description = "Creates QuasarRAT RAT mutexes"
+class DisablesSmartScreen(Signature):
+    name = "disables_smartscreen"
+    description = "Modifies or disables Windows SmartScreen"
     severity = 3
-    categories = ["RAT"]
-    families = ["QuasarRAT"]
+    categories = ["generic"]
     authors = ["ditekshen"]
     minimum = "0.5"
+    ttp = ["T1089"]
 
     def run(self):
+        re_match = False
+        cmd_match = False
         indicators = [
-            "^QSR_MUTEX_[A-Z0-9a-z]{18}$",
-            "VMFvdCsC7RFqerZinfV0sxJFo",
-            "9s1IUBvnvFDb76ggOFFmnhIK",
-            "ERveMB6XRx2pmYdoKjMnoN1f",
-            "ABCDEFGHIGKLMNOPQRSTUVWXYZ",
+            ".*\\\\Windows\\\\CurrentVersion\\\\explorer\\\\SmartScreenEnabled$",
+            ".*\\\\Windows\\\\CurrentVersion\\\\AppHost\\\\SmartScreenEnabled$",
+            ".*\\\\MicrosoftEdge\\\\PhishingFilter$",
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True)
+            match = self.check_write_key(pattern=indicator, regex=True)
             if match:
-                self.data.append({"mutex": match})
-                return True
+                self.data.append({"regkey": match})
+                re_match = True
+
+        cmdpat = ".*\"SmartScreenEnabled\".*\"Off\".*"
+        match = self.check_executed_command(pattern=cmdpat, regex=True)
+        if match:
+            self.data.append({"command": match})
+            cmd_match = True
+
+        if re_match or cmd_match:
+            return True
 
         return False

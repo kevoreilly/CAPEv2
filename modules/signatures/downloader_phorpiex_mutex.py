@@ -15,28 +15,24 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
-class QuasarRATMutexes(Signature):
-    name = "quasarrat_mutexes"
-    description = "Creates QuasarRAT RAT mutexes"
+class PhorpiexMutexes(Signature):
+    name = "phorpiex_mutexes"
+    description = "Creates known Phorpiex mutexes"
     severity = 3
-    categories = ["RAT"]
-    families = ["QuasarRAT"]
+    categories = ["downloader", "dropper"]
+    families = ["Phorpiex"]
     authors = ["ditekshen"]
     minimum = "0.5"
 
     def run(self):
         indicators = [
-            "^QSR_MUTEX_[A-Z0-9a-z]{18}$",
-            "VMFvdCsC7RFqerZinfV0sxJFo",
-            "9s1IUBvnvFDb76ggOFFmnhIK",
-            "ERveMB6XRx2pmYdoKjMnoN1f",
-            "ABCDEFGHIGKLMNOPQRSTUVWXYZ",
+            ".:-Tldr-:.",
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True)
-            if match:
-                self.data.append({"mutex": match})
+            match_mutex = self.check_mutex(pattern=indicator, regex=True)
+            if match_mutex:
+                self.data.append({"mutex": match_mutex})
                 return True
 
         return False

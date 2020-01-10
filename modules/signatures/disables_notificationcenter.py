@@ -15,28 +15,24 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
-class QuasarRATMutexes(Signature):
-    name = "quasarrat_mutexes"
-    description = "Creates QuasarRAT RAT mutexes"
+class DisablesNotificationCenter(Signature):
+    name = "disables_notificationcenter"
+    description = "Disables Windows Notification Center"
     severity = 3
-    categories = ["RAT"]
-    families = ["QuasarRAT"]
+    categories = ["generic"]
     authors = ["ditekshen"]
     minimum = "0.5"
+    ttp = ["T1089"]
 
     def run(self):
         indicators = [
-            "^QSR_MUTEX_[A-Z0-9a-z]{18}$",
-            "VMFvdCsC7RFqerZinfV0sxJFo",
-            "9s1IUBvnvFDb76ggOFFmnhIK",
-            "ERveMB6XRx2pmYdoKjMnoN1f",
-            "ABCDEFGHIGKLMNOPQRSTUVWXYZ",
+            ".*\\\\Explorer\\\\DisableNotificationCenter$",
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True)
+            match = self.check_write_key(pattern=indicator, regex=True)
             if match:
-                self.data.append({"mutex": match})
+                self.data.append({"regkey": match})
                 return True
 
         return False

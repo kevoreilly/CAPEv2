@@ -107,7 +107,7 @@ def tasks_create_file():
     shrike_sid = request.forms.get("shrike_sid", None)
     shrike_refer = request.forms.get("shrike_refer", None)
     static = bool(request.POST.get("static", False))
-    unique = bool(request.form.get("unique", False))
+    unique = bool(request.forms.get("unique", False))
     if memory.upper() == 'FALSE' or memory == '0':
         memory = False
     else:

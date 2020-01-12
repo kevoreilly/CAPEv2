@@ -133,7 +133,12 @@ a.tag-label {
 .page-header {
     margin-bottom: 10px;
 }
-
+.filter-box {
+    display : none;
+    padding-top: 15px;
+	height : auto;
+	width : 40%;
+}
 /* Fix the icon tab override */
 .nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
 
@@ -178,4 +183,8 @@ pre {
     border: 0;
     background-color: white;
     color: #5bc0de;
+}
+#filter-toggle {
+    display: inline-block;
+    cursor: pointer;
 }

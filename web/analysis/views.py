@@ -377,7 +377,7 @@ def chunk(request, task_id, pid, pagenum):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def filtered_chunk(request, task_id, pid, category, apilist):
+def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     @param pid: pid you want calls
@@ -422,6 +422,8 @@ def filtered_chunk(request, task_id, pid, category, apilist):
         apis = apilist.split(',')
         apis[:] = [s.strip().lower() for s in apis if len(s.strip())]
 
+        tid = int(tid)
+
         # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
         for call in process["calls"]:
             if enabledconf["mongodb"]:
@@ -429,7 +431,11 @@ def filtered_chunk(request, task_id, pid, category, apilist):
             if es_as_db:
                 chunk = es.search(index=fullidx, doc_type="calls", q="_id: \"%s\"" % call)['hits']['hits'][0]['_source']
             for call in chunk["calls"]:
-                if category == "all" or call["category"] == category:
+                # filter by call or tid
+                if caller != "null" or tid != 0:
+                    if call["caller"] == caller and call["thread_id"] == tid:
+                        filtered_process["calls"].append(call)
+                elif category == "all" or call["category"] == category:
                     if len(apis) > 0:
                         add_call = -1
                         for api in apis:

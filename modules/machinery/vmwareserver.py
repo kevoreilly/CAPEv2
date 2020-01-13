@@ -57,7 +57,7 @@ class VMwareServer(Machinery):
                        " listSnapshots " + "\"" + vmx_path + "\""
 
         try:
-            p = subprocess.Popen(check_string, universal_newlines=True,, shell=True)
+            p = subprocess.Popen(check_string, universal_newlines=True, shell=True)
             output, _ = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to get snapshot list for %s. "
@@ -186,7 +186,7 @@ class VMwareServer(Machinery):
                                      "Reason: %s" % (vmx_path, e))
         else:
             if output:
-                return vmx_path in output.decode("utf-8")
+                return vmx_path in output
             else:
                 raise CuckooMachineError("Unable to check running status "
                                          "for %s. No output from "

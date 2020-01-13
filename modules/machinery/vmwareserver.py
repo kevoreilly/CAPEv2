@@ -186,7 +186,7 @@ class VMwareServer(Machinery):
                                      "Reason: %s" % (vmx_path, e))
         else:
             if output:
-                return vmx_path in output
+                return vmx_path in output.decode("utf-8")
             else:
                 raise CuckooMachineError("Unable to check running status "
                                          "for %s. No output from "

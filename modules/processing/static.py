@@ -205,7 +205,8 @@ class DotNETExecutable(object):
                 item["value"] = convert_to_printable(valueval)
                 ret.append(item)
             return ret
-        except:
+        except Exception as e:
+            print(e)
             return None
 
     def _get_assembly_refs(self):
@@ -227,7 +228,8 @@ class DotNETExecutable(object):
                 ret.append(item)
             return ret
 
-        except:
+        except Exception as e:
+            print(e)
             return None
 
     def _get_assembly_info(self):
@@ -240,7 +242,8 @@ class DotNETExecutable(object):
                 if line.startswith("Version:"):
                     ret["version"] = convert_to_printable(line[8:].strip())
             return ret
-        except:
+        except Exception as e:
+            print(e)
             return None
 
     def _get_type_refs(self):
@@ -259,7 +262,8 @@ class DotNETExecutable(object):
                     ret.append(item)
             return sorted(ret)
 
-        except:
+        except Exception as e:
+            print(e)
             return None
 
     def run(self):

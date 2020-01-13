@@ -616,7 +616,10 @@ class StatusThread(threading.Thread):
         if node.name != "master":
             # don't do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
-            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"), options_like=options_like)#, limit=pend_tasks_num)
+            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"), options_like=options_like, limit=pend_tasks_num)
+            if not main_db_tasks:
+                return
+
             if main_db_tasks:
                 for t in main_db_tasks:
                     force_push = False
@@ -684,7 +687,7 @@ class StatusThread(threading.Thread):
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                         limit += 1
-                        if limit == pend_tasks_num:
+                        if limit == pend_tasks_num or limit == len(main_db_tasks):
                             db.close()
                             return
 
@@ -793,7 +796,7 @@ class StatusThread(threading.Thread):
                 STATUSES = statuses
 
                 #first submit tasks with specified node
-                self.submit_tasks(node.id, MINIMUMQUEUE[node.name]*2, "%node={}%".format(node.name), force_push_push=True)
+                self.submit_tasks(node.id, MINIMUMQUEUE[node.name], "%node={}%".format(node.name), force_push_push=True)
 
                 # Balance the tasks, works fine if no tags are set
                 node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"])

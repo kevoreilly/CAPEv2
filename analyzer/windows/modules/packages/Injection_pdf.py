@@ -15,7 +15,8 @@ class Injection_PDF(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Injection.dll"
+        self.options["injection"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")

@@ -18,8 +18,8 @@ class Compression_dll(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Compression.dll"
-        self.options["dll_64"] = "Compression_x64.dll"
+        self.options["compression"] = "1"
+        self.options["procdump"] = "0"
 
         #if self.config.timeout > 10:
         #    self.config.timeout = 5

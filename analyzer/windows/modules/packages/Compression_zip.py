@@ -35,8 +35,8 @@ class Compression_zip(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Compression.dll"
-        self.options["dll_64"] = "Compression_x64.dll"
+        self.options["compression"] = "1"
+        self.options["procdump"] = "0"
 
     def extract_zip(self, zip_path, extract_path, password, recursion_depth):
         """Extracts a nested ZIP file.

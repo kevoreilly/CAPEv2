@@ -32,8 +32,8 @@ class EmotetBatch(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Extraction.dll"
-        self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["extraction"] = "1"
+        self.options["procdump"] = "0"
         self.options["exclude-apis"] = "RegOpenKeyExA"
         self.options["single-process"] = "1"
 

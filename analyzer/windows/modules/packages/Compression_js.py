@@ -17,8 +17,8 @@ class Compression_JS(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Compression.dll"
-        self.options["dll_64"] = "Compression_x64.dll"
+        self.options["compression"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")

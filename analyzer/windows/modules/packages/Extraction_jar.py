@@ -15,8 +15,8 @@ class Extraction_Jar(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Extraction.dll"
-        self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["extraction"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
         java = self.get_path_glob("Java")

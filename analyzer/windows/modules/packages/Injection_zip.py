@@ -35,8 +35,8 @@ class Injection_zip(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Injection.dll"
-        self.options["dll_64"] = "Injection_x64.dll"
+        self.options["injection"] = "1"
+        self.options["procdump"] = "0"
 
     def extract_zip(self, zip_path, extract_path, password, recursion_depth):
         """Extracts a nested ZIP file.

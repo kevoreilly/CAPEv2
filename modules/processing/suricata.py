@@ -152,10 +152,11 @@ class Suricata(Processing):
         ]
 
         if SURICATA_RUNMODE == "socket":
-            if SURICATA_SOCKET_PYLIB != None:
-                sys.path.append(SURICATA_SOCKET_PYLIB)
+            #if SURICATA_SOCKET_PYLIB != None:
+            #    sys.path.append(SURICATA_SOCKET_PYLIB)
             try:
-                from suricatasc import SuricataSC
+                #from suricatasc import SuricataSC
+                from lib.cuckoo.common.suricatasc import SuricataSC
             except Exception as e:
                 log.warning("Failed to import suricatasc lib %s" % (e))
                 return suricata

@@ -166,14 +166,14 @@ def index(request):
 if apiconf.filecreate.get("enabled"):
     raterps = apiconf.filecreate.get("rps", None)
     raterpm = apiconf.filecreate.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 
 
 
 if apiconf.taskiocs.get("enabled"):
     raterps = apiconf.taskiocs.get("rps")
     raterpm = apiconf.taskiocs.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_iocs(request, task_id, detail=None):
@@ -685,7 +685,7 @@ def tasks_create_file(request):
 if apiconf.urlcreate.get("enabled"):
     raterps = apiconf.urlcreate.get("rps", None)
     raterpm = apiconf.urlcreate.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 @csrf_exempt
@@ -792,7 +792,7 @@ def tasks_create_url(request):
 if apiconf.urlcreate.get("enabled"):
     raterps = apiconf.urlcreate.get("rps", None)
     raterpm = apiconf.urlcreate.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 
 
 @ratelimit(key="ip", rate=raterps, block=rateblock)
@@ -911,7 +911,7 @@ def tasks_create_dlnexec(request):
 if apiconf.vtdl.get("enabled"):
     raterps = apiconf.vtdl.get("rps", None)
     raterpm = apiconf.vtdl.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 @csrf_exempt
@@ -1047,7 +1047,7 @@ def tasks_vtdl(request):
 if apiconf.fileview.get("enabled"):
     raterps = apiconf.fileview.get("rps", None)
     raterpm = apiconf.fileview.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
@@ -1102,7 +1102,7 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
 if apiconf.tasksearch.get("enabled"):
     raterps = apiconf.tasksearch.get("rps", None)
     raterpm = apiconf.tasksearch.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_search(request, md5=None, sha1=None, sha256=None):
@@ -1162,7 +1162,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
 if apiconf.extendedtasksearch.get("enabled"):
     raterps = apiconf.extendedtasksearch.get("rps", None)
     raterpm = apiconf.extendedtasksearch.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 @csrf_exempt
@@ -1354,7 +1354,7 @@ def ext_tasks_search(request):
 if apiconf.tasklist.get("enabled"):
     raterps = apiconf.tasklist.get("rps", None)
     raterpm = apiconf.tasklist.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_list(request, offset=None, limit=None, window=None):
@@ -1425,7 +1425,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
 if apiconf.taskview.get("enabled"):
     raterps = apiconf.taskview.get("rps", None)
     raterpm = apiconf.taskview.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_view(request, task_id):
@@ -1465,7 +1465,7 @@ def tasks_view(request, task_id):
 if apiconf.taskresched.get("enabled"):
     raterps = apiconf.taskresched.get("rps", None)
     raterpm = apiconf.taskresched.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_reschedule(request, task_id):
@@ -1497,7 +1497,7 @@ def tasks_reschedule(request, task_id):
 if apiconf.taskdelete.get("enabled"):
     raterps = apiconf.taskdelete.get("rps", None)
     raterpm = apiconf.taskdelete.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_delete(request, task_id):
@@ -1530,7 +1530,7 @@ def tasks_delete(request, task_id):
 if apiconf.taskstatus.get("enabled"):
     raterps = apiconf.taskstatus.get("rps", None)
     raterpm = apiconf.taskstatus.get("rpm", None)
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_status(request, task_id):
@@ -1556,7 +1556,7 @@ def tasks_status(request, task_id):
 if apiconf.taskreport.get("enabled"):
     raterps = apiconf.taskreport.get("rps")
     raterpm = apiconf.taskreport.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_report(request, task_id, report_format="json"):
@@ -1649,7 +1649,7 @@ def tasks_report(request, task_id, report_format="json"):
 if apiconf.taskiocs.get("enabled"):
     raterps = apiconf.taskiocs.get("rps")
     raterpm = apiconf.taskiocs.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_iocs(request, task_id, detail=None):
@@ -1882,7 +1882,7 @@ def tasks_iocs(request, task_id, detail=None):
 if apiconf.taskscreenshot.get("enabled"):
     raterps = apiconf.taskscreenshot.get("rps")
     raterpm = apiconf.taskscreenshot.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_screenshot(request, task_id, screenshot="all"):
@@ -1935,7 +1935,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 if apiconf.taskpcap.get("enabled"):
     raterps = apiconf.taskpcap.get("rps")
     raterpm = apiconf.taskpcap.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_pcap(request, task_id):
@@ -1971,7 +1971,7 @@ def tasks_pcap(request, task_id):
 if apiconf.taskdropped.get("enabled"):
     raterps = apiconf.taskdropped.get("rps")
     raterpm = apiconf.taskdropped.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_dropped(request, task_id):
@@ -2012,7 +2012,7 @@ def tasks_dropped(request, task_id):
 if apiconf.tasksurifile.get("enabled"):
     raterps = apiconf.tasksurifile.get("rps")
     raterpm = apiconf.tasksurifile.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_surifile(request, task_id):
@@ -2049,7 +2049,7 @@ def tasks_surifile(request, task_id):
 if apiconf.rollingsuri.get("enabled"):
     raterps = apiconf.rollingsuri.get("rps")
     raterpm = apiconf.rollingsuri.get("rpm")
-    rateblock = True
+    rateblock = limiter
 
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
@@ -2084,7 +2084,7 @@ def tasks_rollingsuri(request, window=60):
 if apiconf.rollingshrike.get("enabled"):
     raterps = apiconf.rollingshrike.get("rps")
     raterpm = apiconf.rollingshrike.get("rpm")
-    rateblock = True
+    rateblock = limiter
 
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
@@ -2129,7 +2129,7 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
 if apiconf.taskprocmemory.get("enabled"):
     raterps = apiconf.taskprocmemory.get("rps")
     raterpm = apiconf.taskprocmemory.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_procmemory(request, task_id, pid="all"):
@@ -2204,7 +2204,7 @@ def tasks_procmemory(request, task_id, pid="all"):
 if apiconf.taskfullmemory.get("enabled"):
     raterps = apiconf.taskfullmemory.get("rps")
     raterpm = apiconf.taskfullmemory.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def tasks_fullmemory(request, task_id):
@@ -2256,7 +2256,7 @@ def tasks_fullmemory(request, task_id):
 if apiconf.sampledl.get("enabled"):
     raterps = apiconf.sampledl.get("rps")
     raterpm = apiconf.sampledl.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def get_files(request, stype, value):
@@ -2300,7 +2300,7 @@ def get_files(request, stype, value):
 if apiconf.machinelist.get("enabled"):
     raterps = apiconf.machinelist.get("rps")
     raterpm = apiconf.machinelist.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def machines_list(request):
@@ -2324,7 +2324,7 @@ def machines_list(request):
 if apiconf.machineview.get("enabled"):
     raterps = apiconf.machineview.get("rps")
     raterpm = apiconf.machineview.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def machines_view(request, name=None):
@@ -2350,7 +2350,7 @@ def machines_view(request, name=None):
 if apiconf.cuckoostatus.get("enabled"):
     raterps = apiconf.cuckoostatus.get("rps")
     raterpm = apiconf.cuckoostatus.get("rpm")
-    rateblock = True
+    rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
 def cuckoo_status(request):
@@ -2384,7 +2384,7 @@ def cuckoo_status(request):
 if apiconf.cuckoostatus.get("enabled"):
     raterps = apiconf.cuckoostatus.get("rps")
     raterpm = apiconf.cuckoostatus.get("rpm")
-    rateblock = True
+    rateblock = limiter
 
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)

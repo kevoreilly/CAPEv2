@@ -73,7 +73,6 @@ class Suricata(Processing):
                 SURICATA_FILE_COPY_MAGIC_RE = None
         # Socket
         SURICATA_SOCKET_PATH = self.options.get("socket_file", None)
-        SURICATA_SOCKET_PYLIB = self.options.get("pylib_dir", None)
 
         # Command Line
         SURICATA_BIN = self.options.get("bin", None)
@@ -152,8 +151,6 @@ class Suricata(Processing):
         ]
 
         if SURICATA_RUNMODE == "socket":
-            #if SURICATA_SOCKET_PYLIB != None:
-            #    sys.path.append(SURICATA_SOCKET_PYLIB)
             try:
                 #from suricatasc import SuricataSC
                 from lib.cuckoo.common.suricatasc import SuricataSC

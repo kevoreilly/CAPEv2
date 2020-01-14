@@ -31,8 +31,8 @@ class Extraction_zip(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Extraction.dll"
-        self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["extraction"] = "1"
+        self.options["procdump"] = "0"
 
     def extract_zip(self, zip_path, extract_path, password, recursion_depth):
         """Extracts a nested ZIP file.
@@ -103,8 +103,8 @@ class Extraction_zip(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile(b'(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
-        dll_regex = re.compile(b'(\.dll|\.ocx)$',flags=re.IGNORECASE)
+        exe_regex = re.compile('(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
+        dll_regex = re.compile('(\.dll|\.ocx)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 

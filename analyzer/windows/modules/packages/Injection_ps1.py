@@ -1,8 +1,10 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-import os
+
 from __future__ import absolute_import
+import os
+
 from lib.common.abstracts import Package
 
 class Injection_PS1(Package):
@@ -15,7 +17,8 @@ class Injection_PS1(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Injection.dll"
+        self.options["injection"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

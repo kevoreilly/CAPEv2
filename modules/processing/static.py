@@ -1373,6 +1373,46 @@ class Office(object):
             return None
         results = self._parse(self.file_path)
         return results
+'''
+class HwpDocument(object):
+    """Static analysis of HWP documents."""
+
+    def __init__(self, filepath, results):
+        self.filepath = filepath
+        self.files = {}
+        #self.ex = ExtractManager.for_task(task_id)
+
+    def unpack_hwp(self):
+        """Unpacks ole-based zip files."""
+        ole = olefile.OleFileIO(self.filepath)
+        streams = ole.listdir()
+        for stream in streams:
+            stream_name = '/'.join(stream)
+	    content = ole.openstream(stream).read()
+	    try:
+	        stream_content = zlib.decompress(ole.openstream(stream).read(), -15)
+                self.files[stream_name] = stream_content
+	    except Exception as e:
+            print(e)
+        ole.close()
+
+    def extract_eps(self):
+        """Extract some information from Encapsulated Post Script files."""
+        ret = []
+        for filename, content in self.files.items():
+            if filename.lower().endswith(".eps") or filename.lower().endswith(".ps"):
+                ret.append(content)
+        return ret
+
+    def run(self):
+        self.unpack_hwp()
+
+        self.ex.peek_office(self.files)
+
+        return {
+            "eps": self.extract_eps()
+        }
+'''
 
 class Java(object):
     """Java Static Analysis"""
@@ -1653,6 +1693,8 @@ class Static(Processing):
                 static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
                 static = Office(self.file_path, self.results).run()
+            #elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
+            #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
                 decomp_jar = self.options.get("procyon_path", None)
                 if decomp_jar and not os.path.exists(decomp_jar):

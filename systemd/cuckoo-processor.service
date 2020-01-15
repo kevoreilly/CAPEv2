@@ -1,11 +1,13 @@
 [Unit]
 Description=Cuckoo report processor
-Documentation=https://github.com/kevoreilly/CAPE
+Documentation=https://github.com/kevoreilly/CAPEv2
 Wants=cuckoo-rooter.service
 After=cuckoo-rooter.service
 
 [Service]
-ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/process.py -p7 auto
+WorkingDirectory=/opt/CAPE/utils/
+ExecStart=/usr/bin/python process.py -p7 auto
+#ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/process.py -p7 auto
 User=cuckoo
 Group=cuckoo
 Restart=always

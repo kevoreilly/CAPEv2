@@ -8,8 +8,20 @@ These files help run all the various parts of CAPE as systemd services, so that 
 - `cuckoo-wsgi.service` - Runs the Cuckoo web interface as a WSGI application using Gunicorn bound to `127.0.0.1:8000`
 
 ## Setup
+0. You need to edit the default values in systemd to not get `too many open files`
 
-1. Install virtualenv
+/etc/systemd/user.conf
+    DefaultLimitNOFILE=1048576
+
+/etc/systemd/system.conf
+    DefaultLimitNOFILE=2097152
+
+* to verify changes 
+    ```bash 
+        systemctl show cuckoo-processor|grep LimitNOFILE #replace cuckoo-processor with another systemd daemon after install them all
+    ```
+
+1. (optional) Install virtualenv
 
    ```bash
    sudo apt-get install -y python3-virtualenv
@@ -28,17 +40,14 @@ These files help run all the various parts of CAPE as systemd services, so that 
     sudo su cuckoo
     ```
 
-5. Create a virtualenv at `/opt/CAPE/venv`
+5. (optional) Create a virtualenv at `/opt/CAPE/venv`
 
     ```bash
     virtualenv /opt/CAPE/venv
     ```
 
-6. Install required Python packages inside the virtualenv
-
-    ```bash
-    /opt/CAPE/venv/bin/pip3 install -U -r /opt/CAPE/requirements.txt
-    ```
+6. (optional) Install required Python packages inside the virtualenv
+    * dependencies now installed by https://github.com/doomedraven/Tools/blob/master/Cuckoo/cuckoo3.sh
 
 7. Edit configuration files in `/opt/CAPE/conf` as needed
 8. Return to your user
@@ -47,11 +56,11 @@ These files help run all the various parts of CAPE as systemd services, so that 
     exit
     ```
 
-9. Install the `systemd` service unit configuration files
+9. Install the `systemd` service unit configuration files(you need modify ExecStart= if you using virtualenv, just comment current one and uncomment another one)
 
     ```bash
-    sudo cp /opt/CAPE/systemd/*.service /opt/systemd/system
-    sudo cp /opt/CAPE/systemd/*.timer /opt/systemd/system
+    sudo cp /opt/CAPE/systemd/*.service /etc/systemd/system
+    sudo cp /opt/CAPE/systemd/*.timer /etc/systemd/system
     sudo sudo systemctl daemon-reload
     sudo systemctl enable suricata-update.service
     sudo systemctl enable suricata-update.timer
@@ -64,11 +73,11 @@ These files help run all the various parts of CAPE as systemd services, so that 
 10. Start the services for the first time
 
     ```bash
-    sudo service suricata-update start
-    sudo service cuckoo-rooter start
-    sudo service cuckoo-processor start
-    sudo service cuckoo start
-    sudo service cuckoo-wsgi start
+    sudo systemctl start suricata-update.service
+    sudo systemctl start cuckoo-rooter.service
+    sudo systemctl start cuckoo-processor.service
+    sudo systemctl start cuckoo.service
+    sudo systemctl start cuckoo-wsgi.service
     ```
 
 ## Troubleshooting
@@ -76,7 +85,7 @@ These files help run all the various parts of CAPE as systemd services, so that 
 To view the status and console output of a service:
 
 ```bash
-service cuckoo status
+sudo systemctl status cuckoo
 ```
 
 To view the full output of a service (including crashed services):

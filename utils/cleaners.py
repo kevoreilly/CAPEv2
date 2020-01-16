@@ -52,7 +52,7 @@ def connect_to_mongo():
                 username=user,
                 password=password,
                 authSource=mdb
-            )[mdb]
+            )
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))
 
@@ -97,7 +97,8 @@ def delete_data(tid):
 
 def delete_mongo_data(tid):
     try:
-        results_db = connect_to_mongo()
+        mdb = rep_config.mongodb.get("db", "cuckoo")
+        results_db = connect_to_mongo()[mdb]
         analyses = results_db.analysis.find({"info.id": int(tid)})
         if analyses.count > 0:
             for analysis in analyses:
@@ -145,10 +146,11 @@ def cuckoo_clean():
         print("Can't connect to mongo")
         return
     try:
-        conn.drop_database(conn._Database__name)
+        mdb = rep_config.mongodb.get("db", "cuckoo")
+        conn.drop_database(mdb)
         conn.close()
     except:
-        log.warning("Unable to drop MongoDB database: %s", conn._Database__name)
+        log.warning("Unable to drop MongoDB database: %s", mdb)
 
     if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
         es = False
@@ -269,8 +271,8 @@ def cuckoo_clean_failed_url_tasks():
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
     init_console_logging()
-
-    results_db = connect_to_mongo()
+    mdb = rep_config.mongodb.get("db", "cuckoo")
+    results_db = connect_to_mongo()[mdb]
     if not results_db:
         log.info("Can't connect to mongo")
         return
@@ -295,7 +297,8 @@ def cuckoo_clean_lower_score(args):
     init_console_logging()
     id_arr = []
 
-    results_db = connect_to_mongo()
+    mdb = rep_config.mongodb.get("db", "cuckoo")
+    results_db = connect_to_mongo()[mdb]
     if not results_db:
         log.info("Can't connect to mongo")
         return
@@ -322,7 +325,8 @@ def cuckoo_clean_before_day(args):
     init_console_logging()
     id_arr = []
 
-    results_db = connect_to_mongo()
+    mdb = rep_config.mongodb.get("db", "cuckoo")
+    results_db = connect_to_mongo()[mdb]
     if not results_db:
         log.info("Can't connect to mongo")
         return
@@ -363,7 +367,8 @@ def cuckoo_clean_sorted_pcap_dump():
     create_structure()
     init_console_logging()
 
-    results_db = connect_to_mongo()
+    mdb = rep_config.mongodb.get("db", "cuckoo")
+    results_db = connect_to_mongo()[mdb]
     if not results_db:
         log.info("Can't connect to mongo")
         return
@@ -400,7 +405,8 @@ def cuckoo_clean_pending_tasks():
     create_structure()
     init_console_logging()
 
-    results_db = connect_to_mongo()
+    mdb = rep_config.mongodb.get("db", "cuckoo")
+    results_db = connect_to_mongo()[mdb]
     if not results_db:
         log.info("Can't connect to mongo")
         return

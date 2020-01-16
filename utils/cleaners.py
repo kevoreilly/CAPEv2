@@ -150,7 +150,7 @@ def cuckoo_clean():
         conn.drop_database(mdb)
         conn.close()
     except:
-        log.warning("Unable to drop MongoDB database: %s", conn._Database__name)
+        log.warning("Unable to drop MongoDB database: %s", mdb)
 
     if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
         es = False

@@ -16,8 +16,7 @@ class Hancitor(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Hancitor.dll"
-        #self.options["dll_64"] = "Hancitor_x64.dll"
+        self.options["hancitor"] = "1"
 
     def start(self, path):
         args = self.options.get("arguments")

@@ -20,8 +20,7 @@ class Hancitor_doc(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Hancitor.dll"
-        #self.options["dll_64"] = "Hancitor_x64.dll"
+        self.options["hancitor"] = "1"
 
     def start(self, path):
         word = self.get_path_glob("Microsoft Office Word")

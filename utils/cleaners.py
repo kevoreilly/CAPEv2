@@ -99,7 +99,7 @@ def delete_mongo_data(tid):
     try:
         results_db = connect_to_mongo()[mdb]
         analyses = results_db.analysis.find({"info.id": int(tid)})
-        if analyses.count > 0:
+        if analyses.count() > 0:
             for analysis in analyses:
                 log.info("deleting MongoDB data for Task #{0}".format(tid))
                 for process in analysis.get("behavior", {}).get("processes", []):

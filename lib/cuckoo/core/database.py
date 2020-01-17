@@ -444,7 +444,10 @@ class Database(object, metaclass=Singleton):
 
     def __del__(self):
         """Disconnects pool."""
-        self.engine.dispose()
+        try:
+            self.engine.dispose()
+        except KeyError:
+            pass
 
     def _connect_database(self, connection_string):
         """Connect to a Database.

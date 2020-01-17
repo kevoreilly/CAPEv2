@@ -706,9 +706,10 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             guest = session.query(Guest).filter_by(task_id=task_id).first()
-            guest.status = status
-            session.commit()
-            session.refresh(guest)
+            if guest is not None:
+                guest.status = status
+                session.commit()
+                session.refresh(guest)
         except SQLAlchemyError as e:
             log.exception("Database error logging guest start: {0}".format(e))
             session.rollback()

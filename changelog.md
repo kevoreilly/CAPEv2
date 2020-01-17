@@ -1,3 +1,7 @@
+### [17-01-2020]
+* Bson data compression to remove api spamming, [details](https://github.com/ctxis/CAPE/pull/470), thanks @mabj
+* Many bug fixes in cleaners.py, thanks @Enzok
+
 ### [14-01-2020]
 * Fix local_settings
 * move all in 1 dlls, example option to capemon: combo=1,extraction=1,injection=1,compression=1

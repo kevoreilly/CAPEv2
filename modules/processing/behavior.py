@@ -11,10 +11,12 @@ import struct
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
+from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter, bytes2str
 
 log = logging.getLogger(__name__)
 cfg = Config()
+cfg_process = Config("processing")
 
 def fix_key(key):
     """Fix a registry key to have it normalized.
@@ -345,9 +347,11 @@ class ParseProcessLog(list):
 class Processes:
     """Processes analyzer."""
 
-    def __init__(self, logs_path):
+    def __init__(self, logs_path, task):
         """@param  logs_path: logs path."""
         self._logs_path = logs_path
+        self.task = task
+        self.options = dict((value.strip() for value in option.split("=", 1)) for option in self.task["options"].split(",") if option and '=' in option)
 
     def run(self):
         """Run analysis.
@@ -367,6 +371,10 @@ class Processes:
 
         for file_name in os.listdir(self._logs_path):
             file_path = os.path.join(self._logs_path, file_name)
+
+            # Check if Loop Detection is enabled globally or locally (as an option)
+            if cfg_process.loop_detection.enabled or self.options.get("loop_detection"):
+                self.compress_log_file(file_path)
 
             if os.path.isdir(file_path):
                 continue
@@ -399,6 +407,19 @@ class Processes:
         results.sort(key=lambda process: process["first_seen"])
 
         return results
+
+    def compress_log_file(self, file_path):
+        if file_path.endswith(".bson") and os.stat(file_path).st_size:
+            if not CuckooBsonCompressor().run(file_path):
+                log.warning("Could not execute loop detection analysis.")
+            else:
+                log.info("BSON was compressed successfully.")
+                return True
+        else:
+            log.warning("Nonexistent or empty BSON file \"%s\".", file_path)
+
+        return False
+
 
 class Summary:
     """Generates summary information."""

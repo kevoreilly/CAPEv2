@@ -163,20 +163,20 @@
             </div>
 
             <script type="text/javascript">
-                $(document).ready(function () {
-                    $("#badge_default_{{process.process_id}}").click(function () { load_chunk({{ process.process_id }}, 1);
-                });
-                $("#badge_network_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "network", "null", 0); });
-                $("#badge_filesystem_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "filesystem", "null", 0); });
-                $("#badge_registry_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "registry", "null", 0); });
-                $("#badge_process_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "process", "null", 0); });
-                $("#badge_threading_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "threading", "null", 0); });
-                $("#badge_services_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "services", "null", 0); });
-                $("#badge_device_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "device", "null", 0); });
-                $("#badge_sync_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "synchronization", "null", 0); });
-                $("#badge_crypto_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "crypto", "null", 0); });
-                $("#badge_browser_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "browser", "null", 0); });
-                $("#badge_all_{{process.process_id}}").click(function () { load_filtered_chunk({{ process.process_id }}, "all", "null", 0); });
+            $(document).ready(function()
+            {
+                $("#badge_default_{{process.process_id}}").click(function() { load_chunk({{process.process_id}}, 1); });
+                $("#badge_network_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "network", "null", 0); });
+                $("#badge_filesystem_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "filesystem", "null", 0); });
+                $("#badge_registry_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "registry", "null", 0); });
+                $("#badge_process_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "process", "null", 0); });
+                $("#badge_threading_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "threading", "null", 0); });
+                $("#badge_services_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "services", "null", 0); });
+                $("#badge_device_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "device", "null", 0); });
+                $("#badge_sync_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "synchronization", "null", 0); });
+                $("#badge_crypto_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "crypto", "null", 0); });
+                $("#badge_browser_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "browser", "null", 0); });
+                $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
                 $('.tab-content').on('click', '.call-link', function (event) {
                     cid = $(this).attr('data-cid');
                     pid = $(this).attr('data-pid');
@@ -185,17 +185,16 @@
                     event.preventDefault();
                 });
                 // toggles additional filtering
-                $("#filter-toggle").click(function () {
+                $("#filter-toggle").click(function(){
                     $(".filter-box").toggle()
                 })
                 // submits filters to backend
-                $("#submit-filter").click(function () {
-                    var pid = {{ process.process_id }
-                };
-                var caller = ($("#callerfilter_" + pid).val() == "") ? "null" : $("#callerfilter_" + pid).val();
-                var tid = ($("#tidfilter_" + pid).val() == "") ? 0 : $("#tidfilter_" + pid).val();
-                console.log(caller, tid)
-                load_filtered_chunk(pid, "all", caller, tid);
+                $("#submit-filter").click(function(){
+                    var pid = {{process.process_id}};
+                    var caller = ($("#callerfilter_"+pid).val() == "") ? "null" : $("#callerfilter_"+pid).val();
+                    var tid = ($("#tidfilter_"+pid).val() == "") ? 0 : $("#tidfilter_"+pid).val();
+                    console.log(caller, tid)
+                    load_filtered_chunk(pid, "all", caller, tid);
                 })
             });
             </script>

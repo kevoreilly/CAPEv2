@@ -163,10 +163,6 @@ def index(request, resubmit_hash=False):
             if options:
                 options += ","
             options += "procmemdump=1,procdump=1"
-        #else:
-        #    if options:
-        #        options += ","
-        #    options += "procdump=1"
 
         if request.POST.get("process_memory"):
             if options:

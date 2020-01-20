@@ -349,8 +349,8 @@ class Processes:
 
     def __init__(self, logs_path, task):
         """@param  logs_path: logs path."""
-        self._logs_path = logs_path
         self.task = task
+        self._logs_path = logs_path
         self.options = dict((value.strip() for value in option.split("=", 1)) for option in self.task["options"].split(",") if option and '=' in option)
 
     def run(self):
@@ -1210,7 +1210,7 @@ class BehaviorAnalysis(Processing):
         @return: results dict.
         """
         behavior = {}
-        behavior["processes"] = Processes(self.logs_path).run()
+        behavior["processes"] = Processes(self.logs_path,self.task).run()
 
         instances = [
             Anomaly(),

@@ -36,7 +36,7 @@ class CompressResults(Report):
                 results[keyword] = Binary(compressed_data)
 
         # compress behaviour analysis (enhanced & summary)
-        for keyword in ("enhanced", "summary"):
+        for keyword in ("enhanced"):
             if keyword in results["behavior"]:
                 compressed_behavior_enhanced = zlib.compress(JSONEncoder().encode(results["behavior"][keyword]).encode('utf8'))
                 results["behavior"][keyword] = Binary(compressed_behavior_enhanced)

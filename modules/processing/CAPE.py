@@ -23,7 +23,6 @@ except ImportError:
     import re
 import hashlib
 import imp
-import datetime
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -440,14 +439,14 @@ class CAPE(Processing):
                 "payload",
                 "config",
                 "loader"
-                ]
+            ]
             try:
                 for type in extraction_types:
                     if type in hit["meta"]["cape_type"].lower():
                         file_info["cape_type"] = hit["meta"]["cape_type"]
                         cape_name = hit["name"].replace('_', ' ')
-            except:
-                pass
+            except Exception as e:
+                print(e)
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):

@@ -1,13 +1,11 @@
 [Unit]
 Description=Cuckoo
 Documentation=https://github.com/kevoreilly/CAPEv2
-Wants=cuckoo-cuckoo-processor.service
-After=cuckoo-cuckoo-processor.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/
 ExecStart=/usr/bin/python3 cuckoo.py
-#ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/cuckoo.py
+#ExecStart=/opt/CAPEv2/venv/bin/python3 /opt/CAPEv2/cuckoo.py
 User=cuckoo
 Group=cuckoo
 Restart=always

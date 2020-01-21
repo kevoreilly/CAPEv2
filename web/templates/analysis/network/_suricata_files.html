@@ -45,7 +45,7 @@
                 </tr>
                 <tr>
                     <th>MD5</th>
-                    <td>{{file.md5}} 
+                    <td>{{file.md5}}
                         {% if file.moloch_md5_url %}
                             <a href={{file.moloch_md5_url}} target="_blank">[MLCH]</a>
                         {% endif %}
@@ -57,7 +57,7 @@
                 </tr>
                 <tr>
                     <th>SHA256</th>
-                    <td>{{file.file_info.sha256}}
+                    <td>{{file.sha256}}
                         {% if file.moloch_sha256_url %} 
                             <a href={{file.moloch_sha256_url}} target="_blank">[MLCH]</a>
                         {% endif %}
@@ -112,21 +112,19 @@
                     <td><a href="https://threatintel.proofpoint.com/search?q={{file.md5}}" target="_blank">Search for Analysis</a></td>
                 </tr>
                 {% endif %}
-                {% if file.id %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "suricata" analysis.info.id file.id %}" class="btn btn-primary btn-small">Download</a>
+                    <td><a href="{% url "file" "suricata" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
                     {% if file.file_info.data %}
-                    &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sp}}{{file.dp}}{{file.id}}">Display Text</a>
+                    &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                     {% endif %}
                     </td>
                 </tr>
                 {% if file.file_info.data %}
-                <tr class="collapse" id="{{file.sp}}{{file.dp}}{{file.id}}">
+                <tr class="collapse" id="{{file.sha256}}">
                     <td colspan="2"><pre>{{file.file_info.data}}</pre></td>
                 </tr>
-                {% endif %}
-                {% endif %}
+            {% endif %}
             </table>
         </div>
     {% endfor %}

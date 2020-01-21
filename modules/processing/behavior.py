@@ -1210,7 +1210,7 @@ class BehaviorAnalysis(Processing):
         @return: results dict.
         """
         behavior = {}
-        behavior["processes"] = Processes(self.logs_path,self.task).run()
+        behavior["processes"] = Processes(self.logs_path, self.task).run()
 
         instances = [
             Anomaly(),

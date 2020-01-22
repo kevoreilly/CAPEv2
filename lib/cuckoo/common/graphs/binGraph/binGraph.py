@@ -33,7 +33,7 @@ logging.getLogger('matplotlib').setLevel(logging.CRITICAL)
 # # Setup logging format
 #logging.basicConfig(stream=sys.stderr, format='%(name)s | %(levelname)s | %(message)s')
 log = logging.getLogger('binGraph')
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 # ### Helper functions
 

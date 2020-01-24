@@ -44,7 +44,7 @@ CAPE_DECODERS = [
 
 for name in CAPE_DECODERS:
     try:
-        file, pathname, description = imp.find_module(name, [CAPE_DECODERS])
+        file, pathname, description = imp.find_module(name, [cape_decoders])
         module = imp.load_module(name, file, pathname, description)
         malware_parsers[name] = module
     except (ImportError, IndexError) as e:

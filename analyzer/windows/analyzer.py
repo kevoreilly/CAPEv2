@@ -808,9 +808,7 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
-        #filename = "%s_%s" % (sha256[:16], os.path.basename(filepath))
-        filename = os.path.basename(filepath)
-        upload_path = os.path.join(category, filename)
+        upload_path = os.path.join(category, sha256)
 
         try:
             upload_to_host(

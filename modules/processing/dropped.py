@@ -45,7 +45,6 @@ class Dropped(Processing):
                 guest_name = guest_path.split("\\")[-1]
                 file_info["guest_paths"] = [guest_path]
                 file_info["name"] = guest_name
-                dropped_files.append(file_info)
                 try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
@@ -55,6 +54,7 @@ class Dropped(Processing):
                         file_info["data"] = convert_to_printable(filedata)
                 except UnicodeDecodeError as e:
                     pass
+                dropped_files.append(file_info)
 
         for dir_name, dir_names, file_names in os.walk(self.package_files):
             for file_name in file_names:

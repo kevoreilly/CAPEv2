@@ -80,6 +80,8 @@
                         {% for sign in file.cape_yara %}
                             {% if sign.meta.cape_type %}
                                 <li>{{sign.meta.cape_type}}</li>
+                                {% elif sign.meta.description %}
+                            <li>{{sign.meta.description}}</li>
                             {% endif %}
                         {% endfor %}
                         </ul>

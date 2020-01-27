@@ -41,52 +41,25 @@ class Dropped(Processing):
                 file_path = os.path.join(dir_name, file_name)
                 file_info = File(file_path=file_path).get_all()
                 file_info.update(meta.get(file_info["path"], {}))
+                guest_path = file_info["filepath"]
+                guest_name = guest_path.split("\\")[-1]
+                file_info["guest_paths"] = [guest_path]
+                file_info["name"] = guest_name
                 dropped_files.append(file_info)
-
-        for dir_name, dir_names, file_names in os.walk(self.package_files):
-            for file_name in file_names:
-                file_path = os.path.join(dir_name, file_name)
-                file_info = File(file_path=file_path).get_all()
-                dropped_files.append(file_info)
-
-        return dropped_files
-
-        # ToDo adapt
-        textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
-        is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
-        file_names = os.listdir(self.dropped_path)
-        for file_name in file_names:
-            file_path = os.path.join(self.dropped_path, file_name)
-            if not os.path.isfile(file_path):
-                continue
-            if file_name.endswith("_info.txt"):
-                continue
-            guest_paths = [line.strip() for line in open(file_path + "_info.txt")]
-            guest_name = guest_paths[0].split("\\")[-1]
-            file_info = File(file_path=file_path, guest_paths=guest_paths, file_name=guest_name).get_all()
-            texttypes = [
-                "ASCII",
-                "Windows Registry text",
-                "XML document text",
-                "Unicode text",
-            ]
-            readit = False
-            for texttype in texttypes:
-                if texttype in file_info["type"]:
-                    readit = True
-                    break
-
-            if is_binary_file(open(file_info["path"], 'rb').read(8192)):
-                pass
-            else:
-                if readit:
+                try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
                     if len(filedata) > buf:
                         file_info["data"] = convert_to_printable(filedata[:buf] + " <truncated>")
                     else:
                         file_info["data"] = convert_to_printable(filedata)
+                except UnicodeDecodeError as e:
+                    pass
 
-            dropped_files.append(file_info)
+        for dir_name, dir_names, file_names in os.walk(self.package_files):
+            for file_name in file_names:
+                file_path = os.path.join(dir_name, file_name)
+                file_info = File(file_path=file_path).get_all()
+                dropped_files.append(file_info)
 
         return dropped_files

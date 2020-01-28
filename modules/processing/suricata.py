@@ -311,6 +311,7 @@ class Suricata(Processing):
                         flog["sha256"] = parsed.get("fileinfo", {}).get("sha256", "")
                         flog["md5"] = parsed.get("fileinfo", {}).get("md5", "")
                         flog["filename"] = parsed.get("fileinfo", {}).get("filename", "")
+                        flog["file_info"] = dict()
                         if "/" in flog["filename"]:
                             flog["filename"] = flog["filename"].split("/")[-1]
                         parsed_files.append(flog)
@@ -327,19 +328,8 @@ class Suricata(Processing):
                         except OSError as e:
                             log.warning("Unable to move suricata file: {}".format(e))
                             break
-                        texttypes = [
-                            "ASCII",
-                            "Windows Registry text",
-                            "XML document text",
-                            "Unicode text",
-                        ]
-                        readit = False
                         file_info = File(file_path=dst_file).get_all()
-                        for texttype in texttypes:
-                            if texttype in file_info["type"]:
-                                readit = True
-                                break
-                        if readit:
+                        try:
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
@@ -347,7 +337,10 @@ class Suricata(Processing):
                                     filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
                             else:
                                 file_info["data"] = convert_to_printable(filedata)
-                        sfile["file_info"] = file_info
+                        except UnicodeDecodeError as e:
+                            pass
+                        if file_info:
+                            sfile["file_info"] = file_info
                     suricata["files"].append(sfile)
             with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                 drop_log.write(json.dumps(suricata["files"], indent=4))

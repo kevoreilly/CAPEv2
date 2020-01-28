@@ -1,3 +1,12 @@
+### [17-01-2020]
+* Bson data compression to remove api spamming, [details](http://security.neurolabs.club/2019/12/inline-loop-detection-for-compressing.html), thanks @mabj
+* Many bug fixes in cleaners.py, thanks @Enzok
+
+### [14-01-2020]
+* Fix local_settings
+* move all in 1 dlls, example option to capemon: combo=1,extraction=1,injection=1,compression=1
+* Fix ratelimit enabled/disabled in /api/
+* Agent now by default set outout to StringIO to make it works with pythonw without extra args
 
 ### [08-01-2020]
 * Screenshot deduplicacion algorithm is configurable now and default set to ahash, pr #10, thanks @wmetcalf

@@ -29,6 +29,8 @@ class CAPEExtractedContent(Signature):
         if "CAPE" in self.results:
             for cape in self.results.get("CAPE", []):
                 capetype = cape.get("cape_type", "")
+                if not capetype:
+                    capetype = cape.get("description", "")
                 yara = cape.get("cape_yara", "")
                 process = cape.get("process_name", "")
                 if capetype and process:

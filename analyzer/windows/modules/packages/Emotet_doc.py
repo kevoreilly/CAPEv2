@@ -2,7 +2,6 @@
 # Copyright(C) 2019 Kevin O'Reilly (kevoreilly@gmail.com)
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import os
 from lib.common.abstracts import Package
 
@@ -19,7 +18,8 @@ class Emotet_doc(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Extraction.dll"
+        self.options["extraction"] = "1"
+        self.options["procdump"] = "0"
         self.options["exclude-apis"] = "RegOpenKeyExA"
 
     def start(self, path):

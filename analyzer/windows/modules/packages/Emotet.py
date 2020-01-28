@@ -16,8 +16,10 @@ class Emotet(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "Extraction.dll"
-        self.options["exclude-apis"] = "RegOpenKeyExA"
+        self.options["extraction"] = "1"
+        self.options["procdump"] = "0"
+        self.options["single-process"] = "1"
+        self.options["exclude-apis"] = "RegOpenKeyExA:SendMessageA"
 
     def start(self, path):
         args = self.options.get("arguments")

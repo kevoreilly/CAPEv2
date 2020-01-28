@@ -243,7 +243,7 @@ class WMICCommandSuspicious(Signature):
     evented = True
 
     def run(self):
-        arguments = [
+        self.arguments = [
             "antivirusproduct",
             "baseboard",
             "bios",
@@ -276,7 +276,7 @@ class WMICCommandSuspicious(Signature):
                 for argument in self.arguments:
                     if argument in lower:
                         ret = True
-                        self.data.append({"command" : cmdline})
+                        self.data.append({"command": cmdline})
 
         return ret
 

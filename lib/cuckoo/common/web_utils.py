@@ -107,7 +107,7 @@ def fix_section_permission(path):
        log.info("[-] Missed dependency pefile")
 
 
-# Submission hooks to set options based on some naming patrons
+# Submission hooks to set options based on some naming patterns
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
     if not isinstance(filename, str):

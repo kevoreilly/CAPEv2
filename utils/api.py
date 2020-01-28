@@ -107,7 +107,7 @@ def tasks_create_file():
     shrike_sid = request.forms.get("shrike_sid", None)
     shrike_refer = request.forms.get("shrike_refer", None)
     static = bool(request.POST.get("static", False))
-    unique = bool(request.form.get("unique", False))
+    unique = bool(request.forms.get("unique", False))
     if memory.upper() == 'FALSE' or memory == '0':
         memory = False
     else:
@@ -124,7 +124,7 @@ def tasks_create_file():
     if unique and db.check_file_uniq(File(temp_file_path).get_sha256()):
         resp = {"error": True,
             "error_value": "Duplicated file, disable unique option to force submission"}
-        return jsonize(resp, response=True)
+        return jsonize(resp)
 
     if pcap:
         if data.filename.lower().endswith(".saz"):
@@ -138,7 +138,7 @@ def tasks_create_file():
             else:
                 resp = {"error": True,
                         "error_value": "Failed to convert PCAP to SAZ"}
-                return jsonize(resp, response=True)
+                return jsonize(resp)
         else:
             path = temp_file_path
         task_id = db.add_pcap(file_path=path)
@@ -441,7 +441,7 @@ def tasks_iocs(task_id, detail=False):
 
     if buf is None:
         resp = {"error": True, "error_value": "Sample not found in database"}
-        return jsonize(resp, response=True)
+        return jsonize(resp)
 
     data = {}
     if "tr_extractor" in buf:

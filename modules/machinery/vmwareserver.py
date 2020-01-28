@@ -57,7 +57,7 @@ class VMwareServer(Machinery):
                        " listSnapshots " + "\"" + vmx_path + "\""
 
         try:
-            p = subprocess.Popen(check_string, universal_newlines=True,, shell=True)
+            p = subprocess.Popen(check_string, universal_newlines=True, shell=True)
             output, _ = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to get snapshot list for %s. "

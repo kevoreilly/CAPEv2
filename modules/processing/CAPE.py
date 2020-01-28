@@ -23,7 +23,6 @@ except ImportError:
     import re
 import hashlib
 import imp
-import datetime
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -169,29 +168,19 @@ class CAPE(Processing):
         if file_path.endswith("_info.txt"):
             return
 
-        texttypes = [
-            "ASCII",
-            "Windows Registry text",
-            "XML document text",
-            "Unicode text",
-        ]
-
-        textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
-        is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
-
         file_info = File(file_path, metadata.get("metadata", "")).get_all()
 
         # Get the file data
-        with open(file_info["path"], "rb") as file_open:
-            file_data = file_open.read(buf + 1)
+        try:
+            with open(file_info["path"], "r") as file_open:
+                file_data = file_open.read(buf + 1)
 
-        if is_binary_file(file_data[:8192]):
-            file_info["data"] = None
-        else:
-            if len(file_data) > buf:
-                file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
-            else:
-                file_info["data"] = convert_to_printable(file_data)
+                if len(file_data) > buf:
+                    file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
+                else:
+                    file_info["data"] = convert_to_printable(file_data)
+        except UnicodeDecodeError as e:
+            pass
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -440,14 +429,14 @@ class CAPE(Processing):
                 "payload",
                 "config",
                 "loader"
-                ]
+            ]
             try:
                 for type in extraction_types:
                     if type in hit["meta"]["cape_type"].lower():
                         file_info["cape_type"] = hit["meta"]["cape_type"]
                         cape_name = hit["name"].replace('_', ' ')
-            except:
-                pass
+            except Exception as e:
+                print(e)
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):

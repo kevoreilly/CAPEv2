@@ -18,8 +18,7 @@ class Extraction_dll(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Extraction.dll"
-        self.options["dll_64"] = "Extraction_x64.dll"
+        self.options["extraction"] = "1"
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")
@@ -47,4 +46,4 @@ class Extraction_dll(Package):
             rundll32 = newname
 
         return self.execute(rundll32, args, path)
-
+        

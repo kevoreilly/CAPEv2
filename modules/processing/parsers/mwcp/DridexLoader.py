@@ -25,7 +25,7 @@ rule_source = open(yara_path, "r").read()
 
 MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
 
-class DridexDropper(Parser):
+class DridexLoader(Parser):
 
     DESCRIPTION = 'DridexDropper configuration parser.'
     AUTHOR = 'kevoreilly'
@@ -43,7 +43,7 @@ class DridexDropper(Parser):
 
         line, c2va_offset = False, False
         for match in matches:
-            if match.rule != 'DridexDropper':
+            if match.rule != 'DridexLoader':
                 continue
 
             for item in match.strings:

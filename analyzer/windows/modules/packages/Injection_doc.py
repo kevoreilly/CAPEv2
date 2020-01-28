@@ -20,8 +20,8 @@ class Injection_doc(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Injection.dll"
-        self.options["dll_64"] = "Injection_x64.dll"
+        self.options["injection"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
         word = self.get_path_glob("Microsoft Office Word")

@@ -51,7 +51,7 @@ class BadSSLCerts(Signature):
         # Check for TLS fingerprints and then try to find a match
         if self.results.get("suricata", {}).get("tls", False):
             for shahash in self.results["suricata"]["tls"]:
-                sha = shahash["fingerprint"].replace(":", "")
+                sha = shahash.get("fingerprint", "").replace(":", "")
                 if sha in sha1_indicators.keys() and sha not in matches.keys():
                     matches[sha] = sha1_indicators[sha]
 

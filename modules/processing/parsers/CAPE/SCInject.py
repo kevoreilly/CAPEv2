@@ -9,11 +9,11 @@ def config(data):
     urls_dict = dict()
 
     try:
-        urls_dict["URls"] = [url.lower() for url in url_regex.match(data)]
+        urls_dict["URLs"] = [url.lower() for url in url_regex.findall(data)]
     except Exception as e:
         print(e)
 
-    if "URLs" in urls_dict and len(urls_dict["URLs"]) > 1:
+    if "URLs" in urls_dict and len(urls_dict["URLs"]) > 0:
         return urls_dict
 
     return None

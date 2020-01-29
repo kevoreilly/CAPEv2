@@ -162,25 +162,21 @@ class CAPE(Processing):
         """
         global cape_config
         cape_name = ""
-        strings = []
 
         buf = self.options.get("buffer", BUFSIZE)
-        if file_path.endswith("_info.txt"):
-            return
-
         file_info = File(file_path, metadata.get("metadata", "")).get_all()
 
         # Get the file data
         try:
             with open(file_info["path"], "r") as file_open:
-                file_data = file_open.read(buf + 1)
-
+                file_data = file_open.read()
                 if len(file_data) > buf:
                     file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
                 else:
                     file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
-            pass
+            with open(file_info["path"], "rb") as file_open:
+                file_data = file_open.read()
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -505,7 +501,7 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True, meta[file_path])
+                            self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
                         #else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab

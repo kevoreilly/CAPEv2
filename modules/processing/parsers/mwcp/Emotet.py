@@ -110,7 +110,7 @@ class Emotet(Parser):
                 c2_list_rva = c2_list_va - image_base
             try:
                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except PEFormatError as err:
+            except pefile.PEFormatError as err:
                 pass
 
             while 1:
@@ -139,7 +139,7 @@ class Emotet(Parser):
                     c2_list_rva = c2_list_va - image_base
                 try:
                     c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                except PEFormatError as err:
+                except pefile.PEFormatError as err:
                     pass
 
                 while 1:
@@ -168,7 +168,7 @@ class Emotet(Parser):
                         c2_list_rva = c2_list_va - image_base
                     try:
                         c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                    except PEFormatError as err:
+                    except pefile.PEFormatError as err:
                         pass
 
                     while 1:
@@ -197,7 +197,7 @@ class Emotet(Parser):
                             c2_list_rva = c2_list_va - image_base
                         try:
                             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                        except PEFormatError as err:
+                        except pefile.PEFormatError as err:
                             pass
 
                         while 1:

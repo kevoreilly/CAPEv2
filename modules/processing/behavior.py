@@ -410,13 +410,16 @@ class Processes:
 
     def compress_log_file(self, file_path):
         if file_path.endswith(".bson") and os.stat(file_path).st_size:
-            if not CuckooBsonCompressor().run(file_path):
-                log.warning("Could not execute loop detection analysis.")
-            else:
-                log.info("BSON was compressed successfully.")
-                return True
+            try:
+                if not CuckooBsonCompressor().run(file_path):
+                    log.debug("Could not execute loop detection analysis.")
+                else:
+                    log.info("BSON was compressed successfully.")
+                    return True
+            except Exception as e:
+                log.error("BSON compression failed on file {}: {}".format(file_path, e))
         else:
-            log.warning("Nonexistent or empty BSON file \"%s\".", file_path)
+            log.debug("Nonexistent or empty BSON file {}".format(file_path))
 
         return False
 

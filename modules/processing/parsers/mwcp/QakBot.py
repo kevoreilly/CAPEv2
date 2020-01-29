@@ -36,7 +36,7 @@ class QakBot(Parser):
                     values = data.split(b':')
                     try:
                         self.reporter.add_metadata('other', {"Password {}".format(id_map[index]): values[2]})
-                        self.reporter.add_metadata('other', { "Username {}".format(id_map[index]): values[1]})
+                        self.reporter.add_metadata('other', {"Username {}".format(id_map[index]): values[1]})
                         self.reporter.add_metadata('other', {"C2 {}".format(id_map[index]): values[0]})
                     except:
                         pass

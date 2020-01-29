@@ -26,7 +26,7 @@ import imp
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
@@ -130,7 +130,7 @@ class CAPE(Processing):
     def upx_unpack(self, file_data, CAPE_output):
         unpacked_file = upx_harness(file_data)
         if unpacked_file and os.path.exists(unpacked_file):
-            for unpacked_hit in File(unpacked_file).get_yara("CAPE"):
+            for unpacked_hit in File(unpacked_file).get_yara(CAPE_YARA_RULEPATH):
                 if unpacked_hit["name"] == 'UPX':
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
@@ -162,25 +162,21 @@ class CAPE(Processing):
         """
         global cape_config
         cape_name = ""
-        strings = []
 
         buf = self.options.get("buffer", BUFSIZE)
-        if file_path.endswith("_info.txt"):
-            return
-
         file_info = File(file_path, metadata.get("metadata", "")).get_all()
 
         # Get the file data
         try:
             with open(file_info["path"], "r") as file_open:
-                file_data = file_open.read(buf + 1)
-
+                file_data = file_open.read()
                 if len(file_data) > buf:
                     file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
                 else:
                     file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
-            pass
+            with open(file_info["path"], "rb") as file_open:
+                file_data = file_open.read()
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -505,7 +501,7 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True, meta[file_path])
+                            self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
                         #else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab

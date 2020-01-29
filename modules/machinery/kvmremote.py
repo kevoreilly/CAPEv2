@@ -7,6 +7,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 import libvirt
 import logging
+import os
 
 from lib.cuckoo.common.abstracts import LibVirtMachinery
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooCriticalError
@@ -97,7 +98,6 @@ class KVMRemote(LibVirtMachinery):
             try:
                 from subprocess import DEVNULL  # py3k
             except ImportError:
-                import os
                 DEVNULL = open(os.devnull, 'wb')
 
             # this triggers local dump

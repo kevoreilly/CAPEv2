@@ -38,7 +38,7 @@ distributed = reporting_conf.submitCAPE.distributed
 report_key = reporting_conf.submitCAPE.keyword
 
 cape_package_list = [
-    "Compression", "Compression_dll", "Compression_doc", "Compression_zip", "Compression_js", "Compression_pdf",
+    "Combo", "Combo_dll", "Compression", "Compression_dll", "Compression_doc", "Compression_zip", "Compression_js", "Compression_pdf",
     "Debugger", "Debugger_dll", "Debugger_doc", "DumpOnAPI", "Doppelganging", "Emotet", "Emotet_doc", "EvilGrab", "Extraction", "Extraction_dll",
     "Extraction_regsvr", "Extraction_zip", "Extraction_ps1", "Extraction_jar", "Extraction_pdf", "Extraction_js",
     "Hancitor", "Hancitor_dll", "Hancitor_doc", "IcedID", "Injection", "Injection_dll", "Injection_doc", "Injection_pdf", "Injection_zip",

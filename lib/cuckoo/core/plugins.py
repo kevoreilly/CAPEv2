@@ -48,7 +48,7 @@ def import_plugin(name):
 
 def import_package(package):
     prefix = package.__name__ + "."
-    for loader, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
+    for _, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         if ispkg:
             continue
         try:
@@ -57,7 +57,7 @@ def import_package(package):
             print(e)
 
 def load_plugins(module):
-    for name, value in inspect.getmembers(module):
+    for _, value in inspect.getmembers(module):
         if inspect.isclass(value):
             if issubclass(value, Auxiliary) and value is not Auxiliary:
                 register_plugin("auxiliary", value)
@@ -291,8 +291,12 @@ class RunProcessing(object):
 
         family = ""
         self.results["malfamily_tag"] = ""
+        if self.results.get("cape", False):
+            self.results["malfamily"] = self.results["cape"]
+            self.results["malfamily_tag"] = "CAPE"
+            family = self.results["cape"]
         # add detection based on suricata here
-        if not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
                     if alert["signature"].startswith("ET TROJAN") or alert["signature"].startswith("ETPRO TROJAN"):
@@ -339,7 +343,7 @@ class RunProcessing(object):
                             family = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 
-        if not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
+        elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
             for res in self.results["virustotal"]["results"]:
                 if res["sig"] and "Trojan.Heur." not in res["sig"]:
@@ -351,18 +355,12 @@ class RunProcessing(object):
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
-        if not family and self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"]:
+        elif not family and self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"]:
             for detection in self.results["target"]["file"]["clamav"]:
-                if family:
-                    break
-                elif detection.startswith("Win.Trojan."):
+                if detection.startswith("Win.Trojan."):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
                     family = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
-
-        if self.results.get("cape", False):
-            self.results["malfamily"] = self.results["cape"]
-            self.results["malfamily_tag"] = "CAPE"
         else:
             self.results["malfamily"] = family
 
@@ -626,15 +624,17 @@ class RunSignatures(object):
             malscore = 10.0
         if malscore < 0.0:
             malscore = 0.0
+
         self.results["malscore"] = malscore
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        for match in matched:
-            if "families" in match and match["families"]:
-                self.results["malfamily"] = match["families"][0].title()
-                self.results["malfamily_tag"] = "Signature"
-                break
+        if self.results.get("malfamily_tag", "") != "CAPE":
+            for match in matched:
+                if "families" in match and match["families"]:
+                    self.results["malfamily"] = match["families"][0].title()
+                    self.results["malfamily_tag"] = "Signature"
+                    break
 
 class RunReporting:
     """Reporting Engine.

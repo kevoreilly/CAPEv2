@@ -128,7 +128,6 @@ def static_config_parsers(yara_hit, file_data, cape_config):
     # Process CAPE Yara hits
 
         cape_name = yara_hit.replace('_', ' ')
-        cape_config = dict()
         parser_loaded = False
         # Attempt to import a parser for the hit
         # DC3-MWCP

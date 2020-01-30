@@ -312,7 +312,8 @@ class CAPE(Processing):
                 cape_name = "Ursnif"
                 malwareconfig_loaded = False
                 try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers","malwareconfig")
+                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers",
+                                                         "malwareconfig")
                     file, pathname, description = imp.find_module(cape_name,[malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
@@ -367,7 +368,8 @@ class CAPE(Processing):
                 cape_name = "ScriptDump"
                 malwareconfig_loaded = False
                 try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malwareconfig")
+                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers",
+                                                         "malwareconfig")
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
@@ -428,11 +430,11 @@ class CAPE(Processing):
             ]
             try:
                 for type in extraction_types:
-                    if type in hit["meta"]["cape_type"].lower():
+                    if type in hit["meta"].get("cape_type", "").lower():
                         file_info["cape_type"] = hit["meta"]["cape_type"]
                         cape_name = hit["name"].replace('_', ' ')
             except Exception as e:
-                print(e)
+                print("Cape type error: {}".format(e))
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):
@@ -442,7 +444,7 @@ class CAPE(Processing):
                     else:
                         file_info["cape_type"] += "executable"
 
-            suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
+            suppress_parsing_list = ["Cerber", "Ursnif", "QakBot"]
 
             if hit["name"] in suppress_parsing_list:
                 continue
@@ -460,12 +462,13 @@ class CAPE(Processing):
         for cape_file in CAPE_output:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
-                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
+                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"),
+                                                  cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint", False) and file_info.get("ep_bytes", False):
                     if file_info["entrypoint"] and file_info["entrypoint"] == cape_file["entrypoint"] \
-                        and file_info["ep_bytes"] == cape_file["ep_bytes"]:
+                            and file_info["ep_bytes"] == cape_file["ep_bytes"]:
                         append_file = False
 
         if append_file is True:
@@ -509,7 +512,7 @@ class CAPE(Processing):
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    self.process_file(file_path, CAPE_output, False, meta[file_path])
+                    self.process_file(file_path, CAPE_output, False, meta.get(file_path, {}))
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):

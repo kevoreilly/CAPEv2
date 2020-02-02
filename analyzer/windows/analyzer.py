@@ -683,6 +683,8 @@ class Analyzer:
         log.info("Stopping auxiliary modules.")
         # Terminate the Auxiliary modules.
         for aux in AUX_ENABLED:
+            if not hasattr(aux, "stop"):
+                continue
             try:
                 aux.stop()
             except (NotImplementedError, AttributeError):

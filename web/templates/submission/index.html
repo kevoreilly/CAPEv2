@@ -339,6 +339,10 @@ $(document).ready( function() {
                                                     <td>Spoof the serial of the system volume as the provided hex value</td>
                                                 </tr>
                                                 <tr>
+                                                    <td><code>single-process</code></td>
+                                                    <td>When set to 1 this will limit behaviour monitoring to the initial process only.</td>
+                                                </tr>
+                                                <tr>
                                                     <td><code>exclude-apis</code></td>
                                                     <td>Exclude the colon-separated list of APIs from being hooked</td>
                                                 </tr>
@@ -347,8 +351,40 @@ $(document).ready( function() {
                                                     <td>Exclude the colon-separated list of DLLs from being hooked</td>
                                                 </tr>
                                                 <tr>
+                                                    <td><code>compression</code></td>
+                                                    <td>When set to 1 this will enable CAPE's extraction of compressed payloads</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>extraction</code></td>
+                                                    <td>When set to 1 this will enable CAPE's extraction of payloads from within each process</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>injection</code></td>
+                                                    <td>When set to 1 this will enable CAPE's capture of injected payloads between processes</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>combo</code></td>
+                                                    <td>This combines compression, injection and extraction with process dumps</td>
+                                                </tr>
+                                                <tr>
                                                     <td><code>dump-on-api</code></td>
                                                     <td>Dump the calling module when a function from the colon-separated list of APIs is used (requires DumpOnAPI package)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>bp0</code></td>
+                                                    <td>Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>file-offsets</code></td>
+                                                    <td>Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>break-on-return</code></td>
+                                                    <td>Sets breakpoints on the return address(es) from a colon-separated list of APIs</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>base-on-api</code></td>
+                                                    <td>Sets the base address to which breakpoints will be applied (and sets breakpoints)</td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>depth</code></td>
@@ -368,15 +404,11 @@ $(document).ready( function() {
                                                 </tr>
                                                 <tr>
                                                     <td><code>static</code></td>
-                                                    <td>Check if config can be extracted statically, if not extracts, send to vm</td>
+                                                    <td>Check if config can be extracted statically, if not, send to vm</td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>Dl&Exec add headers example</code></td>
-                                                    <td>dnl_user_agent: "CAPE the best", dnl_referer: google</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>servicename - for service package</code></td>
-                                                    <td>Specify the service name</td>
+                                                    <td>dnl_user_agent: "CAPE Sandbox", dnl_referer: google</td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>servicedesc - for service package</code></td>

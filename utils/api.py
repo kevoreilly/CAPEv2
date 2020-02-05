@@ -12,7 +12,7 @@ import socket
 import sys
 import tarfile
 from datetime import datetime
-from io import StringIO
+from io import StringIO, BytesIO
 from bson import json_util
 from zipfile import ZipFile, ZIP_STORED
 
@@ -752,7 +752,7 @@ def task_screenshots(task=0, screenshot=None):
             else:
                 return HTTPError(404, screenshot_path)
         else:
-            zip_data = StringIO()
+            zip_data = BytesIO()
             with ZipFile(zip_data, "w", ZIP_STORED) as zip_file:
                 for shot_name in os.listdir(folder_path):
                     zip_file.write(os.path.join(folder_path, shot_name), shot_name)

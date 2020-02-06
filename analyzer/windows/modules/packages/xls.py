@@ -13,8 +13,8 @@ class XLS(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["loader"] = "newloader.exe"
-        self.options["loader_64"] = "newloader_x64.exe"
+        self.options["loader"] = "loader.exe"
+        self.options["loader_64"] = "loader_x64.exe"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),

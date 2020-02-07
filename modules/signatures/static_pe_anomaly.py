@@ -195,3 +195,27 @@ class StaticPEPDBPath(Signature):
             ret = True
 
         return ret
+
+class PECompileTimeStomping(Signature):
+    name = "pe_compile_timestomping"
+    description = "Binary compilation timestomping detected"
+    severity = 3
+    categories = ["generic"]
+    authors = ["ditekshen"]
+    minimum = "1.3"
+    ttp = ["T1099"]
+
+    def run(self):
+        rawcompiletime = self.results.get("static", {}).get("pe", {}).get("timestamp", "")
+        if rawcompiletime:
+            compiletime = datetime.strptime(rawcompiletime, '%Y-%m-%d %H:%M:%S')
+            currentyear = datetime.now().year
+            currentmonth = datetime.now().month
+            if compiletime.year > currentyear:
+                self.data.append({"anomaly" : "Compilation timestamp is in the future" })
+                return True
+            elif compiletime.year == currentyear and compiletime.month > currentmonth:
+                self.data.append({"anomaly" : "Compilation timestamp is in the future" })
+                return True
+        
+        return False

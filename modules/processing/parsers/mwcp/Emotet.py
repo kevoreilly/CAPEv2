@@ -20,6 +20,7 @@ import yara
 import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
+from itertools import cycle
 
 rule_source = '''
 rule Emotet
@@ -46,6 +47,7 @@ rule Emotet
 
 MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
 
+
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
@@ -57,31 +59,36 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def xor_data(data, key):
-    l = len(key)
-    decoded = ""
-    for i in range(0, len(data)):
-        decoded += chr(ord(data[i]) ^ ord(key[i % l]))
-    return decoded
+    key = [q for q in key]
+    data = [q for q in data]
+    return bytes([c ^ k for c, k in zip(data, cycle(key))])
+
 
 # This function is originally by Jason Reaves (@sysopfb),
 # suggested as an addition by @pollo290987.
 # A big thank you to both.
 def extract_emotet_rsakey(filedata):
-    pub_matches = re.findall('''\x30[\x00-\xff]{100}\x02\x03\x01\x00\x01\x00\x00''', filedata)
+    pub_matches = re.findall(b'''\x30[\x00-\xff]{100}\x02\x03\x01\x00\x01\x00\x00''', filedata)
     if pub_matches:
         pub_key = pub_matches[0][0:106]
         seq = asn1.DerSequence()
         seq.decode(pub_key)
         return RSA.construct((seq[0], seq[1]))
 
+
 class Emotet(Parser):
-    def __init__(self, reporter=None):
-        Parser.__init__(self, description='Emotet configuration parser.', author='kevoreilly', reporter=reporter)
+    #def __init__(self, reporter=None):
+    #    Parser.__init__(self, description='Emotet configuration parser.', author='kevoreilly', reporter=reporter)
+
+
+    DESCRIPTION = 'Emotet configuration parser.'
+    AUTHOR = 'kevoreilly'
 
     def run(self):
-        filebuf = self.reporter.data
-        pe = pefile.PE(data=self.reporter.data, fast_load=False)
+        filebuf = self.file_object.file_data
+        pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
         pem_key = extract_emotet_rsakey(filebuf)
@@ -115,23 +122,23 @@ class Emotet(Parser):
                 c2_list_rva = c2_list_va - image_base
             try:
                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except PEFormatError as err:
+            except pefile.PEFormatError as err:
                 pass
 
             while 1:
                 try:
                     ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                 except:
-                    break
+                    return
                 if ip == 0:
-                    break
+                    return
                 c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                 port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                 if c2_address and port:
                     self.reporter.add_metadata('address', c2_address+':' + port)
                 else:
-                    break
+                    return
                 c2_list_offset += 8
         else:
             refc2list = yara_scan(filebuf, '$snippet4')
@@ -144,23 +151,23 @@ class Emotet(Parser):
                     c2_list_rva = c2_list_va - image_base
                 try:
                     c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                except PEFormatError as err:
+                except pefile.PEFormatError as err:
                     pass
 
                 while 1:
                     try:
                         ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                     except:
-                        break
+                        return
                     if ip == 0:
-                        break
+                        return
                     c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                     port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                     if c2_address and port:
                         self.reporter.add_metadata('address', c2_address+':' + port)
                     else:
-                        break
+                        return
                     c2_list_offset += 8
             else:
                 refc2list = yara_scan(filebuf, '$snippet5')
@@ -173,23 +180,23 @@ class Emotet(Parser):
                         c2_list_rva = c2_list_va - image_base
                     try:
                         c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                    except PEFormatError as err:
+                    except pefile.PEFormatError as err:
                         pass
 
                     while 1:
                         try:
                             ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                         except:
-                            break
+                            return
                         if ip == 0:
-                            break
+                            return
                         c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                         port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                         if c2_address and port:
                             self.reporter.add_metadata('address', c2_address+':' + port)
                         else:
-                            break
+                            return
                         c2_list_offset += 8
                 else:
                     refc2list = yara_scan(filebuf, '$snippet6')
@@ -202,23 +209,23 @@ class Emotet(Parser):
                             c2_list_rva = c2_list_va - image_base
                         try:
                             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                        except PEFormatError as err:
+                        except pefile.PEFormatError as err:
                             pass
 
                         while 1:
                             try:
                                 ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                             except:
-                                break
+                                return
                             if ip == 0:
-                                break
+                                return
                             c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                             port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                             if c2_address and port:
                                 self.reporter.add_metadata('address', c2_address+':' + port)
                             else:
-                                break
+                                return
                             c2_list_offset += 8
                     else:
                         refc2list = yara_scan(filebuf, '$snippet7')
@@ -235,7 +242,7 @@ class Emotet(Parser):
                                 c2_list_rva = c2_list_va - image_base
                             try:
                                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                            except PEFormatError as err:
+                            except pefile.PEFormatError as err:
                                 pass
 
                             while 1:
@@ -266,7 +273,7 @@ class Emotet(Parser):
                     return
                 key = struct.unpack('<I', filebuf[ref_rsa_offset:ref_rsa_offset+4])[0]
                 xorsize = key ^ struct.unpack('<I', filebuf[ref_rsa_offset+4:ref_rsa_offset+8])[0]
-                rsa_key = xor_data(filebuf[ref_rsa_offset+8:ref_rsa_offset+8+xorsize], struct.pack('<I',key))
+                rsa_key = xor_data(filebuf[ref_rsa_offset+8:ref_rsa_offset+8+xorsize], struct.pack('<I', key))
                 seq = asn1.DerSequence()
                 seq.decode(rsa_key)
                 self.reporter.add_metadata('other', {'RSA public key': RSA.construct((seq[0], seq[1])).exportKey()})

@@ -24,7 +24,10 @@ class PersistenceShimDatabase(Signature):
     authors = ["Kevin Ross"]
     minimum = "1.2"
     evented = True
-    references = ["https://www.fireeye.com/blog/threat-research/2017/05/fin7-shim-databases-persistence.html", "https://countercept.com/blog/hunting-for-application-shim-databases/"]
+    references = [
+        "https://www.fireeye.com/blog/threat-research/2017/05/fin7-shim-databases-persistence.html",
+        "https://countercept.com/blog/hunting-for-application-shim-databases/"
+    ]
     ttp = ["T1138"]
 
     def run(self):
@@ -42,19 +45,19 @@ class PersistenceShimDatabase(Signature):
             match = self.check_write_key(pattern=indicator, regex=True)
             if match:
                 ret = True
-                self.data.append({"regkey": match })
+                self.data.append({"regkey": match})
 
         for indicator in file_indicators:
             match = self.check_write_file(pattern=indicator, regex=True, all=True)
             if match:
                 ret = True
-                self.data.append({"file": match })
+                self.data.append({"file": str(match)})
 
         cmdlines = self.results["behavior"]["summary"]["executed_commands"]
         for cmdline in cmdlines:
             lower = cmdline.lower()
             if "sdbinst" in lower:
                 ret = True
-                self.data.append({"cmdline": cmdline })
+                self.data.append({"cmdline": cmdline})
 
         return ret

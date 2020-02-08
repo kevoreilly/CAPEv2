@@ -275,6 +275,8 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
+            self.db.set_task_vm(self.task.id, self.machine.label, self.machine.id)
+        # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
             log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e))
@@ -283,7 +285,7 @@ class AnalysisManager(threading.Thread):
         # Generate the analysis configuration file.
         options = self.build_options()
 
-        # At this point we can tell the ResultServer about it.
+
         try:
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
@@ -348,7 +350,7 @@ class AnalysisManager(threading.Thread):
                     need_space, space_available = free_space_monitor(os.path.dirname(dump_path), return_value=True)
                     if need_space:
                         log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
-                    else: 
+                    else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
                     log.error("The memory dump functionality is not available "

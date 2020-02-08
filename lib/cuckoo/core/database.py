@@ -631,6 +631,29 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
+    def set_task_vm(self, task_id, vmname, vm_id):
+        """Set task status.
+        @param task_id: task identifier
+        @param vmname: virtual vm name
+        @return: operation status
+        """
+        session = self.Session()
+        try:
+            row = session.query(Task).get(task_id)
+
+            if not row:
+                return
+
+            row.machine = vmname
+            row.machine_id = vm_id
+            session.commit()
+        except SQLAlchemyError as e:
+            log.debug("Database error setting status: {0}".format(e))
+            session.rollback()
+        finally:
+            session.close()
+
+    @classlock
     def fetch(self, lock=True, machine=""):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task

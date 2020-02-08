@@ -50,15 +50,11 @@ class Sysmon(threading.Thread, Auxiliary):
     def run(self):
         if self.enabled:
             self.clear_log()
-            #while self.do_run:
-            #    self.collect_logs()
-            #    time.sleep(15)
             return True
         return False
 
     def stop(self):
         if self.enabled:
-            #self.do_run = False
             self.collect_logs()
             return True
         return False

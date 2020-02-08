@@ -315,7 +315,7 @@ class PortableExecutable(object):
             result = signatures.match_all(self.pe, ep_only=True)
             if not result:
                 return None
-            return list(set(result))
+            return result
         except Exception as e:
             log.error(e, exc_info=True)
             return None

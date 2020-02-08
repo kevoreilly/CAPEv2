@@ -24,9 +24,9 @@ try:
 
     #disable logging
     #[mwcp.parser] WARNING: Missing identify() function for: a35a622d01f83b53d0407a3960768b29.Emotet.Emotet
-except ImportError:
+except ImportError as e:
     HAS_MWCP = False
-    print("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP")
+    print("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
 try:
     from malwareconfig import fileparser

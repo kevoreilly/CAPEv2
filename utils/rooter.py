@@ -17,10 +17,11 @@ import subprocess
 import sys
 import errno
 
-from lib.cuckoo.core.startup import check_python_version
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
+
+from lib.cuckoo.core.startup import check_python_version
 
 check_python_version()
 

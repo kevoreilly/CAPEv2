@@ -14,6 +14,9 @@ import argparse
 import signal
 import multiprocessing
 
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+
 log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.colors import red
@@ -23,9 +26,7 @@ from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLET
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
 from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
-from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_python_version
-
-check_python_version()
+from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
 
 cfg = Config()
 repconf = Config("reporting")

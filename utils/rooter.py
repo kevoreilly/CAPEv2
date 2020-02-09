@@ -18,12 +18,9 @@ import sys
 import errno
 
 
-CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-sys.path.append(CUCKOO_ROOT)
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
 
-from lib.cuckoo.core.startup import check_python_version
-
-check_python_version()
 
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")

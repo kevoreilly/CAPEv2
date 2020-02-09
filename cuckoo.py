@@ -9,6 +9,9 @@ import logging
 import os
 import sys
 
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+
 try:
     from lib.cuckoo.common.logo import logo
     from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
@@ -20,7 +23,7 @@ try:
     from lib.cuckoo.core.startup import init_tasks, init_yara
     from lib.cuckoo.core.scheduler import Scheduler
     from lib.cuckoo.core.resultserver import ResultServer
-    from lib.cuckoo.core.startup import init_rooter, init_routing, check_python_version
+    from lib.cuckoo.core.startup import init_rooter, init_routing
 
     import bson
 
@@ -28,8 +31,6 @@ try:
 except (CuckooDependencyError, ImportError) as e:
     print("ERROR: Missing dependency: {0}".format(e))
     sys.exit()
-
-check_python_version()
 
 log = logging.getLogger()
 

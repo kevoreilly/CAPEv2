@@ -23,7 +23,9 @@ from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLET
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
 from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
-from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
+from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_python_version
+
+check_python_version()
 
 cfg = Config()
 repconf = Config("reporting")

@@ -20,7 +20,7 @@ try:
     from lib.cuckoo.core.startup import init_tasks, init_yara
     from lib.cuckoo.core.scheduler import Scheduler
     from lib.cuckoo.core.resultserver import ResultServer
-    from lib.cuckoo.core.startup import init_rooter, init_routing
+    from lib.cuckoo.core.startup import init_rooter, init_routing, check_python_version
 
     import bson
 
@@ -28,6 +28,8 @@ try:
 except (CuckooDependencyError, ImportError) as e:
     print("ERROR: Missing dependency: {0}".format(e))
     sys.exit()
+
+check_python_version()
 
 log = logging.getLogger()
 

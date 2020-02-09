@@ -15,6 +15,10 @@ import subprocess
 import sys
 import errno
 
+from lib.cuckoo.core.startup import check_python_version
+
+check_python_version()
+
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 ch = logging.StreamHandler()

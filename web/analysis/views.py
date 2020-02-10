@@ -1026,7 +1026,7 @@ def procdump(request, task_id, process_id, start, end):
     if file_item and analysis and "procmemory" in analysis:
         for proc in analysis["procmemory"]:
             if proc["pid"] == int(process_id):
-                data = ""
+                data = b""
                 for memmap in proc["address_space"]:
                     for chunk in memmap["chunks"]:
                         if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):

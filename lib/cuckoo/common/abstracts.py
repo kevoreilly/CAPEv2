@@ -766,14 +766,13 @@ class Signature(object):
         except CuckooOperationalError as e:
             CuckooReportError(e)
 
-
     def yara_detected(self, name):
 
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for block in self.results["target"]["file"].get("yara", list()):
                 if re.findall(name, block["name"], re.I):
-                    return "sample", self.results["target"]["file"]["path"], block
+                    yield "sample", self.results["target"]["file"]["path"], block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped", "CAPE"):
             if keyword in self.results and self.results[keyword] is not None:
@@ -792,10 +791,16 @@ class Signature(object):
                                     path = block["path"]
                                 else:
                                     path = ""
+                                yield keyword, path, sub_block
 
-                                return keyword, path, sub_block
+                    if keyword == "procmemory":
+                        for pe in block.get("extracted_pe", []) or []:
+                            for sub_keyword in ("yara", "cape_yara"):
+                                for sub_block in pe.get(sub_keyword, []) or []:
+                                    if re.findall(name, sub_block["name"], re.I):
+                                        yield "extracted_pe", pe["path"], sub_block
 
-        return False, False, False
+        yield False, False, False
 
     def add_statistic(self, name, field, value):
         if name not in self.results["statistics"]["signatures"]:

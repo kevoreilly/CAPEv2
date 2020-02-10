@@ -397,6 +397,7 @@ class File(object):
 
         try:
             rules = False
+            externals = {}
             try:
                 filepath = ""
                 filename = ""
@@ -405,9 +406,9 @@ class File(object):
                     filename = self.file_name
                 if self.guest_paths:
                     filepath = self.guest_paths[0]
-                #if filepath and filename:
-                #ToDo fix it filepath and fileanem from new metadata format
-                rules = yara.compile(rulepath)#, externals={"filepath": filepath, "filename": filename})
+                if filepath and filename:
+                    externals = {"filepath": filepath, "filename": filename}
+                rules = yara.compile(rulepath, externals=externals)
             except yara.SyntaxError as e:
                 if 'duplicated identifier' in e.args[0]:
                     log.warning("Duplicate rule in %s, rulepath")
@@ -459,23 +460,22 @@ class File(object):
         """
         matches = []
 
-        if HAVE_CLAMAV:
-            if os.path.getsize(self.file_path) > 0:
-                try:
-                    cd = pyclamd.ClamdUnixSocket()
-                except:
-                    log.warning("failed to connect to clamd socket")
-                    return matches
-                try:
-                    results = cd.allmatchscan(self.file_path)
-                except Exception as e:
-                    log.warning("failed to scan file with clamav {0}".format(e))
-                    return matches
-                if results:
-                    for key in results:
-                        for entry in results[key]:
-                            if entry[0] == "FOUND" and entry[1] not in matches:
-                                 matches.append(entry[1])
+        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
+            try:
+                cd = pyclamd.ClamdUnixSocket()
+            except:
+                log.warning("failed to connect to clamd socket")
+                return matches
+            try:
+                results = cd.allmatchscan(self.file_path)
+            except Exception as e:
+                log.warning("failed to scan file with clamav {0}".format(e))
+                return matches
+            if results:
+                for key in results:
+                    for entry in results[key]:
+                        if entry[0] == "FOUND" and entry[1] not in matches:
+                                matches.append(entry[1])
 
         return matches
 
@@ -591,7 +591,7 @@ class ProcDump(object):
             alloc["offset"] = offset
             alloc["PE"] = False
             try:
-                if f.read(2) == "MZ":
+                if f.read(2) == b"MZ":
                     alloc["PE"] = True
                 f.seek(size-2, 1)
             except:

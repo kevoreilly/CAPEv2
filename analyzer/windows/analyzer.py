@@ -810,7 +810,15 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
-        upload_path = os.path.join(category, sha256)
+        if category == "memory":
+            if pids:
+                upload_path = os.path.join(category, "{}.dmp".format(pids[0]))
+            else:
+                pids = [os.path.basename(filepath).split(".")[0]]
+                upload_path = os.path.join(category, os.path.basename(filepath))
+
+        else:
+            upload_path = os.path.join(category, sha256)
 
         try:
             upload_to_host(

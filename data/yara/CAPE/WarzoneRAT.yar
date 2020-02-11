@@ -1,8 +1,8 @@
-rule AveMaria {
+rule WarzoneRAT {
     meta:
         author = "ditekshen"
-        description = "AveMaria variant payload"
-        cape_type = "AveMaria Payload"
+        description = "WarzoneRAT payload"
+        cape_type = "WarzoneRAT Payload"
     strings:
         $s1_1 = "PK11_CheckUserPassword" fullword ascii
         $s1_2 = "PK11_Authenticate" fullword ascii

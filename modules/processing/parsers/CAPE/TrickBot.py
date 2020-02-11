@@ -58,7 +58,6 @@ def xor_data(data, key, key_len):
     i=0
     decrypted_blob = b""
     for x in range(0,len(data),4):
-        import code;code.interact(local=dict(locals(), **globals()))
         xor = struct.unpack("<L", data[x:x+4])[0] ^ struct.unpack("<L",key[i % key_len])[0]
         decrypted_blob += struct.pack("<L", xor)
         i += 1
@@ -101,15 +100,17 @@ def get_rsrc(pe):
                             ret.append((name,data,resource_lang.data.struct.Size,resource_type))
     return ret
 
+def va_to_fileoffset(pe, va):
+    rva = va - pe.OPTIONAL_HEADER.ImageBase
+    for section in pe.sections:
+        if rva >= section.VirtualAddress and rva < section.VirtualAddress + section.Misc_VirtualSize:
+            return rva - section.VirtualAddress + section.PointerToRawData
+
 def decode_onboard_config(data):
     try:
         pe = pefile.PE(data=data)
         rsrcs = get_rsrc(pe)
-        for section in pe.sections:
-            if b".text" in section.Name:
-                delta = pe.OPTIONAL_HEADER.ImageBase + section.VirtualAddress - section.PointerToRawData
-    except Exception as e:
-        print(e)
+    except:
         return
 
     if rsrcs != []:
@@ -133,17 +134,16 @@ def decode_onboard_config(data):
         return
     offset = int(snippet['$snippet1'])
     key_len     = struct.unpack("<L", data[offset+10:offset+14])[0]
-    key_offset  = struct.unpack("<L", data[offset+15:offset+19])[0] - delta
-    data_offset = struct.unpack("<L", data[offset+20:offset+24])[0] - delta
-    size_offset = struct.unpack("<L", data[offset+53:offset+57])[0] - delta
+    key_offset  = struct.unpack("<L", data[offset+15:offset+19])[0]
+    key_offset  = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset+15:offset+19])[0]))
+    data_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset+20:offset+24])[0]))
+    size_offset = va_to_fileoffset(pe, int(struct.unpack("<L", data[offset+53:offset+57])[0]))
     size = size_offset - data_offset
     key = data[key_offset:key_offset+key_len]
     key = [key[i:i+4] for i in range(0, len(key), 4)]
     key_len2 = len(key)
     a = data[data_offset:data_offset+size]
-    if not key:
-        return
-    a = xor_data(a, key, key_len2)
+    a = xor_data(a,key,key_len2)
 
     data = trick_decrypt(a)
     length = struct.unpack_from('<I',data)[0]
@@ -151,12 +151,12 @@ def decode_onboard_config(data):
         return data[8:length+8]
 
 def config(data):
-    raw_config = {}
     xml = decode_onboard_config(data)
-    if not xml:
-        return raw_config
-    root = ET.fromstring(xml)
-
+    try:
+        root = ET.fromstring(xml)
+    except:
+        return
+    raw_config = {}
     for child in root:
 
         if hasattr(child, 'key'):

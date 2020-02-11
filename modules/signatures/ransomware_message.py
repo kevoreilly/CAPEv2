@@ -25,7 +25,7 @@ class RansomwareMessage(Signature):
     description = "Writes a potential ransom message to disk"
     severity = 3
     categories = ["ransomware"]
-    authors = ["Kevin Ross"]
+    authors = ["Kevin Ross", "bartblaze"]
     minimum = "1.3"
     evented = True
     match = True
@@ -96,7 +96,32 @@ class RansomwareMessage(Signature):
             "personal code",
             "enter code",
             "your key",
-            "unique key"
+            "unique key",
+            "your database",
+            "encrypted",
+            "bit coin",
+            "BTC",
+            "ethereum",
+            "what happened",
+            "what happend",
+            "decryptor",
+            "decrypter",
+            "personal ID",
+            "unique ID",
+            "encryption ID",
+            "device ID",
+            "HardwareID",
+            "recover my",
+            "wallet address",
+            "localbitcoins",
+            "Attention!",
+            "restore the system",
+            "restore system",
+            "military grade encryption",
+            "personal identifier",
+            "personal identification code",
+            "get back my",
+            "get back your"
         ]
 
 
@@ -134,7 +159,7 @@ class RansomwareMessage(Signature):
 
 class RansomwareMessageMultipleLocations(Signature):
     name = "ransomware_message_multiple_locations"
-    description = "Drops the same text/html file across a large number of filesystem locations commonly seen in ransomware"
+    description = "Drops the same text/html/hta file across a large number of filesystem locations commonly seen in ransomware"
     severity = 3
     confidence = 50
     categories = ["ransomware"]
@@ -147,7 +172,7 @@ class RansomwareMessageMultipleLocations(Signature):
     def run(self):
         ret = False
         for dropped in self.results.get("dropped", []) or []:
-            if dropped is not None and "ASCII text" in dropped["type"] or dropped["name"].endswith((".txt", ".html")):
+            if dropped is not None and "ASCII text" in dropped["type"] or dropped["name"].endswith((".txt", ".html", ".hta")):
                 if dropped.get("guest_paths", "") is not None and len(dropped.get("guest_paths", "")) > 50:
                     ret = True
                     self.data.append({"filename": dropped["name"]})

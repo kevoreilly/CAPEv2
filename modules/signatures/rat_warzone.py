@@ -20,7 +20,7 @@ class WarzoneRATRegkeys(Signature):
     description = "Creates Warzone RAT registry keys"
     severity = 3
     categories = ["RAT"]
-    families = ["Warzone"]
+    families = ["Warzone", "AveMaria"]
     authors = ["ditekshen"]
     minimum = "1.3"
 
@@ -43,7 +43,7 @@ class WarzoneRATFiles(Signature):
     description = "Accesses or creates Warzone RAT directories and/or files"
     severity = 3
     categories = ["RAT"]
-    families = ["Warzone"]
+    families = ["Warzone", "AveMaria"]
     authors = ["ditekshen"]
     minimum = "1.3"
 

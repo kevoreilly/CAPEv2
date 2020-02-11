@@ -69,7 +69,7 @@ class WindowsDefenderPowerShell(Signature):
             if "set-mppreference" in lower:
                 self.data.append({"cmdline" : cmdline})
                 ret = True
-            if "add-mppreference" in lower and "exlusionpath" in lower:
+            if "add-mppreference" in lower and "exclusionpath" in lower:
                 self.data.append({"cmdline" : cmdline})
                 ret = True
 

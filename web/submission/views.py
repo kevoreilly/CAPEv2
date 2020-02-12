@@ -474,6 +474,9 @@ def index(request, resubmit_hash=False):
         if not isinstance(task_ids, list) and status == "error":
             # is render msg
             return task_ids
+        if not isinstance(task_ids_tmp, list) and status == "error":
+            # is render msg
+            return task_ids_tmp
         if isinstance(task_ids, list):
             tasks_count = len(task_ids)
         else:

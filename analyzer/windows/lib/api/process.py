@@ -609,7 +609,7 @@ class Process:
         file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
         try:
             file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
-            upload_to_host(file_path, os.path.join("memory", "{0}.dmp".format(self.pid)))
+            upload_to_host(file_path, os.path.join("memory", "{0}.dmp".format(self.pid)), category="memory")
         except Exception as e:
             print(e)
             log.error(e, exc_info=True)

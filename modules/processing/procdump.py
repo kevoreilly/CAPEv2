@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 import os
-
+import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
@@ -21,21 +21,28 @@ class ProcDump(Processing):
         buf = self.options.get("buffer", 8192)
         if not os.path.exists(self.procdump_path):
             return None
+
+        meta = dict()
+        if os.path.exists(self.files_metadata):
+            for line in open(self.files_metadata, "rb"):
+                entry = json.loads(line)
+                filepath = os.path.join(self.analysis_path, entry["path"])
+                meta[filepath] = {
+                    "pids": entry["pids"],
+                    "filepath": entry["filepath"],
+                    "metadata": entry["metadata"],
+                }
+
         file_names = os.listdir(self.procdump_path)
         for file_name in file_names:
             file_path = os.path.join(self.procdump_path, file_name)
-            if not os.path.isfile(file_path):
-                continue
-            if file_name.endswith("_info.txt"):
-                continue
-            with open(file_path + "_info.txt", 'r') as f:
-                metastring = f.readline()
-            file_info = File(file_path=file_path, guest_paths=metastring, file_name=file_name).get_all()
-            metastrings = metastring.split(",")
-            file_info["process_path"] = metastrings[2]
-            file_info["module_path"] = metastrings[3]
+
+            file_info = File(file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name).get_all()
+            metastrings = meta[file_path].get("metadata", "").split(";?")
+            file_info["process_path"] = metastrings[1]
+            file_info["module_path"] = metastrings[2]
             file_info["process_name"] = file_info["process_path"].split("\\")[-1]
-            file_info["pid"] = metastrings[1]
+            file_info["pid"] = meta[file_path]["pids"][0]
             type_strings = file_info["type"].split()
             if type_strings[0] == "MS-DOS":
                 file_info["cape_type"] = "DOS MZ image: executable"

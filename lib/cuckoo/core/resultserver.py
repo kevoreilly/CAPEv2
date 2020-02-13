@@ -46,7 +46,7 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'memory', b'shots', b'sysmon')
+RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'memory', b'shots', b'sysmon', b'procdump')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
@@ -208,7 +208,7 @@ class FileUpload(ProtocolHandler):
                     "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                     "pids": pids,
                     "metadata": metadata.decode("utf-8", "replace"),
-                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory") else ""
+                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else ""
                 }, ensure_ascii=False), file=f)
 
         self.handler.sock.settimeout(None)
@@ -257,7 +257,7 @@ class BsonStore(ProtocolHandler):
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream", self.task_id)
+        log.debug("Task #%s is sending a BSON stream.", self.task_id)
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
@@ -321,7 +321,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon')
+        folders = ('CAPE', 'aux', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'procdump')
 
         for folder in folders:
             try:

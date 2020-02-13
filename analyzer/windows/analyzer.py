@@ -1450,11 +1450,23 @@ class CommandPipeHandler(object):
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
-        # Syntax -> PATH
         # We dump immediately.
+        log.info(file_path)
+        if b"\\CAPE\\" in file_path:
+            log.info("cape")
+            #Syntax -> PATH|PID|Metadata
+            file_path, pid, metadata = file_path.split(b"|")
+            if os.path.exists(file_path):
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+
         if os.path.exists(file_path):
-            # aka send this as data for the command
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+            #Syntax -> PATH
+            if b"\\memory\\"in file_path:
+                log.info("memory")
+                # aka send this as data for the command
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+            else:
+                self.analyzer.files.dump_file(file_path.decode("utf-8"))
 
     def _handle_dumpmem(self, data):
         #TODo dump by pid

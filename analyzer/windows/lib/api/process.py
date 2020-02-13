@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import logging
 import random
 import subprocess
@@ -496,6 +497,7 @@ class Process:
             config.write("logserver={0}\n".format(logserver_path))
             config.write("results={0}\n".format(PATHS["root"]))
             config.write("analyzer={0}\n".format(os.getcwd()))
+            config.write("pythonpath={0}\n".format(os.path.dirname(sys.executable)))
             config.write("first-process={0}\n".format("1" if firstproc else "0"))
             config.write("startup-time={0}\n".format(Process.startup_time))
             config.write("file-of-interest={0}\n".format(interest))

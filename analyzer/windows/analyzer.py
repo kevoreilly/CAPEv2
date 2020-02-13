@@ -336,6 +336,7 @@ class Analyzer:
         log.debug("Starting analyzer from: %s", os.getcwd())
         log.debug("Storing results at: %s", PATHS["root"])
         log.debug("Pipe server name: %s", PIPE)
+        log.debug("Python path: %s", os.path.dirname(sys.executable))
 
         # If no analysis package was specified at submission, we try to select
         # one automatically.

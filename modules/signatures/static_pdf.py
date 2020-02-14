@@ -49,6 +49,18 @@ class Static_PDF(Signature):
                             self.data.append({"xfa_object" : "Contains an XFA forms object" })
                             self.weight += 1
 
+                if "Keywords" in self.results["static"]["pdf"]:
+                    if "/EmbeddedFile" in self.results["static"]["pdf"]["Keywords"]:
+                        if self.results["static"]["pdf"]["Keywords"]["/EmbeddedFile"] > 0:
+                            self.data.append({"attachment" : "PDF contains an attachment" })
+                            self.weight += 1
+
+                if "Keywords" in self.results["static"]["pdf"]:
+                    if "/OpenAction" in self.results["static"]["pdf"]["Keywords"] or "/AA" in self.results["static"]["pdf"]["Keywords"]:
+                        if self.results["static"]["pdf"]["Keywords"]["/OpenAction"] > 0 or self.results["static"]["pdf"]["Keywords"]["/AA"] > 0:
+                            self.data.append({"open_action" : "PDF contains an automatic open action" })
+                            self.weight += 1
+
                 # Specific Exploit Detection (this will be expanded upon & generic detections added too)
                 if "Keywords" in self.results["static"]["pdf"]:
                     if "/Colors > 2^24" in self.results["static"]["pdf"]["Keywords"]:
@@ -62,6 +74,8 @@ class Static_PDF(Signature):
                 self.weight += 1
                           
         if self.weight:
+            if self.weight >= 3:
+                self.severity = 3
             return True
 
         return False

@@ -1461,7 +1461,7 @@ class CommandPipeHandler(object):
 
         if os.path.exists(file_path):
             #Syntax -> PATH
-            if b"\\memory\\"in file_path:
+            if b"\\memory\\" in file_path:
                 log.info("memory")
                 # aka send this as data for the command
                 self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")

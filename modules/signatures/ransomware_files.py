@@ -22,7 +22,7 @@ class RansomwareFiles(Signature):
     severity = 3
     families = []
     categories = ["ransomware"]
-    authors = ["KillerInstinct"]
+    authors = ["KillerInstinct", "bartblaze"]
     minimum = "1.2"
     ttp = ["T1486"]
 
@@ -131,7 +131,7 @@ class RansomwareFiles(Signature):
             (".*\\\\@Please_Read_Me@\.txt$", ["WannaCry"]),
             (".*\\\\_readme\.txt$", ["Moka"]),
             (".*\\\\#FOX_README#\.rtf$", ["Fox"]),
-            (".*\\\\Restore-My-Files\.txt$", ["Goodmen"]),
+            (".*\\\\Restore-My-Files\.txt$", ["Goodmen", "LockBit"]),
             (".*\\\\HOW_DECRYPT_FILES\.txt$", ["Estemani"]),
             (".*\\\\[A-Z0-9]{6}-Readme\.txt$", ["Koko", "Mailto"]),
             (".*\\\\#README\.lilocked$", ["Lilocked"]),

@@ -128,7 +128,7 @@ def _get_entropy(data):
     occurrences = array.array('L', [0]*256)
 
     for x in data:
-        occurrences[ord(x)] += 1
+        occurrences[x] += 1
 
     for x in occurrences:
         if x:
@@ -181,7 +181,7 @@ class DotNETExecutable(object):
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline:
@@ -206,13 +206,13 @@ class DotNETExecutable(object):
                 ret.append(item)
             return ret
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_assembly_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
                 if len(splitline) < 2:
@@ -229,13 +229,13 @@ class DotNETExecutable(object):
             return ret
 
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -243,13 +243,13 @@ class DotNETExecutable(object):
                     ret["version"] = convert_to_printable(line[8:].strip())
             return ret
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_type_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 restline = ''.join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -263,7 +263,7 @@ class DotNETExecutable(object):
             return sorted(ret)
 
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def run(self):
@@ -332,7 +332,7 @@ class PortableExecutable(object):
                 dbgst = dbg.struct
                 dbgdata = self.pe.__data__[dbgst.PointerToRawData:dbgst.PointerToRawData+dbgst.SizeOfData]
                 if dbgst.Type == 4: #MISC
-                    datatype, length, uniflag = struct.unpack_from("IIB", dbgdata)
+                    _, length, _ = struct.unpack_from("IIB", dbgdata)
                     return convert_to_printable(str(dbgdata[12:length]).rstrip('\0'))
                 elif dbgst.Type == 2: #CODEVIEW
                     if dbgdata[:4] == "RSDS":
@@ -590,7 +590,8 @@ class PortableExecutable(object):
                                     resource["sublanguage"] = sublanguage
                                     resource["entropy"] = "{0:.02f}".format(float(_get_entropy(data)))
                                     resources.append(resource)
-                except:
+                except Exception as e:
+                    log.error(e, exc_info=True)
                     continue
 
         return resources
@@ -652,7 +653,8 @@ class PortableExecutable(object):
                     m.update(simplified)
                     simphash = m.hexdigest()
                     return base64.b64encode(output.getvalue()), fullhash, simphash
-        except:
+        except Exception as e:
+            log.error(e, exc_info=True)
             pass
 
         return None, None, None
@@ -687,7 +689,8 @@ class PortableExecutable(object):
                                     if entry["name"] == "Translation" and len(entry["value"]) == 10:
                                         entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
                                     infos.append(entry)
-                    except:
+                    except Exception as e:
+                        log.error(e, exc_info=True)
                         continue
 
         return infos
@@ -927,7 +930,7 @@ class PDF(object):
     def _set_base_uri(self):
         try:
             for version in range(self.pdf.updates+1):
-                trailer, streamTrailer = self.pdf.trailer[version]
+                trailer, _ = self.pdf.trailer[version]
                 if trailer != None:
                     elem = trailer.dict.getElementByName("/Root")
                     elem = self._get_obj_val(version, elem)
@@ -936,7 +939,8 @@ class PDF(object):
                     elem = elem.getElementByName("/Base")
                     elem = self._get_obj_val(version, elem)
                     self.base_uri = elem.getValue()
-        except:
+        except Exception as e:
+            log.error(e, exc_info=True)
             pass
 
     def _parse(self, filepath):
@@ -1014,6 +1018,7 @@ class PDF(object):
                             jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
                             jsdata = jslist[0]
                         except Exception as e:
+                            log.error(e, exc_info=True)
                             continue
                         if len(errors):
                             continue
@@ -1302,7 +1307,7 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():
+            for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
                     # Handle all macros
@@ -1350,7 +1355,7 @@ class Office(object):
                     if vba_code:
                         vba2graph_gen(vba_code, vba2graph_path)
                 except Exception as e:
-                    log.info(e)
+                    log.error(e, exc_info=True)
         else:
             metares["HasMacros"] = "No"
 
@@ -1393,7 +1398,7 @@ class HwpDocument(object):
 	        stream_content = zlib.decompress(ole.openstream(stream).read(), -15)
                 self.files[stream_name] = stream_content
 	    except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
         ole.close()
 
     def extract_eps(self):
@@ -1440,7 +1445,8 @@ class Java(object):
             try:
                 p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
                 results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
-            except:
+            except Exception as e:
+                log.error(e, exc_info=True)
                 pass
 
             try:

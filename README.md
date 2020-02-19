@@ -1,6 +1,6 @@
 ## CAPEv2! you are welcome to test and report any bug
 
-* Python3 
+* Python3
 * agent.py is tested with python (3.7.2|3.8) x86
 * host python3 version 3.6.8
 
@@ -8,11 +8,11 @@
 1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)
 2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
  * `sudo ./kvm-qemu.sh all <username>`
-3. To install CAPE itself, [cuckoo.sh](https://github.com/doomedraven/Tools/blob/master/Cuckoo/cuckoo3.sh) with all optimizations
- * `sudo ./cuckoo3.sh all cape`
+3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
+ * `sudo ./cape2.sh all cape`
 4. Reboot and enjoy
 
-\* All scripts contain __help__ `-h`, but please check the scripts to understand what they are doing.
+\* All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.
 
 __requirements.txt is decpricated now in favour of the script__
 
@@ -43,9 +43,9 @@ The techniques or behaviours that CAPE detects and has packages for include:
 Packages for these behaviours will dump the payloads being injected, extracted or decompressed for further analysis. This is often the malware payload in unpacked form.
 
 CAPE automatically creates a process dump for each process, or, in the case of a DLL, the DLL's module image in memory. This is useful for samples packed with simple packers, where often the module image dump is fully unpacked. Yara signatures may trigger on the process dumps, possibly resulting in submission with a specific package or configuration parsing.
-    
+
 CAPE also has a package which can dynamically unpack samples that use 'hacked' (modified) UPX, very popular with malware authors. These samples are run in CAPE's debugger until their OEP (original entry point), whereupon they are dumped, fixed and their imports are automatically reconstructed, ready for analysis.
-    
+
 Currently CAPE has specific packages dumping configuration and payloads for the following malware families:
 - PlugX
 - EvilGrab
@@ -70,7 +70,7 @@ CAPE has config parsers/decoders for the following malware families, whose paylo
 
 Many other malware families have their payloads automatically extracted by behavioural packages, for which CAPE uses Yara signatures to detect the payloads. This list is growing, and includes:
 - Azorult, Formbook, Ryuk, Hermes, Shade, Remcos, Ramnit, Gootkit, QtBot, ZeroT, WanaCry, NetTraveler, Locky, BadRabbit, Magniber, Redsip, Kronos, PetrWrap, Kovter, Azer, Petya, Dreambot, Atlas, NanoLocker, Mole, Codoso, Cryptoshield, Loki, Jaff, IcedID, Scarab, Cutlet, RokRat, OlympicDestroyer, Gandcrab, Fareit, ZeusPanda, AgentTesla, Imminent, Arkei, Sorgu, tRat, T5000, TClient, TreasureHunter.
-    
+
 Configuration data may be output from either family packages, or in payloads resulting from behavioural packages. Configuration parsing may then be performed on this by virtue of Yara-based detection, and config parsing based on either of CAPE's config parsing frameworks, the RATDecoders framework from malwareconfig.com and DC3-MWCP (Defense Cyber Crime Center - Malware Configuration Parser). The many parsers/decoders from malwareconfig.com are also included, comprising among many others: Sakula, DarkComet, PredatorPain and PoisonIvy. Thanks to Kevin Breen/TechAnarchy for this framework and parsers (https://github.com/kevthehermit/RATDecoders), and to DC3 for their framework (https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP). Special thanks to Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
 
 Utility packages are also included: 'DumpOnAPI' allows a module to be dumped when it calls a specific API function which can be specified in the web interface. 'DumpConfigRegion' allows the memory region containing C2 information or other config data to be dumped for commonly used API calls. These packages can be useful for quickly unpacking/dumping novel samples or configs. The 'Trace' package allows quick access to the debugger by accepting four breakpoints (RVA values) to set on instructions, whereupon a short instruction trace will be output. An optional 'base-on-api' parameter allows the image base to be set by API call.

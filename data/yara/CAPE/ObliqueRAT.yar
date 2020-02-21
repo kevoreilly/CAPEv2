@@ -1,8 +1,8 @@
 rule ObliqueRAT {
     meta:
         author = "ditekshen"
-        description = "DCRat payload"
-        cape_type = "DCRat payload"
+        description = "ObliqueRAT payload"
+        cape_type = "ObliqueRAT payload"
     strings:
         $s1 = "C:\\ProgramData\\auto.txt" fullword ascii
         $s2 = "C:\\ProgramData\\System\\Dump\\" fullword ascii

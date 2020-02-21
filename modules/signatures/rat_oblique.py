@@ -86,7 +86,7 @@ class ObliquekRATNetworkActivity(Signature):
                 if buff:
                     sysinfo = self.hostname + ">" + self.username + ">" + "Windows"
                     if buff.startswith(sysinfo) and "oblique" in buff:
-                        self.data.append({"data": cmdline })
+                        self.data.append({"data": buff })
                         self.match = True
 
     def on_complete(self):

@@ -43,6 +43,7 @@ class RevilMutexes(Signature):
             "^(Global|Local)\\\\DAE678E1-967E-6A19-D564-F7FCA6E7AEBC$",
             "^(Global|Local)\\\\FB864EC7-B361-EA6D-545C-E1A167CCBE95$",
             "^(Global|Local)\\\\FDC9FA6E-8257-3E98-2600-E72145612F09$",
+            "^(Global|Local)\\\\FDF2DD18-A4C1-27D9-3CED-9440FC2281FA$",
         ]
 
         for indicator in indicators:

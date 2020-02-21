@@ -25,21 +25,18 @@ class RemcosFiles(Signature):
     minimum = "0.5"
 
     def run(self):
-        remcos_files = False
-
         indicators = [
-            ".*\\\\AppData\\\\Roaming\\\\remcos\\\\",
-            ".*\\\\AppData\\\\Roaming\\\\remcos\\\\logs\.dat$",
+            ".*\\\\AppData\\\\Roaming\\\\[Ll]ogs\\\\.*\.dat$",
+            ".*\\\\AppData\\\\Roaming\\\\remcos.*",
         ]
 
         for indicator in indicators:
-            file_match = self.check_file(pattern=indicator, regex=True)
-            if file_match:
-                for match in file_match:
-                    self.data.append({"file": match})
-                remcos_files = True
+            match = self.check_file(pattern=indicator, regex=True)
+            if match:
+                self.data.append({"file": match})
+                return True
 
-        return remcos_files 
+        return False 
 
 
 class RemcosMutexes(Signature):
@@ -55,10 +52,14 @@ class RemcosMutexes(Signature):
         indicators = [
             "Remcos_Mutex_Inj",
             "Remcos-[A-Z0-9]{6}$",
+            "remcos[-_].*",
         ]
 
         for indicator in indicators:
-            if self.check_mutex(pattern=indicator, regex=True):
+            match = self.check_mutex(pattern=indicator, regex=True, all=True)
+            if match:
+                for rematch in match:
+                    self.data.append({"mutex": rematch})
                 return True
 
         return False
@@ -73,16 +74,15 @@ class RemcosRegkeys(Signature):
     minimum = "0.5"
 
     def run(self):
-        remcos_keys = False
-
         indicators = [
             ".*\\\\Software\\\\Remcos-[A-Z0-9]{6}.*",
+            ".*\\\\Software\\\\remcos[-_].*",
         ]
 
         for indicator in indicators:
             match = self.check_key(pattern=indicator, regex=True)
             if match:
                 self.data.append({"Key": match})
-                remcos_keys = True
+                return True
 
-        return remcos_keys 
+        return False

@@ -1,3 +1,7 @@
+### [22-01-2020]
+* Add qemu.py with support for x64/x86/MIPS/MIPSEL/ARM/ARMWRT/ARM64/PowerPC/PowerPC64/Sparc/Sparc64
+* Linux integration is coming :)
+
 ### [17-01-2020]
 * Bson data compression to remove api spamming, [details](http://security.neurolabs.club/2019/12/inline-loop-detection-for-compressing.html), thanks @mabj
 * Many bug fixes in cleaners.py, thanks @Enzok

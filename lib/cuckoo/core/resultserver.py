@@ -46,14 +46,15 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'memory', b'shots', b'sysmon', b'procdump')
+RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'shots',
+                     b'sysmon', b'stap', b'procdump', b'debugger')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
     dir_part, name = os.path.split(path)
-    if dir_part not in RESULT_UPLOADABLE:
+    if dir_part not in RESULT_DIRECTORIES:
         raise CuckooOperationalError("Netlog client requested banned path: %r"
                                      % path)
     if any(c in BANNED_PATH_CHARS for c in name):
@@ -321,7 +322,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'procdump')
+        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'stap', 'procdump')
 
         for folder in folders:
             try:

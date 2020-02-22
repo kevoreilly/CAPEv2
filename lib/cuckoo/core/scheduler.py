@@ -22,10 +22,9 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
-from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED
+from lib.cuckoo.core.database import Database, TASK_COMPLETED
 from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary, RunProcessing
-from lib.cuckoo.core.plugins import RunSignatures, RunReporting, GetFeeds
+from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import convert_to_printable
@@ -153,7 +152,7 @@ class AnalysisManager(threading.Thread):
         """Acquire an analysis machine from the pool of available ones."""
         machine = None
 
-        # Start a loop to acquire the a machine to run the analysis on.
+        # Start a loop to acquire a machine to run the analysis on.
         while True:
             machine_lock.acquire()
 
@@ -178,9 +177,8 @@ class AnalysisManager(threading.Thread):
                 log.debug("Task #{0}: no machine available yet".format(self.task.id))
                 time.sleep(1)
             else:
-                log.info("Task #{0}: acquired machine {1} (label={2})".format(
-                             self.task.id, machine.name, machine.label)
-                        )
+                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(
+                    self.task.id, machine.name, machine.label, machine.platform))
                 break
 
         self.machine = machine

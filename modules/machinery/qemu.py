@@ -1,7 +1,7 @@
 # Copyright (C) 2015-2017 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
+from __future__ import absolute_import
 import os
 import time
 import logging
@@ -9,11 +9,12 @@ import subprocess
 import os.path
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import config
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
 
 log = logging.getLogger(__name__)
+cfg = Config()
 
 # this whole semi-hardcoded commandline thing is not the best
 #  but in the config files we can't do arrays etc so we'd have to parse the
@@ -325,7 +326,7 @@ class QEMU(Machinery):
 
         stop_me = 0
         while proc.poll() is None:
-            if stop_me < config("cuckoo:timeouts:vm_state"):
+            if stop_me < cfg.cuckoo.timeouts.vm_state:
                 time.sleep(1)
                 stop_me += 1
             else:
@@ -333,7 +334,7 @@ class QEMU(Machinery):
                 proc.terminate()
                 time.sleep(1)
 
-        # if proc.returncode != 0 and stop_me < config("cuckoo:timeouts:vm_state"):
+        # if proc.returncode != 0 and stop_me < cfg.cuckoo.timeouts.vm_state:
         #     log.debug("QEMU exited with error powering off the machine")
 
         self.state[vm_info.name] = None

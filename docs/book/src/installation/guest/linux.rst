@@ -71,14 +71,14 @@ Install kernel debugging symbols::
 Patch the SystemTap tapset, so that the CAPE analyzer can properly parse the
 output::
 
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/data/systemtap/expand_execve_envp.patch
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/data/systemtap/escape_delimiters.patch
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/expand_execve_envp.patch
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/escape_delimiters.patch
     $ sudo patch /usr/share/systemtap/tapset/linux/sysc_execve.stp < expand_execve_envp.patch
     $ sudo patch /usr/share/systemtap/tapset/uconversions.stp < escape_delimiters.patch
 
 Compile the kernel extension::
 
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/data/systemtap/strace.stp
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/strace.stp
     $ sudo stap -p4 -r $(uname -r) strace.stp -m stap_ -v
 
 Once the compilation finishes you should see the file ``stap_.ko`` in the same

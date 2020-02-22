@@ -255,7 +255,7 @@ class QEMU(Machinery):
                 proc = subprocess.Popen([
                     self.qemu_img, "create", "-f", "qcow2",
                     "-b", vm_options.image, snapshot_path
-                ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                ], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output, err = proc.communicate()
                 if err:
                     raise OSError(err)
@@ -301,7 +301,7 @@ class QEMU(Machinery):
 
         try:
             proc = subprocess.Popen(
-                final_cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                final_cmdline,  universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError(

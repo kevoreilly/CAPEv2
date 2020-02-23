@@ -1358,7 +1358,8 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
-    def check_file_uniq(sha256):
+    @classlock
+    def check_file_uniq(self, sha256):
         if not Database.find_sample(sha256=sha256) is None:
             return False
         else:

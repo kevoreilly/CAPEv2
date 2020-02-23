@@ -29,18 +29,18 @@ cuckoo_conf = Config()
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 
 demux_extensions_list = [
-    "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm", ".html", ".hta",
-        ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse", ".vbs", ".vbe",
-        ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw",
-        ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm", ".wsf",
+    "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
+    ".html", ".hta", ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse",
+    ".vbs", ".vbe", ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll",
+    ".xlw", ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm",
+    ".wsf", ".bat", ".ps1", ".sh", ".pl",
 ]
 
-whitelist_extensions = (
-    "doc", "xls", "ppt", "pub", "jar",
-)
+whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
 
 def options2passwd(options):
@@ -58,9 +58,9 @@ def options2passwd(options):
 
     return password
 
+
 def demux_office(filename, password):
     retlist = []
-
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
     if not os.path.exists(target_path):
@@ -86,6 +86,7 @@ def demux_office(filename, password):
 
 def is_valid_type(magic):
     # check for valid file types and don't rely just on file extentsion
+    VALID_TYPES.extend(VALID_LINUX_TYPES)
     for ftype in VALID_TYPES:
         if ftype in magic:
             return True
@@ -131,6 +132,7 @@ def demux_sflock(filename, options):
 
     return retlist
 
+
 def demux_sample(filename, package, options):
     """
     If file is a ZIP, extract its included files and return their file paths
@@ -143,9 +145,11 @@ def demux_sample(filename, package, options):
 
     # don't try to extract from office docs
     magic = File(filename).get_type()
+
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
-        if "Outlook" in magic or "Message" in magic:
+        ignore = ["Outlook", "Message", "Disk Image"]
+        if any(x in magic for x in ignore):
             pass
         elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
             password = False
@@ -161,6 +165,8 @@ def demux_sample(filename, package, options):
     if "Java Jar" in magic:
         return [filename]
     if "PE32" in magic or "MS-DOS executable" in magic:
+        return [filename]
+    if any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
     retlist = list()

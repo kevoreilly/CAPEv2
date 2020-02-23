@@ -572,6 +572,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
+            tmp_path = store_temp_file(sample.read(), sample.name)
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
@@ -587,7 +588,6 @@ def tasks_create_file(request):
             if len(request.FILES.getlist("file")) > 1:
                 resp["warning"] = ("Multi-file API submissions disabled - "
                                    "Accepting first file")
-            tmp_path = store_temp_file(sample.read(), sample.name)
             if pcap:
                 if sample.name.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)

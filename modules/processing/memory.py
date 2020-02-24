@@ -900,7 +900,8 @@ class VolatilityAPI(object):
                 for att_device in device.attached_devices():
                     device_header = obj.Object(
                         "_OBJECT_HEADER",
-                        offset=att_device.obj_offset - att_device.obj_vm.profile.get_obj_offset("_OBJECT_HEADER", "Body"),
+                        offset=att_device.obj_offset - att_device.obj_vm.profile.get_obj_offset("_OBJECT_HEADER",
+                         "Body"),
                         vm=att_device.obj_vm,
                         native_vm=att_device.obj_native_vm
                     )
@@ -1205,6 +1206,81 @@ class VolatilityManager(object):
             f.close()
 '''
 
+class VolatilityManager(object):
+    """Handle several volatility results."""
+
+    def __init__(self, memfile):
+        self.mask_pid = []
+        self.taint_pid = set()
+        self.memfile = memfile
+
+        conf_path = os.path.join(CUCKOO_ROOT, "conf", "memory.conf")
+        if not os.path.exists(conf_path):
+            log.error("Configuration file memory.conf not found")
+            self.voptions = False
+            return
+
+        self.voptions = Config("memory")
+
+        if isinstance(self.voptions.mask.pid_generic, int):
+            self.mask_pid.append(self.voptions.mask.pid_generic)
+        else:
+            for pid in self.voptions.mask.pid_generic.split(","):
+                pid = pid.strip()
+                if pid:
+                    self.mask_pid.append(int(pid))
+
+        self.no_filter = not self.voptions.mask.enabled
+
+    def run(self, manager=None, vm=None):
+        results = dict()
+        self.key = "memory"
+
+        # Exit if options were not loaded.
+        if not self.voptions:
+            return
+
+        self.do_strings()
+        self.cleanup()
+
+        return results
+
+    def do_strings(self):
+        if self.voptions.basic.dostrings:
+            try:
+                data = open(self.memfile, "rb").read()
+            except (IOError, OSError) as e:
+                raise CuckooProcessingError("Error opening file %s" % e)
+
+            nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
+            minchars = self.voptions.basic.get("strings_minchars", 5)
+
+            if nulltermonly:
+                apat = "([\x20-\x7e]{" + str(minchars) + ",})\x00"
+                upat = "((?:[\x20-\x7e][\x00]){" + str(minchars) + ",})\x00\x00"
+            else:
+                apat = "[\x20-\x7e]{" + str(minchars) + ",}"
+                upat = "(?:[\x20-\x7e][\x00]){" + str(minchars) + ",}"
+
+            strings = re.findall(apat, data)
+            for ws in re.findall(upat, data):
+                strings.append(str(ws.decode("utf-16le")))
+            f = open(self.memfile + ".strings", "w")
+            f.write("\n".join(strings))
+            f.close()
+
+    def cleanup(self):
+        """Delete the memory dump (if configured to do so)."""
+
+        if self.voptions.basic.delete_memdump:
+            for memfile in (self.memfile, self.memfile+".zip"):
+                try:
+                    os.remove(memfile)
+                except OSError:
+                    log.error("Unable to delete memory dump file at path \"%s\" ", memfile)
+
+
+
 class Memory(Processing):
     """Volatility Analyzer."""
 
@@ -1227,6 +1303,8 @@ class Memory(Processing):
             if self.memory_path and os.path.exists(self.memory_path):
                 try:
                     vol = VolatilityManager(self.memory_path)
+                    # results returned are empty until vol3 is complete, strings output will be written if configured
+                    # memory dump file will be handled as configured
                     results = vol.run(manager=machine_manager, vm=task_machine)
                 except Exception:
                     log.exception("Generic error executing volatility")

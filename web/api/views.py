@@ -984,7 +984,6 @@ def tasks_vtdl(request):
                                                   "base directory"}
             return jsonize(resp, response=True)
         else:
-            base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
             hashlist = []
             if "," in vtdl:
                 hashlist = vtdl.replace(" ", "").strip().split(",")
@@ -993,6 +992,7 @@ def tasks_vtdl(request):
             params = {}
             headers = {}
             for h in hashlist:
+                base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:

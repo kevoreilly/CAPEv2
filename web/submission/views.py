@@ -540,7 +540,6 @@ def index(request, resubmit_hash=False):
                                   {"error": "You specified VirusTotal but must edit the file and specify your "
                                             "VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH base directory"})
             else:
-                base_dir = tempfile.mkdtemp(prefix='cuckoovtdl', dir=settings.VTDL_PATH)
                 hashlist = []
                 if "," in vtdl:
                     hashlist = [_f for _f in vtdl.replace(" ", "").strip().split(",") if _f]
@@ -548,6 +547,7 @@ def index(request, resubmit_hash=False):
                     hashlist.append(vtdl)
 
                 for h in hashlist:
+                    base_dir = tempfile.mkdtemp(prefix='cuckoovtdl', dir=settings.VTDL_PATH)
                     task_ids_tmp = list()
                     if opt_filename:
                         filename = base_dir + "/" + opt_filename

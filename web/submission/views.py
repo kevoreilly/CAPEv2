@@ -155,6 +155,7 @@ def index(request, resubmit_hash=False):
         package = request.POST.get("package", "")
         timeout = min(force_int(request.POST.get("timeout")), 60 * 60 * 24)
         options = request.POST.get("options", "")
+        lin_options = request.POST.get("lin_options", "")
         priority = force_int(request.POST.get("priority"))
         machine = request.POST.get("machine", "")
         clock = request.POST.get("clock", datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
@@ -173,6 +174,8 @@ def index(request, resubmit_hash=False):
             return render(request, "error.html",
                 {"error": "Check Tags help, you have introduced incorrect tag(s)"})
 
+        if lin_options:
+            options = lin_options
         # This is done to remove spaces in options but not breaks custom paths
         options = ','.join('='.join(value.strip() for value in option.split("=", 1)) for option in options.split(",")
                            if option and '=' in option)

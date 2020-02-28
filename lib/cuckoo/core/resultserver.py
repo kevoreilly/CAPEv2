@@ -201,7 +201,7 @@ class FileUpload(ProtocolHandler):
             raise
         #ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(json.dumps({
@@ -322,7 +322,8 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'stap', 'procdump')
+        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon',
+                   'stap', 'procdump', 'debugger')
 
         for folder in folders:
             try:

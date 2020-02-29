@@ -247,6 +247,9 @@ class Analyzer:
         # Set virtual machine clock.
         set_clock(datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S"))
 
+        # Output key info to analysis log
+        log.info("Date set to: {0}, time set to: {1}, timeout set to: {2}".format(thedate, thetime, self.config.timeout))
+
         # Set the DLL to be used by the PipeHandler.
         MONITOR_DLL = self.options.get("dll")
         MONITOR_DLL_64 = self.options.get("dll_64")
@@ -624,38 +627,39 @@ class Analyzer:
                 # Zzz.
                 KERNEL32.Sleep(1000)
 
+        # Tell all processes to complete their monitoring
+        if not kernel_analysis:
+            for pid in self.process_list.pids:
+                proc = Process(pid=pid)
+                if proc.is_alive():
+                    try:
+                        proc.set_terminate_event()
+                    except:
+                        log.error("Unable to set terminate event for process %d.", proc.pid)
+                        continue
+                    log.info("Terminate event set for process %d.", proc.pid)
+                if self.config.terminate_processes:
+                    # Try to terminate remaining active processes.
+                    # (This setting may render full system memory dumps less useful!)
+                    if proc.is_alive() and not pid in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
+                        log.info("Terminating process %d before shutdown.", proc.pid)
+                        proc_counter = 0
+                        while proc.is_alive():
+                            if proc_counter > 5:
+                                try:
+                                    proc.terminate()
+                                except:
+                                    continue
+                            log.info("Waiting for process %d to exit.", proc.pid)
+                            KERNEL32.Sleep(1000)
+                            proc_counter += 1
+
         # Create the shutdown mutex.
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)
         log.info("Created shutdown mutex.")
         # since the various processes poll for the existence of the mutex, sleep
         # for a second to ensure they see it before they're terminated
         KERNEL32.Sleep(1000)
-
-        if self.config.terminate_processes:
-            # Tell all processes to complete their monitoring
-            if not kernel_analysis:
-                #for pid in PROCESS_LIST:
-                for pid in self.process_list.pids:
-                    proc = Process(pid=pid)
-                    if proc.is_alive() and not pid in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
-                        log.info("Setting terminate event for process %d.", proc.pid)
-                        try:
-                            proc.set_terminate_event()
-                        except:
-                            log.error("Unable to set terminate event for process %d.", proc.pid)
-                            continue
-                        log.info("Terminate event set for process %d.", proc.pid)
-                        proc_counter = 0
-                        while proc.is_alive():
-                            if proc_counter > 5:
-                                try:
-                                    if not proc.is_critical():
-                                        proc.terminate()
-                                except:
-                                    continue
-                            log.info("Waiting for process %d to exit.", proc.pid)
-                            KERNEL32.Sleep(1000)
-                            proc_counter += 1
 
         log.info("Shutting down package.")
         try:

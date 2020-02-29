@@ -1,3 +1,7 @@
+### [29-02-2020]
+* SIGHUP handling to stop submitting tasks and stop cuckoo.py, useful for when you need to reload it without breaking running jobs
+    * `ps aux|grep "python3 cuckoo.py"|cut -d" " -f 5| xargs kill -1`
+
 ### [22-01-2020]
 * Add qemu.py with support for x64/x86/MIPS/MIPSEL/ARM/ARMWRT/ARM64/PowerPC/PowerPC64/Sparc/Sparc64
 * Basic linux integration is done thanks to @enzok

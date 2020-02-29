@@ -7,6 +7,7 @@ import os
 import gc
 import time
 import shutil
+import signal
 import logging
 import threading
 import queue
@@ -624,6 +625,10 @@ class Scheduler:
         self.maxcount = maxcount
         self.total_analysis_count = 0
 
+    def set_stop_analyzing(self, signum, stack):
+        self.running = False
+        log.info("Now wait till all running tasks are completed")
+
     def initialize(self):
         """Initialize the machine manager."""
         global machinery, machine_lock
@@ -714,6 +719,9 @@ class Scheduler:
         self.initialize()
 
         log.info("Waiting for analysis tasks.")
+
+        #To handle stop analyzing when we need to restart process without break tasks
+        signal.signal(signal.SIGHUP, self.set_stop_analyzing)
 
         # Message queue with threads to transmit exceptions (used as IPC).
         errors = queue.Queue()

@@ -32,7 +32,7 @@ class MedusaLockerMutexes(Signature):
         ]
 
         for indicator in indicators:
-            match = self.check_mutex(pattern=indicator, regex=True, all=True)
+            match = self.check_mutex(pattern=indicator, regex=True)
             if match:
                 self.data.append({"mutex": match})
                 return True
@@ -55,7 +55,7 @@ class MedusaLockerRegkeys(Signature):
         ]
 
         for indicator in indicators:
-            match = self.check_key(pattern=indicator, regex=True, all=True)
+            match = self.check_key(pattern=indicator, regex=True)
             if match:
                 self.data.append({"regkey": match})
                 return True

@@ -35,7 +35,8 @@ class NetworkTempFileService(Signature):
             "uploadfiles.io",
             "sendpace.com",
             "filedropper.com",
-            "myairbridge.com"
+            "myairbridge.com",
+            "u.teknik.io",
         ]
 
         found_matches = False

@@ -480,7 +480,8 @@ class Process:
 
     def write_monitor_config(self, interest=None, nosleepskip=False):
 
-        config_path = "C:\\%s.ini" % self.pid
+        config_path = format(os.getcwd()) + "\\dll\\%s.ini" % self.pid
+        log.info("Monitor config for process %s: %s", self.pid, config_path)
 
         with open(config_path, "w", encoding="utf-8") as config:
             # start the logserver for this monitored process

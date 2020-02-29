@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import os
 import ctypes
 import logging
+from datetime import datetime
 
 from lib.common.constants import PATHS
 from lib.common.results import NetlogHandler
@@ -43,7 +44,11 @@ def disconnect_logger():
     """Cleanly close the logger. Note that LogHandler also implements close."""
     netlog_handler.close()
 
-def set_clock(clock):
+def set_clock(clock, timeout):
+    # Output key info to analysis log
+    log.info("Date set to: {0}, timeout set to: {1}".format(clock, timeout))
+
+    clock = datetime.strptime(clock, "%Y%m%dT%H:%M:%S")
     st = SYSTEMTIME()
     st.wYear = clock.year
     st.wMonth = clock.month

@@ -245,14 +245,7 @@ class Analyzer:
         self.config.logpipe = LOGSERVER_PREFIX#self.get_pipe_path(random_string(16, 32))
 
         # Set virtual machine clock.
-        clock = datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
-        set_clock(clock)
-
-        thedate = clock.strftime("%m-%d-%y")
-        thetime = clock.strftime("%H:%M:%S")
-
-        # Output key info to analysis log
-        log.info("Date set to: {0}, time set to: {1}, timeout set to: {2}".format(thedate, thetime, self.config.timeout))
+        set_clock(self.config.clock, self.config.timeout)
 
         # Set the DLL to be used by the PipeHandler.
         MONITOR_DLL = self.options.get("dll")

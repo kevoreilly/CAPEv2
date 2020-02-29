@@ -306,7 +306,7 @@ class GuestManager(object):
             self.post("/store", files=files, data=data)
 
         #Debug analyzer.py in vm
-        if "CUCKOO_DBG" in os.environ:
+        if "CAPE_DBG" in os.environ:
             while True:
                 pass
 

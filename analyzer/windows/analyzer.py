@@ -541,9 +541,6 @@ class Analyzer:
         time_start = datetime.now()
         kernel_analysis = self.options.get("kernel_analysis", False)
 
-        if kernel_analysis is False:
-            kernel_analysis = True
-
         emptytime = None
 
         while self.do_run:
@@ -579,7 +576,7 @@ class Analyzer:
                                 else:
                                     log.info("procdump not enabled")
                                 log.info("Process with pid %s has terminated", pid)
-                                if pid in self.process_list:
+                                if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
                             else:
                                 log.info("process not alive")
@@ -598,9 +595,7 @@ class Analyzer:
                     # Update the list of monitored processes available to the
                     # analysis package. It could be used for internal
                     # operations within the module.
-                    pack.set_pids(PROCESS_LIST)
-                    #ToDo
-                    #self.package.set_pids(self.process_list.pids)
+                    pack.set_pids(self.process_list.pids)
 
                 try:
                     # The analysis packages are provided with a function that
@@ -694,34 +689,6 @@ class Analyzer:
             except Exception as e:
                 log.warning("Cannot terminate auxiliary module %s: %s",
                             aux.__class__.__name__, e)
-
-        # Tell all processes to complete their monitoring
-        if not kernel_analysis:
-            for pid in self.process_list.pids:
-                proc = Process(pid=pid)
-                if proc.is_alive() and not pid in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
-                    try:
-                        proc.set_terminate_event()
-                    except:
-                        log.error("Unable to set terminate event for process %d.", proc.pid)
-                        continue
-                    log.info("Terminate event set for process %d.", proc.pid)
-                if self.config.terminate_processes:
-                    # Try to terminate remaining active processes.
-                    # (This setting may render full system memory dumps less useful!)
-                    if not pid in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
-                        log.info("Terminating process %d before shutdown.", proc.pid)
-                        proc_counter = 0
-                        while proc.is_alive():
-                            if proc_counter > 3:
-                                try:
-                                    proc.terminate()
-                                except:
-                                    continue
-                            log.info("Waiting for process %d to exit.", proc.pid)
-                            KERNEL32.Sleep(1000)
-                            proc_counter += 1
-
 
         log.info("Finishing auxiliary modules.")
         # Run the finish callback of every available Auxiliary module.

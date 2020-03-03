@@ -77,20 +77,19 @@ class PEGroupIconDir(object):
         self.icondir = None
         self.icons = None
         if len(self.data) >= sizeof(GRPICONDIR):
-            #cstring = create_string_buffer(self.data[:sizeof(GRPICONDIR)])
-            cstring = create_unicode_buffer(self.data[:sizeof(GRPICONDIR)])
+            cstring = create_string_buffer(bytes(self.data[:sizeof(GRPICONDIR)]))
             self.icondir = cast(pointer(cstring), POINTER(GRPICONDIR)).contents
             if len(self.data) >= sizeof(GRPICONDIR) + self.icondir.idCount * sizeof(GRPICONDIRENTRY):
                 self.icons = []
                 for i in range(self.icondir.idCount):
                     startoff = sizeof(GRPICONDIR) + (i * sizeof(GRPICONDIRENTRY))
                     #cstring = create_string_buffer(self.data[startoff:startoff+sizeof(GRPICONDIRENTRY)])
-                    cstring = create_unicode_buffer(
-                        self.data[startoff:startoff+sizeof(GRPICONDIRENTRY)])
+                    cstring = create_string_buffer(
+                        bytes(self.data[startoff:startoff+sizeof(GRPICONDIRENTRY)]))
                     self.icons.append(cast(pointer(cstring), POINTER(GRPICONDIRENTRY)).contents)
 
     def get_icon_file(self, idx, data):
-        retstr = ""
+        retstr = b""
         icodir = ICONDIR()
         icodir.idReserved = 0
         icodir.idType = 1

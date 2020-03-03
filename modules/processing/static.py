@@ -15,7 +15,7 @@ import base64
 import hashlib
 import binascii
 from PIL import Image
-from io import StringIO
+from io import StringIO, BytesIO
 from subprocess import Popen, PIPE
 from datetime import datetime, date, time, timedelta
 
@@ -631,12 +631,12 @@ class PortableExecutable(object):
                     size = entry.directory.entries[0].data.struct.Size
                     icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset:offset+size])
 
-                    strio = StringIO()
-                    output = StringIO()
+                    byteio = BytesIO()
+                    output = BytesIO()
 
-                    strio.write(icon)
-                    strio.seek(0)
-                    img = Image.open(strio)
+                    byteio.write(icon)
+                    byteio.seek(0)
+                    img = Image.open(byteio)
                     img.save(output, format="PNG")
 
                     img = img.resize((8,8), Image.BILINEAR)
@@ -652,7 +652,7 @@ class PortableExecutable(object):
                     m = hashlib.md5()
                     m.update(simplified)
                     simphash = m.hexdigest()
-                    return base64.b64encode(output.getvalue()), fullhash, simphash
+                    return base64.b64encode(output.getvalue()).decode("utf-8"), fullhash, simphash
         except Exception as e:
             log.error(e, exc_info=True)
             pass

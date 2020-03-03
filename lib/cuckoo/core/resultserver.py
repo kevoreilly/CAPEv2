@@ -242,10 +242,6 @@ class LogHandler(ProtocolHandler):
 
 class BsonStore(ProtocolHandler):
     def init(self):
-        # We cheat a little bit through the "version" variable, but that's
-        # acceptable and backwards compatible (for now). Backwards compatible
-        # in the sense that newer Cuckoo Monitor binaries work with older
-        # versions of Cuckoo, the other way around doesn't apply here.
         if self.version is None:
             log.warning("Agent is sending BSON files without PID parameter, "
                         "you should probably update it")
@@ -258,7 +254,7 @@ class BsonStore(ProtocolHandler):
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream.", self.task_id)
+        log.debug("Task #%s is sending a BSON stream. For pid %d" % (self.task_id, self.version)
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)

@@ -658,12 +658,14 @@ class StatusThread(threading.Thread):
                     tasks = db.query(Task).filter_by(main_task_id=t.id).all()
                     if tasks:
                         for task in tasks:
-                            print(task.id, task.task_id,
-                                  task.main_task_id, task.node_id)
-                            log.info(
-                                "Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
-                            db.delete(task)
-                            db.commit()
+                            print(task.id, task.task_id,task.main_task_id, task.node_id)
+                            #log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
+                            #db.delete(task)
+                            #db.commit()
+                            if node.name == "master":
+                                main_db.set_status(t.id, TASK_RUNNING)
+                            else:
+                                main_db.set_status(t.id, TASK_DISTRIBUTED)
                         continue
 
                     # Check if file exist, if no wipe from db and continue, rare cases

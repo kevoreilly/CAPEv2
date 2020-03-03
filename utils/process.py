@@ -2,7 +2,6 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
 from __future__ import absolute_import
 import os
 import gc
@@ -14,10 +13,16 @@ import argparse
 import signal
 import multiprocessing
 
-if sys.version_info[:2] < (3, 5):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+
+try:
+    import pebble
+except ImportError:
+    sys.exit("Missed dependency: pip3 install Pebble")
 
 log = logging.getLogger()
+
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
@@ -27,6 +32,7 @@ from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
 from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
 from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
+from concurrent.futures import TimeoutError
 
 cfg = Config()
 repconf = Config("reporting")
@@ -47,6 +53,9 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
          timeout = 60
      )
 
+pending_future_map = {}
+pending_task_id_map = {}
+
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -56,23 +65,18 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (1) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (2) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
-
     RunProcessing(task=task_dict, results=results).run()
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (3) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
 
     RunSignatures(task=task_dict, results=results).run()
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (4) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
@@ -175,33 +179,44 @@ def init_logging(auto=False, tid=0, debug=False):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory_debugging=False):
+def processing_finished(future):
+    task_id=pending_future_map.get(future)
+    try:
+        result = future.result()
+        log.info("Task #%d: reports generation completed", task_id)
+    except TimeoutError as error:
+        log.error("Processing Timeout %s", error)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    except pebble.ProcessExpired as error:
+        log.error("Exception when processing task %s: %s, Exitcode: %d", task_id, error)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    except Exception as error:
+        log.error("Exception when processing task %s: %s %s", task_id, error)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    #except TimeoutError as error:
+    #    log.error("Processing Timeout %s", error)
+    #    Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    #except Exception as error:
+    #    log.error("Exception when processing task %s: %s", task_id, error)
+    #    Database().set_status(task_id, TASK_FAILED_PROCESSING)
+
+    del(pending_future_map[future])
+    del(pending_task_id_map[task_id])
+
+def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
-    pool = multiprocessing.Pool(parallel, init_worker, maxtasksperchild=maxtasksperchild)
-    pending_results = []
+    #pool = multiprocessing.Pool(parallel, init_worker)
+    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
 
     try:
+        log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
-
-            # Pending_results maintenance.
-            for ar, tid, target, copy_path in list(pending_results):
-                if ar.ready():
-                    if ar.successful():
-                        log.info("Task #%d: reports generation completed", tid)
-                    else:
-                        try:
-                            ar.get()
-                        except:
-                            log.exception("Exception when processing task ID %u.", tid)
-                            db.set_status(tid, TASK_FAILED_PROCESSING)
-
-                    pending_results.remove((ar, tid, target, copy_path))
-
+​
             # If still full, don't add more (necessary despite pool).
-            if len(pending_results) >= parallel:
+            if len(pending_task_id_map) >= parallel:
                 time.sleep(5)
                 continue
 
@@ -213,37 +228,32 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
             else:
                 tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel,
                                   order_by=Task.completed_on.asc())
-
             added = False
             # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
             for task in tasks:
                 # Not-so-efficient lock.
-                if task.id in [tid for ar, tid, target, copy_path in pending_results]:
+                if pending_task_id_map.get(task.id):
                     continue
-
                 log.info("Processing analysis data for Task #%d", task.id)
-
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
-
                     copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
                 else:
                     copy_path = None
-
                 args = task.target, copy_path
                 kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-
                 if memory_debugging:
                     gc.collect()
                     log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                result = pool.apply_async(process, args, kwargs)
-
+                #result = pool.apply_async(process, args, kwargs)
+                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                pending_future_map[future]=task.id
+                pending_task_id_map[task.id]=future
+                future.add_done_callback(processing_finished)
                 if memory_debugging:
                     gc.collect()
                     log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-
-                pending_results.append((result, task.id, task.target, copy_path))
 
                 count += 1
                 added = True
@@ -261,7 +271,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
         import traceback
         traceback.print_exc()
     finally:
-        pool.terminate()
+        pool.close()
         pool.join()
 
 def main():
@@ -275,14 +285,14 @@ def main():
     parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
     parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7)
     parser.add_argument("-md", "--memory-debugging", help="Enable logging garbage collection related info", action="store_true", required=False, default=False)
+    parser.add_argument("-pt", "--processing-timeout", help="Max amount of time spent in processing before we fail a task", action="store", type=int, required=False, default=300)
     args = parser.parse_args()
 
     init_yara()
     init_modules()
-
     if args.id == "auto":
         init_logging(auto=True, debug=args.debug)
-        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing, maxtasksperchild=args.maxtasksperchild, memory_debugging=args.memory_debugging)
+        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing, maxtasksperchild=args.maxtasksperchild, memory_debugging=args.memory_debugging, processing_timeout=args.processing_timeout)
     else:
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id)):
             sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
@@ -300,7 +310,6 @@ def main():
             process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
 
 if __name__ == "__main__":
-
     try:
         main()
     except KeyboardInterrupt:

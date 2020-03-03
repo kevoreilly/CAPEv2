@@ -911,12 +911,12 @@ def file(request, category, task_id, dlfile):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
         elif category.startswith("memdumpzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name+".dmp")
-            file_name += ".dmp"
+            file_name += ".dmp.zip"
         TMPDIR = "/tmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             try:
                 print(file_name, path)
-                cmd = ["7z", "a", "-y", "-pinfected", os.path.join(TMPDIR, file_name), path]
+                cmd = ["7z", "a", "-y", "-pinfected", os.path.join(TMPDIR, file_name+".zip"), path]
                 _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 output = e.output

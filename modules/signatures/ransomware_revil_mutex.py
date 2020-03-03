@@ -30,7 +30,7 @@ class RevilMutexes(Signature):
             "^(Global|Local)\\\\1DB960B8-E5C3-F077-5D68-EEE2E637EE0B$",
             "^(Global|Local)\\\\206D87E0-0E60-DF25-DD8F-8E4E7D1E3BF0$",
             "^(Global|Local)\\\\3555A3D6-37B3-0919-F7BE-F3AAB5B6644A$",
-            "^(Global|Local)\\\\552FFA80-3393-423d-8671-7BA046BB5906$",
+            #"^(Global|Local)\\\\552FFA80-3393-423d-8671-7BA046BB5906$",
             "^(Global|Local)\\\\6CAC559B-02B4-D929-3675-2706BBB8CF66$",
             "^(Global|Local)\\\\859B4E91-BAF1-3DBB-E616-E9E99E851136$",
             "^(Global|Local)\\\\879EBE58-4C9F-A6BE-96A3-4C51826CEC2F$",

@@ -72,7 +72,6 @@ UPX                  = 0x1000
 
 log = logging.getLogger(__name__)
 
-
 code_mapping = {
     PLUGX_PAYLOAD: "PlugX Payload",
     EVILGRAB_PAYLOAD: "EvilGrab Payload",
@@ -418,7 +417,6 @@ class CAPE(Processing):
 
         # Process CAPE Yara hits
         for hit in file_info["cape_yara"]:
-            log.info("LOADed CAPE.py IN process_file CAPE Yara hit! %s"%hit)
             # Check to see if file is packed with UPX
             if hit["name"] == "UPX":
                 log.info("CAPE: Found UPX Packed sample - attempting to unpack")
@@ -456,9 +454,9 @@ class CAPE(Processing):
         if cape_name:
             if "cape_config" in cape_config and "cape_name" not in cape_config:
                 cape_config["cape_name"] = format(cape_name)
-            if not "cape" in self.results:
+            if not "detections" in self.results:
                 if cape_name != "UPX":
-                    self.results["cape"] = cape_name
+                    self.results["detections"] = cape_name
 
         # Remove duplicate payloads from web ui
         for cape_file in CAPE_output:
@@ -522,7 +520,6 @@ class CAPE(Processing):
                 raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
 
         self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
-        log.info("cape_config %s"%cape_config)
         if "cape_config" in cape_config:
             CAPE_output.append(cape_config)
         

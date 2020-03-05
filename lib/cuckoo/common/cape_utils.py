@@ -171,20 +171,23 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                             log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
                 reporter._Reporter__cleanup()
                 del reporter
-            except (ImportError, IndexError, TypeError) as e: # add TypeError
+            except (ImportError, IndexError, TypeError) as e:
                 log.error(e)
 
             if not parser_loaded and cape_name in malware_parsers:
                 parser_loaded = True
                 try:
-                    cape_configraw = malware_parsers[cape_name].config(file_data) # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+                    #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+                    cape_configraw = malware_parsers[cape_name].config(file_data)
                     if isinstance(cape_configraw, list):
                         for (key, value) in cape_configraw[0].items():
-                            if isinstance(value, map): value = list(value) #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            if isinstance(value, map): value = list(value)
                             cape_config["cape_config"].update({key: [value]})
                     elif isinstance(cape_configraw, dict):
                         for (key, value) in cape_configraw.items():
-                            if isinstance(value, map): value = list(value) #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            if isinstance(value, map): value = list(value)
                             cape_config["cape_config"].update({key: [value]})
                 except Exception as e:
                     log.error("CAPE: parsing error with %s: %s", cape_name, e)

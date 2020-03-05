@@ -8,11 +8,6 @@ If you use VirtualBox with e.g. host-only interfaces and you have a
 
 .. This has not been tested recently:
 
-If you use QEMU, you may need to install additional
-dependencies on the host::
-
-    $ sudo apt install uml-utilities bridge-utils
-
 Sparc and PowerPC dependencies::
     $ sudo apt-get install openbios-spark openbios-ppc
 
@@ -23,12 +18,12 @@ For example, ``ubuntu_x32``, ``ubuntu_x64``, ``ubuntu_arm``, ``ubuntu_mips``,
 For each VM, preconfigure a network tap interfaces on the host, required to
 avoid have to start as root, e.g.::
 
-    $ sudo tunctl -b -u cape -t tap_ubuntu_x32
+    $ sudo ip tuntap add dev tap_ubuntu_x32 mode tap user cape
     $ sudo ip link set tap_ubuntu_x32 master br0
     $ sudo ip link set dev tap_ubuntu_x32 up
     $ sudo ip link set dev br0 up
 
-    $ sudo tunctl -b -u cape -t tap_ubuntu_x64
+    $ sudo ip tuntap add dev tap_ubuntu_x64 mode tap user cape
     $ sudo ip link set tap_ubuntu_x64 master br0
     $ sudo ip link set dev tap_ubuntu_x64 up
     $ sudo ip link set dev br0 up
@@ -71,14 +66,14 @@ Install kernel debugging symbols::
 Patch the SystemTap tapset, so that the CAPE analyzer can properly parse the
 output::
 
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/expand_execve_envp.patch
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/escape_delimiters.patch
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/master/extra/systemtap/expand_execve_envp.patch
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/master/extra/systemtap/escape_delimiters.patch
     $ sudo patch /usr/share/systemtap/tapset/linux/sysc_execve.stp < expand_execve_envp.patch
     $ sudo patch /usr/share/systemtap/tapset/uconversions.stp < escape_delimiters.patch
 
 Compile the kernel extension::
 
-    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/tree/master/extra/systemtap/strace.stp
+    $ wget https://raw.githubusercontent.com/kevoreilly/CAPEv2/master/extra/systemtap/strace.stp
     $ sudo stap -p4 -r $(uname -r) strace.stp -m stap_ -v
 
 Once the compilation finishes you should see the file ``stap_.ko`` in the same

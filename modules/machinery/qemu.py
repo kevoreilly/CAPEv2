@@ -43,7 +43,7 @@ QEMU_ARGS = {
             "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
         ],
         "params": {
-            "kernel": "{imagepath}/vmlinux-3.2.0-4-4kc-malta-mipsel",
+            "kernel": "{imagepath}/vmlinux-4.19.0-8-4kc-malta-mipsel",
         }
     },
     "mips": {
@@ -54,10 +54,10 @@ QEMU_ARGS = {
             "-hda", "{snapshot_path}",
             "-append", "root=/dev/sda1 console=tty0",
             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-            "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
-            "kernel": "{imagepath}/vmlinux-3.2.0-4-4kc-malta-mips",
+            "kernel": "{imagepath}/vmlinux-4.19.0-8-4kc-malta",
             "machine": "",
         }
     },
@@ -68,7 +68,8 @@ QEMU_ARGS = {
             "-kernel", "{kernel}",
             "-drive", "if=sd,cache=unsafe,file={snapshot_path}",
             "-append", "console=ttyAMA0 root=/dev/mmcblk0 rootwait",
-            "-net", "tap,ifname=tap_{vmname},script=no,downscript=no", "-net", "nic,macaddr={mac}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "kernel": "{imagepath}/openwrt-realview-vmlinux.elf",
@@ -98,7 +99,8 @@ QEMU_ARGS = {
             "-kernel", "{kernel}", "-initrd", "{initrd}",
             "-hda", "{snapshot_path}",
             "-append", "root=/dev/sda1",
-            "-netdev", "tap,ifname=tap_{vmname},script=no,downscript=no,id={vmname}", "-net", "nic,macaddr={mac}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "512M",  # 512 didn't work for some reason
@@ -112,7 +114,8 @@ QEMU_ARGS = {
             "-display", "none",
             "-m", "{memory}",
             "-hda", "{snapshot_path}",
-            "-net", "tap,ifname=tap_{vmname},script=no,downscript=no", "-net", "nic,macaddr={mac}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "1024M",
@@ -124,7 +127,8 @@ QEMU_ARGS = {
             "-display", "none",
             "-m", "{memory}",
             "-hda", "{snapshot_path}",
-            "-net", "tap,ifname=tap_{vmname},script=no,downscript=no", "-net", "nic,macaddr={mac}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "1024M",
@@ -132,72 +136,74 @@ QEMU_ARGS = {
     },
     "powerpc": {
          "cmdline": [
-             "qemu-system-ppc",
-             "-display", "none",
-             "-m", "{memory}",
-             "-hda", "{snapshot_path}",
-             "-net", "tap,ifname=tap_{vmname},script=no,downscript=no", "-net", "nic,macaddr={mac}",
+            "qemu-system-ppc",
+            "-display", "none",
+            "-m", "{memory}",
+            "-hda", "{snapshot_path}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
          ],
          "params": {
-             "memory": "256M",
-             "machine": "none",
+            "memory": "256M",
+            "machine": "none",
          }
-     },
-     "powerpc64": {
+    },
+    "powerpc64": {
          "cmdline": [
-             "qemu-system-ppc64",
-             "-display", "none",
-             "-m", "{memory}",
-             "-hda", "{snapshot_path}",
-             "-net", "tap,ifname=tap_{vmname},script=no,downscript=no", "-net", "nic,macaddr={mac}",
+            "qemu-system-ppc64",
+            "-display", "none",
+            "-m", "{memory}",
+            "-hda", "{snapshot_path}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",
          ],
          "params": {
              "memory": "512M",
          }
-     },
-     "sh4": {
+    },
+    "sh4": {
          "cmdline": [
-             "qemu-system-sh4",
-             "-display", "none",
-             "-M", "r2d", "-m", "{memory}",
-             "-kernel", "{kernel}", "-initrd", "{initrd}",
-             "-hda", "{snapshot_path}",
-             "-append", "root=/dev/sda1 noiotrap",
-             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-             "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
+            "qemu-system-sh4",
+            "-display", "none",
+            "-M", "r2d", "-m", "{memory}",
+            "-kernel", "{kernel}", "-initrd", "{initrd}",
+            "-hda", "{snapshot_path}",
+            "-append", "root=/dev/sda1 noiotrap",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
          ],
-         "params": {
-             "memory": "64M",
-             "kernel": "{imagepath}/vmlinuz-2.6.32-5-sh7751r",
-             "initrd": "{imagepath}/initrd.img-2.6.32-5-sh7751r",
-         }
-     },
-     "sparc": {
+        "params": {
+            "memory": "64M",
+            "kernel": "{imagepath}/vmlinuz-2.6.32-5-sh7751r",
+            "initrd": "{imagepath}/initrd.img-2.6.32-5-sh7751r",
+        }
+    },
+    "sparc": {
          "cmdline": [
-             "qemu-system-sparc",
-             "-display", "none",
-             "-m", "{memory}",
-             "-hda", "{snapshot_path}",
-             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-             "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
-         ],
-         "params": {
-             "memory": "256M",
-         }
-     },
-     "sparc64": {
+            "qemu-system-sparc",
+            "-display", "none",
+            "-m", "{memory}",
+            "-hda", "{snapshot_path}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
+        ],
+        "params": {
+            "memory": "256M",
+        }
+    },
+    "sparc64": {
          "cmdline": [
-             "qemu-system-sparc64",
-             "-display", "none",
-             "-m", "{memory}",
-             "-hda", "{snapshot_path}",
-             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-             "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
-         ],
-         "params": {
-             "memory": "256M",
-         }
-     },
+            "qemu-system-sparc64",
+            "-display", "none",
+            "-m", "{memory}",
+            "-hda", "{snapshot_path}",
+            "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
+            "-device", "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
+        ],
+        "params": {
+            "memory": "256M",
+        }
+    },
 }
 
 

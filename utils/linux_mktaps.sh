@@ -4,7 +4,7 @@ vms=(your_vm_list_goes_here)
 for vm in "${vms[@]}"
 do
     :
-    /usr/bin/tunctl -u cape -t tap_$vm
+    sudo ip tuntap add dev tap_$vm mode tap user cape
     sudo ip link set tap_$vm master br0
     sudo ip link set dev tap_$vm up
     sudo ip link set dev br0 up

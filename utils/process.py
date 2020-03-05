@@ -214,7 +214,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
         log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
-​
+
             # If still full, don't add more (necessary despite pool).
             if len(pending_task_id_map) >= parallel:
                 time.sleep(5)

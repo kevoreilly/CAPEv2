@@ -522,5 +522,5 @@ class CAPE(Processing):
         self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
         if "cape_config" in cape_config:
             CAPE_output.append(cape_config)
-
+        
         return CAPE_output

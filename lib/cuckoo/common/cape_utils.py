@@ -126,7 +126,6 @@ def convert(data):
 
 def static_config_parsers(yara_hit, file_data, cape_config):
     # Process CAPE Yara hits
-
         cape_name = yara_hit.replace('_', ' ')
         parser_loaded = False
         # Attempt to import a parser for the hit
@@ -138,7 +137,9 @@ def static_config_parsers(yara_hit, file_data, cape_config):
         if cape_name and HAS_MWCP and cape_name in malware_parsers:
             try:
                 reporter = mwcp.Reporter()
+                
                 reporter.run_parser(malware_parsers[cape_name], data=file_data)
+
                 if reporter.errors == []:
                     log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
                     parser_loaded = True
@@ -170,18 +171,23 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                             log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
                 reporter._Reporter__cleanup()
                 del reporter
-            except (ImportError, IndexError) as e:
+            except (ImportError, IndexError, TypeError) as e:
                 log.error(e)
 
             if not parser_loaded and cape_name in malware_parsers:
                 parser_loaded = True
                 try:
-                    cape_config = malware_parsers[cape_name].config(file_data)
-                    if isinstance(cape_config, list):
-                        for (key, value) in cape_config[0].items():
+                    #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+                    cape_configraw = malware_parsers[cape_name].config(file_data)
+                    if isinstance(cape_configraw, list):
+                        for (key, value) in cape_configraw[0].items():
+                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            if isinstance(value, map): value = list(value)
                             cape_config["cape_config"].update({key: [value]})
-                    elif isinstance(cape_config, dict):
-                        for (key, value) in cape_config.items():
+                    elif isinstance(cape_configraw, dict):
+                        for (key, value) in cape_configraw.items():
+                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                            if isinstance(value, map): value = list(value)
                             cape_config["cape_config"].update({key: [value]})
                 except Exception as e:
                     log.error("CAPE: parsing error with %s: %s", cape_name, e)

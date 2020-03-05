@@ -454,9 +454,9 @@ class CAPE(Processing):
         if cape_name:
             if "cape_config" in cape_config and "cape_name" not in cape_config:
                 cape_config["cape_name"] = format(cape_name)
-            if not "cape" in self.results:
+            if not "detections" in self.results:
                 if cape_name != "UPX":
-                    self.results["cape"] = cape_name
+                    self.results["detections"] = cape_name
 
         # Remove duplicate payloads from web ui
         for cape_file in CAPE_output:
@@ -505,10 +505,10 @@ class CAPE(Processing):
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
                             self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
-                        #else:
+                        else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            #self.process_file(file_path, CAPE_output, False)
+                            self.process_file(file_path, CAPE_output, False)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:

@@ -1,4 +1,4 @@
-{% if children|length > 0 %}
+{% if analysis.detections or children|length > 0 %}
     <section id="cape">
     <div class="panel panel-primary">
         <div class="panel-heading">
@@ -6,10 +6,22 @@
         </div>
     <div class="panel-body" style="padding: 0px 0px 0px 20px; height: 50px;">
     <h4>
+    {% if analysis.detections != None %}
+        {% if children|length > 0 %}
+            Detections: <span style="border-color:#d9534f;background-color:#d9534f;font-size:16px;font-weight:600;display:inline-block;min-width:10px;padding:3px 7px;color:#fff;text-align:center;white-space:nowrap;vertical-align:baseline;line-height:1.6" class="btn btn-primary btn-small">{{analysis.detections}}</span>
+            Triggered CAPE Tasks:
+            {% for child in children %}
+                <a href="/submit/status/{{ child.0 }}/" class="btn btn-primary btn-small">Task #{{ child.0 }}: {{ child.1 }}</a>
+            {% endfor %}
+        {% else %}
+            Detections: <span style="border-color:#d9534f;background-color:#d9534f;font-size:16px;font-weight:600;display:inline-block;min-width:10px;padding:3px 7px;color:#fff;text-align:center;white-space:nowrap;vertical-align:baseline;line-height:1.6" class="btn btn-primary btn-small">{{analysis.detections}}</span>
+        {% endif %}
+    {% else %}
         Triggered CAPE Tasks:
         {% for child in children %}
             <a href="/submit/status/{{ child.0 }}/" class="btn btn-primary btn-small">Task #{{ child.0 }}: {{ child.1 }}</a>
         {% endfor %}
+    {% endif %}
     </h4>
     </br>
     </div>

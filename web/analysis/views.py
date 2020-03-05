@@ -112,7 +112,7 @@ def get_analysis_info(db, id=-1, task=None):
         rtmp = results_db.analysis.find_one(
                    {"info.id": int(new["id"])},
                    {
-                       "info": 1, "virustotal_summary": 1, "cape": 1,
+                       "info": 1, "virustotal_summary": 1, "detections": 1,
                        "info.custom":1, "info.shrike_msg":1, "malscore": 1, "malfamily": 1,
                        "network.pcap_sha256": 1,
                        "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
@@ -131,7 +131,7 @@ def get_analysis_info(db, id=-1, task=None):
             pass
 
     if rtmp:
-        for keyword in ("CAPE", "virustotal_summary", "mlist_cnt", "f_mlist_cnt", "suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "mlist_cnt", "f_mlist_cnt", "malscore", "malfamily"):
+        for keyword in ("detections", "virustotal_summary", "mlist_cnt", "f_mlist_cnt", "suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "mlist_cnt", "f_mlist_cnt", "malscore", "malfamily"):
             if keyword in rtmp:
                 new[keyword] = rtmp[keyword]
 

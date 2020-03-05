@@ -229,7 +229,7 @@
                     <th width="8%">Package</th>
                     <th width="37%">Filename</th>
                     <th width="20%">Target</th>
-                    <th width="7%">CAPE</th>
+                    <th width="7%">Detections</th>
                     {% if config.expanded_dashboard %}
                     <th width="2.5%">PKG</th>
                     {% endif %}
@@ -303,8 +303,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.cape != None %}
-                                <span class="text-primary"><b>{{analysis.cape}}</b></span>
+                            {% if analysis.detections != None %}
+                                <span class="text-primary"><b>{{analysis.detections}}</b></span>
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}

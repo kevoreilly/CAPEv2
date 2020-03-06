@@ -604,7 +604,10 @@ class PortableExecutable(object):
             return None, None, None
 
         try:
-            rt_group_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_GROUP_ICON'])
+            idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
+            if pefile.RESOURCE_TYPE['RT_GROUP_ICON'] not in ids:
+                return None, None, None
+            rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE['RT_GROUP_ICON'])
             rt_group_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
             entry = rt_group_icon_dir.directory.entries[0]
             offset = entry.directory.entries[0].data.struct.OffsetToData

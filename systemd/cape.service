@@ -6,8 +6,8 @@ Documentation=https://github.com/kevoreilly/CAPEv2
 WorkingDirectory=/opt/CAPEv2/
 ExecStart=/usr/bin/python3 cuckoo.py
 #ExecStart=/opt/CAPEv2/venv/bin/python3 /opt/CAPEv2/cuckoo.py
-User=cuckoo
-Group=cuckoo
+User=cape
+Group=cape
 Restart=always
 RestartSec=5m
 

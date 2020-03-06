@@ -5,11 +5,11 @@ Wants=cuckoo-rooter.service
 After=cuckoo-rooter.service
 
 [Service]
-WorkingDirectory=/opt/CAPE/utils/
-ExecStart=/usr/bin/python process.py -p7 auto
+WorkingDirectory=/opt/CAPEv2/utils/
+ExecStart=/usr/bin/python3 process.py -p7 auto
 #ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/process.py -p7 auto
-User=cuckoo
-Group=cuckoo
+User=cape
+Group=cape
 Restart=always
 RestartSec=5m
 

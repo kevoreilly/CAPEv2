@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import re
+import sys
 import cgi
 import sys
 import json
@@ -21,6 +22,9 @@ from zipfile import ZipFile
 
 import http.server
 import socketserver
+
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 AGENT_VERSION = "0.11"
 AGENT_FEATURES = [

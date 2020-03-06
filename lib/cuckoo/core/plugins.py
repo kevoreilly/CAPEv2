@@ -291,10 +291,10 @@ class RunProcessing(object):
 
         family = ""
         self.results["malfamily_tag"] = ""
-        if self.results.get("cape", False):
-            self.results["malfamily"] = self.results["cape"]
+        if self.results.get("detections", False):
+            self.results["malfamily"] = self.results["detections"]
             self.results["malfamily_tag"] = "CAPE"
-            family = self.results["cape"]
+            family = self.results["detections"]
         # add detection based on suricata here
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
@@ -361,8 +361,6 @@ class RunProcessing(object):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
                     family = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
-        else:
-            self.results["malfamily"] = family
 
         return self.results
 

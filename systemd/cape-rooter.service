@@ -5,7 +5,7 @@ Wants=network-online.target
 After=syslog.target network.target
 
 [Service]
-WorkingDirectory=/opt/CAPE/utils/
+WorkingDirectory=/opt/CAPEv2/utils/
 ExecStart=/usr/bin/python3 rooter.py
 #ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/rooter.py
 User=root

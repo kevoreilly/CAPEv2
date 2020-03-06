@@ -1200,8 +1200,11 @@ class Database(object, metaclass=Singleton):
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
         if "file" in opts:
+            runfile = opts["file"].lower()
+            if isinstance(runfile, str):
+                runfile = runfile.encode('utf8')
             for xfile in extracted_files:
-                if opts["file"].lower() in xfile.lower():
+                if runfile in xfile.lower():
                     extracted_files = [xfile]
                     break
 

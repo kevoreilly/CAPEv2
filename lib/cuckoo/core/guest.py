@@ -226,6 +226,24 @@ class GuestManager(object):
         }
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
+    def upload_support_files(self, options):
+        """ Upload supporting files from zip temp directory if they exist
+        :param options: options
+        :return:
+        """
+        log.info("Uploading support files to guest (id={}, ip={})".format(self.vmid, self.ipaddr))
+        basedir = os.path.dirname(options["target"])
+
+        for dirpath, _, files in os.walk(basedir):
+            for xf in files:
+                target = os.path.join(dirpath, xf)
+                # Copy all files except for the original target
+                if not target == options["target"]:
+                    data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
+                    files = {"file": (xf, open(target, "rb"))}
+                    self.post("/store", files=files, data=data)
+        return
+
     def start_analysis(self, options):
         """Start the analysis by uploading all required files.
         @param options: the task options
@@ -304,6 +322,9 @@ class GuestManager(object):
                 "file": ("sample.bin", open(options["target"], "rb")),
             }
             self.post("/store", files=files, data=data)
+
+        # check for support files and upload them to guest.
+        self.upload_support_files(options)
 
         #Debug analyzer.py in vm
         if "CAPE_DBG" in os.environ:

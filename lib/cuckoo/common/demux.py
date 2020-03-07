@@ -19,14 +19,14 @@ try:
     from sflock.exception import UnpackException
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n"\
-    "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"\
-    "pip3 install -U sflock")
+    print("You must install sflock\n"
+          "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
+          "pip3 install -U sflock")
     HAS_SFLOCK = False
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 cuckoo_conf = Config()
-tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode('utf8')
 
 demux_extensions_list = [
     "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
@@ -51,6 +51,9 @@ def options2passwd(options):
             try:
                 key, value = field.split("=", 1)
                 if key == "password":
+                    # sflock requires password to be bytes object for Py3
+                    if isinstance(value, str):
+                        value = value.encode('utf8')
                     password = value
                     break
             except:
@@ -62,7 +65,7 @@ def options2passwd(options):
 def demux_office(filename, password):
     retlist = []
     basename = os.path.basename(filename)
-    target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
+    target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
     if not os.path.exists(target_path):
         os.mkdir(target_path)
     decrypted_name = os.path.join(target_path, basename)
@@ -99,7 +102,7 @@ def demux_sflock(filename, options):
     if ext != "" and ext != ".zip" and ext != ".bin":
         return retlist
     try:
-        password = "infected"
+        password = b"infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
             password = tmp_pass
@@ -116,7 +119,7 @@ def demux_sflock(filename, options):
                 base, ext = os.path.splitext(sf_child.filename)
                 ext = ext.lower()
                 if ext in demux_extensions_list or is_valid_type(sf_child.magic):
-                    target_path = os.path.join(tmp_path, "cuckoo-sflock")
+                    target_path = os.path.join(tmp_path, b"cuckoo-sflock")
                     if not os.path.exists(target_path):
                         os.mkdir(target_path)
                     tmp_dir = tempfile.mkdtemp(dir=target_path)
@@ -138,7 +141,9 @@ def demux_sample(filename, package, options):
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
-
+    # sflock requires filename to be bytes object for Py3
+    if isinstance(filename, str):
+        filename = filename.encode('utf8')
     # if a package was specified, then don't do anything special
     if package:
         return [filename]

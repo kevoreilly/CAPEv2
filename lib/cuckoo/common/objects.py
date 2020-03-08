@@ -3,14 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import binascii
+import os
+import mmap
+import time
+import copy
+import struct
 import hashlib
 import logging
-import os
+import binascii
 import subprocess
-import mmap
-import struct
-import copy
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
@@ -270,34 +271,21 @@ class File(object):
         except Exception:
             return None
 
-    def get_entrypoint(self):
+    def get_entrypoint(self, pe):
         """Get entry point (PE).
         @return: entry point.
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
 
         try:
-            pe = pefile.PE(data=self.file_data)
             return pe.OPTIONAL_HEADER.AddressOfEntryPoint
         except Exception:
             return None
 
-    def get_ep_bytes(self):
+    def get_ep_bytes(self, pe):
         """Get entry point bytes (PE).
         @return: entry point bytes (16).
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
-
         try:
-            pe = pefile.PE(data=self.file_data)
             return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10))
         except Exception:
             return None
@@ -498,9 +486,20 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(CAPE_YARA_RULEPATH)
         infos["clamav"] = self.get_clamav()
-        infos["entrypoint"] = self.get_entrypoint()
-        infos["ep_bytes"] = self.get_ep_bytes()
 
+        if not HAVE_PEFILE:
+            if not File.notified_pefile:
+                File.notified_pefile = True
+                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
+        else:
+            try:
+                #read pefile once and share
+                pe = pefile.PE(data=self.file_data, fast_load=True)
+                infos["entrypoint"] = self.get_entrypoint(pe)
+                infos["ep_bytes"] = self.get_ep_bytes(pe)
+                infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+            except Exception as e:
+                log.error(e)
         return infos
 
 class Static(File):

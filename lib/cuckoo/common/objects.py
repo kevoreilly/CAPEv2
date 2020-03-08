@@ -118,7 +118,7 @@ def is_pefile(data, fast_load=True):
     try:
         if uni and data.startswith(b'MZ'):
             pe = pefile.PE(data=data, fast_load=fast_load)
-        elif: data.startswith('MZ'):
+        elif data.startswith('MZ'):
             pe = pefile.PE(data=data, fast_load=fast_load)
     except pefile.PEFormatError:
         pass

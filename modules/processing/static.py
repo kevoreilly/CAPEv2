@@ -13,6 +13,7 @@ import array
 import struct
 import base64
 import hashlib
+import requests
 import binascii
 from PIL import Image
 from io import StringIO, BytesIO
@@ -1474,6 +1475,30 @@ class URL(object):
         else:
             self.domain = ""
 
+    def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
+        nest_count = 0 - ignore_nest_level
+        string_buf = str()
+        json_buf = list()
+        json_data = list()
+        for character in data:
+            if character == "{":
+                nest_count += 1
+            if nest_count > 0:
+                string_buf += character
+            if character == "}":
+                nest_count -= 1
+            if nest_count == 0 and len(string_buf):
+                json_buf.append(string_buf)
+                string_buf = str()
+
+        if json_buf:
+            for data in json_buf:
+                if len(data) > 4:
+                    json_data.append(json.loads(data))
+            return json_data
+
+        return []
+
     def run(self):
         results = {}
         if self.domain:
@@ -1529,6 +1554,21 @@ class URL(object):
                          "\n    ".join(w["name_servers"]),
                          "\n    ".join(w["referral_url"]))
             results["url"]["whois"] = output
+
+        if self.domain == "bit.ly":
+            resp = requests.get(self.url+"+")
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+            output = list()
+            for script in [x.extract() for x in soup.find_all("script")]:
+                if script.contents:
+                    content = script.contents[0]
+                    if "long_url_no_protocol" in content:
+                        output = self.parse_json_in_javascript(content, 1)
+
+            if output:
+                results["url"]["bitly"] = {k: v for d in output for k, v in d.items()}
+                newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
+                results["url"]["bitly"]["created_at"] = newtime.strftime("%Y-%m-%d %H:%M:%S") + " GMT"
 
         return results
 

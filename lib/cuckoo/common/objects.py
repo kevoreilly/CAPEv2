@@ -13,7 +13,6 @@ import logging
 import binascii
 import subprocess
 
-from lib.cuckoo.common.utils import is_pefile, HAVE_PEFILE
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
 from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
@@ -41,6 +40,13 @@ try:
     HAVE_CLAMAV = True
 except ImportError:
     HAVE_CLAMAV = False
+
+try:
+    import pefile
+    import peutils
+    HAVE_PEFILE = True
+except ImportError:
+    HAVE_PEFILE = False
 
 try:
     import re2 as re
@@ -488,13 +494,12 @@ class File(object):
         else:
             try:
                 #read pefile once and share
-                pe = is_pefile(self.file_data, fast_load=True)
-                if pe:
-                    infos["entrypoint"] = self.get_entrypoint(pe)
-                    infos["ep_bytes"] = self.get_ep_bytes(pe)
-                    infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+                pe = pefile.PE(data=self.file_data, fast_load=True)
+                infos["entrypoint"] = self.get_entrypoint(pe)
+                infos["ep_bytes"] = self.get_ep_bytes(pe)
+                infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.error(e)
         return infos
 
 class Static(File):

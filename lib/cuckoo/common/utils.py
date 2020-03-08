@@ -39,13 +39,6 @@ try:
 except ImportError:
     HAVE_CHARDET = False
 
-try:
-    import pefile
-    HAVE_PEFILE = True
-except ImportError:
-    HAVE_PEFILE = False
-
-
 config = Config()
 
 #it called ramfs, but it is tmpfs
@@ -56,13 +49,6 @@ else:
     HAVE_RAMFS = False
 
 log = logging.getLogger(__name__)
-
-def is_pefile(data, fast_load=True):
-    pe = False
-    if data.startswith(b'MZ'):
-        pe = pefile.PE(data, fast_load=fast_load)
-
-    return pe
 
 def free_space_monitor(path=False, RAM=False, return_value=False):
     need_space, space_available = False, 0

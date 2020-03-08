@@ -1566,7 +1566,7 @@ class URL(object):
                         output = self.parse_json_in_javascript(content, 1)
 
             if output:
-                results["url"]["bitly"] = {k: v for d in output for k, v in d.items()}
+                results["url"]["bitly"] = {k: v for d in output for k, v in d.iteritems()}
                 newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
                 results["url"]["bitly"]["created_at"] = newtime.strftime("%Y-%m-%d %H:%M:%S") + " GMT"
 

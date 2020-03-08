@@ -1214,7 +1214,8 @@ def ext_tasks_search(request):
             elif option == "signame":
                 records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
             elif option == "malfamily":
-                records = results_db.analysis.find({"malfamily": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+                records = results_db.analysis.find(
+                    {"malfamily": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
             elif option == "url":
                 records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
             elif option == "iconhash":

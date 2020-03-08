@@ -294,6 +294,7 @@ def pretty_print_retval(category, api_name, status, retval):
     return {
         0x00000103 : "NO_MORE_ITEMS",
         0x00002af9 : "WSAHOST_NOT_FOUND",
+        0x00002afc : "WSANO_DATA",
         0x80000005 : "BUFFER_OVERFLOW",
         0x80000006 : "NO_MORE_FILES",
         0x8000000a : "HANDLES_CLOSED",
@@ -820,11 +821,16 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 0x1202f : "IOCTL_AFD_GET_SOCK_NAME",
                 0x12087 : "IOCTL_AFD_EVENT_SELECT",
                 0x1208b : "IOCTL_AFD_ENUM_NETWORK_EVENTS",
+                0x24058 : "IOCTL_CDROM_GET_CONFIGURATION",
+                0x41018 : "IOCTL_SCSI_GET_ADDRESS",
                 0x4d008 : "IOCTL_SCSI_MINIPORT",
                 0x4d014 : "IOCTL_SCSI_PASS_THROUGH_DIRECT",
                 0x70000 : "IOCTL_DISK_GET_DRIVE_GEOMETRY",
+                0x70048 : "IOCTL_DISK_GET_PARTITION_INFO_EX",
+                0x70050 : "IOCTL_DISK_GET_DRIVE_LAYOUT_EX",
                 0x700a0 : "IOCTL_DISK_GET_DRIVE_GEOMETRY_EX",
                 0x7405c : "IOCTL_DISK_GET_LENGTH_INFO",
+                0x740d4: "IOCTL_DISK_GET_CACHE_INFORMATION",
                 0x90018 : "FSCTL_LOCK_VOLUME",
                 0x9001c : "FSCTL_UNLOCK_VOLUME",
                 0x900a8 : "FSCTL_GET_REPARSE_POINT",
@@ -1290,7 +1296,21 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         if val:
             res.append("0x{0:08x}".format(val))
         return "|".join(res)
-
+    elif api_name == "NtDuplicateObject" and arg_name == "Options":
+        val = int(arg_val, 16)
+        res = []
+        if val & 0x00000001:
+            res.append("DUPLICATE_CLOSE_SOURCE")
+            val &= ~0x00000001
+        if val & 0x00000002:
+            res.append("DUPLICATE_SAME_ACCESS")
+            val &= ~0x00000002
+        if val & 0x00000004:
+            res.append("DUPLICATE_SAME_ATTRIBUTES")
+            val &= ~0x00000004
+        if val:
+            res.append("0x{0:08x}".format(val))
+        return "|".join(res)
     elif api_name == "InternetSetOptionA" and arg_name == "Option":
         val = int(arg_val, 16)
         return {
@@ -1602,6 +1622,7 @@ def get_vt_consensus(namelist):
         "agent",
         "nsis",
         "generickd",
+        "genericgb",
         "behaveslike",
         "heur",
         "inject2",

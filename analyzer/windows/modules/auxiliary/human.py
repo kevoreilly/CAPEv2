@@ -266,7 +266,8 @@ class Human(Auxiliary, Thread):
                         other_hwnds.remove(USER32.GetForegroundWindow())
                     except:
                         pass
-                    USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds)-1)])
+                    if len(other_hwnds):
+                        USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds)-1)])
 
                 USER32.EnumWindows(EnumWindowsProc(foreach_window), 0)
                 KERNEL32.Sleep(1000)

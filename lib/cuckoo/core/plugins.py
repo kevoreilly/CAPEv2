@@ -331,6 +331,7 @@ class RunProcessing(object):
                             "worm",
                             "fake",
                             "malicious",
+                            "observed",
                         ]
                         isgood = True
                         for black in blacklist:

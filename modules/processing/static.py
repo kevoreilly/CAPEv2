@@ -636,11 +636,16 @@ class PortableExecutable(object):
                     icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset:offset+size])
 
                     byteio = BytesIO()
-                    output = BytesIO()
-
                     byteio.write(icon)
                     byteio.seek(0)
-                    img = Image.open(byteio)
+                    try:
+                        img = Image.open(byteio)
+                    except OSError as e:
+                        byteio.close()
+                        log.error(e)
+                        return None, None, None
+
+                    output = BytesIO()
                     img.save(output, format="PNG")
 
                     img = img.resize((8,8), Image.BILINEAR)
@@ -656,7 +661,10 @@ class PortableExecutable(object):
                     m = hashlib.md5()
                     m.update(simplified)
                     simphash = m.hexdigest()
-                    return base64.b64encode(output.getvalue()).decode("utf-8"), fullhash, simphash
+                    icon = base64.b64encode(output.getvalue()).decode("utf-8")
+                    output.close()
+                    img.close()
+                    return icon, fullhash, simphash
         except Exception as e:
             log.error(e, exc_info=True)
             pass

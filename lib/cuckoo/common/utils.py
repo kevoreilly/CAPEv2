@@ -43,7 +43,7 @@ config = Config()
 
 #it called ramfs, but it is tmpfs
 if hasattr(config, "ramfs"):
-    ramfs = Config().ramfs
+    ramfs = config.ramfs
     HAVE_RAMFS = True
 else:
     HAVE_RAMFS = False

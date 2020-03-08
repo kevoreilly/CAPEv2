@@ -42,16 +42,16 @@ except ImportError:
     HAVE_CLAMAV = False
 
 try:
+    import re2 as re
+except ImportError:
+    import re
+
+try:
     import pefile
-    import peutils
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
 
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 
@@ -110,6 +110,19 @@ yara_error = {
     "48": "ERROR_INVALID_EXTERNAL_VARIABLE_TYPE",
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
+
+
+def is_pefile(data, fast_load=True):
+    pe = False
+    uni = isinstance(data, bytes)
+    try:
+        if uni and data.startswith(b'MZ'):
+            pe = pefile.PE(data=data, fast_load=fast_load)
+        elif: data.startswith('MZ'):
+            pe = pefile.PE(data=data, fast_load=fast_load)
+    except pefile.PEFormatError:
+        pass
+    return pe
 
 
 class Dictionary(dict):
@@ -494,10 +507,11 @@ class File(object):
         else:
             try:
                 #read pefile once and share
-                pe = pefile.PE(data=self.file_data, fast_load=True)
-                infos["entrypoint"] = self.get_entrypoint(pe)
-                infos["ep_bytes"] = self.get_ep_bytes(pe)
-                infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+                pe = is_pefile(self.file_data, fast_load=True)
+                if pe:
+                    infos["entrypoint"] = self.get_entrypoint(pe)
+                    infos["ep_bytes"] = self.get_ep_bytes(pe)
+                    infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
             except Exception as e:
                 log.error(e)
         return infos

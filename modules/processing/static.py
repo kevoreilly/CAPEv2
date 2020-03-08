@@ -71,7 +71,7 @@ from lib.cuckoo.common.utils import store_temp_file, bytes2str
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File, is_pefile
 from lib.cuckoo.common.config import Config
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
@@ -866,7 +866,7 @@ class PortableExecutable(object):
             return {}
 
         try:
-            self.pe = pefile.PE(self.file_path)
+            self.pe = is_pefile(self.file_path, fast_load=True)
         except pefile.PEFormatError:
             return {}
 

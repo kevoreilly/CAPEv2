@@ -866,7 +866,7 @@ class PortableExecutable(object):
             return {}
 
         try:
-            self.pe = pefile.PE(self.file_path)
+            self.pe = pefile.PE(self.file_path, fast_load=True)
         except pefile.PEFormatError:
             return {}
 

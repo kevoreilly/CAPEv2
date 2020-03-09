@@ -1363,7 +1363,7 @@ class Database(object, metaclass=Singleton):
 
     @classlock
     def check_file_uniq(self, sha256):
-        if not Database.find_sample(self, sha256=sha256) is None:
+        if not Database.find_sample(self, sha256=sha256):
             return False
         else:
             return True

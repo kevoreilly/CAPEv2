@@ -492,28 +492,14 @@ class CAPE_PlugX(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            buf = self.get_raw_argument(call, "UncompressedBuffer")
-            dos_header = buf[:64]
-            if struct.unpack("<H", dos_header[0:2])[0] == IMAGE_DOS_SIGNATURE:
-                self.compressed_binary = True
-            elif struct.unpack("<H", dos_header[0:2])[0] == PLUGX_SIGNATURE:
+            dos_header = self.get_raw_argument(call, "UncompressedBuffer")[:2]
+            #IMAGE_DOS_SIGNATURE or PLUGX_SIGNATURE
+            if dos_header in ("MZ", "VX"):
                 self.compressed_binary = True
 
         if call["api"] == "memcpy":
             count = self.get_raw_argument(call, "count")
-            if (count == 0xae4)  or \
-               (count == 0xbe4)  or \
-               (count == 0x150c) or \
-               (count == 0x1510) or \
-               (count == 0x1516) or \
-               (count == 0x170c) or \
-               (count == 0x1b18) or \
-               (count == 0x1d18) or \
-               (count == 0x2540) or \
-               (count == 0x254c) or \
-               (count == 0x2d58) or \
-               (count == 0x36a4) or \
-               (count == 0x4ea4):
+            if count in (0xae4, 0xbe4, 0x150c, 0x1510, 0x1516, 0x170c, 0x1b18, 0x1d18, 0x2540, 0x254c, 0x2d58, 0x36a4, 0x4ea4):
                 self.config_copy = True
 
     def on_complete(self):
@@ -598,10 +584,8 @@ class CAPEDetectedThreat(Signature):
     evented = True
 
     def run(self):
-
-        if "cape" in self.results:
-            detection = self.results["cape"]
-            self.description = "CAPE detected the %s malware family" % detection
+        if self.results.get("detections", False):
+            self.description = "CAPE detected the %s malware family" % self.results["detections"]
             return True
 
         return False

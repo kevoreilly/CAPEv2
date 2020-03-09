@@ -112,7 +112,7 @@ yara_error = {
 }
 
 
-def is_pefile(data, fast_load=True):
+def is_pefile(data, fast_load=True, local_file=False):
     """
         This function checks if file is realy looks like PE file and if yes then parses it
         Args:
@@ -122,6 +122,13 @@ def is_pefile(data, fast_load=True):
             pefile object or False
     """
     pe = False
+    if local_file:
+        if not os.path.exists(data):
+            return pe
+
+        with open(data, "rb") as f:
+            data = f.read()
+
     uni = isinstance(data[:2], bytes)
     if uni:
         mz = b'MZ'

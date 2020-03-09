@@ -90,9 +90,9 @@ def get_file_content(paths):
 
 
 def fix_section_permission(path):
-   if not HAVE_PEFILE:
+    if not HAVE_PEFILE:
         log.info("[-] Missed dependency pefile")
-       return
+        return
     try:
         pe = is_pefile(path)
         if not pe:

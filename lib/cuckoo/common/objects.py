@@ -422,7 +422,7 @@ class File(object):
                 rules = yara.compile(rulepath, externals=externals)
             except yara.SyntaxError as e:
                 if 'duplicated identifier' in e.args[0]:
-                    log.warning("Duplicate rule in %s, rulepath")
+                    log.warning("Duplicate rule in %s", rulepath)
                     log.warning(e.args[0])
                 else:
                     rules = yara.compile(rulepath)

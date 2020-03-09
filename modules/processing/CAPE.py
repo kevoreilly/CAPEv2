@@ -193,7 +193,6 @@ class CAPE(Processing):
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
-
         if metastrings != "":
             try:
                 file_info["cape_type_code"] = int(metastrings[0])
@@ -520,7 +519,7 @@ class CAPE(Processing):
                 raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
 
         self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
-        if "cape_config" in cape_config:
+        if cape_config.get("cape_config", []):
             CAPE_output.append(cape_config)
-        
+
         return CAPE_output

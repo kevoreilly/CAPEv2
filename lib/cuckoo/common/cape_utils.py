@@ -14,6 +14,8 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 
+log = logging.getLogger(__name__)
+
 malware_parsers = {}
 #Import All config parsers
 try:
@@ -26,7 +28,7 @@ try:
     #[mwcp.parser] WARNING: Missing identify() function for: a35a622d01f83b53d0407a3960768b29.Emotet.Emotet
 except ImportError as e:
     HAS_MWCP = False
-    print("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
+    log.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
 try:
     from malwareconfig import fileparser
@@ -34,7 +36,7 @@ try:
     HAS_MALWARECONFIGS = True
 except ImportError:
     HAS_MALWARECONFIGS = False
-    print("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+    log.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
 
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 CAPE_DECODERS = [
@@ -48,7 +50,9 @@ for name in CAPE_DECODERS:
         module = imp.load_module(name, file, pathname, description)
         malware_parsers[name] = module
     except (ImportError, IndexError) as e:
-        print("CAPE parser: No module named %s - %s", (name, e))
+        if "datadirs" in str(e):
+            log.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
+        log.warning("CAPE parser: No module named %s - %s" % (name, e))
 
 parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers")
 if parser_path not in sys.path:
@@ -57,11 +61,9 @@ if parser_path not in sys.path:
 try:
     from plugxconfig import plugx
 except ImportError as e:
-    print(e)
+    log.error(e)
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
-
-log = logging.getLogger(__name__)
 
 pe_map = {
     "PE32+": ": 64-bit ",
@@ -137,7 +139,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
         if cape_name and HAS_MWCP and cape_name in malware_parsers:
             try:
                 reporter = mwcp.Reporter()
-                
+
                 reporter.run_parser(malware_parsers[cape_name], data=file_data)
 
                 if reporter.errors == []:

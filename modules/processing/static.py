@@ -187,6 +187,8 @@ class DotNETExecutable(object):
                 splitline = line.split()
                 if not splitline:
                     continue
+                if len(splitline) < 6:
+                    continue
                 typeval = splitline[1].rstrip(":")
                 nameval = splitline[6].split("::")[0]
                 if "(string)" not in splitline[6]:
@@ -261,7 +263,7 @@ class DotNETExecutable(object):
                     item["assembly"] = convert_to_printable(asmname)
                     item["typename"] = convert_to_printable(typename)
                     ret.append(item)
-            return sorted(ret)
+            return ret
 
         except Exception as e:
             log.error(e, exc_info=True)
@@ -679,10 +681,11 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        if not hasattr(self.pe, "FileInfo"):
-            return None
-
         infos = []
+
+        if not hasattr(self.pe, "VS_VERSIONINFO") and not hasattr(self.pe, "FileInfo"):
+            return infos
+
         for entry in self.pe.FileInfo:
             try:
                 if hasattr(entry, "StringTable"):

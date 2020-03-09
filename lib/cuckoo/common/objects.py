@@ -112,7 +112,7 @@ yara_error = {
 }
 
 
-def is_pefile(data, fast_load=True, local_file=False):
+def is_pefile(data, fast_load=False, local_file=False):
     """
         This function checks if file is realy looks like PE file and if yes then parses it
         Args:
@@ -131,9 +131,9 @@ def is_pefile(data, fast_load=True, local_file=False):
 
     uni = isinstance(data[:2], bytes)
     if uni:
-        mz = b'MZ'
+        mz = b'MZ\x90'
     else:
-        mz = 'MZ'
+        mz = 'MZ\x90'
     if data.startswith(mz):
         try:
             pe = pefile.PE(data=data, fast_load=fast_load)

@@ -139,7 +139,9 @@ class RansomwareFiles(Signature):
             (".*\\\\RyukReadMe\.html$", ["Ryuk"]),
             (".*\\\\HOW_TO_RECOVER_DATA\.html$", ["MedusaLocker"]),
             (".*\\\\ClopReadMe\.txt$", ["Clop-CryptoMix"]),
-            (".*\\\\Fix-Your-Files\.txt$", ["SNAKE"])
+            (".*\\\\Fix-Your-Files\.txt$", ["SNAKE"]),
+            (".*\\\\__________WHY FILES NOT WORK__________\.txt$", ["Hydra Ransomware"]),
+
         ]
 
         for ioc in file_list:

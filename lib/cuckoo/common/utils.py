@@ -830,7 +830,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 0x70050 : "IOCTL_DISK_GET_DRIVE_LAYOUT_EX",
                 0x700a0 : "IOCTL_DISK_GET_DRIVE_GEOMETRY_EX",
                 0x7405c : "IOCTL_DISK_GET_LENGTH_INFO",
-                0x740d4: "IOCTL_DISK_GET_CACHE_INFORMATION",
+                0x740d4 : "IOCTL_DISK_GET_CACHE_INFORMATION",
                 0x90018 : "FSCTL_LOCK_VOLUME",
                 0x9001c : "FSCTL_UNLOCK_VOLUME",
                 0x900a8 : "FSCTL_GET_REPARSE_POINT",

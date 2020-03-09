@@ -68,6 +68,7 @@ class MISP(Report):
                 md5=f["md5"],
                 sha1=f["sha1"],
                 sha256=f["sha256"],
+                ssdeep=f["ssdeep"],
                 comment="File submitted to CAPEv2",
             )
 

@@ -18,6 +18,7 @@ sys.path.append(CUCKOO_ROOT)
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import is_pefile, HAVE_PEFILE, pefile
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.common.utils import get_ip_address, bytes2str
 from lib.cuckoo.core.database import Database
@@ -42,12 +43,6 @@ user_agents = [
     "Mozilla/5.0 (Windows NT 6.3; WOW64; Trident/7.0; rv:11.0) like Gecko",
     "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko",
 ]
-
-try:
-   import pefile
-   HAVE_PEFILE = True
-except ImportError:
-   HAVE_PEFILE = False
 
 log = logging.getLogger(__name__)
 
@@ -95,21 +90,23 @@ def get_file_content(paths):
 
 
 def fix_section_permission(path):
-   if HAVE_PEFILE:
-       try:
-           pe = pefile.PE(path)
-           for id in range(len(pe.sections)):
-               if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
-                   log.info("section found")
-                   pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
-                   log.info(pe.sections[id].Characteristics)
-                   pe.write(filename=path)
-           pe.close()
-           log.info("close")
-       except Exception as e:
-           log.info(e)
-   else:
-       log.info("[-] Missed dependency pefile")
+   if not HAVE_PEFILE:
+        log.info("[-] Missed dependency pefile")
+       return
+    try:
+        pe = is_pefile(path)
+        if not pe:
+            return
+        for id in range(len(pe.sections)):
+            if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
+                log.info("section found")
+                pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
+                log.info(pe.sections[id].Characteristics)
+                pe.write(filename=path)
+        pe.close()
+        log.info("close")
+    except Exception as e:
+        log.info(e)
 
 
 # Submission hooks to set options based on some naming patterns

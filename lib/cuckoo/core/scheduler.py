@@ -21,7 +21,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File, is_pefile, HAVE_PEFILE
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
 from lib.cuckoo.core.database import Database, TASK_COMPLETED
 from lib.cuckoo.core.guest import GuestManager
@@ -29,14 +29,6 @@ from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import convert_to_printable
-
-try:
-    import pefile
-    import peutils
-    HAVE_PEFILE = True
-except ImportError:
-    HAVE_PEFILE = False
-
 
 log = logging.getLogger(__name__)
 
@@ -214,14 +206,14 @@ class AnalysisManager(threading.Thread):
             options["exports"] = ""
             if HAVE_PEFILE and ("PE32" in options["file_type"] or "MS-DOS executable" in options["file_type"]):
                 try:
-                    pe = pefile.PE(self.task.target)
+                    pe = is_pefile(self.task.target)
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
                             exports.append(re.sub(r'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
                         options["exports"] = ",".join(exports)
-                except:
-                    pass
+                except Exception as e:
+                    log.error(e)
 
         # options from auxiliar.conf
         options["curtain"] = self.aux_cfg.curtain.enabled

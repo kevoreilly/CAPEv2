@@ -91,7 +91,8 @@ class MISP(Report):
                     ips.add(domain["ip"])
 
             for block in results.get("network", {}).get("hosts", []):
-                ips.add(block["ip"])
+                if block["ip"] not in whitelist:
+                    ips.add(block["ip"])
 
             for block in results["network"].get("dns", []): #Added DNS
                 if block.get("request", "") and (block["request"] not in whitelist):

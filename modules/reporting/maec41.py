@@ -1691,8 +1691,8 @@ class MAEC41Report(Report):
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_CYBOX:
             raise CuckooDependencyError("Unable to import cybox (install with `pip3 install cybox`)")
-        elif not HAVE_MAEC:
-            raise CuckooDependencyError("Unable to import cybox and maec (install with `pip3 install maec`)")
+        if not HAVE_MAEC:
+            raise CuckooDependencyError("Unable to import maec (install with `pip3 install maec`)")
         self._illegal_xml_chars_RE = re.compile(u"[\x00-\x08\x0b\x0c\x0e-\x1F\uD800-\uDFFF\uFFFE\uFFFF]")
         # Map of PIDs to the Actions that they spawned.
         self.pidActionMap = {}

@@ -22,7 +22,7 @@ class TrickBot_doc(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dump-on-api"] = "RtlAddVectoredExceptionHandler"
+        self.options["extraction"] = "1"
         self.options["procdump"] = "0"
 
     def start(self, path):

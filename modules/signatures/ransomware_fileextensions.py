@@ -67,7 +67,7 @@ class RansomwareExtensions(Signature):
             (".*\.lock93$", ["Lock93"]),
             (".*\.Alcatraz$", ["Alcatraz-Locker"]),
             (".*\.dCrypt$", ["DummyLocker"]),
-            (".*\.enc$", ["encryptJJS"]),
+#            (".*\.enc$", ["encryptJJS"]),
             (".*\.rnsmwr$", ["Gremit"]),
             (".*\.da_vinci_code$", ["Troldesh"]),
             (".*\.magic_software_syndicate$", ["Troldesh"]),

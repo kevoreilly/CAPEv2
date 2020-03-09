@@ -113,6 +113,14 @@ yara_error = {
 
 
 def is_pefile(data, fast_load=True):
+    """
+        This function checks if file is realy looks like PE file and if yes then parses it
+        Args:
+            data: PE data as buffer
+            fast_load: True/False
+        Returns:
+            pefile object or False
+    """
     pe = False
     uni = isinstance(data, bytes)
     try:

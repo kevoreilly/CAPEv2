@@ -45,7 +45,7 @@ class ElasticsearchDB(Report):
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_ELASTICSEARCH:
             raise CuckooDependencyError("Unable to import elasticsearch "
-                                        "(install with `pip install elasticsearch`)")
+                                        "(install with `pip3 install elasticsearch`)")
 
         self.connect()
         index_prefix  = self.options.get("index", "cuckoo")

@@ -28,7 +28,7 @@ try:
     Base = declarative_base()
 except ImportError:
     raise CuckooDependencyError("Unable to import sqlalchemy "
-                                "(install with `pip install sqlalchemy`)")
+                                "(install with `pip3 install sqlalchemy`)")
 
 log = logging.getLogger(__name__)
 

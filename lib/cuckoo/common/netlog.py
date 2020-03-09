@@ -16,7 +16,7 @@ else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
         bson_decode = lambda d: bson.BSON(d).decode()
-    # The BSON module provided by "pip install bson" works through the
+    # The BSON module provided by "pip3 install bson" works through the
     # "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
         bson_decode = lambda d: bson.loads(d)
@@ -123,7 +123,7 @@ class BsonParser(object):
         self.task_id = task_id
 
         if not HAVE_BSON:
-            log.critical("Starting BsonParser, but bson is not available! (install with `pip install bson`)")
+            log.critical("Starting BsonParser, but bson is not available! (install with `pip3 install bson`)")
 
     def close(self):
         pass

@@ -1740,7 +1740,7 @@ class Static(Processing):
 
             thetype = File(self.file_path).get_type()
             if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in ("doc", "ppt", "xls", "pub"):
-                log.info("Missed dependencies: pip install oletools")
+                log.info("Missed dependencies: pip3 install oletools")
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 static = PortableExecutable(self.file_path, self.results).run()

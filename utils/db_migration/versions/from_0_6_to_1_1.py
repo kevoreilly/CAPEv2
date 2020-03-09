@@ -27,13 +27,13 @@ try:
     from dateutil.parser import parse
 except ImportError:
     print("Unable to import dateutil.parser", end=' ')
-    print("(install with `pip install python-dateutil`)")
+    print("(install with `pip3 install python-dateutil`)")
     sys.exit()
 
 try:
     from alembic import op
 except ImportError:
-    print("Unable to import alembic (install with `pip install alembic`)")
+    print("Unable to import alembic (install with `pip3 install alembic`)")
     sys.exit()
 
 sys.path.append(os.path.join("..", ".."))
@@ -282,7 +282,7 @@ def mongo_upgrade():
             db = conn.cuckoo
             done = True
         except ImportError:
-            print("Unable to import pymongo (install with `pip install pymongo`)")
+            print("Unable to import pymongo (install with `pip3 install pymongo`)")
             done = False
         except ConnectionFailure:
             print("Cannot connect to MongoDB")
@@ -303,7 +303,7 @@ def mongo_upgrade():
                     print("Cannot connect to MongoDB")
                     sys.exit()
         except ImportError:
-            print("Unable to import pymongo (install with `pip install pymongo`)")
+            print("Unable to import pymongo (install with `pip3 install pymongo`)")
             sys.exit()
 
         # Check for schema version and create it.

@@ -284,7 +284,7 @@ class File(object):
         if not HAVE_PYDEEP:
             if not File.notified_pydeep:
                 File.notified_pydeep = True
-                log.warning("Unable to import pydeep (install with `pip install pydeep`)")
+                log.warning("Unable to import pydeep (install with `pip3 install pydeep`)")
             return None
 
         try:

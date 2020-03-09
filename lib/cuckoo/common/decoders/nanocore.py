@@ -27,7 +27,7 @@ def derive_key(guid, coded_key):
     try:
         from pbkdf2 import PBKDF2
     except:
-        log.error("[!] Unable to derive a key. requires 'sudo pip install pbkdf2'")
+        log.error("[!] Unable to derive a key. requires 'sudo pip3 install pbkdf2'")
         return None
 
     generator = PBKDF2(guid, guid, 8)

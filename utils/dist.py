@@ -70,7 +70,7 @@ fetch_lock = threading.BoundedSemaphore(1)
 delete_enabled = False
 
 def required(package):
-    sys.exit("The %s package is required: pip install %s" %
+    sys.exit("The %s package is required: pip3 install %s" %
              (package, package))
 
 

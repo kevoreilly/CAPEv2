@@ -210,7 +210,7 @@ class File:
         if not HAVE_PYDEEP:
             if not File.notified_pydeep:
                 File.notified_pydeep = True
-                log.warning("Unable to import pydeep (install with `pip install pydeep`)")
+                log.warning("Unable to import pydeep (install with `pip3 install pydeep`)")
             return None
 
         try:
@@ -225,7 +225,7 @@ class File:
         if not HAVE_PEFILE:
             if not File.notified_pefile:
                 File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
+                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             return None
 
         try:
@@ -241,7 +241,7 @@ class File:
         if not HAVE_PEFILE:
             if not File.notified_pefile:
                 File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
+                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
             return None
 
         try:

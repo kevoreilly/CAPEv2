@@ -40,7 +40,7 @@ Install with ``apt-get``::
 
 Install with ``pip``::
 
-    $ sudo pip install sqlalchemy bson
+    $ sudo pip3 install sqlalchemy bson
 
 There are other optional dependencies that are mostly used by modules and utilities.
 The following libraries are not strictly required, but their installation is recommended:
@@ -76,7 +76,7 @@ Some of them are already packaged in Debian/Ubuntu and can be installed with the
 
 Except for *python-magic*, *python-dpkt* and *python-libvirt*, the others can be installed through ``pip`` too::
 
-    $ sudo pip install jinja2 pymongo bottle pefile django chardet pygal m2crypto clamd django-ratelimit pycrypto weasyprint rarfile jsbeautifier python-whois bs4
+    $ sudo pip3 install jinja2 pymongo bottle pefile django chardet pygal m2crypto clamd django-ratelimit pycrypto weasyprint rarfile jsbeautifier python-whois bs4
 
 For faster generation of PDF reports, you should install wkhtmltopdf instead of weasyprint.  To do this on Debian/Ubuntu, just use the following command::
 
@@ -84,8 +84,8 @@ For faster generation of PDF reports, you should install wkhtmltopdf instead of 
 
 To have MAEC support, you need to first install the Cybox and then the MAEC libraries::
 
-    $ sudo pip install cybox==2.1.0.9
-    $ sudo pip install maec==4.1.0.11
+    $ sudo pip3 install cybox==2.1.0.9
+    $ sudo pip3 install maec==4.1.0.11
 
 *Yara* and *Pydeep* will have to be installed manually, so please refer to their websites.
 
@@ -118,7 +118,7 @@ If you want to use KVM it's packaged too and you can install it with the followi
 
 If you want to use XenServer you'll have to install the *XenAPI* Python package::
 
-    $ sudo pip install XenAPI
+    $ sudo pip3 install XenAPI
 
 Virtualization Software
 =======================

@@ -330,7 +330,7 @@ Installation of "uwsgi":
     # nginx is only required if you want use basic web auth
 
 Installation of "Gunicorn":
-    # pip install gunicorn
+    # pip3 install gunicorn
 
 Is better if you run "api.py" and "dist.py" as uwsgi/gunicorn application
 

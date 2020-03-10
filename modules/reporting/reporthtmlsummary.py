@@ -8,7 +8,7 @@ import codecs
 import base64
 import PIL
 from PIL import Image
-from io import StringIO
+from io import BytesIO
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -48,19 +48,20 @@ class ReportHTMLSummary(Report):
                 if os.path.getsize(shot_path) == 0:
                     continue
 
-                output = StringIO()
+                output = BytesIO()
 
                 # resize the image to thumbnail size, as weasyprint can't handle resizing
                 try:
                     img = Image.open(shot_path)
                     img = img.resize((150, 100), PIL.Image.ANTIALIAS)
                     img.save(output, format="JPEG")
-                except:
+                except Exception as e:
+                    #print(e)
                     pass
 
                 shot = {}
                 shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
-                shot["data"] = base64.b64encode(output.getvalue())
+                shot["data"] = base64.b64encode(output.getvalue()).decode("utf-8")
                 shots.append(shot)
                 output.close()
 

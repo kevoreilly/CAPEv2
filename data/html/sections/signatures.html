@@ -19,7 +19,7 @@
                 <div id="signature_{{sign.name}}">
                 {% if sign.data %}
                     {% for sign in sign.data %}
-                        {% for key, value in sign.iteritems() %}
+                        {% for key, value in sign.items() %}
                             <div><b>{{key}}</b>: {{value}}</div>
                         {% endfor %}
                     {% endfor %}

@@ -93,7 +93,7 @@ class DCRatAPIs(Signature):
         Signature.__init__(self, *args, **kwargs)
         self.score = 0
         self.nodename = str()
-        self.pat = re.compile('^(s_comm|m_comm|command)[a-f0-9]{40}$')
+        self.pat = re.compile('^(s_comm|m_comm|command|w_list|m_list)[a-f0-9]{40}$')
         self.dkeywords = [
             "token_uid",
             "data_name",

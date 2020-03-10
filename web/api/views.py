@@ -1443,7 +1443,8 @@ def tasks_view(request, task_id):
     resp["error"] = False
     if task:
         entry = task.to_dict()
-        entry["target"] = entry["target"].split("/")[-1]
+        if entry["category"] != "url":
+            entry["target"] = entry["target"].split("/")[-1]
         entry["guest"] = {}
         if task.guest:
             entry["guest"] = task.guest.to_dict()

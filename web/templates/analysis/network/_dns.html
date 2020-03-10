@@ -9,7 +9,7 @@
             </tr>
             {% for p in analysis.network.dns %}
                 <tr>
-                <td>{{p.request}} <a href="https://www.virustotal.com/en/domain/{{p.request}}/information/">[VT]</a> 
+                <td>{{p.request}} <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection">[VT]</a>
                 {% if config.display_et_portal %}
                 <a href="https://threatintel.proofpoint.com/search?q={{p.request}}" target="_blank">[ET]</a>
                 {% endif %}
@@ -19,11 +19,11 @@
                 </td>
                     <td>
                         {% for a in p.answers %}
-                            {{a.type}} {{a.data|linebreaksbr}} 
+                            {{a.type}} {{a.data|linebreaksbr}}
                             {% if a.type == "CNAME" %}
-                            <a href="https://www.virustotal.com/en/domain/{{a.data}}/information/">[VT]</a>
+                            <a href="https://www.virustotal.com/gui/domain/{{a.data}}/detection">[VT]</a>
                             {% else %}
-                            <a href="https://www.virustotal.com/en/ip-address/{{a.data}}/information/">[VT]</a>
+                            <a href="https://www.virustotal.com/gui/ip-address/{{a.data}}/detection">[VT]</a>
                             {% endif %}
                             {% if config.display_et_portal %}
                             <a href="https://threatintel.proofpoint.com/search?q={{a.data}}" target="_blank">[ET]</a>
@@ -37,8 +37,8 @@
                         {% endfor %}
                     </td>
                     <td>{% if domainlookups|get_item:p.request %}
-                        {{ domainlookups|get_item:p.request }} 
-                        <a href="https://www.virustotal.com/en/ip-address/{{domainlookups|get_item:p.request}}/information/">[VT]</a>
+                        {{ domainlookups|get_item:p.request }}
+                        <a href="https://www.virustotal.com/gui/ip-address/{{domainlookups|get_item:p.request}}/detection">[VT]</a>
                         {% if config.display_et_portal %}
                         <a href="https://threatintel.proofpoint.com/search?q={{domainlookups|get_item:p.request}}" target="_blank">[ET]</a>
                         {% endif %}

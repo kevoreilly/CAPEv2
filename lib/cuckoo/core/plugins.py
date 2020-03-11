@@ -292,7 +292,7 @@ class RunProcessing(object):
         family = ""
         self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
-            self.results["malfamily"] = self.results["detections"]
+            family = self.results["detections"]
             self.results["malfamily_tag"] = "CAPE"
             family = self.results["detections"]
         # add detection based on suricata here
@@ -343,7 +343,7 @@ class RunProcessing(object):
                         if len(famcheck) < 4:
                             isgood = False
                         if isgood:
-                            self.results["malfamily"] = famcheck.title()
+                            family = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
@@ -354,7 +354,7 @@ class RunProcessing(object):
                     if res["vendor"] == "Microsoft":
                         detectnames.append(res["sig"])
                     detectnames.append(res["sig"])
-            self.results["malfamily"] = get_vt_consensus(detectnames)
+            family = get_vt_consensus(detectnames)
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
@@ -362,8 +362,11 @@ class RunProcessing(object):
             for detection in self.results["target"]["file"]["clamav"]:
                 if detection.startswith("Win.Trojan."):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
-                    self.results["malfamily"] = words[2]
+                    family = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
+
+        if family:
+            self.results["malfamily"] = family
 
         return self.results
 

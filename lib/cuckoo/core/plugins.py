@@ -299,7 +299,7 @@ class RunProcessing(object):
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
-                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN")):
+                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE")):
                         words = re.findall(r"[A-Za-z0-9]+", alert["signature"])
                         famcheck = words[2]
                         famchecklower = famcheck.lower()
@@ -343,7 +343,7 @@ class RunProcessing(object):
                         if len(famcheck) < 4:
                             isgood = False
                         if isgood:
-                            family = famcheck.title()
+                            self.results["malfamily"] = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
@@ -354,7 +354,7 @@ class RunProcessing(object):
                     if res["vendor"] == "Microsoft":
                         detectnames.append(res["sig"])
                     detectnames.append(res["sig"])
-            family = get_vt_consensus(detectnames)
+            self.results["malfamily"] = get_vt_consensus(detectnames)
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
@@ -362,7 +362,7 @@ class RunProcessing(object):
             for detection in self.results["target"]["file"]["clamav"]:
                 if detection.startswith("Win.Trojan."):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
-                    family = words[2]
+                    self.results["malfamily"] = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
 
         return self.results

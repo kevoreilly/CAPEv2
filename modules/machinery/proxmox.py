@@ -10,7 +10,7 @@ except ImportError:
     print("Missed dependency: pip3 install proxmoxer==1.0.3")
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import config
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
 

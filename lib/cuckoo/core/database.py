@@ -1245,7 +1245,7 @@ class Database(object, metaclass=Singleton):
                 custom="", machine="", platform="", tags=None, memory=False,
                 enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
                 shrike_sid = None, shrike_refer=None, parent_id=None):
-        return self.add(PCAP(file_path), timeout, package, options, priority,
+        return self.add(PCAP(file_path.decode()), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg,
                         shrike_sid, shrike_refer, parent_id)
@@ -1255,7 +1255,7 @@ class Database(object, metaclass=Singleton):
                 custom="", machine="", platform="", tags=None, memory=False,
                 enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
                 shrike_sid=None, shrike_refer=None, parent_id=None, static=True):
-        return self.add(Static(file_path), timeout, package, options, priority,
+        return self.add(Static(file_path.decode()), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg,
                         shrike_sid, shrike_refer, parent_id, static)

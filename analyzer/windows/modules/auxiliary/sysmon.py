@@ -33,7 +33,7 @@ class Sysmon(threading.Thread, Auxiliary):
 
     def collect_logs(self):
         try:
-            subprocess.call(["C:\\Windows\\System32\\wevtutil.exe", "query-events", "microsoft-windows-sysmon/operational", "/rd:true", "/e:root", "/format:xml", "/uni:true"], startupinfo=self.startupinfo,  stdout=open("C:\\sysmon.log", "w"))
+            subprocess.call(["C:\\Windows\\System32\\wevtutil.exe", "query-events", "microsoft-windows-sysmon/operational", "/rd:true", "/e:root", "/format:xml", "/uni:true"], startupinfo=self.startupinfo,  stdout=open("C:\\sysmon.xml", "w"))
         except Exception as e:
             log.error("Could not create sysmon log file - %s" % e)
 

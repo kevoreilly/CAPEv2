@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
 import logging
 import socket
 import time
@@ -15,6 +16,8 @@ BUFSIZE = 1024*1024
 
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
+    if not os.path.exists(file_path):
+        return
     try:
         nc = NetlogFile()
         #nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)

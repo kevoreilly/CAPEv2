@@ -102,7 +102,7 @@ def main():
     parser.add_argument("-e", "--feeds", help="Download Cuckoo feed modules", action="store_true", required=False)
     parser.add_argument("-s", "--signatures", help="Download Cuckoo signatures", action="store_true", required=False)
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
-    parser.add_argument("-m", "--machinemanagers", help="Download machine managers",action="store_true", required=False)
+    parser.add_argument("-m", "--machinery", help="Download machine managers",action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
     parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
@@ -118,7 +118,7 @@ def main():
         enabled.append("processing")
         enabled.append("signatures")
         enabled.append("reporting")
-        enabled.append("machinemanagers")
+        enabled.append("machinery")
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -129,7 +129,7 @@ def main():
         if args.reporting:
             enabled.append("reporting")
         if args.machinemanagers:
-            enabled.append("machinemanagers")
+            enabled.append("machinery")
 
     if not enabled:
         print(colors.red("You need to enable some category!\n"))

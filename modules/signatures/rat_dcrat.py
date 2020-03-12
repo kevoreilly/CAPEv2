@@ -54,7 +54,7 @@ class DCRatMutex(Signature):
 
     def run(self):
         indicators = [
-            "^[a-f0-9]{32}$",
+            #"^[a-f0-9]{32}$",
             "DCR_MUTEX-.*",
         ]
 

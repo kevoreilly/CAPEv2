@@ -61,7 +61,10 @@ class BinGraph(Report):
                         "files": [self.file_path],
                         "save_dir": bingraph_path,
                     })
-                    bingraph_gen(bingraph_args_dict)
+                    try:
+                        bingraph_gen(bingraph_args_dict)
+                    except Exception as e:
+                        log.warning("Can't generate bingraph for {}: {}".format(self.file_path, e))
             except Exception as e:
                 log.info(e)
 
@@ -69,9 +72,19 @@ class BinGraph(Report):
                 for block in results.get(key, []) or []:
                     if block.get("size", 0) != 0 and block.get("type", "") not in excluded_filetypes and \
                             not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"]))):
+                        path = ""
+                        if block.get("file", False):
+                            path = block["file"]
+                        elif block.get("path", False):
+                            path = block["path"]
+                        if not path:
+                            continue
                         bingraph_args_dict.update({
                             "prefix": block["sha256"],
-                            "files": [block["path"]],
+                            "files": [path],
                             "save_dir": bingraph_path,
                         })
-                        bingraph_gen(bingraph_args_dict)
+                        try:
+                            bingraph_gen(bingraph_args_dict)
+                        except Exception as e:
+                            log.warning("Can't generate report for {}: {}".format(path, e))

@@ -16,7 +16,8 @@ from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 
 log = logging.getLogger(__name__)
 
-malware_parsers = {}
+malware_parsers = dict()
+cape_malware_parsers = dict()
 #Import All config parsers
 try:
     import mwcp
@@ -48,13 +49,13 @@ for name in CAPE_DECODERS:
     try:
         file, pathname, description = imp.find_module(name, [cape_decoders])
         module = imp.load_module(name, file, pathname, description)
-        malware_parsers[name] = module
+        cape_malware_parsers[name] = module
     except (ImportError, IndexError) as e:
         if "datadirs" in str(e):
             log.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
-        log.warning("CAPE parser: No module named %s - %s" % (name, e))
+        log.warning("CAPE parser: No module named {} - {}".format(name, e))
 
-parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers")
+parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 if parser_path not in sys.path:
     sys.path.append(parser_path)
 
@@ -74,6 +75,7 @@ pe_map = {
 cfg = Config()
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
+
 def hash_file(method, path):
     """Calculates an hash on a file by path.
     @param method: callable hashing method
@@ -88,6 +90,7 @@ def hash_file(method, path):
             break
         h.update(buf)
     return h.hexdigest()
+
 
 def upx_harness(raw_data):
     upxfile = tempfile.NamedTemporaryFile(delete=False)
@@ -116,6 +119,7 @@ def upx_harness(raw_data):
     os.unlink(upxfile.name)
     return
 
+
 def convert(data):
     if isinstance(data, str):
         return str(data)
@@ -125,6 +129,7 @@ def convert(data):
         return type(data)(list(map(convert, data)))
     else:
         return data
+
 
 def static_config_parsers(yara_hit, file_data, cape_config):
     # Process CAPE Yara hits
@@ -142,7 +147,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
 
                 reporter.run_parser(malware_parsers[cape_name], data=file_data)
 
-                if reporter.errors == []:
+                if not reporter.errors:
                     log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
                     parser_loaded = True
                     try:
@@ -165,7 +170,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                         else:
                             cape_config["cape_config"].update(convert(tmp_dict))
                     except Exception as e:
-                        log.error("CAPE: DC3-MWCP config parsing error with %s: %s", cape_name, e)
+                        log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
                 else:
                     error_lines = reporter.errors[0].split("\n")
                     for line in error_lines:
@@ -174,48 +179,51 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 reporter._Reporter__cleanup()
                 del reporter
             except (ImportError, IndexError, TypeError) as e:
-                log.error(e)
+                log.error("MWCP Error: {}".format(e))
 
-            if not parser_loaded and cape_name in malware_parsers:
-                parser_loaded = True
-                try:
-                    #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
-                    cape_configraw = malware_parsers[cape_name].config(file_data)
-                    if isinstance(cape_configraw, list):
-                        for (key, value) in cape_configraw[0].items():
-                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
-                            if isinstance(value, map): value = list(value)
-                            cape_config["cape_config"].update({key: [value]})
-                    elif isinstance(cape_configraw, dict):
-                        for (key, value) in cape_configraw.items():
-                            #python3 map object returns iterator by default, not list and not serializeable in JSON.
-                            if isinstance(value, map): value = list(value)
-                            cape_config["cape_config"].update({key: [value]})
-                except Exception as e:
-                    log.error("CAPE: parsing error with %s: %s", cape_name, e)
+        if not parser_loaded and cape_name in cape_malware_parsers:
+            parser_loaded = True
+            try:
+                #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+                cape_configraw = cape_malware_parsers[cape_name].config(file_data)
+                if isinstance(cape_configraw, list):
+                    for (key, value) in cape_configraw[0].items():
+                        #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                        if isinstance(value, map):
+                            value = list(value)
+                        cape_config["cape_config"].update({key: [value]})
+                elif isinstance(cape_configraw, dict):
+                    for (key, value) in cape_configraw.items():
+                        #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                        if isinstance(value, map):
+                            value = list(value)
+                        cape_config["cape_config"].update({key: [value]})
+            except Exception as e:
+                log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
-            if not parser_loaded and cape_name in __decoders__:
-                try:
-                    file_info = fileparser.FileParser(rawdata=file_data)
-                    module = __decoders__[file_info.malware_name]['obj']()
-                    module.set_file(file_info)
-                    module.get_config()
-                    malwareconfig_config = module.config
-                    #ToDo remove
-                    if isinstance(malwareconfig_config, list):
-                        for (key, value) in malwareconfig_config[0].items():
-                            cape_config["cape_config"].update({key: [value]})
-                    elif isinstance(malwareconfig_config, dict):
-                        for (key, value) in malwareconfig_config.items():
-                            cape_config["cape_config"].update({key: [value]})
-                except Exception as e:
-                    log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
+        if not parser_loaded and cape_name in __decoders__:
+            try:
+                file_info = fileparser.FileParser(rawdata=file_data)
+                module = __decoders__[file_info.malware_name]['obj']()
+                module.set_file(file_info)
+                module.get_config()
+                malwareconfig_config = module.config
+                #ToDo remove
+                if isinstance(malwareconfig_config, list):
+                    for (key, value) in malwareconfig_config[0].items():
+                        cape_config["cape_config"].update({key: [value]})
+                elif isinstance(malwareconfig_config, dict):
+                    for (key, value) in malwareconfig_config.items():
+                        cape_config["cape_config"].update({key: [value]})
+            except Exception as e:
+                log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
 
             if "cape_config" in cape_config:
                 if cape_config["cape_config"] == {}:
                     del cape_config["cape_config"]
 
         return cape_config
+
 
 def static_extraction(path):
     cape_config = dict()

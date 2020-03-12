@@ -1,3 +1,6 @@
+### [12-03-2020]
+* community.py reintroduced to simplify everything
+
 ### [29-02-2020]
 * SIGHUP handling to stop submitting tasks and stop cuckoo.py, useful for when you need to reload it without breaking running jobs
     * `ps aux|grep "python3 cuckoo.py"|cut -d" " -f 5| xargs kill -1`

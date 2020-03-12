@@ -289,14 +289,15 @@ class RunProcessing(object):
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
-        family = ""
-        self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
-            family = self.results["detections"]
+            self.results["malfamily"] = self.results["detections"]
             self.results["malfamily_tag"] = "CAPE"
-            family = self.results["detections"]
+            return self.results
+
+        self.results["malfamily"] = ""
+        self.results["malfamily_tag"] = ""
         # add detection based on suricata here
-        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+        if "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
                     if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE")):
@@ -343,10 +344,10 @@ class RunProcessing(object):
                         if len(famcheck) < 4:
                             isgood = False
                         if isgood:
-                            family = famcheck.title()
+                            self.results["malfamily"] = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 
-        elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
+        elif self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
             for res in self.results["virustotal"]["results"]:
                 if res["sig"] and "Trojan.Heur." not in res["sig"]:
@@ -354,19 +355,16 @@ class RunProcessing(object):
                     if res["vendor"] == "Microsoft":
                         detectnames.append(res["sig"])
                     detectnames.append(res["sig"])
-            family = get_vt_consensus(detectnames)
+            self.results["malfamily"] = get_vt_consensus(detectnames)
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
-        elif not family and self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"]:
+        elif self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"]:
             for detection in self.results["target"]["file"]["clamav"]:
                 if detection.startswith("Win.Trojan."):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
-                    family = words[2]
+                    self.results["malfamily"] = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
-
-        if family:
-            self.results["malfamily"] = family
 
         return self.results
 

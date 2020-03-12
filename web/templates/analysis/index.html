@@ -111,6 +111,8 @@
                         <td>
                             {% if analysis.detections != None %}
                                 <span class="text-primary"><b>{{analysis.detections}}</b></span>
+                            {% elif analysis.malfamily %}
+                                <span class="text-primary"><b>{{analysis.malfamily}}</b></span>
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}

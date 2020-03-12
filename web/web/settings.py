@@ -49,7 +49,7 @@ ELASTIC_HOST = cfg.elasticsearchdb.get("host", "127.0.0.1")
 ELASTIC_PORT = cfg.elasticsearchdb.get("port", 9200)
 ELASTIC_INDEX = cfg.elasticsearchdb.get("index", "cuckoo")
 
-moloch_cfg = Config("reporting").moloch
+moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl
 zip_cfg = aux_cfg.zipped_download
 

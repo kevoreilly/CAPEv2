@@ -48,7 +48,7 @@ def install(enabled, force, rewrite):
         "signatures": os.path.join("modules", "signatures"),
         #"processing": os.path.join("modules", "processing"),
         #"reporting": os.path.join("modules", "reporting"),
-        #"machinemanagers": os.path.join("modules", "machinemanagers")
+        #"machinery": os.path.join("modules", "machinery")
     }
 
     for category in enabled:
@@ -110,15 +110,11 @@ def main():
     args = parser.parse_args()
 
     enabled = []
-    force = False
-    rewrite = False
+    force = True if args.force else False
+    rewrite = True if args.rewrite else False
 
     if args.all:
-        enabled.append("feeds")
-        enabled.append("processing")
-        enabled.append("signatures")
-        enabled.append("reporting")
-        enabled.append("machinery")
+        enabled.extend(["feeds", "processing", "signatures", "reporting", "machinery"])
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -128,18 +124,13 @@ def main():
             enabled.append("processing")
         if args.reporting:
             enabled.append("reporting")
-        if args.machinemanagers:
+        if args.machinery:
             enabled.append("machinery")
 
     if not enabled:
         print(colors.red("You need to enable some category!\n"))
         parser.print_help()
         return
-
-    if args.force:
-        force = True
-    if args.rewrite:
-        rewrite = True
 
     URL = URL.format(args.branch)
 

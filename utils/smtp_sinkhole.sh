@@ -13,6 +13,6 @@ if [ ! -f "/opt/CAPEv2/utils/smtp_sinkhole.py" ]; then
 fi
 
 if [ ! -d dumps ]; then
-    mkdir -p /opt/CAPE/utils/dumps
+    mkdir -p /opt/CAPEv2/utils/dumps
 fi
 python smtp_sinkhole.py 0.0.0.0 1025 --dir /opt/CAPEv2/utils/dumps

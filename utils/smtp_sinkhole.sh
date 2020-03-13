@@ -15,4 +15,4 @@ fi
 if [ ! -d dumps ]; then
     mkdir -p /opt/CAPE/utils/dumps
 fi
-python smtp_sinkhole.py 0.0.0.0 1025 --dir /opt/CAPE/utils/dumps
+python smtp_sinkhole.py 0.0.0.0 1025 --dir /opt/CAPEv2/utils/dumps

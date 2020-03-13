@@ -298,8 +298,9 @@ class RunProcessing(object):
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
+                    #alert["signature"].startswith(("ET JA3 HASH")):
                     if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
-                        words = re.findall(r"[A-Za-z0-9]+", alert["signature"])
+                        words = re.findall(r"[A-Za-z0-9/]+", alert["signature"])
                         famcheck = words[2]
                         famchecklower = famcheck.lower()
                         if famchecklower in ("win32", "w32", "ransomware"):

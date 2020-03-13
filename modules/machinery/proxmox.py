@@ -4,6 +4,7 @@
 
 import logging
 import time
+import sys
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:

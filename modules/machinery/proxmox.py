@@ -175,7 +175,7 @@ class Proxmox(Machinery):
             raise CuckooMachineError("Rollback to snapshot %s failed: %s"
                                      % (snapshot, task["exitstatus"]))
 
-    def start(self, label, task):
+    def start(self, label):
         """Roll back VM to known-pristine snapshot and optionally start it if
         not already running after reverting to the snapshot.
 

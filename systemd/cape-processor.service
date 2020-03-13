@@ -12,6 +12,7 @@ User=cape
 Group=cape
 Restart=always
 RestartSec=5m
+LimitNOFILE=100000
 
 [Install]
 WantedBy=multi-user.target

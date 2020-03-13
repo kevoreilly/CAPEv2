@@ -336,14 +336,13 @@ class RunProcessing(object):
                             "Shadowserver",
                         ]
 
-                        isgood = True
-                        for black in blacklist:
-                            if black == famchecklower:
-                                isgood = False
-                                break
+                        isbad = any(True for black in blacklist if black in famchecklower)
+                        if isbad:
+                            #shouldn't it be continue
+                            break
                         if len(famcheck) < 4:
-                            isgood = False
-                        if isgood:
+                            isbad = True
+                        if not isbad:
                             family = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 

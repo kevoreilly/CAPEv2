@@ -7,7 +7,7 @@ import time
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
-    print("Missed dependency: pip3 install proxmoxer==1.0.3")
+    sys.exit("Missed dependency: pip3 install proxmoxer -U")
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config

@@ -60,6 +60,7 @@ Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
 
 log = logging.getLogger(__name__)
+cfg = Config()
 proc_cfg = Config("processing")
 
 enabled_whitelist = proc_cfg.network.dnswhitelist
@@ -104,8 +105,6 @@ class Pcap:
         self.ja3_records = []
         # Dictionary containing all the results of this processing.
         self.results = {}
-        # Config
-        self.config = Config()
         # DNS Whitelist
         self.domain_whitelist = [
             # Certificate Trust Update domains
@@ -148,7 +147,7 @@ class Pcap:
         @param name: hostname.
         @return: IP address or blank
         """
-        if self.config.processing.resolve_dns:
+        if cfg.processing.resolve_dns:
             ip = resolve(name)
         else:
             ip = ""
@@ -227,7 +226,7 @@ class Pcap:
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
 
-        if self.config.processing.reverse_dns:
+        if cfg.processing.reverse_dns:
             d = dns.resolver.Resolver()
             d.timeout = 5.0
             d.lifetime = 5.0
@@ -236,7 +235,7 @@ class Pcap:
             ip = unique_hosts.pop()
             inaddrarpa = ""
             hostname = ""
-            if self.config.processing.reverse_dns:
+            if cfg.processing.reverse_dns:
                 try:
                     inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
                 except:
@@ -300,7 +299,7 @@ class Pcap:
         if self._check_icmp(data):
             # If ICMP packets are coming from the host, it probably isn't
             # relevant traffic, hence we can skip from reporting it.
-            if conn["src"] == self.config.resultserver.ip:
+            if conn["src"] == cfg.resultserver.ip:
                 return
 
             entry = {}
@@ -665,7 +664,7 @@ class Pcap:
 	    @param conn: TCP connection info.
         @param tcpdata: TCP data in flow
         """
-        if conn["src"] == self.config.resultserver.ip:
+        if conn["src"] == cfg.resultserver.ip:
             return
 
         entry = {}
@@ -686,7 +685,32 @@ class Pcap:
         @return: dict with network analysis data.
         """
         log = logging.getLogger("Processing.Pcap")
+        """
+        #this should be configurable
+        missed_urls = list()
+        #https://github.com/kevoreilly/capemon/blob/capemon/hook_network.c
+        missed_urls_apis = (
+            "HttpOpenRequestA",  # hConnect?
+            "HttpOpenRequestW",  # hConnect?
+            "InternetConnectA",  #  ServerName, ServerPort
+            "InternetConnectW",  #  ServerName, ServerPort
+            "HttpSendRequestA",  # Headers: Referer: http://124.150.175.133/sbrQn0ueq8/EhJiZIoBi/jBRna68dNx/L8sAZQMt43z1zh4/SeMGBbEWdtoOs/ Content-Type: multipart/form-data;
+            "HttpSendRequestW",  # Headers: Referer: http://124.150.175.133/sbrQn0ueq8/EhJiZIoBi/jBRna68dNx/L8sAZQMt43z1zh4/SeMGBbEWdtoOs/ Content-Type: multipart/form-data;
+            "InternetOpenUrlA",  # URL
+            "InternetOpenUrlW",  # URL
+            "URLDownloadToCacheFileA",  # URL
+            "URLDownloadToCacheFileW",  # URL
+            #HttpSendRequestExW
+            #HttpSendRequestExA
+            "InternetCrackUrlA", #URL
+            "InternetCrackUrlW", #URL
+        )
 
+        for proc in self.results["behavior"]["processes"]:
+            for call in proc["calls"]:
+                if call.get("api", "") in missed_urls_apis:
+
+        """
         if not IS_DPKT:
             log.error("Python DPKT is not installed, aborting PCAP analysis.")
             return self.results
@@ -868,7 +892,7 @@ class NetworkAnalysis(Processing):
         ja3_fprints = self._import_ja3_fprints()
 
         sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
-        if Config().processing.sort_pcap:
+        if cfg.processing.sort_pcap:
             sort_pcap(self.pcap_path, sorted_path)
             buf = Pcap(self.pcap_path, ja3_fprints).run()
             results = Pcap(sorted_path, ja3_fprints).run()

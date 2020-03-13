@@ -294,12 +294,11 @@ class RunProcessing(object):
         if self.results.get("detections", False):
             family = self.results["detections"]
             self.results["malfamily_tag"] = "CAPE"
-            family = self.results["detections"]
         # add detection based on suricata here
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
-                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE")):
+                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
                         words = re.findall(r"[A-Za-z0-9]+", alert["signature"])
                         famcheck = words[2]
                         famchecklower = famcheck.lower()
@@ -333,6 +332,7 @@ class RunProcessing(object):
                             "malicious",
                             "observed",
                             "windows",
+                            "Shadowserver",
                         ]
 
                         isgood = True

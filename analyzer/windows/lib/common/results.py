@@ -17,6 +17,7 @@ BUFSIZE = 1024*1024
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
     if not os.path.exists(file_path):
+        log.warning("File {} doesn't exist anymore".format(file_path))
         return
     try:
         nc = NetlogFile()

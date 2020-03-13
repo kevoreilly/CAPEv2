@@ -5,6 +5,10 @@
 
 import os
 import sys
+
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+
 import shutil
 import urllib3
 import argparse
@@ -44,11 +48,11 @@ def install(enabled, force, rewrite):
     (temp, source) = download_archive()
 
     folders = {
-        #"feeds": os.path.join("modules", "feeds"),
+        "feeds": os.path.join("modules", "feeds"),
         "signatures": os.path.join("modules", "signatures"),
-        #"processing": os.path.join("modules", "processing"),
-        #"reporting": os.path.join("modules", "reporting"),
-        #"machinery": os.path.join("modules", "machinery")
+        "processing": os.path.join("modules", "processing"),
+        "reporting": os.path.join("modules", "reporting"),
+        "machinery": os.path.join("modules", "machinery")
     }
 
     for category in enabled:
@@ -114,7 +118,7 @@ def main():
     rewrite = True if args.rewrite else False
 
     if args.all:
-        enabled.extend(["feeds", "processing", "signatures", "reporting", "machinery"])
+        enabled = ["feeds", "processing", "signatures", "reporting", "machinery"]
     else:
         if args.feeds:
             enabled.append("feeds")

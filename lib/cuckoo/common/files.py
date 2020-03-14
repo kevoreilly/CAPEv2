@@ -20,7 +20,7 @@ log = logging.getLogger()
 
 def temppath():
     """Return the true temporary directory."""
-    tmppath = cuckoo_conf.cuckoo.cuckoo.tmppath
+    tmppath = cuckoo_conf.cuckoo.tmppath
 
     # Backwards compatibility with older configuration.
     if not tmppath or tmppath == "/tmp":

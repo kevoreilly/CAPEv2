@@ -33,8 +33,6 @@ from lib.common.rand import random_string
 from lib.core.config import Config
 from lib.core.log import LogServer
 
-NT_SUCCESS = lambda val: val >= 0
-
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC       = 1
 
@@ -128,6 +126,7 @@ class Process:
         @return: operation status.
         """
         ret = bool(self.h_process or self.h_thread)
+        NT_SUCCESS = lambda val: val >= 0
 
         if self.h_process:
             ret = NT_SUCCESS(KERNEL32.CloseHandle(self.h_process))
@@ -157,6 +156,8 @@ class Process:
         """
         if not self.h_process:
             self.open()
+
+        NT_SUCCESS = lambda val: val >= 0
 
         pbi = create_string_buffer(530)
         size = c_int()
@@ -194,6 +195,8 @@ class Process:
         if not self.h_process:
             self.open()
 
+        NT_SUCCESS = lambda val: val >= 0
+
         val = c_ulong(0)
         retlen = c_ulong(0)
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 29, byref(val), sizeof(val), byref(retlen))
@@ -205,6 +208,8 @@ class Process:
         """Get the Parent Process ID."""
         if not self.h_process:
             self.open()
+
+        NT_SUCCESS = lambda val: val >= 0
 
         pbi = (ULONG_PTR * 6)()
         size = c_ulong()
@@ -333,39 +338,65 @@ class Process:
                       "execution aborted", path)
             return False
 
-        arguments = ""
+        startup_info = STARTUPINFO()
+        startup_info.cb = sizeof(startup_info)
+        # STARTF_USESHOWWINDOW
+        startup_info.dwFlags = 1
+        # SW_SHOWNORMAL
+        startup_info.wShowWindow = 1
+        process_info = PROCESS_INFORMATION()
+
+        arguments = "\"" + path + "\" "
         if args:
             arguments += args
 
-        bin_name = os.path.join(os.getcwd(), LOADER32_NAME)
+        creation_flags = CREATE_NEW_CONSOLE
+        if suspended:
+            self.suspended = True
+            creation_flags += CREATE_SUSPENDED
 
-        if os.path.exists(bin_name):
-            ret = subprocess.run([bin_name, "execute", path, arguments])
-            self.pid = ret.returncode
+        created = KERNEL32.CreateProcessW(path,
+                                          arguments,
+                                          None,
+                                          None,
+                                          None,
+                                          creation_flags,
+                                          None,
+                                          os.getenv("TEMP"),
+                                          byref(startup_info),
+                                          byref(process_info))
 
-        if self.pid:
+        if created:
+            self.pid = process_info.dwProcessId
+            self.h_process = process_info.hProcess
+            self.thread_id = process_info.dwThreadId
+            self.h_thread = process_info.hThread
             log.info("Successfully executed process from path \"%s\" with "
-                     "arguments \"%s\" with pid %d", path, arguments or "", self.pid)
+                     "arguments \"%s\" with pid %d", path, args or "", self.pid)
             if kernel_analysis:
                 return self.kernel_analyze()
             return True
         else:
             log.error("Failed to execute process from path \"%s\" with "
-                      "arguments \"%s\"", path, arguments,)
+                      "arguments \"%s\" (Error: %s)", path, args,
+                      get_error_string(KERNEL32.GetLastError()))
             return False
 
     def resume(self):
         """Resume a suspended thread.
         @return: operation status.
         """
-        if not self.pid:
+        if not self.suspended:
+            log.warning("The process with pid %d was not suspended at creation"
+                        % self.pid)
             return False
 
-        if self.h_process == 0:
-            self.open()
+        if not self.h_thread:
+            return False
 
-        ret = NTDLL.NtResumeProcess(self.h_process)
-        if NT_SUCCESS(ret):
+        KERNEL32.Sleep(2000)
+
+        if KERNEL32.ResumeThread(self.h_thread) != -1:
             self.suspended = False
             log.info("Successfully resumed process with pid %d", self.pid)
             return True
@@ -552,7 +583,10 @@ class Process:
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
 
         if os.path.exists(bin_name):
-            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll])
+            if thread_id or self.suspended:
+                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
+            else:
+                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
             if ret.returncode != 0:
                 if ret.returncode == 1:
                     log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)

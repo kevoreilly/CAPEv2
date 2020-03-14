@@ -345,6 +345,7 @@ class RunProcessing(object):
                         if not isbad:
                             family = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
+                            self.results["detections"] = family
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []

@@ -18,7 +18,7 @@ class STAP(Auxiliary):
     """System-wide syscall trace with stap."""
     priority = -10  # low prio to wrap tightly around the analysis
 
-    def __init__(self):
+    def __init__(self, options={}, analyzer=None):
         self.config = Config(cfg="analysis.conf")
         self.proc = None
 

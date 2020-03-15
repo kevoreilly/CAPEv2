@@ -91,13 +91,19 @@ class Package(object):
         # A timeout for analysis
         self.timeout = kwargs.get("timeout", None)
         # Command-line arguments for the target.
-        self.args = self.options.get("args", [])
-        # Choose an analysis method (or fallback to apicalls)
-        self.method = self.options.get("method", "apicalls")
-        # Should our target be launched as root or not
-        self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
-        #free: do not inject our monitor.
-        self.free = self.options.get("free", None)
+
+        self.args = []
+        self.method = "apicalls"
+        self.run_as_root = False
+        self.free = None
+        if isinstance(self.options, dict):
+            self.args = self.options.get("args", [])
+            # Choose an analysis method (or fallback to apicalls)
+            self.method = self.options.get("method", "apicalls")
+            # Should our target be launched as root or not
+            self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
+            #free: do not inject our monitor.
+            self.free = self.options.get("free", None)
         self.proc = None
         self.pids = []
 
@@ -221,6 +227,6 @@ class Package(object):
             log.warning("Exception uploading log: %s", e)
 
 def _string_to_bool(raw):
-    if not isinstance(raw, basestring):
+    if not isinstance(raw, str):
         raise Exception("Unexpected input: not a string :/")
     return raw.lower() in ("yes", "true", "t", "1")

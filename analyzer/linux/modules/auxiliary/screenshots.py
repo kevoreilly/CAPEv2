@@ -29,8 +29,8 @@ SKIP_AREA = None
 class Screenshots(Auxiliary, Thread):
     """Take screenshots."""
 
-    def __init__(self, options, config):
-        Auxiliary.__init__(self, options, config)
+    def __init__(self, options={}, analyzer=None):
+        Auxiliary.__init__(self, options={}, analyzer=None)
         Thread.__init__(self)
         self.do_run = True
 

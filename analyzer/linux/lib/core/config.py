@@ -10,7 +10,6 @@ class Config:
         """@param cfg: configuration file."""
         config = configparser.ConfigParser(allow_no_value=True)
         config.read(cfg)
-
         for section in config.sections():
             for name, raw_value in config.items(section):
                 if name == "file_name":
@@ -18,7 +17,7 @@ class Config:
                     if len(value) >= 2 and value[0] == "'" and value[-1] == "'":
                         value = value[1:-1]
                 elif name == "options":
-                    self.parse_options(config.get(section, name))
+                    value = self.parse_options(config.get(section, name))
                 else:
                     try:
                         value = config.getboolean(section, name)

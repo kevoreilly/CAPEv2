@@ -92,18 +92,14 @@ class Package(object):
         self.timeout = kwargs.get("timeout", None)
         # Command-line arguments for the target.
 
-        self.args = []
-        self.method = "apicalls"
-        self.run_as_root = False
-        self.free = None
-        if isinstance(self.options, dict):
-            self.args = self.options.get("args", [])
-            # Choose an analysis method (or fallback to apicalls)
-            self.method = self.options.get("method", "apicalls")
-            # Should our target be launched as root or not
-            self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
-            #free: do not inject our monitor.
-            self.free = self.options.get("free", None)
+
+        self.args = self.options.get("args", [])
+        # Choose an analysis method (or fallback to apicalls)
+        self.method = self.options.get("method", "apicalls")
+        # Should our target be launched as root or not
+        self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
+        #free: do not inject our monitor.
+        self.free = self.options.get("free", None)
         self.proc = None
         self.pids = []
 

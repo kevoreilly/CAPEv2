@@ -6,13 +6,10 @@
 from os import system
 from lib.core.packages import Package
 
-
-class Generic(Package):
-    """ Generic analysis package. """
+class Doc(Package):
+    """ LibreOffice document. """
 
     def prepare(self):
-        # Make sure that our target is executable
-        # /usr/bin/open will handle it
         system("/bin/chmod +x \"%s\"" % self.target)
         self.args = [self.target] + self.args
-        self.target = "sh -c"
+        self.target = "/usr/bin/libreoffice --writer"

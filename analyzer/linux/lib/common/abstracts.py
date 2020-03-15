@@ -47,10 +47,10 @@ class Package(object):
     def package_files(self):
         """A list of files to upload to host.
         The list should be a list of tuples (<path on guest>, <name of file in package_files folder>).
-        (package_files is a folder that will be created in analysis folder). 
+        (package_files is a folder that will be created in analysis folder).
         """
         return None
-    
+
     def finish(self):
         """Finish run.
         If specified to do so, this method dumps the memory of
@@ -69,5 +69,19 @@ class Package(object):
 class Auxiliary(object):
     priority = 0
 
+
+    def __init__(self, options={}, analyzer=None):
+        self.options = options
+        self.analyzer = analyzer
+
     def get_pids(self):
         return []
+
+    def init(self):
+        pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass

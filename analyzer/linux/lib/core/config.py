@@ -17,6 +17,8 @@ class Config:
                     value = config.get(section, name)
                     if len(value) >= 2 and value[0] == "'" and value[-1] == "'":
                         value = value[1:-1]
+                elif name == "options":
+                    value = self.get_options(config.get(section, name))
                 else:
                     try:
                         value = config.getboolean(section, name)
@@ -26,6 +28,10 @@ class Config:
                         except ValueError:
                             value = config.get(section, name)
                 setattr(self, name, value)
+
+        # Just make sure the options field is available.
+        if not hasattr(self, "options"):
+            self.options = {}
 
     def get(self, name, default=None):
         if hasattr(self, name):

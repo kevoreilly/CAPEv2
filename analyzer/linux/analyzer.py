@@ -56,8 +56,8 @@ class Analyzer:
     procedure, including the auxiliary modules and the analysis packages.
     """
 
-    def __init__(self):
-        self.config = None
+    def __init__(self, config):
+        self.config = config
         self.target = None
 
     def prepare(self):

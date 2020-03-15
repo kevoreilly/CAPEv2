@@ -2,13 +2,13 @@
 # Copyright (C) 2015 Dmitry Rodionov
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
-
+from __future__ import absolute_import
 import os
 import json
 from getpass import getuser
 import logging
 from lib.core.config import Config
-from common import sanitize_path, path_for_script, filelines, current_directory
+from lib.common.common import sanitize_path, path_for_script, filelines, current_directory
 
 log = logging.getLogger(__name__)
 

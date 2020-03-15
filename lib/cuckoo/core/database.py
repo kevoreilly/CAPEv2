@@ -824,7 +824,7 @@ class Database(object, metaclass=Singleton):
         try:
             machines = session.query(Machine)
             if label:
-                machines = machines.filter_by(label=label)
+                machines = machines.filter_by(name=label)
             if platform:
                 machines = machines.filter_by(platform=platform)
             if tags:

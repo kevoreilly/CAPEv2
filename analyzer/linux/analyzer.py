@@ -83,6 +83,12 @@ class Analyzer:
         if self.config.category == "file":
             self.target = os.path.join(tempfile.gettempdir(), self.config.file_name)
         # If it's a URL, well.. we store the URL.
+        elif self.config.category == "archive":
+            zip_path = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.file_name)
+            zipfile.ZipFile(zip_path).extractall(os.environ.get("TEMP", "/tmp"))
+            self.target = os.path.join(
+                os.environ.get("TEMP", "/tmp"), self.config.options["filename"]
+            )
         else:
             self.target = self.config.target
 
@@ -93,6 +99,7 @@ class Analyzer:
 
         # Hell yeah.
         log.info("Analysis completed.")
+        return True
 
     def run(self):
         """Run analysis.
@@ -105,9 +112,9 @@ class Analyzer:
 
         # If no analysis package was specified at submission, we try to select
         # one automatically.
+        """
         if not self.config.package:
-            log.debug("No analysis package specified, trying to detect "
-                      "it automagically.")
+            log.debug("No analysis package specified, trying to detect it automagically.")
 
             if self.config.category == "file":
                 package = "generic"
@@ -145,10 +152,35 @@ class Analyzer:
         except IndexError as e:
             raise CuckooError("Unable to select package class "
                               "(package={0}): {1}".format(package_name, e))
+        """
+        if self.config.package:
+            suggestion = self.config.package
+        elif self.config.category != "file":
+            suggestion = "url"
+        else:
+            suggestion = None
+
+        if self.config.package == "ie":
+            suggestion = "ff"
+        # Try to figure out what analysis package to use with this target
+        kwargs = {"suggestion": suggestion}
+        if self.config.category == "file":
+            package_class = choose_package_class(self.config.file_type,
+                                                 self.config.file_name, **kwargs)
+        else:
+            package_class = choose_package_class(None, None, **kwargs)
+
+        if not package_class:
+            raise Exception("Could not find an appropriate analysis package")
+        # Package initialization
+        kwargs = {
+            "options": self.config.options,
+            "timeout": self.config.timeout
+        }
 
         # Initialize the analysis package.
-        pack = package_class(self.config.get_options())
-
+        #pack = package_class(self.config.get_options())
+        pack = package_class(self.target, **kwargs)
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = auxiliary.__name__ + "."
@@ -182,12 +214,15 @@ class Analyzer:
             finally:
                 log.debug("Started auxiliary module %s",
                           aux.__class__.__name__)
-                aux_enabled.append(aux)
+                #aux_enabled.append(aux)
+                if aux:
+                    aux_enabled.append(aux)
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
-            pids = pack.start(self.target)
+            #pids = pack.start(self.target)
+            pids = pack.start()
         except NotImplementedError:
             raise CuckooError("The package \"{0}\" doesn't contain a run "
                               "function.".format(package_name))
@@ -223,7 +258,7 @@ class Analyzer:
 
         while True:
             time_counter += 1
-            if time_counter == int(self.config.timeout):
+            if time_counter > int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis.")
                 break
 
@@ -270,7 +305,7 @@ class Analyzer:
                 # throw a warning.
                 except Exception as e:
                     log.warning("The package \"%s\" check function raised "
-                                "an exception: %s", package_name, e)
+                                "an exception: %s", package_class, e)
             except Exception as e:
                 log.exception("The PID watching loop raised an exception: %s", e)
             finally:
@@ -283,7 +318,7 @@ class Analyzer:
             pack.finish()
         except Exception as e:
             log.warning("The package \"%s\" finish function raised an "
-                        "exception: %s", package_name, e)
+                        "exception: %s", package_class, e)
 
         try:
             # Upload files the package created to files in the results folder
@@ -295,7 +330,7 @@ class Analyzer:
                     )
         except Exception as e:
             log.warning("The package \"%s\" package_files function raised an "
-                        "exception: %s", package_name, e)
+                        "exception: %s", package_class, e)
 
         # Terminate the Auxiliary modules.
         for aux in sorted(aux_enabled, key=lambda x: x.priority):
@@ -341,8 +376,9 @@ if __name__ == "__main__":
     data = {}
 
     try:
+        config = Config(cfg="analysis.conf")
         # Initialize the main analyzer class.
-        analyzer = Analyzer()
+        analyzer = Analyzer(config)
 
         # Run it and wait for the response.
         success = analyzer.run()

@@ -389,7 +389,8 @@ if __name__ == "__main__":
                     " ".join("%s=%s" % (k, v) for k, v in kwargs.items())
                 )
 
-            output = e = None
+            e = None
+            output = None
             try:
                 output = handlers[command](*args, **kwargs)
             except Exception as e:

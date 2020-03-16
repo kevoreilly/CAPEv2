@@ -242,10 +242,61 @@ class Process:
                 log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
                 return False
 
-        exe_name = random_string(6)
-        service_name = random_string(6)
-        driver_name = random_string(6)
-        inf_data = '[Version]\r\nSignature = "$Windows NT$"\r\nClass = "ActivityMonitor"\r\nClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}\r\nProvider= %Prov%\r\nDriverVer = 22/01/2014,1.0.0.0\r\nCatalogFile = %DriverName%.cat\r\n[DestinationDirs]\r\nDefaultDestDir = 12\r\nMiniFilter.DriverFiles = 12\r\n[DefaultInstall]\r\nOptionDesc = %ServiceDescription%\r\nCopyFiles = MiniFilter.DriverFiles\r\n[DefaultInstall.Services]\r\nAddService = %ServiceName%,,MiniFilter.Service\r\n[DefaultUninstall]\r\nDelFiles = MiniFilter.DriverFiles\r\n[DefaultUninstall.Services]\r\nDelService = %ServiceName%,0x200\r\n[MiniFilter.Service]\r\nDisplayName= %ServiceName%\r\nDescription= %ServiceDescription%\r\nServiceBinary= %12%\\%DriverName%.sys\r\nDependencies = "FltMgr"\r\nServiceType = 2\r\nStartType = 3\r\nErrorControl = 1\r\nLoadOrderGroup = "FSFilter Activity Monitor"\r\nAddReg = MiniFilter.AddRegistry\r\n[MiniFilter.AddRegistry]\r\nHKR,,"DebugFlags",0x00010001 ,0x0\r\nHKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\nHKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\nHKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n[MiniFilter.DriverFiles]\r\n%DriverName%.sys\r\n[SourceDisksFiles]\r\n'+driver_name+'.sys = 1,,\r\n[SourceDisksNames]\r\n1 = %DiskId1%,,,\r\n[Strings]\r\n'+'Prov = "'+random_string(8)+'"\r\nServiceDescription = "'+random_string(12)+'"\r\nServiceName = "'+service_name+'"\r\nDriverName = "'+driver_name+'"\r\nDiskId1 = "'+service_name+' Device Installation Disk"\r\nDefaultInstance = "'+service_name+' Instance"\r\nInstance1.Name = "'+service_name+' Instance"\r\nInstance1.Altitude = "370050"\r\nInstance1.Flags = 0x0'
+        exe_name = service_name = driver_name = random_string(6)
+
+        inf_data = ('[Version]\r\n'
+                        'Signature = "$Windows NT$"\r\n'
+                        'Class = "ActivityMonitor"\r\n'
+                        'ClassGuid = {{b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}}\r\n'
+                        'Provider = %Prov%\r\n'
+                        'DriverVer = 22/01/2014,1.0.0.0\r\n'
+                        'CatalogFile = %DriverName%.cat\r\n'
+                    '[DestinationDirs]\r\n'
+                        'DefaultDestDir = 12\r\n'
+                        'MiniFilter.DriverFiles = 12\r\n'
+                    '[DefaultInstall]\r\n'
+                        'OptionDesc = %ServiceDescription%\r\n'
+                        'CopyFiles = MiniFilter.DriverFiles\r\n'
+                    '[DefaultInstall.Services]\r\n' \
+                        'AddService = %ServiceName%,,MiniFilter.Service\r\n'
+                    '[DefaultUninstall]\r\n'
+                        'DelFiles = MiniFilter.DriverFiles\r\n'
+                    '[DefaultUninstall.Services]\r\n'
+                        'DelService = %ServiceName%,0x200\r\n'
+                    '[MiniFilter.Service]\r\n'
+                        'DisplayName = %ServiceName%\r\n'
+                        'Description = %ServiceDescription%\r\n'
+                        'ServiceBinary = %12%\\%DriverName%.sys\r\n'
+                        'Dependencies = "FltMgr"\r\n'
+                        'ServiceType = 2\r\n'
+                        'StartType = 3\r\n'
+                        'ErrorControl = 1\r\n'
+                        'LoadOrderGroup = "FSFilter Activity Monitor"\r\n'
+                        'AddReg = MiniFilter.AddRegistry\r\n'
+                    '[MiniFilter.AddRegistry]\r\n'
+                        'HKR,,"DebugFlags",0x00010001 ,0x0\r\n'
+                        'HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\n'
+                        'HKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\n'
+                        'HKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n'
+                    '[MiniFilter.DriverFiles]\r\n'
+                        '%DriverName%.sys\r\n'
+                    '[SourceDisksFiles]\r\n'
+                        '{driver_name}.sys = 1,,\r\n'
+                    '[SourceDisksNames]\r\n'
+                        '1 = %DiskId1%,,,\r\n'
+                    '[Strings]\r\n'
+                        'Prov = "{random_string8}"\r\n'
+                        'ServiceDescription = "{random_string12}"\r\n'
+                        'ServiceName = "{service_name}"\r\n'
+                        'DriverName = "{driver_name}"\r\n'
+                        'DiskId1 = "{service_name} Device Installation Disk"\r\n'
+                        'DefaultInstance = "{service_name} Instance"\r\n'
+                        'Instance1.Name = "{service_name} Instance"\r\n'
+                        'Instance1.Altitude = "370050"\r\n'
+                        'Instance1.Flags = 0x0'
+                    ).format(
+                        service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12)
+                    )
 
         new_inf = os.path.join(os.getcwd(), "dll", "{0}.inf".format(service_name))
         new_sys = os.path.join(os.getcwd(), "dll", "{0}.sys".format(driver_name))

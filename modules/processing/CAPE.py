@@ -465,8 +465,8 @@ class CAPE(Processing):
                                                   cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
-                if file_info.get("entrypoint", False) and file_info.get("ep_bytes", False):
-                    if file_info["entrypoint"] and file_info["entrypoint"] == cape_file["entrypoint"] \
+                if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
+                    if file_info.get("entrypoint") and file_info["entrypoint"] == cape_file["entrypoint"] \
                             and file_info["ep_bytes"] == cape_file["ep_bytes"]:
                         append_file = False
 

@@ -34,7 +34,7 @@ def run(*args):
     """Wrapper to Popen."""
     if settings.verbose:
         log.debug((args))
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = p.communicate()
     return stdout, stderr
 
@@ -43,7 +43,8 @@ def nic_available(interface):
     try:
         subprocess.check_call([settings.ip, "link", "show", interface],
                               stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+                              stderr=subprocess.PIPE,
+                              universal_newlines=True)
         return True
     except subprocess.CalledProcessError:
         return False
@@ -53,7 +54,8 @@ def rt_available(rt_table):
     try:
         subprocess.check_call([settings.ip, "route", "list", "table", rt_table],
                               stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+                              stderr=subprocess.PIPE,
+                              universal_newlines=True)
         return True
     except subprocess.CalledProcessError:
         return False

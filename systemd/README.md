@@ -9,12 +9,17 @@ These files help run all the various parts of CAPE as systemd services, so that 
 
 ## Setup
 0. You need to edit the default values in systemd to not get `too many open files`
+
+    ```bash
     sudo sed -i "s/#DefaultLimitNOFILE=/DefaultLimitNOFILE=1048576/g" /etc/systemd/user.conf
     sudo sed -i "s/#DefaultLimitNOFILE=/DefaultLimitNOFILE=1048576/g" /etc/systemd/system.conf
+    ```
 
 * to verify changes
+
     ```bash
-        systemctl show cuckoo-processor|grep LimitNOFILE #replace cuckoo-processor with another systemd daemon after install them all
+    #replace cuckoo-processor with another systemd daemon after install them all
+    systemctl show cuckoo-processor | grep LimitNOFILE
     ```
 
 1. (optional) Install virtualenv

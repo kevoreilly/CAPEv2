@@ -530,9 +530,9 @@ class Process:
 
     def inject(self, injectmode=INJECT_QUEUEUSERAPC, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.
-        @param dll: Cuckoo DLL path.
+        @param injectmode: APC use
         @param interest: path to file of interest, handed to cuckoomon config
-        @param apc: APC use.
+        @param nosleepskip: skip sleep or not
         """
         global LOGSERVER_POOL
 
@@ -548,18 +548,23 @@ class Process:
                         "injection aborted", self.pid)
             return False
 
-        is_64bit = self.is_64bit()
-
-        if is_64bit:
+        if self.is_64bit():
+            bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
+            bit_str = "64-bit"
         else:
+            bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
+            bit_str = "32-bit"
 
+        bin_name = os.path.join(os.getcwd(), bin_name)
         dll = os.path.join(os.getcwd(), dll)
 
-        if not dll:
-            log.warning("No DLL specified to be injected in process "
-                        "with pid %d, injection aborted.", self.pid)
+        if not os.path.exists(bin_name):
+            log.warning("Invalid loader path %s for injecting DLL in process "
+                        "with pid %d, injection aborted.", bin_name, self.pid)
+            log.error("Please ensure the %s loader is in analyzer/windows/bin "
+                      "in order to analyze %s binaries.", bit_str, bit_str)
             return False
 
         if not os.path.exists(dll):
@@ -569,35 +574,21 @@ class Process:
 
         self.write_monitor_config(interest, nosleepskip)
 
-        orig_bin_name = ""
-        bit_str = ""
-        if is_64bit:
-            orig_bin_name = LOADER64_NAME
-            bit_str = "64-bit"
-        else:
-            orig_bin_name = LOADER32_NAME
-            bit_str = "32-bit"
-
-        bin_name = os.path.join(os.getcwd(), orig_bin_name)
-
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
 
-        if os.path.exists(bin_name):
-            if thread_id or self.suspended:
-                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
-            else:
-                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
-            if ret.returncode != 0:
-                if ret.returncode == 1:
-                    log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
-                else:
-                    log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
-                return False
-            else:
-                return True
+        if thread_id or self.suspended:
+            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
         else:
-            log.error("Please ensure the %s loader is in analyzer/windows/bin in order to analyze %s binaries.", bit_str, bit_str)
+            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
+
+        if ret.returncode != 0:
+            if ret.returncode == 1:
+                log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
+            else:
+                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
             return False
+        else:
+            return True
 
     def upload_memdump(self):
         """Upload process memory dump.
@@ -618,7 +609,6 @@ class Process:
         log.info("Memory dump of process %d uploaded", self.pid)
 
         return True
-
 
     def dump_memory(self):
         """Dump process memory.

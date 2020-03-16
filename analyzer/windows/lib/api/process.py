@@ -530,9 +530,9 @@ class Process:
 
     def inject(self, injectmode=INJECT_QUEUEUSERAPC, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.
-        @param dll: Cuckoo DLL path.
+        @param injectmode: APC use
         @param interest: path to file of interest, handed to cuckoomon config
-        @param apc: APC use.
+        @param nosleepskip: skip sleep or not
         """
         global LOGSERVER_POOL
 

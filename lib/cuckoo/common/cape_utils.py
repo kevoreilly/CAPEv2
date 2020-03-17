@@ -182,7 +182,6 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 log.error("MWCP Error: {}".format(e))
 
         if not parser_loaded and cape_name in cape_malware_parsers:
-            parser_loaded = True
             try:
                 #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
                 cape_configraw = cape_malware_parsers[cape_name].config(file_data)
@@ -201,7 +200,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
             except Exception as e:
                 log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
-        if not parser_loaded and cape_name in __decoders__:
+        elif not parser_loaded and cape_name in __decoders__:
             try:
                 file_info = fileparser.FileParser(rawdata=file_data)
                 module = __decoders__[file_info.malware_name]['obj']()

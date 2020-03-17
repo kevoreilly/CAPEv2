@@ -71,7 +71,6 @@ pe_map = {
     "PE32": ": 32-bit ",
 }
 
-
 cfg = Config()
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
@@ -90,7 +89,6 @@ def hash_file(method, path):
             break
         h.update(buf)
     return h.hexdigest()
-
 
 def upx_harness(raw_data):
     upxfile = tempfile.NamedTemporaryFile(delete=False)
@@ -119,7 +117,6 @@ def upx_harness(raw_data):
     os.unlink(upxfile.name)
     return
 
-
 def convert(data):
     if isinstance(data, str):
         return str(data)
@@ -130,101 +127,98 @@ def convert(data):
     else:
         return data
 
-
 def static_config_parsers(yara_hit, file_data, cape_config):
-    # Process CAPE Yara hits
-        cape_name = yara_hit.replace('_', ' ')
-        parser_loaded = False
-        # Attempt to import a parser for the hit
-        # DC3-MWCP
+    """Process CAPE Yara hits"""
+    cape_name = yara_hit.replace('_', ' ')
+    parser_loaded = False
+    # Attempt to import a parser for the hit
+    # DC3-MWCP
 
-        if "cape_config" not in cape_config:
-            cape_config.setdefault("cape_config", dict())
+    if "cape_config" not in cape_config:
+        cape_config.setdefault("cape_config", dict())
 
-        if cape_name and HAS_MWCP and cape_name in malware_parsers:
-            try:
-                reporter = mwcp.Reporter()
+    if cape_name and HAS_MWCP and cape_name in malware_parsers:
+        try:
+            reporter = mwcp.Reporter()
 
-                reporter.run_parser(malware_parsers[cape_name], data=file_data)
+            reporter.run_parser(malware_parsers[cape_name], data=file_data)
 
-                if not reporter.errors:
-                    log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
-                    parser_loaded = True
-                    try:
-                        tmp_dict = dict()
-                        if reporter.metadata.get("debug"):
-                            del reporter.metadata["debug"]
-                        if reporter.metadata.get("other"):
-                            for key, value in reporter.metadata["other"].items():
-                                tmp_dict.setdefault(key, [])
-                                if value not in tmp_dict[key]:
-                                    tmp_dict[key].append(value)
-                            del reporter.metadata["other"]
+            if not reporter.errors:
+                log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
+                parser_loaded = True
+                try:
+                    tmp_dict = dict()
+                    if reporter.metadata.get("debug"):
+                        del reporter.metadata["debug"]
+                    if reporter.metadata.get("other"):
+                        for key, value in reporter.metadata["other"].items():
+                            tmp_dict.setdefault(key, [])
+                            if value not in tmp_dict[key]:
+                                tmp_dict[key].append(value)
+                        del reporter.metadata["other"]
 
-                        tmp_dict.update(reporter.metadata)
+                    tmp_dict.update(reporter.metadata)
 
-                        if "cape_config" not in cape_config:
-                            cape_config.setdefault("cape_config", dict())
-                            #ToDo do we really need to convert it?
-                            cape_config["cape_config"] = convert(tmp_dict)
-                        else:
-                            cape_config["cape_config"].update(convert(tmp_dict))
-                    except Exception as e:
-                        log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
-                else:
-                    error_lines = reporter.errors[0].split("\n")
-                    for line in error_lines:
-                        if line.startswith('ImportError: '):
-                            log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
-                reporter._Reporter__cleanup()
-                del reporter
-            except (ImportError, IndexError, TypeError) as e:
-                log.error("MWCP Error: {}".format(e))
+                    if "cape_config" not in cape_config:
+                        cape_config.setdefault("cape_config", dict())
+                        #ToDo do we really need to convert it?
+                        cape_config["cape_config"] = convert(tmp_dict)
+                    else:
+                        cape_config["cape_config"].update(convert(tmp_dict))
+                except Exception as e:
+                    log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
+            else:
+                error_lines = reporter.errors[0].split("\n")
+                for line in error_lines:
+                    if line.startswith('ImportError: '):
+                        log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
+            reporter._Reporter__cleanup()
+            del reporter
+        except (ImportError, IndexError, TypeError) as e:
+            log.error("MWCP Error: {}".format(e))
 
-        if not parser_loaded and cape_name in cape_malware_parsers:
-            parser_loaded = True
-            try:
-                #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
-                cape_configraw = cape_malware_parsers[cape_name].config(file_data)
-                if isinstance(cape_configraw, list):
-                    for (key, value) in cape_configraw[0].items():
-                        #python3 map object returns iterator by default, not list and not serializeable in JSON.
-                        if isinstance(value, map):
-                            value = list(value)
-                        cape_config["cape_config"].update({key: [value]})
-                elif isinstance(cape_configraw, dict):
-                    for (key, value) in cape_configraw.items():
-                        #python3 map object returns iterator by default, not list and not serializeable in JSON.
-                        if isinstance(value, map):
-                            value = list(value)
-                        cape_config["cape_config"].update({key: [value]})
-            except Exception as e:
-                log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
+    if not parser_loaded and cape_name in cape_malware_parsers:
+        try:
+            #changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
+            if isinstance(cape_configraw, list):
+                for (key, value) in cape_configraw[0].items():
+                    #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config["cape_config"].update({key: [value]})
+            elif isinstance(cape_configraw, dict):
+                for (key, value) in cape_configraw.items():
+                    #python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config["cape_config"].update({key: [value]})
+        except Exception as e:
+            log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
-        if not parser_loaded and cape_name in __decoders__:
-            try:
-                file_info = fileparser.FileParser(rawdata=file_data)
-                module = __decoders__[file_info.malware_name]['obj']()
-                module.set_file(file_info)
-                module.get_config()
-                malwareconfig_config = module.config
-                #ToDo remove
-                if isinstance(malwareconfig_config, list):
-                    for (key, value) in malwareconfig_config[0].items():
-                        cape_config["cape_config"].update({key: [value]})
-                elif isinstance(malwareconfig_config, dict):
-                    for (key, value) in malwareconfig_config.items():
-                        cape_config["cape_config"].update({key: [value]})
-            except Exception as e:
-                log.warning(
-                    "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e)
+    elif not parser_loaded and cape_name in __decoders__:
+        try:
+            file_info = fileparser.FileParser(rawdata=file_data)
+            module = __decoders__[file_info.malware_name]['obj']()
+            module.set_file(file_info)
+            module.get_config()
+            malwareconfig_config = module.config
+            #ToDo remove
+            if isinstance(malwareconfig_config, list):
+                for (key, value) in malwareconfig_config[0].items():
+                    cape_config["cape_config"].update({key: [value]})
+            elif isinstance(malwareconfig_config, dict):
+                for (key, value) in malwareconfig_config.items():
+                    cape_config["cape_config"].update({key: [value]})
+        except Exception as e:
+            log.warning(
+                "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e)
 
-            if "cape_config" in cape_config:
-                if cape_config["cape_config"] == {}:
-                    del cape_config["cape_config"]
+        if "cape_config" in cape_config:
+            if cape_config["cape_config"] == {}:
+                del cape_config["cape_config"]
 
-        return cape_config
-
+    return cape_config
 
 def static_extraction(path):
     cape_config = dict()

@@ -1657,7 +1657,6 @@ class EncodedScriptFile(object):
 
     def run(self):
         results = {}
-        #ToDo manual test
         source = open(self.filepath, "r").read()
         source = self.decode(source)
         if not source:

@@ -481,20 +481,17 @@ class File(object):
         if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
             try:
                 cd = pyclamd.ClamdUnixSocket()
-            except:
-                log.warning("failed to connect to clamd socket")
-                return matches
-            try:
                 results = cd.allmatchscan(self.file_path)
+                if results:
+                    for entry in results[self.file_path]:
+                        if entry[0] == "FOUND" and entry[1] not in matches:
+                            matches.append(entry[1])
+            except ConnectionError as e:
+                log.warning("failed to connect to clamd socket")
             except Exception as e:
                 log.warning("failed to scan file with clamav {0}".format(e))
+            finally:
                 return matches
-            if results:
-                for key in results:
-                    for entry in results[key]:
-                        if entry[0] == "FOUND" and entry[1] not in matches:
-                                matches.append(entry[1])
-
         return matches
 
     def get_all(self):

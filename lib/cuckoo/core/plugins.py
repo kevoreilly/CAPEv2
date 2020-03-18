@@ -303,6 +303,11 @@ class RunProcessing(object):
                         words = re.findall(r"[A-Za-z0-9/\-]+", alert["signature"])
                         famcheck = words[2]
                         famchecklower = famcheck.lower()
+                        #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
+                        #ETPRO TROJAN MSIL/Predator The Thief CnC Checkin
+                        #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
+                        if "/" in famchecklower:
+                            famchecklower = famchecklower.split("/")[-1]
                         if famchecklower in ("win32", "w32", "ransomware"):
                             famcheck = words[3]
                             famchecklower = famcheck.lower()

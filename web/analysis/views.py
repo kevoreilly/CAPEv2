@@ -1210,23 +1210,15 @@ def perform_search(term, value):
         #"ttp": "ttps",
     }
 
-    query_val = {"$regex": value, "$options": "-i"}
+    if term in ("md5", "sha1", "sha256", "sha512"):
+        query_val = value
+    else:
+        query_val = {"$regex": value, "$options": "-i"}
     if term == "surisid":
         try:
             query_val = int(value)
         except:
             pass
-    if not term:
-        value = value.lower()
-        query_val = value
-        if re.match(r"^([a-fA-F\d]{32})$", value):
-            term = "md5"
-        elif re.match(r"^([a-fA-F\d]{40})$", value):
-            term = "sha1"
-        elif re.match(r"^([a-fA-F\d]{64})$", value):
-            term = "sha256"
-        elif re.match(r"^([a-fA-F\d]{128})$", value):
-            term = "sha512"
 
     if term not in term_map:
         raise ValueError
@@ -1263,6 +1255,17 @@ def search(request):
             # name:foo or name: foo
             value = value.lstrip()
             term = term.lower()
+
+        if not term:
+            value = value.lower()
+            if re.match(r"^([a-fA-F\d]{32})$", value):
+                term = "md5"
+            elif re.match(r"^([a-fA-F\d]{40})$", value):
+                term = "sha1"
+            elif re.match(r"^([a-fA-F\d]{64})$", value):
+                term = "sha256"
+            elif re.match(r"^([a-fA-F\d]{128})$", value):
+                term = "sha512"
 
         try:
             if term == "malscore":

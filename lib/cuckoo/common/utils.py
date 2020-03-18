@@ -1927,23 +1927,14 @@ def get_options(optstring):
     # Here we parse such options and provide a dictionary that will be made
     # accessible to the analysis package.
     options = {}
-    if optstring:
-        try:
-            # Split the options by comma.
-            fields = optstring.split(",")
-        except ValueError as e:
-            pass
-        else:
-            for field in fields:
-                # Split the name and the value of the option.
-                try:
-                    key, value = field.split("=", 1)
-                except ValueError as e:
-                    pass
-                else:
-                    # If the parsing went good, we add the option to the
-                    # dictionary.
-                    options[key.strip()] = value.strip()
+    if optstring and isinstance(optstring, str):
+        # Split the options by comma.
+        fields = optstring.split(",")
+        for field in fields:
+            # Split the name and the value of the option.
+            key, value = field.split("=", 1)
+            # Add the option to the dictionary.
+            options[key.strip()] = value.strip()
 
     return options
 

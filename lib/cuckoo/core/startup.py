@@ -195,14 +195,6 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    def find_signatures(root):
-        signatures = []
-        for entry in os.listdir(root):
-            if entry.endswith(".yara") or entry.endswith(".yar"):
-                signatures.append(os.path.join(root, entry))
-
-        return signatures
-
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
@@ -210,7 +202,7 @@ def init_yara():
 
     # We divide yara rules in three categories.
     # CAPE adds a fourth
-    categories = ["binaries", "urls", "memory", "CAPE"]
+    categories = ("binaries", "urls", "memory", "CAPE")
     generated = []
     # Loop through all categories.
     for category in categories:

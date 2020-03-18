@@ -28,6 +28,7 @@
 *  John Peng
 *  mabj
 *  Will Metcalf
+* firmianay
 * And many others <3
 
 * Thank you to Paul Royal and [Georgia Tech](https://www.cc.gatech.edu/)

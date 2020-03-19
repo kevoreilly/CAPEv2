@@ -248,6 +248,58 @@ class RunProcessing(object):
 
         return None
 
+    @staticmethod
+    def _suricata_family(signature):
+        #ToDo move outside?
+        blacklist = (
+            "executable",
+            "potential",
+            "likely",
+            "rogue",
+            "supicious",
+            "generic",
+            "possible",
+            "known",
+            "common",
+            "troj",
+            "trojan",
+            "team",
+            "probably",
+            "w2km",
+            "http",
+            "abuse",
+            "win32",
+            "unknown",
+            "single",
+            "filename",
+            "worm",
+            "fake",
+            "malicious",
+            "observed",
+            "windows",
+            "Shadowserver",
+        )
+
+        family = False
+        #alert["signature"].startswith(("ET JA3 HASH")):
+        words = re.findall(r"[A-Za-z0-9/\-]+", signature)
+        famcheck = words[2]
+        famchecklower = famcheck.lower()
+        #ET MALWARE Sharik/Smoke CnC Beacon 11
+        #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
+        #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
+        if "/" in famchecklower:
+            famchecklower = famchecklower.split("/")[-1]
+        if famchecklower in ("win32", "w32", "ransomware"):
+            famcheck = words[3]
+            famchecklower = famcheck.lower()
+        isbad = any(True for black in blacklist if black in famchecklower)
+        if not isbad and len(famcheck) >= 4:
+            family = famcheck.title()
+
+        return family
+
+
     def run(self):
         """Run all processing modules and all signatures.
         @return: processing results.
@@ -297,60 +349,11 @@ class RunProcessing(object):
         # add detection based on suricata here
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
-                if "signature" in alert and alert["signature"]:
-                    #alert["signature"].startswith(("ET JA3 HASH")):
-                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
-                        words = re.findall(r"[A-Za-z0-9/\-]+", alert["signature"])
-                        famcheck = words[2]
-                        famchecklower = famcheck.lower()
-                        #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
-                        #ETPRO TROJAN MSIL/Predator The Thief CnC Checkin
-                        #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
-                        if "/" in famchecklower:
-                            famchecklower = famchecklower.split("/")[-1]
-                        if famchecklower in ("win32", "w32", "ransomware"):
-                            famcheck = words[3]
-                            famchecklower = famcheck.lower()
-
-                        blacklist = [
-                            "executable",
-                            "potential",
-                            "likely",
-                            "rogue",
-                            "supicious",
-                            "generic",
-                            "possible",
-                            "known",
-                            "common",
-                            "troj",
-                            "trojan",
-                            "team",
-                            "probably",
-                            "w2km",
-                            "http",
-                            "abuse",
-                            "win32",
-                            "unknown",
-                            "single",
-                            "filename",
-                            "worm",
-                            "fake",
-                            "malicious",
-                            "observed",
-                            "windows",
-                            "Shadowserver",
-                        ]
-
-                        isbad = any(True for black in blacklist if black in famchecklower)
-                        if isbad:
-                            #shouldn't it be continue
-                            break
-                        if len(famcheck) < 4:
-                            isbad = True
-                        if not isbad:
-                            family = famcheck.title()
-                            self.results["malfamily_tag"] = "Suricata"
-                            self.results["detections"] = family
+                if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
+                    family = self._suricata_family(alert["signature"])
+                    if family:
+                        self.results["malfamily_tag"] = "Suricata"
+                        self.results["detections"] = family
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []

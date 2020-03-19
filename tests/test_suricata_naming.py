@@ -15,5 +15,5 @@ from lib.cuckoo.core.plugins import get_suricata_family
 #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
 
 assert "Smoke" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
-assert "Revenge-RAT" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
+assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
 assert "Predator" == get_suricata_family("ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin")

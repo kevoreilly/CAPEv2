@@ -1640,7 +1640,7 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find({sizes.get(len(sample_hash), ""): sample_hash})
+                    tasks = results_db.analysis.find({sizes_mongo.get(len(sample_hash), ""): sample_hash})
                     if tasks:
                         for task in tasks:
                             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash)

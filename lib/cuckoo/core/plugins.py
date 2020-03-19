@@ -83,6 +83,62 @@ def list_plugins(group=None):
     else:
         return _modules
 
+suricata_blacklist = (
+    "executable",
+    "potential",
+    "likely",
+    "rogue",
+    "supicious",
+    "generic",
+    "possible",
+    "known",
+    "common",
+    "troj",
+    "trojan",
+    "team",
+    "probably",
+    "w2km",
+    "http",
+    "abuse",
+    "win32",
+    "unknown",
+    "single",
+    "filename",
+    "worm",
+    "fake",
+    "malicious",
+    "observed",
+    "windows",
+    "Shadowserver",
+)
+
+def get_suricata_family(signature):
+    """
+    Args:
+        signature: suricata alert string
+    Return
+        family: family name or False
+    """
+
+    family = False
+    #alert["signature"].startswith(("ET JA3 HASH")):
+    words = re.findall(r"[A-Za-z0-9/\-]+", signature)
+    famcheck = words[2]
+    famchecklower = famcheck.lower()
+    #ET MALWARE Sharik/Smoke CnC Beacon 11
+    #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
+    #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
+    if "/" in famchecklower:
+        famchecklower = famchecklower.split("/")[-1]
+    if famchecklower in ("win32", "w32", "ransomware"):
+        famcheck = words[3]
+        famchecklower = famcheck.lower()
+    isbad = any(True for black in suricata_blacklist if black in famchecklower)
+    if not isbad and len(famcheck) >= 4:
+        family = famcheck.title()
+
+    return family
+
 class RunAuxiliary(object):
     """Auxiliary modules manager."""
 
@@ -248,58 +304,6 @@ class RunProcessing(object):
 
         return None
 
-    @staticmethod
-    def _suricata_family(signature):
-        #ToDo move outside?
-        blacklist = (
-            "executable",
-            "potential",
-            "likely",
-            "rogue",
-            "supicious",
-            "generic",
-            "possible",
-            "known",
-            "common",
-            "troj",
-            "trojan",
-            "team",
-            "probably",
-            "w2km",
-            "http",
-            "abuse",
-            "win32",
-            "unknown",
-            "single",
-            "filename",
-            "worm",
-            "fake",
-            "malicious",
-            "observed",
-            "windows",
-            "Shadowserver",
-        )
-
-        family = False
-        #alert["signature"].startswith(("ET JA3 HASH")):
-        words = re.findall(r"[A-Za-z0-9/\-]+", signature)
-        famcheck = words[2]
-        famchecklower = famcheck.lower()
-        #ET MALWARE Sharik/Smoke CnC Beacon 11
-        #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
-        #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
-        if "/" in famchecklower:
-            famchecklower = famchecklower.split("/")[-1]
-        if famchecklower in ("win32", "w32", "ransomware"):
-            famcheck = words[3]
-            famchecklower = famcheck.lower()
-        isbad = any(True for black in blacklist if black in famchecklower)
-        if not isbad and len(famcheck) >= 4:
-            family = famcheck.title()
-
-        return family
-
-
     def run(self):
         """Run all processing modules and all signatures.
         @return: processing results.
@@ -350,7 +354,7 @@ class RunProcessing(object):
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
-                    family = self._suricata_family(alert["signature"])
+                    family = get_suricata_family(alert["signature"])
                     if family:
                         self.results["malfamily_tag"] = "Suricata"
                         self.results["detections"] = family

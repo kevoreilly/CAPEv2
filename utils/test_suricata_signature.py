@@ -8,7 +8,7 @@ if sys.version_info[:2] < (3, 5):
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.core.plugins import RunProcessing
+from lib.cuckoo.core.plugins import get_suricata_family
 
-print("Suricata detects as:", RunProcessing._suricata_family(sys.argv[1]))
+print("Suricata detects as:", get_suricata_family(sys.argv[1]))
 

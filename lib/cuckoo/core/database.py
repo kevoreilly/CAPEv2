@@ -8,6 +8,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 
+import pymongo
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooDatabaseError
@@ -31,6 +32,16 @@ except ImportError:
                                 "(install with `pip3 install sqlalchemy`)")
 
 log = logging.getLogger(__name__)
+
+repconf = Config("reporting")
+
+results_db = pymongo.MongoClient(
+    repconf.mongodb.host,
+    port=repconf.mongodb.port,
+    username=repconf.mongodb.get("username", None),
+    password=repconf.mongodb.get("password", None),
+    authSource=repconf.mongodb.db
+    )[repconf.mongodb.db]
 
 SCHEMA_VERSION = "30d0230de7cd"
 TASK_PENDING = "pending"
@@ -1606,6 +1617,15 @@ class Database(object, metaclass=Singleton):
             64: Sample.sha256,
             128: Sample.sha512,
         }
+
+        sizes_mongo = {
+            32: "dropped.md5",
+            40: "dropped.sha1",
+            64: "dropped.sha256",
+            128: "dropped.sha512",
+        }
+
+
         query_filter = sizes.get(len(sample_hash), "")
         sample = None
         # check storage/binaries
@@ -1618,6 +1638,15 @@ class Database(object, metaclass=Singleton):
                     path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                     if os.path.exists(path):
                         sample = [path]
+
+                if sample is None:
+                    tasks = results_db.analysis.find({sizes.get(len(sample_hash), ""): sample_hash})
+                    if tasks:
+                        for task in tasks:
+                            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash)
+                            if os.path.exists(path):
+                                sample = [path]
+                                break
 
                 if sample is None:
                     # search in temp folder if not found in binaries

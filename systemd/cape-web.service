@@ -1,8 +1,8 @@
 [Unit]
 Description=Cuckoo WSGI app
 Documentation=https://github.com/kevoreilly/CAPEv2
-Wants=cuckoo.service
-After=cuckoo.service
+Wants=cape.service
+After=cape.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/web

@@ -124,12 +124,12 @@ def get_suricata_family(signature):
     #alert["signature"].startswith(("ET JA3 HASH")):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
     famcheck = words[2]
+    if "/" in famcheck:
+        famcheck = famcheck.split("/")[-1]
     famchecklower = famcheck.lower()
     #ET MALWARE Sharik/Smoke CnC Beacon 11
     #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
     #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
-    if "/" in famchecklower:
-        famchecklower = famchecklower.split("/")[-1]
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()

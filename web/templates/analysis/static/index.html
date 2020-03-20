@@ -30,6 +30,8 @@
                 {% include "analysis/static/_office.html" %}
             {% elif "Java Jar" in analysis.target.file.type or analysis.target.file.name|endswith:".jar" %}
                 {% include "analysis/static/_java.html" %}
+            {% elif "MS Windows shortcut" in analysis.target.file.type or analysis.target.file.name|endswith:".lnk" %}
+                {% include "analysis/static/_lnk.html" %}
             {% else %}
                 No static analysis available.
             {% endif %}

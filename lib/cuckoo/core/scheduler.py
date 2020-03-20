@@ -457,8 +457,9 @@ class AnalysisManager(threading.Thread):
     def route_network(self):
         """Enable network routing if desired."""
         # Determine the desired routing strategy (none, internet, VPN).
-        self.route = "tor"
+        self.route = routing_cfg.routing.route
 
+        #Allow overwrite default conf value
         if self.task.options:
             for option in self.task.options.split(","):
                 if "=" in option:

@@ -10,6 +10,7 @@ import os
 import re
 import math
 import array
+import ctypes
 import struct
 import base64
 import hashlib
@@ -67,6 +68,7 @@ try:
 except ImportError:
     HAVE_VBA2GRAPH = False
 
+from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
@@ -1398,6 +1400,303 @@ class Office(object):
             return None
         results = self._parse(self.file_path)
         return results
+
+
+class LnkShortcut(object):
+    signature = [0x4c, 0x00, 0x00, 0x00]
+    guid = [
+        0x01, 0x14, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46,
+    ]
+    flags = [
+        "shellidlist", "references", "description",
+        "relapath", "workingdir", "cmdline", "icon",
+    ]
+    attrs = [
+        "readonly", "hidden", "system", None, "directory", "archive",
+        "ntfs_efs", "normal", "temporary", "sparse", "reparse", "compressed",
+        "offline", "not_indexed", "encrypted",
+    ]
+
+    def __init__(self, filepath=None):
+        self.filepath = filepath
+
+    def read_uint16(self, offset):
+        return struct.unpack("H", self.buf[offset:offset+2])[0]
+
+    def read_uint32(self, offset):
+        return struct.unpack("I", self.buf[offset:offset+4])[0]
+
+    def read_stringz(self, offset):
+        return self.buf[offset:self.buf.index(b"\x00", offset)]
+
+    def read_string16(self, offset):
+        length = self.read_uint16(offset) * 2
+        ret = self.buf[offset+2:offset+2+length].decode("utf16")
+        return offset + 2 + length, ret
+
+    def run(self):
+        buf = self.buf = open(self.filepath, "rb").read()
+        if len(buf) < ctypes.sizeof(LnkHeader):
+            log.warning("Provided .lnk file is corrupted or incomplete.")
+            return
+
+        header = LnkHeader.from_buffer_copy(buf[:ctypes.sizeof(LnkHeader)])
+        if header.signature[:] != self.signature:
+            return
+
+        if header.guid[:] != self.guid:
+            return
+
+        ret = {
+            "flags": {},
+            "attrs": []
+        }
+
+        for x in range(7):
+            ret["flags"][self.flags[x]] = bool(header.flags & (1 << x))
+
+        for x in range(14):
+            if header.attrs & (1 << x):
+                ret["attrs"].append(self.attrs[x])
+
+        offset = 78 + self.read_uint16(76)
+        if len(buf) < offset + 28:
+            log.warning("Provided .lnk file is corrupted or incomplete.")
+            return
+
+        off = LnkEntry.from_buffer_copy(buf[offset:offset + 28])
+
+        # Local volume.
+        if off.volume_flags & 1:
+            ret["basepath"] = self.read_stringz(offset + off.base_path)
+        # Network volume.
+        else:
+            ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
+            network_drive = self.read_uint32(offset + off.net_volume + 12)
+            if network_drive:
+                ret["network_drive"] = self.read_stringz(
+                    offset + network_drive
+                )
+
+        ret["remaining_path"] = self.read_stringz(offset + off.path_remainder)
+
+        extra = offset + off.length
+        if ret["flags"]["description"]:
+            extra, ret["description"] = self.read_string16(extra)
+        if ret["flags"]["relapath"]:
+            extra, ret["relapath"] = self.read_string16(extra)
+        if ret["flags"]["workingdir"]:
+            extra, ret["workingdir"] = self.read_string16(extra)
+        if ret["flags"]["cmdline"]:
+            extra, ret["cmdline"] = self.read_string16(extra)
+        if ret["flags"]["icon"]:
+            extra, ret["icon"] = self.read_string16(extra)
+        return ret
+
+
+class ELF(object):
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.elf = None
+        self.result = {}
+
+    def run(self):
+        try:
+            self.elf = ELFFile(open(self.file_path, "rb"))
+            self.result["file_header"] = self._get_file_header()
+            self.result["section_headers"] = self._get_section_headers()
+            self.result["program_headers"] = self._get_program_headers()
+            self.result["dynamic_tags"] = self._get_dynamic_tags()
+            self.result["symbol_tables"] = self._get_symbol_tables()
+            self.result["relocations"] = self._get_relocations()
+            self.result["notes"] = self._get_notes()
+            # TODO: add library name per import (see #807)
+        except ELFError as e:
+            if e.message != "Magic number does not match":
+                raise
+
+        return self.result
+
+    def _get_file_header(self):
+        return {
+            "magic": convert_to_printable(self.elf.e_ident_raw[:4]),
+            "class": describe_ei_class(self.elf.header.e_ident["EI_CLASS"]),
+            "data": describe_ei_data(self.elf.header.e_ident["EI_DATA"]),
+            "ei_version": describe_ei_version(self.elf.header.e_ident["EI_VERSION"]),
+            "os_abi": describe_ei_osabi(self.elf.header.e_ident["EI_OSABI"]),
+            "abi_version": self.elf.header.e_ident["EI_ABIVERSION"],
+            "type": describe_e_type(self.elf.header["e_type"]),
+            "machine": describe_e_machine(self.elf.header["e_machine"]),
+            "version": describe_e_version_numeric(self.elf.header["e_version"]),
+            "entry_point_address": self._print_addr(self.elf.header["e_entry"]),
+            "start_of_program_headers": self.elf.header["e_phoff"],
+            "start_of_section_headers": self.elf.header["e_shoff"],
+            "flags": "{}{}".format(
+                self._print_addr(self.elf.header["e_flags"]),
+                self._decode_flags(self.elf.header["e_flags"])
+            ),
+            "size_of_this_header": self.elf.header["e_ehsize"],
+            "size_of_program_headers": self.elf.header["e_phentsize"],
+            "number_of_program_headers": self.elf.header["e_phnum"],
+            "size_of_section_headers": self.elf.header["e_shentsize"],
+            "number_of_section_headers": self.elf.header["e_shnum"],
+            "section_header_string_table_index": self.elf.header["e_shstrndx"],
+        }
+
+    def _get_section_headers(self):
+        section_headers = []
+        for section in self.elf.iter_sections():
+            section_headers.append({
+                "name": section.name,
+                "type": describe_sh_type(section["sh_type"]),
+                "addr": self._print_addr(section["sh_addr"]),
+                "size": section["sh_size"],
+            })
+        return section_headers
+
+    def _get_program_headers(self):
+        program_headers = []
+        for segment in self.elf.iter_segments():
+            program_headers.append({
+                "type": describe_p_type(segment["p_type"]),
+                "addr": self._print_addr(segment["p_vaddr"]),
+                "flags": describe_p_flags(segment["p_flags"]).strip(),
+                "size": segment["p_memsz"],
+            })
+        return program_headers
+
+    def _get_dynamic_tags(self):
+        dynamic_tags = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, DynamicSection):
+                continue
+            for tag in section.iter_tags():
+                dynamic_tags.append({
+                    "tag": self._print_addr(
+                        ENUM_D_TAG.get(tag.entry.d_tag, tag.entry.d_tag)
+                    ),
+                    "type": str(tag.entry.d_tag)[3:],
+                    "value": self._parse_tag(tag),
+                })
+
+        return dynamic_tags
+
+    def _get_symbol_tables(self):
+        symbol_tables = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, SymbolTableSection):
+                continue
+            for nsym, symbol in enumerate(section.iter_symbols()):
+                symbol_tables.append({
+                    "value": self._print_addr(symbol["st_value"]),
+                    "type": describe_symbol_type(symbol["st_info"]["type"]),
+                    "bind": describe_symbol_bind(symbol["st_info"]["bind"]),
+                    "ndx_name": symbol.name,
+                })
+        return symbol_tables
+
+    def _get_relocations(self):
+        relocations = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, RelocationSection):
+                continue
+            section_relocations = []
+            for rel in section.iter_relocations():
+                relocation = {
+                    "offset": self._print_addr(rel["r_offset"]),
+                    "info": self._print_addr(rel["r_info"]),
+                    "type": describe_reloc_type(rel["r_info_type"], self.elf),
+                    "value": "",
+                    "name": ""
+                }
+
+                if rel["r_info_sym"] != 0:
+                    symtable = self.elf.get_section(section["sh_link"])
+                    symbol = symtable.get_symbol(rel["r_info_sym"])
+                    # Some symbols have zero "st_name", so instead use
+                    # the name of the section they point at
+                    if symbol["st_name"] == 0:
+                        symsec = self.elf.get_section(symbol["st_shndx"])
+                        symbol_name = symsec.name
+                    else:
+                        symbol_name = symbol.name
+
+                    relocation["value"] = self._print_addr(symbol["st_value"])
+                    relocation["name"] = symbol_name
+
+                if relocation not in section_relocations:
+                    section_relocations.append(relocation)
+
+            relocations.append({
+                "name": section.name,
+                "entries": section_relocations,
+            })
+        return relocations
+
+    def _get_notes(self):
+        notes = []
+        for segment in self.elf.iter_segments():
+            if not isinstance(segment, NoteSegment):
+                continue
+            for note in segment.iter_notes():
+                notes.append({
+                    "owner": note["n_name"],
+                    "size": self._print_addr(note["n_descsz"]),
+                    "note": describe_note(note),
+                    "name": note["n_name"],
+                })
+        return notes
+
+    def _print_addr(self, addr):
+        fmt = "0x{0:08x}" if self.elf.elfclass == 32 else "0x{0:016x}"
+        return fmt.format(addr)
+
+    def _decode_flags(self, flags):
+        description = ""
+        if self.elf["e_machine"] == "EM_ARM":
+            if flags & E_FLAGS.EF_ARM_HASENTRY:
+                description = ", has entry point"
+
+            version = flags & E_FLAGS.EF_ARM_EABIMASK
+            if version == E_FLAGS.EF_ARM_EABI_VER5:
+                description = ", Version5 EABI"
+        elif self.elf["e_machine"] == "EM_MIPS":
+            if flags & E_FLAGS.EF_MIPS_NOREORDER:
+                description = ", noreorder"
+            if flags & E_FLAGS.EF_MIPS_CPIC:
+                description = ", cpic"
+            if not (flags & E_FLAGS.EF_MIPS_ABI2) and not (flags & E_FLAGS.EF_MIPS_ABI_ON32):
+                description = ", o32"
+            if (flags & E_FLAGS.EF_MIPS_ARCH) == E_FLAGS.EF_MIPS_ARCH_1:
+                description = ", mips1"
+
+        return description
+
+    def _parse_tag(self, tag):
+        if tag.entry.d_tag == "DT_NEEDED":
+            parsed = "Shared library: [%s]" % tag.needed
+        elif tag.entry.d_tag == "DT_RPATH":
+            parsed = "Library rpath: [%s]" % tag.rpath
+        elif tag.entry.d_tag == "DT_RUNPATH":
+            parsed = "Library runpath: [%s]" % tag.runpath
+        elif tag.entry.d_tag == "DT_SONAME":
+            parsed = "Library soname: [%s]" % tag.soname
+        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("SZ", "ENT")):
+            parsed = "%i (bytes)" % tag["d_val"]
+        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
+            parsed = "%i" % tag["d_val"]
+        elif tag.entry.d_tag == "DT_PLTREL":
+            s = describe_dyn_tag(tag.entry.d_val)
+            if s.startswith("DT_"):
+                s = s[3:]
+            parsed = "%s" % s
+        else:
+            parsed = self._print_addr(tag["d_val"])
+
+        return parsed
+
+
 '''
 class HwpDocument(object):
     """Static analysis of HWP documents."""
@@ -1775,6 +2074,11 @@ class Static(Processing):
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":
                 static = EncodedScriptFile(self.file_path).run()
+            elif package == "lnk":
+                static["lnk"] = LnkShortcut(self.file_path).run()
+            #elif self.file_path.endswith(".elf") or "ELF" in thetype:
+            #    static["elf"] = ELF(self.file_path).run()
+            #    static["keys"] = f.get_keys()
 
         elif self.task["category"] == "url":
             enabled_whois = self.options.get("whois", True)

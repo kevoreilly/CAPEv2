@@ -208,7 +208,7 @@ class cPDFDocument:
         self.file = file
         if type(file) != str:
             self.infile = file
-        elif file.lower().startswith('http://') or file.lower().startswith('https://'):
+        elif file.lower().startswith(('http://', 'https://')):
             try:
                 if sys.hexversion >= 0x020601F0:
                     self.infile = urllib23.urlopen(file, timeout=5)

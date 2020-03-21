@@ -23,15 +23,17 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 URL = "https://github.com/kevoreilly/community/archive/{0}.zip"
 
-def download_archive():
-    print("Downloading modules from {0}".format(URL))
-
-    try:
-        http = urllib3.PoolManager()
-        data = http.request('GET', URL).data
-    except Exception as e:
-        print("ERROR: Unable to download archive: %s" % e)
-        sys.exit(-1)
+def download_archive(filepath):
+    if filepath and os.path.exists(filepath):
+        data = open(filepath, "rb").read()
+    else:
+        print("Downloading modules from {0}".format(URL))
+        try:
+            http = urllib3.PoolManager()
+            data = http.request('GET', URL).data
+        except Exception as e:
+            print("ERROR: Unable to download archive: %s" % e)
+            sys.exit(-1)
 
     zip_data = BytesIO()
     zip_data.write(data)
@@ -44,8 +46,8 @@ def download_archive():
     return temp_dir, final_dir
 
 
-def install(enabled, force, rewrite):
-    (temp, source) = download_archive()
+def install(enabled, force, rewrite, filepath):
+    (temp, source) = download_archive(filepath)
 
     folders = {
         "feeds": os.path.join("modules", "feeds"),
@@ -111,6 +113,7 @@ def main():
     parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
+    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
     args = parser.parse_args()
 
     enabled = []
@@ -138,7 +141,7 @@ def main():
 
     URL = URL.format(args.branch)
 
-    install(enabled, force, rewrite)
+    install(enabled, force, rewrite, args.file)
 
 if __name__ == "__main__":
     try:

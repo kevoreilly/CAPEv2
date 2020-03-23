@@ -18,8 +18,7 @@ class Debugger_dll(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["dll"] = "Debugger.dll"
-        self.options["dll_64"] = "Debugger_x64.dll"
+        self.options["debugger"] = "1"
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")

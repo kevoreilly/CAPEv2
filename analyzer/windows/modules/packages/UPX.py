@@ -19,8 +19,7 @@ class UPX(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["dll"] = "UPX.dll"
-        self.options["dll_64"] = "UPX_x64.dll"
+        self.options["upx"] = "1"
 
     def start(self, path):
         arguments = self.options.get("arguments")

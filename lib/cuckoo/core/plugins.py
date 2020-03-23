@@ -84,33 +84,53 @@ def list_plugins(group=None):
         return _modules
 
 suricata_blacklist = (
-    "executable",
-    "potential",
-    "likely",
-    "rogue",
-    "supicious",
-    "generic",
-    "possible",
-    "known",
+    "abuse",
+    "agent",
+    "base64",
     "common",
+    "custom",
+    "dropper",
+    "executable",
+    "fake",
+    "fileless",
+    "filename",
+    "generic",
+    "google",
+    "hacking"
+    "http",
+    "injector",
+    "known",
+    "likely",
+    "magic",
+    "malicious",
+    "media",
+    "multi",
+    "observed",
+    "perfect",
+    "possible",
+    "potential",
+    "powershell",
+    "probably",
+    "python",
+    "rogue",
+    "self-signed",
+    "shadowserver",
+    "single",
+    "supicious",
+    "targeted",
+    "team",
     "troj",
     "trojan",
-    "team",
-    "probably",
-    "w2km",
-    "http",
-    "abuse",
-    "win32",
+    "unit42",
     "unknown",
-    "single",
-    "filename",
-    "worm",
-    "fake",
-    "malicious",
-    "observed",
-    "windows",
-    "Shadowserver",
+    "user",
+    "vbscript",
     "virus",
+    "w2km",
+    "win32",
+    "windows",
+    "worm",
+    "wscript",
 )
 
 def get_suricata_family(signature):
@@ -120,6 +140,7 @@ def get_suricata_family(signature):
     Return
         family: family name or False
     """
+    #ToDo Trojan-Proxy
 
     family = False
     #alert["signature"].startswith(("ET JA3 HASH")):
@@ -134,7 +155,8 @@ def get_suricata_family(signature):
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any([black in famchecklower and black == famchecklower for black in suricata_blacklist])
+    #ToDo medusahttp
+    isbad = any([black in famchecklower for black in suricata_blacklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
 

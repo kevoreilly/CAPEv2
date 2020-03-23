@@ -110,6 +110,7 @@ suricata_blacklist = (
     "observed",
     "windows",
     "Shadowserver",
+    "virus",
 )
 
 def get_suricata_family(signature):

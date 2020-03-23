@@ -97,7 +97,7 @@ suricata_blacklist = (
     "generic",
     "google",
     "hacking"
-    "http",
+    #"http",
     "injector",
     "known",
     "likely",

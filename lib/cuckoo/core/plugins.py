@@ -133,7 +133,7 @@ def get_suricata_family(signature):
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any(True for black in suricata_blacklist if black in famchecklower)
+    isbad = any([black in famchecklower and black == famchecklower for black in suricata_blacklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
 

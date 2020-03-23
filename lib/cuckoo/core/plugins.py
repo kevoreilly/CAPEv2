@@ -538,7 +538,7 @@ class RunSignatures(object):
         matched = []
         stats = {}
 
-        complete_list = list_plugins(group="signatures")
+        complete_list = list_plugins(group="signatures") or []
         evented_list = list()
         try:
             evented_list = [sig(self.results)

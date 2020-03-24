@@ -1,3 +1,7 @@
+### [24-03-2020]
+* Big update of suricata name extraction/detection
+* malscore now is off by default, can be enabled in conf/reporting.conf
+
 ### [12-03-2020]
 * community.py reintroduced to simplify everything
 

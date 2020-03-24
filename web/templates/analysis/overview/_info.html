@@ -88,35 +88,36 @@
     </div>
     </div>
 
+    {% if config.malscore %}
     <div class="col-lg-1" style="padding-left: 0px;">
     <div class="panel panel-primary" style="height: 112px;">
-    <div class="panel-heading">
-        <h4 class="panel-title" style="text-align: center;">MalScore</h4>
+            <div class="panel-heading">
+                <h4 class="panel-title" style="text-align: center;">MalScore</h4>
+            </div>
+            <div class="panel-body" style="padding: 5px 0px 0px 0px; height: 100%;">
+            {% if analysis.malscore > 6.0 %}
+                <h2 style="text-align:center; margin: 0px;"><span class="label label-danger">{{analysis.malscore|floatformat:1}}</span></h2>
+            {% elif analysis.malscore > 2.0 %}
+                <h2 style="text-align:center; margin: 0px;"><span class="label label-warning">{{analysis.malscore|floatformat:1}}</span></h2>
+            {% else %}
+                <h2 style="text-align:center; margin: 0px;"><span class="label label-success">{{analysis.malscore|floatformat:1}}</span></h2>
+            {% endif %}
+            {% if analysis.malfamily_tag and analysis.malfamily and analysis.malfamily != "Malicious" %}
+                <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily_tag}}: {{analysis.malfamily}}</h5>
+            {% elif analysis.malfamily %}
+                <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily}}</h5>
+            {% elif analysis.malscore > 6.0 %}
+                <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Malicious</h5>
+            {% elif analysis.malscore > 2.0 %}
+                <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Suspicious</h5>
+            {% else %}
+                <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Benign</h5>
+            {% endif %}
+            </div>
+            </div>
     </div>
-    <div class="panel-body" style="padding: 5px 0px 0px 0px; height: 100%;">
-    {% if analysis.malscore > 6.0 %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-danger">{{analysis.malscore|floatformat:1}}</span></h2>
-    {% elif analysis.malscore > 2.0 %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-warning">{{analysis.malscore|floatformat:1}}</span></h2>
-    {% else %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-success">{{analysis.malscore|floatformat:1}}</span></h2>
-    {% endif %}
-
-    {% if analysis.malfamily_tag and analysis.malfamily and analysis.malfamily != "Malicious" %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily_tag}}: {{analysis.malfamily}}</h5>
-    {% elif analysis.malfamily %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily}}</h5>
-    {% elif analysis.malscore > 6.0 %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Malicious</h5>
-    {% elif analysis.malscore > 2.0 %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Suspicious</h5>
-    {% else %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Benign</h5>
-    {% endif %}
     </div>
-    </div>
-    </div>
-    </div>
+     {% endif %}
 </section>
 
 {% if analysis.info.machine and analysis.info.machine.name %}

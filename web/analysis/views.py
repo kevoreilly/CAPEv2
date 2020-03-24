@@ -841,8 +841,8 @@ def report(request, task_id):
                     buf = sorted(similarinfo, key=lambda z: z["id"], reverse=True)
                     similarinfo = buf
 
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     vba2graph = False
     vba2graph_svg_content = ""

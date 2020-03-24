@@ -64,7 +64,9 @@
                     {% if config.virustotal %}
                     <th width="4%">VT</th>
                     {% endif %}
-                    <th width="3%">MalScore</th>
+                    {% if config.malscore %}
+                        <th width="3%">MalScore</th>
+                    {% endif %}
                     {% if config.expanded_dashboard %}
                     <th width="4%">MalFamily</th>
                     <th width="3%">PCAP</th>
@@ -179,6 +181,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
+                        {% if config.malscore %}
                         <td>
                             {% if analysis.malscore != None %}
                                 <span
@@ -199,6 +202,7 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
@@ -348,7 +352,9 @@
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
                     {% endif %}
-                    <th width="5%">MalScore</th>
+                    {% if config.malscore %}
+                        <th width="5%">MalScore</th>
+                    {% endif %}
                     <th width="10%">MalFamily</th>
                     <th width="5%">PCAP</th>
                     <th width="10%">ClamAV</th>
@@ -373,7 +379,9 @@
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
                     {% endif %}
-                    <th width="5%">MalScore</th>
+                    {% if config.malscore %}
+                        <th width="5%">MalScore</th>
+                    {% endif %}
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -460,6 +468,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
+                        {% if config.malscore %}
                         <td>
                             {% if analysis.malscore != None %}
                                 <span
@@ -478,6 +487,7 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
@@ -615,7 +625,9 @@
                     {% if config.suricata %}
                     <th width="10%">Suricata Alerts/HTTP/TLS/Files</th>
                     {% endif %}
-                    <th width="5%">MalScore</th>
+                    {% if config.malscore %}
+                        <th width="5%">MalScore</th>
+                    {% endif %}
                     <th width="10%">MalFamily</th>
                     <th width="5%">PCAP</th>
                     <th width="5%">Custom</th>
@@ -634,7 +646,9 @@
                     {% if config.suricata %}
                     <th width="7%">SuriAlert</th>
                     {% endif %}
-                    <th width="5%">MalScore</th>
+                    {% if config.malscore %}
+                        <th width="5%">MalScore</th>
+                    {% endif %}
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -705,6 +719,7 @@
                         </span>
                     </td>
                     {% endif %}
+                    {% if config.malscore %}
                     <td>
                         {% if analysis.malscore != None %}
                         <span {% if analysis.malscore <= 2.0 %}
@@ -722,6 +737,7 @@
                         <span class="mono">None</span>
                         {% endif %}
                     </td>
+                    {% endif %}
                     {% if config.expanded_dashboard %}
                     <td>
                         <span class="mono">

@@ -43,7 +43,7 @@ class Config:
             try:
                 config.read(os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % file_name))
             except UnicodeDecodeError as e:
-                print(bold(red("please fix your config file: {}.conf - Pay attention for \xc2\xa - {}\n\n{}".format(file_name, e.object, e.reason))))
+                print(bold(red("please fix your config file: {}.conf - Pay attention for bytes c2 xa - {}\n\n{}".format(file_name, e.object, e.reason))))
                 raise UnicodeDecodeError
 
         self.fullconfig = config._sections

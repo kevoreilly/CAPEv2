@@ -377,7 +377,7 @@ class RunProcessing(object):
             for alert in self.results["suricata"]["alerts"]:
                 if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
                     family = get_suricata_family(alert["signature"])
-                    if family:n
+                    if family:
                         self.results["malfamily_tag"] = "Suricata"
                         self.results["detections"] = family
                         self.results["malfamily"] = family

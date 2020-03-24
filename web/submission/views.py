@@ -114,7 +114,7 @@ def get_form_data(platform):
         else:
             label = "{}:{}".format(machine.platform, machine.label)
 
-        machines.append((machine.name, label))
+        machines.append((machine.label, label))
 
     # Prepend ALL/ANY options. Disable until a platform can be verified in scheduler
     machines.insert(0, ("", "First available"))

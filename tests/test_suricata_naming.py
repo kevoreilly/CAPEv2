@@ -10,10 +10,6 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.core.plugins import get_suricata_family
 
-#ET MALWARE Sharik/Smoke CnC Beacon 11
-#ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
-#ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
-
 assert "Smoke" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
 assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
 assert "Predator" == get_suricata_family("ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin")
@@ -26,3 +22,9 @@ assert False is get_suricata_family("ET MALWARE User Agent (TEST) - Likely Webha
 assert False is get_suricata_family("ET MALWARE Media Pass ActiveX Install")
 assert False is get_suricata_family("ETPRO TROJAN Google Docs Phishing Landing Dec 18 2016")
 assert False is get_suricata_family("ETPRO TROJAN PowerShell Downloader CnC Checkin")
+assert False is get_suricata_family("ET TROJAN Self-Signed Cert Observed in Various Zbot Strains")
+assert False is get_suricata_family("ETPRO TROJAN Multi Locker CnC Beacon 1")
+assert False is get_suricata_family("ETPRO TROJAN MSIL/Agent.SNQ POST with System Info")
+assert False is get_suricata_family("ET TROJAN WScript/VBScript XMLHTTP downloader likely malicious get?src=")
+assert False is get_suricata_family("ET TROJAN Fileless infection dropped by EK CnC Beacon")
+assert "Raccoon" == get_suricata_family("ETPRO TROJAN Win32.Raccoon Stealer Checkin")

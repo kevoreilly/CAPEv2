@@ -96,7 +96,7 @@ suricata_blacklist = (
     "filename",
     "generic",
     "google",
-    "hacking"
+    "hacking",
     #"http",
     "injector",
     "known",
@@ -141,7 +141,6 @@ def get_suricata_family(signature):
         family: family name or False
     """
     #ToDo Trojan-Proxy
-
     family = False
     #alert["signature"].startswith(("ET JA3 HASH")):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
@@ -149,9 +148,9 @@ def get_suricata_family(signature):
     if "/" in famcheck:
         famcheck = famcheck.split("/")[-1]
     famchecklower = famcheck.lower()
-    #ET MALWARE Sharik/Smoke CnC Beacon 11
-    #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
-    #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
+    if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
+        famchecklower = famchecklower.split(".")[-1]
+        famcheck = famcheck.split(".")[-1]
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()

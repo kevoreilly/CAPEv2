@@ -218,6 +218,7 @@ class AnalysisManager(threading.Thread):
         # options from auxiliar.conf
         options["curtain"] = self.aux_cfg.curtain.enabled
         options["sysmon"] = self.aux_cfg.sysmon.enabled
+        options["procmon"] = self.aux_cfg.procmon.enabled
 
         return options
 

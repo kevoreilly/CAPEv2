@@ -6,17 +6,24 @@ import os.path
 import subprocess
 import time
 
+from lib.core.config import Config
 from lib.common.abstracts import Auxiliary
-from lib.common.exceptions import CuckooDisableModule, CuckooPackageError
+from lib.common.exceptions import CuckooPackageError
 from lib.common.results import upload_to_host
+from lib.coommon.constants import ROOT
 
 class Procmon(Auxiliary):
     """Allow procmon to be run on the side."""
-    def start(self):
-        if not self.options.get("procmon"):
-            raise CuckooDisableModule
 
-        bin_path = os.path.join(self.analyzer.path, "bin")
+    def __init__(self):
+        self.config = Config(cfg="analysis.conf")
+        self.enabled = self.config.procmon
+
+    def start(self):
+        if not self.enabled:
+            return False
+
+        bin_path = os.path.join(ROOT, "bin")
 
         self.procmon_exe = os.path.join(bin_path, "procmon.exe")
         self.procmon_pmc = os.path.join(bin_path, "procmon.pmc")
@@ -64,4 +71,4 @@ class Procmon(Auxiliary):
         ])
 
         # Upload the XML file to the host.
-        upload_to_host(self.procmon_xml, os.path.join("files", "procmon.xml"))
+        upload_to_host("procmon.xml", self.procmon_xml)

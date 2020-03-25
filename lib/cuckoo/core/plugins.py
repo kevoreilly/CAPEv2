@@ -371,8 +371,7 @@ class RunProcessing(object):
         self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
             family = self.results["detections"]
-            self.results["malfamily_tag"] = "CAPE"
-        # add detection based on suricata here
+            self.results["malfamily_tag"] = "Yara"
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
@@ -669,11 +668,11 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "CAPE":
+        if self.results.get("malfamily_tag", "") != "Yara":
             for match in matched:
                 if "families" in match and match["families"]:
                     self.results["malfamily"] = match["families"][0].title()
-                    self.results["malfamily_tag"] = "Signature"
+                    self.results["malfamily_tag"] = "Behavior"
                     break
 
 class RunReporting:

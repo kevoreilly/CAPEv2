@@ -27,8 +27,8 @@ class TrID(Processing):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError("Sample file doesn't exist: {}".format(self.file_path))
 
-            trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
-            definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
+        trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
+        definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
         try:
             output = subprocess.check_output([ trid_binary, "-d:%s" % definitions, self.file_path], stderr=subprocess.STDOUT, universal_newlines=True)

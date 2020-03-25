@@ -10,7 +10,7 @@ from lib.core.config import Config
 from lib.common.abstracts import Auxiliary
 from lib.common.exceptions import CuckooPackageError
 from lib.common.results import upload_to_host
-from lib.coommon.constants import ROOT
+from lib.common.constants import ROOT
 
 class Procmon(Auxiliary):
     """Allow procmon to be run on the side."""

@@ -1,13 +1,13 @@
 <section id="information">
     <div class="row">
     {% if analysis.malfamily_tag and analysis.malfamily and analysis.malfamily != "Malicious" %}
-    <div class="col-lg-1" style="padding-left: 0px;">
+    <div class="col-lg-1" style="padding-right: 0px;">
         <div class="panel panel-primary" style="height: 112px;">
             <div class="panel-heading">
                 <h4 class="panel-title" style="text-align: center;">Detections</h4>
             </div>
-            <h5 style="text-align:center; margin: 15px 0px 2px 0px;font-size: 16px";>{{analysis.malfamily_tag}}:</br> <span
-                    class="label label-danger">{{analysis.malfamily}}</span></h5>
+            <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
+            <h4 style="text-align:center; font-size: 20px;font-weight-bold";><span class="label label-danger">{{analysis.malfamily}}</span></h4>
         </div>
     </div>
     {% endif %}

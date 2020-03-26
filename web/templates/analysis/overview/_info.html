@@ -18,15 +18,17 @@
                 <h4 class="panel-title" style="text-align: center;">Auto Tasks</h4>
             </div>
             {% for child in children %}
-                <center><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}</a></center>
+            <h4 style="text-align:center; font-size: 100%;font-weight-bold" ;><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}: {{ child.1 }}</a></h4>
             {% endfor %}
         </div>
     </div>
     {% endif %}
     {% if analysis.detections and children|length > 0 %}
         <div class="col-lg-10">
-    {% else %}
+    {% elif analysis.detections and children|length > 0 %}
         <div class="col-lg-11">
+    {% else %}
+        <div class="col-lg-12">
     {% endif %}
     <div class="panel panel-primary">
         <div class="panel-heading">

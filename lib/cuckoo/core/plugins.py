@@ -371,7 +371,7 @@ class RunProcessing(object):
         self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
             family = self.results["detections"]
-            self.results["malfamily_tag"] = "Yara"
+            self.results["malfamily_tag"] = "YARA"
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):

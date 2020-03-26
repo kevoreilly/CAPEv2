@@ -744,10 +744,7 @@ def search_behavior(request, task_id):
 def report(request, task_id):
     db = Database()
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-                     {"info.id": int(task_id)}, {"dropped": 0},
-                     sort=[("_id", pymongo.DESCENDING)]
-                 )
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]
         report = query["_source"]

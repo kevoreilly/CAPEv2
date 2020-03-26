@@ -11,7 +11,23 @@
         </div>
     </div>
     {% endif %}
-    <div class="col-lg-11">
+    {% if children|length > 0 %}
+    <div class="col-lg-1" style="padding-right: 0px;">
+        <div class="panel panel-primary" style="height: 114px;">
+            <div class="panel-heading">
+                <h4 class="panel-title" style="text-align: center;">Extra Tasks</h4>
+            </div>
+            {% for child in children %}
+                <center><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}</a></center>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% if children|length > 0 %}
+        <div class="col-lg-10">
+    {% else %}
+        <div class="col-lg-11">
+    {% endif %}
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4 class="panel-title">Analysis</h4>

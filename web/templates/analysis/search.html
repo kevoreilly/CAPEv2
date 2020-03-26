@@ -96,7 +96,7 @@
                         <td>Search for CAPE Sandbox signatures through signature descriptions</td>
                     </tr>
                     <tr>
-                        <td><code>malfamily:</code></td>
+                        <td><code>detections:</code></td>
                         <td>Search for samples associated with malware family</td>
                     </tr>
                     <tr>
@@ -397,8 +397,8 @@
                                 {% else %}
                                 class="label label-danger"
                                 {% endif %}
-                                {% if analysis.malfamily %}
-                                title="{{analysis.malfamily}}"
+                                {% if analysis.detections %}
+                                title="{{analysis.detections}}"
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
@@ -408,8 +408,8 @@
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
-                                {% if analysis.malfamily %}
-                                {{analysis.malfamily}}
+                                {% if analysis.detections %}
+                                {{analysis.detections}}
                                 {% else %}
                                 None
                                 {% endif %}

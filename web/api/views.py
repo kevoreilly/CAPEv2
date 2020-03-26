@@ -221,7 +221,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["tr_extractor"] = buf["tr_extractor"]
     if "certs" in buf:
         data["certs"] = buf["certs"]
-    data["malfamily"] = buf["malfamily"]
+    data["detections"] = buf["detections"]
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
     del data["info"]["custom"]
@@ -1213,9 +1213,9 @@ def ext_tasks_search(request):
                 records = results_db.analysis.find({"signatures.description": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
             elif option == "signame":
                 records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "malfamily":
+            elif option == "detections":
                 records = results_db.analysis.find(
-                    {"malfamily": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+                    {"detections": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
             elif option == "url":
                 records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
             elif option == "iconhash":
@@ -1286,8 +1286,8 @@ def ext_tasks_search(request):
                 records = es.search(index=fullidx, doc_type="analysis", q="signatures.description: %s" % value)["hits"]["hits"]
             elif term == "signame":
                 records = es.search(index=fullidx, doc_type="analysis", q="signatures.name: %s" % value)["hits"]["hits"]
-            elif term == "malfamily":
-                records = es.search(index=fullidx, doc_type="analysis", q="malfamily: %s" % value)["hits"]["hits"]
+            elif term == "detections":
+                records = es.search(index=fullidx, doc_type="analysis", q="detections: %s" % value)["hits"]["hits"]
             elif term == "url":
                 records = es.search(index=fullidx, doc_type="analysis", q="target.url: %s" % value)["hits"]["hits"]
             elif term == "imphash":
@@ -1699,7 +1699,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["tr_extractor"] = buf["tr_extractor"]
     if "certs" in buf:
         data["certs"] = buf["certs"]
-    data["malfamily"] = buf["malfamily"]
+    data["detections"] = buf["detections"]
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
     del data["info"]["custom"]

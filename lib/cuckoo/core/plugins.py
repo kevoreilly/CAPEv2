@@ -379,7 +379,6 @@ class RunProcessing(object):
                     if family:
                         self.results["malfamily_tag"] = "Suricata"
                         self.results["detections"] = family
-                        self.results["malfamily"] = family
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
@@ -401,7 +400,7 @@ class RunProcessing(object):
                     self.results["malfamily_tag"] = "ClamAV"
 
         if family:
-            self.results["malfamily"] = family
+            self.results["detetions"] = family
 
         return self.results
 
@@ -671,7 +670,7 @@ class RunSignatures(object):
         if self.results.get("malfamily_tag", "") != "YARA":
             for match in matched:
                 if "families" in match and match["families"]:
-                    self.results["malfamily"] = match["families"][0].title()
+                    self.results["detections"] = match["families"][0].title()
                     self.results["malfamily_tag"] = "Behavior"
                     break
 

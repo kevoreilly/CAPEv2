@@ -195,8 +195,8 @@ class MISP(Report):
                 upload_sample = self.options.get("upload_sample")
 
                 malfamily = ""
-                if results.get("malfamily", ""):
-                    malfamily = results["malfamily"]
+                if results.get("detections", ""):
+                    malfamily = results["detections"]
 
                 event = MISPEvent()
                 response = self.misp.search("attributes", value=results["target"]["file"]["sha256"], return_format="json")

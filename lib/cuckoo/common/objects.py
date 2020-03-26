@@ -131,9 +131,9 @@ def is_pefile(data, fast_load=False, local_file=False):
 
     uni = isinstance(data[:2], bytes)
     if uni:
-        mz = b'MZ\x90'
+        mz = b"MZ"  #MZ\x90', b"MZ\x00", b"MZP\x00
     else:
-        mz = 'MZ\x90'
+        mz = "MZ"  #MZ\x90', "MZ\x90", "MZP\x00"
     if data.startswith(mz):
         try:
             pe = pefile.PE(data=data, fast_load=fast_load)

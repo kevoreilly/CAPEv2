@@ -23,7 +23,7 @@
         </div>
     </div>
     {% endif %}
-    {% if children|length > 0 %}
+    {% if analysis.detections and children|length > 0 %}
         <div class="col-lg-10">
     {% else %}
         <div class="col-lg-11">

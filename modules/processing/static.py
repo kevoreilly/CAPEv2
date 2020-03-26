@@ -873,10 +873,12 @@ class PortableExecutable(object):
         @return: analysis results dict or None.
         """
         if not os.path.exists(self.file_path):
+            log.debug("File doesn't exist anymore")
             return {}
 
         self.pe = is_pefile(self.file_path, fast_load=False, local_file=True)
         if not self.pe:
+            log.debug("Not a PE file, skiping ")
             return {}
 
         results = {}

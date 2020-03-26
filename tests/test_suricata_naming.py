@@ -10,7 +10,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.core.plugins import get_suricata_family
 
-assert "Smoke" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
+assert "Sharik" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
 assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
 assert "Predator" == get_suricata_family("ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin")
 assert "Medusahttp" == get_suricata_family("ET TROJAN MedusaHTTP Variant CnC Checkin M2")
@@ -28,3 +28,4 @@ assert False is get_suricata_family("ETPRO TROJAN MSIL/Agent.SNQ POST with Syste
 assert False is get_suricata_family("ET TROJAN WScript/VBScript XMLHTTP downloader likely malicious get?src=")
 assert False is get_suricata_family("ET TROJAN Fileless infection dropped by EK CnC Beacon")
 assert "Raccoon" == get_suricata_family("ETPRO TROJAN Win32.Raccoon Stealer Checkin")
+assert "Vidar" == get_suricata_family("ETPRO TROJAN Vidar/Arkei/Megumin Stealer HTTP POST Pattern")

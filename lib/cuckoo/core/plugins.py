@@ -131,6 +131,7 @@ suricata_blacklist = (
     "windows",
     "worm",
     "wscript",
+    "msil"
 )
 
 def get_suricata_family(signature):
@@ -146,7 +147,11 @@ def get_suricata_family(signature):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
     famcheck = words[2]
     if "/" in famcheck:
-        famcheck = famcheck.split("/")[-1]
+        famcheck_list = famcheck.split("/")  # [-1]
+        for fam_name in famcheck_list:
+            if not any([black in fam_name.lower() for black in suricata_blacklist]):
+                famcheck = fam_name
+                break
     famchecklower = famcheck.lower()
     if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
         famchecklower = famchecklower.split(".")[-1]

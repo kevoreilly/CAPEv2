@@ -73,7 +73,7 @@ from lib.cuckoo.common.utils import store_temp_file, bytes2str
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File, is_pefile
+from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
@@ -876,7 +876,11 @@ class PortableExecutable(object):
             log.debug("File doesn't exist anymore")
             return {}
 
-        self.pe = is_pefile(self.file_path, fast_load=False, local_file=True)
+        #Advanced check if is real PE
+        if not IsPEImage(open(self.file_path, "rb").read()):
+            return {}
+
+        self.pe = pefile.PE(self.file_path)
         if not self.pe:
             log.debug("Not a PE file, skiping ")
             return {}

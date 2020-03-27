@@ -112,35 +112,71 @@ yara_error = {
 }
 
 
-def is_pefile(data, fast_load=False, local_file=False):
-    """
-        This function checks if file is realy looks like PE file and if yes then parses it
-        Args:
-            data: PE data as buffer
-            fast_load: True/False
-        Returns:
-            pefile object or False
-    """
-    pe = False
-    if local_file:
-        if not os.path.exists(data):
-            return pe
+CAPE_YARA_RULEPATH = \
+    os.path.join(CUCKOO_ROOT, "data", "yara", "index_CAPE.yar")
 
-        with open(data, "rb") as f:
-            data = f.read()
+IMAGE_DOS_SIGNATURE = 0x5A4D
+IMAGE_NT_SIGNATURE = 0x00004550
+OPTIONAL_HEADER_MAGIC_PE = 0x10b
+OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20b
+IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
+IMAGE_FILE_MACHINE_I386 = 0x014c
+IMAGE_FILE_MACHINE_AMD64 = 0x8664
+DOS_HEADER_LIMIT = 0x40
+PE_HEADER_LIMIT = 0x200
 
-    uni = isinstance(data[:2], bytes)
-    if uni:
-        mz = b"MZ"  #MZ\x90', b"MZ\x00", b"MZP\x00
+
+def IsPEImage(buf, size=False):
+    if not size:
+        size = len(buf)
+    if size < DOS_HEADER_LIMIT:
+        return False
+    buf = buf.encode("utf-8")
+    dos_header = buf[:DOS_HEADER_LIMIT]
+    nt_headers = None
+
+    if size < PE_HEADER_LIMIT:
+        return False
+
+    # Check for sane value in e_lfanew
+    e_lfanew, = struct.unpack("<L", dos_header[60:64])
+    if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
+        offset = 0
+        while offset < PE_HEADER_LIMIT-86:
+            #ToDo
+            try:
+                machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
+            except struct.error:
+                machine_probe = ""
+                log.warning("Machine probe unpck failed, follow")
+            if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
+                nt_headers = buf[offset-4:offset+252]
+                break
+            offset = offset + 2
     else:
-        mz = "MZ"  #MZ\x90', "MZ\x90", "MZP\x00"
-    if data.startswith(mz):
-        try:
-            pe = pefile.PE(data=data, fast_load=fast_load)
-        except pefile.PEFormatError as e:
-            logging.error(e)
-    return pe
+        nt_headers = buf[e_lfanew:e_lfanew+256]
 
+    if not nt_headers:
+        return False
+
+    #if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
+    if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
+        return False
+
+    #if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
+    if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
+        return False
+
+    #if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
+    if struct.unpack("<H", nt_headers[20:22])[0] & 3 != 0:
+        return False
+
+    #if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
+    if struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS:
+        return False
+
+    # To pass the above tests it should now be safe to assume it's a PE image
+    return True
 
 class Dictionary(dict):
     """Cuckoo custom dict."""

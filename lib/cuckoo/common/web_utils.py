@@ -18,11 +18,10 @@ sys.path.append(CUCKOO_ROOT)
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import is_pefile, HAVE_PEFILE, pefile
+from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.common.utils import get_ip_address, bytes2str
 from lib.cuckoo.core.database import Database
-
 
 cfg = Config("cuckoo")
 socks5_conf = Config("socks5")
@@ -94,7 +93,9 @@ def fix_section_permission(path):
         log.info("[-] Missed dependency pefile")
         return
     try:
-        pe = is_pefile(path)
+        if not IsPEImage:
+            return
+        pe = pefile.PE(path)
         if not pe:
             return
         for id in range(len(pe.sections)):

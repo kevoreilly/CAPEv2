@@ -131,7 +131,7 @@ def IsPEImage(buf, size=False):
         size = len(buf)
     if size < DOS_HEADER_LIMIT:
         return False
-    buf = buf.encode("utf-8")
+    #buf = buf.encode("utf-8")
     dos_header = buf[:DOS_HEADER_LIMIT]
     nt_headers = None
 

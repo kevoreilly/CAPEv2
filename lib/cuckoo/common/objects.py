@@ -557,7 +557,9 @@ class File(object):
         else:
             try:
                 #read pefile once and share
-                pe = is_pefile(self.file_data, fast_load=True)
+                if not IsPEImage(self.file_data):
+                    return infos
+                pe = pefile.PE(data=self.file_data, fast_load=True)
                 if pe:
                     infos["entrypoint"] = self.get_entrypoint(pe)
                     infos["ep_bytes"] = self.get_ep_bytes(pe)

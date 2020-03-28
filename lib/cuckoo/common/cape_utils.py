@@ -60,8 +60,10 @@ if parser_path not in sys.path:
     sys.path.append(parser_path)
 
 try:
-    from plugxconfig import plugx
+    from modules.processing.parsers.plugxconfig import plugx
+    plugx_parser = plugx.PlugXConfig()
 except ImportError as e:
+    plugx_parser = False
     log.error(e)
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]

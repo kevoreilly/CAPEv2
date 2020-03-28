@@ -29,7 +29,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
+from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
 
 try:
     import pydeep
@@ -185,7 +185,6 @@ class CAPE(Processing):
                 file_info["pid"] = ",".join(metadata["pids"])
 
         metastrings = metadata.get("metadata", "").split(";?")
-        #import code;code.interact(local=dict(locals(), **globals()))
         if len(metastrings) > 2:
             file_info["process_path"] = metastrings[1]
             file_info["process_name"] = metastrings[1].split("\\")[-1]
@@ -230,21 +229,19 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL"
                 else:
                     file_info["cape_type"] += "executable"
-            """
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
-                plugx_parser = plugx.PlugXConfig()
-                plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                if not "cape_config" in cape_config and plugx_config:
-                    cape_config["cape_config"] = {}
-                    for key, value in plugx_config.items():
-                        cape_config["cape_config"].update({key: [value]})
-                    cape_name = "PlugX"
-                else:
-                    log.error("CAPE: PlugX config parsing failure - size many not be handled.")
-                append_file = False
-            """
+                if plugx_parser:
+                    plugx_config = plugx_parser.parse_config(file_data, len(file_data))
+                    if not "cape_config" in cape_config and plugx_config:
+                        cape_config["cape_config"] = {}
+                        for key, value in plugx_config.items():
+                            cape_config["cape_config"].update({key: [value]})
+                        cape_name = "PlugX"
+                    else:
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                    append_file = False
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
                 if file_info["cape_type_code"] in config_mapping:

@@ -181,70 +181,49 @@ def index(request, resubmit_hash=False):
                            if option and '=' in option)
         opt_filename = get_user_filename(options, custom)
 
+        if options:
+            options += ","
+
         if referrer:
-            if options:
-                options += ","
-            options += "referrer=%s" % (referrer)
+            options += "referrer=%s," % (referrer)
 
         if request.POST.get("free"):
-            if options:
-                options += ","
-            options += "free=yes"
+            options += "free=yes,"
 
         if request.POST.get("nohuman"):
-            if options:
-                options += ","
-            options += "nohuman=yes"
+            options += "nohuman=yes,"
 
         if request.POST.get("tor"):
-            if options:
-                options += ","
-            options += "tor=yes"
+            options += "tor=yes,"
 
         if request.POST.get("route", None):
-            if options:
-                options += ","
-            options += "route={0}".format(request.POST.get("route", None))
+            options += "route={0},".format(request.POST.get("route", None))
 
         if request.POST.get("process_dump"):
-            if options:
-                options += ","
-            options += "procmemdump=1,procdump=1"
+            options += "procmemdump=1,procdump=1,"
 
         if request.POST.get("process_memory"):
-            if options:
-                options += ","
-            options += "procmemdump=1,procdump=1"
+            options += "procmemdump=1,procdump=1,"
 
         if request.POST.get("import_reconstruction"):
-            if options:
-                options += ","
-            options += "import_reconstruction=1"
+            options += "import_reconstruction=1,"
 
         if request.POST.get("disable_cape"):
-            if options:
-                options += ","
-            options += "disable_cape=1"
+            options += "disable_cape=1,"
 
         if request.POST.get("kernel_analysis"):
-            if options:
-                options += ","
-            options += "kernel_analysis=yes"
+            options += "kernel_analysis=yes,"
 
         if request.POST.get("norefer"):
-            if options:
-                options += ","
-            options += "norefer=1"
+            options += "norefer=1,"
 
         if request.POST.get("oldloader"):
-            if options:
-                options += ","
-            options += "loader=oldloader.exe,loader_64=oldloader_x64.exe"
+            options += "loader=oldloader.exe,loader_64=oldloader_x64.exe,"
 
         if request.POST.get("unpack"):
-            if options:
-                options += ","
-            options += "unpack=yes"
+            options += "unpack=yes,"
+
+        options = options[:-1]
 
         unique = request.POST.get("unique", False)
 

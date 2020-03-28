@@ -14,7 +14,7 @@
                 <th>File Type</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.type}}</td>
             </tr>
-            {% analysis.target.file.timestamp %}
+            {% if analysis.target.file.timestamp %}
                 <tr>
                     <th>PE timestamp</th>
                     <td style="word-wrap: break-word;">{{analysis.target.file.timestamp}}</td>

@@ -14,10 +14,12 @@
                 <th>File Type</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.type}}</td>
             </tr>
-            <tr>
-                <th>PE timestamp</th>
-                <td style="word-wrap: break-word;">{{analysis.target.file.timestamp}}</td>
-            </tr>
+            {% analysis.target.file.timestamp %}
+                <tr>
+                    <th>PE timestamp</th>
+                    <td style="word-wrap: break-word;">{{analysis.target.file.timestamp}}</td>
+                </tr>
+            {% endif %}
             <tr>
                 <th>MD5</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.md5}}</td>
@@ -42,62 +44,54 @@
                 <th>Ssdeep</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.ssdeep}}</td>
             </tr>
+            {% if analysis.trid %}
             <tr>
                 <th>TrID</th>
                 <td style="word-wrap: break-word;">
-                {% if analysis.trid %}
                     <ul style="margin-top: 0;margin-bottom: 0;">
                     {% for str in analysis.trid %}
                         <li>{{str}}</li>
                     {% endfor %}
                     </ul>
-                {% else %}
-                    None matched
-                {% endif %}
                 </td>
             </tr>
+            {% endif %}
+            {% if analysis.target.file.clamav %}
             <tr>
                 <th>ClamAV</th>
                 <td>
-                {% if analysis.target.file.clamav %}
                   <ul style="margin-bottom: 0;">
                     {% for sign in analysis.target.file.clamav %}
                    <li>{{sign}}</li>
                     {% endfor %}
                     </ul>
-                {% else %}
-                    None matched
-                {% endif %}
                 </td>
             </tr>
+            {% endif %}
+            {% if analysis.target.file.yara %}
             <tr>
                 <th>Yara</th>
                 <td>
-                {% if analysis.target.file.yara %}
                     <ul style="margin-bottom: 0;">
                     {% for sign in analysis.target.file.yara %}
                         <li>{{sign.name}} - {{sign.meta.description}}</li>
                     {% endfor %}
                     </ul>
-                {% else %}
-                    None matched
-                {% endif %}
                 </td>
             </tr>
+            {% endif %}
+            {% if analysis.target.file.cape_yara %}
             <tr>
                 <th>CAPE Yara</th>
                 <td>
-                {% if analysis.target.file.cape_yara %}
                     <ul style="margin-bottom: 0;">
                     {% for sign in analysis.target.file.cape_yara %}
                         <li>{{sign.meta.cape_type}}</li>
                     {% endfor %}
                     </ul>
-                {% else %}
-                    None matched
-                {% endif %}
                 </td>
             </tr>
+            {% endif %}
             <tr>
                 <th></th>
                 <td>

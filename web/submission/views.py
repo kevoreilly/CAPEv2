@@ -593,6 +593,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dlnexec"] = settings.DLNEXEC
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
+        enabledconf["linux_on_gui"] = settings.LINUX_ON_GUI
 
         all_tags = load_vms_tags()
         if all_tags:

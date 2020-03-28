@@ -125,10 +125,12 @@
                     </tr>
                     {% endif %}
                 {% endif %}
-                <tr>
-                    <th>PE timestamp</th>
-                    <td>{{file.timestamp}}</td>
-                </tr>
+                {% if file.timestamp %}
+                    <tr>
+                        <th>PE timestamp</th>
+                        <td>{{file.timestamp}}</td>
+                    </tr>
+                {% endif %}
                 <tr>
                     <th>MD5</th>
                     <td style="word-wrap: break-word;">{{file.md5}}</td>

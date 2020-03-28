@@ -426,6 +426,7 @@ $(document).ready( function() {
                                     </div>
                                     <input type="text" class="form-control" id="form_options" name="options"/>
                                 </div>
+                                {% if config.LINUX_ON_GUI %}
                                 <div class="form-group">
                                     <label for="form_lin_options">Linux Options (<a href="#optionlinuxhelp" data-toggle="collapse">help</a>)</label>
                                     <div id="optionlinuxhelp" class="collapse">
@@ -455,6 +456,7 @@ $(document).ready( function() {
                                     </div>
                                     <input type="text" class="form-control" id="form_lin_options" name="lin_options"/>
                                 </div>
+                                {% endif %}
                             </div>
                             <div class="form-group">
                                 <label for="form_priority">Priority</label>
@@ -487,19 +489,19 @@ $(document).ready( function() {
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_dump" /> WINDOWS: Disable process dumps
+                                    <input type="checkbox" name="process_dump" /> Disable process dumps
                                 </label>
                             </div>
                             {% if config.procmemory %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_memory" checked/> Full process memory dumps
+                                    <input type="checkbox" name="process_memory"/> Full process memory dumps
                                 </label>
                             </div>
                             {% endif %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="import_reconstruction" /> WINDOWS: Enable process dump import reconstruction <span class="text-muted"><small>(slow)</small>
+                                    <input type="checkbox" name="import_reconstruction" /> Enable process dump import reconstruction <span class="text-muted"><small>(slow)</small>
                                 </label>
                             </div>
                             {% if config.memory %}
@@ -521,12 +523,12 @@ $(document).ready( function() {
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="disable_cape" /> WINDOWS: No CAPE submissions <span class="text-muted"><small>(disable automatic job submission)</small></span>
+                                    <input type="checkbox" name="disable_cape" /> No CAPE submissions <span class="text-muted"><small>(disable automatic job submission)</small></span>
                                 </label>
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="norefer" /> WINDOWS: No Fake Referrer for URL Tasks
+                                    <input type="checkbox" name="norefer" /> No Fake Referrer for URL Tasks
                                 </label>
                             </div>
                             <div class="checkbox">
@@ -537,18 +539,18 @@ $(document).ready( function() {
                             {% if config.kernel %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="kernel_analysis" /> WINDOWS: Enable zer0m0n kernel-based behavioral analysis
+                                    <input type="checkbox" name="kernel_analysis" /> Enable zer0m0n kernel-based behavioral analysis
                                 </label>
                             </div>
                             {% endif %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="static" checked/> WINDOWS: Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
+                                    <input type="checkbox" name="static"/> Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
                                 </label>
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="oldloader" /> WINDOWS: Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span>
+                                    <input type="checkbox" name="oldloader" /> Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span>
                                 </label>
                             </div>
                         </div>

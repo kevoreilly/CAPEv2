@@ -890,11 +890,17 @@ class CommandPipeHandler(object):
 
     def _handle_debug(self, data):
         """Debug message from the monitor."""
-        log.debug(data)
+        try:
+            log.debug(data.decode("utf-8"))
+        except:
+            log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
-        log.info(data)
+        try:
+            log.info(data.decode("utf-8"))
+        except:
+            log.debug(data)
 
     def _handle_warning(self, data):
         """Warning message from the monitor."""
@@ -905,17 +911,9 @@ class CommandPipeHandler(object):
         log.critical(data)
 
     def _handle_loaded(self, data):
-        """
-         command.startswith(b"LOADED:"):
-        self.process_lock.acquire()
-
-        self.process_lock.release()
-        NUM_INJECTED += 1
-        log.info("Monitor successfully loaded in process with pid %u.", process_id)
-        """
         #LOADED:2012
         """The monitor has loaded into a particular process."""
-        if not data:# or data.count(b",") != 1:
+        if not data:
             log.warning("Received loaded command with incorrect parameters, "
                         "skipping it.")
             return
@@ -1493,9 +1491,6 @@ class CommandPipeHandler(object):
 
     def dispatch(self, data):
         response = "NOPE"
-        # ToDo remove hack and fix in monitor
-        if b'GETPIDS' in data:
-            data = b'GETPIDS:'
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %r", data.strip())
         else:
@@ -1503,15 +1498,11 @@ class CommandPipeHandler(object):
             # new syntax, e.g., "1234:FILE_NEW:").
             #if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
-            #ToDo remove
-            if command not in (b"DEBUG", b"INFO"):
-                log.info((command, arguments, "dispatch"))
+            #Uncomment to debug monitor commands
+            #if command not in (b"DEBUG", b"INFO"):
+            #    log.info((command, arguments, "dispatch"))
             self.pid = None
-            #else:
-            #self.pid, command, arguments = data.strip().split(b":", 2)
-
             fn = getattr(self, "_handle_%s" % command.lower().decode("utf-8"), None)
-            print(fn, command.lower().decode("utf-8"))
             if not fn:
                 log.critical("Unknown command received from the monitor: %r",
                              data.strip())

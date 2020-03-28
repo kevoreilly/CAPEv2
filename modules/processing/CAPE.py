@@ -185,6 +185,7 @@ class CAPE(Processing):
                 file_info["pid"] = ",".join(metadata["pids"])
 
         metastrings = metadata.get("metadata", "").split(";?")
+        #import code;code.interact(local=dict(locals(), **globals()))
         if len(metastrings) > 2:
             file_info["process_path"] = metastrings[1]
             file_info["process_name"] = metastrings[1].split("\\")[-1]
@@ -204,9 +205,9 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in inject_map:
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["target_path"] = metastrings[4]
-                    file_info["target_process"] = metastrings[4].split("\\")[-1]
-                    file_info["target_pid"] = metastrings[5]
+                    file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] == INJECTION_SECTION:
                 file_info["cape_type"] = "Injected Section"
@@ -220,7 +221,7 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in simple_cape_type_map:
                 file_info["cape_type"] = simple_cape_type_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["virtual_address"] = metastrings[4]
+                    file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
             if type_strings[0] in ("PE32+", "PE32"):
@@ -247,7 +248,7 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
                 if file_info["cape_type_code"] in config_mapping:
-                    cape_config["cape_type"] = code_mapping[file_info["cape_type_code"]]
+                    file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
 
                 type_strings = file_info["type"].split()
                 if type_strings[0] in ("PE32+", "PE32"):

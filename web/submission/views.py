@@ -110,10 +110,14 @@ def get_form_data(platform):
         for tag in machine.tags:
             tags.append(tag.name)
 
+
         if tags:
-            label = "{}:{}:{}".format(machine.platform, machine.label, ",".join(tags))
+            label = "{}:{}".format(machine.label, ",".join(tags))
         else:
-            label = "{}:{}".format(machine.platform, machine.label)
+            label = "{}".format(machine.label)
+
+        if web_conf.linux.enabled:
+            label = machine.platform+":"+label
 
         machines.append((machine.label, label))
 
@@ -595,7 +599,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dlnexec"] = settings.DLNEXEC
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
-        enabledconf["linux_on_gui"] = settings.LINUX_ON_GUI
+        enabledconf["linux_on_gui"] = web_conf.linux.enabled
 
         all_tags = load_vms_tags()
         if all_tags:

@@ -478,11 +478,16 @@ class Analyzer:
         # Set the loader to that specified by package
         if "loader" in pack.options and pack.options["loader"] is not None:
             LOADER32 = pack.options["loader"]
-            log.info("Analyzer: Loader (32-bit) set to %s from package %s", LOADER32, package_name)
+            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader option", package_name)
 
+        # Set the loader_64 to that specified by package
         if "loader_64" in pack.options and pack.options["loader_64"] is not None:
             LOADER64 = pack.options["loader_64"]
-            log.info("Analyzer: Loader (64-bit) set to %s from package %s", LOADER64, package_name)
+            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
 
         # randomize monitor DLL and loader executable names
         if MONITOR_DLL is not None:

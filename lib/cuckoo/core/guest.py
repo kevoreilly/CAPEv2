@@ -119,7 +119,7 @@ class GuestManager(object):
             r = session.get(url, *args, **kwargs)
         except requests.ConnectionError:
             raise CuckooGuestError(
-                "Cuckoo Agent failed without error status, please try "
+                "CAPE Agent failed without error status, please try "
                 "upgrading to the latest version of agent.py (>= 0.10) and "
                 "notify us if the issue persists."
             )
@@ -138,7 +138,7 @@ class GuestManager(object):
             r = session.post(url, *args, **kwargs)
         except requests.ConnectionError:
             raise CuckooGuestError(
-                "Cuckoo Agent failed without error status, please try "
+                "CAPE Agent failed without error status, please try "
                 "upgrading to the latest version of agent.py (>= 0.10) and "
                 "notify us if the issue persists."
             )
@@ -291,7 +291,7 @@ class GuestManager(object):
             db.guest_set_status(self.task_id, "failed")
             return
 
-        log.info("Guest is running Cuckoo Agent %s (id=%s, ip=%s)",
+        log.info("Guest is running CAPE Agent %s (id=%s, ip=%s)",
                  version, self.vmid, self.ipaddr)
 
         # Pin the Agent to our IP address so that it is not accessible by

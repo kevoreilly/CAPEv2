@@ -45,7 +45,7 @@ sys.stdout = StringIO()
 sys.stderr = StringIO()
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    server_version = "Cuckoo Agent"
+    server_version = "CAPE Agent"
 
     def do_GET(self):
         request.client_ip, request.client_port = self.client_address
@@ -429,7 +429,7 @@ def do_kill():
         return json_error(500, "Not running with the Werkzeug server")
 
     shutdown()
-    return json_success("Quit the Cuckoo Agent")
+    return json_success("Quit the CAPE Agent")
 
 
 if __name__ == "__main__":

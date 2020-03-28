@@ -40,6 +40,7 @@ routing = Config("routing")
 repconf = Config("reporting")
 processing = Config("processing")
 aux_conf = Config("auxiliary")
+web_conf = Config("web")
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
@@ -118,7 +119,8 @@ def get_form_data(platform):
 
     # Prepend ALL/ANY options. Disable until a platform can be verified in scheduler
     machines.insert(0, ("", "First available"))
-    machines.insert(1, ("all", "All"))
+    if web_conf.all_vms.enabled:
+        machines.insert(1, ("all", "All"))
 
     return packages, machines
 

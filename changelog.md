@@ -2,6 +2,7 @@
 * CAPE 2.1 ;)
 * A lot of small bug fixes, code cleanup, gui fixes, and monitor improvements
 * Now insted if "None matched" we just hide field
+* All VMs now are disabled on submission you need to enable it in web.conf
 
 ### [24-03-2020]
 * Big update of suricata name extraction/detection

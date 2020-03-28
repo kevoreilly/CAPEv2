@@ -21,7 +21,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.objects import File, is_pefile, HAVE_PEFILE
+from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
 from lib.cuckoo.core.database import Database, TASK_COMPLETED
 from lib.cuckoo.core.guest import GuestManager
@@ -206,7 +206,7 @@ class AnalysisManager(threading.Thread):
             options["exports"] = ""
             if HAVE_PEFILE and ("PE32" in options["file_type"] or "MS-DOS executable" in options["file_type"]):
                 try:
-                    pe = is_pefile(self.task.target)
+                    pe = pefile.PE(self.task.target)
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:

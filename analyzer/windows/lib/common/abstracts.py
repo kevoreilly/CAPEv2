@@ -116,17 +116,12 @@ class Package(object):
         @param interest: file of interest, passed to the cuckoomon config
         @return: process pid
         """
-        dll = self.options.get("dll")
-        dll_64 = self.options.get("dll_64")
         free = self.options.get("free")
+        suspended = True if not free else False
 
-        suspended = True
-        if free:
-            suspended = False
-        kernel_analysis = self.options.get("kernel_analysis", False)
+        kernel_analysis = self.options.get("kernel_analysis")
+        kernel_analysis = True if kernel_analysis else False
 
-        if kernel_analysis is not False:
-            kernel_analysis = True
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
             raise CuckooPackageError("Unable to execute the initial process, "
@@ -135,13 +130,9 @@ class Package(object):
         if free:
             return None
 
-        is_64bit = p.is_64bit()
-
         if not kernel_analysis:
-            if is_64bit:
-                p.inject(INJECT_QUEUEUSERAPC, interest)
-            else:
-                p.inject(INJECT_QUEUEUSERAPC, interest)
+            p.inject(INJECT_QUEUEUSERAPC, interest)
+
         p.resume()
         p.close()
 

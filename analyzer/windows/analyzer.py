@@ -184,7 +184,6 @@ class Analyzer:
         #return "\\??\\PIPE\\%s" % name
         return "\\\\.\\PIPE\\%s" % name
 
-
     def pids_from_process_name_list(self, namelist):
         proclist = []
         pidlist = []
@@ -302,7 +301,7 @@ class Analyzer:
 
         # Copy the debugger log.
         upload_files("debugger")
-        """End analysis."""
+
         # Stop the Pipe Servers.
         self.command_pipe.stop()
         self.log_pipe_server.stop()
@@ -666,7 +665,6 @@ class Analyzer:
             log.warning("The package \"%s\" finish function raised an "
                         "exception: %s", package_name, e)
 
-
         try:
             # Upload files the package created to package_files in the
             # results folder.
@@ -675,7 +673,6 @@ class Analyzer:
         except Exception as e:
             log.warning("The package \"%s\" package_files function raised an "
                         "exception: %s", package_name, e)
-
 
         log.info("Stopping auxiliary modules.")
         # Terminate the Auxiliary modules.

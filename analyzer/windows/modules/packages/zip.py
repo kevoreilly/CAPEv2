@@ -28,7 +28,7 @@ class Zip(Package):
              ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
              ("SystemRoot", "system32", "xpsrchvw.exe"),
             ]
-    def extract_zip(self, zip_path, extract_path, password=b"intefected", recursion_depth):
+    def extract_zip(self, zip_path, extract_path, password=b"intefected", recursion_depth=1):
         """Extracts a nested ZIP file.
         @param zip_path: ZIP path
         @param extract_path: where to extract
@@ -66,7 +66,7 @@ class Zip(Package):
                         if name.endswith(".zip"):
                             # Recurse.
                             try:
-                                self.extract_zip(os.path.join(extract_path, name), extract_path, password, recursion_depth + 1)
+                                self.extract_zip(os.path.join(extract_path, name), extract_path, password=password, recursion_depth=recursion_depth + 1)
                             except BadZipfile:
                                 log.warning("Nested zip file '%s' name end with 'zip' extension is not a valid zip. Skip extracting" % name)
                             except RuntimeError as run_err:

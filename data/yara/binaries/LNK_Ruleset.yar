@@ -118,11 +118,13 @@ strings:
 	$ = "cmd.exe" ascii wide nocase
 	$ = "/c echo" ascii wide nocase
 	$ = "/c start" ascii wide nocase
+	$ = "/c set" ascii wide nocase
 	$ = "%COMSPEC%" ascii wide nocase
 	$ = "rundll32.exe" ascii wide nocase
 	$ = "regsvr32.exe" ascii wide nocase
 	$ = "Assembly.Load" ascii wide nocase
 	$ = "[Reflection.Assembly]::Load" ascii wide nocase
+	$ = "process call" ascii wide nocase
 condition:
 	isLNK and any of them
 }
@@ -259,4 +261,24 @@ meta:
 	tlp = "White"
 condition:
 	isLNK and math.entropy(0, filesize) >= 6.5
+}
+
+rule CDN_in_LNK
+{
+meta:
+	description = "Identifies CDN (Content Delivery Network) domain in shortcut (LNK) file."
+	author = "@bartblaze"
+	date = "2020-03"
+	tlp = "White"
+strings:
+	$ = "cdn." ascii wide nocase //May FP
+	$ = "githubusercontent" ascii wide nocase
+	$ = "googleusercontent" ascii wide nocase
+	$ = "cloudfront" ascii wide nocase
+	$ = "amazonaws.com" ascii wide nocase
+	$ = "akamai" ascii wide nocase
+	$ = "cdn77" ascii wide nocase
+	$ = "discordapp" ascii wide nocase
+condition:
+	isLNK and any of them
 }

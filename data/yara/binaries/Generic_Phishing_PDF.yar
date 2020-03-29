@@ -1,6 +1,6 @@
 rule Generic_Phishing_PDF
 {
-meta:yt
+meta:
 	description = "Identifies generic phishing PDFs."
 	author = "@bartblaze"
 	date = "2019-03"

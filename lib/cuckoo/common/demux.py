@@ -95,11 +95,13 @@ def is_valid_type(magic):
             return True
     return False
 
-def demux_sflock(filename, options):
+
+def demux_sflock(filename, options, package):
     retlist = []
-    # only extract from files with no extension or with .bin (downloaded from us) or .zip extensions
+    # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
     ext = os.path.splitext(filename)[1]
-    if ext != "" and ext != ".zip" and ext != ".bin":
+
+    if ext != "" and package != ".zip" and ext != ".bin":
         return retlist
     try:
         password = b"infected"
@@ -177,7 +179,7 @@ def demux_sample(filename, package, options):
     retlist = list()
     if HAS_SFLOCK:
         # all in one unarchiver
-        retlist = demux_sflock(filename, options)
+        retlist = demux_sflock(filename, options, package)
 
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file

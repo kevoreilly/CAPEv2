@@ -3,6 +3,7 @@
 * A lot of small bug fixes, code cleanup, gui fixes, and monitor improvements
 * Now insted if "None matched" we just hide field
 * All VMs now are disabled on submission you need to enable it in web.conf
+* To submit ZIP file for analisis you need to specify zip package, if no it will be extracted
 
 ### [24-03-2020]
 * Big update of suricata name extraction/detection

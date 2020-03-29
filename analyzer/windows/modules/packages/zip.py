@@ -28,7 +28,7 @@ class Zip(Package):
              ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
              ("SystemRoot", "system32", "xpsrchvw.exe"),
             ]
-    def extract_zip(self, zip_path, extract_path, password, recursion_depth):
+    def extract_zip(self, zip_path, extract_path, password=b"intefected", recursion_depth):
         """Extracts a nested ZIP file.
         @param zip_path: ZIP path
         @param extract_path: where to extract
@@ -43,6 +43,10 @@ class Zip(Package):
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
+        #requires bytes not str
+        if not isinstance(password, bytes):
+            password = password.encode("utf-8")
+
         # Extraction.
         with ZipFile(zip_path, "r") as archive:
             try:
@@ -51,7 +55,7 @@ class Zip(Package):
                 raise CuckooPackageError("Invalid Zip file")
             except RuntimeError:
                 try:
-                    archive.extractall(path=extract_path, pwd="infected")
+                    archive.extractall(path=extract_path, pwd=password)
                 except RuntimeError as e:
                     raise CuckooPackageError("Unable to extract Zip file: "
                                              "{0}".format(e))

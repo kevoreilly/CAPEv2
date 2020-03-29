@@ -29,11 +29,11 @@ cuckoo_conf = Config()
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode('utf8')
 
 demux_extensions_list = [
-    "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
-    ".html", ".hta", ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse",
-    ".vbs", ".vbe", ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll",
-    ".xlw", ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm",
-    ".wsf", ".bat", ".ps1", ".sh", ".pl",
+    "", b".exe", b".dll", b".com", b".jar", b".pdf", b".msi", b".bin", b".scr", b".zip", b".tar", b".gz", b".tgz", b".rar", b".htm",
+    b".html", b".hta", b".doc", b".dot", b".docx", b".dotx", b".docm", b".dotm", b".docb", b".mht", b".mso", b".js", b".jse",
+    b".vbs", b".vbe", b".xls", b".xlt", b".xlm", b".xlsx", b".xltx", b".xlsm", b".xltm", b".xlsb", b".xla", b".xlam", b".xll",
+    b".xlw", b".ppt", b".pot", b".pps", b".pptx", b".pptm", b".potx", b".potm", b".ppam", b".ppsx", b".ppsm", b".sldx", b".sldm",
+    b".wsf", b".bat", b".ps1", b".sh", b".pl",
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
@@ -100,8 +100,7 @@ def demux_sflock(filename, options, package):
     retlist = []
     # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
     ext = os.path.splitext(filename)[1]
-
-    if ext != "" and package != ".zip" and ext != ".bin":
+    if not ext and package != ".zip" and ext != b".bin":
         return retlist
     try:
         password = b"infected"
@@ -116,22 +115,21 @@ def demux_sflock(filename, options, package):
 
         if unpacked.package in whitelist_extensions:
             return [filename]
-        if unpacked.children:
-            for sf_child in unpacked.children:
-                base, ext = os.path.splitext(sf_child.filename)
-                ext = ext.lower()
-                if ext in demux_extensions_list or is_valid_type(sf_child.magic):
-                    target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-                    if not os.path.exists(target_path):
-                        os.mkdir(target_path)
-                    tmp_dir = tempfile.mkdtemp(dir=target_path)
-                    try:
-                        path_to_extract = os.path.join(
-                            tmp_dir, sf_child.filename)
-                        open(path_to_extract, "wb").write(sf_child.contents)
-                        retlist.append(path_to_extract)
-                    except Exception as e:
-                        log.error(e, exc_info=True)
+        for sf_child in unpacked.children or []:
+            base, ext = os.path.splitext(sf_child.filename)
+            ext = ext.lower()
+            if ext in demux_extensions_list or is_valid_type(sf_child.magic):
+                target_path = os.path.join(tmp_path, b"cuckoo-sflock")
+                if not os.path.exists(target_path):
+                    os.mkdir(target_path)
+                tmp_dir = tempfile.mkdtemp(dir=target_path)
+                try:
+                    path_to_extract = os.path.join(
+                        tmp_dir, sf_child.filename)
+                    open(path_to_extract, "wb").write(sf_child.contents)
+                    retlist.append(path_to_extract)
+                except Exception as e:
+                    log.error(e, exc_info=True)
     except Exception as e:
         log.error(e)
 
@@ -180,7 +178,6 @@ def demux_sample(filename, package, options):
     if HAS_SFLOCK:
         # all in one unarchiver
         retlist = demux_sflock(filename, options, package)
-
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:

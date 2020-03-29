@@ -32,6 +32,7 @@ log = logging.getLogger()
 
 cuckoo = Config()
 routing = Config("routing")
+repconf = Config("reporting")
 
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
@@ -55,6 +56,27 @@ def check_working_directory():
         raise CuckooStartupError("You are not running Cuckoo from it's "
                                  "root directory")
 
+
+def check_webgui_mongo():
+    if repconf.mongodb.enabled:
+        import pymongo
+        bad = False
+        try:
+            conn = pymongo.MongoClient(
+                repconf.mongodb.host,
+                port=repconf.mongodb.port,
+                username=repconf.mongodb.get("username", None),
+                password=repconf.mongodb.get("password", None),
+                authSource=repconf.mongodb.db
+            )
+            conn.server_info()
+        except pymongo.errors.ServerSelectionTimeoutError:
+            log.warning("You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration")
+            bad = True
+        finally:
+            conn.close()
+            if bad:
+                sys.exit(1)
 
 def check_configs():
     """Checks if config files exist.
@@ -175,6 +197,8 @@ def init_modules():
     import_package(modules.processing)
     # Import all signatures.
     import_package(modules.signatures)
+    if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
+        log.warning("Suggestion: looks like you didn't install community, execute: python3 utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.

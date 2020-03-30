@@ -1,5 +1,5 @@
 ### [30-03-2020]
-* /configdownload/ is moved to /api/tasks/get/config/ or /api/tasks/get/config/Family/
+* /configdownload/ is moved to /api/tasks/get/config/<task_id>/ or /api/tasks/get/config/<task_id>/Family/
 * Anti-api-spamming feature in monitor
 
 ### [28-03-2020]

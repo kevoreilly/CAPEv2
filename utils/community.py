@@ -105,8 +105,8 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
-    parser.add_argument("-e", "--feeds", help="Download Cuckoo feed modules", action="store_true", required=False)
-    parser.add_argument("-s", "--signatures", help="Download Cuckoo signatures", action="store_true", required=False)
+    parser.add_argument("-e", "--feeds", help="Download CAPE feed modules", action="store_true", required=False)
+    parser.add_argument("-s", "--signatures", help="Download CAPE signatures", action="store_true", required=False)
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers",action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)

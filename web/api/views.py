@@ -2578,21 +2578,9 @@ def tasks_config(request, task_id, cape_name=False):
         else:
             buf = None
 
-    if rtmp.get("CAPE", False):
-        try:
-            rtmp["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
-        except:
-            pass
-        for cape in buf.get("CAPE", []):
-            if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
-                try:
-                    return jsonize(cape["cape_config"], response=True)
-                except Exception as e:
-                    return render(request, "error.html", {"error": "{}".format(e)})
-
     if buf.get("CAPE"):
         try:
-            buf["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
+            buf["CAPE"] = json.loads(zlib.decompress(bug["CAPE"]))
         except:
             pass
 

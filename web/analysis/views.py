@@ -35,6 +35,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, search_term_map
 import modules.processing.network as network
 
 try:
@@ -688,9 +689,7 @@ def search_behavior(request, task_id):
 
         # Fetch anaylsis report
         if enabledconf["mongodb"]:
-            record = results_db.analysis.find_one(
-                {"info.id": int(task_id)}
-            )
+            record = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1})
         if es_as_db:
             esquery = es.search(index=fullidx,doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]
             esidx = esquery["_index"]
@@ -1003,17 +1002,15 @@ def procdump(request, task_id, process_id, start, end):
     tmp_file_path = None
 
     if enabledconf["mongodb"]:
-        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
+        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procdump": 1} sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         analysis = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]["_source"]
 
-    dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id,
-                            "memory", origname)
+    dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
     if not os.path.exists(dumpfile):
         dumpfile += ".zip"
         if not os.path.exists(dumpfile):
-            return render(request, "error.html",
-                                        {"error": "File not found"})
+            return render(request, "error.html", {"error": "File not found"})
         f = zipfile.ZipFile(dumpfile, "r")
         tmpdir = tempfile.mkdtemp(prefix="cuckooprocdump_", dir=settings.TEMP_PATH)
         tmp_file_path = f.extract(origname, path=tmpdir)
@@ -1026,20 +1023,19 @@ def procdump(request, task_id, process_id, start, end):
 
     file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
 
-    if file_item and analysis and "procmemory" in analysis:
-        for proc in analysis["procmemory"]:
-            if proc["pid"] == int(process_id):
-                data = b""
-                for memmap in proc["address_space"]:
-                    for chunk in memmap["chunks"]:
-                        if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
-                            file_item.seek(chunk["offset"])
-                            data += file_item.read(int(chunk["size"], 16))
-                if len(data):
-                    content_type = "application/octet-stream"
-                    response = HttpResponse(data, content_type=content_type)
-                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-                    break
+    for proc in analysis.get("procmemory", []) or []:
+        if proc["pid"] == int(process_id):
+            data = b""
+            for memmap in proc["address_space"]:
+                for chunk in memmap["chunks"]:
+                    if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
+                        file_item.seek(chunk["offset"])
+                        data += file_item.read(int(chunk["size"], 16))
+            if len(data):
+                content_type = "application/octet-stream"
+                response = HttpResponse(data, content_type=content_type)
+                response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                break
 
     if file_item:
         file_item.close()
@@ -1145,92 +1141,19 @@ def full_memory_dump_strings(request, analysis_number):
         return render(request, "error.html",
                                   {"error": "File not found"})
 
-def perform_search(term, value):
-    if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-        numhits = es.search(index=fullidx,
-                            doc_type="analysis",
-                            q="%s" % value,
-                            size=0)['hits']['total']
-        return es.search(index=fullidx,
-                         doc_type="analysis",
-                         q="%s" % value,
-                         sort='task_id:desc',
-                         size=numhits)["hits"]["hits"]
-    term_map = {
-        "name": "target.file.name",
-        "type": "target.file.type",
-        "string": "strings",
-        "ssdeep": "target.file.ssdeep",
-        "trid": "trid",
-        "crc32": "target.file.crc32",
-        "file": "behavior.summary.files",
-        "command": "behavior.summary.executed_commands",
-        "resolvedapi": "behavior.summary.resolved_apis",
-        "key": "behavior.summary.keys",
-        "mutex": "behavior.summary.mutexes",
-        "domain": "network.domains.domain",
-        "ip": "network.hosts.ip",
-        "signature": "signatures.description",
-        "signame": "signatures.name",
-        "detections": "detections",
-        "url": "target.url",
-        "iconhash": "static.pe.icon_hash",
-        "iconfuzzy": "static.pe.icon_fuzzy",
-        "imphash": "static.pe.imphash",
-        "surihttp": "suricata.http",
-        "suritls": "suricata.tls",
-        "surisid": "suricata.alerts.sid",
-        "surialert": "suricata.alerts.signature",
-        "surimsg": "suricata.alerts.signature",
-        "suriurl": "suricata.http.uri",
-        "suriua": "suricata.http.ua",
-        "surireferrer": "suricata.http.referrer",
-        "suritlssubject": "suricata.tls.subject",
-        "suritlsissuerdn": "suricata.tls.issuer",
-        "suritlsfingerprint": "suricata.tls.fingerprint",
-        "clamav": "target.file.clamav",
-        "yaraname": "target.file.yara.name",
-        "capeyara": "target.file.cape_yara.name",
-        "procmemyara": "procmemory.yara.name",
-        "virustotal": "virustotal.results.sig",
-        "comment": "info.comments.Data",
-        "shrikemsg": "info.shrike_msg",
-        "shrikeurl": "info.shrike_url",
-        "shrikerefer": "info.shrike_refer",
-        "shrikesid": "info.shrike_sid",
-        "custom": "info.custom",
-        "md5": "target.file.md5",
-        "sha1": "target.file.sha1",
-        "sha256": "target.file.sha256",
-        "sha512": "target.file.sha512",
-        #"ttp": "ttps",
-    }
+perform_search_filters = {
+    "info": 1, "virustotal_summary": 1, "detections": 1,
+    "info.custom":1, "info.shrike_msg":1, "malscore": 1, "detections": 1,
+    "network.pcap_sha256": 1,
+    "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
+    "suri_tls_cnt": 1, "suri_alert_cnt": 1, "suri_http_cnt": 1, "suri_file_cnt": 1,
+    "trid": 1
+}
 
-    if term in ("md5", "sha1", "sha256", "sha512"):
-        query_val = value
-    else:
-        query_val = {"$regex": value, "$options": "-i"}
-    if term == "surisid":
-        try:
-            query_val = int(value)
-        except:
-            pass
-
-    if term not in term_map:
-        raise ValueError
-
-    if enabledconf["mongodb"]:
-        return results_db.analysis.find({term_map[term]: query_val}).sort([["_id", -1]])
-    if es_as_db:
-        return es.search(index=fullidx, doc_type="analysis", q=term_map[term] + ": %s" % value)["hits"]["hits"]
-
-def perform_malscore_search(value):
-    query_val = {"$gte": float(value)}
-    if enabledconf["mongodb"]:
-        return results_db.analysis.find({"malscore": query_val}).sort([["_id", -1]])
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+#ToDo optimize mongo search here
 def search(request):
     if "search" in request.POST:
         error = None
@@ -1309,7 +1232,7 @@ def remove(request, task_id):
     """Remove an analysis.
     """
     if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id)})
+        analyses = results_db.analysis.find({"info.id": int(task_id), {"_id": 1}})
         # Checks if more analysis found with the same ID, like if process.py was run manually.
         if analyses.count() > 1:
             message = "Multiple tasks with this ID deleted."
@@ -1393,8 +1316,8 @@ def pcapstream(request, task_id, conntuple):
     sport, dport = int(sport), int(dport)
 
     if enabledconf["mongodb"]:
-        conndata = results_db.analysis.find_one({ "info.id": int(task_id) },
-            { "network.tcp": 1, "network.udp": 1, "network.sorted_pcap_sha256": 1},
+        conndata = results_db.analysis.find_one({"info.id": int(task_id)},
+            {"network.tcp": 1, "network.udp": 1, "network.sorted_pcap_sha256": 1},
             sort=[("_id", pymongo.DESCENDING)])
 
     if es_as_db:
@@ -1445,13 +1368,9 @@ def comments(request, task_id):
                                       {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
+            report = results_db.analysis.find_one({"info.id": int(task_id)}, {"info.comments": 1}, sort=[("_id", pymongo.DESCENDING)])
         if es_as_db:
-            query = es.search(
-                        index=fullidx,
-                        doc_type="analysis",
-                        q="info.id: \"%s\"" % task_id
-                    )["hits"]["hits"][0]
+            query = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]
             esidx = query["_index"]

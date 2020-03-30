@@ -23,17 +23,18 @@ from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
 
 sys.path.append(settings.CUCKOO_PATH)
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.core.database import Database, Task
+from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
-from lib.cuckoo.common.web_utils import _download_file
-from lib.cuckoo.core.database import Database, Task
-from lib.cuckoo.core.database import TASK_REPORTED
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize
 
 
@@ -217,8 +218,8 @@ def tasks_iocs(request, task_id, detail=None):
         return jsonize(resp, response=True)
 
     data = {}
-    if "tr_extractor" in buf:
-        data["tr_extractor"] = buf["tr_extractor"]
+    if "CAPE" in buf:
+        data["CAPE"] = buf["CAPE"]
     if "certs" in buf:
         data["certs"] = buf["certs"]
     data["detections"] = buf["detections"]
@@ -1177,155 +1178,17 @@ def ext_tasks_search(request):
                 "error_value": "Extended Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
-    option = request.POST.get("option", "")
-    dataarg = request.POST.get("argument", "")
+    termp = request.POST.get("option", "")
+    value = request.POST.get("argument", "")
 
-    if option and dataarg:
-        records = ""
-        if repconf.mongodb.enabled:
-            if option == "name":
-                records = results_db.analysis.find({"target.file.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "type":
-                records = results_db.analysis.find({"target.file.type": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "string":
-                records = results_db.analysis.find({"strings" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
-            elif option == "trid":
-                records = results_db.analysis.find({"trid" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
-            elif option == "ssdeep":
-                records = results_db.analysis.find({"target.file.ssdeep": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "crc32":
-                records = results_db.analysis.find({"target.file.crc32": dataarg}).sort([["_id", -1]])
-            elif option == "file":
-                records = results_db.analysis.find({"behavior.summary.files": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "command":
-                records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "resolvedapi":
-                records = results_db.analysis.find({"behavior.summary.resolved_apis": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "key":
-                records = results_db.analysis.find({"behavior.summary.keys": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "mutex":
-                records = results_db.analysis.find({"behavior.summary.mutexes": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "domain":
-                records = results_db.analysis.find({"network.domains.domain": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "ip":
-                records = results_db.analysis.find({"network.hosts.ip": dataarg}).sort([["_id", -1]])
-            elif option == "signature":
-                records = results_db.analysis.find({"signatures.description": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "signame":
-                records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "detections":
-                records = results_db.analysis.find(
-                    {"detections": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "url":
-                records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
-            elif option == "iconhash":
-                records = results_db.analysis.find({"static.pe.icon_hash": dataarg}).sort([["_id", -1]])
-            elif option == "iconfuzzy":
-                records = results_db.analysis.find({"static.pe.icon_fuzzy": dataarg}).sort([["_id", -1]])
-            elif option == "imphash":
-                records = results_db.analysis.find({"static.pe.imphash": dataarg}).sort([["_id", -1]])
-            elif option == "surialert":
-                records = results_db.analysis.find({"suricata.alerts.signature": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "surihttp":
-                records = results_db.analysis.find({"suricata.http": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "suritls":
-                records = results_db.analysis.find({"suricata.tls": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "clamav":
-                records = results_db.analysis.find({"target.file.clamav": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "yaraname":
-                records = results_db.analysis.find({"target.file.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "capeyara":
-                records = results_db.analysis.find({"target.file.cape_yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "procmemyara":
-                records = results_db.analysis.find({"procmemory.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "virustotal":
-                records = results_db.analysis.find({"virustotal.results.sig": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "comment":
-                records = results_db.analysis.find({"info.comments.Data": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "md5":
-                records = results_db.analysis.find({"target.file.md5": dataarg}).sort([["_id", -1]])
-            elif option == "sha1":
-                records = results_db.analysis.find({"target.file.sha1": dataarg}).sort([["_id", -1]])
-            elif option == "sha256":
-                records = results_db.analysis.find({"target.file.sha256": dataarg}).sort([["_id", -1]])
-            elif option == "sha512":
-                records = results_db.analysis.find({"target.file.sha512": dataarg}).sort([["_id", -1]])
-            else:
-                resp = {"error": True,
-                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
+    if termp and value:
+        records = False
+        if termp is not in search_term_map.keys():
+            resp = {"error": True,
+                        "error_value": "Invalid Option. '%s' is not a valid option." % termp}
                 return jsonize(resp, response=True)
 
-        if es_as_db:
-            if term == "name":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.name: %s" % value)["hits"]["hits"]
-            elif term == "type":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.type: %s" % value)["hits"]["hits"]
-            elif term == "string":
-                records = es.search(index=fullidx, doc_type="analysis", q="strings: %s" % value)["hits"]["hits"]
-            elif term == "trid":
-                records = es.search(index=fullidx, doc_type="analysis", q="trid: %s" % value)["hits"]["hits"]
-            elif term == "ssdeep":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.ssdeep: %s" % value)["hits"]["hits"]
-            elif term == "crc32":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.crc32: %s" % value)["hits"]["hits"]
-            elif term == "file":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.files: %s" % value)["hits"]["hits"]
-            elif term == "command":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.executed_commands: %s" % value)["hits"]["hits"]
-            elif term == "resolvedapi":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.resolved_apis: %s" % value)["hits"]["hits"]
-            elif term == "key":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.keys: %s" % value)["hits"]["hits"]
-            elif term == "mutex":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.mutex: %s" % value)["hits"]["hits"]
-            elif term == "domain":
-                records = es.search(index=fullidx, doc_type="analysis", q="network.domains.domain: %s" % value)["hits"]["hits"]
-            elif term == "ip":
-                records = es.search(index=fullidx, doc_type="analysis", q="network.hosts.ip: %s" % value)["hits"]["hits"]
-            elif term == "signature":
-                records = es.search(index=fullidx, doc_type="analysis", q="signatures.description: %s" % value)["hits"]["hits"]
-            elif term == "signame":
-                records = es.search(index=fullidx, doc_type="analysis", q="signatures.name: %s" % value)["hits"]["hits"]
-            elif term == "detections":
-                records = es.search(index=fullidx, doc_type="analysis", q="detections: %s" % value)["hits"]["hits"]
-            elif term == "url":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.url: %s" % value)["hits"]["hits"]
-            elif term == "imphash":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.imphash: %s" % value)["hits"]["hits"]
-            elif term == "iconhash":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_hash: %s" % value)["hits"]["hits"]
-            elif term == "iconfuzzy":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_fuzzy: %s" % value)["hits"]["hits"]
-            elif term == "surialert":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.alerts.signature: %s" % value)["hits"]["hits"]
-            elif term == "surihttp":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.http: %s" % value)["hits"]["hits"]
-            elif term == "suritls":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.tls: %s" % value)["hits"]["hits"]
-            elif term == "clamav":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.clamav: %s" % value)["hits"]["hits"]
-            elif term == "yaraname":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.yara.name: %s" % value)["hits"]["hits"]
-            elif term == "capeyara":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.cape_yara.name: %s" % value)["hits"]["hits"]
-            elif term == "procmemyara":
-                records = es.search(index=fullidx, doc_type="analysis", q="procmemory.yara.name: %s" % value)["hits"]["hits"]
-            elif term == "virustotal":
-                records = es.search(index=fullidx, doc_type="analysis", q="virustotal.results.sig: %s" % value)["hits"]["hits"]
-            elif term == "comment":
-                records = es.search(index=fullidx, doc_type="analysis", q="info.comments.Data: %s" % value)["hits"]["hits"]
-            elif term == "md5":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.md5: %s" % value)["hits"]["hits"]
-            elif term == "sha1":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha1: %s" % value)["hits"]["hits"]
-            elif term == "sha256":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha256: %s" % value)["hits"]["hits"]
-            elif term == "sha512":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha512: %s" % value)["hits"]["hits"]
-            else:
-                resp = {"error": True,
-                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
-                return jsonize(resp, response=True)
+        records = perform_search(term, value)
 
         if records:
             ids = list()
@@ -1339,13 +1202,13 @@ def ext_tasks_search(request):
             resp = {"error": True,
                     "error_value": "Unable to retrieve records"}
     else:
-        if not option:
+        if not term:
             resp = {"error": True,
                     "error_value": "No option provided."}
-        if not dataarg:
+        if not value:
             resp = {"error": True,
                     "error_value": "No argument provided."}
-        if not option and not dataarg:
+        if not term and not value:
             resp = {"error": True,
                     "error_value": "No option or argument provided."}
 
@@ -2075,7 +1938,7 @@ def tasks_rollingsuri(request, window=60):
 
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
-    result = list(results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},{"suricata.alerts":1,"info.id":1}))
+    result = list(results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}))
     resp=[]
     for e in result:
         for alert in e["suricata"]["alerts"]:
@@ -2421,6 +2284,9 @@ def tasks_latest(request, hours):
     resp["ids"] = [id.to_dict() for id in ids]
     return jsonize(resp, response=True)
 
+
+"""
+#example how you can inject data after processing to remove slow processing from CAPE
 @csrf_exempt
 def post_processing(request, category, task_id):
     if request.method != "POST":
@@ -2432,7 +2298,7 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return jsonize({"error": True, "msg": "Missed content data or category"}, response=True)
-        buf = results_db.analysis.find_one({"info.id": int(task_id)})
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
         if not buf:
             return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
         buf[category] = content
@@ -2445,6 +2311,7 @@ def post_processing(request, category, task_id):
         resp = {"error": True, "msg": "Missed content data or category"}
 
     return jsonize(resp, response=True)
+"""
 
 if apiconf.payloadfiles.get("enabled"):
     raterps = apiconf.payloadfiles.get("rps")
@@ -2580,7 +2447,7 @@ def tasks_config(request, task_id, cape_name=False):
 
     if buf.get("CAPE"):
         try:
-            buf["CAPE"] = json.loads(zlib.decompress(bug["CAPE"]))
+            buf["CAPE"] = json.loads(zlib.decompress(buf["CAPE"]))
         except:
             pass
 

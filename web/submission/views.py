@@ -240,15 +240,16 @@ def index(request, resubmit_hash=False):
         status = "ok"
         failed_hashes = list()
         task_ids_tmp = list()
+
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
             resubmission_hash = request.POST.get("hash").strip()
             paths = db.sample_path_by_hash(resubmission_hash)
             if paths:
                 paths = [_f for _f in [path if os.path.exists(path) else False for path in paths] if _f]
                 if not paths and FULL_DB:
-                    tasks = results_db.analysis.find({"dropped.sha256": resubmission_hash})
+                    tasks = results_db.analysis.find({"dropped.sha256": resubmission_hash}, {"info.id": 1})
                     if tasks:
-                        for task in tasks:
+                        for task in tasks or []:
                             # grab task id and replace in path if needed aka distributed hack
                             path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses",
                                                 str(task["info"]["id"]), "files", resubmission_hash)

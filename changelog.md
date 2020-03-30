@@ -1,6 +1,7 @@
 ### [30-03-2020]
 * /configdownload/ is moved to /api/tasks/get/config/<task_id>/ or /api/tasks/get/config/<task_id>/Family/
 * Anti-api-spamming feature in monitor
+* webgui optimizations(mongo queries improved a lot), thanks [MongoDB university](https://university.mongodb.com) university for free cources :)
 
 ### [28-03-2020]
 * CAPE 2.1 ;)

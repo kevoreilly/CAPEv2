@@ -1002,7 +1002,7 @@ def procdump(request, task_id, process_id, start, end):
     tmp_file_path = None
 
     if enabledconf["mongodb"]:
-        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procdump": 1} sort=[("_id", pymongo.DESCENDING)])
+        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procdump": 1}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         analysis = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]["_source"]
 
@@ -1232,7 +1232,7 @@ def remove(request, task_id):
     """Remove an analysis.
     """
     if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id), {"_id": 1}})
+        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1})
         # Checks if more analysis found with the same ID, like if process.py was run manually.
         if analyses.count() > 1:
             message = "Multiple tasks with this ID deleted."

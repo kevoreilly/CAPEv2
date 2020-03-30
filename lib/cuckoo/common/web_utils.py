@@ -29,6 +29,15 @@ socks5_conf = Config("socks5")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
+if repconf.mongodb.enabled:
+    import pymongo
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource=repconf.mongodb.get("db", "cuckoo"))[repconf.mongodb.get("db", "cuckoo")]
+
 es_as_db = False
 essearch = False
 if repconf.elasticsearchdb.enabled:
@@ -315,7 +324,7 @@ def _download_file(route, url, options):
     return response
 
 perform_search_filters = {
-    "info": 1, "virustotal_summary": 1, "detections": 1,
+    "info": 1, "info.id": 1, "virustotal_summary": 1, "detections": 1,
     "info.custom":1, "info.shrike_msg":1, "malscore": 1, "detections": 1,
     "network.pcap_sha256": 1,
     "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
@@ -392,10 +401,10 @@ def perform_search(term, value):
         except:
             pass
 
-    if term not in term_map:
-        raise ValueError
+    if term not in search_term_map:
+        return None
 
     if repconf.mongodb.enabled:
         return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])
     if es_as_db:
-        return es.search(index=fullidx, doc_type="analysis", q=term_map[term] + ": %s" % value)["hits"]["hits"]
+        return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]

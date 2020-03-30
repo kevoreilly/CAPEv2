@@ -1178,15 +1178,15 @@ def ext_tasks_search(request):
                 "error_value": "Extended Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
-    termp = request.POST.get("option", "")
+    term = request.POST.get("option", "")
     value = request.POST.get("argument", "")
 
     if termp and value:
         records = False
-        if termp is not in search_term_map.keys():
+        if not term in search_term_map.keys():
             resp = {"error": True,
-                        "error_value": "Invalid Option. '%s' is not a valid option." % termp}
-                return jsonize(resp, response=True)
+                    "error_value": "Invalid Option. '%s' is not a valid option." % term}
+            return jsonize(resp, response=True)
 
         records = perform_search(term, value)
 

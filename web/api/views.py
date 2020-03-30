@@ -2446,66 +2446,6 @@ def post_processing(request, category, task_id):
 
     return jsonize(resp, response=True)
 
-if apiconf.capeconfig.get("enabled"):
-    raterps = apiconf.capeconfig.get("rps")
-    raterpm = apiconf.capeconfig.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
-def tasks_config(request, task_id):
-    if request.method != "GET":
-        resp = {"error": True, "error_value": "Method not allowed"}
-        return jsonize(resp, response=True)
-
-    if not apiconf.capeconfig.get("enabled"):
-        resp = {"error": True,
-                "error_value": "IOC download API is disabled"}
-        return jsonize(resp, response=True)
-    check = validate_task(task_id)
-
-    if check["error"]:
-        return jsonize(check, response=True)
-
-    buf = dict()
-    if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
-    if repconf.mongodb.get("enabled") and not buf:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
-    if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
-        if len(tmp) > 1:
-            buf = tmp[-1]["_source"]
-        elif len(tmp) == 1:
-            buf = tmp[0]["_source"]
-        else:
-            buf = None
-
-    if buf:
-        if isinstance(buf, dict) and buf.get("CAPE", False):
-            try:
-                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-            except:
-                # In case compress results processing module is not enabled
-                pass
-            data = []
-            for cape in buf["CAPE"]:
-                if isinstance(cape, dict) and cape.get("cape_config", False):
-                    data.append(cape)
-
-            if data:
-                resp = {"error": False, "configs": data}
-            else:
-                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return jsonize(resp, response=True)
-        else:
-            resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return jsonize(resp, response=True)
-    else:
-        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
-        return jsonize(resp, response=True)
-
 if apiconf.payloadfiles.get("enabled"):
     raterps = apiconf.payloadfiles.get("rps")
     raterpm = apiconf.payloadfiles.get("rpm")
@@ -2600,6 +2540,84 @@ def tasks_procdumpfiles(request, task_id):
         return resp
     else:
         resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
+        return jsonize(resp, response=True)
+
+if apiconf.capeconfig.get("enabled"):
+    raterps = apiconf.capeconfig.get("rps")
+    raterpm = apiconf.capeconfig.get("rpm")
+    rateblock = limiter
+@ratelimit(key="ip", rate=raterps, block=rateblock)
+@ratelimit(key="ip", rate=raterpm, block=rateblock)
+def tasks_config(request, task_id, cape_name=False):
+    if request.method != "GET":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    if not apiconf.capeconfig.get("enabled"):
+        resp = {"error": True,
+                "error_value": "Config download API is disabled"}
+        return jsonize(resp, response=True)
+    check = validate_task(task_id)
+
+    if check["error"]:
+        return jsonize(check, response=True)
+
+    buf = dict()
+    if repconf.mongodb.get("enabled"):
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
+    if repconf.jsondump.get("enabled") and not buf:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+        with open(jfile, "r") as jdata:
+            buf = json.load(jdata)
+    if es_as_db and not buf:
+        tmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
+        if len(tmp) > 1:
+            buf = tmp[-1]["_source"]
+        elif len(tmp) == 1:
+            buf = tmp[0]["_source"]
+        else:
+            buf = None
+
+    if rtmp.get("CAPE", False):
+        try:
+            rtmp["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
+        except:
+            pass
+        for cape in buf.get("CAPE", []):
+            if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
+                try:
+                    return jsonize(cape["cape_config"], response=True)
+                except Exception as e:
+                    return render(request, "error.html", {"error": "{}".format(e)})
+
+    if buf.get("CAPE"):
+        try:
+            buf["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
+        except:
+            pass
+
+        if isinstance(buf, dict) and buf.get("CAPE", False):
+            try:
+                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
+            except:
+                # In case compress results processing module is not enabled
+                pass
+            data = []
+            for cape in buf["CAPE"]:
+                if isinstance(cape, dict) and cape.get("cape_config"):
+                    if cape_name and cape.get("cape_name", "") == cape_name:
+                        return jsonize(cape["cape_config"], response=True)
+                    data.append(cape)
+            if data:
+                resp = {"error": False, "configs": data}
+            else:
+                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp, response=True)
+        else:
+            resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp, response=True)
+    else:
+        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
         return jsonize(resp, response=True)
 
 def limit_exceeded(request, exception):

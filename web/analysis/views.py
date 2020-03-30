@@ -78,6 +78,8 @@ if enabledconf["elasticsearchdb"]:
     fullidx = baseidx + "-*"
     es = Elasticsearch(hosts=[{"host": settings.ELASTIC_HOST, "port": settings.ELASTIC_PORT,}], timeout=60)
 
+db = Database()
+
 maxsimilar = int(Config("reporting").malheur.maxsimilar)
 
 # Conditional decorator for web authentication
@@ -165,7 +167,6 @@ def get_analysis_info(db, id=-1, task=None):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, page=1):
     page = int(page)
-    db = Database()
     if page == 0:
         page = 1
     off = (page - 1) * TASK_LIMIT
@@ -292,7 +293,6 @@ def index(request, page=1):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
-    db = Database()
     tasks = db.list_tasks(status=TASK_PENDING)
 
     pending = []
@@ -742,7 +742,6 @@ def search_behavior(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
-    db = Database()
     if enabledconf["mongodb"]:
         report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
@@ -1281,8 +1280,6 @@ def search(request):
                                            "term": None,
                                            "error": "Unable to recognize the search syntax"})
 
-        # Get data from cuckoo db.
-        db = Database()
         analyses = []
         for result in records:
             new = None
@@ -1385,8 +1382,6 @@ def remove(request, task_id):
                     id=esid,
                 )
 
-    # Delete from SQL db.
-    db = Database()
     db.delete_task(task_id)
 
     return render(request, "success_simple.html", {"message": message})
@@ -1522,60 +1517,3 @@ def vtupload(request, category, task_id, filename, dlfile):
             return render(request, "error.html", {"error": err})
     else:
         return
-
-
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def configdownload(request, task_id, cape_name):
-    db = Database()
-    cd = "text/plain"
-    task = db.view_task(task_id)
-    if not task:
-        return render(request, "error.html", {"error": "Task ID {} does not existNone".format(task_id)})
-
-    rtmp = None
-    if enabledconf["mongodb"]:
-        rtmp = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
-    elif es_as_db:
-        rtmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
-        if len(rtmp) > 1:
-            rtmp = rtmp[-1]["_source"]
-        elif len(rtmp) == 1:
-            rtmp = rtmp[0]["_source"]
-        else:
-            pass
-    else:
-        return render(request, "error.html",
-                      {"error": "WebGui storage Mongo/ES disabled"})
-
-    if rtmp:
-        if rtmp.get("CAPE", False):
-            try:
-                rtmp["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
-            except:
-                # In case compress results processing module is not enabled
-                pass
-            for cape in rtmp.get("CAPE", []):
-                if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
-                    filepath = tempfile.NamedTemporaryFile(delete=False)
-                    for key in cape["cape_config"]:
-                        filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]).encode('utf8'))
-                    filepath.close()
-                    filename = cape['cape_name'] + "_config.txt"
-                    newpath = os.path.join(os.path.dirname(filepath.name), filename)
-                    shutil.move(filepath.name, newpath)
-                    try:
-                        resp = StreamingHttpResponse(FileWrapper(open(newpath), 8192), content_type=cd)
-                        resp["Content-Length"] = os.path.getsize(newpath)
-                        resp["Content-Disposition"] = "attachment; filename=" + filename
-                        return resp
-                    except Exception as e:
-                        return render(request, "error.html", {"error": "{}".format(e)})
-                else:
-                    return render(request, "error.html", {"error": "data doesn't exist"}, status=404)
-        else:
-            return render(request, "error.html", {"error": "CAPE for task {} does not exist.".format(task_id)})
-    else:
-        return render(request, "error.html",
-                      {"error": "Could not retrieve results for task {} from db.".format(task_id)})
-
-    return render(request, "error.html", {"error": "Config not found"})

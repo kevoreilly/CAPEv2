@@ -43,48 +43,43 @@
                     <th>Ssdeep</th>
                     <td style="word-wrap: break-word;">{{file.ssdeep}}</td>
                 </tr>
+                {% if file.clamav %}
                 <tr>
                     <th>ClamAV</th>
                     <td>
-                    {% if file.clamav %}
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.clamav %}
                             <li>{{sign}}</li>
                         {% endfor %}
                         </ul>
-                    {% else %}
-                        None matched
-                    {% endif %}
                     </td>
                 </tr>
+                {% endif %}
+                {% if file.yara %}
                <tr>
                     <th>Yara</th>
                     <td>
-                    {% if file.yara %}
+
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.yara %}
                             <li>{{sign.name}} - {{sign.meta.description}}</li>
                         {% endfor %}
                         </ul>
-                    {% else %}
-                        None matched
-                    {% endif %}
                     </td>
                 </tr>
+                {% endif %}
+                {% if file.cape_yara %}
                 <tr>
                     <th>CAPE Yara</th>
                     <td>
-                    {% if file.cape_yara %}
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.cape_yara %}
                             <li>{{sign.meta.cape_type}}</li>
                         {% endfor %}
                         </ul>
-                    {% else %}
-                        None matched
-                    {% endif %}
                     </td>
                 </tr>
+                {% endif %}
                 <tr>
                     <th>VirusTotal</th>
                     <td><a href="https://www.virustotal.com/en/file/{{file.sha256}}/analysis/">Search for Analysis</a></td>

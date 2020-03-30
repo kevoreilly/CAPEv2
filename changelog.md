@@ -1,3 +1,7 @@
+### [30-03-2020]
+* /configdownload/ is moved to /api/tasks/get/config/ or /api/tasks/get/config/Family/
+* Anti-api-spamming feature in monitor
+
 ### [28-03-2020]
 * CAPE 2.1 ;)
 * A lot of small bug fixes, code cleanup, gui fixes, and monitor improvements

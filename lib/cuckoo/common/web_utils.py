@@ -223,7 +223,7 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
                 task_machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine)
-                if not machine_details.platform == platform:
+                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                     if api:
                         return "error", jsonize({"error": "Wrong platform, {} VM select for {} sample".format(
                             machine_details.platform, platform)}, response=True)

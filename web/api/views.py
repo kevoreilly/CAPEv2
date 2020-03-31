@@ -1196,13 +1196,12 @@ def ext_tasks_search(request):
             else:
                 records = perform_search(term, value)
         except ValueError:
-             if not term:
+            if not term:
                 resp = {"error": True, "error_value": "No option provided."}
             if not value:
                 resp = {"error": True, "error_value": "No argument provided."}
             if not term and not value:
                 resp = {"error": True,  "error_value": "No option or argument provided."}
-
 
         records = perform_search(term, value)
 

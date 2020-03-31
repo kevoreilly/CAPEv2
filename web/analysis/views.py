@@ -1141,19 +1141,9 @@ def full_memory_dump_strings(request, analysis_number):
         return render(request, "error.html",
                                   {"error": "File not found"})
 
-perform_search_filters = {
-    "info": 1, "virustotal_summary": 1, "detections": 1,
-    "info.custom":1, "info.shrike_msg":1, "malscore": 1, "detections": 1,
-    "network.pcap_sha256": 1,
-    "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
-    "suri_tls_cnt": 1, "suri_alert_cnt": 1, "suri_http_cnt": 1, "suri_file_cnt": 1,
-    "trid": 1
-}
-
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-#ToDo optimize mongo search here
 def search(request):
     if "search" in request.POST:
         error = None
@@ -1232,7 +1222,7 @@ def remove(request, task_id):
     """Remove an analysis.
     """
     if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1})
+        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
         # Checks if more analysis found with the same ID, like if process.py was run manually.
         if analyses.count() > 1:
             message = "Multiple tasks with this ID deleted."

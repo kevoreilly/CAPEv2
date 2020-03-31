@@ -38,6 +38,8 @@ if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and \
 # Enable Django authentication for website
 WEB_AUTHENTICATION = False
 
+APPEND_SLASH = False
+
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
 MONGO_PORT = cfg.mongodb.get("port", 27017)

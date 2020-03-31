@@ -35,7 +35,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, search_term_map
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 import modules.processing.network as network
 
 try:
@@ -1179,6 +1179,8 @@ def search(request):
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)
+            elif term == "ttp":
+                records = perform_ttps_search(value)
             else:
                 records = perform_search(term, value)
         except ValueError:

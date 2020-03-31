@@ -379,8 +379,11 @@ search_term_map = {
     "sha1": "target.file.sha1",
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
-    #"ttp": "ttps",
 }
+
+def perform_ttps_search(value):
+    if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
+        return results_db.analysis.find({"ttps."+value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:

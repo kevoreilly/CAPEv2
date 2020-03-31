@@ -492,7 +492,7 @@ def tasks_create_file(request):
                     return jsonize(resp, response=True)
 
 
-                tmp_path = store_temp_file(sample.read(), sample.name)
+                tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
                 if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                     #Todo handle as for VTDL submitted and omitted
                     continue
@@ -573,7 +573,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
-            tmp_path = store_temp_file(sample.read(), sample.name)
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
@@ -1181,7 +1181,7 @@ def ext_tasks_search(request):
     term = request.POST.get("option", "")
     value = request.POST.get("argument", "")
 
-    if termp and value:
+    if term and value:
         records = False
         if not term in search_term_map.keys() and term not in ("malscore", "ttp"):
             resp = {"error": True,

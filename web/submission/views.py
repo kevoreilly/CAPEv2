@@ -298,7 +298,7 @@ def index(request, resubmit_hash=False):
                 if opt_filename:
                     filename = opt_filename
                 else:
-                    filename = sample.name
+                    filename = sanitize_filename(sample.name)
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)

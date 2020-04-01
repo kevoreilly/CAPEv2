@@ -11,6 +11,12 @@ class PDF(Package):
         ("ProgramFiles", "Adobe", "*a*", "Reader", "AcroRd32.exe"),
     ]
 
+    def __init__(self, options={}, config=None):
+        """@param options: options dict."""
+        self.config = config
+        self.options = options
+        self.options["api-rate-cap"] = "1"
+
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")
         return self.execute(reader, "\"%s\"" % path, path)

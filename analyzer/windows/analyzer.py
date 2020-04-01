@@ -1499,8 +1499,8 @@ class CommandPipeHandler(object):
             #if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
             #Uncomment to debug monitor commands
-            if command not in (b"DEBUG", b"INFO"):
-                log.info((command, arguments, "dispatch"))
+            #if command not in (b"DEBUG", b"INFO"):
+            #    log.info((command, arguments, "dispatch"))
             self.pid = None
             fn = getattr(self, "_handle_%s" % command.lower().decode("utf-8"), None)
             if not fn:

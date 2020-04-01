@@ -963,7 +963,7 @@ class PDF(object):
                     elem = trailer.dict.getElementByName("/Root")
                     elem = self._get_obj_val(version, elem)
                     elem = elem.getElementByName("/URI")
-                    if not elem
+                    if not elem:
                         return
                     elem = self._get_obj_val(version, elem)
                     elem = elem.getElementByName("/Base")

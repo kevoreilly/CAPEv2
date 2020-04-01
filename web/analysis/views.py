@@ -1224,7 +1224,7 @@ def remove(request, task_id):
     """Remove an analysis.
     """
     if not enabledconf["delete"]:
-        render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
+        return render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
 
     if enabledconf["mongodb"]:
         analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})

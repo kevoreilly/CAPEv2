@@ -177,7 +177,6 @@ def demux_sample(filename, package, options):
     retlist = list()
     if HAS_SFLOCK:
         # all in one unarchiver
-        import code;code.interact(local=dict(locals(), **globals()))
         retlist = demux_sflock(filename, options, package)
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file

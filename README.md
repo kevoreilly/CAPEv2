@@ -1,8 +1,8 @@
 ## CAPEv2! you are welcome to test and report any bug
 
 * Python3
-* agent.py is tested with python (3.7.2|3.8) x86
-* host python3 version 3.6.8
+    * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
+    * host tested with python3 version 3.6.8
 
 ## Installation recommendations and scripts for optimal performance
 1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)

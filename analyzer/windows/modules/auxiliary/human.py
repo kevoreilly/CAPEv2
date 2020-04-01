@@ -42,6 +42,7 @@ def foreach_child(hwnd, lparam):
         "run",
         "agree",
         "enable",
+        "retry",
         "don't send",
         "don't save",
         "continue",

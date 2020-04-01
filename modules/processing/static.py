@@ -1241,7 +1241,7 @@ class Office(object):
                 log.debug('  class name = %r' % rtfobj.class_name)
                 log.debug('  data size  = %d' % rtfobj.oledata_size)
                 class_name = rtfobj.class_name.decode('ascii', 'ignore').encode('ascii')
-                temp_dict["class_name"] = class_name
+                temp_dict["class_name"] = convert_to_printable(class_name)
                 temp_dict["size"] = rtfobj.oledata_size
                 # set a file extension according to the class name:
                 class_name = rtfobj.class_name.lower()

@@ -48,7 +48,7 @@ TASK_LIMIT = 25
 
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
-for cfile in ["reporting", "processing", "auxiliary"]:
+for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:

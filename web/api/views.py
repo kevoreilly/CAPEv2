@@ -1188,22 +1188,12 @@ def ext_tasks_search(request):
                     "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
 
-        try:
-            if term == "malscore":
-                records = perform_malscore_search(value)
-            elif term == "ttp":
-                records = perform_ttps_search(value)
-            else:
-                records = perform_search(term, value)
-        except ValueError:
-            if not term:
-                resp = {"error": True, "error_value": "No option provided."}
-            if not value:
-                resp = {"error": True, "error_value": "No argument provided."}
-            if not term and not value:
-                resp = {"error": True,  "error_value": "No option or argument provided."}
-
-        records = perform_search(term, value)
+        if term == "malscore":
+            records = perform_malscore_search(value)
+        elif term == "ttp":
+            records = perform_ttps_search(value)
+        else:
+            records = perform_search(term, value)
 
         if records:
             ids = list()
@@ -1214,8 +1204,7 @@ def ext_tasks_search(request):
                     ids.append(results["_source"]["info"]["id"])
             resp = {"error": False, "data": ids}
         else:
-            resp = {"error": True,
-                    "error_value": "Unable to retrieve records"}
+            resp = {"error": True, "error_value": "Unable to retrieve records."}
     else:
         if not term:
             resp = {"error": True, "error_value": "No option provided."}

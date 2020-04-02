@@ -21,7 +21,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.common.utils import get_ip_address, bytes2str
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, TASK_REPORTED
 
 cfg = Config("cuckoo")
 repconf = Config("reporting")
@@ -322,6 +322,19 @@ def _download_file(route, url, options):
         print(e)
 
     return response
+
+def validate_task(tid):
+    task = db.view_task(tid)
+    if not task:
+        return {"error": True,
+                "error_value": "Task does not exist"}
+
+    if task.status != TASK_REPORTED:
+        return {"error": True,
+                "error_value": "Task is still being analyzed"}
+
+    return {"error": False}
+
 
 perform_search_filters = {
     "info": 1, "info.id": 1, "virustotal_summary": 1, "detections": 1,

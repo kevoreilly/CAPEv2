@@ -271,7 +271,7 @@ class AnalysisManager(threading.Thread):
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
-            log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e))
+            log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e), exc_info=True)
             return False
 
         # Generate the analysis configuration file.

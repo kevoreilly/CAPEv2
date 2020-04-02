@@ -15,7 +15,7 @@ from lib.common.constants import ROOT
 class Procmon(Auxiliary):
     """Allow procmon to be run on the side."""
 
-    def __init__(self):
+    def __init__(self, options, config):
         self.config = Config(cfg="analysis.conf")
         self.enabled = self.config.procmon
 

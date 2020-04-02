@@ -35,7 +35,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize
+from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task
 
 
 #from sqlalchemy.func import extract
@@ -96,22 +96,6 @@ def force_int(value):
         value = 0
     finally:
         return value
-
-
-# Chunked file reading. Useful for large files like memory dumps.
-def validate_task(tid):
-    task = db.view_task(tid)
-    if not task:
-        resp = {"error": True,
-                "error_value": "Task does not exist"}
-        return resp
-
-    if task.status != TASK_REPORTED:
-        resp = {"error": True,
-                "error_value": "Task is still being analyzed"}
-        return resp
-
-    return {"error": False}
 
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
@@ -2459,7 +2443,7 @@ def tasks_config(request, task_id, cape_name=False):
 
     if buf.get("CAPE"):
         try:
-            buf["CAPE"] = json.loads(zlib.decompress(buf["CAPE"]))
+            buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
         except:
             pass
 

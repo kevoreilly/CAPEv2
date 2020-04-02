@@ -210,10 +210,10 @@ class AnalysisManager(threading.Thread):
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            exports.append(re.sub(r'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
+                            exports.append(re.sub(br'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
                         options["exports"] = ",".join(exports)
                 except Exception as e:
-                    log.error(e)
+                    log.error(e, exc_info=True)
 
         # options from auxiliar.conf
         options["curtain"] = self.aux_cfg.curtain.enabled
@@ -277,12 +277,11 @@ class AnalysisManager(threading.Thread):
         # Generate the analysis configuration file.
         options = self.build_options()
 
-
         try:
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
             machinery.release(self.machine.label)
-            log.exception(e)
+            log.exception(e, exc_info=True)
             self.errors.put(e)
 
         aux = RunAuxiliary(task=self.task, machine=self.machine)
@@ -325,12 +324,12 @@ class AnalysisManager(threading.Thread):
         except CuckooMachineError as e:
             if not unlocked:
                 machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id})
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id})
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:
             # Stop Auxiliary modules.
             aux.stop()
@@ -349,7 +348,7 @@ class AnalysisManager(threading.Thread):
                               "for the current machine manager.")
 
                 except CuckooMachineError as e:
-                    log.error(e)
+                    log.error(e, exc_info=True)
 
             try:
                 # Stop the analysis machine.

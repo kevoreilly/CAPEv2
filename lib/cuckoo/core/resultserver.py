@@ -325,7 +325,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             try:
                 create_folder(self.storagepath, folder=folder)
             except Exception as e:
-                print(e)
+                log.error(e, exc_info=True)
             #ToDo
             #except CuckooOperationalError as e:
             #    print(e)
@@ -375,7 +375,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 with protocol:
                     protocol.handle()
             except CuckooOperationalError as e:
-                log.error(e)
+                log.error(e, exc_info=True)
             finally:
                 with self.task_mgmt_lock:
                     s.discard(ctx)

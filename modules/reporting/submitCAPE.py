@@ -51,7 +51,7 @@ injections = {
     'dll': 'Injection_dll',
     'regsvr': 'Injection_dll',
     'zip': 'Injection_zip',
-    'pdf': 'Injection_pdf',
+#    'pdf': 'Injection_pdf',
     'js': 'Injection_js',
     'exe': 'Injection'
 }

@@ -1,24 +1,3 @@
-## CAPEv2! you are welcome to test and report any bug
-
-* Python3
-    * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
-    * host tested with python3 version 3.6.8
-
-## Installation recommendations and scripts for optimal performance
-1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)
-2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
- * `sudo ./kvm-qemu.sh all <username>`
-3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
- * `sudo ./cape2.sh all cape`
-4. Reboot and enjoy
-
-\* All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.
-
-__requirements.txt is decpricated now in favour of the script__
-
-#### What doesn't work
-* volatility details, the bridge exist to use VolatilityAPI with vol3, but not to run the default modules
-
 ## CAPE: Malware Configuration And Payload Extraction
 
 CAPE is a malware sandbox. It is derived from Cuckoo and is designed to automate the process of malware analysis with the goal of extracting payloads and configuration from malware. This allows CAPE to detect malware based on payload signatures, as well as automating many of the goals of malware reverse engineering and threat intelligence.
@@ -73,7 +52,7 @@ Many other malware families have their payloads automatically extracted by behav
 
 Configuration data may be output from either family packages, or in payloads resulting from behavioural packages. Configuration parsing may then be performed on this by virtue of Yara-based detection, and config parsing based on either of CAPE's config parsing frameworks, the RATDecoders framework from malwareconfig.com and DC3-MWCP (Defense Cyber Crime Center - Malware Configuration Parser). The many parsers/decoders from malwareconfig.com are also included, comprising among many others: Sakula, DarkComet, PredatorPain and PoisonIvy. Thanks to Kevin Breen/TechAnarchy for this framework and parsers (https://github.com/kevthehermit/RATDecoders), and to DC3 for their framework (https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP). Special thanks to Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
 
-Utility packages are also included: 'DumpOnAPI' allows a module to be dumped when it calls a specific API function which can be specified in the web interface. 'DumpConfigRegion' allows the memory region containing C2 information or other config data to be dumped for commonly used API calls. These packages can be useful for quickly unpacking/dumping novel samples or configs. The 'Trace' package allows quick access to the debugger by accepting four breakpoints (RVA values) to set on instructions, whereupon a short instruction trace will be output. An optional 'base-on-api' parameter allows the image base to be set by API call.
+Utility features are also included: 'DumpOnAPI' allows a module to be dumped when it calls a specific API function which can be specified in the web interface. 'DumpConfigRegion' allows the memory region containing C2 information or other config data to be dumped for commonly used API calls. These options can be useful for quickly unpacking/dumping novel samples or configs. The breakpoint options 'bp0' through 'bp3' allow quick access to the debugger by accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output. Alternatively 'break-on-return' allows for a breakpoint on the return address of a hooked API. An optional 'base-on-api' parameter allows the image base to be set by API call.
 
 The CAPE debugger allows breakpoints to be set on read, write or execute of a memory address or region, as well as single-step mode. This allows fine control over malware execution until it is possible to dump the memory regions of interest, containing code or configuration data. Breakpoints can be set dynamically by package code, API hooks or Yara signatures. Thanks to the embedded distorm library the debugger can output the disassembly of instructions during single-step mode or when breakpoints are hit, resulting in instruction traces.
 
@@ -81,4 +60,27 @@ Processes, modules and memory regions can variously be dumped by CAPE through us
 
 The repository containing the code for the monitor DLLs which form the basis of these packages is a distinct one: https://github.com/kevoreilly/capemon. This repository is organised in branches for the various packages.
 
-Please contribute to this project by helping create new packages for further malware families, packers, techniques or configuration parsers. Alternatively contact @CapeSandbox or Kevin O'Reilly for further details of CAPE development.
+Please contribute to this project by helping create new packages for further malware families, packers, techniques or configuration parsers.
+
+## CAPEv2!
+
+A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
+
+* Python3
+    * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
+    * host tested with python3 version 3.6.8
+
+## Installation recommendations and scripts for optimal performance
+1. For best compability we strongly suggest installing on [Ubuntu 18.04 LTS](https://ubuntu.com/#download)
+2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
+ * `sudo ./kvm-qemu.sh all <username>`
+3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
+ * `sudo ./cape2.sh all cape`
+4. Reboot and enjoy
+
+\* All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.
+
+__requirements.txt is decprecated now in favour of the script__
+
+#### What doesn't work
+* volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.

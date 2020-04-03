@@ -74,7 +74,11 @@ def decode_hex(m):
     s = m.group(1)
     if len(s) % 2 != 0:
         return s
-    return "".join(c for c in s.decode("hex"))
+    try:
+        result = "".join(c for c in s.decode("hex"))
+    except Exception as e:
+        return ""
+    return result
 
 @quote
 def decode_reverse(m):

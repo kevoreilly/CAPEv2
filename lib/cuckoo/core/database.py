@@ -443,15 +443,18 @@ class Database(object, metaclass=Singleton):
             finally:
                 tmp_session.close()
         else:
-            # Check if db version is the expected one.
-            last = tmp_session.query(AlembicVersion).first()
-            tmp_session.close()
-            if last.version_num != SCHEMA_VERSION and schema_check:
-                raise CuckooDatabaseError(
-                    "DB schema version mismatch: found {0}, expected {1}. "
-                    "Try to apply all migrations (cd utils/db_migration/ && "
-                    "alembic upgrade head).".format(last.version_num,
-                                                    SCHEMA_VERSION))
+            try:
+                # Check if db version is the expected one.
+                last = tmp_session.query(AlembicVersion).first()
+                tmp_session.close()
+                if last.version_num != SCHEMA_VERSION and schema_check:
+                    raise CuckooDatabaseError(
+                        "DB schema version mismatch: found {0}, expected {1}. "
+                        "Try to apply all migrations (cd utils/db_migration/ && "
+                        "alembic upgrade head).".format(last.version_num,
+                                                        SCHEMA_VERSION))
+            except Exception as e:
+                log.error(e, exc_info=True)
 
     def __del__(self):
         """Disconnects pool."""

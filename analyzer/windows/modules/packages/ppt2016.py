@@ -12,7 +12,7 @@ class PPT2007(Package):
         self.options = options
 
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "Office12", "POWERPNT.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "POWERPNT.EXE"),
     ]
 
     def start(self, path):

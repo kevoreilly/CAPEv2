@@ -15,7 +15,7 @@ class XLS2207(Package):
         self.options = options
 
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "Office12", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "EXCEL.EXE"),
     ]
 
     def start(self, path):

@@ -13,7 +13,7 @@ from winreg import (OpenKey, CreateKeyEx, SetValueEx, CloseKey, QueryInfoKey, En
 class PUB2007(Package):
     """Word analysis package."""
     PATHS = [
-        ("ProgramFiles", "Microsoft Office*", "root", "Office12", "MSPUB.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "MSPUB.EXE"),
     ]
 
     def set_keys(self):

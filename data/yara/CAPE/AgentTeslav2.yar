@@ -1,8 +1,8 @@
-rule AgentTeslav2 {
+rule AgentTeslaV2 {
     meta:
         author = "ditekshen"
         description = "AgenetTesla Type 2 Keylogger payload"
-        cape_type = "AgentTesla Type 2 Payload"
+        cape_type = "AgentTesla Type V2"
     strings:
         $s1 = "get_kbHook" ascii
         $s2 = "GetPrivateProfileString" ascii

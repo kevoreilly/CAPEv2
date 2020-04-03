@@ -819,17 +819,18 @@ class StatusThread(threading.Thread):
                     statuses[node.name]["enabled"] = True
                     STATUSES = statuses
 
-                    #first submit tasks with specified node
-                    res = self.submit_tasks(node.name, MINIMUMQUEUE[node.name], "node={}".format(
-                        node.name), force_push_push=True, db=db)
-                    if not res:
-                        continue
-                    # Balance the tasks, works fine if no tags are set
-                    node_name = min(
-                        STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
-                    if node_name != node.name:
-                        node = db.query(Node).filter_by(name=node_name).first()
                     try:
+                        #first submit tasks with specified node
+                        res = self.submit_tasks(node.name, MINIMUMQUEUE[node.name], "node={}".format(
+                            node.name), force_push_push=True, db=db)
+                        if not res:
+                            continue
+                        # Balance the tasks, works fine if no tags are set
+                        node_name = min(
+                            STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
+                        if node_name != node.name:
+                            node = db.query(Node).filter_by(name=node_name).first()
+
                         pend_tasks_num = MINIMUMQUEUE[node.name] - (
                             STATUSES[node.name]["pending"] + STATUSES[node.name]["running"])
                     except KeyError:

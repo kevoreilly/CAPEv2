@@ -16,10 +16,11 @@ import base64
 import hashlib
 import requests
 import binascii
+import re2 as re
 from PIL import Image
-from io import StringIO, BytesIO
+from io import BytesIO
 from subprocess import Popen, PIPE
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, time
 
 try:
     import bs4
@@ -184,7 +185,8 @@ class DotNETExecutable(object):
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path],
+                           stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline:
@@ -217,7 +219,8 @@ class DotNETExecutable(object):
     def _get_assembly_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path],
+                           stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
                 if len(splitline) < 2:
@@ -240,7 +243,8 @@ class DotNETExecutable(object):
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -254,7 +258,8 @@ class DotNETExecutable(object):
     def _get_type_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 restline = ''.join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -439,18 +444,19 @@ class PortableExecutable(object):
         return dirents
 
     def _convert_section_characteristics(self, val):
-        flags = [ "", "", "", "IMAGE_SCN_TYPE_NO_PAD", "", "IMAGE_SCN_CNT_CODE", "IMAGE_SCN_CNT_INITIALIZED_DATA", "IMAGE_SCN_CNT_UNINITIALIZED_DATA", "IMAGE_SCN_LNK_OTHER",
-                 "IMAGE_SCN_LNK_INFO", "", "IMAGE_SCN_LNK_REMOVE", "IMAGE_SCN_LNK_COMDAT", "", "IMAGE_SCN_NO_DEFER_SPEC_EXC", "IMAGE_SCN_GPREL", "", "IMAGE_SCN_MEM_PURGEABLE",
-                 "IMAGE_SCN_MEM_LOCKED", "IMAGE_SCN_MEM_PRELOAD",
+        flags = ["", "", "", "IMAGE_SCN_TYPE_NO_PAD", "", "IMAGE_SCN_CNT_CODE", "IMAGE_SCN_CNT_INITIALIZED_DATA",
+                 "IMAGE_SCN_CNT_UNINITIALIZED_DATA", "IMAGE_SCN_LNK_OTHER", "IMAGE_SCN_LNK_INFO", "",
+                 "IMAGE_SCN_LNK_REMOVE", "IMAGE_SCN_LNK_COMDAT", "", "IMAGE_SCN_NO_DEFER_SPEC_EXC",
+                 "IMAGE_SCN_GPREL", "", "IMAGE_SCN_MEM_PURGEABLE", "IMAGE_SCN_MEM_LOCKED", "IMAGE_SCN_MEM_PRELOAD",
                  # alignment bytes
-                 "", "", "", "",
-                 "IMAGE_SCN_LNK_NRELOC_OVFL", "IMAGE_SCN_MEM_DISCARDABLE", "IMAGE_SCN_MEM_NOT_CACHED", "IMAGE_SCN_MEM_NOT_PAGED", "IMAGE_SCN_MEM_SHARED", "IMAGE_SCN_MEM_EXECUTE",
-                 "IMAGE_SCN_MEM_READ", "IMAGE_SCN_MEM_WRITE"
-                ]
-        alignment = ["", "IMAGE_SCN_ALIGN_1BYTES", "IMAGE_SCN_ALIGN_2BYTES", "IMAGE_SCN_ALIGN_4BYTES", "IMAGE_SCN_ALIGN_8BYTES",
-                     "IMAGE_SCN_ALIGN_16BYTES", "IMAGE_SCN_ALIGN_32BYTES", "IMAGE_SCN_ALIGN_64BYTES", "IMAGE_SCN_ALIGN_128BYTES", "IMAGE_SCN_ALIGN_256BYTES",
-                     "IMAGE_SCN_ALIGN_512BYTES", "IMAGE_SCN_ALIGN_1024BYTES", "IMAGE_SCN_ALIGN_2048BYTES", "IMAGE_SCN_ALIGN_4096BYTES", "IMAGE_SCN_ALIGN_8192BYTES", ""
-                    ]
+                 "", "", "", "", "IMAGE_SCN_LNK_NRELOC_OVFL", "IMAGE_SCN_MEM_DISCARDABLE", "IMAGE_SCN_MEM_NOT_CACHED",
+                 "IMAGE_SCN_MEM_NOT_PAGED", "IMAGE_SCN_MEM_SHARED", "IMAGE_SCN_MEM_EXECUTE", "IMAGE_SCN_MEM_READ",
+                 "IMAGE_SCN_MEM_WRITE"]
+        alignment = ["", "IMAGE_SCN_ALIGN_1BYTES", "IMAGE_SCN_ALIGN_2BYTES", "IMAGE_SCN_ALIGN_4BYTES",
+                     "IMAGE_SCN_ALIGN_8BYTES", "IMAGE_SCN_ALIGN_16BYTES", "IMAGE_SCN_ALIGN_32BYTES",
+                     "IMAGE_SCN_ALIGN_64BYTES", "IMAGE_SCN_ALIGN_128BYTES", "IMAGE_SCN_ALIGN_256BYTES",
+                     "IMAGE_SCN_ALIGN_512BYTES", "IMAGE_SCN_ALIGN_1024BYTES", "IMAGE_SCN_ALIGN_2048BYTES",
+                     "IMAGE_SCN_ALIGN_4096BYTES", "IMAGE_SCN_ALIGN_8192BYTES", ""]
         tags = []
         for idx, flagstr in enumerate(flags):
             if flags[idx] and (val & (1 << idx)):
@@ -500,7 +506,8 @@ class PortableExecutable(object):
         try:
             off = self.pe.get_overlay_data_start_offset()
         except:
-            log.error("Your version of pefile is out of date.  Please update to the latest version on https://github.com/erocarrera/pefile")
+            log.error("Your version of pefile is out of date.  "
+                      "Please update to the latest version on https://github.com/erocarrera/pefile")
             return None
 
         if off is None:
@@ -549,7 +556,8 @@ class PortableExecutable(object):
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
         except:
-            log.warning("Detected outdated version of pefile.  Please update to the latest version at https://github.com/erocarrera/pefile")
+            log.warning("Detected outdated version of pefile.  "
+                        "Please update to the latest version at https://github.com/erocarrera/pefile")
         return retstr
 
     def _get_osversion(self):
@@ -559,7 +567,8 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
+        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion,
+                                self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
 
     def _get_resources(self):
         """Get resources.
@@ -584,10 +593,12 @@ class PortableExecutable(object):
                         for resource_id in resource_type.directory.entries:
                             if hasattr(resource_id, "directory"):
                                 for resource_lang in resource_id.directory.entries:
-                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
+                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData,
+                                                            resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
                                     language = pefile.LANG.get(resource_lang.data.lang, None)
-                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
+                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang,
+                                                                                   resource_lang.data.sublang)
                                     resource["name"] = name
                                     resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
                                     resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
@@ -604,7 +615,8 @@ class PortableExecutable(object):
 
     def _get_icon_info(self):
         """Get icon in PNG format and information for searching for similar icons
-        @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified" image for fuzzy matching)
+        @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified"
+         image for fuzzy matching)
         """
         if not self.pe or not hasattr(self.pe, "DIRECTORY_ENTRY_RESOURCE"):
             return None, None, None
@@ -625,7 +637,7 @@ class PortableExecutable(object):
             bigbpp = 0
             bigidx = -1
             iconidx = 0
-            for idx,icon in enumerate(peicon.icons):
+            for idx, icon in enumerate(peicon.icons):
                 if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
                     bigwidth = icon.bWidth
                     bigheight = icon.bHeight
@@ -633,7 +645,8 @@ class PortableExecutable(object):
                     bigidx = icon.nID
                     iconidx = idx
 
-            rt_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_ICON'])
+            rt_icon_idx = [entry.id for entry
+                           in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_ICON'])
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:
@@ -961,14 +974,16 @@ class PDF(object):
                 trailer, _ = self.pdf.trailer[version]
                 if trailer != None:
                     elem = trailer.dict.getElementByName("/Root")
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/URI")
-                    if not elem:
-                        return
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/Base")
-                    elem = self._get_obj_val(version, elem)
-                    self.base_uri = elem.getValue()
+                    if elem:
+                        elem = self._get_obj_val(version, elem)
+                        elem = elem.getElementByName("/URI")
+                        if elem:
+                            elem = self._get_obj_val(version, elem)
+                            elem = elem.getElementByName("/Base")
+                            if elem:
+                                elem = self._get_obj_val(version, elem)
+                                if elem:
+                                    self.base_uri = elem.getValue()
         except Exception as e:
             log.error(e, exc_info=True)
             pass
@@ -1185,6 +1200,26 @@ class Office(object):
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
 
+    def _decode_xlm_macro(self, macro):
+        lines = macro.split("\n")
+        numre = re.compile('ptgInt (\d+) ')
+        strdict = dict()
+        dstrs = ""
+        for line in lines:
+            if "CHAR" not in line:
+                continue
+            col = "C{}".format(re.findall('.*R\d+C(\d+)\s', line)[0])
+            if not strdict.get(col, False):
+                strdict[col] = ""
+            found = numre.findall(line)
+            if found:
+                for n in found:
+                    strdict[col] += (chr(int(n)))
+        for col in strdict:
+            dstrs += f"{strdict[col]}\n"
+
+        return dstrs
+
     def _parse_rtf(self, data):
         results = dict()
         rtfp = RtfObjParser(data)
@@ -1328,6 +1363,7 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
+            decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
@@ -1337,6 +1373,7 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"]["DecodedStrings"] = list()
             for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
@@ -1344,8 +1381,17 @@ class Office(object):
                     ctr += 1
                     outputname = "Macro" + str(ctr)
                     macrores["Code"][outputname] = list()
-                    macrores["Code"][outputname].append((convert_to_printable(vba_filename),convert_to_printable(vba_code)))
+                    macrores["Code"][outputname].append((convert_to_printable(vba_filename),
+                                                         convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
+                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
+                        decrypted_code = self._decode_xlm_macro(vba_code)
+                        if decrypted_code:
+                            vba_code = decrypted_code
+                            outputname += "_Decoded"
+                            macrores["Code"][outputname] = list()
+                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"),
+                                                                 convert_to_printable(vba_code)))
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
                     try:
@@ -1365,6 +1411,10 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
+                    if decoded_strs:
+                        for dstr in decoded_strs.split("\n"):
+                            if dstr:
+                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1375,10 +1425,13 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
+            if macrores["Analysis"]["DecodedStrings"] == []:
+                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
-                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "vba2graph")
+                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
+                                                  str(self.results["info"]["id"]), "vba2graph")
                     if not os.path.exists(vba2graph_path):
                         os.makedirs(vba2graph_path)
                     vba_code = vba2graph_from_vba_object(filepath)
@@ -2054,7 +2107,8 @@ class Static(Processing):
             package = self.results.get("info", {}).get("package", "")
 
             thetype = File(self.file_path).get_type()
-            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in ("doc", "ppt", "xls", "pub"):
+            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and\
+                    package in ("doc", "ppt", "xls", "pub"):
                 log.info("Missed dependencies: pip3 install oletools")
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
@@ -2078,7 +2132,8 @@ class Static(Processing):
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
                 static = Office(self.file_path, self.results).run()
-            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":
+            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf")\
+                    or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":
                 static = EncodedScriptFile(self.file_path).run()

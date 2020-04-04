@@ -1341,6 +1341,8 @@ class Office(object):
             dde = extract_dde(filepath)
             if dde:
                 results["office_dde"] = convert_to_printable(dde)
+        except AttributeError:
+            log.warning("OleFile library bug: AttributeError: __enter__")
         except Exception as e:
             log.error(e, exc_info=True)
 

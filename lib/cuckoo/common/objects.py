@@ -127,6 +127,8 @@ PE_HEADER_LIMIT = 0x200
 
 
 def IsPEImage(buf, size=False):
+    if not buf:
+        return False
     if not size:
         size = len(buf)
     if size < DOS_HEADER_LIMIT:

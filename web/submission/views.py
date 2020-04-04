@@ -206,10 +206,10 @@ def index(request, resubmit_hash=False):
             options += "route={0},".format(request.POST.get("route", None))
 
         if request.POST.get("process_dump"):
-            options += "procmemdump=1,procdump=1,"
+            options += "procdump=0,"
 
         if request.POST.get("process_memory"):
-            options += "procmemdump=1,procdump=1,"
+            options += "procmemdump=1,"
 
         if request.POST.get("import_reconstruction"):
             options += "import_reconstruction=1,"

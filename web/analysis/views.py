@@ -632,7 +632,7 @@ def suritls(request,task_id):
 def surifiles(request,task_id):
     report = results_db.analysis.find_one({"info.id": int(task_id)},
                                           {"info.id": 1,
-                                           "suricata.files": 1
+                                           "suricata.files": 1,
                                            "_id": 0},
                                           sort=[("_id", pymongo.DESCENDING)])
     if not report:

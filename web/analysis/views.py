@@ -653,7 +653,7 @@ def surifiles(request,task_id):
 def antivirus(request,task_id):
     rtmp = results_db.analysis.find_one({"info.id": int(task_id)},
                                         {"virustotal": 1,
-                                        "info.category": 1
+                                        "info.category": 1,
                                         "_id": 0},
                                         sort=[("_id", pymongo.DESCENDING)])
     if not rtmp:

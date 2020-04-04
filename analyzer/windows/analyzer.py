@@ -303,7 +303,11 @@ class Analyzer:
         upload_files("debugger")
 
         # Stop the Pipe Servers.
-        self.command_pipe.stop()
+        if hasattr(self, command_pipe):
+            self.command_pipe.stop()
+        else:
+            #ToDo need to investigate why this happens
+            log.error("Analyzer object has no attribute 'command_pipe'")
         self.log_pipe_server.stop()
 
         # Cleanly close remaining connections

@@ -342,7 +342,7 @@ perform_search_filters = {
     "network.pcap_sha256": 1,
     "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
     "suri_tls_cnt": 1, "suri_alert_cnt": 1, "suri_http_cnt": 1, "suri_file_cnt": 1,
-    "trid": 1
+    "trid": 1, "_id": 0
 }
 
 search_term_map = {

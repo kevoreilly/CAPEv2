@@ -303,7 +303,7 @@ class Analyzer:
         upload_files("debugger")
 
         # Stop the Pipe Servers.
-        if hasattr(self, command_pipe):
+        if hasattr(self, "command_pipe"):
             self.command_pipe.stop()
         else:
             #ToDo need to investigate why this happens

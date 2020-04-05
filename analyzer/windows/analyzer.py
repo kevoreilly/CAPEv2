@@ -1341,7 +1341,8 @@ class CommandPipeHandler(object):
                 # monitored already, otherwise we would generate
                 # polluted logs.
                 if process_id not in self.analyzer.process_list.pids:
-                    self.analyzer.process_list.add_pid(int(process_id))
+                    if process_id not in INJECT_LIST:
+                        INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
                         options=self.analyzer.options,

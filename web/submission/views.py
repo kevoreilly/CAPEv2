@@ -598,6 +598,7 @@ def index(request, resubmit_hash=False):
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")
         enabledconf["dlnexec"] = settings.DLNEXEC
+        enabledconf["url_analysis"] = settings.URL_ANALYSIS
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled

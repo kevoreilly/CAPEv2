@@ -73,7 +73,9 @@ $(document).ready( function() {
                             <li><a href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
                         {% endif %}
                         <li><a href="#quarantine" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Quarantine File</a></li>
-                        <!--<li><a href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>-->
+                        {% if config.url_analysis %}
+                            <li><a href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>
+                        {% endif %}
                         {% if config.dlnexec %}
                             <li><a href="#dlurl" data-toggle="tab"><span class="glyphicon glyphicon glyphicon-download-alt"></span> DL&Exec</a></li>
                         {% endif %}

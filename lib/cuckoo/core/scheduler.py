@@ -210,15 +210,18 @@ class AnalysisManager(threading.Thread):
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            exports.append(re.sub(br'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
+                            try:
+                                exports.append(re.sub(b'[^A-Za-z0-9_?@-]', '', exported_symbol.name).decode("utf-8"))
+                            except Exception as e::
+                                log.error(e, exc_info=True)
+
                         options["exports"] = ",".join(exports)
                 except Exception as e:
                     log.error(e, exc_info=True)
 
         # options from auxiliar.conf
-        options["curtain"] = self.aux_cfg.curtain.enabled
-        options["sysmon"] = self.aux_cfg.sysmon.enabled
-        options["procmon"] = self.aux_cfg.procmon.enabled
+        for plugin in aux_cfg.auxiliar_modules.keys()
+            options[plugin] = aux_cfg.auxiliar_modules[plugin]
 
         return options
 

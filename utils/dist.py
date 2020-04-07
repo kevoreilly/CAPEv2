@@ -17,7 +17,6 @@ import hashlib
 import logging
 from logging import handlers
 import tarfile
-import StringIO
 import argparse
 import threading
 from io import BytesIO
@@ -34,8 +33,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_session
 from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED, TASK_RUNNING, TASK_PENDING, TASK_FAILED_REPORTING, TASK_DISTRIBUTED_COMPLETED, TASK_DISTRIBUTED
-
-
 
 # we need original db to reserve ID in db,
 # to store later report, from master or slave
@@ -263,8 +260,8 @@ def node_submit_task(task_id, node_id):
 class Retriever(threading.Thread):
 
     def run(self):
-        self.cleaner_queue = queue.queue()
-        self.fetcher_queue = queue.queue()
+        self.cleaner_queue = queue.Queue()
+        self.fetcher_queue = queue.Queue()
         self.cfg = Config()
         self.t_is_none = dict()
         self.status_count = dict()
@@ -536,10 +533,10 @@ class Retriever(threading.Thread):
                 report_path = os.path.join(
                     CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 if not os.path.isdir(report_path):
-                    os.makedirs(report_path, mode=0755)
+                    os.makedirs(report_path, mode=0o777)
                 try:
-                    fileobj = StringIO.StringIO(report.content)
-                    if fileobj.len:
+                    fileobj = BytesIO(report.content)
+                    if report.content:
                         file = tarfile.open(
                             fileobj=fileobj, mode="r:bz2")  # errorlevel=0
                         try:

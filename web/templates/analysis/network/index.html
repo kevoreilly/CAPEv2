@@ -1,5 +1,5 @@
 {% if analysis.network.pcap_sha256 %}
-<div class="alert alert-info center"><a class="btn btn-primary btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
+<div class="alert alert-primary center"><a class="btn btn-primary btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
 {% endif %}
 <div class="tabbable tabs">
     <ul class="nav nav-pills" style="margin-bottom: 0;">

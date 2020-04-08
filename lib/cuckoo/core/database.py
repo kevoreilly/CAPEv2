@@ -1444,13 +1444,12 @@ class Database(object, metaclass=Singleton):
                 search = search.filter(Task.completed_on > completed_after)
             if added_before:
                 search = search.filter(Task.added_on < added_before)
+            if options_like:
+                search = search.filter(Task.options.like("%{}%".format(options_like)))
             if order_by is not None:
                 search = search.order_by(order_by)
             else:
                 search = search.order_by(Task.added_on.desc())
-            if options_like:
-                search = search.filter(Task.options.like("%{}%".format(options_like)))
-
             tasks = search.limit(limit).offset(offset).all()
             return tasks
         except SQLAlchemyError as e:

@@ -1249,6 +1249,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         completed_after = datetime.now() - timedelta(minutes=int(window))
 
     status = request.GET.get("status")
+    option = request.GET.get("option")
 
     if offset:
         offset = int(offset)
@@ -1259,6 +1260,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     for row in db.list_tasks(limit=limit, details=True, offset=offset,
                              completed_after=completed_after,
                              status=status,
+                             option_like=option,
                              order_by=Task.completed_on.desc()):
         resp["buf"] += 1
         task = row.to_dict()

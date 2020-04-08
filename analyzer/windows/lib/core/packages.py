@@ -86,6 +86,8 @@ def choose_package(file_type, file_name, exports, target):
         return "doc"
     elif file_name.endswith(".lnk") or "MS Windows shortcut" in file_type:
         return "lnk"
+    elif file_name.endswith(".chm") or "MS Windows HtmlHelp Data" in file_type:
+        return "chm"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"#@~^" in file_content[:100]:

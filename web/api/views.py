@@ -1260,7 +1260,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     for row in db.list_tasks(limit=limit, details=True, offset=offset,
                              completed_after=completed_after,
                              status=status,
-                             option_like=option,
+                             options_like=option,
                              order_by=Task.completed_on.desc()):
         resp["buf"] += 1
         task = row.to_dict()

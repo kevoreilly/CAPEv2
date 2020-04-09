@@ -210,7 +210,12 @@ class AnalysisManager(threading.Thread):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
                             try:
-                                exports.append(re.sub(b'[^A-Za-z0-9_?@-]', '', exported_symbol.name).decode("utf-8"))
+                                if not exported_symbol.name:
+                                    continue
+                                if isinstance(exported_symbol.name, bytes):
+                                    exports.append(re.sub(b'[^A-Za-z0-9_?@-]', b'', exported_symbol.name).decode("utf-8"))
+                                else:
+                                    exports.append(re.sub('[^A-Za-z0-9_?@-]', '', exported_symbol.name))
                             except Exception as e:
                                 log.error(e, exc_info=True)
 

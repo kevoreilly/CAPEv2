@@ -39,6 +39,8 @@ class ProcDump(Processing):
 
             file_info = File(file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name).get_all()
             metastrings = meta[file_path].get("metadata", "").split(";?")
+            if len(metastrings) < 3:
+                continue
             file_info["process_path"] = metastrings[1]
             file_info["module_path"] = metastrings[2]
             file_info["process_name"] = file_info["process_path"].split("\\")[-1]

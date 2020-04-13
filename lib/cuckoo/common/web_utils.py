@@ -166,7 +166,7 @@ def get_platform(magic):
 # Func to download from services
 def download_file(api, content, request, db, task_ids, url, params, headers, service, filename, package, timeout,
                   options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options,
-                  task_machines, static, fhash=False):
+                  task_machines, static, tlp, fhash=False):
     onesuccess = False
     if not content:
         try:
@@ -266,7 +266,8 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
             task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout,
                                                          options=options, priority=priority, machine=entry,
                                                          custom=custom, memory=memory, enforce_timeout=enforce_timeout,
-                                                         tags=tags, clock=clock, static=static, platform=platform)
+                                                         tags=tags, clock=clock, static=static, platform=platform,
+                                                         tlp=tlp)
             if task_ids_new:
                 if isinstance(task_ids, list):
                     task_ids.extend(task_ids_new)
@@ -392,6 +393,7 @@ search_term_map = {
     "sha1": "target.file.sha1",
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
+    "tlp": "info.tlp"
 }
 
 def perform_ttps_search(value):

@@ -432,8 +432,7 @@ class AnalysisManager(threading.Thread):
             # analysis - this is useful for debugging purposes. This is only
             # supported under systems that support symbolic links.
             if hasattr(os, "symlink"):
-                latest = os.path.join(CUCKOO_ROOT, "storage",
-                                      "analyses", "latest")
+                latest = os.path.join(CUCKOO_ROOT, "storage", "analyses", "latest")
 
                 # First we have to remove the existing symbolic link, then we
                 # have to create the new one.

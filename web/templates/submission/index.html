@@ -468,6 +468,17 @@ $(document).ready( function() {
                                     <option value="3">High</option>
                                 </select>
                             </div>
+                            {% if config.tlp %}
+                                <div class="form-group">
+                                    <label for="form_tlp">TLP</label>
+                                    <select class="form-control" id="form_tlp" name="tlp">
+                                        <option value="" selected>White</option>
+                                        <option value="Green">Green</option>
+                                        <option value="Amber">Amber</option>
+                                        <option value="Red">Red</option>
+                                    </select>
+                                </div>
+                            {% endif %}
                             <div id="non-pcap-2">
                             <div class="form-group">
                                 <label for="form_custom">Clock</label>

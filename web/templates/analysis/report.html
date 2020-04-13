@@ -33,12 +33,50 @@ $(function() {
     //end
 });
 </script>
+<style type="text/css">
+.alert-tlp_green {
+    background-color: #008000;
+    padding: 3px;
+    padding-left: 10px;
+    margin-bottom: 3px;
+    text-align: center;
+    font-size: 12;
+}
+.alert-tlp_amber {
+    background-color: #FFBF00;
+    padding: 3px;
+    padding-left: 10px;
+    margin-bottom: 3px;
+    text-align: center;
+    font-size: 12;
+}
+.alert-tlp_red {
+    background-color: #FF2626;
+    padding: 3px;
+    padding-left: 10px;
+    margin-bottom: 3px;
+    text-align: center;
+    font-size: 12;
+}
+</style>
 <div class="row">
     <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p></div>
     {% if analysis.info.category == "file" and analysis.target %}
         <div class="col-md-6" style="text-align: right;"><a class="btn btn-primary" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
     {% endif %}
 </div>
+{% if analysis.info.tlp %}
+    {% if analysis.info.tlp == "Red" %}
+    <div class="alert alert-tlp_red">
+    {% elif analysis.info.tlp == "Amber" %}
+    <div class="alert alert-tlp_amber">
+    {% elif analysis.info.tlp == "Green" %}
+        <div class="alert alert-tlp_amber">
+    {% endif %}
+    <b>TLP {{analysis.info.tlp}}</b>
+    </div>
+{% endif %}
+
 <ul class="nav nav-tabs">
     <li class="active"><a href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.static or config.virustotal and analysis.virustotal %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}

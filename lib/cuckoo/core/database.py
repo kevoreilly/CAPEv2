@@ -331,6 +331,7 @@ class Task(Base):
     shrike_sid = Column(Integer(), nullable=True)
 
     parent_id = Column(Integer(), nullable=True)
+    tlp = Column(String(255), nullable=True)
 
     __table_args__ = Index("category_index", "category"), Index("status_index", "status"), Index("added_on_index", "added_on"), Index("completed_on_index", "completed_on"),
 
@@ -1031,7 +1032,7 @@ class Database(object, metaclass=Singleton):
             memory=False, enforce_timeout=False, clock=None,
             shrike_url=None, shrike_msg=None,
             shrike_sid=None, shrike_refer=None, parent_id=None,
-            sample_parent_id=None, static=False):
+            sample_parent_id=None, tlp=None, static=False):
         """Add a task to database.
         @param obj: object to add (File or URL).
         @param timeout: selected timeout.
@@ -1047,6 +1048,7 @@ class Database(object, metaclass=Singleton):
         @param parent_id: parent task id
         @param sample_parent_id: original sample in case of archive
         @param static: try static extraction first
+        @param tlp: TLP sharing designation
         @return: cursor or None.
         """
         session = self.Session()
@@ -1122,6 +1124,7 @@ class Database(object, metaclass=Singleton):
         task.shrike_sid = shrike_sid
         task.shrike_refer = shrike_refer
         task.parent_id = parent_id
+        task.tlp = tlp
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.replace(" ", "").split(","):
@@ -1158,7 +1161,7 @@ class Database(object, metaclass=Singleton):
                  priority=1, custom="", machine="", platform="", tags=None,
                  memory=False, enforce_timeout=False, clock=None, shrike_url=None,
                  shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                 sample_parent_id=None, static=False):
+                 sample_parent_id=None, tlp=None, static=False):
         """Add a task to database from file path.
         @param file_path: sample path.
         @param timeout: selected timeout.
@@ -1174,6 +1177,7 @@ class Database(object, metaclass=Singleton):
         @param parent_id: parent analysis id
         @param sample_parent_id: sample parent id, if archive
         @param static: try static extraction first
+        @param tlp: TLP sharing designation
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1189,13 +1193,13 @@ class Database(object, metaclass=Singleton):
         return self.add(File(file_path), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg, shrike_sid,
-                        shrike_refer, parent_id, sample_parent_id)
+                        shrike_refer, parent_id, sample_parent_id, tlp)
 
     def demux_sample_and_add_to_db(self, file_path, timeout=0, package="", options="", priority=1,
                                    custom="", machine="", platform="", tags=None,
                                    memory=False, enforce_timeout=False, clock=None,shrike_url=None,
                                    shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                                   sample_parent_id=None, static=False):
+                                   sample_parent_id=None, tlp=None, static=False):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
         Returns a list of added task IDs
@@ -1228,7 +1232,7 @@ class Database(object, metaclass=Singleton):
             if static:
                 config = static_extraction(file)
                 if config:
-                    task_id = self.add_static(file_path=file, priority=priority)
+                    task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
             if not config:
                 task_id = self.add_path(
                     file_path=file.decode(),
@@ -1248,7 +1252,8 @@ class Database(object, metaclass=Singleton):
                     shrike_sid=shrike_sid,
                     shrike_refer=shrike_refer,
                     parent_id=parent_id,
-                    sample_parent_id=sample_parent_id)
+                    sample_parent_id=sample_parent_id,
+                    tlp=tlp)
             if task_id:
                 task_ids.append(task_id)
 
@@ -1258,28 +1263,28 @@ class Database(object, metaclass=Singleton):
     def add_pcap(self, file_path, timeout=0, package="", options="", priority=1,
                 custom="", machine="", platform="", tags=None, memory=False,
                 enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid = None, shrike_refer=None, parent_id=None):
+                shrike_sid = None, shrike_refer=None, parent_id=None, tlp=None):
         return self.add(PCAP(file_path.decode()), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id)
+                        shrike_sid, shrike_refer, parent_id, tlp)
 
     @classlock
     def add_static(self, file_path, timeout=0, package="", options="", priority=1,
                 custom="", machine="", platform="", tags=None, memory=False,
                 enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid=None, shrike_refer=None, parent_id=None, static=True):
+                shrike_sid=None, shrike_refer=None, parent_id=None, tlp=None, static=True):
         return self.add(Static(file_path.decode()), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id, static)
+                        shrike_sid, shrike_refer, parent_id, tlp, static)
 
 
     @classlock
     def add_url(self, url, timeout=0, package="", options="", priority=1,
                 custom="", machine="", platform="", tags=None, memory=False,
                 enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid = None, shrike_refer=None, parent_id=None):
+                shrike_sid = None, shrike_refer=None, parent_id=None, tlp=None):
         """Add a task to database from url.
         @param url: url.
         @param timeout: selected timeout.
@@ -1292,6 +1297,7 @@ class Database(object, metaclass=Singleton):
         @param memory: toggle full memory dump.
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
+        @param tlp: TLP sharing designation
         @return: cursor or None.
         """
 
@@ -1304,7 +1310,7 @@ class Database(object, metaclass=Singleton):
         return self.add(URL(url), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id)
+                        shrike_sid, shrike_refer, parent_id, tlp)
 
     @classlock
     def reschedule(self, task_id):
@@ -1346,7 +1352,7 @@ class Database(object, metaclass=Singleton):
 
         return add(task.target, task.timeout, task.package, task.options,
                    task.priority, task.custom, task.machine, task.platform,
-                   tags, task.memory, task.enforce_timeout, task.clock)
+                   tags, task.memory, task.enforce_timeout, task.clock, tlp=task.tlp)
     @classlock
     def count_matching_tasks(self, category=None,
                    status=None, not_status=None):

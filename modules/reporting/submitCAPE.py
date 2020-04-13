@@ -134,6 +134,7 @@ class SubmitCAPE(Report):
                 None,
                 None,
                 parent_id,
+                self.task["tlp"]
             )
             if task_id:
                 children = []
@@ -296,7 +297,8 @@ class SubmitCAPE(Report):
         if cape_yara["name"] == "Emotet_Loader":
             detections.add('Emotet')
 
-    def submit_task(self, target, package, timeout, task_options, priority, machine, platform, memory, enforce_timeout, clock, tags, parent_id):
+    def submit_task(self, target, package, timeout, task_options, priority, machine, platform, memory, enforce_timeout,
+                    clock, tags, parent_id, tlp):
 
         db = Database()
 
@@ -314,7 +316,7 @@ class SubmitCAPE(Report):
                     "enforce_timeout": enforce_timeout,
                     "clock": clock,
                     "tags": tags,
-                    "parent_id": parent_id,
+                    "parent_id": parent_id
                 }
                 multipart_file = [
                     ("file", (os.path.basename(target), open(target, "rb")))]
@@ -339,6 +341,7 @@ class SubmitCAPE(Report):
                     clock=None,
                     tags=None,
                     parent_id=parent_id,
+                    tlp=tlp
                 )
             if task_id:
                 log.info(
@@ -501,6 +504,7 @@ class SubmitCAPE(Report):
                 None,
                 None,
                 parent_id,
+                self.task["tlp"]
             )
             if task_id:
                 children.append([task_id, package])
@@ -529,6 +533,7 @@ class SubmitCAPE(Report):
                     None,
                     None,
                     parent_id,
+                    self.task["tlp"]
                 )
                 if task_id:
                     children.append([task_id, dumper])

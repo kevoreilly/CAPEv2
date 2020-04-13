@@ -105,5 +105,6 @@ class AnalysisInfo(Processing):
             shrike_msg=self.task["shrike_msg"],
             shrike_sid=self.task["shrike_sid"],
             parent_id=self.task["parent_id"],
+            tlp=self.task["tlp"],
             options=get_options(self.task["options"])
         )

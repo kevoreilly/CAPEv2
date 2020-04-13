@@ -103,11 +103,14 @@
                         {% if file.data %}
                         &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                         {% endif %}
-                        {% if config.vtupload %}
-                            <a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" id file.name file.sha256 %}">Submit to
-                                VirusTotal</a>
-                        {% endif %}
                     </td>
+                    {% if config.vtupload %}
+                        {% if tlp != "Red" %}
+                        <td>
+                            <a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" id file.name file.sha256 %}">Submit to VirusTotal</a>
+                        </td>
+                        {% endif %}
+                    {% endif %}
                 </tr>
                 {% endif %}
                 {% if file.data %}

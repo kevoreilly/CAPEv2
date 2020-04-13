@@ -1,3 +1,6 @@
+### [13-04-2020]
+* TLP implemented for analysis, thanks @enzok
+
 ### [30-03-2020]
 * /configdownload/ is moved to /api/tasks/get/config/<task_id>/ or /api/tasks/get/config/<task_id>/Family/
 * Anti-api-spamming feature in monitor

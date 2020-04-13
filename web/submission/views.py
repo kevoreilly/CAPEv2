@@ -110,7 +110,6 @@ def get_form_data(platform):
         for tag in machine.tags:
             tags.append(tag.name)
 
-
         if tags:
             label = "{}:{}".format(machine.label, ",".join(tags))
         else:
@@ -233,6 +232,7 @@ def index(request, resubmit_hash=False):
 
         unique = request.POST.get("unique", False)
 
+        tlp = request.POST.get("tlp", None)
         orig_options = options
         task_ids = []
         task_machines = []
@@ -275,7 +275,8 @@ def index(request, resubmit_hash=False):
 
                 status, task_ids = download_file(False, content, request, db, task_ids, url, params, headers, "Local",
                                                  path, package, timeout, options, priority, machine, clock, custom,
-                                                 memory, enforce_timeout, referrer, tags, orig_options, "", static)
+                                                 memory, enforce_timeout, referrer, tags, orig_options, "", static,
+                                                 tlp)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
@@ -340,7 +341,7 @@ def index(request, resubmit_hash=False):
                                                                      options=options, priority=priority, machine=entry,
                                                                      custom=custom, memory=memory, platform=platform,
                                                                      enforce_timeout=enforce_timeout, tags=tags,
-                                                                     clock=clock, static=static)
+                                                                     clock=clock, static=static, tlp=tlp)
                         task_ids.extend(task_ids_new)
                     except CuckooDemuxError as err:
                         return render(request, "error.html", {"error": err})
@@ -393,7 +394,7 @@ def index(request, resubmit_hash=False):
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                                  options=options, priority=priority, machine=entry,
                                                                  custom=custom, memory=memory, tags=tags,
-                                                                 enforce_timeout=enforce_timeout, clock=clock)
+                                                                 enforce_timeout=enforce_timeout, clock=clock, tlp=tlp)
                     if task_ids_new:
                         task_ids.extend(task_ids_new)
 
@@ -413,7 +414,7 @@ def index(request, resubmit_hash=False):
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), sample.name)
 
-                task_id = db.add_static(file_path=path, priority=priority)
+                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 task_ids.append(task_id)
@@ -446,7 +447,7 @@ def index(request, resubmit_hash=False):
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
-                task_id = db.add_pcap(file_path=path, priority=priority)
+                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp)
                 if task_id:
                     task_ids.append(task_id)
 
@@ -476,7 +477,7 @@ def index(request, resubmit_hash=False):
                     entry = None
                 task_ids_new = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
                                           machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
-                                          tags=tags, clock=clock)
+                                          tags=tags, clock=clock, tlp=tlp)
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
 
@@ -518,7 +519,7 @@ def index(request, resubmit_hash=False):
                                                              options=options, priority=priority, machine=entry,
                                                              custom=custom, memory=memory,
                                                              enforce_timeout=enforce_timeout, tags=tags,
-                                                             platform=platform, clock=clock)
+                                                             platform=platform, clock=clock, tlp=tlp)
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
 
@@ -560,12 +561,12 @@ def index(request, resubmit_hash=False):
                                                              headers, "VirusTotal", filename, package, timeout,
                                                              options, priority, machine, clock, custom, memory,
                                                              enforce_timeout, referrer, tags, orig_options, "",
-                                                             static, h)
+                                                             static, tlp, h)
                     else:
                         status, task_ids_tmp = download_file(False, content, request, db, task_ids, url, params,
                                                              headers, "Local", filename, package, timeout, options,
                                                              priority, machine, clock, custom, memory, enforce_timeout,
-                                                             referrer, tags, orig_options, "", static, h)
+                                                             referrer, tags, orig_options, "", static, tlp, h)
                     if status is "ok":
                         task_ids = task_ids_tmp
                     else:
@@ -602,6 +603,7 @@ def index(request, resubmit_hash=False):
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
+        enabledconf["tlp"] = web_conf.tlp.enabled
 
         all_tags = load_vms_tags()
         if all_tags:

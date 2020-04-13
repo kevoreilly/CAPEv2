@@ -42,19 +42,25 @@ class ReSubmitExtractedEXE(Report):
         self.task_custom = None
         self.machine = None
         self.resubcnt = 0
+        self.tlp = None
         report = dict(results)
 
-        if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]:
+        if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and \
+                report["info"]["options"]["resubmitjob"]:
             return
 
         # copy all the options from current
-        if "options" in report["info"] and report["info"]["options"]:
-            for key,val in report["info"]["options"].items():
+        if report["info"].get("options", False):
+            for key, val in report["info"]["options"].items():
                 self.task_options_stack.append(key + "=" + str(val))
 
         # copy machine label from current
-        if "machine" in report["info"] and report["info"]["machine"]:
+        if report["info"].get("machine", False):
             self.machine = report["info"]["machine"]["label"]
+
+        # copy TLP from current
+        if report["info"].get("tlp", False):
+            self.tlp = report["info"]["tlp"]
 
         self.task_options_stack.append("resubmitjob=true")
         if self.noinject:
@@ -68,10 +74,13 @@ class ReSubmitExtractedEXE(Report):
             if self.resubcnt >= self.resublimit:
                 break
             if os.path.isfile(dropped["path"]):
-                if ("PE32" in dropped["type"] or "MS-DOS" in dropped["type"]) and "DLL" not in dropped["type"] and "native" not in dropped["type"]:
+                if ("PE32" in dropped["type"] or "MS-DOS" in dropped["type"]) and "DLL" not in dropped["type"] \
+                        and "native" not in dropped["type"]:
                     if dropped['sha256'] not in filesdict:
-                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'])
-                        linkdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'] + "_link")
+                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files",
+                                               dropped['sha256'])
+                        linkdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files",
+                                               dropped['sha256'] + "_link")
                         guest_paths = [line.strip() for line in open(srcpath + "_info.txt")]
                         guest_name = guest_paths[0].split("\\")[-1]
                         linkpath = os.path.join(linkdir, guest_name)
@@ -100,7 +109,8 @@ class ReSubmitExtractedEXE(Report):
                             ftype = suricata_file_e["file_info"]["type"]
                             if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:
                                 if suricata_file_e["file_info"]["sha256"] not in filesdict:
-                                    filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"]["path"]
+                                    filesdict[suricata_file_e["file_info"]["sha256"]] = \
+                                        suricata_file_e["file_info"]["path"]
                                     self.resubcnt = self.resubcnt + 1
 
         db = Database()
@@ -111,9 +121,9 @@ class ReSubmitExtractedEXE(Report):
             if not db.find_sample(sha256=e) is None:
                 continue
 
-            self.task_custom="Parent_Task_ID:%s" % report["info"]["id"]
+            self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
             if "custom" in report["info"] and report["info"]["custom"]:
-                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom,report["info"]["custom"])
+                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
             task_id = db.add_path(file_path=filesdict[e],
                                   package='exe',
                                   timeout=200,
@@ -126,7 +136,8 @@ class ReSubmitExtractedEXE(Report):
                                   enforce_timeout=False,
                                   clock=None,
                                   tags=None,
-                                  parent_id=int(report["info"]["id"]))
+                                  parent_id=int(report["info"]["id"]),
+                                  tlp=self.tlp)
 
             if task_id:
                 log.info(u"Resubmitexe file \"{0}\" added as task with ID {1}".format(filesdict[e], task_id))

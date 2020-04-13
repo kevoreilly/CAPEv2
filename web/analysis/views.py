@@ -314,6 +314,7 @@ def load_files(request, task_id, category):
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             files = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "_id": 0})
+            tlp = results_db.analysis.find_one({"info.id": int(task_id)}, {"info.tlp": 1, "_id": 0})
 
             bingraph = False
             bingraph_dict_content = {}
@@ -330,6 +331,7 @@ def load_files(request, task_id, category):
             #ES isn't supported
         return render(request, "analysis/{}/index.html".format(category),
                       {"files": files.get(category, {}),
+                       "tlp": tlp.get("info").get('tlp',""),
                        "id": task_id,
                        "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
                        "config": enabledconf})

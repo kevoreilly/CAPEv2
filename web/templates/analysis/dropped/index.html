@@ -105,16 +105,10 @@
                         {% endif %}
                     </td>
                     {% if config.vtupload %}
-                        {% if config.tlp %}
-                            {% if tlp != "Red" %}
-                            <td>
-                                <a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" id file.name file.sha256 %}">Submit to VirusTotal</a>
-                            </td>
-                            {% endif %}
-                        {% else %}
-                            <td>
-                                <a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" id file.name file.sha256 %}">Submit to VirusTotal</a>
-                            </td>
+                        {% if tlp != "Red" %}
+                        <td>
+                            <a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" id file.name file.sha256 %}">Submit to VirusTotal</a>
+                        </td>
                         {% endif %}
                     {% endif %}
                 </tr>

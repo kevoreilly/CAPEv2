@@ -83,6 +83,11 @@ def list_plugins(group=None):
     else:
         return _modules
 
+suricata_whitelist = (
+    "agenttesla",
+    "medusahttp",
+)
+
 suricata_blacklist = (
     "abuse",
     "agent",
@@ -163,11 +168,12 @@ def get_suricata_family(signature):
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    #ToDo medusahttp
     isbad = any([black in famchecklower for black in suricata_blacklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-
+    isgood = any([white in famchecklower for white in suricata_whitelist])
+    if isgood and len(famcheck) >= 4:
+        family = famcheck.title()
     return family
 
 class RunAuxiliary(object):

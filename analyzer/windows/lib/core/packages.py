@@ -66,7 +66,7 @@ def choose_package(file_type, file_name, exports, target):
         return "ps1"
     elif file_name.endswith(".msg"):
         return "msg"
-    elif file_name.endswith(".eml"):
+    elif file_name.endswith(".eml") or file_name.endswith(".ics") or "vCalendar calendar" in file_type:
         return "eml"
     elif file_name.endswith(".js") or file_name.endswith(".jse"):
         return "js"

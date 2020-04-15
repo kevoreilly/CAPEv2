@@ -479,7 +479,7 @@ def index(request, resubmit_hash=False):
                                           machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
                                           tags=tags, clock=clock, tlp=tlp)
                 if task_ids_new:
-                    task_ids.extend(task_ids_new)
+                    task_ids.append(task_ids_new)
 
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             url = request.POST.get("dlnexec").strip()

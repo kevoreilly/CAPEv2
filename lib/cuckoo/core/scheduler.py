@@ -243,9 +243,8 @@ class AnalysisManager(threading.Thread):
             log.debug("Failed to initialize the analysis folder")
             return False
 
-        sha256 = File(self.task.target).get_sha256()
-
         if self.task.category in ["file", "pcap", "static"]:
+            sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):

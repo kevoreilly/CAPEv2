@@ -2252,7 +2252,7 @@ def post_processing(request, category, task_id):
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
         if not buf:
             return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
-        results_db.analysis.updateOne({"info.id": int(task_id)}, {"$set": {category: content}})
+        results_db.analysis.update({"_id": buf["_id"]}, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}

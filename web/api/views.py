@@ -2236,6 +2236,30 @@ def tasks_config(request, task_id, cape_name=False):
         resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
         return jsonize(resp, response=True)
 
+"""
+#should be securized by checking category, this is just an example how easy to extend webgui with external tools
+@csrf_exempt
+def post_processing(request, category, task_id):
+    if request.method != "POST":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    content = request.POST.get("content", "")
+    if content and category:
+        content = json.loads(content)
+        if not content:
+            return jsonize({"error": True, "msg": "Missed content data or category"}, response=True)
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
+        if not buf:
+            return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
+        results_db.analysis.updateOne({"info.id": int(task_id)}, {"$set": {category: content}})
+        resp = {"error": False, "msg": "Added under the key {}".format(category)}
+    else:
+        resp = {"error": True, "msg": "Missed content data or category"}
+
+    return jsonize(resp, response=True)
+"""
+
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}
     return jsonize(resp, response=True)

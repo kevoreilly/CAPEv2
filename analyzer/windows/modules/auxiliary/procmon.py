@@ -34,8 +34,8 @@ class Procmon(Auxiliary):
                 not os.path.exists(self.procmon_pmc):
             raise CuckooPackageError(
                 "In order to use the Process Monitor functionality it is "
-                "required to have Procmon setup with Cuckoo. Please run the "
-                "Cuckoo Community script which will automatically fetch all "
+                "required to have Procmon setup with CAPE. Please run the "
+                "CAPE Community script which will automatically fetch all "
                 "related files to get you up-and-running."
             )
 

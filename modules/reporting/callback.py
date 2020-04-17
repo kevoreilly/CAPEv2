@@ -23,6 +23,8 @@ reporting_conf = Config("reporting")
 class CALLBACKHOME(Report):
     "Notify us about analysis is done"
 
+    order = 10000 #used in the reporting module and required here.
+    
     def run(self, results):
         urls = reporting_conf.callback.url.split(",")
         task_id = int(results.get('info', {}).get('id'))

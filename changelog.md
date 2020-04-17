@@ -1,3 +1,8 @@
+### [17-04-2020]
+* Dark theme
+    * Backup current: `cp /opt/CAPEv2/web/templates/headers.html opt/CAPEv2/web/templates/headers-light.html`
+    * Set dark one: `cp opt/CAPEv2/web/templates/headers-dark.html opt/CAPEv2/web/templates/headers.html`
+
 ### [13-04-2020]
 * TLP implemented for analysis, thanks @enzok
 

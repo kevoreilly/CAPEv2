@@ -12,8 +12,8 @@
 <hr>
 {% if analysis.info.comments %}
 {% for comment in analysis.info.comments %}
-<div class="alert alert-info"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
+<div class="alert alert-primary"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
 {% endfor %}
 {% else %}
-<div class="alert alert-info center">No comments posted</div>
+<div class="alert alert-primary center">No comments posted</div>
 {% endif %}

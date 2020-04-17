@@ -478,7 +478,7 @@ class Process:
             log.error("Failed to create terminate-reply event for process %d", self.pid)
             return
 
-        KERNEL32.WaitForSingleObject(self.terminate_event_handle, 0xFFFFFFFF)
+        KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
         log.info("Termination confirmed for process %d", self.pid)
         KERNEL32.CloseHandle(self.terminate_event_handle)
         return

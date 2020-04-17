@@ -161,7 +161,8 @@ sha512 : Targets with a specific SHA512 hash</pre></td>
             <tr class="collapse" id="tasklist">
               <td colspan="5"><pre>curl {{ config.api.url }}/api/tasks/list/
 curl {{ config.api.url }}/api/tasks/list/[limit]/ (specify a limit of tasks to return)
-curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)</pre></td>
+curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
+Acepts as params status to check for status and/or option to search by option LIKE</pre></td>
             </tr>
             <tr>
                 <td>Task View</td>

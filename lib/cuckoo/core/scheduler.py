@@ -210,7 +210,12 @@ class AnalysisManager(threading.Thread):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
                             try:
-                                exports.append(re.sub(b'[^A-Za-z0-9_?@-]', '', exported_symbol.name).decode("utf-8"))
+                                if not exported_symbol.name:
+                                    continue
+                                if isinstance(exported_symbol.name, bytes):
+                                    exports.append(re.sub(b'[^A-Za-z0-9_?@-]', b'', exported_symbol.name).decode("utf-8"))
+                                else:
+                                    exports.append(re.sub('[^A-Za-z0-9_?@-]', '', exported_symbol.name))
                             except Exception as e:
                                 log.error(e, exc_info=True)
 
@@ -238,9 +243,8 @@ class AnalysisManager(threading.Thread):
             log.debug("Failed to initialize the analysis folder")
             return False
 
-        sha256 = File(self.task.target).get_sha256()
-
         if self.task.category in ["file", "pcap", "static"]:
+            sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
@@ -427,8 +431,7 @@ class AnalysisManager(threading.Thread):
             # analysis - this is useful for debugging purposes. This is only
             # supported under systems that support symbolic links.
             if hasattr(os, "symlink"):
-                latest = os.path.join(CUCKOO_ROOT, "storage",
-                                      "analyses", "latest")
+                latest = os.path.join(CUCKOO_ROOT, "storage", "analyses", "latest")
 
                 # First we have to remove the existing symbolic link, then we
                 # have to create the new one.

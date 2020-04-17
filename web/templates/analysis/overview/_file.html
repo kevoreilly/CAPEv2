@@ -98,11 +98,14 @@
                     <a class="btn btn-primary btn-small" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}">Download</a>
                     <a class="btn btn-primary btn-small" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}">Download ZIP</a>
                     <a class="btn btn-default btn-small" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Resubmit sample</a>
-                {% if config.vtupload %}
-                    <a class="btn btn-primary btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
-                {% endif %}
                 </td>
-
+                {% if config.vtupload %}
+                    {% if analysis.info.tlp != "Red" %}
+                    <td>
+                        <a class="btn btn-primary btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
+                    </td>
+                    {% endif %}
+                {% endif %}
             </tr>
         </table>
     </div>

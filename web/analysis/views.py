@@ -313,8 +313,7 @@ def load_files(request, task_id, category):
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            files = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "_id": 0})
-
+            data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
             bingraph = False
             bingraph_dict_content = {}
             bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
@@ -329,7 +328,8 @@ def load_files(request, task_id, category):
 
             #ES isn't supported
         return render(request, "analysis/{}/index.html".format(category),
-                      {"files": files.get(category, {}),
+                      {"files": data.get(category, {}),
+                       "tlp": data.get("info").get('tlp', ""),
                        "id": task_id,
                        "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
                        "config": enabledconf})

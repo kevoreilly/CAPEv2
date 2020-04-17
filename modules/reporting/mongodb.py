@@ -117,8 +117,7 @@ class MongoDB(Report):
         self.connect()
 
         # Set mongo schema version.
-        # TODO: This is not optimal becuase it run each analysis. Need to run
-        # only one time at startup.
+        # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
         if "cuckoo_schema" in self.db.collection_names():
             if self.db.cuckoo_schema.find_one()["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")

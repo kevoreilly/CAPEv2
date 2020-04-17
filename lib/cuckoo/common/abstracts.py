@@ -1495,8 +1495,7 @@ class Signature(object):
         if isinstance(self.results.get("suricata", {}), dict):
             for alert in self.results.get("suricata", {}).get("alerts", []):
                 sid = alert.get("sid", 0)
-                if (sid not in self.banned_suricata_sids or \
-                   sid not in blacklist) and \
+                if (sid not in self.banned_suricata_sids and sid not in blacklist) and \
                    re.findall(pattern, alert.get("signature", ""), re.I):
                     res = True
                     break

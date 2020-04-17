@@ -565,7 +565,7 @@ class File(object):
                 pe = pefile.PE(data=self.file_data, fast_load=True)
                 if pe:
                     infos["entrypoint"] = self.get_entrypoint(pe)
-                    infos["ep_bytes"] = self.get_ep_bytes(pe)
+                    infos["ep_bytes"] = self.get_ep_bytes(pe).decode("utf-8")
                     infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
             except Exception as e:
                 log.error(e)

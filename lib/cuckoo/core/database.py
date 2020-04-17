@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import pymongo
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooDatabaseError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
@@ -693,6 +694,7 @@ class Database(object, metaclass=Singleton):
             return row
         except SQLAlchemyError as e:
             log.debug("Database error fetching task: {0}".format(e))
+            log.debug(red("Ensure that your database schema version is correct"))
             session.rollback()
         finally:
             session.close()

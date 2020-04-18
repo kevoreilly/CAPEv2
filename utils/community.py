@@ -112,6 +112,8 @@ def main():
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers",action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
+    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
+    parser.add_argument("-data", "--data", help="Download data things", action="store_true", required=False)
     parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
@@ -123,7 +125,7 @@ def main():
     rewrite = True if args.rewrite else False
 
     if args.all:
-        enabled = ["feeds", "processing", "signatures", "reporting", "machinery"]
+        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -135,6 +137,10 @@ def main():
             enabled.append("reporting")
         if args.machinery:
             enabled.append("machinery")
+        if args.analyzer:
+            enabled.append("analyzer")
+        if args.data:
+            enabled.append("data")
 
     if not enabled:
         print(colors.red("You need to enable some category!\n"))

@@ -54,7 +54,9 @@ def install(enabled, force, rewrite, filepath):
         "signatures": os.path.join("modules", "signatures"),
         "processing": os.path.join("modules", "processing"),
         "reporting": os.path.join("modules", "reporting"),
-        "machinery": os.path.join("modules", "machinery")
+        "machinery": os.path.join("modules", "machinery"),
+        "analyzer": "analyzer",
+        "data": "data",
     }
 
     for category in enabled:

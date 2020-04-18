@@ -1,3 +1,6 @@
+### [18-04-2020]
+* All not core yara moved to community repo
+
 ### [17-04-2020]
 * Dark theme is default now, to set old one just do
     * Backup current: `cp /opt/CAPEv2/web/templates/header.html /opt/CAPEv2/web/templates/header-dark.html`

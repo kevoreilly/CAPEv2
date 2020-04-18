@@ -8,22 +8,22 @@ import sys
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
-
+import logging
 import shutil
 import urllib3
 import argparse
 import tempfile
-from zipfile import ZipFile
+import tarfile
 from io import BytesIO
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+log = logging.getLogger(__name__)
+URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
-URL = "https://github.com/kevoreilly/community/archive/{0}.zip"
-
-def download_archive(filepath):
+def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
         data = open(filepath, "rb").read()
     else:
@@ -31,76 +31,73 @@ def download_archive(filepath):
         try:
             http = urllib3.PoolManager()
             data = http.request('GET', URL).data
+            t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
             sys.exit(-1)
 
-    zip_data = BytesIO()
-    zip_data.write(data)
-    archive = ZipFile(zip_data, "r")
-    temp_dir = tempfile.mkdtemp()
-    archive.extractall(temp_dir)
-    archive.close()
-    final_dir = os.path.join(temp_dir, os.listdir(temp_dir)[0])
-
-    return temp_dir, final_dir
-
-
-def install(enabled, force, rewrite, filepath):
-    (temp, source) = download_archive(filepath)
-
     folders = {
-        "feeds": os.path.join("modules", "feeds"),
-        "signatures": os.path.join("modules", "signatures"),
-        "processing": os.path.join("modules", "processing"),
-        "reporting": os.path.join("modules", "reporting"),
-        "machinery": os.path.join("modules", "machinery"),
+        "feeds": "modules/feeds",
+        "signatures": "modules/sigantures",
+        "processing": "modules/processing",
+        "reporting":  "modules/reporting",
+        "machinery":  "modules/machinery",
         "analyzer": "analyzer",
         "data": "data",
     }
+
+    members = t.getmembers()
+    directory = members[0].name.split("/")[0]
 
     for category in enabled:
         folder = folders.get(category, False)
         if not folder:
             continue
+
         print("\nInstalling {0}".format(colors.cyan(category.upper())))
+        for _, outfolder in folders.items():
 
-        origin = os.path.join(source, folder)
-
-        for file_name in os.listdir(origin):
-            if file_name == ".gitignore":
-                continue
-
-            destination = os.path.join(CUCKOO_ROOT, folder, file_name)
-
-            if not rewrite:
-                if os.path.exists(destination):
-                    print("File \"{0}\" already exists, "
-                          "{1}".format(file_name, colors.yellow("skipped")))
+            # E.g., "community-master/modules/signatures".
+            name_start = "%s/%s" % (directory, outfolder)
+            for member in members:
+                if not member.name.startswith(name_start) or name_start == member.name:
                     continue
 
-            install = False
+                filepath = os.path.join(CUCKOO_ROOT, outfolder, member.name[len(name_start)+1:])
+                if member.name.endswith(".gitignore"):
+                    continue
 
-            if not force:
-                while 1:
-                    choice = input("Do you want to install file "
-                                       "\"{0}\"? [yes/no] ".format(file_name))
-                    if choice.lower() == "yes":
-                        install = True
-                        break
-                    elif choice.lower() == "no":
-                        break
-                    else:
+                if member.isdir():
+                    if not os.path.exists(filepath):
+                        os.mkdir(filepath)
+                    continue
+
+                if not rewrite:
+                    if os.path.exists(filepath):
+                        print("File \"{0}\" already exists, {1}".format(filepath, colors.yellow("skipped")))
                         continue
-            else:
-                install = True
 
-            if install:
-                shutil.copy(os.path.join(origin, file_name), destination)
-                print("File \"{0}\" {1}".format(file_name,
-                                                colors.green("installed")))
+                install = False
+                dest_file = os.path.basename(filepath)
+                if not force:
+                    while 1:
+                        choice = input("Do you want to install file " "\"{0}\"? [yes/no] ".format(dest_file))
+                        if choice.lower() == "yes":
+                            install = True
+                            break
+                        elif choice.lower() == "no":
+                            break
+                        else:
+                            continue
+                else:
+                    install = True
 
-    shutil.rmtree(temp)
+                if install:
+                    if not os.path.exists(os.path.dirname(filepath)):
+                        os.makedirs(os.path.dirname(filepath))
+
+                    print("File \"{0}\" {1}".format(filepath, colors.green("installed")))
+                    open(filepath, "wb").write(t.extractfile(member).read())
 
 def main():
     global URL
@@ -114,15 +111,13 @@ def main():
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
     parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
     parser.add_argument("-data", "--data", help="Download data things", action="store_true", required=False)
-    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", required=False)
+    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
     parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
     args = parser.parse_args()
 
-    enabled = []
-    force = True if args.force else False
-    rewrite = True if args.rewrite else False
+    URL = URL.format(args.branch)
 
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
@@ -147,9 +142,7 @@ def main():
         parser.print_help()
         return
 
-    URL = URL.format(args.branch)
-
-    install(enabled, force, rewrite, args.file)
+    install(enabled, args.force, args.rewrite, args.file)
 
 if __name__ == "__main__":
     try:

@@ -65,6 +65,21 @@ Note: machine is optional.</pre></td>
               <td colspan="5"><pre>curl -F url="somebadness.tld" {{ config.api.url }}/api/tasks/create/url/</pre></td>
             </tr>
             <tr>
+                <td>Download file and Create file task aka dl'n'exec</td>
+                {% if config.dlnexeccreate.enabled %}
+                <td><span class="label label-success">Yes</span></td>
+                {% else %}
+                <td><span class="label label-danger">No</span></td>
+                {% endif %}
+                <td><ul><li>RPS: {{ config.dlnexeccreate.rps }}</li>
+                        <li>RPM: {{ config.dlnexeccreate.rpm }}</li></ul></td>
+                <td>Submit a URL it will download and add as file task to be analyzed by Cuckoo. Return object will be JSON.</td>
+                <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#dlnexeccreate">Example</a></td>
+            </tr>
+            <tr class="collapse" id="dlnexeccreate">
+              <td colspan="5"><pre>curl -X POST -F POST="somebadness.tld/supermalware.exe" {{ config.api.url }}/api/tasks/create/dlnexec/</pre></td>
+            </tr>
+            <tr>
                 <td>File View</td>
                 {% if config.fileview.enabled %}
                 <td><span class="label label-success">Yes</span></td>

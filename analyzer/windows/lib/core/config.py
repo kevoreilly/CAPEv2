@@ -42,7 +42,7 @@ class Config:
             # Split the options by comma.
             fields = self.options.split(",")
             for field in fields:
-               try:
+                try:
                     key, value = field.split("=", 1)
                 except ValueError as e:
                     pass

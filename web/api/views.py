@@ -1309,8 +1309,7 @@ def tasks_iocs(request, task_id, detail=None):
         resp = {"error": True, "error_value": "Sample not found in database"}
         return jsonize(resp, response=True)
     if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%s" % task_id, "reports", "report.json")
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
         with open(jfile, "r") as jdata:
             buf = json.load(jdata)
     if not buf:
@@ -1319,10 +1318,8 @@ def tasks_iocs(request, task_id, detail=None):
         return jsonize(resp, response=True)
 
     data = {}
-    if "tr_extractor" in buf:
-        data["tr_extractor"] = buf["tr_extractor"]
-    if "certs" in buf:
-        data["certs"] = buf["certs"]
+    #if "certs" in buf:
+    #    data["certs"] = buf["certs"]
     data["detections"] = buf.get("detections")
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
@@ -1334,16 +1331,19 @@ def tasks_iocs(request, task_id, detail=None):
         del data["info"]["machine"]["label"]
         del data["info"]["machine"]["id"]
     data["signatures"] = []
+    """
     # Grab sigs
     for sig in buf["signatures"]:
         del sig["alert"]
         data["signatures"].append(sig)
+    """
     # Grab target file info
     if "target" in list(buf.keys()):
         data["target"] = buf["target"]
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
+
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:
         data["network"]["traffic"] = {}
@@ -1371,6 +1371,7 @@ def tasks_iocs(request, task_id, detail=None):
                 tmpfile["sha512"] = surifile["file_info"]["sha512"]
                 del tmpfile["file_info"]
                 data["network"]["ids"]["files"].append(tmpfile)
+
     data["static"] = {}
     if "static" in list(buf.keys()):
         pe = {}

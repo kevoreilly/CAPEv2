@@ -1159,16 +1159,17 @@ def search(request):
             term = ""
             value = request.POST["search"].strip()
 
-        if term:
-            # Check on search size. But malscore can be a single digit number.
-            if term != "malscore" and len(value) < 3:
-                return render(request, "analysis/search.html",
-                                          {"analyses": None,
-                                           "term": request.POST["search"],
-                                           "error": "Search term too short, minimum 3 characters required"})
-            # name:foo or name: foo
-            value = value.lstrip()
-            term = term.lower()
+
+        # Check on search size. But malscore can be a single digit number.
+        if term != "malscore" and len(value) < 3:
+            return render(request, "analysis/search.html",
+                    {"analyses": None,
+                    "term": request.POST["search"],
+                    "error": "Search term too short, minimum 3 characters required"})
+
+        # name:foo or name: foo
+        value = value.lstrip()
+        term = term.lower()
 
         if not term:
             value = value.lower()
@@ -1201,7 +1202,7 @@ def search(request):
                                            "error": "Unable to recognize the search syntax"})
 
         analyses = []
-        for result in records:
+        for result in records or []:
             new = None
             if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
                 new = get_analysis_info(db, id=int(result["_source"]["task_id"]))

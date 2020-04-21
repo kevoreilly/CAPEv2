@@ -462,7 +462,7 @@ def index(request, resubmit_hash=False):
                 task_machines = [vm.name for vm in db.list_machines(platform="windows")]
             elif machine:
                 machine_details = db.view_machine(machine)
-                if not machine_details.platform == "windows":
+                if hasattr(machine_details, "platform") and not machine_details.platform == "windows":
                     return render(request, "error.html",
                                   {"error": "Wrong platform, linux VM selected for {} sample".format(
                                       machine_details.platform)})

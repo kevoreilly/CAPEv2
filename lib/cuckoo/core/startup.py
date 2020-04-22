@@ -268,7 +268,11 @@ def init_rooter():
     connect to it."""
 
     # The default configuration doesn't require the rooter to be ran.
-    if not routing.vpn.enabled and routing.routing.route == "none":
+    if not routing.vpn.enabled and \
+            not routing.tor.enabled and \
+            not routing.inetsim.enabled and \
+            not routing.socks5.enabled and \
+            routing.routing.route == "none":
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -302,6 +306,8 @@ def init_rooter():
             )
 
         raise CuckooStartupError("Unknown rooter error: %s" % e)
+
+    rooter("cleanup_rooter")
 
     # Do not forward any packets unless we have explicitly stated so.
     rooter("forward_drop")

@@ -6,6 +6,7 @@
 from __future__ import absolute_import
 import os
 import sys
+import signal
 import argparse
 import grp
 import json
@@ -29,14 +30,46 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.INFO)
 
+class s(object):
+    iptables = None
+    iptables_save = None
+    iptables_restore = None
+    ip = None
 
 def run(*args):
     """Wrapper to Popen."""
-    if settings.verbose:
-        log.debug((args))
+    log.debug("Running command: %s", " ".join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = p.communicate()
     return stdout, stderr
+
+def run_iptables(*args):
+    iptables_args = [s.iptables]
+    iptables_args.extend(list(args))
+    iptables_args.extend(["-m", "comment", "--comment", "CAPE-rooter"])
+    return run(*iptables_args)
+
+def cleanup_rooter():
+    """Filter out all CAPE rooter entries from iptables-save and
+    restore the resulting ruleset."""
+    stdout = False
+    try:
+        stdout, _ = run(s.iptables_save)
+    except OSError as e:
+        log.error("Failed to clean CAPE rooter rules. Is iptables-save available? %s", e)
+        return
+
+    if not stdout:
+        return
+
+    cleaned = []
+    for l in stdout.split("\n"):
+        if l and "CAPE-rooter" not in l:
+            cleaned.append(l)
+
+    p = subprocess.Popen([s.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)
+    p.communicate(input="\n".join(cleaned))
+
 
 def nic_available(interface):
     """Check if specified network interface is available."""
@@ -80,28 +113,26 @@ def vpn_disable(name):
 
 def forward_drop():
     """Disable any and all forwarding unless explicitly said so."""
-    run(settings.iptables, "-P", "FORWARD", "DROP")
+    run_iptables("-P", "FORWARD", "DROP")
 
 def state_enable():
     """Enable stateful connection tracking."""
-    run(settings.iptables, "-A", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+    run_iptables("-A", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
 
 def state_disable():
     """Disable stateful connection tracking."""
     while True:
-        _, err = run(settings.iptables, "-D", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+        _, err = run_iptables("-D", "INPUT", "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT")
         if err:
             break
 
 def enable_nat(interface):
     """Enable NAT on this interface."""
-    run(settings.iptables, "-t", "nat", "-A", "POSTROUTING",
-        "-o", interface, "-j", "MASQUERADE")
+    run_iptables("-t", "nat", "-A", "POSTROUTING", "-o", interface, "-j", "MASQUERADE")
 
 def disable_nat(interface):
     """Disable NAT on this interface."""
-    run(settings.iptables, "-t", "nat", "-D", "POSTROUTING",
-        "-o", interface, "-j", "MASQUERADE")
+    run_iptables("-t", "nat", "-D", "POSTROUTING", "-o", interface, "-j", "MASQUERADE")
 
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
@@ -128,22 +159,16 @@ def forward_enable(src, dst, ipaddr):
     # Delete libvirt's default FORWARD REJECT rules. e.g.:
     # -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
     # -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
-    run(settings.iptables, "-D", "FORWARD", "-i", src, "-j", "REJECT")
-    run(settings.iptables, "-D", "FORWARD", "-o", src, "-j", "REJECT")
-    run(settings.iptables, "-A", "FORWARD", "-i", src, "-o", dst,
-        "--source", ipaddr, "-j", "ACCEPT")
-    run(settings.iptables, "-A", "FORWARD", "-i", dst, "-o", src,
-        "--destination", ipaddr, "-j", "ACCEPT")
-
+    run_iptables("-D", "FORWARD", "-i", src, "-j", "REJECT")
+    run_iptables("-D", "FORWARD", "-o", src, "-j", "REJECT")
+    run_iptables("-A", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
+    run_iptables("-A", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
 
 def forward_disable(src, dst, ipaddr):
     """Disable forwarding of a specific IP address from one interface into
     another."""
-    run(settings.iptables, "-D", "FORWARD", "-i", src, "-o", dst,
-        "--source", ipaddr, "-j", "ACCEPT")
-    run(settings.iptables, "-D", "FORWARD", "-i", dst, "-o", src,
-        "--destination", ipaddr, "-j", "ACCEPT")
-
+    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
+    run_iptables("-D", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
 
 def srcroute_enable(rt_table, ipaddr):
     """Enable routing policy for specified source IP address."""
@@ -157,11 +182,11 @@ def srcroute_disable(rt_table, ipaddr):
 
 def dns_forward(action, vm_ip, dns_ip, dns_port="53"):
     """Route DNS requests from the VM to a custom DNS on a separate network."""
-    run(settings.iptables, "-t", "nat", action, "PREROUTING", "-p", "tcp",
+    run_iptables("-t", "nat", action, "PREROUTING", "-p", "tcp",
         "--dport", "53", "--source", vm_ip, "-j", "DNAT",
         "--to-destination", "%s:%s" % (dns_ip, dns_port))
 
-    run(settings.iptables, "-t", "nat", action, "PREROUTING", "-p", "udp",
+    run_iptables("-t", "nat", action, "PREROUTING", "-p", "udp",
         "--dport", "53", "--source", vm_ip, "-j", "DNAT",
         "--to-destination", "%s:%s" % (dns_ip, dns_port))
 
@@ -190,85 +215,69 @@ def inetsim_enable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     """Enable hijacking of all traffic and send it to InetSIM."""
     log.info("Enabling inetsim route.")
     inetsim_redirect_port("-A", ipaddr, inetsim_ip, ports)
-    run(settings.iptables, "-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
+    run_iptables("-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "DNAT",
         "--to-destination", "{}".format(inetsim_ip))
-    run(settings.iptables, "-A", "OUTPUT", "-m", "conntrack", "--ctstate",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-A", "OUTPUT", "-m", "state", "--state",
-        "INVALID", "-j", "DROP")
+    run_iptables("-A", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
+    run_iptables("-A", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
     dns_forward("-A", ipaddr, inetsim_ip, dns_port)
-    run(settings.iptables, "-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    run_iptables("-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 def inetsim_disable(ipaddr, inetsim_ip, dns_port, resultserver_port, ports):
     """Disable hijacking of all traffic and send it to InetSIM."""
     log.info("Disabling inetsim route.")
     inetsim_redirect_port("-D", ipaddr, inetsim_ip, ports)
-    run(settings.iptables, "-D", "PREROUTING", "-t", "nat", "--source", ipaddr,
+    run_iptables("-D", "PREROUTING", "-t", "nat", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "DNAT",
         "--to-destination", "{}".format(inetsim_ip))
-    run(settings.iptables, "-D", "OUTPUT", "-m", "conntrack", "--ctstate",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-D", "OUTPUT", "-m", "state", "--state",
-        "INVALID", "-j", "DROP")
+    run_iptables("-D", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
+    run_iptables("-D", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
     dns_forward("-D", ipaddr, inetsim_ip, dns_port)
-    run(settings.iptables, "-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 def socks5_enable(ipaddr, resultserver_port, dns_port, proxy_port):
     """Enable hijacking of all traffic and send it to socks5."""
     log.info("Enabling socks route.")
-    run(settings.iptables, "-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
+    run_iptables("-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "REDIRECT",
         "--to-ports", proxy_port)
-    run(settings.iptables, "-I", "1", "OUTPUT", "-m", "conntrack", "--ctstate",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-I", "2", "OUTPUT", "-m", "state", "--state",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-t", "nat", "-A", "PREROUTING", "-p", "tcp",
-        "--dport", "53", "--source", ipaddr, "-j", "REDIRECT",
-        "--to-ports", dns_port)
-    run(settings.iptables, "-t", "nat", "-A", "PREROUTING", "-p", "udp",
-        "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports",
-        dns_port)
-    run(settings.iptables, "-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    run_iptables("-I", "1", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
+    run_iptables("-I", "2", "OUTPUT", "-m", "state", "--state",  "INVALID", "-j", "DROP")
+    run_iptables("-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port)
+    run_iptables("-t", "nat", "-A", "PREROUTING", "-p", "udp",  "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port)
+    run_iptables("-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 def socks5_disable(ipaddr, resultserver_port, dns_port, proxy_port):
     """Enable hijacking of all traffic and send it to socks5."""
     log.info("Disabling socks route.")
-    run(settings.iptables, "-t", "nat", "-D", "PREROUTING", "--source", ipaddr,
+    run_iptables("-t", "nat", "-D", "PREROUTING", "--source", ipaddr,
         "-p", "tcp", "--syn", "!", "--dport", resultserver_port, "-j", "REDIRECT",
         "--to-ports", proxy_port)
-    run(settings.iptables, "-D", "OUTPUT", "-m", "conntrack", "--ctstate",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-D", "OUTPUT", "-m", "state", "--state",
-        "INVALID", "-j", "DROP")
-    run(settings.iptables, "-t", "nat", "-D", "PREROUTING", "-p", "tcp",
-        "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports",
-        dns_port)
-    run(settings.iptables, "-t", "nat", "-D", "PREROUTING", "-p", "udp",
-        "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports",
-        dns_port)
-    run(settings.iptables, "-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    run_iptables("-D", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
+    run_iptables("-D", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
+    run_iptables("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port)
+    run_iptables("-t", "nat", "-D", "PREROUTING", "-p", "udp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port)
+    run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 def drop_enable(ipaddr, resultserver_port):
-  run(settings.iptables, "-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
+  run_iptables("-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
       "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
-  run(settings.iptables, "-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run(settings.iptables, "-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  run(settings.iptables, "-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run(settings.iptables, "-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+  run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+  run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
   #run(settings.iptables, "-A", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
-  run(settings.iptables, "-A", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
+  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
 
 def drop_disable(ipaddr, resultserver_port):
   run(settings.iptables , "-t", "nat", "-D", "PREROUTING", "--source", ipaddr,
       "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
-  run(settings.iptables, "-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run(settings.iptables, "-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  run(settings.iptables, "-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run(settings.iptables, "-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+  run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+  run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
   #run(settings.iptables, "-D", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
-  run(settings.iptables, "-D", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
+  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
 
 
 handlers = {
@@ -294,21 +303,17 @@ handlers = {
     "socks5_disable": socks5_disable,
     "drop_enable": drop_enable,
     "drop_disable": drop_disable,
+    "cleanup_rooter": cleanup_rooter,
 }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("socket", nargs="?", default="/tmp/cuckoo-rooter",
-                        help="Unix socket path")
-    parser.add_argument("-g", "--group", default="cuckoo",
-                        help="Unix socket group")
-    parser.add_argument("--systemctl", default="/bin/systemctl",
-                        help="Systemctl wrapper script for invoking OpenVPN")
-    parser.add_argument("--iptables", default="/sbin/iptables",
-                        help="Path to iptables")
+    parser.add_argument("socket", nargs="?", default="/tmp/cuckoo-rooter", help="Unix socket path")
+    parser.add_argument("-g", "--group", default="cuckoo",  help="Unix socket group")
+    parser.add_argument("--systemctl", default="/bin/systemctl", help="Systemctl wrapper script for invoking OpenVPN")
+    parser.add_argument("--iptables", default="/sbin/iptables", help="Path to iptables")
     parser.add_argument("--ip", default="/sbin/ip", help="Path to ip")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Enable verbose logging")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     settings = parser.parse_args()
 
     if settings.verbose:
@@ -347,7 +352,28 @@ if __name__ == "__main__":
     os.chown(settings.socket, 0, gr.gr_gid)
     os.chmod(settings.socket, stat.S_IRUSR | stat.S_IWUSR | stat.S_IWGRP)
 
-    while True:
+    # Initialize global variables.
+    s.iptables = settings.iptables
+    s.iptables_save = "/sbin/iptables-save"
+    s.iptables_restore = "/sbin/iptables-restore"
+    s.ip = settings.ip
+
+    # Simple object to allow a signal handler to stop the rooter loop
+
+    class Run(object):
+        def __init__(self):
+            self.run = True
+    do = Run()
+
+    def handle_sigterm(sig, f):
+        do.run = False
+        server.shutdown(socket.SHUT_RDWR)
+        server.close()
+        cleanup_rooter()
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
+    while do.run:
         try:
             command, addr = server.recvfrom(4096)
         except socket.error as e:
@@ -389,14 +415,12 @@ if __name__ == "__main__":
                     " ".join("%s=%s" % (k, v) for k, v in kwargs.items())
                 )
 
-            e = None
+            error = None
             output = None
             try:
                 output = handlers[command](*args, **kwargs)
             except Exception as e:
-                log.exception("Error executing command")
-            server.sendto(json.dumps({
-                "output": output,
-                "exception": str(e) if e else None,
-            }).encode("utf-8"), addr)
+                log.exception("Error executing command: {}".format(command))
+                error = str(e)
+            server.sendto(json.dumps({ "output": output, "exception": error, }).encode("utf-8"), addr)
 

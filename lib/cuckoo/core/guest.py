@@ -355,7 +355,7 @@ class GuestManager(object):
         while db.guest_get_status(self.task_id) == "running" and self.do_run:
             if count >= 5:
                 log.debug(
-                    "%s: analysis #%s still processing", self.vmid,
+                    "%s: analysis #%s is still running", self.vmid,
                     self.task_id
                 )
                 count = 0

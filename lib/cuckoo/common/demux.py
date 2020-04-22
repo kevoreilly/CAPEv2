@@ -33,7 +33,7 @@ demux_extensions_list = [
     b".html", b".hta", b".doc", b".dot", b".docx", b".dotx", b".docm", b".dotm", b".docb", b".mht", b".mso", b".js", b".jse",
     b".vbs", b".vbe", b".xls", b".xlt", b".xlm", b".xlsx", b".xltx", b".xlsm", b".xltm", b".xlsb", b".xla", b".xlam", b".xll",
     b".xlw", b".ppt", b".pot", b".pps", b".pptx", b".pptm", b".potx", b".potm", b".ppam", b".ppsx", b".ppsm", b".sldx", b".sldm",
-    b".wsf", b".bat", b".ps1", b".sh", b".pl",
+    b".wsf", b".bat", b".ps1", b".sh", b".pl", b".lnk"
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")

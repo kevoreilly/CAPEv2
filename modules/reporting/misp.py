@@ -169,6 +169,10 @@ class MISP(Report):
         @return: MISP results dict.
         """
 
+        if pymisp.__version__ != '2.4.117.3':
+            log.warning("Unsuported version of pymisp detected, please install pymisp=2.4.117.3 or upgrade this code for latest pymisp")
+            return
+
         url = self.options.get("url", "")
         apikey = self.options.get("apikey", "")
 

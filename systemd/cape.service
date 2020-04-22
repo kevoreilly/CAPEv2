@@ -1,5 +1,5 @@
 [Unit]
-Description=Cuckoo
+Description=CAPE
 Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]

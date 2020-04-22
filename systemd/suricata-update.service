@@ -5,7 +5,7 @@ Description=suricata-update
 User=root
 Group=root
 Type=oneshot
-ExecStart=/opt/CAPEv2/venv/bin/suricata-update
+ExecStart=suricata-update
 
 [Install]
 WantedBy=multi-user.target

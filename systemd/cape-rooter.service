@@ -1,5 +1,5 @@
 [Unit]
-Description=Cuckoo rooter
+Description=CAPE rooter
 Documentation=https://github.com/kevoreilly/CAPEv2
 Wants=network-online.target
 After=syslog.target network.target
@@ -7,7 +7,6 @@ After=syslog.target network.target
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
 ExecStart=/usr/bin/python3 rooter.py -g cape
-#ExecStart=/opt/CAPE/venv/bin/python3 /opt/CAPE/utils/rooter.py
 User=root
 Group=root
 Restart=always

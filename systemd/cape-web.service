@@ -1,5 +1,5 @@
 [Unit]
-Description=Cuckoo WSGI app
+Description=CAPE WSGI app
 Documentation=https://github.com/kevoreilly/CAPEv2
 Wants=cape.service
 After=cape.service

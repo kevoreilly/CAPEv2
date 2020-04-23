@@ -67,10 +67,11 @@ class Sysmon(Processing):
         )
 
         sysmon_path = "%s/sysmon/sysmon.xml" % self.analysis_path
-        data = None
-        if not os.path.exists(sysmon_path) or not os.path.getsize(sysmon_path):
+
+        if not os.path.exists(sysmon_path) or os.path.getsize(sysmon_path) < 100:
             return
 
+        data = None
         try:
             tree = ET.parse(sysmon_path)
             root = tree.getroot()
@@ -82,5 +83,4 @@ class Sysmon(Processing):
             return
 
         data = self.remove_noise(data)
-        log.debug(data)
         return data

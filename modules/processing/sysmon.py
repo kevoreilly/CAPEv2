@@ -66,13 +66,17 @@ class Sysmon(Processing):
             "%s/sysmon/sysmon.xml" % self.analysis_path
         )
 
+        sysmon_path = "%s/sysmon/sysmon.xml" % self.analysis_path
         data = None
+        if not os.path.exists(sysmon_path) or not os.path.getsize(sysmon_path):
+            return
+
         try:
-            tree = ET.parse("%s/sysmon/sysmon.xml" % self.analysis_path)
+            tree = ET.parse(sysmon_path)
             root = tree.getroot()
             data = parseXmlToJson(root.attrib)
         except Exception as e:
-            raise CuckooProcessingError("Failed parsing sysmon.xml with ET: %s" % e.message)
+            raise CuckooProcessingError("Failed parsing sysmon.xml with ET: %s" % e)
 
         if root is False:
             return

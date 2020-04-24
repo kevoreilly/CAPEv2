@@ -42,7 +42,7 @@ cape_package_list = [
     "Debugger", "Debugger_dll", "Debugger_doc", "DumpOnAPI", "Doppelganging", "Emotet", "Emotet_doc", "EvilGrab", "Extraction", "Extraction_dll",
     "Extraction_regsvr", "Extraction_zip", "Extraction_ps1", "Extraction_jar", "Extraction_pdf", "Extraction_js",
     "Hancitor", "Hancitor_dll", "Hancitor_doc", "IcedID", "Injection", "Injection_dll", "Injection_doc", "Injection_pdf", "Injection_zip",
-    "Injection_ps1", "Injection_js", "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "QakBot", "RegBinary",
+    "Injection_ps1", "Injection_js", "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
     "Sedreco", "Sedreco_dll", "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
 ]
 
@@ -143,156 +143,14 @@ class SubmitCAPE(Report):
 
             return
 
-        if cape_yara["name"] == "Sedreco" and 'Sedreco' not in detections:
-            encrypt1 = cape_yara["addresses"].get("encrypt1")
-            encrypt2 = cape_yara["addresses"].get("encrypt2")
-            encrypt64_1 = cape_yara["addresses"].get("encrypt64_1")
-            if encrypt1:
-                self.task_options_stack.append(
-                    "CAPE_var1={0}".format(encrypt1))
-            if encrypt2:
-                self.task_options_stack.append(
-                    "CAPE_var2={0}".format(encrypt2))
-            if encrypt64_1:
-                self.task_options_stack.append(
-                    "CAPE_var3={0}".format(encrypt64_1))
-            detections.add('Sedreco')
-
-        if cape_yara["name"] == "Cerber":
-            detections.add('Cerber')
-
-        if cape_yara["name"] == "Ursnif":
-            decrypt_config64 = cape_yara["addresses"].get("decrypt_config64")
-            decrypt_config32 = cape_yara["addresses"].get("decrypt_config32")
-            if decrypt_config64:
-                for item in self.task_options_stack:
-                    if 'bp0' in item:
-                        self.task_options_stack.remove(item)
-                self.task_options_stack.append(
-                    "bp0={0}".format(decrypt_config64))
-                detections.add('Ursnif')
-            elif decrypt_config32:
-                if not any('bp0' in s for s in self.task_options_stack):
-                    self.task_options_stack.append(
-                        "bp0={0}".format(decrypt_config32))
-                    detections.add('Ursnif')
-
-            crypto64_1 = cape_yara["addresses"].get("crypto64_1")
-            crypto32_1 = cape_yara["addresses"].get("crypto32_1")
-            if crypto64_1:
-                for item in self.task_options_stack:
-                    if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                ret_address = int(crypto64_1)
-                self.task_options_stack.append(
-                    "bp1={0}".format(str(ret_address)))
-                detections.add('Ursnif')
-            elif crypto32_1:
-                if not any('bp1' in s for s in self.task_options_stack):
-                    ret_address = int(crypto32_1)
-                    self.task_options_stack.append(
-                        "bp1={0}".format(str(ret_address)))
-                    detections.add('Ursnif')
-
-            crypto64_2 = cape_yara["addresses"].get("crypto64_2")
-            crypto32_2 = cape_yara["addresses"].get("crypto32_2")
-            if crypto64_2:
-                for item in self.task_options_stack:
-                    if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                ret_address = int(crypto64_2)
-                self.task_options_stack.append(
-                    "bp1={0}".format(str(ret_address)))
-                detections.add('Ursnif')
-            elif crypto32_2:
-                if not any('bp1' in s for s in self.task_options_stack):
-                    ret_address = int(crypto32_2)
-                    self.task_options_stack.append(
-                        "bp1={0}".format(str(ret_address)))
-                    detections.add('Ursnif')
-
-            crypto64_3 = cape_yara["addresses"].get("crypto64_3")
-            crypto32_3 = cape_yara["addresses"].get("crypto32_3")
-            if crypto64_3:
-                for item in self.task_options_stack:
-                    if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                ret_address = int(crypto64_3)
-                self.task_options_stack.append(
-                    "bp1={0}".format(str(ret_address)))
-                detections.add('Ursnif')
-            elif crypto32_3:
-                if not any('bp1' in s for s in self.task_options_stack):
-                    ret_address = int(crypto32_3)
-                    self.task_options_stack.append(
-                        "bp1={0}".format(str(ret_address)))
-                    detections.add('Ursnif')
-
-            crypto64_4 = cape_yara["addresses"].get("crypto64_4")
-            crypto32_4 = cape_yara["addresses"].get("crypto32_4")
-            if crypto64_4:
-                for item in self.task_options_stack:
-                    if 'bp1' in item:
-                        self.task_options_stack.remove(item)
-                ret_address = int(crypto64_4)
-                self.task_options_stack.append(
-                    "bp1={0}".format(str(ret_address)))
-                detections.add('Ursnif')
-            elif crypto32_4:
-                if not any('bp1' in s for s in self.task_options_stack):
-                    ret_address = int(crypto32_4)
-                    self.task_options_stack.append(
-                        "bp1={0}".format(str(ret_address)))
-                    detections.add('Ursnif')
-
         if cape_yara["name"] == "TrickBot":
             detections.add('TrickBot')
 
         if cape_yara["name"] == "Hancitor":
             detections.add('Hancitor')
 
-        if cape_yara["name"] == "QakBot":
-            anti_sandbox = cape_yara["addresses"].get("anti_sandbox")
-            if anti_sandbox:
-                anti_sandbox = anti_sandbox + 19  # Offset of "JLE" instruction from Yara hit
-                for item in self.task_options_stack:
-                    if 'bp0' in item:
-                        self.task_options_stack.remove(item)
-                self.task_options_stack.append("bp0={0}".format(anti_sandbox))
-            decrypt_config = cape_yara["addresses"].get("decrypt_config1")
-            if decrypt_config:
-                decrypt_config = decrypt_config +  16  # Offset of "CALL" (decrypt)
-                duplicate = False
-                bp1_set = False
-                bp2_set = False
-                for item in self.task_options_stack:
-                    if format(decrypt_config) in item:
-                        duplicate = True
-                    if 'bp1' in item:
-                            bp1_set = True
-                    if 'bp2' in item:
-                        bp2_set = True
-                if not duplicate and not bp1_set:
-                    self.task_options_stack.append("bp1={0}".format(decrypt_config))
-                elif not duplicate and not bp2_set:
-                    self.task_options_stack.append("bp2={0}".format(decrypt_config))
-                    detections.add('QakBot')
-            decrypt_config = cape_yara["addresses"].get("decrypt_config2")
-            if decrypt_config:
-                decrypt_config = decrypt_config +  30  # Offset of "CALL" (decrypt)
-                for item in self.task_options_stack:
-                    if 'bp1' in item:
-                            bp1_set = True
-                    if 'bp2' in item:
-                        bp2_set = True
-                if not duplicate and not bp1_set:
-                    self.task_options_stack.append("bp1={0}".format(decrypt_config))
-                elif not duplicate and not bp2_set:
-                    self.task_options_stack.append("bp2={0}".format(decrypt_config))
-                    detections.add('QakBot')
-
-        if cape_yara["name"] == "IcedID":
-            detections.add('IcedID')
+        #if cape_yara["name"] == "IcedID":
+        #    detections.add('IcedID')
 
         if cape_yara["name"] == "Emotet_Loader":
             detections.add('Emotet')
@@ -468,11 +326,8 @@ class SubmitCAPE(Report):
                 package = 'Emotet'
 
         elif parent_package == 'exe' or parent_package == 'Extraction':
-            if 'QakBot' in detections:
-                package = 'QakBot'
-
-            if 'IcedID' in detections:
-                package = 'IcedID'
+            #if 'IcedID' in detections:
+            #    package = 'IcedID'
 
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and 'procdump=1' in self.task_options:

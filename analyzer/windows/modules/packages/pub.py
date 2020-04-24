@@ -12,6 +12,11 @@ from winreg import (OpenKey, CreateKeyEx, SetValueEx, CloseKey, QueryInfoKey, En
 
 class PUB(Package):
     """Word analysis package."""
+    def __init__(self, options={}, config=None):
+        self.config = config
+        self.options = options
+        self.options["exclude-apis"] = "memcpy"
+
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "MSPUB.EXE"),

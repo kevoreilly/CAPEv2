@@ -260,24 +260,24 @@ def socks5_disable(ipaddr, resultserver_port, dns_port, proxy_port):
     run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
 
 def drop_enable(ipaddr, resultserver_port):
-  run_iptables("-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
-      "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
-  run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  #run(settings.iptables, "-A", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
-  run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
+    run_iptables("-t", "nat", "-I", "PREROUTING", "--source", ipaddr,
+        "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
+    run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+    run_iptables("-A", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+    run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+    run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+    #run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
+    run_iptables("-A", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
 
 def drop_disable(ipaddr, resultserver_port):
-  run(settings.iptables , "-t", "nat", "-D", "PREROUTING", "--source", ipaddr,
-      "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
-  run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
-  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
-  #run(settings.iptables, "-D", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
-  run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
+    run_iptables("-t", "nat", "-D", "PREROUTING", "--source", ipaddr,
+        "-p", "tcp", "--syn", "--dport", resultserver_port, "-j", "ACCEPT")
+    run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+    run_iptables("-D", "INPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+    run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--dport", "8000", "-j", "ACCEPT")
+    run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-p", "tcp", "--sport", resultserver_port, "-j", "ACCEPT")
+    #run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-j", "LOG")
+    run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
 
 
 handlers = {

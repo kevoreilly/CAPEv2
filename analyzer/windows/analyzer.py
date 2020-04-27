@@ -916,6 +916,7 @@ class CommandPipeHandler(object):
 
     def _handle_loaded(self, data):
         #LOADED:2012
+        log.info("loaded: %s", data)
         """The monitor has loaded into a particular process."""
         if not data:
             log.warning("Received loaded command with incorrect parameters, "
@@ -937,7 +938,7 @@ class CommandPipeHandler(object):
             INJECT_LIST.remove(pid)
         self.analyzer.process_lock.release()
 
-        log.debug("Loaded monitor into process with pid %s", pid)
+        log.info("Loaded monitor into process with pid %s", pid)
 
     def _handle_getpids(self, data):
         """Return the process identifiers of the agent and its parent

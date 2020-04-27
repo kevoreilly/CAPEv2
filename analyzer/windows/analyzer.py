@@ -586,8 +586,9 @@ class Analyzer:
                                 log.info("Process with pid %s has terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
-                            else:
-                                log.info("process not alive")
+                            # ToDo: fix this meessage being spammed in error
+                            #else:
+                            #    log.info("process not alive")
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.

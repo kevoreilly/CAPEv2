@@ -203,7 +203,7 @@ class MISP(Report):
                     malfamily = results["detections"]
 
                 response = self.misp.search("attributes", value=results["target"]["file"]["sha256"], return_format="json", pythonify=True)
-                if response.get("Attribute", []):
+                if response:
                     event = self.misp.get_event(response[0].event_id, pythonify=True)
                 else:
                     event = MISPEvent()

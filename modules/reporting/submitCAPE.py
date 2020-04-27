@@ -325,9 +325,9 @@ class SubmitCAPE(Report):
             elif parent_package in ('exe', 'Extraction'):
                 package = 'Emotet'
 
-        elif parent_package == 'exe' or parent_package == 'Extraction':
-            #if 'IcedID' in detections:
-            #    package = 'IcedID'
+        #elif parent_package == 'exe' or parent_package == 'Extraction':
+        #    if 'IcedID' in detections:
+        #        package = 'IcedID'
 
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and 'procdump=1' in self.task_options:

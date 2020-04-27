@@ -198,7 +198,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
         except Exception as e:
             log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
-    elif not parser_loaded and cape_name in __decoders__:
+    elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         try:
             file_info = fileparser.FileParser(rawdata=file_data)
             module = __decoders__[file_info.malware_name]['obj']()

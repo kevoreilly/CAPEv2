@@ -186,7 +186,9 @@ class Process:
         """Process is alive?
         @return: process status.
         """
-        return self.exit_code() == STILL_ACTIVE
+        # ToDo: Fix this, it's broken
+        #return self.exit_code() == STILL_ACTIVE
+        return True
 
     def is_critical(self):
         """Determines if process is 'critical' or not, so we can prevent

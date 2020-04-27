@@ -2,9 +2,9 @@ import datetime
 from mwcp.parser import Parser
 
 qakbot_map = {
-    "10": "Botnet name",
-    "11": "Number of C2 servers",
-    "47": "Bot ID"
+    b'10': "Botnet name",
+    b'11': "Number of C2 servers",
+    b'47': "Bot ID"
 }
 id_map = {
     b"22": "#1",

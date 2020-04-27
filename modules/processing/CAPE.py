@@ -168,7 +168,7 @@ class CAPE(Processing):
 
         # Get the file data
         try:
-            with open(file_info["path"], "r") as file_open:
+            with open(file_info["path"], "rb") as file_open:
                 file_data = file_open.read()
                 if len(file_data) > buf:
                     file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")

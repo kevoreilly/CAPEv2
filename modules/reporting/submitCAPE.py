@@ -37,6 +37,9 @@ reporting_conf = Config("reporting")
 distributed = reporting_conf.submitCAPE.distributed
 report_key = reporting_conf.submitCAPE.keyword
 
+NUMBER_OF_DEBUG_REGISTERS = 4
+bp = 0
+
 cape_package_list = [
     "Combo", "Combo_dll", "Compression", "Compression_dll", "Compression_doc", "Compression_zip", "Compression_js", "Compression_pdf",
     "Debugger", "Debugger_dll", "Debugger_doc", "DumpOnAPI", "Doppelganging", "Emotet", "Emotet_doc", "EvilGrab", "Extraction", "Extraction_dll",
@@ -87,22 +90,57 @@ plugx = {
 
 class SubmitCAPE(Report):
     def process_cape_yara(self, cape_yara, results, detections):
-
-        if 'disable_cape=1' in self.task_options:
-            return
+        global bp
 
         if "cape_options" in cape_yara["meta"]:
-            self.task_options = self.task_options + ',disable_cape=1,file-offsets=1,' + cape_yara["meta"]["cape_options"]
-
-            yara_options = cape_yara["meta"]["cape_options"].split(',')
+            cape_options = cape_yara["meta"]["cape_options"].split(',')
 
             address = 0
-            for option in yara_options:
+            new_options = ""
+            suffix = ""
+            for option in cape_options:
                 name, value = option.split('=')
-                if value.startswith('$'):
-                    address = cape_yara["addresses"].get(value.strip('$'))
-                    if address:
-                        self.task_options = self.task_options.replace(value, str(address), 1)
+                if name == 'bp0' or name == 'br0' and bp == 0:
+                    bp = 1
+                if name == 'bp1' or name == 'br1' and bp == 1:
+                    bp = 2
+                if name == 'bp2' or name == 'br2' and bp == 2:
+                    bp = 3
+                if name == 'bp3' or name == 'br3' and bp == 3:
+                    bp = 4
+                if bp == NUMBER_OF_DEBUG_REGISTERS:
+                    break
+                if name == 'bp':
+                    if value.startswith('$'):
+                        for hit in cape_yara["addresses"]:
+                            if '-' in value:
+                                suffix = '-' + value.split('-')[1]
+                                value = value.split('-')[0]
+                            if '+' in value:
+                                suffix = '+' + value.split('+')[1]
+                                value = value.split('+')[0]
+                            if value.strip('$') in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
+                                address = cape_yara["addresses"][hit]
+                                option = 'bp{0}'.format(bp) + '=' + str(address) + suffix
+                                bp = bp + 1
+                elif name == 'br':
+                    if value.startswith('$'):
+                        for hit in cape_yara["addresses"]:
+                            if '-' in value:
+                                suffix = '-' + value.split('-')[1]
+                                value = value.split('-')[0]
+                            if '+' in value:
+                                suffix = '+' + value.split('+')[1]
+                                value = value.split('+')[0]
+                            if value.strip('$') in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
+                                address = cape_yara["addresses"][hit]
+                                option = 'br{0}'.format(bp) + '=' + str(address) + suffix
+                                bp = bp + 1
+                if option not in self.task_options:
+                    if new_options == "":
+                        new_options = option
+                    else:
+                        new_options = new_options + ',' + option
 
             if not address:
                 return
@@ -110,37 +148,22 @@ class SubmitCAPE(Report):
             if 'procdump=1' in self.task_options:
                 self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)
 
-            parent_id = int(results["info"]["id"])
-            if results.get("info", {}).get("options", {}).get("main_task_id", ""):
-                parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))
+            if 'extraction=1' in self.task_options:
+                self.task_options = self.task_options.replace(u"extraction=1", u"extraction=0", 1)
 
-            self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
-            if results.get("info", {}).get("custom"):
-                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
+            if 'file-offsets' in self.task_options:
+                self.task_options = self.task_options.replace(u"file-offsets=0", u"file-offsets=0", 1)
+            else:
+                self.task_options = self.task_options + ',file-offsets=1'
 
-            if self.task["package"] in ('Compression', 'Extraction', 'Injection'):
-                self.task["package"] = 'exe'
+            log.info("options = %s", new_options)
+            self.task_options = self.task_options + ',' + new_options
+            if 'auto=' not in self.task_options:
+                self.task_options = self.task_options + ',auto=1'
 
-            task_id = self.submit_task(
-                self.task["target"],
-                self.task["package"],
-                self.task["timeout"],
-                self.task_options,
-                self.task["priority"]+1,   # increase priority to expedite related submission
-                self.task["machine"],
-                self.task["platform"],
-                self.task["memory"],
-                self.task["enforce_timeout"],
-                None,
-                None,
-                parent_id,
-                self.task["tlp"]
-            )
-            if task_id:
-                children = []
-                children.append([task_id, self.task["package"]])
-                results["CAPE_children"] = children
+            return
 
+        if 'disable_cape=1' in self.task_options:
             return
 
         if cape_yara["name"] == "TrickBot":
@@ -236,6 +259,9 @@ class SubmitCAPE(Report):
         if not self.task_options:
             return
 
+        if 'auto=1' in self.task_options:
+            return
+
         parent_package = results["info"].get("package")
 
         # Initial static hits from CAPE's yara signatures
@@ -247,6 +273,42 @@ class SubmitCAPE(Report):
                 if "cape_yara" in file:
                     for entry in file["cape_yara"]:
                         self.process_cape_yara(entry, results, detections)
+
+        if 'auto=1' in self.task_options:
+            parent_id = int(results["info"]["id"])
+            if results.get("info", {}).get("options", {}).get("main_task_id", ""):
+                parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))
+
+            self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
+            if results.get("info", {}).get("custom"):
+                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
+
+            if self.task["package"] in ('Compression', 'Extraction', 'Injection'):
+                self.task["package"] = 'exe'
+
+            log.debug("submit_task options: %s", self.task_options)
+            task_id = self.submit_task(
+                self.task["target"],
+                self.task["package"],
+                self.task["timeout"],
+                self.task_options,
+                self.task["priority"]+1,   # increase priority to expedite related submission
+                self.task["machine"],
+                self.task["platform"],
+                self.task["memory"],
+                self.task["enforce_timeout"],
+                None,
+                None,
+                parent_id,
+                self.task["tlp"]
+            )
+            if task_id:
+                children = []
+                children.append([task_id, self.task["package"]])
+                results["CAPE_children"] = children
+
+            return
+
         if 'disable_cape=1' in self.task_options:
             return
 

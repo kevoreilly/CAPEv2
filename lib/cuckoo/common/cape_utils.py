@@ -142,33 +142,28 @@ def static_config_parsers(yara_hit, file_data, cape_config):
     if cape_name and HAS_MWCP and cape_name in malware_parsers:
         try:
             reporter = mwcp.Reporter()
-
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
-
             if not reporter.errors:
-                log.info("CAPE: Imported DC3-MWCP parser %s", cape_name)
                 parser_loaded = True
-                try:
-                    tmp_dict = dict()
-                    if reporter.metadata.get("debug"):
-                        del reporter.metadata["debug"]
-                    if reporter.metadata.get("other"):
-                        for key, value in reporter.metadata["other"].items():
-                            tmp_dict.setdefault(key, [])
-                            if value not in tmp_dict[key]:
-                                tmp_dict[key].append(value)
-                        del reporter.metadata["other"]
+                tmp_dict = dict()
+                if reporter.metadata.get("debug"):
+                    del reporter.metadata["debug"]
+                if reporter.metadata.get("other"):
+                    for key, value in reporter.metadata["other"].items():
+                        tmp_dict.setdefault(key, [])
+                        if value not in tmp_dict[key]:
+                            tmp_dict[key].append(value)
+                    del reporter.metadata["other"]
 
-                    tmp_dict.update(reporter.metadata)
+                tmp_dict.update(reporter.metadata)
 
-                    if "cape_config" not in cape_config:
-                        cape_config.setdefault("cape_config", dict())
-                        #ToDo do we really need to convert it?
-                        cape_config["cape_config"] = convert(tmp_dict)
-                    else:
-                        cape_config["cape_config"].update(convert(tmp_dict))
-                except Exception as e:
-                    log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
+                if "cape_config" not in cape_config:
+                    cape_config.setdefault("cape_config", dict())
+                    #ToDo do we really need to convert it?
+                    cape_config["cape_config"] = convert(tmp_dict)
+                else:
+                    cape_config["cape_config"].update(convert(tmp_dict))
+                log.info("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
@@ -176,8 +171,8 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                         log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
             reporter._Reporter__cleanup()
             del reporter
-        except (ImportError, IndexError, TypeError) as e:
-            log.error("MWCP Error: {}".format(e))
+        except Exception as e:
+            log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
     if not parser_loaded and cape_name in cape_malware_parsers:
         try:
@@ -232,7 +227,7 @@ def static_extraction(path):
         if any([hit["name"].endswith("_TCR") for hit in hits]):
             return True
         # Get the file data
-        with open(path, "r") as file_open:
+        with open(path, "rb") as file_open:
             file_data = file_open.read()
         for hit in hits:
             config = static_config_parsers(hit["name"], file_data, cape_config)

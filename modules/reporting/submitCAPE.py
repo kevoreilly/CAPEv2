@@ -100,42 +100,32 @@ class SubmitCAPE(Report):
             suffix = ""
             for option in cape_options:
                 name, value = option.split('=')
-                if name == 'bp0' or name == 'br0' and bp == 0:
+                if name in ('bp0', 'br0' 0):
                     bp = 1
-                if name == 'bp1' or name == 'br1' and bp == 1:
+                elif name in ('bp1', 'br1' 1):
                     bp = 2
-                if name == 'bp2' or name == 'br2' and bp == 2:
+                elif name in ('bp2', 'br2' 2):
                     bp = 3
-                if name == 'bp3' or name == 'br3' and bp == 3:
+                elif name in ('bp3', 'br3' 3):
                     bp = 4
-                if bp == NUMBER_OF_DEBUG_REGISTERS:
+                elif bp == NUMBER_OF_DEBUG_REGISTERS:
                     break
-                if name == 'bp':
-                    if value.startswith('$'):
-                        for hit in cape_yara["addresses"]:
-                            if '-' in value:
-                                suffix = '-' + value.split('-')[1]
-                                value = value.split('-')[0]
-                            if '+' in value:
-                                suffix = '+' + value.split('+')[1]
-                                value = value.split('+')[0]
-                            if value.strip('$') in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
-                                address = cape_yara["addresses"][hit]
-                                option = 'bp{0}'.format(bp) + '=' + str(address) + suffix
-                                bp = bp + 1
-                elif name == 'br':
-                    if value.startswith('$'):
-                        for hit in cape_yara["addresses"]:
-                            if '-' in value:
-                                suffix = '-' + value.split('-')[1]
-                                value = value.split('-')[0]
-                            if '+' in value:
-                                suffix = '+' + value.split('+')[1]
-                                value = value.split('+')[0]
-                            if value.strip('$') in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
-                                address = cape_yara["addresses"][hit]
-                                option = 'br{0}'.format(bp) + '=' + str(address) + suffix
-                                bp = bp + 1
+                elif name in ('bp', 'br') and value.startswith('$'):
+                    for hit in cape_yara["addresses"]:
+                        pattern = False
+                        if '-' in value:
+                            pattern = '-'
+                        elif '+' in value:
+                            pattern = '+'
+
+                        if pattern:
+                            suffix = pattern + value.split(pattern)[1]
+                            value = value.split(pattern)[0]
+
+                        if value.strip('$') in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
+                            address = cape_yara["addresses"][hit]
+                            option = '{0}{1}={2}{3}'.format(name, bp, address, suffix)
+                            bp = bp + 1
                 if option not in self.task_options:
                     if new_options == "":
                         new_options = option

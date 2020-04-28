@@ -18,7 +18,6 @@ try:
     from socks5man.exceptions import Socks5manDatabaseError
     HAVE_SOCKS5MANAGER = True
 except (ImportError, OSError) as e:
-    print(e)
     HAVE_SOCKS5MANAGER = False
 
 cfg = Config()

@@ -2028,16 +2028,16 @@ class MAEC41Report(Report):
             object_type = associated_object_dict["properties"]["xsi:type"]
             object_association_type = associated_object_dict["association_type"]["value"]
             # Check for handle objects.
-            if object_type is "WindowsHandleObjectType":
-                if object_association_type is "output":
+            if object_type == "WindowsHandleObjectType":
+                if object_association_type == "output":
                     output_handles.append(associated_object_dict)
-                elif object_association_type is "input":
+                elif object_association_type == "input":
                     input_handles.append(associated_object_dict)
             # Check for non-handle objects.
-            elif object_type is not "WindowsHandleObjectType":
-                if object_association_type is "output":
+            elif object_type != "WindowsHandleObjectType":
+                if object_association_type == "output":
                     output_objects.append(associated_object_dict)
-                elif object_association_type is "input":
+                elif object_association_type == "input":
                     input_objects.append(associated_object_dict)
         # Handle the different cases.
         # If no input/output handle, then just return the list unchanged.
@@ -2068,17 +2068,17 @@ class MAEC41Report(Report):
                 object_list = output_objects
 
             for object in object_list:
-                if "properties" in object and object["properties"]["xsi:type"] is "WindowsThreadObjectType":
+                if "properties" in object and object["properties"]["xsi:type"] == "WindowsThreadObjectType":
                     for output_handle in output_handles:
-                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] is "Thread":
+                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] == "Thread":
                             substituted_object = self.addHandleToMap(output_handle, object)
                             if substituted_object:
                                 associated_objects_list.remove(object)
                                 associated_objects_list.remove(output_handle)
                                 associated_objects_list.append(substituted_object)
-                elif "properties" in object and object["properties"]["xsi:type"] is "ProcessObjectType":
+                elif "properties" in object and object["properties"]["xsi:type"] == "ProcessObjectType":
                     for output_handle in output_handles:
-                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] is "Process":
+                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] == "Process":
                             substituted_object = self.addHandleToMap(output_handle, object)
                             if substituted_object:
                                 associated_objects_list.remove(object)
@@ -2157,7 +2157,7 @@ class MAEC41Report(Report):
         @param associated_objects_list: the list of associated_objects processed for the Action.
         """
         for associated_object in associated_objects_list:
-            if associated_object["properties"]["xsi:type"] is "WindowsRegistryKeyObjectType":
+            if associated_object["properties"]["xsi:type"] == "WindowsRegistryKeyObjectType":
                 if "hive" in associated_object["properties"] and "HKEY_" not in associated_object["properties"]["hive"]:
                     associated_object = self.processRegKeyHandle(associated_object["properties"]["hive"], associated_object)
 

@@ -151,7 +151,6 @@ def IsPEImage(buf, size=False):
                 machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
             except struct.error:
                 machine_probe = ""
-                log.warning("Machine probe unpck failed, follow")
             if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
                 nt_headers = buf[offset-4:offset+252]
                 break

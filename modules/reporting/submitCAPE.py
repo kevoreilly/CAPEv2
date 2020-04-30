@@ -100,13 +100,13 @@ class SubmitCAPE(Report):
             suffix = ""
             for option in cape_options:
                 name, value = option.split('=')
-                if name in ('bp0', 'br0' 0):
+                if name in ('bp0', 'br0', 0):
                     bp = 1
-                elif name in ('bp1', 'br1' 1):
+                elif name in ('bp1', 'br1', 1):
                     bp = 2
-                elif name in ('bp2', 'br2' 2):
+                elif name in ('bp2', 'br2', 2):
                     bp = 3
-                elif name in ('bp3', 'br3' 3):
+                elif name in ('bp3', 'br3', 3):
                     bp = 4
                 elif bp == NUMBER_OF_DEBUG_REGISTERS:
                     break

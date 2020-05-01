@@ -235,12 +235,11 @@ class Analyzer:
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
 
-        #ToDo unicode problem?
-        # If a pipe name has not set, then generate a random one.
-        self.config.pipe = PIPE#self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
-
+        #self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
+        self.config.pipe = PIPE
         # Generate a random name for the logging pipe server.
-        self.config.logpipe = LOGSERVER_PREFIX#self.get_pipe_path(random_string(16, 32))
+        #self.get_pipe_path(random_string(16, 32))
+        self.config.logpipe = LOGSERVER_PREFIX
         # Set virtual machine clock.
         set_clock(self.config.clock, self.config.timeout)
 
@@ -259,10 +258,6 @@ class Analyzer:
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
-        #for x in range(self.PIPE_SERVER_COUNT):
-        #    self.pipes[x] = PipeServer(self.config, self.options)
-        #    self.pipes[x].daemon = True
-        #    self.pipes[x].start()
 
         self.command_pipe = PipeServer(
             PipeDispatcher, self.config.pipe, message=True,

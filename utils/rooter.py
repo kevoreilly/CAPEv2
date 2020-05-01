@@ -312,6 +312,8 @@ if __name__ == "__main__":
     parser.add_argument("-g", "--group", default="cuckoo",  help="Unix socket group")
     parser.add_argument("--systemctl", default="/bin/systemctl", help="Systemctl wrapper script for invoking OpenVPN")
     parser.add_argument("--iptables", default="/sbin/iptables", help="Path to iptables")
+    parser.add_argument("--iptables-save", default="/sbin/iptables-save", help="Path to iptables-save")
+    parser.add_argument("--iptables-restore", default="/sbin/iptables-restore", help="Path to iptables-restore")
     parser.add_argument("--ip", default="/sbin/ip", help="Path to ip")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     settings = parser.parse_args()
@@ -354,8 +356,8 @@ if __name__ == "__main__":
 
     # Initialize global variables.
     s.iptables = settings.iptables
-    s.iptables_save = "/sbin/iptables-save"
-    s.iptables_restore = "/sbin/iptables-restore"
+    s.iptables_save = settings.iptables_save
+    s.iptables_restore = settings.iptables_restore
     s.ip = settings.ip
 
     # Simple object to allow a signal handler to stop the rooter loop

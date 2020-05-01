@@ -917,7 +917,6 @@ class CommandPipeHandler(object):
         pid = int(data)
         if pid not in self.analyzer.process_list.pids:
             self.analyzer.process_list.add_pid(int(pid))#, track=int(track))
-        #ToDo verify
         if pid in INJECT_LIST:
             INJECT_LIST.remove(pid)
         self.analyzer.process_lock.release()

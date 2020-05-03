@@ -53,13 +53,13 @@ class Zip(Package):
             # Check if the archive is encrypted
             for zip_info in archive.infolist():
                 is_encrypted = zip_info.flag_bits & 0x1
-                # If encrypted and the user didn't provide a password 
+                # If encrypted and the user didn't provide a password
                 # set to default value
-                if is_encrypted and password == b"":
+                if is_encrypted and not password:
                     log.debug("Achive is encrypted and user did not provide a password, using default value: infected")
                     password = b"infected"
                 # Else, either password stays as user specified or archive is not encrypted
-                    
+
             try:
                 archive.extractall(path=extract_path, pwd=password)
             except BadZipfile:
@@ -112,7 +112,7 @@ class Zip(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        if password is None:
+        if not password:
             password = b""
         exe_regex = re.compile('(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)

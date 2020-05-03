@@ -113,7 +113,7 @@ class Zip(Package):
         root = os.environ["TEMP"]
         password = self.options.get("password")
         if password is None:
-            password = b"infected"
+            password = b""
         exe_regex = re.compile('(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)

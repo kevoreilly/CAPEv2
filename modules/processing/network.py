@@ -62,7 +62,6 @@ Packet = namedtuple("Packet", ["raw", "ts"])
 log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
-
 enabled_whitelist = proc_cfg.network.dnswhitelist
 whitelist_file = proc_cfg.network.dnswhitelist_file
 
@@ -106,7 +105,7 @@ class Pcap:
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS Whitelist
-        self.domain_whitelist = [
+        self.domain_whitelist = (
             # Certificate Trust Update domains
             "^ocsp\.usertrust\.com$",
             "\.windows\.com$",
@@ -117,7 +116,7 @@ class Pcap:
             "\.microsoft\.com$",
             "\.skype\.com$",
             "\.live\.com$",
-            "\.clients[0-9]+\.google\.com$",
+            "\clients[0-9]+\.google\.com$",
             "\.googleapis\.com$",
             "\.gvt1\.com$",
             "\.msftncsi\.com$",
@@ -133,8 +132,13 @@ class Pcap:
             "^ocsp\.comodoca4\.com$",
             "^ocsp\.pki\.goog$",
             "^oneclient.sfx.ms$",
+            "^ocsp\.verisign\.com$",
+            "^s2\.symcb\.com$",
+            "^sv\.symcd\.com$",
+            "^s\.symcd\.com$",
+            "^ts-ocsp\.ws\.symantec\.com$",
+        )
 
-        ]
         if enabled_whitelist and whitelist_file:
              with open(os.path.join(CUCKOO_ROOT, whitelist_file), 'r') as f:
                   self.domain_whitelist += self.domain_whitelist + f.read().split("\n")

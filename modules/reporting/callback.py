@@ -22,12 +22,13 @@ reporting_conf = Config("reporting")
 
 class CALLBACKHOME(Report):
     "Notify us about analysis is done"
-    order = 10000
 
+    order = 10000 #used in the reporting module and required here.
+    
     def run(self, results):
         urls = reporting_conf.callback.url.split(",")
         task_id = int(results.get('info', {}).get('id'))
-        #mark as reported
+        '''Handles a possible race condition where the status is not updated before the callback is consumed.'''
         if HAVE_MONGO:
             try:
                 conn = pymongo.MongoClient( reporting_conf.mongodb.host,
@@ -37,7 +38,7 @@ class CALLBACKHOME(Report):
                                 authSource=reporting_conf.mongodb.db
                                 )
                 mongo_db = conn[reporting_conf.mongodb.db]
-                # set complated_on time
+                # set completed_on time
                 main_db.set_status(task_id, TASK_COMPLETED)
                 # set reported time
                 main_db.set_status(task_id, TASK_REPORTED)
@@ -47,16 +48,11 @@ class CALLBACKHOME(Report):
 
             for url in urls:
                 try:
-                    sucesss = False
                     for value in (task_id, str(task_id)):
-                        # try task_id as an integer and as a string too
                         res = requests.post(url, data=json.dumps({"task_id": value}), timeout=20)
                         if res and res.ok:
-                            success = True
-                            break
-                    if success:
-                        log.debug("reported id: {}".format(task_id))
-                    else:
-                        log.error("failed to report {}".format(task_id))
+                            log.debug("reported id: {}".format(task_id))
+                        else:
+                            log.error("failed to report {}".format(task_id))
                 except Exception as e:
                     log.exception(e)

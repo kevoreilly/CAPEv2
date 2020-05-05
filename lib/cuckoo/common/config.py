@@ -4,12 +4,12 @@
 
 from __future__ import absolute_import
 import os
-import six.moves.configparser
+import configparser
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.objects import Dictionary
-
+from lib.cuckoo.common.colors import red, bold
 
 def parse_options(options):
     """Parse the analysis options field to a dictionary."""
@@ -35,18 +35,22 @@ class Config:
         @param file_name: file name without extension.
         @param cfg: configuration file path.
         """
-        config = six.moves.configparser.ConfigParser()
+        config = configparser.ConfigParser()
 
         if cfg:
             config.read(cfg)
         else:
-            config.read(os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % file_name))
+            try:
+                config.read(os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % file_name))
+            except UnicodeDecodeError as e:
+                print(bold(red("please fix your config file: {}.conf - Pay attention for bytes c2 xa - {}\n\n{}".format(file_name, e.object, e.reason))))
+                raise UnicodeDecodeError
 
         self.fullconfig = config._sections
 
         for section in config.sections():
             setattr(self, section, Dictionary())
-            for name, raw_value in config.items(section):
+            for name, _ in config.items(section):
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a
                     # boolean value.

@@ -39,7 +39,7 @@ class vSphere(Machinery):
     def __init__(self):
         if not HAVE_PYVMOMI:
             raise CuckooDependencyError("Couldn't import pyVmomi. Please install "
-                                        "using 'pip install --upgrade pyvmomi'")
+                                        "using 'pip3 install --upgrade pyvmomi'")
 
         super(vSphere, self).__init__()
 

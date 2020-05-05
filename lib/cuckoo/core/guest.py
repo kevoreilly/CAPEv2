@@ -119,7 +119,7 @@ class GuestManager(object):
             r = session.get(url, *args, **kwargs)
         except requests.ConnectionError:
             raise CuckooGuestError(
-                "Cuckoo Agent failed without error status, please try "
+                "CAPE Agent failed without error status, please try "
                 "upgrading to the latest version of agent.py (>= 0.10) and "
                 "notify us if the issue persists."
             )
@@ -138,7 +138,7 @@ class GuestManager(object):
             r = session.post(url, *args, **kwargs)
         except requests.ConnectionError:
             raise CuckooGuestError(
-                "Cuckoo Agent failed without error status, please try "
+                "CAPE Agent failed without error status, please try "
                 "upgrading to the latest version of agent.py (>= 0.10) and "
                 "notify us if the issue persists."
             )
@@ -226,6 +226,24 @@ class GuestManager(object):
         }
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
+    def upload_support_files(self, options):
+        """ Upload supporting files from zip temp directory if they exist
+        :param options: options
+        :return:
+        """
+        log.info("Uploading support files to guest (id={}, ip={})".format(self.vmid, self.ipaddr))
+        basedir = os.path.dirname(options["target"])
+
+        for dirpath, _, files in os.walk(basedir):
+            for xf in files:
+                target = os.path.join(dirpath, xf)
+                # Copy all files except for the original target
+                if not target == options["target"]:
+                    data = {"filepath": os.path.join(self.determine_temp_path(), xf)}
+                    files = {"file": (xf, open(target, "rb"))}
+                    self.post("/store", files=files, data=data)
+        return
+
     def start_analysis(self, options):
         """Start the analysis by uploading all required files.
         @param options: the task options
@@ -273,7 +291,7 @@ class GuestManager(object):
             db.guest_set_status(self.task_id, "failed")
             return
 
-        log.info("Guest is running Cuckoo Agent %s (id=%s, ip=%s)",
+        log.info("Guest is running CAPE Agent %s (id=%s, ip=%s)",
                  version, self.vmid, self.ipaddr)
 
         # Pin the Agent to our IP address so that it is not accessible by
@@ -305,8 +323,11 @@ class GuestManager(object):
             }
             self.post("/store", files=files, data=data)
 
+        # check for support files and upload them to guest.
+        self.upload_support_files(options)
+
         #Debug analyzer.py in vm
-        if "CUCKOO_DBG" in os.environ:
+        if "CAPE_DBG" in os.environ:
             while True:
                 pass
 
@@ -334,7 +355,7 @@ class GuestManager(object):
         while db.guest_get_status(self.task_id) == "running" and self.do_run:
             if count >= 5:
                 log.debug(
-                    "%s: analysis #%s still processing", self.vmid,
+                    "%s: analysis #%s is still running", self.vmid,
                     self.task_id
                 )
                 count = 0

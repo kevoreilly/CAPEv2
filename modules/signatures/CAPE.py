@@ -14,71 +14,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.If not, see <http://www.gnu.org/licenses/>.
 
-import struct
+import logging
 from lib.cuckoo.common.abstracts import Signature
-
-IMAGE_DOS_SIGNATURE                 = 0x5A4D
-IMAGE_NT_SIGNATURE                  = 0x00004550
-OPTIONAL_HEADER_MAGIC_PE            = 0x10b
-OPTIONAL_HEADER_MAGIC_PE_PLUS       = 0x20b
-IMAGE_FILE_EXECUTABLE_IMAGE         = 0x0002
-IMAGE_FILE_MACHINE_I386             = 0x014c
-IMAGE_FILE_MACHINE_AMD64            = 0x8664
-DOS_HEADER_LIMIT                    = 0x40
-PE_HEADER_LIMIT                     = 0x200
+from lib.cuckoo.common.objects import IsPEImage
 
 EXECUTABLE_FLAGS                    = 0x10 | 0x20 | 0x40 | 0x80
 EXTRACTION_MIN_SIZE                 = 0x1001
 
 PLUGX_SIGNATURE                     = 0x5658
 
-def IsPEImage(buf, size):
-    if not size:
-        return False
-    if size < DOS_HEADER_LIMIT:
-        return False
-    buf = buf.encode("utf-8")
-    dos_header = buf[:DOS_HEADER_LIMIT]
-    nt_headers = None
-
-    if size < PE_HEADER_LIMIT:
-        return False
-
-    # Check for sane value in e_lfanew
-    e_lfanew, = struct.unpack("<L", dos_header[60:64])
-    if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
-        offset = 0
-        while offset < PE_HEADER_LIMIT-86:
-            #ToDo
-            machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
-            if machine_probe == IMAGE_FILE_MACHINE_I386 or machine_probe == IMAGE_FILE_MACHINE_AMD64:
-                nt_headers = buf[offset-4:offset+252]
-                break
-            offset = offset + 2
-    else:
-        nt_headers = buf[e_lfanew:e_lfanew+256]
-
-    if nt_headers is None:
-        return False
-
-    #if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-    if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
-        return False
-
-    #if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
-    if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
-        return False
-
-    #if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
-    if struct.unpack("<H", nt_headers[20:22])[0] & 3 != 0:
-        return False
-
-    #if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
-    if struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS:
-        return False
-
-    # To pass the above tests it should now be safe to assume it's a PE image
-    return True
+log = logging.getLogger(__name__)
 
 class CAPE_Compression(Signature):
     name = "Compression"
@@ -124,7 +69,8 @@ class CAPE_RegBinary(Signature):
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
             buf = self.get_raw_argument(call, "Buffer")
             size = self.get_raw_argument(call, "BufferLength")
-            self.reg_binary = IsPEImage(buf, size)
+            if buf:
+                self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
         if self.reg_binary is True:
@@ -153,31 +99,6 @@ class CAPE_Decryption(Signature):
 
     def on_complete(self):
         if self.encrypted_binary is True:
-            return True
-
-class CAPE_RegBinary(Signature):
-    name = "RegBinary"
-    description = "Behavioural detection: PE binary written to registry."
-    severity = 1
-    categories = ["malware"]
-    authors = ["kevoreilly"]
-    minimum = "1.3"
-    evented = True
-
-    filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
-
-    def __init__(self, *args, **kwargs):
-        Signature.__init__(self, *args, **kwargs)
-        self.reg_binary = False
-
-    def on_call(self, call, process):
-        if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            buf = self.get_raw_argument(call, "Buffer")
-            size = self.get_raw_argument(call, "BufferLength")
-            self.reg_binary = IsPEImage(buf, size)
-
-    def on_complete(self):
-        if self.reg_binary is True:
             return True
 
 class CAPE_Extraction(Signature):
@@ -269,7 +190,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #procname = self.get_name_from_pid(self.handle_map[handle])
                     #desc = "{0}({1}) -> {2}({3})".format(process["process_name"], str(process["process_id"]),
                     #                                     procname, self.handle_map[handle])
-                    self.data.append({"Injection": desc})
+                    #self.data.append({"Injection": desc})
                     return True
         elif (call["api"] == "CreateRemoteThread" or call["api"].startswith("NtCreateThread") or call["api"].startswith("NtCreateThreadEx")):
             handle = self.get_argument(call, "ProcessHandle")
@@ -492,28 +413,14 @@ class CAPE_PlugX(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            buf = self.get_raw_argument(call, "UncompressedBuffer")
-            dos_header = buf[:64]
-            if struct.unpack("<H", dos_header[0:2])[0] == IMAGE_DOS_SIGNATURE:
-                self.compressed_binary = True
-            elif struct.unpack("<H", dos_header[0:2])[0] == PLUGX_SIGNATURE:
+            dos_header = self.get_raw_argument(call, "UncompressedBuffer")[:2]
+            #IMAGE_DOS_SIGNATURE or PLUGX_SIGNATURE
+            if dos_header in ("MZ", "XV", "GULP"):
                 self.compressed_binary = True
 
         if call["api"] == "memcpy":
             count = self.get_raw_argument(call, "count")
-            if (count == 0xae4)  or \
-               (count == 0xbe4)  or \
-               (count == 0x150c) or \
-               (count == 0x1510) or \
-               (count == 0x1516) or \
-               (count == 0x170c) or \
-               (count == 0x1b18) or \
-               (count == 0x1d18) or \
-               (count == 0x2540) or \
-               (count == 0x254c) or \
-               (count == 0x2d58) or \
-               (count == 0x36a4) or \
-               (count == 0x4ea4):
+            if count in (0xae4, 0xbe4, 0x150c, 0x1510, 0x1516, 0x170c, 0x1b18, 0x1d18, 0x2540, 0x254c, 0x2d58, 0x36a4, 0x4ea4):
                 self.config_copy = True
 
     def on_complete(self):
@@ -598,10 +505,8 @@ class CAPEDetectedThreat(Signature):
     evented = True
 
     def run(self):
-
-        if "cape" in self.results:
-            detection = self.results["cape"]
-            self.description = "CAPE detected the %s malware family" % detection
+        if self.results.get("detections", False):
+            self.description = "CAPE detected the %s malware family" % self.results["detections"]
             return True
 
         return False

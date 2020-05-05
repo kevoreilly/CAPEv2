@@ -50,15 +50,11 @@ class Curtain(Thread, Auxiliary):
     def run(self):
         if self.enabled:
             self.clearLogs()
-            #while self.do_run:
-            #    self.collectLogs()
-            #    time.sleep(15)
             return True
         return False
 
     def stop(self):
         if self.enabled:
-            #self.do_run = False
             self.collectLogs()
             return True
         return False

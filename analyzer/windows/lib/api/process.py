@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import logging
 import random
 import subprocess
@@ -57,10 +58,10 @@ def get_referrer_url(interest):
         return ""
 
     escapedurl = urllib.parse.quote(interest, '')
-    itemidx = str(random.randint(1, 30))
-    vedstr = "0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3))
-    eistr = base64.urlsafe_b64encode(random_string(12))
-    usgstr = "AFQj" + base64.urlsafe_b64encode(random_string(12))
+    itemidx = random.randint(1, 30)
+    vedstr = b"0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3).encode("utf-8"))
+    eistr = base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
+    usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
     referrer = "http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={0}&ved={1}&url={2}&ei={3}&usg={4}".format(itemidx, vedstr, escapedurl, eistr, usgstr)
     return referrer
 
@@ -185,7 +186,9 @@ class Process:
         """Process is alive?
         @return: process status.
         """
-        return self.exit_code() == STILL_ACTIVE
+        # ToDo: Fix this, it's broken
+        #return self.exit_code() == STILL_ACTIVE
+        return True
 
     def is_critical(self):
         """Determines if process is 'critical' or not, so we can prevent
@@ -241,10 +244,61 @@ class Process:
                 log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
                 return False
 
-        exe_name = random_string(6)
-        service_name = random_string(6)
-        driver_name = random_string(6)
-        inf_data = '[Version]\r\nSignature = "$Windows NT$"\r\nClass = "ActivityMonitor"\r\nClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}\r\nProvider= %Prov%\r\nDriverVer = 22/01/2014,1.0.0.0\r\nCatalogFile = %DriverName%.cat\r\n[DestinationDirs]\r\nDefaultDestDir = 12\r\nMiniFilter.DriverFiles = 12\r\n[DefaultInstall]\r\nOptionDesc = %ServiceDescription%\r\nCopyFiles = MiniFilter.DriverFiles\r\n[DefaultInstall.Services]\r\nAddService = %ServiceName%,,MiniFilter.Service\r\n[DefaultUninstall]\r\nDelFiles = MiniFilter.DriverFiles\r\n[DefaultUninstall.Services]\r\nDelService = %ServiceName%,0x200\r\n[MiniFilter.Service]\r\nDisplayName= %ServiceName%\r\nDescription= %ServiceDescription%\r\nServiceBinary= %12%\\%DriverName%.sys\r\nDependencies = "FltMgr"\r\nServiceType = 2\r\nStartType = 3\r\nErrorControl = 1\r\nLoadOrderGroup = "FSFilter Activity Monitor"\r\nAddReg = MiniFilter.AddRegistry\r\n[MiniFilter.AddRegistry]\r\nHKR,,"DebugFlags",0x00010001 ,0x0\r\nHKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\nHKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\nHKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n[MiniFilter.DriverFiles]\r\n%DriverName%.sys\r\n[SourceDisksFiles]\r\n'+driver_name+'.sys = 1,,\r\n[SourceDisksNames]\r\n1 = %DiskId1%,,,\r\n[Strings]\r\n'+'Prov = "'+random_string(8)+'"\r\nServiceDescription = "'+random_string(12)+'"\r\nServiceName = "'+service_name+'"\r\nDriverName = "'+driver_name+'"\r\nDiskId1 = "'+service_name+' Device Installation Disk"\r\nDefaultInstance = "'+service_name+' Instance"\r\nInstance1.Name = "'+service_name+' Instance"\r\nInstance1.Altitude = "370050"\r\nInstance1.Flags = 0x0'
+        exe_name = service_name = driver_name = random_string(6)
+
+        inf_data = ('[Version]\r\n'
+                        'Signature = "$Windows NT$"\r\n'
+                        'Class = "ActivityMonitor"\r\n'
+                        'ClassGuid = {{b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}}\r\n'
+                        'Provider = %Prov%\r\n'
+                        'DriverVer = 22/01/2014,1.0.0.0\r\n'
+                        'CatalogFile = %DriverName%.cat\r\n'
+                    '[DestinationDirs]\r\n'
+                        'DefaultDestDir = 12\r\n'
+                        'MiniFilter.DriverFiles = 12\r\n'
+                    '[DefaultInstall]\r\n'
+                        'OptionDesc = %ServiceDescription%\r\n'
+                        'CopyFiles = MiniFilter.DriverFiles\r\n'
+                    '[DefaultInstall.Services]\r\n' \
+                        'AddService = %ServiceName%,,MiniFilter.Service\r\n'
+                    '[DefaultUninstall]\r\n'
+                        'DelFiles = MiniFilter.DriverFiles\r\n'
+                    '[DefaultUninstall.Services]\r\n'
+                        'DelService = %ServiceName%,0x200\r\n'
+                    '[MiniFilter.Service]\r\n'
+                        'DisplayName = %ServiceName%\r\n'
+                        'Description = %ServiceDescription%\r\n'
+                        'ServiceBinary = %12%\\%DriverName%.sys\r\n'
+                        'Dependencies = "FltMgr"\r\n'
+                        'ServiceType = 2\r\n'
+                        'StartType = 3\r\n'
+                        'ErrorControl = 1\r\n'
+                        'LoadOrderGroup = "FSFilter Activity Monitor"\r\n'
+                        'AddReg = MiniFilter.AddRegistry\r\n'
+                    '[MiniFilter.AddRegistry]\r\n'
+                        'HKR,,"DebugFlags",0x00010001 ,0x0\r\n'
+                        'HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\n'
+                        'HKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\n'
+                        'HKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n'
+                    '[MiniFilter.DriverFiles]\r\n'
+                        '%DriverName%.sys\r\n'
+                    '[SourceDisksFiles]\r\n'
+                        '{driver_name}.sys = 1,,\r\n'
+                    '[SourceDisksNames]\r\n'
+                        '1 = %DiskId1%,,,\r\n'
+                    '[Strings]\r\n'
+                        'Prov = "{random_string8}"\r\n'
+                        'ServiceDescription = "{random_string12}"\r\n'
+                        'ServiceName = "{service_name}"\r\n'
+                        'DriverName = "{driver_name}"\r\n'
+                        'DiskId1 = "{service_name} Device Installation Disk"\r\n'
+                        'DefaultInstance = "{service_name} Instance"\r\n'
+                        'Instance1.Name = "{service_name} Instance"\r\n'
+                        'Instance1.Altitude = "370050"\r\n'
+                        'Instance1.Flags = 0x0'
+                    ).format(
+                        service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12)
+                    )
 
         new_inf = os.path.join(os.getcwd(), "dll", "{0}.inf".format(service_name))
         new_sys = os.path.join(os.getcwd(), "dll", "{0}.sys".format(driver_name))
@@ -426,7 +480,7 @@ class Process:
             log.error("Failed to create terminate-reply event for process %d", self.pid)
             return
 
-        KERNEL32.WaitForSingleObject(self.terminate_event_handle, 0xFFFFFFFF)
+        KERNEL32.WaitForSingleObject(self.terminate_event_handle, 5000)
         log.info("Termination confirmed for process %d", self.pid)
         KERNEL32.CloseHandle(self.terminate_event_handle)
         return
@@ -479,7 +533,8 @@ class Process:
 
     def write_monitor_config(self, interest=None, nosleepskip=False):
 
-        config_path = "C:\\%s.ini" % self.pid
+        config_path = format(os.getcwd()) + "\\dll\\%s.ini" % self.pid
+        log.info("Monitor config for process %s: %s", self.pid, config_path)
 
         with open(config_path, "w", encoding="utf-8") as config:
             # start the logserver for this monitored process
@@ -496,6 +551,7 @@ class Process:
             config.write("logserver={0}\n".format(logserver_path))
             config.write("results={0}\n".format(PATHS["root"]))
             config.write("analyzer={0}\n".format(os.getcwd()))
+            config.write("pythonpath={0}\n".format(os.path.dirname(sys.executable)))
             config.write("first-process={0}\n".format("1" if firstproc else "0"))
             config.write("startup-time={0}\n".format(Process.startup_time))
             config.write("file-of-interest={0}\n".format(interest))
@@ -527,9 +583,9 @@ class Process:
 
     def inject(self, injectmode=INJECT_QUEUEUSERAPC, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.
-        @param dll: Cuckoo DLL path.
+        @param injectmode: APC use
         @param interest: path to file of interest, handed to cuckoomon config
-        @param apc: APC use.
+        @param nosleepskip: skip sleep or not
         """
         global LOGSERVER_POOL
 
@@ -545,18 +601,23 @@ class Process:
                         "injection aborted", self.pid)
             return False
 
-        is_64bit = self.is_64bit()
-
-        if is_64bit:
+        if self.is_64bit():
+            bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
+            bit_str = "64-bit"
         else:
+            bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
+            bit_str = "32-bit"
 
+        bin_name = os.path.join(os.getcwd(), bin_name)
         dll = os.path.join(os.getcwd(), dll)
 
-        if not dll:
-            log.warning("No DLL specified to be injected in process "
-                        "with pid %d, injection aborted.", self.pid)
+        if not os.path.exists(bin_name):
+            log.warning("Invalid loader path %s for injecting DLL in process "
+                        "with pid %d, injection aborted.", bin_name, self.pid)
+            log.error("Please ensure the %s loader is in analyzer/windows/bin "
+                      "in order to analyze %s binaries.", bit_str, bit_str)
             return False
 
         if not os.path.exists(dll):
@@ -566,35 +627,21 @@ class Process:
 
         self.write_monitor_config(interest, nosleepskip)
 
-        orig_bin_name = ""
-        bit_str = ""
-        if is_64bit:
-            orig_bin_name = LOADER64_NAME
-            bit_str = "64-bit"
-        else:
-            orig_bin_name = LOADER32_NAME
-            bit_str = "32-bit"
-
-        bin_name = os.path.join(os.getcwd(), orig_bin_name)
-
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
 
-        if os.path.exists(bin_name):
-            if thread_id or self.suspended:
-                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
-            else:
-                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
-            if ret.returncode != 0:
-                if ret.returncode == 1:
-                    log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
-                else:
-                    log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
-                return False
-            else:
-                return True
+        if thread_id or self.suspended:
+            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
         else:
-            log.error("Please ensure the %s loader is in analyzer/windows/bin in order to analyze %s binaries.", bit_str, bit_str)
+            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
+
+        if ret.returncode != 0:
+            if ret.returncode == 1:
+                log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
+            else:
+                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
             return False
+        else:
+            return True
 
     def upload_memdump(self):
         """Upload process memory dump.
@@ -607,7 +654,7 @@ class Process:
         file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
         try:
             file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
-            upload_to_host(file_path, os.path.join("memory", "{0}.dmp".format(self.pid)))
+            upload_to_host(file_path, os.path.join("memory", "{0}.dmp".format(self.pid)), category="memory")
         except Exception as e:
             print(e)
             log.error(e, exc_info=True)
@@ -615,7 +662,6 @@ class Process:
         log.info("Memory dump of process %d uploaded", self.pid)
 
         return True
-
 
     def dump_memory(self):
         """Dump process memory.

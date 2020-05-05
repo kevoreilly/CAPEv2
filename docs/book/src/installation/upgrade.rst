@@ -62,8 +62,8 @@ The following steps are suggested as requirement to migrate your data:
 
 Now setup Alembic (the framework used for migrations) and dateutil with::
 
-    pip install alembic
-    pip install python-dateutil
+    pip3 install alembic
+    pip3 install python-dateutil
 
 Enter the alembic migration directory in "utils/db_migration" with::
 

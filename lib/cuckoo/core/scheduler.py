@@ -7,6 +7,7 @@ import os
 import gc
 import time
 import shutil
+import signal
 import logging
 import threading
 import queue
@@ -20,32 +21,23 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
-from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED
+from lib.cuckoo.core.database import Database, TASK_COMPLETED
 from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary, RunProcessing
-from lib.cuckoo.core.plugins import RunSignatures, RunReporting, GetFeeds
+from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import convert_to_printable
-
-try:
-    import pefile
-    import peutils
-    HAVE_PEFILE = True
-except ImportError:
-    HAVE_PEFILE = False
-
 
 log = logging.getLogger(__name__)
 
 machinery = None
 machine_lock = None
 latest_symlink_lock = threading.Lock()
+routing = Config("routing")
 
 active_analysis_count = 0
-routing_cfg = Config("routing")
 
 class CuckooDeadMachine(Exception):
     """Exception thrown when a machine turns dead.
@@ -72,7 +64,6 @@ class AnalysisManager(threading.Thread):
         self.task = task
         self.errors = error_queue
         self.cfg = Config()
-        self.routing = Config("routing")
         self.aux_cfg = Config("auxiliary")
         self.storage = ""
         self.binary = ""
@@ -153,7 +144,7 @@ class AnalysisManager(threading.Thread):
         """Acquire an analysis machine from the pool of available ones."""
         machine = None
 
-        # Start a loop to acquire the a machine to run the analysis on.
+        # Start a loop to acquire a machine to run the analysis on.
         while True:
             machine_lock.acquire()
 
@@ -178,9 +169,8 @@ class AnalysisManager(threading.Thread):
                 log.debug("Task #{0}: no machine available yet".format(self.task.id))
                 time.sleep(1)
             else:
-                log.info("Task #{0}: acquired machine {1} (label={2})".format(
-                             self.task.id, machine.name, machine.label)
-                        )
+                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(
+                    self.task.id, machine.name, machine.label, machine.platform))
                 break
 
         self.machine = machine
@@ -219,14 +209,23 @@ class AnalysisManager(threading.Thread):
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            exports.append(re.sub(r'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
+                            try:
+                                if not exported_symbol.name:
+                                    continue
+                                if isinstance(exported_symbol.name, bytes):
+                                    exports.append(re.sub(b'[^A-Za-z0-9_?@-]', b'', exported_symbol.name).decode("utf-8"))
+                                else:
+                                    exports.append(re.sub('[^A-Za-z0-9_?@-]', '', exported_symbol.name))
+                            except Exception as e:
+                                log.error(e, exc_info=True)
+
                         options["exports"] = ",".join(exports)
-                except:
-                    pass
+                except Exception as e:
+                    log.error(e, exc_info=True)
 
         # options from auxiliar.conf
-        options["curtain"] = self.aux_cfg.curtain.enabled
-        options["sysmon"] = self.aux_cfg.sysmon.enabled
+        for plugin in self.aux_cfg.auxiliar_modules.keys():
+            options[plugin] = self.aux_cfg.auxiliar_modules[plugin]
 
         return options
 
@@ -244,9 +243,8 @@ class AnalysisManager(threading.Thread):
             log.debug("Failed to initialize the analysis folder")
             return False
 
-        sha256 = File(self.task.target).get_sha256()
-
         if self.task.category in ["file", "pcap", "static"]:
+            sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
@@ -275,20 +273,21 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
+            self.db.set_task_vm(self.task.id, self.machine.label, self.machine.id)
+        # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
-            log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e))
+            log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e), exc_info=True)
             return False
 
         # Generate the analysis configuration file.
         options = self.build_options()
 
-        # At this point we can tell the ResultServer about it.
         try:
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
             machinery.release(self.machine.label)
-            log.exception(e)
+            log.exception(e, exc_info=True)
             self.errors.put(e)
 
         aux = RunAuxiliary(task=self.task, machine=self.machine)
@@ -331,12 +330,12 @@ class AnalysisManager(threading.Thread):
         except CuckooMachineError as e:
             if not unlocked:
                 machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id})
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
                 machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id})
+            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:
             # Stop Auxiliary modules.
             aux.stop()
@@ -348,14 +347,14 @@ class AnalysisManager(threading.Thread):
                     need_space, space_available = free_space_monitor(os.path.dirname(dump_path), return_value=True)
                     if need_space:
                         log.error("Not enough free disk space! Could not dump ram (Only %d MB!)", space_available)
-                    else: 
+                    else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
                     log.error("The memory dump functionality is not available "
                               "for the current machine manager.")
 
                 except CuckooMachineError as e:
-                    log.error(e)
+                    log.error(e, exc_info=True)
 
             try:
                 # Stop the analysis machine.
@@ -432,8 +431,7 @@ class AnalysisManager(threading.Thread):
             # analysis - this is useful for debugging purposes. This is only
             # supported under systems that support symbolic links.
             if hasattr(os, "symlink"):
-                latest = os.path.join(CUCKOO_ROOT, "storage",
-                                      "analyses", "latest")
+                latest = os.path.join(CUCKOO_ROOT, "storage", "analyses", "latest")
 
                 # First we have to remove the existing symbolic link, then we
                 # have to create the new one.
@@ -464,8 +462,9 @@ class AnalysisManager(threading.Thread):
     def route_network(self):
         """Enable network routing if desired."""
         # Determine the desired routing strategy (none, internet, VPN).
-        self.route = "tor"
+        self.route = routing.routing.route
 
+        #Allow overwrite default conf value
         if self.task.options:
             for option in self.task.options.split(","):
                 if "=" in option:
@@ -478,12 +477,12 @@ class AnalysisManager(threading.Thread):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
-            self.interface = self.routing.inetsim.interface
+            self.interface = routing.inetsim.interface
         elif self.route == "tor":
-            self.interface = self.routing.tor.interface
-        elif self.route == "internet" and routing_cfg.routing.internet != "none":
-            self.interface = routing_cfg.routing.internet
-            self.rt_table = routing_cfg.routing.rt_table
+            self.interface = routing.tor.interface
+        elif self.route == "internet" and routing.routing.internet != "none":
+            self.interface = routing.routing.internet
+            self.rt_table = routing.routing.rt_table
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table
@@ -510,10 +509,10 @@ class AnalysisManager(threading.Thread):
         if self.route == "inetsim":
             self.rooter_response = rooter(
                 "inetsim_enable", self.machine.ip,
-                str(self.routing.inetsim.server),
-                str(self.routing.inetsim.dnsport),
+                str(routing.inetsim.server),
+                str(routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
-                str(self.routing.inetsim.ports),
+                str(routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -521,8 +520,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.routing.tor.dnsport),
-                str(self.routing.tor.proxyport)
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport)
             )
 
         elif self.route in self.socks5s:
@@ -573,10 +572,10 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "inetsim_disable",
                 self.machine.ip,
-                self.routing.inetsim.server,
-                str(self.routing.inetsim.dnsport),
+                routing.inetsim.server,
+                str(routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
-                str(self.routing.inetsim.ports),
+                str(routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -584,8 +583,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.routing.tor.dnsport),
-                str(self.routing.tor.proxyport),
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -623,6 +622,10 @@ class Scheduler:
         self.db = Database()
         self.maxcount = maxcount
         self.total_analysis_count = 0
+
+    def set_stop_analyzing(self, signum, stack):
+        self.running = False
+        log.info("Now wait till all running tasks are completed")
 
     def initialize(self):
         """Initialize the machine manager."""
@@ -699,9 +702,9 @@ class Scheduler:
                        vpn.interface, machine.ip)
 
             # Drop forwarding rule to the internet / dirty line.
-            if routing_cfg.routing.internet != "none":
+            if routing.routing.internet != "none":
                 rooter("forward_disable", machine.interface,
-                       routing_cfg.routing.internet, machine.ip)
+                       routing.routing.internet, machine.ip)
 
     def stop(self):
         """Stop scheduler."""
@@ -714,6 +717,9 @@ class Scheduler:
         self.initialize()
 
         log.info("Waiting for analysis tasks.")
+
+        #To handle stop analyzing when we need to restart process without break tasks
+        signal.signal(signal.SIGHUP, self.set_stop_analyzing)
 
         # Message queue with threads to transmit exceptions (used as IPC).
         errors = queue.Queue()

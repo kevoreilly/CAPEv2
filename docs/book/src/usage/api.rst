@@ -12,7 +12,7 @@ On Debian/Ubuntu::
 
 With Pip::
 
-    $ pip install bottle
+    $ pip3 install bottle
 
 .. _`Bottle.py`: http://www.bottlepy.org
 

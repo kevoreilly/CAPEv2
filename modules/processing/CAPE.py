@@ -29,7 +29,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
+from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
 
 try:
     import pydeep
@@ -168,7 +168,7 @@ class CAPE(Processing):
 
         # Get the file data
         try:
-            with open(file_info["path"], "r") as file_open:
+            with open(file_info["path"], "rb") as file_open:
                 file_data = file_open.read()
                 if len(file_data) > buf:
                     file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
@@ -193,7 +193,6 @@ class CAPE(Processing):
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
-
         if metastrings != "":
             try:
                 file_info["cape_type_code"] = int(metastrings[0])
@@ -205,9 +204,9 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in inject_map:
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["target_path"] = metastrings[4]
-                    file_info["target_process"] = metastrings[4].split("\\")[-1]
-                    file_info["target_pid"] = metastrings[5]
+                    file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] == INJECTION_SECTION:
                 file_info["cape_type"] = "Injected Section"
@@ -221,7 +220,7 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in simple_cape_type_map:
                 file_info["cape_type"] = simple_cape_type_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["virtual_address"] = metastrings[4]
+                    file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
             if type_strings[0] in ("PE32+", "PE32"):
@@ -230,25 +229,23 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL"
                 else:
                     file_info["cape_type"] += "executable"
-            """
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
-                plugx_parser = plugx.PlugXConfig()
-                plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                if not "cape_config" in cape_config and plugx_config:
-                    cape_config["cape_config"] = {}
-                    for key, value in plugx_config.items():
-                        cape_config["cape_config"].update({key: [value]})
-                    cape_name = "PlugX"
-                else:
-                    log.error("CAPE: PlugX config parsing failure - size many not be handled.")
-                append_file = False
-            """
+                if plugx_parser:
+                    plugx_config = plugx_parser.parse_config(file_data, len(file_data))
+                    if not "cape_config" in cape_config and plugx_config:
+                        cape_config["cape_config"] = {}
+                        for key, value in plugx_config.items():
+                            cape_config["cape_config"].update({key: [value]})
+                        cape_name = "PlugX"
+                    else:
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                    append_file = False
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
                 if file_info["cape_type_code"] in config_mapping:
-                    cape_config["cape_type"] = code_mapping[file_info["cape_type_code"]]
+                    file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
 
                 type_strings = file_info["type"].split()
                 if type_strings[0] in ("PE32+", "PE32"):
@@ -454,9 +451,9 @@ class CAPE(Processing):
         if cape_name:
             if "cape_config" in cape_config and "cape_name" not in cape_config:
                 cape_config["cape_name"] = format(cape_name)
-            if not "cape" in self.results:
+            if not "detections" in self.results:
                 if cape_name != "UPX":
-                    self.results["cape"] = cape_name
+                    self.results["detections"] = cape_name
 
         # Remove duplicate payloads from web ui
         for cape_file in CAPE_output:
@@ -466,8 +463,8 @@ class CAPE(Processing):
                                                   cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
-                if file_info.get("entrypoint", False) and file_info.get("ep_bytes", False):
-                    if file_info["entrypoint"] and file_info["entrypoint"] == cape_file["entrypoint"] \
+                if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
+                    if file_info.get("entrypoint") and file_info["entrypoint"] == cape_file["entrypoint"] \
                             and file_info["ep_bytes"] == cape_file["ep_bytes"]:
                         append_file = False
 
@@ -505,10 +502,10 @@ class CAPE(Processing):
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
                             self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
-                        #else:
+                        else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            #self.process_file(file_path, CAPE_output, False)
+                            self.process_file(file_path, CAPE_output, False)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
@@ -520,7 +517,7 @@ class CAPE(Processing):
                 raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
 
         self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
-        if "cape_config" in cape_config:
+        if cape_config.get("cape_config", []):
             CAPE_output.append(cape_config)
 
         return CAPE_output

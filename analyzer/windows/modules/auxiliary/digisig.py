@@ -125,7 +125,7 @@ class DigiSig(Auxiliary):
                          "not found in bin/")
                 return True
 
-            log.debug("Checking for a digitial signature.")
+            log.debug("Checking for a digital signature.")
             file_path = os.path.join(os.environ["TEMP"] + os.sep,
                                      str(self.config.file_name))
             cmd = '{0} verify /pa /v "{1}"'.format(sign_path, file_path)

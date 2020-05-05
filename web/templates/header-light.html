@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<title>CAPEv2 Sandbox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CAPE Sandbox">
+<meta name="author" content="CAPE Sandbox">
+<link rel="icon" href="{{ STATIC_URL }}/img/cape.png">
+<link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+<script src="{{ STATIC_URL }}js/jquery.js"></script>
+<link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
+</head>
+<body>
+<header>
+    <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+        <div class="navbar-header">
+                <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+        </div>
+        <nav class="collapse navbar-collapse bs-navbar-collapse" role="navigation">
+            <ul class="nav navbar-nav">
+                <li><a href="{% url "dashboard" %}"><span class="glyphicon glyphicon-dashboard"></span> Dashboard</a></li>
+                <li><a href="{% url "analysis" %}"><span class="glyphicon glyphicon-list"></span> Recent</a></li>
+                <li><a href="{% url "pending" %}"><span class="glyphicon glyphicon-time"></span> Pending</a></li>
+                <li><a href="{% url "search" %}"><span class="glyphicon glyphicon-search"></span> Search</a></li>
+                <li><a href="{% url "api" %}"><span class="glyphicon glyphicon-cog"></span> API</a></li>
+                <li><a href="{% url "submission" %}"><span class="glyphicon glyphicon-upload"></span> Submit</a></li>
+            </ul>
+        </nav>
+    </nav>
+</header>

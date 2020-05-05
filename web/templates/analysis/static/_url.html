@@ -1,4 +1,37 @@
 <section id="static_url">
+  {% if analysis.static.url.bitly %}
+  <div>
+    <div id="bitly_unshortener">
+      <h4>Bitly Unshortener</h4>
+      <div class="panel panel-default">
+        <table class="table table-striped table-bordered" style="table-layout: fixed;">
+          <tbody>
+            <tr>
+              <th style="width: 10%">Target URL</th>
+              <td style="word-wrap: break-word;">{{analysis.target.url}}</td>
+            </tr>
+            <tr>
+              <th style="width: 10%">Unshortened URL</th>
+              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.long_url}}</td>
+            </tr>
+            <tr>
+              <th style="width: 10%">Amount of Clicks</th>
+              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.user_clicks}}</td>
+            </tr>
+            <tr>
+              <th style="width: 10%">Creation Date</th>
+              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.created_at}}</td>
+            </tr>
+            <tr>
+              <th style="width: 10%">Created By</th>
+              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.created_by.display_name}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   <div>
     <div id="whois_information">
       <h4>WHOIS Information</h4>

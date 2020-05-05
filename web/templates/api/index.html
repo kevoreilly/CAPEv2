@@ -46,7 +46,7 @@ Note: machine is optional.</pre></td>
                 <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#vtdl">Example</a></td>
             </tr>
             <tr class="collapse" id="vtdl">
-                    <td colspan="5"><pre>curl -F vtdl=hash -F machine="VM-Name" -F apikey="[VT API key]"{{ config.api.url }}/api/tasks/create/vtdl/
+                    <td colspan="5"><pre>curl -F vtdl=hash -F machine="VM-Name" -F apikey="[VT API key]" {{ config.api.url }}/api/tasks/create/vtdl/
 Note: machine is optional.</pre></td>
             </tr>
             <tr>
@@ -63,6 +63,21 @@ Note: machine is optional.</pre></td>
             </tr>
             <tr class="collapse" id="urlcreate">
               <td colspan="5"><pre>curl -F url="somebadness.tld" {{ config.api.url }}/api/tasks/create/url/</pre></td>
+            </tr>
+            <tr>
+                <td>Download file and Create file task aka dl'n'exec</td>
+                {% if config.dlnexeccreate.enabled %}
+                <td><span class="label label-success">Yes</span></td>
+                {% else %}
+                <td><span class="label label-danger">No</span></td>
+                {% endif %}
+                <td><ul><li>RPS: {{ config.dlnexeccreate.rps }}</li>
+                        <li>RPM: {{ config.dlnexeccreate.rpm }}</li></ul></td>
+                <td>Submit a URL it will download and add as file task to be analyzed by Cuckoo. Return object will be JSON.</td>
+                <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#dlnexeccreate">Example</a></td>
+            </tr>
+            <tr class="collapse" id="dlnexeccreate">
+              <td colspan="5"><pre>curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/api/tasks/create/dlnexec/</pre></td>
             </tr>
             <tr>
                 <td>File View</td>
@@ -129,7 +144,7 @@ domain : Match a resolved domain
 ip : Match a contacted IP Address
 signature : Match a Cuckoo signature description
 signame : Match a Cuckoo signature name
-malfamily: Match samples associated with malware family
+detections: Match samples associated with malware family
 url : Match a URL target task (submitted URL task)
 imphash : Match an import hash
 iconhash: Match the exact hash of the icon associated with the PE
@@ -161,7 +176,8 @@ sha512 : Targets with a specific SHA512 hash</pre></td>
             <tr class="collapse" id="tasklist">
               <td colspan="5"><pre>curl {{ config.api.url }}/api/tasks/list/
 curl {{ config.api.url }}/api/tasks/list/[limit]/ (specify a limit of tasks to return)
-curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)</pre></td>
+curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
+Acepts as params status to check for status and/or option to search by option LIKE</pre></td>
             </tr>
             <tr>
                 <td>Task View</td>

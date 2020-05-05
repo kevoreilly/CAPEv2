@@ -28,7 +28,7 @@ class Zip(Package):
              ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
              ("SystemRoot", "system32", "xpsrchvw.exe"),
             ]
-    def extract_zip(self, zip_path, extract_path, password, recursion_depth):
+    def extract_zip(self, zip_path, extract_path, password=b"infected", recursion_depth=1):
         """Extracts a nested ZIP file.
         @param zip_path: ZIP path
         @param extract_path: where to extract
@@ -43,15 +43,30 @@ class Zip(Package):
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
+        #requires bytes not str
+        if not isinstance(password, bytes):
+            password = password.encode("utf-8")
+
         # Extraction.
         with ZipFile(zip_path, "r") as archive:
+
+            # Check if the archive is encrypted
+            for zip_info in archive.infolist():
+                is_encrypted = zip_info.flag_bits & 0x1
+                # If encrypted and the user didn't provide a password
+                # set to default value
+                if is_encrypted and not password:
+                    log.debug("Achive is encrypted and user did not provide a password, using default value: infected")
+                    password = b"infected"
+                # Else, either password stays as user specified or archive is not encrypted
+
             try:
                 archive.extractall(path=extract_path, pwd=password)
             except BadZipfile:
                 raise CuckooPackageError("Invalid Zip file")
             except RuntimeError:
                 try:
-                    archive.extractall(path=extract_path, pwd="infected")
+                    archive.extractall(path=extract_path, pwd=password)
                 except RuntimeError as e:
                     raise CuckooPackageError("Unable to extract Zip file: "
                                              "{0}".format(e))
@@ -62,7 +77,7 @@ class Zip(Package):
                         if name.endswith(".zip"):
                             # Recurse.
                             try:
-                                self.extract_zip(os.path.join(extract_path, name), extract_path, password, recursion_depth + 1)
+                                self.extract_zip(os.path.join(extract_path, name), extract_path, password=password, recursion_depth=recursion_depth + 1)
                             except BadZipfile:
                                 log.warning("Nested zip file '%s' name end with 'zip' extension is not a valid zip. Skip extracting" % name)
                             except RuntimeError as run_err:
@@ -97,6 +112,8 @@ class Zip(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
+        if not password:
+            password = b""
         exe_regex = re.compile('(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)

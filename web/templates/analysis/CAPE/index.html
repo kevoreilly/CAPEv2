@@ -41,12 +41,6 @@
                     </td>
                     {% endif %}
                 </tr>
-                {% else %}
-                <tr>
-                    <th></th>
-                    <td><a href="{% url "configdownload" analysis.info.id file.cape_name%}" class="btn btn-primary btn-small">Download</a>
-                    </td>
-                </tr>
                 {% endif %}
             </table>
         </div>
@@ -124,6 +118,12 @@
                         <td>{{file.process_path}}</td>
                     </tr>
                     {% endif %}
+                {% endif %}
+                {% if file.timestamp %}
+                    <tr>
+                        <th>PE timestamp</th>
+                        <td>{{file.timestamp}}</td>
+                    </tr>
                 {% endif %}
                 <tr>
                     <th>MD5</th>

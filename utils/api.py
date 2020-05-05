@@ -16,6 +16,8 @@ from io import StringIO, BytesIO
 from bson import json_util
 from zipfile import ZipFile, ZIP_STORED
 
+from zlib import decompress
+
 try:
     from bottle import route, run, request, hook, response, HTTPError
     from bottle import default_app, BaseRequest
@@ -27,6 +29,7 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.common.web_utils import validate_task
 from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT
 from lib.cuckoo.common.utils import store_temp_file, delete_folder
 from lib.cuckoo.common.email_utils import find_attachments_in_email
@@ -762,6 +765,58 @@ def task_screenshots(task=0, screenshot=None):
             return zip_data.getvalue()
     else:
         return HTTPError(404, folder_path)
+
+
+@route("/api/tasks/get/config/<task_id:int>/", method="GET")
+@route("/api/tasks/get/config/<task_id:int>/<cape_name>", method="GET")
+def tasks_config(task_id, cape_name=False):
+    check = validate_task(task_id)
+
+    if check["error"]:
+        return jsonize(check)
+
+    buf = dict()
+    if repconf.mongodb.get("enabled"):
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, { "CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
+    if repconf.jsondump.get("enabled") and not buf:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
+                             "%s" % task_id, "reports", "report.json")
+        with open(jfile, "r") as jdata:
+            buf = json.load(jdata)
+
+    if buf.get("CAPE"):
+        try:
+            buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
+        except:
+            pass
+
+        if isinstance(buf, dict) and buf.get("CAPE", False):
+            try:
+                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
+            except:
+                # In case compress results processing module is not enabled
+                pass
+            data = []
+            for cape in buf["CAPE"]:
+                if isinstance(cape, dict) and cape.get("cape_config"):
+                    if cape_name and cape.get("cape_name", "") == cape_name:
+                        return jsonize(cape["cape_config"])
+                    data.append(cape)
+            if data:
+                resp = {"error": False, "configs": data}
+            else:
+                resp = {
+                    "error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp)
+        else:
+            resp = {
+                "error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp)
+    else:
+        resp = {"error": True,
+                "error_value": "Unable to retrieve results for task {}.".format(task_id)}
+        return jsonize(resp)
+
 
 application = default_app()
 

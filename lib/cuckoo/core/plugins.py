@@ -83,6 +83,99 @@ def list_plugins(group=None):
     else:
         return _modules
 
+suricata_whitelist = (
+    "agenttesla",
+    "medusahttp",
+)
+
+suricata_blacklist = (
+    "abuse",
+    "agent",
+    "base64",
+    "common",
+    "custom",
+    "dropper",
+    "executable",
+    "f-av",
+    "fake",
+    "fileless",
+    "filename",
+    "generic",
+    "google",
+    "hacking",
+    "injector",
+    "known",
+    "likely",
+    "magic",
+    "malicious",
+    "media",
+    "msil",
+    "multi",
+    "observed",
+    "owned",
+    "perfect",
+    "possible",
+    "potential",
+    "powershell",
+    "probably",
+    "python",
+    "rogue",
+    "self-signed",
+    "shadowserver",
+    "single",
+    "supicious",
+    "targeted",
+    "team",
+    "troj",
+    "trojan",
+    "unit42",
+    "unknown",
+    "user",
+    "vbinject",
+    "vbscript",
+    "virus",
+    "w2km",
+    "w97m",
+    "win32",
+    "windows",
+    "worm",
+    "wscript",
+    #"http",
+)
+
+def get_suricata_family(signature):
+    """
+    Args:
+        signature: suricata alert string
+    Return
+        family: family name or False
+    """
+    #ToDo Trojan-Proxy
+    family = False
+    #alert["signature"].startswith(("ET JA3 HASH")):
+    words = re.findall(r"[A-Za-z0-9/\-]+", signature)
+    famcheck = words[2]
+    if "/" in famcheck:
+        famcheck_list = famcheck.split("/")  # [-1]
+        for fam_name in famcheck_list:
+            if not any([black in fam_name.lower() for black in suricata_blacklist]):
+                famcheck = fam_name
+                break
+    famchecklower = famcheck.lower()
+    if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
+        famchecklower = famchecklower.split(".")[-1]
+        famcheck = famcheck.split(".")[-1]
+    if famchecklower in ("win32", "w32", "ransomware"):
+        famcheck = words[3]
+        famchecklower = famcheck.lower()
+    isbad = any([black in famchecklower for black in suricata_blacklist])
+    if not isbad and len(famcheck) >= 4:
+        family = famcheck.title()
+    isgood = any([white in famchecklower for white in suricata_whitelist])
+    if isgood and len(famcheck) >= 4:
+        family = famcheck.title()
+    return family
+
 class RunAuxiliary(object):
     """Auxiliary modules manager."""
 
@@ -291,57 +384,16 @@ class RunProcessing(object):
 
         family = ""
         self.results["malfamily_tag"] = ""
-        if self.results.get("cape", False):
-            self.results["malfamily"] = self.results["cape"]
-            self.results["malfamily_tag"] = "CAPE"
-            family = self.results["cape"]
-        # add detection based on suricata here
+        if self.results.get("detections", False):
+            family = self.results["detections"]
+            self.results["malfamily_tag"] = "Yara"
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
-                if "signature" in alert and alert["signature"]:
-                    if alert["signature"].startswith("ET TROJAN") or alert["signature"].startswith("ETPRO TROJAN"):
-                        words = re.findall(r"[A-Za-z0-9]+", alert["signature"])
-                        famcheck = words[2]
-                        famchecklower = famcheck.lower()
-                        if famchecklower == "win32" or famchecklower == "w32" or famchecklower == "ransomware":
-                            famcheck = words[3]
-                            famchecklower = famcheck.lower()
-
-                        blacklist = [
-                            "executable",
-                            "potential",
-                            "likely",
-                            "rogue",
-                            "supicious",
-                            "generic",
-                            "possible",
-                            "known",
-                            "common",
-                            "troj",
-                            "trojan",
-                            "team",
-                            "probably",
-                            "w2km",
-                            "http",
-                            "abuse",
-                            "win32",
-                            "unknown",
-                            "single",
-                            "filename",
-                            "worm",
-                            "fake",
-                            "malicious",
-                        ]
-                        isgood = True
-                        for black in blacklist:
-                            if black == famchecklower:
-                                isgood = False
-                                break
-                        if len(famcheck) < 4:
-                            isgood = False
-                        if isgood:
-                            family = famcheck.title()
-                            self.results["malfamily_tag"] = "Suricata"
+                if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
+                    family = get_suricata_family(alert["signature"])
+                    if family:
+                        self.results["malfamily_tag"] = "Suricata"
+                        self.results["detections"] = family
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
@@ -361,8 +413,9 @@ class RunProcessing(object):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
                     family = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
-        else:
-            self.results["malfamily"] = family
+
+        if family:
+            self.results["detetions"] = family
 
         return self.results
 
@@ -498,7 +551,7 @@ class RunSignatures(object):
         matched = []
         stats = {}
 
-        complete_list = list_plugins(group="signatures")
+        complete_list = list_plugins(group="signatures") or []
         evented_list = list()
         try:
             evented_list = [sig(self.results)
@@ -629,11 +682,11 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "CAPE":
+        if self.results.get("malfamily_tag", "") != "Yara":
             for match in matched:
                 if "families" in match and match["families"]:
-                    self.results["malfamily"] = match["families"][0].title()
-                    self.results["malfamily_tag"] = "Signature"
+                    self.results["detections"] = match["families"][0].title()
+                    self.results["malfamily_tag"] = "Behavior"
                     break
 
 class RunReporting:

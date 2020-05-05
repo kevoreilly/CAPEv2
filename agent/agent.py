@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import re
+import sys
 import cgi
 import sys
 import json
@@ -21,6 +22,13 @@ from zipfile import ZipFile
 
 import http.server
 import socketserver
+
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+
+#You must run x86 version not x64
+if sys.maxsize > 2**32:
+    sys.exit("You should install python3 x86! not x64")
 
 AGENT_VERSION = "0.11"
 AGENT_FEATURES = [
@@ -41,7 +49,7 @@ sys.stdout = StringIO()
 sys.stderr = StringIO()
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    server_version = "Cuckoo Agent"
+    server_version = "CAPE Agent"
 
     def do_GET(self):
         request.client_ip, request.client_port = self.client_address
@@ -425,12 +433,13 @@ def do_kill():
         return json_error(500, "Not running with the Werkzeug server")
 
     shutdown()
-    return json_success("Quit the Cuckoo Agent")
+    return json_success("Quit the CAPE Agent")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", nargs="?", default="8000")
+    #ToDo redir to stdout
     args = parser.parse_args()
     app.run(host=args.host, port=int(args.port))

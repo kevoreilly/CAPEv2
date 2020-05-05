@@ -1,0 +1,15 @@
+[Unit]
+Description=CAPE
+Documentation=https://github.com/kevoreilly/CAPEv2
+
+[Service]
+WorkingDirectory=/opt/CAPEv2/
+ExecStart=/usr/bin/python3 cuckoo.py
+#ExecStart=/opt/CAPEv2/venv/bin/python3 /opt/CAPEv2/cuckoo.py
+User=cape
+Group=cape
+Restart=always
+RestartSec=5m
+LimitNOFILE=100000
+[Install]
+WantedBy=multi-user.target

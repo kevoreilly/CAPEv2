@@ -3,14 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import binascii
+import os
+import mmap
+import time
+import copy
+import struct
 import hashlib
 import logging
-import os
+import binascii
 import subprocess
-import mmap
-import struct
-import copy
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
@@ -41,16 +42,16 @@ except ImportError:
     HAVE_CLAMAV = False
 
 try:
+    import re2 as re
+except ImportError:
+    import re
+
+try:
     import pefile
-    import peutils
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
 
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 
@@ -110,6 +111,74 @@ yara_error = {
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
 
+
+CAPE_YARA_RULEPATH = \
+    os.path.join(CUCKOO_ROOT, "data", "yara", "index_CAPE.yar")
+
+IMAGE_DOS_SIGNATURE = 0x5A4D
+IMAGE_NT_SIGNATURE = 0x00004550
+OPTIONAL_HEADER_MAGIC_PE = 0x10b
+OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20b
+IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
+IMAGE_FILE_MACHINE_I386 = 0x014c
+IMAGE_FILE_MACHINE_AMD64 = 0x8664
+DOS_HEADER_LIMIT = 0x40
+PE_HEADER_LIMIT = 0x200
+
+
+def IsPEImage(buf, size=False):
+    if not buf:
+        return False
+    if not size:
+        size = len(buf)
+    if size < DOS_HEADER_LIMIT:
+        return False
+    if isinstance(buf, str):
+        buf = buf.encode("utf-8")
+    dos_header = buf[:DOS_HEADER_LIMIT]
+    nt_headers = None
+
+    if size < PE_HEADER_LIMIT:
+        return False
+
+    # Check for sane value in e_lfanew
+    e_lfanew, = struct.unpack("<L", dos_header[60:64])
+    if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
+        offset = 0
+        while offset < PE_HEADER_LIMIT-86:
+            #ToDo
+            try:
+                machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
+            except struct.error:
+                machine_probe = ""
+            if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
+                nt_headers = buf[offset-4:offset+252]
+                break
+            offset = offset + 2
+    else:
+        nt_headers = buf[e_lfanew:e_lfanew+256]
+
+    if not nt_headers:
+        return False
+
+    #if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
+    if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
+        return False
+
+    #if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
+    if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
+        return False
+
+    #if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
+    if struct.unpack("<H", nt_headers[20:22])[0] & 3 != 0:
+        return False
+
+    #if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
+    if struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS:
+        return False
+
+    # To pass the above tests it should now be safe to assume it's a PE image
+    return True
 
 class Dictionary(dict):
     """Cuckoo custom dict."""
@@ -262,7 +331,7 @@ class File(object):
         if not HAVE_PYDEEP:
             if not File.notified_pydeep:
                 File.notified_pydeep = True
-                log.warning("Unable to import pydeep (install with `pip install pydeep`)")
+                log.warning("Unable to import pydeep (install with `pip3 install pydeep`)")
             return None
 
         try:
@@ -270,34 +339,21 @@ class File(object):
         except Exception:
             return None
 
-    def get_entrypoint(self):
+    def get_entrypoint(self, pe):
         """Get entry point (PE).
         @return: entry point.
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
 
         try:
-            pe = pefile.PE(data=self.file_data)
             return pe.OPTIONAL_HEADER.AddressOfEntryPoint
         except Exception:
             return None
 
-    def get_ep_bytes(self):
+    def get_ep_bytes(self, pe):
         """Get entry point bytes (PE).
         @return: entry point bytes (16).
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
-
         try:
-            pe = pefile.PE(data=self.file_data)
             return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10))
         except Exception:
             return None
@@ -397,6 +453,7 @@ class File(object):
 
         try:
             rules = False
+            externals = {}
             try:
                 filepath = ""
                 filename = ""
@@ -405,12 +462,12 @@ class File(object):
                     filename = self.file_name
                 if self.guest_paths:
                     filepath = self.guest_paths[0]
-                #if filepath and filename:
-                #ToDo fix it filepath and fileanem from new metadata format
-                rules = yara.compile(rulepath)#, externals={"filepath": filepath, "filename": filename})
+                if filepath and filename:
+                    externals = {"filepath": filepath, "filename": filename}
+                rules = yara.compile(rulepath, externals=externals)
             except yara.SyntaxError as e:
                 if 'duplicated identifier' in e.args[0]:
-                    log.warning("Duplicate rule in %s, rulepath")
+                    log.warning("Duplicate rule in %s", rulepath)
                     log.warning(e.args[0])
                 else:
                     rules = yara.compile(rulepath)
@@ -459,24 +516,20 @@ class File(object):
         """
         matches = []
 
-        if HAVE_CLAMAV:
-            if os.path.getsize(self.file_path) > 0:
-                try:
-                    cd = pyclamd.ClamdUnixSocket()
-                except:
-                    log.warning("failed to connect to clamd socket")
-                    return matches
-                try:
-                    results = cd.allmatchscan(self.file_path)
-                except Exception as e:
-                    log.warning("failed to scan file with clamav {0}".format(e))
-                    return matches
+        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
+            try:
+                cd = pyclamd.ClamdUnixSocket()
+                results = cd.allmatchscan(self.file_path)
                 if results:
-                    for key in results:
-                        for entry in results[key]:
-                            if entry[0] == "FOUND" and entry[1] not in matches:
-                                 matches.append(entry[1])
-
+                    for entry in results[self.file_path]:
+                        if entry[0] == "FOUND" and entry[1] not in matches:
+                            matches.append(entry[1])
+            except ConnectionError as e:
+                log.warning("failed to connect to clamd socket")
+            except Exception as e:
+                log.warning("failed to scan file with clamav {0}".format(e))
+            finally:
+                return matches
         return matches
 
     def get_all(self):
@@ -498,9 +551,23 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(CAPE_YARA_RULEPATH)
         infos["clamav"] = self.get_clamav()
-        infos["entrypoint"] = self.get_entrypoint()
-        infos["ep_bytes"] = self.get_ep_bytes()
 
+        if not HAVE_PEFILE:
+            if not File.notified_pefile:
+                File.notified_pefile = True
+                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
+        else:
+            try:
+                #read pefile once and share
+                if not IsPEImage(self.file_data):
+                    return infos
+                pe = pefile.PE(data=self.file_data, fast_load=True)
+                if pe:
+                    infos["entrypoint"] = self.get_entrypoint(pe)
+                    infos["ep_bytes"] = self.get_ep_bytes(pe).decode("utf-8")
+                    infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+            except Exception as e:
+                log.error(e)
         return infos
 
 class Static(File):
@@ -591,7 +658,7 @@ class ProcDump(object):
             alloc["offset"] = offset
             alloc["PE"] = False
             try:
-                if f.read(2) == "MZ":
+                if f.read(2) == b"MZ":
                     alloc["PE"] = True
                 f.seek(size-2, 1)
             except:

@@ -2,15 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from __future__ import absolute_import
+
 import logging
 import time
+import sys
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
-    print("Missed dependency: pip3 install proxmoxer==1.0.3")
+    sys.exit("Missed dependency: pip3 install proxmoxer -U")
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import config
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
 
@@ -174,7 +177,7 @@ class Proxmox(Machinery):
             raise CuckooMachineError("Rollback to snapshot %s failed: %s"
                                      % (snapshot, task["exitstatus"]))
 
-    def start(self, label, task):
+    def start(self, label):
         """Roll back VM to known-pristine snapshot and optionally start it if
         not already running after reverting to the snapshot.
 

@@ -40,7 +40,7 @@ class MMBot(Processing):
 
         if self.task["category"] == "file":
             if not HAVE_MMBOT:
-                log.error("MaliciousMacroBot not installed, 'pip install mmbot', aborting mmbot analysis.")
+                log.error("MaliciousMacroBot not installed, 'pip3 install mmbot', aborting mmbot analysis.")
                 return results
 
             package = ""

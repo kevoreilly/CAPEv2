@@ -20,6 +20,7 @@ import yara
 import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
+from itertools import cycle
 
 rule_source = '''
 rule Emotet
@@ -35,14 +36,18 @@ rule Emotet
         $snippet4 = {33 C0 C7 05 ?? ?? ?? ?? ?? ?? ?? ?? C7 05 ?? ?? ?? ?? ?? ?? ?? ?? A3 ?? ?? ?? ?? A3 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 40 A3 ?? ?? ?? ?? 83 3C C5 ?? ?? ?? ?? 00 75 F0 51 E8 ?? ?? ?? ?? 83 C4 04 C3}
         $snippet5 = {8B E5 5D C3 B8 ?? ?? ?? ?? A3 ?? ?? ?? ?? A3 ?? ?? ?? ?? 33 C0 21 05 ?? ?? ?? ?? A3 ?? ?? ?? ?? 39 05 ?? ?? ?? ?? 74 18 40 A3 ?? ?? ?? ?? 83 3C C5 ?? ?? ?? ?? 00 75 F0 51 E8 ?? ?? ?? ?? 59 C3}
         $snippet6 = {33 C0 21 05 ?? ?? ?? ?? A3 ?? ?? ?? ?? 39 05 ?? ?? ?? ?? 74 18 40 A3 ?? ?? ?? ?? 83 3C C5 ?? ?? ?? ?? 00 75 F0 51 E8 ?? ?? ?? ?? 59 C3}
+        $snippet7 = {8B 48 ?? C7 [5-6] C7 40 ?? ?? ?? ?? ?? C7 ?? ?? 00 00 00 [0-1] 83 3C CD ?? ?? ?? ?? 00 74 0E 41 89 48 ?? 83 3C CD ?? ?? ?? ?? 00 75 F2}
+        $snippet8 = {85 C0 74 3D B9 [2] 40 00 33 D2 89 48 20 89 48 08 8B 48 ?? 89 50 ?? EB 04 41 89 48 ?? 39 14 CD [2] 40 00 75 F3 8B CE E8 [4] 85 C0 74 05 33 C0 40 5E C3}
+        $ref_rsa = {6A 00 6A 01 FF 76 [0-4] FF [2-3] C0 74 ?? 8D 4D ?? E8 ?? ?? FF FF 8D 45 ?? B9 ?? ?? 40 00 8D 55 ?? 89 45 ?? E8}
     condition:
         //check for MZ Signature at offset 0
-        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6)
+        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($ref_rsa)
 }
 
 '''
 
 MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
@@ -55,6 +60,13 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
+
+def xor_data(data, key):
+    key = [q for q in key]
+    data = [q for q in data]
+    return bytes([c ^ k for c, k in zip(data, cycle(key))])
+
+
 # This function is originally by Jason Reaves (@sysopfb),
 # suggested as an addition by @pollo290987.
 # A big thank you to both.
@@ -65,6 +77,7 @@ def extract_emotet_rsakey(filedata):
         seq = asn1.DerSequence()
         seq.decode(pub_key)
         return RSA.construct((seq[0], seq[1]))
+
 
 class Emotet(Parser):
     #def __init__(self, reporter=None):
@@ -158,9 +171,13 @@ class Emotet(Parser):
                         return
                     c2_list_offset += 8
             else:
-                refc2list = yara_scan(filebuf, '$snippet5')
+                snippet = '$snippet5'
+                refc2list = yara_scan(filebuf, snippet)
+                if not refc2list:
+                    snippet = '$snippet8'
+                    refc2list = yara_scan(filebuf, snippet)
                 if refc2list:
-                    c2list_va_offset = int(refc2list['$snippet5'])
+                    c2list_va_offset = int(refc2list[snippet])
                     c2_list_va = struct.unpack('i', filebuf[c2list_va_offset+5:c2list_va_offset+9])[0]
                     if c2_list_va - image_base > 0x20000:
                         c2_list_rva = c2_list_va & 0xffff
@@ -175,16 +192,16 @@ class Emotet(Parser):
                         try:
                             ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                         except:
-                            return
+                            break
                         if ip == 0:
-                            return
+                            break
                         c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                         port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                         if c2_address and port:
                             self.reporter.add_metadata('address', c2_address+':' + port)
                         else:
-                            return
+                            break
                         c2_list_offset += 8
                 else:
                     refc2list = yara_scan(filebuf, '$snippet6')
@@ -204,14 +221,73 @@ class Emotet(Parser):
                             try:
                                 ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
                             except:
-                                return
+                                break
                             if ip == 0:
-                                return
+                                break
                             c2_address = socket.inet_ntoa(struct.pack('!L', ip))
                             port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
 
                             if c2_address and port:
                                 self.reporter.add_metadata('address', c2_address+':' + port)
                             else:
-                                return
+                                break
                             c2_list_offset += 8
+                    else:
+                        refc2list = yara_scan(filebuf, '$snippet7')
+                        if refc2list:
+                            c2list_va_offset = int(refc2list['$snippet7'])
+                            delta = 26
+                            hb = struct.unpack('b', filebuf[c2list_va_offset+29:c2list_va_offset+30])[0]
+                            if hb:
+                                delta += 1
+                            c2_list_va = struct.unpack('i', filebuf[c2list_va_offset+delta:c2list_va_offset+delta+4])[0]
+                            if c2_list_va - image_base > 0x20000:
+                                c2_list_rva = c2_list_va & 0xffff
+                            else:
+                                c2_list_rva = c2_list_va - image_base
+                            try:
+                                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+                            except pefile.PEFormatError as err:
+                                pass
+
+                            while 1:
+                                try:
+                                    ip = struct.unpack('<I', filebuf[c2_list_offset:c2_list_offset+4])[0]
+                                except:
+                                    break
+                                if ip == 0:
+                                    break
+                                c2_address = socket.inet_ntoa(struct.pack('!L', ip))
+                                port = str(struct.unpack('H', filebuf[c2_list_offset+4:c2_list_offset+6])[0])
+
+                                if c2_address and port:
+                                    self.reporter.add_metadata('address', c2_address+':' + port)
+                                else:
+                                    break
+                                c2_list_offset += 8
+
+        if not pem_key:
+            ref_rsa = yara_scan(filebuf, '$ref_rsa')
+            if ref_rsa:
+                ref_rsa_offset = int(ref_rsa['$ref_rsa'])
+                ref_rsa_va = 0
+                zb = struct.unpack('b', filebuf[ref_rsa_offset+31:ref_rsa_offset+32])[0]
+                if not zb:
+                    ref_rsa_va = struct.unpack('i', filebuf[ref_rsa_offset+28:ref_rsa_offset+32])[0]
+                else:
+                    zb = struct.unpack('b', filebuf[ref_rsa_offset+29:ref_rsa_offset+30])[0]
+                    if not zb:
+                        ref_rsa_va = struct.unpack('i', filebuf[ref_rsa_offset+26:ref_rsa_offset+30])[0]
+                if not ref_rsa_va:
+                    return
+                ref_rsa_rva = ref_rsa_va - image_base
+                try:
+                    ref_rsa_offset = pe.get_offset_from_rva(ref_rsa_rva)
+                except:
+                    return
+                key = struct.unpack('<I', filebuf[ref_rsa_offset:ref_rsa_offset+4])[0]
+                xorsize = key ^ struct.unpack('<I', filebuf[ref_rsa_offset+4:ref_rsa_offset+8])[0]
+                rsa_key = xor_data(filebuf[ref_rsa_offset+8:ref_rsa_offset+8+xorsize], struct.pack('<I', key))
+                seq = asn1.DerSequence()
+                seq.decode(rsa_key)
+                self.reporter.add_metadata('other', {'RSA public key': RSA.construct((seq[0], seq[1])).exportKey()})

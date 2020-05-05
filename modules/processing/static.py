@@ -10,14 +10,17 @@ import os
 import re
 import math
 import array
+import ctypes
 import struct
 import base64
 import hashlib
+import requests
 import binascii
+import re2 as re
 from PIL import Image
-from io import StringIO
+from io import BytesIO
 from subprocess import Popen, PIPE
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, time
 
 try:
     import bs4
@@ -66,11 +69,12 @@ try:
 except ImportError:
     HAVE_VBA2GRAPH = False
 
+from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
@@ -128,7 +132,7 @@ def _get_entropy(data):
     occurrences = array.array('L', [0]*256)
 
     for x in data:
-        occurrences[ord(x)] += 1
+        occurrences[x] += 1
 
     for x in occurrences:
         if x:
@@ -181,10 +185,13 @@ class DotNETExecutable(object):
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path],
+                           stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline:
+                    continue
+                if len(splitline) < 6:
                     continue
                 typeval = splitline[1].rstrip(":")
                 nameval = splitline[6].split("::")[0]
@@ -206,13 +213,14 @@ class DotNETExecutable(object):
                 ret.append(item)
             return ret
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_assembly_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assemblyref", self.file_path],
+                           stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
                 if len(splitline) < 2:
@@ -229,13 +237,14 @@ class DotNETExecutable(object):
             return ret
 
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -243,13 +252,14 @@ class DotNETExecutable(object):
                     ret["version"] = convert_to_printable(line[8:].strip())
             return ret
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def _get_type_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 restline = ''.join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -260,10 +270,10 @@ class DotNETExecutable(object):
                     item["assembly"] = convert_to_printable(asmname)
                     item["typename"] = convert_to_printable(typename)
                     ret.append(item)
-            return sorted(ret)
+            return ret
 
         except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
             return None
 
     def run(self):
@@ -315,7 +325,7 @@ class PortableExecutable(object):
             result = signatures.match_all(self.pe, ep_only=True)
             if not result:
                 return None
-            return list(set(result))
+            return result
         except Exception as e:
             log.error(e, exc_info=True)
             return None
@@ -332,7 +342,7 @@ class PortableExecutable(object):
                 dbgst = dbg.struct
                 dbgdata = self.pe.__data__[dbgst.PointerToRawData:dbgst.PointerToRawData+dbgst.SizeOfData]
                 if dbgst.Type == 4: #MISC
-                    datatype, length, uniflag = struct.unpack_from("IIB", dbgdata)
+                    _, length, _ = struct.unpack_from("IIB", dbgdata)
                     return convert_to_printable(str(dbgdata[12:length]).rstrip('\0'))
                 elif dbgst.Type == 2: #CODEVIEW
                     if dbgdata[:4] == "RSDS":
@@ -353,23 +363,24 @@ class PortableExecutable(object):
 
         imports = []
 
-        if hasattr(self.pe, "DIRECTORY_ENTRY_IMPORT"):
-            for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
-                try:
-                    symbols = []
-                    for imported_symbol in entry.imports:
-                        symbol = {}
-                        symbol["address"] = hex(imported_symbol.address)
-                        symbol["name"] = bytes2str(imported_symbol.name)
-                        symbols.append(symbol)
+        if not hasattr(self.pe, "DIRECTORY_ENTRY_IMPORT"):
+            return imports
 
-                    imports_section = {}
-                    imports_section["dll"] = bytes2str(entry.dll)
-                    imports_section["imports"] = symbols
-                    imports.append(imports_section)
-                except Exception as e:
-                    log.error(e, exc_info=True)
-                    continue
+        for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
+            try:
+                symbols = []
+                for imported_symbol in entry.imports:
+                    symbol = {}
+                    symbol["address"] = hex(imported_symbol.address)
+                    symbol["name"] = bytes2str(imported_symbol.name)
+                    symbols.append(symbol)
+                imports_section = {}
+                imports_section["dll"] = bytes2str(entry.dll)
+                imports_section["imports"] = symbols
+                imports.append(imports_section)
+            except Exception as e:
+                log.error(e, exc_info=True)
+                continue
 
         return imports
 
@@ -433,18 +444,19 @@ class PortableExecutable(object):
         return dirents
 
     def _convert_section_characteristics(self, val):
-        flags = [ "", "", "", "IMAGE_SCN_TYPE_NO_PAD", "", "IMAGE_SCN_CNT_CODE", "IMAGE_SCN_CNT_INITIALIZED_DATA", "IMAGE_SCN_CNT_UNINITIALIZED_DATA", "IMAGE_SCN_LNK_OTHER",
-                 "IMAGE_SCN_LNK_INFO", "", "IMAGE_SCN_LNK_REMOVE", "IMAGE_SCN_LNK_COMDAT", "", "IMAGE_SCN_NO_DEFER_SPEC_EXC", "IMAGE_SCN_GPREL", "", "IMAGE_SCN_MEM_PURGEABLE",
-                 "IMAGE_SCN_MEM_LOCKED", "IMAGE_SCN_MEM_PRELOAD",
+        flags = ["", "", "", "IMAGE_SCN_TYPE_NO_PAD", "", "IMAGE_SCN_CNT_CODE", "IMAGE_SCN_CNT_INITIALIZED_DATA",
+                 "IMAGE_SCN_CNT_UNINITIALIZED_DATA", "IMAGE_SCN_LNK_OTHER", "IMAGE_SCN_LNK_INFO", "",
+                 "IMAGE_SCN_LNK_REMOVE", "IMAGE_SCN_LNK_COMDAT", "", "IMAGE_SCN_NO_DEFER_SPEC_EXC",
+                 "IMAGE_SCN_GPREL", "", "IMAGE_SCN_MEM_PURGEABLE", "IMAGE_SCN_MEM_LOCKED", "IMAGE_SCN_MEM_PRELOAD",
                  # alignment bytes
-                 "", "", "", "",
-                 "IMAGE_SCN_LNK_NRELOC_OVFL", "IMAGE_SCN_MEM_DISCARDABLE", "IMAGE_SCN_MEM_NOT_CACHED", "IMAGE_SCN_MEM_NOT_PAGED", "IMAGE_SCN_MEM_SHARED", "IMAGE_SCN_MEM_EXECUTE",
-                 "IMAGE_SCN_MEM_READ", "IMAGE_SCN_MEM_WRITE"
-                ]
-        alignment = ["", "IMAGE_SCN_ALIGN_1BYTES", "IMAGE_SCN_ALIGN_2BYTES", "IMAGE_SCN_ALIGN_4BYTES", "IMAGE_SCN_ALIGN_8BYTES",
-                     "IMAGE_SCN_ALIGN_16BYTES", "IMAGE_SCN_ALIGN_32BYTES", "IMAGE_SCN_ALIGN_64BYTES", "IMAGE_SCN_ALIGN_128BYTES", "IMAGE_SCN_ALIGN_256BYTES",
-                     "IMAGE_SCN_ALIGN_512BYTES", "IMAGE_SCN_ALIGN_1024BYTES", "IMAGE_SCN_ALIGN_2048BYTES", "IMAGE_SCN_ALIGN_4096BYTES", "IMAGE_SCN_ALIGN_8192BYTES", ""
-                    ]
+                 "", "", "", "", "IMAGE_SCN_LNK_NRELOC_OVFL", "IMAGE_SCN_MEM_DISCARDABLE", "IMAGE_SCN_MEM_NOT_CACHED",
+                 "IMAGE_SCN_MEM_NOT_PAGED", "IMAGE_SCN_MEM_SHARED", "IMAGE_SCN_MEM_EXECUTE", "IMAGE_SCN_MEM_READ",
+                 "IMAGE_SCN_MEM_WRITE"]
+        alignment = ["", "IMAGE_SCN_ALIGN_1BYTES", "IMAGE_SCN_ALIGN_2BYTES", "IMAGE_SCN_ALIGN_4BYTES",
+                     "IMAGE_SCN_ALIGN_8BYTES", "IMAGE_SCN_ALIGN_16BYTES", "IMAGE_SCN_ALIGN_32BYTES",
+                     "IMAGE_SCN_ALIGN_64BYTES", "IMAGE_SCN_ALIGN_128BYTES", "IMAGE_SCN_ALIGN_256BYTES",
+                     "IMAGE_SCN_ALIGN_512BYTES", "IMAGE_SCN_ALIGN_1024BYTES", "IMAGE_SCN_ALIGN_2048BYTES",
+                     "IMAGE_SCN_ALIGN_4096BYTES", "IMAGE_SCN_ALIGN_8192BYTES", ""]
         tags = []
         for idx, flagstr in enumerate(flags):
             if flags[idx] and (val & (1 << idx)):
@@ -494,7 +506,8 @@ class PortableExecutable(object):
         try:
             off = self.pe.get_overlay_data_start_offset()
         except:
-            log.error("Your version of pefile is out of date.  Please update to the latest version on https://github.com/erocarrera/pefile")
+            log.error("Your version of pefile is out of date.  "
+                      "Please update to the latest version on https://github.com/erocarrera/pefile")
             return None
 
         if off is None:
@@ -543,7 +556,8 @@ class PortableExecutable(object):
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
         except:
-            log.warning("Detected outdated version of pefile.  Please update to the latest version at https://github.com/erocarrera/pefile")
+            log.warning("Detected outdated version of pefile.  "
+                        "Please update to the latest version at https://github.com/erocarrera/pefile")
         return retstr
 
     def _get_osversion(self):
@@ -553,7 +567,8 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
+        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion,
+                                self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
 
     def _get_resources(self):
         """Get resources.
@@ -578,10 +593,12 @@ class PortableExecutable(object):
                         for resource_id in resource_type.directory.entries:
                             if hasattr(resource_id, "directory"):
                                 for resource_lang in resource_id.directory.entries:
-                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
+                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData,
+                                                            resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
                                     language = pefile.LANG.get(resource_lang.data.lang, None)
-                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
+                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang,
+                                                                                   resource_lang.data.sublang)
                                     resource["name"] = name
                                     resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
                                     resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
@@ -590,20 +607,26 @@ class PortableExecutable(object):
                                     resource["sublanguage"] = sublanguage
                                     resource["entropy"] = "{0:.02f}".format(float(_get_entropy(data)))
                                     resources.append(resource)
-                except:
+                except Exception as e:
+                    log.error(e, exc_info=True)
                     continue
 
         return resources
 
     def _get_icon_info(self):
         """Get icon in PNG format and information for searching for similar icons
-        @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified" image for fuzzy matching)
+        @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified"
+         image for fuzzy matching)
         """
-        if not self.pe:
+        if not self.pe or not hasattr(self.pe, "DIRECTORY_ENTRY_RESOURCE"):
             return None, None, None
 
         try:
-            rt_group_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_GROUP_ICON'])
+            idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
+            if pefile.RESOURCE_TYPE['RT_GROUP_ICON'] not in idx:
+                return None, None, None
+
+            rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE['RT_GROUP_ICON'])
             rt_group_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
             entry = rt_group_icon_dir.directory.entries[0]
             offset = entry.directory.entries[0].data.struct.OffsetToData
@@ -614,7 +637,7 @@ class PortableExecutable(object):
             bigbpp = 0
             bigidx = -1
             iconidx = 0
-            for idx,icon in enumerate(peicon.icons):
+            for idx, icon in enumerate(peicon.icons):
                 if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
                     bigwidth = icon.bWidth
                     bigheight = icon.bHeight
@@ -622,7 +645,8 @@ class PortableExecutable(object):
                     bigidx = icon.nID
                     iconidx = idx
 
-            rt_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_ICON'])
+            rt_icon_idx = [entry.id for entry
+                           in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_ICON'])
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:
@@ -630,12 +654,17 @@ class PortableExecutable(object):
                     size = entry.directory.entries[0].data.struct.Size
                     icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset:offset+size])
 
-                    strio = StringIO()
-                    output = StringIO()
+                    byteio = BytesIO()
+                    byteio.write(icon)
+                    byteio.seek(0)
+                    try:
+                        img = Image.open(byteio)
+                    except OSError as e:
+                        byteio.close()
+                        log.error(e)
+                        return None, None, None
 
-                    strio.write(icon)
-                    strio.seek(0)
-                    img = Image.open(strio)
+                    output = BytesIO()
                     img.save(output, format="PNG")
 
                     img = img.resize((8,8), Image.BILINEAR)
@@ -651,9 +680,12 @@ class PortableExecutable(object):
                     m = hashlib.md5()
                     m.update(simplified)
                     simphash = m.hexdigest()
-                    return base64.b64encode(output.getvalue()), fullhash, simphash
-        except:
-            pass
+                    icon = base64.b64encode(output.getvalue()).decode("utf-8")
+                    output.close()
+                    img.close()
+                    return icon, fullhash, simphash
+        except Exception as e:
+            log.error(e, exc_info=True)
 
         return None, None, None
 
@@ -665,30 +697,33 @@ class PortableExecutable(object):
             return None
 
         infos = []
-        if hasattr(self.pe, "VS_VERSIONINFO"):
-            if hasattr(self.pe, "FileInfo"):
-                for entry in self.pe.FileInfo:
-                    try:
-                        if hasattr(entry, "StringTable"):
-                            for st_entry in entry.StringTable:
-                                for str_entry in st_entry.entries.items():
-                                    entry = {}
-                                    entry["name"] = convert_to_printable(str_entry[0])
-                                    entry["value"] = convert_to_printable(str_entry[1])
-                                    if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                        entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                                    infos.append(entry)
-                        elif hasattr(entry, "Var"):
-                            for var_entry in entry.Var:
-                                if hasattr(var_entry, "entry"):
-                                    entry = {}
-                                    entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
-                                    entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                                    if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                        entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                                    infos.append(entry)
-                    except:
-                        continue
+
+        if not hasattr(self.pe, "VS_VERSIONINFO") and not hasattr(self.pe, "FileInfo"):
+            return infos
+
+        for entry in self.pe.FileInfo:
+            try:
+                if hasattr(entry, "StringTable"):
+                    for st_entry in entry.StringTable:
+                        for str_entry in st_entry.entries.items():
+                            entry = {}
+                            entry["name"] = convert_to_printable(str_entry[0])
+                            entry["value"] = convert_to_printable(str_entry[1])
+                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                            infos.append(entry)
+                elif hasattr(entry, "Var"):
+                    for var_entry in entry.Var:
+                        if hasattr(var_entry, "entry"):
+                            entry = {}
+                            entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
+                            entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
+                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                            infos.append(entry)
+            except Exception as e:
+                log.error(e, exc_info=True)
+                continue
 
         return infos
 
@@ -748,6 +783,9 @@ class PortableExecutable(object):
     def _get_digital_signers(self):
         """If this executable is signed, get its signature(s)."""
         dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
+        if not self.pe:
+            return []
+
         if len(self.pe.OPTIONAL_HEADER.DATA_DIRECTORY) < dir_index:
             return []
 
@@ -848,15 +886,20 @@ class PortableExecutable(object):
         @return: analysis results dict or None.
         """
         if not os.path.exists(self.file_path):
+            log.debug("File doesn't exist anymore")
             return {}
 
-        try:
-            self.pe = pefile.PE(self.file_path)
-        except pefile.PEFormatError:
+        #Advanced check if is real PE
+        if not IsPEImage(open(self.file_path, "rb").read()):
+            return {}
+
+        self.pe = pefile.PE(self.file_path)
+        if not self.pe:
+            log.debug("Not a PE file, skiping ")
             return {}
 
         results = {}
-        peresults = results["pe"] = { }
+        peresults = results["pe"] = {}
 
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
@@ -883,7 +926,8 @@ class PortableExecutable(object):
         peresults["timestamp"] = self._get_timestamp()
         peresults["digital_signers"] = self._get_digital_signers()
         peresults["guest_signers"] = self._get_guest_digital_signers()
-        peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+        if peresults.get("imports", False):
+            peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
         return results
 
@@ -927,16 +971,21 @@ class PDF(object):
     def _set_base_uri(self):
         try:
             for version in range(self.pdf.updates+1):
-                trailer, streamTrailer = self.pdf.trailer[version]
+                trailer, _ = self.pdf.trailer[version]
                 if trailer != None:
                     elem = trailer.dict.getElementByName("/Root")
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/URI")
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/Base")
-                    elem = self._get_obj_val(version, elem)
-                    self.base_uri = elem.getValue()
-        except:
+                    if elem:
+                        elem = self._get_obj_val(version, elem)
+                        elem = elem.getElementByName("/URI")
+                        if elem:
+                            elem = self._get_obj_val(version, elem)
+                            elem = elem.getElementByName("/Base")
+                            if elem:
+                                elem = self._get_obj_val(version, elem)
+                                if elem:
+                                    self.base_uri = elem.getValue()
+        except Exception as e:
+            log.error(e, exc_info=True)
             pass
 
     def _parse(self, filepath):
@@ -1014,6 +1063,7 @@ class PDF(object):
                             jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
                             jsdata = jslist[0]
                         except Exception as e:
+                            log.error(e, exc_info=True)
                             continue
                         if len(errors):
                             continue
@@ -1150,6 +1200,26 @@ class Office(object):
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
 
+    def _decode_xlm_macro(self, macro):
+        lines = macro.split("\n")
+        numre = re.compile('ptgInt (\d+) ')
+        strdict = dict()
+        dstrs = ""
+        for line in lines:
+            if "CHAR" not in line:
+                continue
+            col = "C{}".format(re.findall('.*R\d+C(\d+)\s', line)[0])
+            if not strdict.get(col, False):
+                strdict[col] = ""
+            found = numre.findall(line)
+            if found:
+                for n in found:
+                    strdict[col] += (chr(int(n)))
+        for col in strdict:
+            dstrs += f"{strdict[col]}\n"
+
+        return dstrs
+
     def _parse_rtf(self, data):
         results = dict()
         rtfp = RtfObjParser(data)
@@ -1208,7 +1278,7 @@ class Office(object):
                 log.debug('  class name = %r' % rtfobj.class_name)
                 log.debug('  data size  = %d' % rtfobj.oledata_size)
                 class_name = rtfobj.class_name.decode('ascii', 'ignore').encode('ascii')
-                temp_dict["class_name"] = class_name
+                temp_dict["class_name"] = convert_to_printable(class_name)
                 temp_dict["size"] = rtfobj.oledata_size
                 # set a file extension according to the class name:
                 class_name = rtfobj.class_name.lower()
@@ -1271,6 +1341,8 @@ class Office(object):
             dde = extract_dde(filepath)
             if dde:
                 results["office_dde"] = convert_to_printable(dde)
+        except AttributeError:
+            log.warning("OleFile library bug: AttributeError! fix: pip3 install -U olefile")
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -1293,6 +1365,7 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
+            decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
@@ -1302,15 +1375,25 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():
+            macrores["Analysis"]["DecodedStrings"] = list()
+            for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
                     # Handle all macros
                     ctr += 1
                     outputname = "Macro" + str(ctr)
                     macrores["Code"][outputname] = list()
-                    macrores["Code"][outputname].append((convert_to_printable(vba_filename),convert_to_printable(vba_code)))
+                    macrores["Code"][outputname].append((convert_to_printable(vba_filename),
+                                                         convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
+                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
+                        decrypted_code = self._decode_xlm_macro(vba_code)
+                        if decrypted_code:
+                            vba_code = decrypted_code
+                            outputname += "_Decoded"
+                            macrores["Code"][outputname] = list()
+                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"),
+                                                                 convert_to_printable(vba_code)))
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
                     try:
@@ -1330,6 +1413,10 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
+                    if decoded_strs:
+                        for dstr in decoded_strs.split("\n"):
+                            if dstr:
+                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1340,17 +1427,20 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
+            if macrores["Analysis"]["DecodedStrings"] == []:
+                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
-                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "vba2graph")
+                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
+                                                  str(self.results["info"]["id"]), "vba2graph")
                     if not os.path.exists(vba2graph_path):
                         os.makedirs(vba2graph_path)
                     vba_code = vba2graph_from_vba_object(filepath)
                     if vba_code:
                         vba2graph_gen(vba_code, vba2graph_path)
                 except Exception as e:
-                    log.info(e)
+                    log.error(e, exc_info=True)
         else:
             metares["HasMacros"] = "No"
 
@@ -1373,6 +1463,303 @@ class Office(object):
             return None
         results = self._parse(self.file_path)
         return results
+
+
+class LnkShortcut(object):
+    signature = [0x4c, 0x00, 0x00, 0x00]
+    guid = [
+        0x01, 0x14, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46,
+    ]
+    flags = [
+        "shellidlist", "references", "description",
+        "relapath", "workingdir", "cmdline", "icon",
+    ]
+    attrs = [
+        "readonly", "hidden", "system", None, "directory", "archive",
+        "ntfs_efs", "normal", "temporary", "sparse", "reparse", "compressed",
+        "offline", "not_indexed", "encrypted",
+    ]
+
+    def __init__(self, filepath=None):
+        self.filepath = filepath
+
+    def read_uint16(self, offset):
+        return struct.unpack("H", self.buf[offset:offset+2])[0]
+
+    def read_uint32(self, offset):
+        return struct.unpack("I", self.buf[offset:offset+4])[0]
+
+    def read_stringz(self, offset):
+        return self.buf[offset:self.buf.index(b"\x00", offset)]
+
+    def read_string16(self, offset):
+        length = self.read_uint16(offset) * 2
+        ret = self.buf[offset+2:offset+2+length].decode("utf16")
+        return offset + 2 + length, ret
+
+    def run(self):
+        buf = self.buf = open(self.filepath, "rb").read()
+        if len(buf) < ctypes.sizeof(LnkHeader):
+            log.warning("Provided .lnk file is corrupted or incomplete.")
+            return
+
+        header = LnkHeader.from_buffer_copy(buf[:ctypes.sizeof(LnkHeader)])
+        if header.signature[:] != self.signature:
+            return
+
+        if header.guid[:] != self.guid:
+            return
+
+        ret = {
+            "flags": {},
+            "attrs": []
+        }
+
+        for x in range(7):
+            ret["flags"][self.flags[x]] = bool(header.flags & (1 << x))
+
+        for x in range(14):
+            if header.attrs & (1 << x):
+                ret["attrs"].append(self.attrs[x])
+
+        offset = 78 + self.read_uint16(76)
+        if len(buf) < offset + 28:
+            log.warning("Provided .lnk file is corrupted or incomplete.")
+            return
+
+        off = LnkEntry.from_buffer_copy(buf[offset:offset + 28])
+
+        # Local volume.
+        if off.volume_flags & 1:
+            ret["basepath"] = self.read_stringz(offset + off.base_path)
+        # Network volume.
+        else:
+            ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
+            network_drive = self.read_uint32(offset + off.net_volume + 12)
+            if network_drive:
+                ret["network_drive"] = self.read_stringz(
+                    offset + network_drive
+                )
+
+        ret["remaining_path"] = self.read_stringz(offset + off.path_remainder)
+
+        extra = offset + off.length
+        if ret["flags"]["description"]:
+            extra, ret["description"] = self.read_string16(extra)
+        if ret["flags"]["relapath"]:
+            extra, ret["relapath"] = self.read_string16(extra)
+        if ret["flags"]["workingdir"]:
+            extra, ret["workingdir"] = self.read_string16(extra)
+        if ret["flags"]["cmdline"]:
+            extra, ret["cmdline"] = self.read_string16(extra)
+        if ret["flags"]["icon"]:
+            extra, ret["icon"] = self.read_string16(extra)
+        return ret
+
+
+class ELF(object):
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.elf = None
+        self.result = {}
+
+    def run(self):
+        try:
+            self.elf = ELFFile(open(self.file_path, "rb"))
+            self.result["file_header"] = self._get_file_header()
+            self.result["section_headers"] = self._get_section_headers()
+            self.result["program_headers"] = self._get_program_headers()
+            self.result["dynamic_tags"] = self._get_dynamic_tags()
+            self.result["symbol_tables"] = self._get_symbol_tables()
+            self.result["relocations"] = self._get_relocations()
+            self.result["notes"] = self._get_notes()
+            # TODO: add library name per import (see #807)
+        except ELFError as e:
+            if e.message != "Magic number does not match":
+                raise
+
+        return self.result
+
+    def _get_file_header(self):
+        return {
+            "magic": convert_to_printable(self.elf.e_ident_raw[:4]),
+            "class": describe_ei_class(self.elf.header.e_ident["EI_CLASS"]),
+            "data": describe_ei_data(self.elf.header.e_ident["EI_DATA"]),
+            "ei_version": describe_ei_version(self.elf.header.e_ident["EI_VERSION"]),
+            "os_abi": describe_ei_osabi(self.elf.header.e_ident["EI_OSABI"]),
+            "abi_version": self.elf.header.e_ident["EI_ABIVERSION"],
+            "type": describe_e_type(self.elf.header["e_type"]),
+            "machine": describe_e_machine(self.elf.header["e_machine"]),
+            "version": describe_e_version_numeric(self.elf.header["e_version"]),
+            "entry_point_address": self._print_addr(self.elf.header["e_entry"]),
+            "start_of_program_headers": self.elf.header["e_phoff"],
+            "start_of_section_headers": self.elf.header["e_shoff"],
+            "flags": "{}{}".format(
+                self._print_addr(self.elf.header["e_flags"]),
+                self._decode_flags(self.elf.header["e_flags"])
+            ),
+            "size_of_this_header": self.elf.header["e_ehsize"],
+            "size_of_program_headers": self.elf.header["e_phentsize"],
+            "number_of_program_headers": self.elf.header["e_phnum"],
+            "size_of_section_headers": self.elf.header["e_shentsize"],
+            "number_of_section_headers": self.elf.header["e_shnum"],
+            "section_header_string_table_index": self.elf.header["e_shstrndx"],
+        }
+
+    def _get_section_headers(self):
+        section_headers = []
+        for section in self.elf.iter_sections():
+            section_headers.append({
+                "name": section.name,
+                "type": describe_sh_type(section["sh_type"]),
+                "addr": self._print_addr(section["sh_addr"]),
+                "size": section["sh_size"],
+            })
+        return section_headers
+
+    def _get_program_headers(self):
+        program_headers = []
+        for segment in self.elf.iter_segments():
+            program_headers.append({
+                "type": describe_p_type(segment["p_type"]),
+                "addr": self._print_addr(segment["p_vaddr"]),
+                "flags": describe_p_flags(segment["p_flags"]).strip(),
+                "size": segment["p_memsz"],
+            })
+        return program_headers
+
+    def _get_dynamic_tags(self):
+        dynamic_tags = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, DynamicSection):
+                continue
+            for tag in section.iter_tags():
+                dynamic_tags.append({
+                    "tag": self._print_addr(
+                        ENUM_D_TAG.get(tag.entry.d_tag, tag.entry.d_tag)
+                    ),
+                    "type": str(tag.entry.d_tag)[3:],
+                    "value": self._parse_tag(tag),
+                })
+
+        return dynamic_tags
+
+    def _get_symbol_tables(self):
+        symbol_tables = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, SymbolTableSection):
+                continue
+            for nsym, symbol in enumerate(section.iter_symbols()):
+                symbol_tables.append({
+                    "value": self._print_addr(symbol["st_value"]),
+                    "type": describe_symbol_type(symbol["st_info"]["type"]),
+                    "bind": describe_symbol_bind(symbol["st_info"]["bind"]),
+                    "ndx_name": symbol.name,
+                })
+        return symbol_tables
+
+    def _get_relocations(self):
+        relocations = []
+        for section in self.elf.iter_sections():
+            if not isinstance(section, RelocationSection):
+                continue
+            section_relocations = []
+            for rel in section.iter_relocations():
+                relocation = {
+                    "offset": self._print_addr(rel["r_offset"]),
+                    "info": self._print_addr(rel["r_info"]),
+                    "type": describe_reloc_type(rel["r_info_type"], self.elf),
+                    "value": "",
+                    "name": ""
+                }
+
+                if rel["r_info_sym"] != 0:
+                    symtable = self.elf.get_section(section["sh_link"])
+                    symbol = symtable.get_symbol(rel["r_info_sym"])
+                    # Some symbols have zero "st_name", so instead use
+                    # the name of the section they point at
+                    if symbol["st_name"] == 0:
+                        symsec = self.elf.get_section(symbol["st_shndx"])
+                        symbol_name = symsec.name
+                    else:
+                        symbol_name = symbol.name
+
+                    relocation["value"] = self._print_addr(symbol["st_value"])
+                    relocation["name"] = symbol_name
+
+                if relocation not in section_relocations:
+                    section_relocations.append(relocation)
+
+            relocations.append({
+                "name": section.name,
+                "entries": section_relocations,
+            })
+        return relocations
+
+    def _get_notes(self):
+        notes = []
+        for segment in self.elf.iter_segments():
+            if not isinstance(segment, NoteSegment):
+                continue
+            for note in segment.iter_notes():
+                notes.append({
+                    "owner": note["n_name"],
+                    "size": self._print_addr(note["n_descsz"]),
+                    "note": describe_note(note),
+                    "name": note["n_name"],
+                })
+        return notes
+
+    def _print_addr(self, addr):
+        fmt = "0x{0:08x}" if self.elf.elfclass == 32 else "0x{0:016x}"
+        return fmt.format(addr)
+
+    def _decode_flags(self, flags):
+        description = ""
+        if self.elf["e_machine"] == "EM_ARM":
+            if flags & E_FLAGS.EF_ARM_HASENTRY:
+                description = ", has entry point"
+
+            version = flags & E_FLAGS.EF_ARM_EABIMASK
+            if version == E_FLAGS.EF_ARM_EABI_VER5:
+                description = ", Version5 EABI"
+        elif self.elf["e_machine"] == "EM_MIPS":
+            if flags & E_FLAGS.EF_MIPS_NOREORDER:
+                description = ", noreorder"
+            if flags & E_FLAGS.EF_MIPS_CPIC:
+                description = ", cpic"
+            if not (flags & E_FLAGS.EF_MIPS_ABI2) and not (flags & E_FLAGS.EF_MIPS_ABI_ON32):
+                description = ", o32"
+            if (flags & E_FLAGS.EF_MIPS_ARCH) == E_FLAGS.EF_MIPS_ARCH_1:
+                description = ", mips1"
+
+        return description
+
+    def _parse_tag(self, tag):
+        if tag.entry.d_tag == "DT_NEEDED":
+            parsed = "Shared library: [%s]" % tag.needed
+        elif tag.entry.d_tag == "DT_RPATH":
+            parsed = "Library rpath: [%s]" % tag.rpath
+        elif tag.entry.d_tag == "DT_RUNPATH":
+            parsed = "Library runpath: [%s]" % tag.runpath
+        elif tag.entry.d_tag == "DT_SONAME":
+            parsed = "Library soname: [%s]" % tag.soname
+        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("SZ", "ENT")):
+            parsed = "%i (bytes)" % tag["d_val"]
+        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
+            parsed = "%i" % tag["d_val"]
+        elif tag.entry.d_tag == "DT_PLTREL":
+            s = describe_dyn_tag(tag.entry.d_val)
+            if s.startswith("DT_"):
+                s = s[3:]
+            parsed = "%s" % s
+        else:
+            parsed = self._print_addr(tag["d_val"])
+
+        return parsed
+
+
 '''
 class HwpDocument(object):
     """Static analysis of HWP documents."""
@@ -1393,7 +1780,7 @@ class HwpDocument(object):
 	        stream_content = zlib.decompress(ole.openstream(stream).read(), -15)
                 self.files[stream_name] = stream_content
 	    except Exception as e:
-            print(e)
+            log.error(e, exc_info=True)
         ole.close()
 
     def extract_eps(self):
@@ -1440,7 +1827,8 @@ class Java(object):
             try:
                 p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
                 results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
-            except:
+            except Exception as e:
+                log.error(e, exc_info=True)
                 pass
 
             try:
@@ -1464,6 +1852,30 @@ class URL(object):
                 self.domain = self.domain[:-1]
         else:
             self.domain = ""
+
+    def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
+        nest_count = 0 - ignore_nest_level
+        string_buf = str()
+        json_buf = list()
+        json_data = list()
+        for character in data:
+            if character == "{":
+                nest_count += 1
+            if nest_count > 0:
+                string_buf += character
+            if character == "}":
+                nest_count -= 1
+            if nest_count == 0 and len(string_buf):
+                json_buf.append(string_buf)
+                string_buf = str()
+
+        if json_buf:
+            for data in json_buf:
+                if len(data) > 4:
+                    json_data.append(json.loads(data))
+            return json_data
+
+        return []
 
     def run(self):
         results = {}
@@ -1520,6 +1932,21 @@ class URL(object):
                          "\n    ".join(w["name_servers"]),
                          "\n    ".join(w["referral_url"]))
             results["url"]["whois"] = output
+
+        if self.domain == "bit.ly":
+            resp = requests.get(self.url+"+")
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+            output = list()
+            for script in [x.extract() for x in soup.find_all("script")]:
+                if script.contents:
+                    content = script.contents[0]
+                    if "long_url_no_protocol" in content:
+                        output = self.parse_json_in_javascript(content, 1)
+
+            if output:
+                results["url"]["bitly"] = {k: v for d in output for k, v in d.iteritems()}
+                newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
+                results["url"]["bitly"]["created_at"] = newtime.strftime("%Y-%m-%d %H:%M:%S") + " GMT"
 
         return results
 
@@ -1592,7 +2019,7 @@ class EncodedScriptFile(object):
 
     def run(self):
         results = {}
-        source = open(self.filepath, "rb").read()
+        source = open(self.filepath, "r").read()
         source = self.decode(source)
         if not source:
             return results
@@ -1639,7 +2066,7 @@ class WindowsScriptFile(object):
     def run(self):
         results = {}
         ret = []
-        source = open(self.filepath, "rb").read()
+        source = open(self.filepath, "r").read()
 
         # Get rid of superfluous comments.
         source = re.sub("/\\*.*?\\*/", "", source, flags=re.S)
@@ -1682,8 +2109,9 @@ class Static(Processing):
             package = self.results.get("info", {}).get("package", "")
 
             thetype = File(self.file_path).get_type()
-            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in ("doc", "ppt", "xls", "pub"):
-                log.info("Missed dependencies: pip install oletools")
+            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and\
+                    package in ("doc", "ppt", "xls", "pub"):
+                log.info("Missed dependencies: pip3 install oletools")
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 static = PortableExecutable(self.file_path, self.results).run()
@@ -1706,10 +2134,16 @@ class Static(Processing):
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
                 static = Office(self.file_path, self.results).run()
-            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":
+            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf")\
+                    or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":
                 static = EncodedScriptFile(self.file_path).run()
+            elif package == "lnk":
+                static["lnk"] = LnkShortcut(self.file_path).run()
+            #elif self.file_path.endswith(".elf") or "ELF" in thetype:
+            #    static["elf"] = ELF(self.file_path).run()
+            #    static["keys"] = f.get_keys()
 
         elif self.task["category"] == "url":
             enabled_whois = self.options.get("whois", True)
@@ -1717,4 +2151,3 @@ class Static(Processing):
                 static = URL(self.task["target"]).run()
 
         return static
-

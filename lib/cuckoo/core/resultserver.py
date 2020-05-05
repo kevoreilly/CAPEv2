@@ -46,14 +46,15 @@ BANNED_PATH_CHARS = b'\x00:'
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'memory', b'shots', b'sysmon')
+RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'shots',
+                     b'sysmon', b'stap', b'procdump', b'debugger')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
     dir_part, name = os.path.split(path)
-    if dir_part not in RESULT_UPLOADABLE:
+    if dir_part not in RESULT_DIRECTORIES:
         raise CuckooOperationalError("Netlog client requested banned path: %r"
                                      % path)
     if any(c in BANNED_PATH_CHARS for c in name):
@@ -200,7 +201,7 @@ class FileUpload(ProtocolHandler):
             raise
         #ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(json.dumps({
@@ -208,7 +209,7 @@ class FileUpload(ProtocolHandler):
                     "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                     "pids": pids,
                     "metadata": metadata.decode("utf-8", "replace"),
-                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory") else ""
+                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else ""
                 }, ensure_ascii=False), file=f)
 
         self.handler.sock.settimeout(None)
@@ -241,10 +242,6 @@ class LogHandler(ProtocolHandler):
 
 class BsonStore(ProtocolHandler):
     def init(self):
-        # We cheat a little bit through the "version" variable, but that's
-        # acceptable and backwards compatible (for now). Backwards compatible
-        # in the sense that newer Cuckoo Monitor binaries work with older
-        # versions of Cuckoo, the other way around doesn't apply here.
         if self.version is None:
             log.warning("Agent is sending BSON files without PID parameter, "
                         "you should probably update it")
@@ -257,7 +254,7 @@ class BsonStore(ProtocolHandler):
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream", self.task_id)
+        log.debug("Task #%s is sending a BSON stream. For pid %d" % (self.task_id, self.version))
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
@@ -321,13 +318,14 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon')
+        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon',
+                   'stap', 'procdump', 'debugger')
 
         for folder in folders:
             try:
                 create_folder(self.storagepath, folder=folder)
             except Exception as e:
-                print(e)
+                log.error(e, exc_info=True)
             #ToDo
             #except CuckooOperationalError as e:
             #    print(e)
@@ -377,7 +375,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 with protocol:
                     protocol.handle()
             except CuckooOperationalError as e:
-                log.error(e)
+                log.error(e, exc_info=True)
             finally:
                 with self.task_mgmt_lock:
                     s.discard(ctx)

@@ -23,18 +23,19 @@ from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
 
 sys.path.append(settings.CUCKOO_PATH)
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.core.database import Database, Task
+from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
-from lib.cuckoo.common.web_utils import _download_file
-from lib.cuckoo.core.database import Database, Task
-from lib.cuckoo.core.database import TASK_REPORTED
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize
+from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task
 
 
 #from sqlalchemy.func import extract
@@ -96,22 +97,6 @@ def force_int(value):
     finally:
         return value
 
-
-# Chunked file reading. Useful for large files like memory dumps.
-def validate_task(tid):
-    task = db.view_task(tid)
-    if not task:
-        resp = {"error": True,
-                "error_value": "Task does not exist"}
-        return resp
-
-    if task.status != TASK_REPORTED:
-        resp = {"error": True,
-                "error_value": "Task is still being analyzed"}
-        return resp
-
-    return {"error": False}
-
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
     @param process: process from cuckoo dict.
@@ -161,243 +146,6 @@ def index(request):
 
     return render(request, "api/index.html",
                              {"config": parsed})
-
-# Queue up a file for analysis
-if apiconf.filecreate.get("enabled"):
-    raterps = apiconf.filecreate.get("rps", None)
-    raterpm = apiconf.filecreate.get("rpm", None)
-    rateblock = limiter
-
-
-
-if apiconf.taskiocs.get("enabled"):
-    raterps = apiconf.taskiocs.get("rps")
-    raterpm = apiconf.taskiocs.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
-def tasks_iocs(request, task_id, detail=None):
-    if request.method != "GET":
-        resp = {"error": True, "error_value": "Method not allowed"}
-        return jsonize(resp, response=True)
-
-    if not apiconf.taskiocs.get("enabled"):
-        resp = {"error": True,
-                "error_value": "IOC download API is disabled"}
-        return jsonize(resp, response=True)
-
-    check = validate_task(task_id)
-    if check["error"]:
-        return jsonize(check, response=True)
-
-    buf = {}
-    if repconf.mongodb.get("enabled") and not buf:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)})
-    if repconf.elasticsearchdb.get("enabled") and not buf:
-        tmp = es.search(
-                  index=fullidx,
-                  doc_type="analysis",
-                  q="info.id: \"%s\"" % task_id
-               )["hits"]["hits"]
-        if tmp:
-            buf = tmp[-1]["_source"]
-        else:
-            buf = None
-    if buf is None:
-        resp = {"error": True, "error_value": "Sample not found in database"}
-        return jsonize(resp, response=True)
-    if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%s" % task_id, "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
-    if not buf:
-        resp = {"error": True,
-                "error_value": "Unable to retrieve report to parse for IOCs"}
-        return jsonize(resp, response=True)
-
-    data = {}
-    if "tr_extractor" in buf:
-        data["tr_extractor"] = buf["tr_extractor"]
-    if "certs" in buf:
-        data["certs"] = buf["certs"]
-    data["malfamily"] = buf["malfamily"]
-    data["malscore"] = buf["malscore"]
-    data["info"] = buf["info"]
-    del data["info"]["custom"]
-    # The machines key won't exist in cases where an x64 binary is submitted
-    # when there are no x64 machines.
-    if "machine" in data["info"] and isinstance(data["info"]["machine"], dict):
-        if data["info"]["machine"].get("manager", ""):
-            del data["info"]["machine"]["manager"]
-        if data["info"]["machine"].get("label", ""):
-            del data["info"]["machine"]["label"]
-        if data["info"]["machine"].get("id"):
-            del data["info"]["machine"]["id"]
-    data["signatures"] = []
-    # Grab sigs
-    for sig in buf["signatures"]:
-        del sig["alert"]
-        data["signatures"].append(sig)
-    # Grab target file info
-    if "target" in list(buf.keys()):
-        data["target"] = buf["target"]
-        if data["target"]["category"] == "file":
-            if data["target"]["file"].get("path", ""):
-                del data["target"]["file"]["path"]
-            if data["target"]["file"].get("guest_paths", ""):
-                del data["target"]["file"]["guest_paths"]
-    data["network"] = {}
-    if "network" in list(buf.keys()):
-        data["network"]["traffic"] = {}
-        for netitem in ["tcp", "udp", "irc", "http", "dns", "smtp", "hosts", "domains"]:
-            if netitem in buf["network"]:
-                data["network"]["traffic"][netitem + "_count"] = len(buf["network"][netitem])
-            else:
-                data["network"]["traffic"][netitem + "_count"] = 0
-        data["network"]["traffic"]["http"] = buf["network"].get("http", [])
-        data["network"]["hosts"] = buf["network"].get("hosts", [])
-        data["network"]["domains"] = buf["network"].get("domains", [])
-    data["network"]["ids"] = {}
-    if "suricata" in list(buf.keys()) and isinstance(buf["suricata"], dict):
-        data["network"]["ids"]["totalalerts"] = len(buf["suricata"]["alerts"])
-        data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
-        data["network"]["ids"]["http"] = buf["suricata"]["http"]
-        data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
-        data["network"]["ids"]["files"] = list()
-        for surifile in buf["suricata"]["files"]:
-            if "file_info" in list(surifile.keys()):
-                tmpfile = surifile
-                tmpfile["sha1"] = surifile["file_info"]["sha1"]
-                tmpfile["md5"] = surifile["file_info"]["md5"]
-                tmpfile["sha256"] = surifile["file_info"]["sha256"]
-                tmpfile["sha512"] = surifile["file_info"]["sha512"]
-                del tmpfile["file_info"]
-                data["network"]["ids"]["files"].append(tmpfile)
-    data["static"] = {}
-    if "static" in list(buf.keys()) and buf["static"]:
-        pe = {}
-        pdf = {}
-        office = {}
-        if "peid_signatures" in buf.get("static",{}) and buf.get("static", {}).get("peid_signatures", ""):
-            pe["peid_signatures"] = buf["static"]["peid_signatures"]
-        if "pe_timestamp" in buf["static"] and buf["static"]["pe_timestamp"]:
-            pe["pe_timestamp"] = buf["static"]["pe_timestamp"]
-        if "pe_imphash" in buf["static"] and buf["static"]["pe_imphash"]:
-            pe["pe_imphash"] = buf["static"]["pe_imphash"]
-        if "pe_icon_hash" in buf["static"] and buf["static"]["pe_icon_hash"]:
-            pe["pe_icon_hash"] = buf["static"]["pe_icon_hash"]
-        if "pe_icon_fuzzy" in buf["static"] and buf["static"]["pe_icon_fuzzy"]:
-            pe["pe_icon_fuzzy"] = buf["static"]["pe_icon_fuzzy"]
-        if "Objects" in buf["static"] and buf["static"]["Objects"]:
-            pdf["objects"] = len(buf["static"]["Objects"])
-        if "Info" in buf["static"] and buf["static"]["Info"]:
-            if "PDF Header" in list(buf["static"]["Info"].keys()):
-                pdf["header"] = buf["static"]["Info"]["PDF Header"]
-        if "Streams" in buf["static"]:
-            if "/Page" in list(buf["static"]["Streams"].keys()):
-                pdf["pages"] = buf["static"]["Streams"]["/Page"]
-        if "Macro" in buf["static"] and buf["static"]["Macro"]:
-            if "Analysis" in buf["static"]["Macro"]:
-                office["signatures"] = {}
-                for item in buf["static"]["Macro"]["Analysis"]:
-                    office["signatures"][item] = []
-                    for indicator, desc in buf["static"]["Macro"]["Analysis"][item]:
-                        office["signatures"][item].append((indicator, desc))
-            if "Code" in buf["static"]["Macro"]:
-                office["macros"] = len(buf["static"]["Macro"]["Code"])
-        data["static"]["pe"] = pe
-        data["static"]["pdf"] = pdf
-        data["static"]["office"] = office
-
-    data["files"] = {}
-    data["files"]["modified"] = []
-    data["files"]["deleted"] = []
-    data["registry"] = {}
-    data["registry"]["modified"] = []
-    data["registry"]["deleted"] = []
-    data["mutexes"] = []
-    data["executed_commands"] = []
-    data["dropped"] = []
-
-    if "behavior" in buf and "summary" in buf["behavior"]:
-        if "write_files" in buf["behavior"]["summary"]:
-            data["files"]["modified"] = buf["behavior"]["summary"]["write_files"]
-        if "delete_files" in buf["behavior"]["summary"]:
-            data["files"]["deleted"] = buf["behavior"]["summary"]["delete_files"]
-        if "write_keys" in buf["behavior"]["summary"]:
-            data["registry"]["modified"] = buf["behavior"]["summary"]["write_keys"]
-        if "delete_keys" in buf["behavior"]["summary"]:
-            data["registry"]["deleted"] = buf["behavior"]["summary"]["delete_keys"]
-        if "mutexes" in buf["behavior"]["summary"]:
-            data["mutexes"] = buf["behavior"]["summary"]["mutexes"]
-        if "executed_commands" in buf["behavior"]["summary"]:
-            data["executed_commands"] = buf["behavior"]["summary"]["executed_commands"]
-
-    data["process_tree"] = {}
-    if "behavior" in buf and "processtree" in buf["behavior"] and len(buf["behavior"]["processtree"]) > 0:
-        data["process_tree"] = {"pid" : buf["behavior"]["processtree"][0]["pid"],
-                                "name" : buf["behavior"]["processtree"][0]["name"],
-                                "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]]
-                                }
-    if "dropped" in buf:
-        for entry in buf["dropped"]:
-            tmpdict = {}
-            if entry["clamav"]:
-                tmpdict['clamav'] = entry["clamav"]
-            if entry["sha256"]:
-                tmpdict['sha256'] = entry["sha256"]
-            if entry["md5"]:
-                tmpdict['md5'] = entry["md5"]
-            if entry["yara"]:
-                tmpdict['yara'] = entry["yara"]
-            if entry["type"]:
-                tmpdict["type"] = entry["type"]
-            if entry["guest_paths"]:
-                tmpdict["guest_paths"] = entry["guest_paths"]
-            data["dropped"].append(tmpdict)
-
-    if not detail:
-        resp = {"error": False, "data": data}
-        return jsonize(resp, response=True)
-
-    if "static" in buf:
-        if "pe_versioninfo" in buf["static"] and buf["static"]["pe_versioninfo"]:
-            data["static"]["pe"]["pe_versioninfo"] = buf["static"]["pe_versioninfo"]
-
-    if "behavior" in buf and "summary" in buf["behavior"]:
-        if "read_files" in buf["behavior"]["summary"]:
-            data["files"]["read"] = buf["behavior"]["summary"]["read_files"]
-        if "read_keys" in buf["behavior"]["summary"]:
-            data["registry"]["read"] = buf["behavior"]["summary"]["read_keys"]
-
-    if buf["network"] and "http" in buf["network"]:
-        data["network"]["http"] = {}
-        for req in buf["network"]["http"]:
-            if "host" in req:
-                data["network"]["http"]["host"] = req["host"]
-            else:
-                data["network"]["http"]["host"] = ""
-            if "data" in req and "\r\n" in req["data"]:
-                data["network"]["http"]["data"] = req["data"].split("\r\n")[0]
-            else:
-                data["network"]["http"]["data"] = ""
-            if "method" in req:
-                data["network"]["http"]["method"] = req["method"]
-            else:
-                data["network"]["http"]["method"] = ""
-                if "user-agent" in req:
-                    data["network"]["http"]["ua"] = req["user-agent"]
-                else:
-                    data["network"]["http"]["ua"] = ""
-
-    if "strings" in list(buf.keys()):
-        data["strings"] = buf["strings"]
-    else:
-        data["strings"] = ["No Strings"]
-
-    resp = {"error": False, "data": data}
-    return jsonize(resp, response=True)
 
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
@@ -491,7 +239,7 @@ def tasks_create_file(request):
                     return jsonize(resp, response=True)
 
 
-                tmp_path = store_temp_file(sample.read(), sample.name)
+                tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
                 if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                     #Todo handle as for VTDL submitted and omitted
                     continue
@@ -572,6 +320,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
@@ -587,7 +336,6 @@ def tasks_create_file(request):
             if len(request.FILES.getlist("file")) > 1:
                 resp["warning"] = ("Multi-file API submissions disabled - "
                                    "Accepting first file")
-            tmp_path = store_temp_file(sample.read(), sample.name)
             if pcap:
                 if sample.name.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)
@@ -984,7 +732,6 @@ def tasks_vtdl(request):
                                                   "base directory"}
             return jsonize(resp, response=True)
         else:
-            base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
             hashlist = []
             if "," in vtdl:
                 hashlist = vtdl.replace(" ", "").strip().split(",")
@@ -993,6 +740,7 @@ def tasks_vtdl(request):
             params = {}
             headers = {}
             for h in hashlist:
+                base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
@@ -1177,154 +925,32 @@ def ext_tasks_search(request):
                 "error_value": "Extended Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
-    option = request.POST.get("option", "")
-    dataarg = request.POST.get("argument", "")
+    term = request.POST.get("option", "")
+    value = request.POST.get("argument", "")
 
-    if option and dataarg:
-        records = ""
-        if repconf.mongodb.enabled:
-            if option == "name":
-                records = results_db.analysis.find({"target.file.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "type":
-                records = results_db.analysis.find({"target.file.type": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "string":
-                records = results_db.analysis.find({"strings" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
-            elif option == "trid":
-                records = results_db.analysis.find({"trid" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
-            elif option == "ssdeep":
-                records = results_db.analysis.find({"target.file.ssdeep": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "crc32":
-                records = results_db.analysis.find({"target.file.crc32": dataarg}).sort([["_id", -1]])
-            elif option == "file":
-                records = results_db.analysis.find({"behavior.summary.files": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "command":
-                records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "resolvedapi":
-                records = results_db.analysis.find({"behavior.summary.resolved_apis": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "key":
-                records = results_db.analysis.find({"behavior.summary.keys": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "mutex":
-                records = results_db.analysis.find({"behavior.summary.mutexes": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "domain":
-                records = results_db.analysis.find({"network.domains.domain": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "ip":
-                records = results_db.analysis.find({"network.hosts.ip": dataarg}).sort([["_id", -1]])
-            elif option == "signature":
-                records = results_db.analysis.find({"signatures.description": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "signame":
-                records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "malfamily":
-                records = results_db.analysis.find({"malfamily": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "url":
-                records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
-            elif option == "iconhash":
-                records = results_db.analysis.find({"static.pe.icon_hash": dataarg}).sort([["_id", -1]])
-            elif option == "iconfuzzy":
-                records = results_db.analysis.find({"static.pe.icon_fuzzy": dataarg}).sort([["_id", -1]])
-            elif option == "imphash":
-                records = results_db.analysis.find({"static.pe.imphash": dataarg}).sort([["_id", -1]])
-            elif option == "surialert":
-                records = results_db.analysis.find({"suricata.alerts.signature": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "surihttp":
-                records = results_db.analysis.find({"suricata.http": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "suritls":
-                records = results_db.analysis.find({"suricata.tls": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-            elif option == "clamav":
-                records = results_db.analysis.find({"target.file.clamav": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "yaraname":
-                records = results_db.analysis.find({"target.file.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "capeyara":
-                records = results_db.analysis.find({"target.file.cape_yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "procmemyara":
-                records = results_db.analysis.find({"procmemory.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "virustotal":
-                records = results_db.analysis.find({"virustotal.results.sig": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "comment":
-                records = results_db.analysis.find({"info.comments.Data": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-            elif option == "md5":
-                records = results_db.analysis.find({"target.file.md5": dataarg}).sort([["_id", -1]])
-            elif option == "sha1":
-                records = results_db.analysis.find({"target.file.sha1": dataarg}).sort([["_id", -1]])
-            elif option == "sha256":
-                records = results_db.analysis.find({"target.file.sha256": dataarg}).sort([["_id", -1]])
-            elif option == "sha512":
-                records = results_db.analysis.find({"target.file.sha512": dataarg}).sort([["_id", -1]])
-            else:
-                resp = {"error": True,
-                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
-                return jsonize(resp, response=True)
+    if term and value:
+        records = False
+        if not term in search_term_map.keys() and term not in ("malscore", "ttp"):
+            resp = {"error": True,
+                    "error_value": "Invalid Option. '%s' is not a valid option." % term}
+            return jsonize(resp, response=True)
 
-        if es_as_db:
-            if term == "name":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.name: %s" % value)["hits"]["hits"]
-            elif term == "type":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.type: %s" % value)["hits"]["hits"]
-            elif term == "string":
-                records = es.search(index=fullidx, doc_type="analysis", q="strings: %s" % value)["hits"]["hits"]
-            elif term == "trid":
-                records = es.search(index=fullidx, doc_type="analysis", q="trid: %s" % value)["hits"]["hits"]
-            elif term == "ssdeep":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.ssdeep: %s" % value)["hits"]["hits"]
-            elif term == "crc32":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.crc32: %s" % value)["hits"]["hits"]
-            elif term == "file":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.files: %s" % value)["hits"]["hits"]
-            elif term == "command":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.executed_commands: %s" % value)["hits"]["hits"]
-            elif term == "resolvedapi":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.resolved_apis: %s" % value)["hits"]["hits"]
-            elif term == "key":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.keys: %s" % value)["hits"]["hits"]
-            elif term == "mutex":
-                records = es.search(index=fullidx, doc_type="analysis", q="behavior.summary.mutex: %s" % value)["hits"]["hits"]
-            elif term == "domain":
-                records = es.search(index=fullidx, doc_type="analysis", q="network.domains.domain: %s" % value)["hits"]["hits"]
-            elif term == "ip":
-                records = es.search(index=fullidx, doc_type="analysis", q="network.hosts.ip: %s" % value)["hits"]["hits"]
-            elif term == "signature":
-                records = es.search(index=fullidx, doc_type="analysis", q="signatures.description: %s" % value)["hits"]["hits"]
-            elif term == "signame":
-                records = es.search(index=fullidx, doc_type="analysis", q="signatures.name: %s" % value)["hits"]["hits"]
-            elif term == "malfamily":
-                records = es.search(index=fullidx, doc_type="analysis", q="malfamily: %s" % value)["hits"]["hits"]
-            elif term == "url":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.url: %s" % value)["hits"]["hits"]
-            elif term == "imphash":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.imphash: %s" % value)["hits"]["hits"]
-            elif term == "iconhash":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_hash: %s" % value)["hits"]["hits"]
-            elif term == "iconfuzzy":
-                records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_fuzzy: %s" % value)["hits"]["hits"]
-            elif term == "surialert":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.alerts.signature: %s" % value)["hits"]["hits"]
-            elif term == "surihttp":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.http: %s" % value)["hits"]["hits"]
-            elif term == "suritls":
-                records = es.search(index=fullidx, doc_type="analysis", q="suricata.tls: %s" % value)["hits"]["hits"]
-            elif term == "clamav":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.clamav: %s" % value)["hits"]["hits"]
-            elif term == "yaraname":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.yara.name: %s" % value)["hits"]["hits"]
-            elif term == "capeyara":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.cape_yara.name: %s" % value)["hits"]["hits"]
-            elif term == "procmemyara":
-                records = es.search(index=fullidx, doc_type="analysis", q="procmemory.yara.name: %s" % value)["hits"]["hits"]
-            elif term == "virustotal":
-                records = es.search(index=fullidx, doc_type="analysis", q="virustotal.results.sig: %s" % value)["hits"]["hits"]
-            elif term == "comment":
-                records = es.search(index=fullidx, doc_type="analysis", q="info.comments.Data: %s" % value)["hits"]["hits"]
-            elif term == "md5":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.md5: %s" % value)["hits"]["hits"]
-            elif term == "sha1":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha1: %s" % value)["hits"]["hits"]
-            elif term == "sha256":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha256: %s" % value)["hits"]["hits"]
-            elif term == "sha512":
-                records = es.search(index=fullidx, doc_type="analysis", q="target.file.sha512: %s" % value)["hits"]["hits"]
+        try:
+            if term == "malscore":
+                records = perform_malscore_search(value)
+            elif term == "ttp":
+                records = perform_ttps_search(value)
             else:
-                resp = {"error": True,
-                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
-                return jsonize(resp, response=True)
+                records = perform_search(term, value)
+        except ValueError:
+            if not term:
+                resp = {"error": True, "error_value": "No option provided."}
+            if not value:
+                resp = {"error": True, "error_value": "No argument provided."}
+            if not term and not value:
+                resp = {"error": True,  "error_value": "No option or argument provided."}
+
+        records = perform_search(term, value)
 
         if records:
             ids = list()
@@ -1338,15 +964,12 @@ def ext_tasks_search(request):
             resp = {"error": True,
                     "error_value": "Unable to retrieve records"}
     else:
-        if not option:
-            resp = {"error": True,
-                    "error_value": "No option provided."}
-        if not dataarg:
-            resp = {"error": True,
-                    "error_value": "No argument provided."}
-        if not option and not dataarg:
-            resp = {"error": True,
-                    "error_value": "No option or argument provided."}
+        if not term:
+            resp = {"error": True, "error_value": "No option provided."}
+        if not value:
+            resp = {"error": True, "error_value": "No argument provided."}
+        if not term and not value:
+            resp = {"error": True,  "error_value": "No option or argument provided."}
 
     return jsonize(resp, response=True)
 
@@ -1389,6 +1012,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         completed_after = datetime.now() - timedelta(minutes=int(window))
 
     status = request.GET.get("status")
+    option = request.GET.get("option")
 
     if offset:
         offset = int(offset)
@@ -1399,6 +1023,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     for row in db.list_tasks(limit=limit, details=True, offset=offset,
                              completed_after=completed_after,
                              status=status,
+                             options_like=option,
                              order_by=Task.completed_on.desc()):
         resp["buf"] += 1
         task = row.to_dict()
@@ -1442,7 +1067,8 @@ def tasks_view(request, task_id):
     resp["error"] = False
     if task:
         entry = task.to_dict()
-        entry["target"] = entry["target"].split("/")[-1]
+        if entry["category"] != "url":
+            entry["target"] = entry["target"].split("/")[-1]
         entry["guest"] = {}
         if task.guest:
             entry["guest"] = task.guest.to_dict()
@@ -1683,8 +1309,7 @@ def tasks_iocs(request, task_id, detail=None):
         resp = {"error": True, "error_value": "Sample not found in database"}
         return jsonize(resp, response=True)
     if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%s" % task_id, "reports", "report.json")
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
         with open(jfile, "r") as jdata:
             buf = json.load(jdata)
     if not buf:
@@ -1693,11 +1318,9 @@ def tasks_iocs(request, task_id, detail=None):
         return jsonize(resp, response=True)
 
     data = {}
-    if "tr_extractor" in buf:
-        data["tr_extractor"] = buf["tr_extractor"]
-    if "certs" in buf:
-        data["certs"] = buf["certs"]
-    data["malfamily"] = buf["malfamily"]
+    #if "certs" in buf:
+    #    data["certs"] = buf["certs"]
+    data["detections"] = buf.get("detections")
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
     del data["info"]["custom"]
@@ -1708,16 +1331,19 @@ def tasks_iocs(request, task_id, detail=None):
         del data["info"]["machine"]["label"]
         del data["info"]["machine"]["id"]
     data["signatures"] = []
+    """
     # Grab sigs
     for sig in buf["signatures"]:
         del sig["alert"]
         data["signatures"].append(sig)
+    """
     # Grab target file info
     if "target" in list(buf.keys()):
         data["target"] = buf["target"]
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
+
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:
         data["network"]["traffic"] = {}
@@ -1745,6 +1371,7 @@ def tasks_iocs(request, task_id, detail=None):
                 tmpfile["sha512"] = surifile["file_info"]["sha512"]
                 del tmpfile["file_info"]
                 data["network"]["ids"]["files"].append(tmpfile)
+
     data["static"] = {}
     if "static" in list(buf.keys()):
         pe = {}
@@ -2073,7 +1700,7 @@ def tasks_rollingsuri(request, window=60):
 
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
-    result = list(results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},{"suricata.alerts":1,"info.id":1}))
+    result = list(results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}))
     resp=[]
     for e in result:
         for alert in e["suricata"]["alerts"]:
@@ -2419,6 +2046,9 @@ def tasks_latest(request, hours):
     resp["ids"] = [id.to_dict() for id in ids]
     return jsonize(resp, response=True)
 
+
+"""
+#example how you can inject data after processing to remove slow processing from CAPE
 @csrf_exempt
 def post_processing(request, category, task_id):
     if request.method != "POST":
@@ -2430,7 +2060,7 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return jsonize({"error": True, "msg": "Missed content data or category"}, response=True)
-        buf = results_db.analysis.find_one({"info.id": int(task_id)})
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
         if not buf:
             return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
         buf[category] = content
@@ -2443,66 +2073,7 @@ def post_processing(request, category, task_id):
         resp = {"error": True, "msg": "Missed content data or category"}
 
     return jsonize(resp, response=True)
-
-if apiconf.capeconfig.get("enabled"):
-    raterps = apiconf.capeconfig.get("rps")
-    raterpm = apiconf.capeconfig.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
-def tasks_config(request, task_id):
-    if request.method != "GET":
-        resp = {"error": True, "error_value": "Method not allowed"}
-        return jsonize(resp, response=True)
-
-    if not apiconf.capeconfig.get("enabled"):
-        resp = {"error": True,
-                "error_value": "IOC download API is disabled"}
-        return jsonize(resp, response=True)
-    check = validate_task(task_id)
-
-    if check["error"]:
-        return jsonize(check, response=True)
-
-    buf = dict()
-    if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
-    if repconf.mongodb.get("enabled") and not buf:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
-    if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
-        if len(tmp) > 1:
-            buf = tmp[-1]["_source"]
-        elif len(tmp) == 1:
-            buf = tmp[0]["_source"]
-        else:
-            buf = None
-
-    if buf:
-        if isinstance(buf, dict) and buf.get("CAPE", False):
-            try:
-                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-            except:
-                # In case compress results processing module is not enabled
-                pass
-            data = []
-            for cape in buf["CAPE"]:
-                if isinstance(cape, dict) and cape.get("cape_config", False):
-                    data.append(cape)
-
-            if data:
-                resp = {"error": False, "configs": data}
-            else:
-                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return jsonize(resp, response=True)
-        else:
-            resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return jsonize(resp, response=True)
-    else:
-        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
-        return jsonize(resp, response=True)
+"""
 
 if apiconf.payloadfiles.get("enabled"):
     raterps = apiconf.payloadfiles.get("rps")
@@ -2599,6 +2170,96 @@ def tasks_procdumpfiles(request, task_id):
     else:
         resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
         return jsonize(resp, response=True)
+
+if apiconf.capeconfig.get("enabled"):
+    raterps = apiconf.capeconfig.get("rps")
+    raterpm = apiconf.capeconfig.get("rpm")
+    rateblock = limiter
+@ratelimit(key="ip", rate=raterps, block=rateblock)
+@ratelimit(key="ip", rate=raterpm, block=rateblock)
+def tasks_config(request, task_id, cape_name=False):
+    if request.method != "GET":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    if not apiconf.capeconfig.get("enabled"):
+        resp = {"error": True,
+                "error_value": "Config download API is disabled"}
+        return jsonize(resp, response=True)
+    check = validate_task(task_id)
+
+    if check["error"]:
+        return jsonize(check, response=True)
+
+    buf = dict()
+    if repconf.mongodb.get("enabled"):
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
+    if repconf.jsondump.get("enabled") and not buf:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+        with open(jfile, "r") as jdata:
+            buf = json.load(jdata)
+    if es_as_db and not buf:
+        tmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
+        if len(tmp) > 1:
+            buf = tmp[-1]["_source"]
+        elif len(tmp) == 1:
+            buf = tmp[0]["_source"]
+        else:
+            buf = None
+
+    if buf.get("CAPE"):
+        try:
+            buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
+        except:
+            pass
+
+        if isinstance(buf, dict) and buf.get("CAPE", False):
+            try:
+                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
+            except:
+                # In case compress results processing module is not enabled
+                pass
+            data = []
+            for cape in buf["CAPE"]:
+                if isinstance(cape, dict) and cape.get("cape_config"):
+                    if cape_name and cape.get("cape_name", "") == cape_name:
+                        return jsonize(cape["cape_config"], response=True)
+                    data.append(cape)
+            if data:
+                resp = {"error": False, "configs": data}
+            else:
+                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp, response=True)
+        else:
+            resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            return jsonize(resp, response=True)
+    else:
+        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
+        return jsonize(resp, response=True)
+
+"""
+#should be securized by checking category, this is just an example how easy to extend webgui with external tools
+@csrf_exempt
+def post_processing(request, category, task_id):
+    if request.method != "POST":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    content = request.POST.get("content", "")
+    if content and category:
+        content = json.loads(content)
+        if not content:
+            return jsonize({"error": True, "msg": "Missed content data or category"}, response=True)
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
+        if not buf:
+            return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
+        results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: content}})
+        resp = {"error": False, "msg": "Added under the key {}".format(category)}
+    else:
+        resp = {"error": True, "msg": "Missed content data or category"}
+
+    return jsonize(resp, response=True)
+"""
 
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}

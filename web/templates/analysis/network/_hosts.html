@@ -17,7 +17,7 @@
                     {% else %}
                         <td>N/A</td>
                     {% endif %}
-                    <td>{{host.ip}} <a href="https://www.virustotal.com/en/ip-address/{{host.ip}}/information/">[VT]</a> 
+                    <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/detection">[VT]</a>
                     {% if config.display_et_portal %}
                     <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
                     {% endif %}

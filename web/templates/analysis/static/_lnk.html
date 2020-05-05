@@ -1,0 +1,40 @@
+<section id="static_analysis">
+    {% if analysis.static and analysis.static.lnk %}
+        {% if analysis.static.lnk.flags %}
+        <div>
+            <h4>Flags</h4>
+            <div id="pe_information">
+                <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                    <colgroup>
+                        <col width="150" />
+                        <col width="*" />
+                    </colgroup>
+                    {% if analysis.static.lnk.flags.relapath %}
+                    <tr>
+                        <td><strong>Icon</strong></td>
+                        <td>{{analysis.static.lnk.relapath}}</td>
+                    </tr>
+                    {% endif %}
+                    {% if analysis.static.lnk.flags.shellidlist %}
+                    <tr>
+                        <td><strong>CMD line</strong></td>
+                        <td>{{analysis.static.lnk.cmdline}}</td>
+                    </tr>
+                    {% endif %}
+                    {% if analysis.static.lnk.flags.icon %}
+                    <tr>
+                        <td><strong>Icon</strong></td>
+                        <td>{{analysis.static.lnk.icon}}</td>
+                    </tr>
+                    {% endif %}
+
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <hr />
+        {% endif %}
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>

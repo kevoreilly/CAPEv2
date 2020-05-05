@@ -1,24 +1,35 @@
-{% if children|length > 0 %}
-    <section id="cape">
-    <div class="panel panel-primary">
-        <div class="panel-heading">
-            <h4 class="panel-title">CAPE</h4>
-        </div>
-    <div class="panel-body" style="padding: 0px 0px 0px 20px; height: 50px;">
-    <h4>
-        Triggered CAPE Tasks:
-        {% for child in children %}
-            <a href="/submit/status/{{ child.0 }}/" class="btn btn-primary btn-small">Task #{{ child.0 }}: {{ child.1 }}</a>
-        {% endfor %}
-    </h4>
-    </br>
-    </div>
-    </section>
-{% endif %}
-
 <section id="information">
     <div class="row">
-    <div class="col-lg-11">
+    {% if analysis.malfamily_tag and analysis.detections and analysis.detections != "Malicious" %}
+    <div class="col-lg-1" style="padding-right: 0px;">
+        <div class="panel panel-primary" style="height: 114px;">
+            <div class="panel-heading">
+                <h4 class="panel-title" style="text-align: center;">Detections</h4>
+            </div>
+            <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
+            <h4 style="text-align:center; font-size: 16px%;font-weight-bold";><span class="label label-danger">{{analysis.detections}}</span></h4>
+        </div>
+    </div>
+    {% endif %}
+    {% if children|length > 0 %}
+    <div class="col-lg-1" style="padding-right: 0px;">
+        <div class="panel panel-primary" style="height: 114px;">
+            <div class="panel-heading">
+                <h4 class="panel-title" style="text-align: center;">Auto Tasks</h4>
+            </div>
+            {% for child in children %}
+            <h4 style="text-align:center; font-size: 100%;font-weight-bold" ;><a href="/submit/status/{{ child.0 }}/">#{{ child.0 }}: {{ child.1 }}</a></h4>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% if analysis.detections and children|length > 0 %}
+        <div class="col-lg-10">
+    {% elif analysis.detections or children|length > 0 %}
+        <div class="col-lg-11">
+    {% else %}
+        <div class="col-lg-12">
+    {% endif %}
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4 class="panel-title">Analysis</h4>
@@ -38,6 +49,9 @@
                         <th>Distributed</th>
                     {% endif %}
                     <th>Log</th>
+                    {% if config.malscore and analysis.malscore %}
+                        <th>MalScore</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -54,6 +68,17 @@
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#info-log">Show Log</a></td>
+                    {% if config.malscore and analysis.malscore %}
+                    <td>
+                        {% if analysis.malscore > 6.0 %}
+                           <span class="label label-danger">{{analysis.malscore|floatformat:1}}</span>
+                            {% elif analysis.malscore > 2.0 %}
+                            <span class="label label-warning">{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                            <span class="label label-success">{{analysis.malscore|floatformat:1}}</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
             </tbody>
         </table>
@@ -75,41 +100,11 @@
         <pre>{{analysis.debug.log}}</pre>
     </div>
     </div>
-
-    <div class="col-lg-1" style="padding-left: 0px;">
-    <div class="panel panel-primary" style="height: 112px;">
-    <div class="panel-heading">
-        <h4 class="panel-title" style="text-align: center;">MalScore</h4>
-    </div>
-    <div class="panel-body" style="padding: 5px 0px 0px 0px; height: 100%;">
-    {% if analysis.malscore > 6.0 %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-danger">{{analysis.malscore}}</span></h2>
-    {% elif analysis.malscore > 2.0 %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-warning">{{analysis.malscore}}</span></h2>
-    {% else %}
-    <h2 style="text-align:center; margin: 0px;"><span class="label label-success">{{analysis.malscore}}</span></h2>
-    {% endif %}
-
-    {% if analysis.malfamily_tag and analysis.malfamily and analysis.malfamily != "Malicious" %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily_tag}}: {{analysis.malfamily}}</h5>
-    {% elif analysis.malfamily %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">{{analysis.malfamily}}</h5>
-    {% elif analysis.malscore > 6.0 %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Malicious</h5>
-    {% elif analysis.malscore > 2.0 %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Suspicious</h5>
-    {% else %}
-    <h5 style="text-align:center; margin: 15px 0px 2px 0px;">Benign</h5>
-    {% endif %}
-    </div>
-    </div>
-    </div>
-    </div>
 </section>
 
 {% if analysis.info.machine and analysis.info.machine.name %}
     <section id="machine">
-        <div class="panel panel-info">
+        <div class="panel panel-primary">
             <div class="panel-heading">
                 <h4 class="panel-title">Machine</h4>
             </div>

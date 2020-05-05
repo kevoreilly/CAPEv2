@@ -30,6 +30,7 @@ urlpatterns = [
     url(r"^tasks/get/iocs/(?P<task_id>\d+)/$", views.tasks_iocs),
     url(r"^tasks/get/iocs/(?P<task_id>\d+)/(?P<detail>detailed)/$", views.tasks_iocs),
     url(r"^tasks/get/config/(?P<task_id>\d+)/$", views.tasks_config),
+    url(r"^tasks/get/config/(?P<task_id>\d+)/(?P<cape_name>\w+)/$", views.tasks_config),
     url(r"^tasks/get/screenshot/(?P<task_id>\d+)/$", views.tasks_screenshot),
     url(r"^tasks/get/screenshot/(?P<task_id>\d+)/(?P<screenshot>\d{1,4})/$", views.tasks_screenshot),
     url(r"^tasks/get/procmemory/(?P<task_id>\d+)/$", views.tasks_procmemory),
@@ -55,5 +56,5 @@ urlpatterns = [
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/(?P<msgfilter>[\w$-/:-?{-~!^_`\[\]\s\x5c]+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
-    url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing)
+    #url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
 ]

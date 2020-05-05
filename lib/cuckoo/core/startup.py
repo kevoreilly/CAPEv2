@@ -32,14 +32,15 @@ log = logging.getLogger()
 
 cuckoo = Config()
 routing = Config("routing")
+repconf = Config("reporting")
 
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
-    if sys.version_info[:2] < (3, 6):
+    if sys.version_info[:2] < (3, 5):
         raise CuckooStartupError("You are running an incompatible version "
-                                 "of Python, please use >= 3.6")
+                                 "of Python, please use >= 3.5")
 
 
 def check_working_directory():
@@ -55,6 +56,27 @@ def check_working_directory():
         raise CuckooStartupError("You are not running Cuckoo from it's "
                                  "root directory")
 
+
+def check_webgui_mongo():
+    if repconf.mongodb.enabled:
+        import pymongo
+        bad = False
+        try:
+            conn = pymongo.MongoClient(
+                repconf.mongodb.host,
+                port=repconf.mongodb.port,
+                username=repconf.mongodb.get("username", None),
+                password=repconf.mongodb.get("password", None),
+                authSource=repconf.mongodb.db
+            )
+            conn.server_info()
+        except pymongo.errors.ServerSelectionTimeoutError:
+            log.warning("You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration")
+            bad = True
+        finally:
+            conn.close()
+            if bad:
+                sys.exit(1)
 
 def check_configs():
     """Checks if config files exist.
@@ -175,6 +197,8 @@ def init_modules():
     import_package(modules.processing)
     # Import all signatures.
     import_package(modules.signatures)
+    if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
+        log.warning("Suggestion: looks like you didn't install community, execute: python3 utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.
@@ -195,14 +219,6 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    def find_signatures(root):
-        signatures = []
-        for entry in os.listdir(root):
-            if entry.endswith(".yara") or entry.endswith(".yar"):
-                signatures.append(os.path.join(root, entry))
-
-        return signatures
-
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
@@ -210,7 +226,7 @@ def init_yara():
 
     # We divide yara rules in three categories.
     # CAPE adds a fourth
-    categories = ["binaries", "urls", "memory", "CAPE"]
+    categories = ("binaries", "urls", "memory", "CAPE")
     generated = []
     # Loop through all categories.
     for category in categories:
@@ -252,7 +268,11 @@ def init_rooter():
     connect to it."""
 
     # The default configuration doesn't require the rooter to be ran.
-    if not routing.vpn.enabled and routing.routing.route == "none":
+    if not routing.vpn.enabled and \
+            not routing.tor.enabled and \
+            not routing.inetsim.enabled and \
+            not routing.socks5.enabled and \
+            routing.routing.route == "none":
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -286,6 +306,8 @@ def init_rooter():
             )
 
         raise CuckooStartupError("Unknown rooter error: %s" % e)
+
+    rooter("cleanup_rooter")
 
     # Do not forward any packets unless we have explicitly stated so.
     rooter("forward_drop")

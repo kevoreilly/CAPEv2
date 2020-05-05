@@ -22,10 +22,10 @@
                             <th>Executable Path</th>
                             <td>{{proc.path}}</td>
                         </tr>
+                        {% if proc.yara %}
                         <tr>
                             <th>Yara</th>
                             <td>
-                            {% if proc.yara %}
                                 {% for match in proc.yara %}
                                     <p>Match: {{match.name}} - {{match.meta.description}}
                                     <!--{% for string in match.strings %}
@@ -33,11 +33,9 @@
                                     {% endfor %}-->
                                     </p>
                                 {% endfor %}
-                            {% else %}
-                                None matched
-                            {% endif %}
                             </td>
                         </tr>
+                        {% endif %}
                         {% if proc.file %}
                             <tr>
                                 <th>Full Dump</th>

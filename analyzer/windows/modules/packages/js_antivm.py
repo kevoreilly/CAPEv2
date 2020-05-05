@@ -18,7 +18,7 @@ class JS_ANTIVM(Package):
         # to not track calcs
         self.options["free"] = 1
         # fuck antivm
-        for i in range(20):
+        for _ in range(50):
                 #calc
                 calc = os.path.join("c:\\windows", "system32", "calc.exe")
                 #cl = Process()
@@ -29,7 +29,7 @@ class JS_ANTIVM(Package):
         args = "\"%s\"" % path
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
-            if os.path.isfile(path) and "#@~^" in open(path, "rb").read(100):
+            if os.path.isfile(path) and "#@~^" in open(path, "rt").read(100):
                 os.rename(path,path + ".jse")
                 path = path + ".jse"
             else:

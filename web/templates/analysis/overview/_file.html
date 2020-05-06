@@ -1,10 +1,9 @@
 <section id="file">
     <h4>File Details</h4>
-
     {% if analysis.info.parent_sample %}
-        <div class="form-group">
-            <label for="parent_file">(<a href="#parent_file" data-toggle="collapse">Parent file</a>)</label>
-            <div id="parent_file" class="collapse">
+    <div class="form-group">
+        <label for="parent_file"><a href="#parent_file" data-toggle="collapse">Parent file</a></label>
+        <div id="parent_file" class="collapse">
             <table class="table table-striped" style="table-layout: fixed;">
                 <tr>
                     <th style="border-top: 0; width: 15%;">File Size</th>
@@ -41,8 +40,8 @@
                 </tr>
                 {% endif %}
             </table>
-            </div>
         </div>
+    </div>
     {% endif %}
 
 
@@ -61,10 +60,10 @@
                 <td style="word-wrap: break-word;">{{analysis.target.file.type}}</td>
             </tr>
             {% if analysis.target.file.timestamp %}
-                <tr>
-                    <th>PE timestamp</th>
-                    <td style="word-wrap: break-word;">{{analysis.target.file.timestamp}}</td>
-                </tr>
+            <tr>
+                <th>PE timestamp</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.timestamp}}</td>
+            </tr>
             {% endif %}
             <tr>
                 <th>MD5</th>
@@ -97,9 +96,9 @@
                 <th>TrID</th>
                 <td style="word-wrap: break-word;">
                     <ul style="margin-top: 0;margin-bottom: 0;">
-                    {% for str in analysis.trid %}
+                        {% for str in analysis.trid %}
                         <li>{{str}}</li>
-                    {% endfor %}
+                        {% endfor %}
                     </ul>
                 </td>
             </tr>
@@ -108,10 +107,10 @@
             <tr>
                 <th>ClamAV</th>
                 <td>
-                  <ul style="margin-bottom: 0;">
-                    {% for sign in analysis.target.file.clamav %}
-                   <li>{{sign}}</li>
-                    {% endfor %}
+                    <ul style="margin-bottom: 0;">
+                        {% for sign in analysis.target.file.clamav %}
+                        <li>{{sign}}</li>
+                        {% endfor %}
                     </ul>
                 </td>
             </tr>
@@ -121,9 +120,9 @@
                 <th>Yara</th>
                 <td>
                     <ul style="margin-bottom: 0;">
-                    {% for sign in analysis.target.file.yara %}
+                        {% for sign in analysis.target.file.yara %}
                         <li>{{sign.name}} - {{sign.meta.description}}</li>
-                    {% endfor %}
+                        {% endfor %}
                     </ul>
                 </td>
             </tr>
@@ -133,9 +132,9 @@
                 <th>CAPE Yara</th>
                 <td>
                     <ul style="margin-bottom: 0;">
-                    {% for sign in analysis.target.file.cape_yara %}
+                        {% for sign in analysis.target.file.cape_yara %}
                         <li>{{sign.meta.cape_type}} - Author: {{sign.meta.author}}</li>
-                    {% endfor %}
+                        {% endfor %}
                     </ul>
                 </td>
             </tr>
@@ -148,11 +147,11 @@
                     <a class="btn btn-default btn-small" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Resubmit sample</a>
                 </td>
                 {% if config.vtupload %}
-                    {% if analysis.info.tlp != "Red" %}
-                    <td>
-                        <a class="btn btn-primary btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
-                    </td>
-                    {% endif %}
+                {% if analysis.info.tlp != "Red" %}
+                <td>
+                    <a class="btn btn-primary btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
+                </td>
+                {% endif %}
                 {% endif %}
             </tr>
         </table>

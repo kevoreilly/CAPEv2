@@ -861,17 +861,6 @@ def report(request, task_id):
     if bingraph_dict_content:
         bingraph = True
 
-    if HAVE_REQUEST and enabledconf["distributed"]:
-        try:
-            res = requests.get("http://127.0.0.1:9003/task/{}".format(task_id), timeout=3, verify=False)
-            if res and res.ok:
-                if "name" in res.json():
-                    report["distributed"] = dict()
-                    report["distributed"]["name"] = res.json()["name"]
-                    report["distributed"]["task_id"] = res.json()["task_id"]
-        except Exception as e:
-            print(e)
-
     return render(request, "analysis/report.html",
         {
             "analysis": report,

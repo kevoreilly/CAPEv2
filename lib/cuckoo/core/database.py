@@ -1406,6 +1406,35 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
+    def list_sample_parent(self, sample_id=False, task_id=False):
+        """
+            Retrieve parent sample details by sample_id or task_id
+            @param sample_id: Sample id
+            @param task_id: Task id
+        """
+        parent_sample = dict()
+        parent = False
+        session = self.Session()
+        try:
+            if sample_id:
+                parent = session.query(Sample.parent).filter(Sample.id == int(sample_id)).first()
+                if parent:
+                    parent = parent[0]
+            elif task_id:
+                _, parent = session.query(Task.sample_id, Sample.parent).join(
+                    Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+
+            if parent:
+                parent_sample = session.query(Sample).filter(Sample.id == parent).first().to_dict()
+
+        except SQLAlchemyError as e:
+            log.debug("Database error listing tasks: {0}".format(e))
+        finally:
+            session.close()
+
+        return parent_sample
+
+    @classlock
     def list_tasks(self, limit=None, details=False, category=None,
                    offset=None, status=None, sample_id=None, not_status=None,
                    completed_after=None, order_by=None, added_before=None,

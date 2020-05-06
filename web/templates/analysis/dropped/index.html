@@ -74,7 +74,7 @@
                     <td>
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.cape_yara %}
-                            <li>{{sign.meta.cape_type}}</li>
+                            <li>{{sign.meta.cape_type}} - Author: {{sign.meta.author}}</li>
                         {% endfor %}
                         </ul>
                     </td>

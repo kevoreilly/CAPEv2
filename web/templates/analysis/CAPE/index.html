@@ -167,7 +167,7 @@
                         {% for sign in file.cape_yara %}
                             <li>{{sign.name}}</li>
                             {% if sign.meta.cape_type %}
-                                <li>{{sign.meta.cape_type}}</li>
+                                <li>{{sign.meta.cape_type}} - Author: {{sign.meta.author}}</li>
                             {% endif %}
                         {% endfor %}
                         </ul>

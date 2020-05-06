@@ -1,5 +1,22 @@
 <section id="file">
     <h4>File Details</h4>
+
+
+    {% if analysis.info.parent_sample %}
+        <div class="form-group">
+            <label for="parent_file">(<a href="#parent_file" data-toggle="collapse">Parent file</a>)</label>
+            <div id="parent_file" class="collapse">
+            <table class="table table-striped" style="table-layout: fixed;">
+                {% for k, v in analysis.info_parent_sample.iteritems %}
+                    <th>{{k}}</th>
+                    <td>{{v}}</td>
+                {% endfor %}
+            </table>
+            </div>
+        </div>
+    {% endif %}
+
+
     <div class="panel panel-default">
         <table class="table table-striped" style="table-layout: fixed;">
             <tr>
@@ -86,7 +103,7 @@
                 <td>
                     <ul style="margin-bottom: 0;">
                     {% for sign in analysis.target.file.cape_yara %}
-                        <li>{{sign.meta.cape_type}}</li>
+                        <li>{{sign.meta.cape_type}} - Author: {{sign.meta.author}}</li>
                     {% endfor %}
                     </ul>
                 </td>

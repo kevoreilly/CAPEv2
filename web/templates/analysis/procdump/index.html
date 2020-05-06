@@ -80,9 +80,9 @@
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.cape_yara %}
                             {% if sign.meta.cape_type %}
-                                <li>{{sign.meta.cape_type}}</li>
+                                <li>{{sign.meta.cape_type}} - Author: {{sign.meta.author}}</li>
                                 {% elif sign.meta.description %}
-                            <li>{{sign.meta.description}}</li>
+                            <li>{{sign.meta.description}} - Author: {{sign.meta.author}}</li>
                             {% endif %}
                         {% endfor %}
                         </ul>

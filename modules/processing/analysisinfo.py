@@ -9,14 +9,22 @@ import logging
 import os
 from datetime import datetime
 
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
-log = logging.getLogger(__name__)
+try:
+    import requests
+    HAVE_REQUEST = True
+except ImportError:
+    HAVE_REQUEST = False
 
+
+log = logging.getLogger(__name__)
+report_cfg = Config("reporting")
 
 class AnalysisInfo(Processing):
     """General information about analysis session."""
@@ -88,6 +96,20 @@ class AnalysisInfo(Processing):
             del(machine["task_id"])
             # Save.
             self.task["machine"] = machine
+        distributed = dict()
+        if HAVE_REQUEST and report_cfg.distributed.enabled:
+            try:
+                res = requests.get(
+                    "http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=3, verify=False)
+                if res and res.ok:
+                    if "name" in res.json():
+                        distributed["name"] = res.json()["name"]
+                        distributed["task_id"] = res.json()["task_id"]
+            except Exception as e:
+                print(e)
+
+        parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
+        db.close()
 
         return dict(
             version=CUCKOO_VERSION,
@@ -106,5 +128,7 @@ class AnalysisInfo(Processing):
             shrike_sid=self.task["shrike_sid"],
             parent_id=self.task["parent_id"],
             tlp=self.task["tlp"],
+            parent_sample=parent_sample_details,
+            distributed=distributed,
             options=get_options(self.task["options"])
         )

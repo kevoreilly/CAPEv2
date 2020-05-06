@@ -26,6 +26,8 @@ except ImportError:
 log = logging.getLogger(__name__)
 report_cfg = Config("reporting")
 
+db = Database()
+
 class AnalysisInfo(Processing):
     """General information about analysis session."""
 
@@ -84,8 +86,6 @@ class AnalysisInfo(Processing):
         else:
             duration = (ended - started).seconds
 
-        db = Database()
-
         # Fetch sqlalchemy object.
         task = db.view_task(self.task["id"], details=True)
 
@@ -109,7 +109,6 @@ class AnalysisInfo(Processing):
                 print(e)
 
         parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
-        db.close()
 
         return dict(
             version=CUCKOO_VERSION,

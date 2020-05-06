@@ -1070,7 +1070,7 @@ def payload_from_raw(raw, linktype=1):
     try:
         return ip.data.data
     except:
-        return ""
+        return b""
 
 
 def next_connection_packets(piter, linktype=1):

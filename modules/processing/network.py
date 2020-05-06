@@ -105,7 +105,7 @@ class Pcap:
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS Whitelist
-        self.domain_whitelist = (
+        self.domain_whitelist = [
             # Certificate Trust Update domains
             "^ocsp\.usertrust\.com$",
             "\.windows\.com$",
@@ -137,7 +137,7 @@ class Pcap:
             "^sv\.symcd\.com$",
             "^s\.symcd\.com$",
             "^ts-ocsp\.ws\.symantec\.com$",
-        )
+        ]
 
         if enabled_whitelist and whitelist_file:
              with open(os.path.join(CUCKOO_ROOT, whitelist_file), 'r') as f:

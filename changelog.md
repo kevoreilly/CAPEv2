@@ -1,3 +1,7 @@
+### [06-05-2020]
+* Add parent sample details to analysis
+* Add Yara author to webgui, useful when yara name overlap with private yara
+
 ### [18-04-2020]
 * All not core yara moved to community repo
 

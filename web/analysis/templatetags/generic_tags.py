@@ -9,8 +9,10 @@ def endswith(value, thestr):
 
 @register.filter("proctreetolist")
 def proctreetolist(tree):
-    stack = deque(tree)
     outlist = []
+    if not tree:
+        return outlist
+    stack = deque(tree)
     while stack:
         node = stack.popleft()
         is_special = False

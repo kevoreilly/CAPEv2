@@ -34,7 +34,11 @@ log = logging.getLogger(__name__)
 logging.getLogger('pymisp').setLevel(logging.WARNING)
 
 ttps_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')))
-malpedia_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')))
+malpedia_json_path = os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')
+if os.path.exists(malpedia_json_path):
+    malpedia_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')))
+else:
+    malpedia_json = False
 
 # load whitelist if exists
 whitelist = list()
@@ -43,29 +47,27 @@ if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
     if whitelist:
         whitelist = [ioc.strip() for ioc in whitelist.split(",")]
 
+name_update_shema = {
+    "Agenttesla":"Agent Tesla",
+    "AgentTeslaV2":"Agent Tesla",
+    "WarzoneRAT":"Ave Maria",
+}
 
 class MISP(Report):
     """MISP Analyzer."""
 
     order = 1
     
-    def malpedia(self, results, event,malfamily):
-        exceptions = {
-             "Agenttesla":"Agent Tesla",
-             "AgentTeslaV2":"Agent Tesla",
-             "WarzoneRAT":"Ave Maria",
-        }
-
-        for key,value in exceptions.items():
-            if key == malfamily:
-               malfamily = value
+    def malpedia(self, results, event, malfamily):
+        if malfamily in name_update_shema:
+            malfamily = name_update_shema[malfamily]
 
         for i in malpedia_json.get("values", []) or []:
             try:
                if malfamily == i["value"]:
                    self.misp.tag(event["uuid"], 'misp-galaxy:malpedia="'+i["value"]+'"')
-            except:
-                pass
+            except Exception as e:
+                print(e)
     
     def signature(self, results, event):
         for ttp in results.get("ttps", []) or []:
@@ -237,7 +239,8 @@ class MISP(Report):
                     self.misp.tag(event, tag)
 
                 #malpedia galaxy 
-                self.malpedia(results,event,malfamily)
+                if malpedia_json:
+                    self.malpedia(results, event, malfamily)
                                        
                 # ToDo?
                 self.signature(results, event)

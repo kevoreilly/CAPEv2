@@ -61,13 +61,8 @@ class MISP(Report):
     def malpedia(self, results, event, malfamily):
         if malfamily in name_update_shema:
             malfamily = name_update_shema[malfamily]
-
-        for i in malpedia_json.get("values", []) or []:
-            try:
-               if malfamily == i["value"]:
-                   self.misp.tag(event["uuid"], 'misp-galaxy:malpedia="'+i["value"]+'"')
-            except Exception as e:
-                print(e)
+        if malfamily in malpedia_json:
+            self.misp.tag(event["uuid"], 'misp-galaxy:malpedia="{}"'.format(malpedia_json[malfamily]))
     
     def signature(self, results, event):
         for ttp in results.get("ttps", []) or []:

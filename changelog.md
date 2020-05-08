@@ -1,3 +1,6 @@
+### [07-05-2020]
+* Behavior data/tab is now loaded via ajax request, to speedup webgui
+
 ### [06-05-2020]
 * Add parent sample details to analysis
 * Add Yara author to webgui, useful when yara name overlap with private yara

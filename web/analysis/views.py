@@ -61,7 +61,6 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 if enabledconf["mongodb"]:
     import pymongo
     from bson.objectid import ObjectId
-    #results_db = pymongo.MongoClient(settings.MONGO_HOST, settings.MONGO_PORT)[settings.MONGO_DB]
     results_db = pymongo.MongoClient(
         settings.MONGO_HOST,
         port=settings.MONGO_PORT,
@@ -302,6 +301,12 @@ def pending(request):
 
     return render(request, "analysis/pending.html", {"tasks": pending})
 
+
+ajax_mongo_schema = {
+    "cape": "cape",
+    "dropped": "dropped",
+    "behavior": "behavior.processes"
+}
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 ### load files by key as ajax to avoid huge load
@@ -309,30 +314,32 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("cape", "dropped"):
+    if request.is_ajax() and category in ("cape", "dropped", "behavior"):
+        bingraph = False
+        bingraph_dict_content = {}
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
-            bingraph = False
-            bingraph_dict_content = {}
-            bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-            if os.path.exists(bingraph_path):
-                for block in files.get(category, []):
-                    tmp_file = os.path.join(bingraph_path, block["sha256"]+"-ent.svg")
-                    if os.path.exists(tmp_file):
-                        with open(tmp_file, "r") as f:
-                            bingraph_dict_content.setdefault(block["sha256"], f.read())
-            if bingraph_dict_content:
-                bingraph = True
+            data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
+            if ajax_mongo_schema.get(category, "") in ("cape", "dropped"):
 
-            #ES isn't supported
+                bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+                if os.path.exists(bingraph_path):
+                    for block in files.get(category, []):
+                        tmp_file = os.path.join(bingraph_path, block["sha256"]+"-ent.svg")
+                        if os.path.exists(tmp_file):
+                            with open(tmp_file, "r") as f:
+                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+                if bingraph_dict_content:
+                    bingraph = True
+
+        #ES isn't supported
         return render(request, "analysis/{}/index.html".format(category),
-                      {"files": data.get(category, {}),
-                       "tlp": data.get("info").get('tlp', ""),
-                       "id": task_id,
-                       "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
-                       "config": enabledconf})
+            {category: data.get(category, {}),
+            "tlp": data.get("info").get('tlp', ""),
+            "id": task_id,
+            "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
+            "config": enabledconf})
     else:
         raise PermissionDenied
 
@@ -746,7 +753,7 @@ def search_behavior(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0}, sort=[("_id", pymongo.DESCENDING)])
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "behavior.processes":0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]
         report = query["_source"]

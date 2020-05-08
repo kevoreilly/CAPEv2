@@ -15,7 +15,7 @@ $(function() {
         $('a[href="'+lastAnalysisTab+'"]').click();
     }
   }
-  // ajax req for dropped tab
+  // ajax req for some tabs
   $('[data-toggle="tabajax"]').click(function(e) {
     var $this = $(this),
         url = $(this).attr("data-url");
@@ -80,7 +80,7 @@ $(function() {
 <ul class="nav nav-tabs">
     <li class="active"><a href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.static or config.virustotal and analysis.virustotal %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
-    {% if analysis.behavior.processes %}<li><a href="#behavior" data-toggle="tab" id="graph_hook">Behavioral Analysis</a></li>{% endif %}
+    <li><a href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files</a></li>
@@ -129,11 +129,7 @@ $(function() {
         {% include "analysis/static/index.html" %}
     </div>
     {% endif %}
-    {% if analysis.behavior.processes %}
-    <div class="tab-pane fade" id="behavior">
-        {% include "analysis/behavior/index.html" %}
-    </div>
-    {% endif %}
+    <div class="tab-pane fade" id="behavior">{% include "analysis/behavior/index.html" %}</div>
     <div class="tab-pane fade" id="network">
         {% include "analysis/network/index.html" %}
     </div>

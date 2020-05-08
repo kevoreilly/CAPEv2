@@ -27,7 +27,10 @@
                             <th>Yara</th>
                             <td>
                                 {% for match in proc.yara %}
-                                    <p>Match: {{match.name}} - {{match.meta.description}} - Author: {{sign.meta.author}}
+                                    <p>Match: {{match.name}} - {{match.meta.description}}
+                                    {% if sign.meta.author %}
+                                        - Author: {{sign.meta.author}}
+                                    {% endif %}
                                     <!--{% for string in match.strings %}
                                         <div>{{string}}</div>
                                     {% endfor %}-->

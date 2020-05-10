@@ -132,9 +132,6 @@ class SubmitCAPE(Report):
                     else:
                         new_options = new_options + ',' + option
 
-            if not address:
-                return
-
             if 'procdump=1' in self.task_options:
                 self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)
 

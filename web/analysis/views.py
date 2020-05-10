@@ -320,7 +320,10 @@ def load_files(request, task_id, category):
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
+            if category == "behavior":
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, { "behavior.processes": 1, "behavior.processtree":1, "info.tlp": 1, "_id": 0})
+            else:
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
             if ajax_mongo_schema.get(category, "") in ("cape", "dropped"):
 
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
@@ -905,9 +908,9 @@ def file(request, category, task_id, dlfile):
     elif category in ("samplezip", "dropped", "droppedzip", "CAPE", "CAPEZIP", "procdump", "procdumpzip", "memdumpzip"):
         # ability to download password protected zip archives
         path = ""
-        if category == "samplezip":
+        if category in ("sample", "samplezip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
-        elif category == "droppedzip":
+        elif category in ("dropped", "droppedzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
         elif category.startswith("CAPE"):
             buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE", file_name)

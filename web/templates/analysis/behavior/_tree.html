@@ -1,22 +1,20 @@
 {% load generic_tags %}
 {% load analysis_tags %}
 
-{% if behavior.processtree %}
-  <h4>Process Tree</h4>
-  <ul>
-  {% for process in behavior.processtree|proctreetolist %}
-      {% if process.startchildren %}
-      <ul>
-      {% elif process.endchildren %}
-      </ul>
-      {% else %}
-      <li>
-      <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
-      {% if process.commandline %}
-        <i>{{ process.commandline }}</i>
-      {% endif %}
-      </li>
-      {% endif %}
-  {% endfor %}
-  </ul>
-{% endif %}
+<h4>Process Tree</h4>
+<ul>
+{% for process in behavior.processtree|proctreetolist %}
+    {% if process.startchildren %}
+    <ul>
+    {% elif process.endchildren %}
+    </ul>
+    {% else %}
+    <li>
+    <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
+    {% if process.commandline %}
+      <i>{{ process.commandline }}</i>
+    {% endif %}
+    </li>
+    {% endif %}
+{% endfor %}
+</ul>

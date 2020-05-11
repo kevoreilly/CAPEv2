@@ -20,7 +20,7 @@
     </ul>
     <div class="tabbable tabs">
         <ul class="nav nav-pills" style="margin-bottom: 0;">
-        {% for process in analysis.behavior.processes %}
+        {% for process in behavior.processes %}
             {% for key, value in analysis.debugger_logs.items %}
                 {% if key == process.process_id %}
                     <li {% if forloop.parentloop.counter == 1 %}class="active"{% endif %}><a href="#{{key}}" data-toggle="tab">{{process.process_name}} ({{key}})</a></li>
@@ -30,7 +30,7 @@
         </ul>
     </div>
     <div class="tab-content">
-        {% for process in analysis.behavior.processes %}
+        {% for process in behavior.processes %}
             {% for key, value in analysis.debugger_logs.items %}
                 {% if key == process.process_id %}
                     <div class="tab-pane{% if forloop.parentloop.counter == 1 %} fade in active{% else %} fade{% endif %}" id="{{key}}" data-pid="{{key}}">

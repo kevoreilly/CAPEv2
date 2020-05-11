@@ -305,7 +305,6 @@ def pending(request):
 ajax_mongo_schema = {
     "cape": "cape",
     "dropped": "dropped",
-    "behavior": "behavior.processes"
 }
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -320,7 +319,7 @@ def load_files(request, task_id, category):
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            if category == "behavior":
+            if category in ("behavior", "debugger"):
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, { "behavior.processes": 1, "behavior.processtree":1, "info.tlp": 1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})

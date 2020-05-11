@@ -313,7 +313,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("cape", "dropped", "behavior"):
+    if request.is_ajax() and category in ("cape", "dropped", "behavior", "debugger"):
         bingraph = False
         bingraph_dict_content = {}
         files = dict()

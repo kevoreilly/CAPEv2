@@ -36,6 +36,8 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif file_name.endswith(".pub"):
         return "pub"
+     elif file_name.endswith(".msi") or "MSI Installer" in file_type:
+        return "msi"   
     elif "Rich Text Format" in file_type or \
             "Microsoft Word" in file_type or \
             "Microsoft Office Word" in file_type or \
@@ -56,12 +58,10 @@ def choose_package(file_type, file_name, exports, target):
         return "zip"
     elif "RAR archive" in file_type or file_name.endswith(".rar"):
         return "rar"
-    elif "Macromedia Flash" in file_type or file_name.endswith(".swf"):
+    elif "Macromedia Flash" in file_type or file_name.endswith(".swf") or file_name.endswith(".fws"):
         return "swf"
     elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
         return "python"
-    elif file_name.endswith(".msi"):
-        return "msi"
     elif file_name.endswith(".ps1"):
         return "ps1"
     elif file_name.endswith(".msg"):
@@ -88,6 +88,8 @@ def choose_package(file_type, file_name, exports, target):
         return "lnk"
     elif file_name.endswith(".chm") or "MS Windows HtmlHelp Data" in file_type:
         return "chm"
+    elif file_name.endswith(".hwp") or "Hangul (Korean) Word Processor File" in file_type:
+        return "hwp"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"#@~^" in file_content[:100]:

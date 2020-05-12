@@ -305,26 +305,30 @@ def pending(request):
 ajax_mongo_schema = {
     "cape": "cape",
     "dropped": "dropped",
+    "debugger": "debugger",
+    "behavior": "behavior",
 }
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-### load files by key as ajax to avoid huge load
 def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
     if request.is_ajax() and category in ("cape", "dropped", "behavior", "debugger"):
         bingraph = False
+        debugger_logs = dict()
         bingraph_dict_content = {}
         files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, { "behavior.processes": 1, "behavior.processtree":1, "info.tlp": 1, "_id": 0})
+                if category == "debugger":
+                    data["debugger"] = data["behavior"]
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
-            if ajax_mongo_schema.get(category, "") in ("cape", "dropped"):
 
+            if ajax_mongo_schema.get(category, "") in ("cape", "dropped"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
                     for block in files.get(category, []):
@@ -334,13 +338,22 @@ def load_files(request, task_id, category):
                                 bingraph_dict_content.setdefault(block["sha256"], f.read())
                 if bingraph_dict_content:
                     bingraph = True
+            if category == "debugger":
+                debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
+                if os.path.exists(debugger_log_path):
+                    for log in os.listdir(debugger_log_path):
+                        if not log.endswith('.log'):
+                            continue
+                        with open(os.path.join(debugger_log_path, log), "r") as f:
+                            debugger_logs[int(log.strip('.log'))] = f.read()
 
         #ES isn't supported
         return render(request, "analysis/{}/index.html".format(category),
-            {category: data.get(category, {}),
+            {ajax_mongo_schema[category]: data.get(category, {}),
             "tlp": data.get("info").get('tlp', ""),
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
+            "debugger_logs": debugger_logs,
             "config": enabledconf})
     else:
         raise PermissionDenied
@@ -782,13 +795,8 @@ def report(request, task_id):
         children = report["CAPE_children"]
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
-    if os.path.exists(debugger_log_path):
-        report["debugger_logs"] = {}
-        for root, dirs, files in os.walk(debugger_log_path):
-            for name in files:
-                if name.endswith('.log'):
-                    with open(os.path.join(root, name), "r") as f:
-                        report["debugger_logs"][int(name.strip('.log'))] = f.read()
+    if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):
+        report["debugger_logs"] = 1
 
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
@@ -802,7 +810,7 @@ def report(request, task_id):
             suricata = gen_moloch_from_suri_tls(suricata)
 
     if settings.MOLOCH_ENABLED and "virustotal" in report:
-            report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
+        report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
     # Creating dns information dicts by domain and ip.
     if "network" in report and "domains" in report["network"]:

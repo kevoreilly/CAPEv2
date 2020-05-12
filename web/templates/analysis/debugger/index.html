@@ -1,44 +1,47 @@
-{% if analysis.debugger_logs %}
-    <h4>Debugger Output</h4>
+{% if debugger %}
+<h4>Debugger Output</h4>
+<ul>
+    {% for process in debugger.processtree|proctreetolist %}
+    {% if process.startchildren %}
     <ul>
-    {% for process in analysis.behavior.processtree|proctreetolist %}
-        {% if process.startchildren %}
-            <ul>
         {% elif process.endchildren %}
-            </ul>
-        {% else %}
-        {% if process.pid in analysis.debugger_logs %}
-            <li>
-            <strong><a href="javascript:show_tab('{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
-            {% if process.commandline %}
-                <i>{{ process.commandline }}</i>
-            {% endif %}
-        {% endif %}
-        </li>
-        {% endif %}
-    {% endfor %}
     </ul>
-    <div class="tabbable tabs">
-        <ul class="nav nav-pills" style="margin-bottom: 0;">
-        {% for process in behavior.processes %}
-            {% for key, value in analysis.debugger_logs.items %}
-                {% if key == process.process_id %}
-                    <li {% if forloop.parentloop.counter == 1 %}class="active"{% endif %}><a href="#{{key}}" data-toggle="tab">{{process.process_name}} ({{key}})</a></li>
-                {% endif %}
-            {% endfor %}
+    {% else %}
+    {% if process.pid in debugger_logs %}
+    <li>
+        <strong><a href="javascript:show_tab('{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
+        {% if process.commandline %}
+        <i>{{ process.commandline }}</i>
+        {% endif %}
+        {% endif %}
+    </li>
+    {% endif %}
+    {% endfor %}
+</ul>
+<div class="tabbable tabs">
+    <ul class="nav nav-pills" style="margin-bottom: 0;">
+        {% for process in debugger.processes %}
+        {% for key, value in debugger_logs.items %}
+        {% if key == process.process_id %}
+        <li {% if forloop.parentloop.counter == 1 %}class="active" {% endif %}><a href="#{{key}}"
+                data-toggle="tab">{{process.process_name}} ({{key}})</a></li>
+        {% endif %}
         {% endfor %}
-        </ul>
-    </div>
-    <div class="tab-content">
-        {% for process in behavior.processes %}
-            {% for key, value in analysis.debugger_logs.items %}
-                {% if key == process.process_id %}
-                    <div class="tab-pane{% if forloop.parentloop.counter == 1 %} fade in active{% else %} fade{% endif %}" id="{{key}}" data-pid="{{key}}">
-                        <div class="alert alert-info center"><a class="btn btn-primary btn-small" href="{% url "file" "debugger_log" analysis.info.id key %}">Download Log</a></div>
-                        <pre>{{value}}</pre>
-                    </div>
-                {% endif %}
-            {% endfor %}
         {% endfor %}
+    </ul>
+</div>
+<div class="tab-content">
+    {% for process in debugger.processes %}
+    {% for key, value in debugger_logs.items %}
+    {% if key == process.process_id %}
+    <div class="tab-pane{% if forloop.parentloop.counter == 1 %} fade in active{% else %} fade{% endif %}" id="{{key}}"
+        data-pid="{{key}}">
+        <div class="alert alert-danger center"><a class="btn btn-primary btn-small"
+                href="{% url "file" "debugger_log" id key %}">Download Log</a></div>
+        <pre>{{value}}</pre>
     </div>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+</div>
 {% endif %}

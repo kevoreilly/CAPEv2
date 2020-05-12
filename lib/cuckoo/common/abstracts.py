@@ -1599,6 +1599,7 @@ class Report(object):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:
             create_folder(folder=self.reports_path)

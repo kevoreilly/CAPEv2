@@ -415,7 +415,7 @@ def cuckoo_clean_range_tasks(start, end):
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
     init_console_logging()
-    pending_tasks = db.list_tasks(id_after=start, id_before=end)
+    pending_tasks = db.list_tasks(id_after=start-1, id_before=end+1)
     resolver_pool.map(lambda tid: delete_data(tid.to_dict()["id"]), pending_tasks)
 
 def cuckoo_dedup_cluster_queue():

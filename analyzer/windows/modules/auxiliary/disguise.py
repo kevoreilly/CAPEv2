@@ -100,8 +100,8 @@ class Disguise(Auxiliary):
             for software in ("Word", "Excel", "PowerPoint", "Publisher", "Outlook"):
                 productPath = r"{0}\{1}\{2}".format(baseOfficeKeyPath, oVersion, software)
                 self._office_helper(productPath + "\\Common\\General", "ShownOptIn", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security", "VBAWarnings", REG_DWORD, 0)
-                self._office_helper(productPath + "\\Security", "AccessVBOM", REG_DWORD, 0)
+                self._office_helper(productPath + "\\Security", "VBAWarnings", REG_DWORD, 1)
+                self._office_helper(productPath + "\\Security", "AccessVBOM", REG_DWORD, 1)
                 self._office_helper(productPath + "\\Security", "DisableDDEServerLaunch", REG_DWORD, 0)
                 self._office_helper(productPath + "\\Security", "MarkInternalAsUnsafe", REG_DWORD, 0)
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableAttachmentsInPV", REG_DWORD, 1)

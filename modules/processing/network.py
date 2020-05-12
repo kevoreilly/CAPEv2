@@ -116,7 +116,7 @@ class Pcap:
             "\.microsoft\.com$",
             "\.skype\.com$",
             "\.live\.com$",
-            "\clients[0-9]+\.google\.com$",
+            "clients[0-9]+\.google\.com$",
             "\.googleapis\.com$",
             "\.gvt1\.com$",
             "\.msftncsi\.com$",

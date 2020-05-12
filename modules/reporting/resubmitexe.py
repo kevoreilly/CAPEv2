@@ -14,8 +14,8 @@
 
 from __future__ import absolute_import
 import os
+import json
 import logging
-import pprint
 
 try:
     import re2 as re
@@ -32,6 +32,8 @@ from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
 
+db = Database()
+
 class ReSubmitExtractedEXE(Report):
     def run(self, results):
         self.noinject = self.options.get("noinject", False)
@@ -43,6 +45,7 @@ class ReSubmitExtractedEXE(Report):
         self.machine = None
         self.resubcnt = 0
         self.tlp = None
+        meta = dict()
         report = dict(results)
 
         if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and \
@@ -70,6 +73,16 @@ class ReSubmitExtractedEXE(Report):
             self.task_options=','.join(self.task_options_stack)
 
         report = dict(results)
+        if report.get("dropped"):
+            if os.path.exists(self.files_metadata):
+                for line in open(self.files_metadata, "rb"):
+                    entry = json.loads(line)
+                    filepath = os.path.join(self.analysis_path, entry["path"])
+                    meta[filepath] = {
+                        "pids": entry["pids"],
+                        "filepath": entry["filepath"],
+                        "metadata": entry["metadata"],
+                    }
         for dropped in report.get("dropped", []):
             if self.resubcnt >= self.resublimit:
                 break
@@ -77,12 +90,14 @@ class ReSubmitExtractedEXE(Report):
                 if ("PE32" in dropped["type"] or "MS-DOS" in dropped["type"]) and "DLL" not in dropped["type"] \
                         and "native" not in dropped["type"]:
                     if dropped['sha256'] not in filesdict:
-                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files",
-                                               dropped['sha256'])
-                        linkdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files",
-                                               dropped['sha256'] + "_link")
-                        guest_paths = [line.strip() for line in open(srcpath + "_info.txt")]
-                        guest_name = guest_paths[0].split("\\")[-1]
+                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'])
+                        linkdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'] + "_link")
+
+                        metastrings = meta[dropped["path"]].get("metadata", "").split(";?")
+                        if len(metastrings) < 2:
+                            continue
+
+                        guest_name = metastrings[1].split("\\")[-1]
                         linkpath = os.path.join(linkdir, guest_name)
                         if not os.path.exists(linkdir):
                             os.makedirs(linkdir, mode=0o755)
@@ -95,6 +110,7 @@ class ReSubmitExtractedEXE(Report):
                             filesdict[dropped['sha256']] = dropped['path']
                             self.resubcnt += 1
 
+        #ToDo i think this is outdated
         if "suricata" in report and report["suricata"]:
             if "files" in report["suricata"] and report["suricata"]["files"]:
                 for suricata_file_e in results["suricata"]["files"]:
@@ -112,8 +128,6 @@ class ReSubmitExtractedEXE(Report):
                                     filesdict[suricata_file_e["file_info"]["sha256"]] = \
                                         suricata_file_e["file_info"]["path"]
                                     self.resubcnt = self.resubcnt + 1
-
-        db = Database()
 
         for e in filesdict:
             if not File(filesdict[e]).get_size():

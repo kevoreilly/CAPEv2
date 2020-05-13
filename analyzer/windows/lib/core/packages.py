@@ -36,7 +36,7 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif file_name.endswith(".pub"):
         return "pub"
-     elif file_name.endswith(".msi") or "MSI Installer" in file_type:
+    elif file_name.endswith(".msi") or "MSI Installer" in file_type:
         return "msi"   
     elif "Rich Text Format" in file_type or \
             "Microsoft Word" in file_type or \

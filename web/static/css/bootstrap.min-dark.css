@@ -3460,6 +3460,7 @@ input[type="button"].btn-block {
  display:block;
  visibility:visible
 }
+
 tr.collapse.in {
  display:table-row
 }
@@ -5011,16 +5012,43 @@ a.thumbnail.active {
 .alert>p+p {
  margin-top:5px
 }
-.alert-dismissable,
 .alert-dismissible {
- padding-right:35px
+  padding-right: 35px;
 }
-.alert-dismissable .close,
+
 .alert-dismissible .close {
- position:relative;
- top:-2px;
- right:-21px;
- color:inherit
+  position: relative;
+  top:-2px;
+  right:-21px;
+  color:inherit
+}
+
+.alert-primary {
+  color: #1e2123;
+  background-color: #d8d9da;
+  border-color: #c8c9cb;
+}
+
+.alert-primary hr {
+  border-top-color: #bbbcbf;
+}
+
+.alert-primary .alert-link {
+  color: #060708;
+}
+
+.alert-secondary {
+  color: #3f4447;
+  background-color: #e4e6e7;
+  border-color: #dadcde;
+}
+
+.alert-secondary hr {
+  border-top-color: #cdcfd2;
+}
+
+.alert-secondary .alert-link {
+  color: #272a2c;
 }
 .alert-success {
  background-color:#62c462;
@@ -5034,20 +5062,20 @@ a.thumbnail.active {
  color:#e6e6e6
 }
 .alert-info {
- background-color:#5bc0de;
- border-color:#3dced8;
- color:#ffffff
+ background-color:#0077de;
+ border-color:#0077de;
+ color:#cce6fc
 }
 .alert-info hr {
- border-top-color:#2ac7d2
+ border-top-color:#0077de
 }
 .alert-info .alert-link {
  color:#e6e6e6
 }
 .alert-warning {
- background-color:#f89406;
- border-color:#e96506;
- color:#ffffff
+ background-color:#e1781d;
+ border-color:#e1781d;
+ color:#fde6d2
 }
 .alert-warning hr {
  border-top-color:#d05a05
@@ -5056,9 +5084,9 @@ a.thumbnail.active {
  color:#e6e6e6
 }
 .alert-danger {
- background-color:#ee5f5b;
- border-color:#ed4d63;
- color:#ffffff
+ background-color:#b22524;
+ border-color:#b22524;
+ color:#f3d4d4
 }
 .alert-danger hr {
  border-top-color:#ea364f

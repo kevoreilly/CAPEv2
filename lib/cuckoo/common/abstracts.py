@@ -54,15 +54,21 @@ except ImportError:
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
-        attack_file = repconf.mitre.get("local_file", False)
-        if attack_file:
-           attack_file = os.path.join(CUCKOO_ROOT, attack_file)
+        from pyattck.version import __version_info__ as pyattck_version
+        if pyattck_version[0] == 2:
+
+            attack_file = repconf.mitre.get("local_file", False)
+            if attack_file:
+                attack_file = os.path.join(CUCKOO_ROOT, attack_file)
+            else:
+                attack_file = False
+            mitre = Attck(dataset_json=attack_file)
+            HAVE_MITRE = True
         else:
-           attack_file = False
-        mitre = Attck() #local_file_path=attack_file
-        HAVE_MITRE = True
-    except ImportError:
-        log.error("Missed pyattck dependency")
+            HAVE_MITRE = False
+            log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
+    except (ImportError, ModuleNotFoundError):
+        log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
         HAVE_MITRE = False
 else:
     HAVE_MITRE = False

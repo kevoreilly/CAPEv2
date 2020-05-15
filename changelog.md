@@ -1,3 +1,7 @@
+### [15-05-2020]
+* pyattck upgrade to >= 2.0.2
+* moved many files from `/data/` to `community` -> `python3 utils/community.py -h`
+
 ### [07-05-2020]
 * Behavior data/tab is now loaded via ajax request, to speedup webgui
 

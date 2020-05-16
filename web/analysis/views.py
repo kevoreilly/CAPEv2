@@ -794,6 +794,11 @@ def report(request, task_id):
     if "CAPE_children" in report:
         children = report["CAPE_children"]
 
+    try:
+        report["dropped"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id":0, "dropped_size": {"$size": "$dropped.sha256"}}}]))[0]["dropped_size"]
+    except:
+        report["dropped"] = 0
+
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):
         report["debugger_logs"] = 1

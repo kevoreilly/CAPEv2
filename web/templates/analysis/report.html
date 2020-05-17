@@ -112,13 +112,10 @@ $(function() {
     {% endif %}
     {% if analysis.backscatter %}<li><a href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
     {% if analysis.mitre_attck %}<li><a href="#mitre" data-toggle="tab">Mitre ATT&CK</a></li>{% endif %}
-    {% if analysis.tr_extractor%}<li><a href="#extractor" data-toggle="tab">Malware config</a></li>{% endif %}
     {% if analysis.classification%}<li><a href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
-    {% if analysis.curtain%}
-        <li> <a href="#curtain" data-toggle="tab">Curtain</a></li>
-    {% endif %}
+    {% if analysis.curtain%}<li> <a href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
     <li><a href="#statistics" data-toggle="tab">Statistics</a></li>
-    <li><a href="#admin" data-toggle="tab">Admin</a></li>
+    {% if settings.ADMIN %}<li><a href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
     <div class="tab-pane fade in active" id="overview">
@@ -177,11 +174,6 @@ $(function() {
             {% include "analysis/debugger/index.html" %}
         </div>
     {% endif %}
-    {% if analysis.tr_extractor %}
-    <div class="tab-pane fade" id="extractor">
-         {% include "analysis/extractor.html" %}
-    </div>
-    {% endif %}
     {% if analysis.backscatter %}
     <div class="tab-pane fade" id="backscatter">
         {% include "analysis/backscatter.html" %}
@@ -205,8 +197,10 @@ $(function() {
     <div class="tab-pane fade" id="statistics">
         {% include "analysis/statistics/index.html" %}
     </div>
+    {% if settings.ADMIN %}
     <div class="tab-pane fade" id="admin">
         {% include "analysis/admin/index.html" %}
     </div>
+    {% endif %}
 </div>
 {% endblock %}

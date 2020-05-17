@@ -1469,6 +1469,7 @@ class Office(object):
                 'no_ms_excel': True,
                 'start_with_shell': False,
                 'return_deobfuscated': True,
+                'day': 0,
             }
             deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
             if deofuscated_xlm:

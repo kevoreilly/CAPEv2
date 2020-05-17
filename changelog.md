@@ -1,5 +1,5 @@
 ### [17-05-2020]
-* XLMMacroDeobfuscator integration
+* [XLMMacroDeobfuscator](https://github.com/DissectMalware/XLMMacroDeobfuscator)from @DissectMalware integrated
 
 ### [15-05-2020]
 * pyattck upgrade to >= 2.0.2

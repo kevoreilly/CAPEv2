@@ -33,7 +33,10 @@ except ImportError:
 log = logging.getLogger(__name__)
 logging.getLogger('pymisp').setLevel(logging.WARNING)
 
-ttps_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')))
+ttps_json = {}
+mitre_json_path = os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')
+if os.path.exists(mitre_json_path):
+    ttps_json = json.load(open(mitre_json_path))
 malpedia_json_path = os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')
 if os.path.exists(malpedia_json_path):
     malpedia_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')))
@@ -57,13 +60,13 @@ class MISP(Report):
     """MISP Analyzer."""
 
     order = 1
-    
+
     def malpedia(self, results, event, malfamily):
         if malfamily in name_update_shema:
             malfamily = name_update_shema[malfamily]
         if malfamily in malpedia_json:
             self.misp.tag(event["uuid"], 'misp-galaxy:malpedia="{}"'.format(malfamily))
-    
+
     def signature(self, results, event):
         for ttp in results.get("ttps", []) or []:
             for i in ttps_json.get("objects", []) or []:
@@ -233,10 +236,10 @@ class MISP(Report):
                 if tag:
                     self.misp.tag(event, tag)
 
-                #malpedia galaxy 
+                #malpedia galaxy
                 if malpedia_json:
                     self.malpedia(results, event, malfamily)
-                                       
+
                 # ToDo?
                 self.signature(results, event)
 

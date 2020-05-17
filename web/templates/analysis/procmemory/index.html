@@ -43,15 +43,15 @@
                             <tr>
                                 <th>Full Dump</th>
                                 <td>
-                                    <a class="btn btn-primary btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}">Download</a>
-                                    <a class="btn btn-primary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}">Download ZIP</a>
+                                    <a class="btn btn-default btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}">Download</a>
+                                    <a class="btn btn-default btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}">Download ZIP</a>
                                 </td>
                             </tr>
                         {% endif %}
                         {% if proc.strings_path %}
                             <tr>
                                 <th>Process Strings</th>
-                                <td><a class="btn btn-primary btn-small" href="{% url "file" "memdumpstrings" analysis.info.id proc.pid %}">Download</a></td>
+                                <td><a class="btn btn-default btn-small" href="{% url "file" "memdumpstrings" analysis.info.id proc.pid %}">Download</a></td>
                             </tr>
                         {% endif %}
                     </table>
@@ -82,7 +82,7 @@
                                     <td><span class="label label-primary">No</span></td>
                                     {% endif %}
                                     {% if proc.file %}
-                                    <td><a class="btn btn-primary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}">Download</a></td>
+                                    <td><a class="btn btn-default btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}">Download</a></td>
                                     {% endif %}
                                 </tr>
                                 {% if memmap.chunks|length >= 2 %}
@@ -94,7 +94,7 @@
                                         <td>{{chunk.prot}}</td>
                                         <td></td>
                                         {% if proc.file %}
-                                        <td><a class="btn btn-primary btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}">Download</a></td>
+                                        <td><a class="btn btn-default btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}">Download</a></td>
                                         {% endif %}
                                     </tr>
                                 {% endfor %}

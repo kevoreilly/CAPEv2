@@ -106,21 +106,21 @@
                 {% if file.dropdir %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-primary btn-small">Download</a>
+                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-default btn-small">Download</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
-                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download Zip</a>
+                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download</a>
+                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download Zip</a>
                     </td>
                 </tr>
                 {% endif %}
             </table>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-                <h4>BinGraph <a href="{% url "file" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-primary btn-small">Download graph</a></h4>
+                <h4>BinGraph <a href="{% url "file" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
                 {{ graphs.bingraph.content|getkey:file.sha256|safe }}
             {% endif %}
         </div>

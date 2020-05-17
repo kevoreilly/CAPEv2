@@ -192,7 +192,7 @@
                             {% for block in value %}
                                 <tr>
                                     {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-primary btn-small">{{block.filename}}</a></td>
+                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-default btn-small">{{block.filename}}</a></td>
                                     {% else %}
                                         <td>{{block.filename}}</td>
                                     {% endif %}

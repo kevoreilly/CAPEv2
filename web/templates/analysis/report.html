@@ -62,7 +62,7 @@ $(function() {
 <div class="row">
     <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p></div>
     {% if analysis.info.category == "file" and analysis.target %}
-        <div class="col-md-6" style="text-align: right;"><a class="btn btn-primary" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
+        <div class="col-md-6" style="text-align: right;"><a class="btn btn-default" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
     {% endif %}
 </div>
 {% if analysis.info.tlp %}

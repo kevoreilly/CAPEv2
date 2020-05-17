@@ -152,7 +152,7 @@
                         <col style="width:20%">
                         <col style="width:60%">
                         <col style="width:20%">
-                        {% for name,code in analysis.static.office.Macro.Code|getkey:macrodata %}
+                        {% for name, code in analysis.static.office.Macro.Code|getkey:macrodata %}
                         <tr>
                             <td>VBA Filename</td>
                             <td>{{name}}</td>
@@ -170,7 +170,7 @@
                 {% endif %}
                 {% if graphs.vba2graph.enabled %}
                     <h4>Vba2Graph</h4>
-                    {{ graphs.vba2graph.content|safe }} 
+                    {{ graphs.vba2graph.content|safe }}
                 {% endif %}
             {% endif %}
         {% endif %}
@@ -222,6 +222,21 @@
             </tr>
         </table>
         </div>
+        {% endif %}
+        {% if analysis.static.office.XLMMacroDeobfuscator %}
+        <div class="panel" id="accordion" style="margin-top: 20px;">
+            <div class="panel-heading">
+                <a class="accordion-toggle" data-parent="#accordion" data-toggle="collapse" href="#XLMMacroDeobfuscator" aria-expanded="false"><i class="icon icon-cog"></i> <h4>XLMMacroDeobfuscator</h4></a>
+            </div>
+            <div id="XLMMacroDeobfuscator" class="panel-collapse collapse in" style="text-align: left;">
+                <div class="well" style="font-family: monospace;">
+                    {% for line in analysis.static.office.XLMMacroDeobfuscator %}
+                        <p>{{line}}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <hr />
         {% endif %}
     {% else %}
         Nothing to display.

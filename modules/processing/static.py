@@ -111,6 +111,13 @@ try:
 except ImportError as e:
     HAVE_PEEPDF = False
 
+try:
+    HAVE_XLM_DEOBF = True
+    from XLMMacroDeobfuscator.deobfuscator import process_file as XLMMacroDeobf
+except ImportError:
+    print("Missed dependey XLMMacroDeobfuscator: pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
+    HAVE_XLM_DEOBF = False
+
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
@@ -1453,6 +1460,19 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
                 metares["DocumentType"] = indicator.name
+
+        if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
+            xlm_kwargs = {
+                'file': filepath,
+                'noninteractive': True,
+                'extract_only': False,
+                'no_ms_excel': True,
+                'start_with_shell': False,
+                'return_deobfuscated': True,
+            }
+            deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
+            if deofuscated_xlm:
+                results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
         return results
 
     def run(self):

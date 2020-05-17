@@ -1,3 +1,6 @@
+### [17-05-2020]
+* XLMMacroDeobfuscator integration
+
 ### [15-05-2020]
 * pyattck upgrade to >= 2.0.2
 * moved many files from `/data/` to `community` -> `python3 utils/community.py -h`

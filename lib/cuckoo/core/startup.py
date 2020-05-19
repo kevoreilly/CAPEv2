@@ -232,7 +232,6 @@ def init_yara():
     # We divide yara rules in three categories.
     # CAPE adds a fourth
 
-    generated = []
     # Loop through all categories.
     for category in categories:
         # Check if there is a directory for the given category.
@@ -273,8 +272,8 @@ def init_yara():
 
         try:
             File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-        except (yara.Error, yara.SyntaxError) as e:
-            log.error("There was a syntax error in one or more Yara rules: %s" % e)
+        except yara.Error as e:
+            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
 
         # The memory.py processing module requires a yara file with all of its
         # rules embedded in it, so create this file to remain compatible.

@@ -172,7 +172,7 @@
                                     <tr>
                                         <td>{{indicator}}</td>
                                         <td>{{description}}</td>
-                                    </td>
+                                    </tr>
                                 {% endfor %}
                                 </table>
                             </div>
@@ -263,19 +263,20 @@
         </div>
         {% endif %}
         {% if analysis.static.office.XLMMacroDeobfuscator %}
-        <div class="panel" id="accordion" style="margin-top: 20px;">
-            <div class="panel-heading">
-                <a class="accordion-toggle" data-parent="#accordion" data-toggle="collapse" href="#XLMMacroDeobfuscator" aria-expanded="false"><i class="icon icon-cog"></i> <h4>XLMMacroDeobfuscator</h4></a>
-            </div>
-            <div id="XLMMacroDeobfuscator" class="panel-collapse collapse" style="text-align: left;">
-                <div class="well" style="font-family: monospace;">
-                    <pre "background-color:black">
-                    {% for line in analysis.static.office.XLMMacroDeobfuscator %}
-                        {{line}}
-                    {% endfor %}
-                    </pre>
-                </div>
-            </div>
+        <div id="xmlmacro">
+        <h4>XLMMacroDeobfuscator</h4>
+        <table class="table table-striped table-bordered">
+            <tr>
+                <td><a class="accordion-toggle" data-toggle="collapse"  data-parent="#accordion" href="#XLMMacroDeobfuscator">Decoded XLM Macro</a></td>
+            </tr>
+        </table>
+        <div id="XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
+            <pre>
+            {% for line in analysis.static.office.XLMMacroDeobfuscator %}
+                {{line}}
+            {% endfor %}
+            </pre>
+        </div>
         </div>
         <hr />
         {% endif %}

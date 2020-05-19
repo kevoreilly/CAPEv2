@@ -153,6 +153,9 @@ class SubmitCAPE(Report):
         if 'disable_cape=1' in self.task_options:
             return
 
+        if cape_yara["name"] == "GuLoader":
+            detections.add('GuLoader')
+
         if cape_yara["name"] == "TrickBot":
             detections.add('TrickBot')
 
@@ -246,7 +249,7 @@ class SubmitCAPE(Report):
         if not self.task_options:
             return
 
-        if 'auto=1' in self.task_options:
+        if 'auto' in self.task_options:
             return
 
         parent_package = results["info"].get("package")
@@ -338,6 +341,9 @@ class SubmitCAPE(Report):
                         elif entry["name"] == "EvilGrab":
                             detections.add('EvilGrab')
                             package = 'EvilGrab'
+
+        if 'GuLoader' in detections:
+            return
 
         if 'Sedreco' in detections:
             if parent_package == 'dll':

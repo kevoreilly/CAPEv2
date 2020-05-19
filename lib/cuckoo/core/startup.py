@@ -281,7 +281,7 @@ def init_yara():
         if category == "memory":
             f = open(os.path.join(category_root, "index_memory.yar"), "w")
             for filename in sorted(indexed):
-                f.write('include "%s"\n' % os.path.join(category_root, "memory", filename))
+                f.write('include "%s"\n' % os.path.join(category_root, filename))
 
         indexed = sorted(indexed)
         for entry in indexed:

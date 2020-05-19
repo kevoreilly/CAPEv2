@@ -1363,10 +1363,8 @@ class Office(object):
             officeresults["Metadata"] = self._get_meta(meta)
             metares = officeresults["Metadata"]
             # Fix up some output formatting
-            buf = self.convert_dt_string(metares["SummaryInformation"]["create_time"])
-            metares["SummaryInformation"]["create_time"] = buf
-            buf = self.convert_dt_string(metares["SummaryInformation"]["last_saved_time"])
-            metares["SummaryInformation"]["last_saved_time"] = buf
+            metares["SummaryInformation"]["create_time"] = self.convert_dt_string(metares["SummaryInformation"]["create_time"])
+            metares["SummaryInformation"]["last_saved_time"] = self.convert_dt_string(metares["SummaryInformation"]["last_saved_time"])
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
@@ -1471,9 +1469,14 @@ class Office(object):
                 'return_deobfuscated': True,
                 'day': 0,
             }
-            deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
-            if deofuscated_xlm:
-                results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
+
+            try:
+                deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
+                if deofuscated_xlm:
+                    results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
+            except Exception as e:
+                log.error(e, exc_info=True)
+
         return results
 
     def run(self):

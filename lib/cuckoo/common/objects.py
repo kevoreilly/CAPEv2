@@ -57,9 +57,6 @@ log = logging.getLogger(__name__)
 
 FILE_CHUNK_SIZE = 16 * 1024
 
-CAPE_YARA_RULEPATH = \
-    os.path.join(CUCKOO_ROOT, "data", "yara", "index_CAPE.yar")
-
 yara_error = {
     "1": "ERROR_INSUFFICIENT_MEMORY",
     "2": "ERROR_COULD_NOT_ATTACH_TO_PROCESS",
@@ -110,10 +107,6 @@ yara_error = {
     "48": "ERROR_INVALID_EXTERNAL_VARIABLE_TYPE",
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
-
-
-CAPE_YARA_RULEPATH = \
-    os.path.join(CUCKOO_ROOT, "data", "yara", "index_CAPE.yar")
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
 IMAGE_NT_SIGNATURE = 0x00004550
@@ -204,8 +197,10 @@ class URL:
 class File(object):
     """Basic file object class with all useful utilities."""
 
-    YARA_RULEPATH = \
-        os.path.join(CUCKOO_ROOT, "data", "yara", "index_binaries.yar")
+    # The yara rules should not change during one Cuckoo run and as such we're
+    # caching 'em. This dictionary is filled during init_yara().
+    yara_rules = {}
+
 
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
@@ -425,13 +420,13 @@ class File(object):
         try:
             new = s#.encode("utf-8")
         except UnicodeDecodeError:
-            s = binascii.hexlify(s.lstrip("uU")).upper()
+            s = s.lstrip("uU").encode("hex").upper()
             s = " ".join(s[i:i+2] for i in range(0, len(s), 2))
             new = "{ %s }" % s
 
         return new
 
-    def get_yara(self, rulepath=YARA_RULEPATH):
+    def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
@@ -443,63 +438,46 @@ class File(object):
                 log.warning("Unable to import yara (please compile from sources)")
             return results
 
-        if not os.path.exists(rulepath):
-            log.warning("The specified rule file at %s doesn't exist, skip",
-                        rulepath)
-            return results
-
         if not os.path.getsize(self.file_path):
             return results
 
         try:
-            rules = False
-            externals = {}
-            try:
-                filepath = ""
-                filename = ""
-                if self.file_name:
-                    filepath = self.file_name
-                    filename = self.file_name
-                if self.guest_paths:
-                    filepath = self.guest_paths[0]
-                if filepath and filename:
-                    externals = {"filepath": filepath, "filename": filename}
-                rules = yara.compile(rulepath, externals=externals)
-            except yara.SyntaxError as e:
-                if 'duplicated identifier' in e.args[0]:
-                    log.warning("Duplicate rule in %s", rulepath)
-                    log.warning(e.args[0])
-                else:
-                    rules = yara.compile(rulepath)
-            if rules:
-                matches = rules.match(self.file_path)#.decode())
+            # TODO Once Yara obtains proper Unicode filepath support we can
+            # remove this check. See also the following Github issue:
+            # https://github.com/VirusTotal/yara-python/issues/48
+            assert len(str(self.file_path)) == len(self.file_path)
+        except (UnicodeEncodeError, AssertionError):
+            log.warning(
+                "Can't run Yara rules on %r as Unicode paths are currently "
+                "not supported in combination with Yara!", self.file_path
+            )
+            return results
 
-                results = []
+        try:
+            results, rule = [], File.yara_rules[category]
+            for match in rule.match(self.file_path, externals=externals):
+                strings = set()
+                for s in match.strings:
+                    strings.add(self._yara_encode_string(s[2]))
 
-                for match in matches:
-                    strings = set()
-                    for s in match.strings:
-                        strings.add(self._yara_encode_string(s[2]))
+                addresses = {}
+                for s in match.strings:
+                    addresses[s[1].strip('$')] = s[0]
 
-                    addresses = {}
-                    for s in match.strings:
-                        addresses[s[1].strip('$')] = s[0]
-
-                    results.append({
-                        "name": match.rule,
-                        "meta": match.meta,
-                        "strings": list(strings),
-                        "addresses": addresses,
-                    })
-
+                results.append({
+                    "name": match.rule,
+                    "meta": match.meta,
+                    "strings": list(strings),
+                    "addresses": addresses,
+                })
         except Exception as e:
             errcode = e.message.split()[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s",
-                               self.file_path, yara_error[errcode])
+                              self.file_path, yara_error[errcode])
             else:
-                log.exception("Unable to match Yara signatures for %s: unknown code %s",
-                              self.file_path, errcode)
+                log.exception(
+                    "Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
 
         return results
 
@@ -549,7 +527,7 @@ class File(object):
         infos["ssdeep"] = self.get_ssdeep()
         infos["type"] = self.get_type()
         infos["yara"] = self.get_yara()
-        infos["cape_yara"] = self.get_yara(CAPE_YARA_RULEPATH)
+        infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
 
         if not HAVE_PEFILE:

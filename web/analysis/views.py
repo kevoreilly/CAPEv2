@@ -1015,7 +1015,7 @@ def procdump(request, task_id, process_id, start, end):
     origname = process_id + ".dmp"
     tmpdir = None
     tmp_file_path = None
-
+    response = False
     if enabledconf["mongodb"]:
         analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {
                                                 "procdump": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])

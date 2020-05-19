@@ -12,7 +12,7 @@ from collections import Mapping, Iterable
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
+from lib.cuckoo.common.objects import File
 
 log = logging.getLogger(__name__)
 
@@ -228,12 +228,9 @@ def static_config_parsers(yara_hit, file_data, cape_config):
 def static_extraction(path):
     cape_config = dict()
     try:
-        hits = File(path).get_yara(CAPE_YARA_RULEPATH)
+        hits = File(path).get_yara(category="CAPE")
         if not hits:
             return False
-        # ToDo not public
-        if any([hit["name"].endswith("_TCR") for hit in hits]):
-            return True
         # Get the file data
         with open(path, "rb") as file_open:
             file_data = file_open.read()

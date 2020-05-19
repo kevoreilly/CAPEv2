@@ -1,5 +1,6 @@
 ### [17-05-2020]
 * [XLMMacroDeobfuscator](https://github.com/DissectMalware/XLMMacroDeobfuscator) from @DissectMalware integrated
+* Yara now compiled once at processing start or reprocessing
 
 ### [15-05-2020]
 * pyattck upgrade to >= 2.0.2

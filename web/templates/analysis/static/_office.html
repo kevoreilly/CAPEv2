@@ -35,50 +35,72 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
+                            {% if analysis.static.office.Metadata.SummaryInformation.creating_application %}
                             <tr>
                                 <td>Creating Application</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.creating_application}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.author %}
                             <tr>
                                 <td>Author</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.author}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.last_saved_by %}
                             <tr>
                                 <td>Last Saved By</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.last_saved_by}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.create_time %}
                             <tr>
                                 <td>Creation Time</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.create_time}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.last_saved_time %}
                             <tr>
                                 <td>Last Saved Time</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.last_saved_time}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.total_edit_time %}
                             <tr>
                                 <td>Total Edit Time</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.total_edit_time}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.title %}
                             <tr>
                                 <td>Document Title</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.title}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.subject %}
                             <tr>
                                 <td>Document Subject</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.subject}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.num_pages %}
                             <tr>
                                 <td>Amount of Pages</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.num_pages}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.num_words %}
                             <tr>
                                 <td>Amount of Words</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.num_words}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.SummaryInformation.num_chars %}
                             <tr>
                                 <td>Amount of Characters</td>
                                 <td>{{analysis.static.office.Metadata.SummaryInformation.num_chars}}</td>
                             </tr>
+                            {% endif %}
                         </table>
                     </div>
                 </div>
@@ -93,26 +115,36 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
+                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.company %}
                             <tr>
                                 <td>Company</td>
                                 <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.company}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.doc_version %}
                             <tr>
                                 <td>Document Version</td>
                                 <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.doc_version}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.dig_sig %}
                             <tr>
                                 <td>Digital Signature</td>
                                 <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.dig_sig}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.language %}
                             <tr>
                                 <td>Language</td>
                                 <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.language}}</td>
                             </tr>
+                            {% endif %}
+                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.notes %}
                             <tr>
                                 <td>Notes</td>
                                 <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.notes}}</td>
                             </tr>
+                            {% endif %}
                         </table>
                     </div>
                 </div>
@@ -121,23 +153,30 @@
             {% endif %}
             {% if analysis.static.office.Macro %}
                 {% if analysis.static.office.Macro.Analysis %}
-                <div>
                     <div id="analysis_sigs">
                         <h4>File Analysis (Signatures)</h4>
                         {% for detection in analysis.static.office.Macro.Analysis %}
-                            <table class="table table-striped table-bordered">
-                            <colgroup>
-                                <col width="200">
-                                <col width="*">
-                            </colgroup>
-                            <th colspan="2">{{detection}}</th>
-                            {% for indicator, description in analysis.static.office.Macro.Analysis|getkey:detection %}
-                                <tr>
-                                    <td>{{indicator}}</td>
-                                    <td>{{description}}</td>
-                                </td>
-                            {% endfor %}
-                            </table>
+                        <div>
+                            <div class="panel" id="accordion" style="margin-top: 20px;">
+                            <div class="panel-heading">
+                                <a class="accordion-toggle" data-parent="#analysis_sigs" data-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="icon icon-cog"></i>{{detection}}</a>
+                            </div>
+                            <div id="{{detection}}" class="panel-collapse collapse" style="text-align: left;">
+                                <table class="table table-striped table-bordered">
+                                <colgroup>
+                                    <col width="200">
+                                    <col width="*">
+                                </colgroup>
+                                <th colspan="2">{{detection}}</th>
+                                {% for indicator, description in analysis.static.office.Macro.Analysis|getkey:detection %}
+                                    <tr>
+                                        <td>{{indicator}}</td>
+                                        <td>{{description}}</td>
+                                    </td>
+                                {% endfor %}
+                                </table>
+                            </div>
+                            </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -230,9 +269,11 @@
             </div>
             <div id="XLMMacroDeobfuscator" class="panel-collapse collapse" style="text-align: left;">
                 <div class="well" style="font-family: monospace;">
+                    <pre "background-color:black">
                     {% for line in analysis.static.office.XLMMacroDeobfuscator %}
-                        <p>{{line}}</p>
+                        {{line}}
                     {% endfor %}
+                    </pre>
                 </div>
             </div>
         </div>

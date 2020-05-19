@@ -82,8 +82,8 @@ class ProcessMemory(Processing):
                     pid=process_id,
                     name=process_name,
                     path=process_path,
-                    yara=dmp_file.get_yara(os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yar")),
-                    cape_yara=dmp_file.get_yara(os.path.join(CUCKOO_ROOT, "data", "yara", "index_CAPE.yar")),
+                    yara=dmp_file.get_yara(category="memory"),
+                    cape_yara=dmp_file.get_yara(category="CAPE"),
                     address_space=procdump.pretty_print(),
                 )
 

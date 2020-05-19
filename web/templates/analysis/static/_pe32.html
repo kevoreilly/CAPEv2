@@ -339,13 +339,17 @@
         {% if analysis.static.pe.imports %}
         <div>
             <h4>Imports</h4>
-            <div id="pe_imports">
+            <div class="panel" id="pe_imports" style="margin-top: 20px;">
                 {% for library in analysis.static.pe.imports %}
-                    <div class="well">
-                        <div><strong>Library {{library.dll}}</strong>:</div>
+                    <div class="panel-heading">
+                        <a class="accordion-toggle" data-parent="#pe_imports" data-toggle="collapse" href="#{{library.dll}}" aria-expanded="false"><i class="icon icon-cog"></i> <strong>Library {{library.dll}}</strong>:</a>
+                    </div>
+                    <div id="{{library.dll}}" class="panel-collapse collapse in" style="text-align: left;">
+                        <div class="well" style="font-family: monospace;">
                         {% for function in library.imports %}
                             <div>&bull; <span class="mono">{{function.address}} <a href="http://social.msdn.microsoft.com/Search/en-US/windows/desktop?query={{function.name}}">{{function.name}}</a></span></div>
                         {% endfor %}
+                        </div>
                     </div>
                 {% endfor %}
             </div>

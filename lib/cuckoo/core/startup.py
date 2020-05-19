@@ -275,12 +275,13 @@ def init_yara():
         except yara.Error as e:
             raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
 
+        # ToDo for Volatility3 yarascan
         # The memory.py processing module requires a yara file with all of its
         # rules embedded in it, so create this file to remain compatible.
-        if category == "memory":
-            f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-            for filename in sorted(indexed):
-                f.write('include "%s"\n' % os.path.join(category_root, filename))
+        #if category == "memory":
+        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
+        #    for filename in sorted(indexed):
+        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
 
         indexed = sorted(indexed)
         for entry in indexed:

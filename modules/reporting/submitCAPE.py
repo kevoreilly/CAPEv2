@@ -126,11 +126,14 @@ class SubmitCAPE(Report):
                             address = cape_yara["addresses"][hit]
                             option = '{0}{1}={2}{3}'.format(name, bp, address, suffix)
                             bp = bp + 1
-                if option and option not in self.task_options:
+                if option not in self.task_options:
                     if new_options == "":
                         new_options = option
                     else:
                         new_options = new_options + ',' + option
+
+            if not address:
+                return
 
             if 'procdump=1' in self.task_options:
                 self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)

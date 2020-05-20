@@ -82,5 +82,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 __requirements.txt is decprecated now in favour of the script__
 
+## Virtual machine core dependecy
+* [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
+
 #### What doesn't work
 * volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.

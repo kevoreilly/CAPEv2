@@ -62,7 +62,7 @@ $(function() {
 <div class="row">
     <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p></div>
     {% if analysis.info.category == "file" and analysis.target %}
-        <div class="col-md-6" style="text-align: right;"><a class="btn btn-primary" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
+        <div class="col-md-6" style="text-align: right;"><a class="btn btn-default" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
     {% endif %}
 </div>
 {% if analysis.info.tlp %}
@@ -83,7 +83,7 @@ $(function() {
     <li><a href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
-        <li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files</a></li>
+        {% if analysis.dropped %}<li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif%}
         {% if analysis.procmemory|length %}<li><a href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
         {% if analysis.memory %}<li><a href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
         {% if analysis.procdump|length %}<li><a href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}
@@ -112,13 +112,10 @@ $(function() {
     {% endif %}
     {% if analysis.backscatter %}<li><a href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
     {% if analysis.mitre_attck %}<li><a href="#mitre" data-toggle="tab">Mitre ATT&CK</a></li>{% endif %}
-    {% if analysis.tr_extractor%}<li><a href="#extractor" data-toggle="tab">Malware config</a></li>{% endif %}
     {% if analysis.classification%}<li><a href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
-    {% if analysis.curtain%}
-        <li> <a href="#curtain" data-toggle="tab">Curtain</a></li>
-    {% endif %}
+    {% if analysis.curtain%}<li> <a href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
     <li><a href="#statistics" data-toggle="tab">Statistics</a></li>
-    <li><a href="#admin" data-toggle="tab">Admin</a></li>
+    {% if settings.ADMIN %}<li><a href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
     <div class="tab-pane fade in active" id="overview">
@@ -177,11 +174,6 @@ $(function() {
             {% include "analysis/debugger/index.html" %}
         </div>
     {% endif %}
-    {% if analysis.tr_extractor %}
-    <div class="tab-pane fade" id="extractor">
-         {% include "analysis/extractor.html" %}
-    </div>
-    {% endif %}
     {% if analysis.backscatter %}
     <div class="tab-pane fade" id="backscatter">
         {% include "analysis/backscatter.html" %}
@@ -205,8 +197,10 @@ $(function() {
     <div class="tab-pane fade" id="statistics">
         {% include "analysis/statistics/index.html" %}
     </div>
+    {% if settings.ADMIN %}
     <div class="tab-pane fade" id="admin">
         {% include "analysis/admin/index.html" %}
     </div>
+    {% endif %}
 </div>
 {% endblock %}

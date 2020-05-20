@@ -1,3 +1,7 @@
+### [17-05-2020]
+* [XLMMacroDeobfuscator](https://github.com/DissectMalware/XLMMacroDeobfuscator) from @DissectMalware integrated
+* Yara now compiled once at processing start or reprocessing
+
 ### [15-05-2020]
 * pyattck upgrade to >= 2.0.2
 * moved many files from `/data/` to `community` -> `python3 utils/community.py -h`
@@ -23,7 +27,7 @@
 ### [30-03-2020]
 * /configdownload/ is moved to /api/tasks/get/config/<task_id>/ or /api/tasks/get/config/<task_id>/Family/
 * Anti-api-spamming feature in monitor
-* webgui optimizations(mongo queries improved a lot), thanks [MongoDB university](https://university.mongodb.com) university for free cources :)
+* webgui optimizations(mongo queries improved a lot), thanks [MongoDB university](https://university.mongodb.com) for free cources :)
 
 ### [28-03-2020]
 * CAPE 2.1 ;)

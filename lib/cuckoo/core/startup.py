@@ -12,12 +12,14 @@ import socket
 import logging
 import logging.handlers
 
+import yara
 import modules.auxiliary
 import modules.processing
 import modules.signatures
 import modules.reporting
 import modules.feeds
 
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.colors import red, green, yellow, cyan
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
@@ -215,9 +217,12 @@ def init_modules():
                 log.debug("\t `-- %s", entry.__name__)
             else:
                 log.debug("\t |-- %s", entry.__name__)
-
 def init_yara():
     """Generates index for yara signatures."""
+
+    categories = (
+        "binaries", "urls", "memory", "CAPE"
+    )
 
     log.debug("Initializing Yara...")
 
@@ -226,41 +231,64 @@ def init_yara():
 
     # We divide yara rules in three categories.
     # CAPE adds a fourth
-    categories = ("binaries", "urls", "memory", "CAPE")
-    generated = []
+
     # Loop through all categories.
     for category in categories:
         # Check if there is a directory for the given category.
         category_root = os.path.join(yara_root, category)
         if not os.path.exists(category_root):
+            log.warning("Missing Yara directory: %s?", category_root)
             continue
 
-        # Check if the directory contains any rules.
-        signatures = []
-        for entry in os.listdir(category_root):
-            if entry.endswith(".yara") or entry.endswith(".yar"):
-                signatures.append(os.path.join(category_root, entry))
+        rules, indexed = {}, []
+        for category_root, _, filenames in os.walk(category_root, followlinks=True):
+            for filename in filenames:
+                if not filename.endswith((".yar", ".yara")):
+                    continue
 
-        if not signatures:
-            continue
+                filepath = os.path.join(category_root, filename)
 
-        # Generate path for the category's index file.
-        index_name = "index_{0}.yar".format(category)
-        index_path = os.path.join(yara_root, index_name)
+                try:
+                    # TODO Once Yara obtains proper Unicode filepath support we
+                    # can remove this check. See also this Github issue:
+                    # https://github.com/VirusTotal/yara-python/issues/48
+                    assert len(str(filepath)) == len(filepath)
+                except (UnicodeEncodeError, AssertionError):
+                    log.warning(
+                        "Can't load Yara rules at %r as Unicode filepaths are "
+                        "currently not supported in combination with Yara!",
+                        filepath
+                    )
+                    continue
 
-        # Create index file and populate it.
-        with open(index_path, "w") as index_handle:
-            for signature in signatures:
-                index_handle.write("include \"{0}\"\n".format(signature))
+                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                indexed.append(filename)
 
-        generated.append(index_name)
+            # Need to define each external variable that will be used in the
+        # future. Otherwise Yara will complain.
+        externals = {
+            "filename": "",
+        }
 
-    for entry in generated:
-        if entry == generated[-1]:
-            log.debug("\t `-- %s", entry)
-        else:
-            log.debug("\t |-- %s", entry)
+        try:
+            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+        except yara.Error as e:
+            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
 
+        # ToDo for Volatility3 yarascan
+        # The memory.py processing module requires a yara file with all of its
+        # rules embedded in it, so create this file to remain compatible.
+        #if category == "memory":
+        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
+        #    for filename in sorted(indexed):
+        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+
+        indexed = sorted(indexed)
+        for entry in indexed:
+            if (category, entry) == indexed[-1]:
+                log.debug("\t `-- %s %s", category, entry)
+            else:
+                log.debug("\t |-- %s %s", category, entry)
 
 
 def init_rooter():

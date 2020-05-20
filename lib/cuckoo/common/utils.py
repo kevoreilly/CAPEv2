@@ -1931,13 +1931,7 @@ def get_options(optstring):
     # accessible to the analysis package.
     options = {}
     if optstring and isinstance(optstring, str):
-        # Split the options by comma.
-        fields = optstring.split(",")
-        for field in fields:
-            # Split the name and the value of the option.
-            key, value = field.split("=", 1)
-            # Add the option to the dictionary.
-            options[key.strip()] = value.strip()
+        options = dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and '=' in option)
 
     return options
 

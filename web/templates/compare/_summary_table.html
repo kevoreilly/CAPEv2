@@ -17,7 +17,7 @@
                 <td>{{record.info.machine.name}}</td>
                 <td>{{record.info.ended}}</td>
                 <td>{{record.info.duration}} seconds</td>
-                <td><a class="btn btn-primary btn-small" href="{% url "compare_both" left.info.id record.info.id %}">Select</a></td>
+                <td><a class="btn btn-default btn-small" href="{% url "compare_both" left.info.id record.info.id %}">Select</a></td>
             </tr>
         {% endfor %}
     </tbody>

@@ -72,8 +72,9 @@ TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 # Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
 
-# To disable comment support, change the below to False
-COMMENTS = True
+
+COMMENTS = web_cfg.comments.enabled
+ADMIN = web_cfg.admin.enabled
 
 #If false run next command
 #python3 manage.py runserver 0.0.0.0:8000 --insecure

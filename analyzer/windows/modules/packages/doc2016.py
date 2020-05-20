@@ -26,4 +26,4 @@ class DOC2016(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q" % path, path)
+        return self.execute(word, "\"%s\" /q /dde /n" % path, path)

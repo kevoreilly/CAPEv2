@@ -26,4 +26,4 @@ class XLS2207(Package):
             path = new_path
 
         excel = self.get_path_glob("Microsoft Office Excel")
-        return self.execute(excel, "\"%s\" /e" % path, path)
+        return self.execute(excel, "\"%s\" /dde" % path, path)

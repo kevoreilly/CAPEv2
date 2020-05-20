@@ -38,6 +38,8 @@ demux_extensions_list = [
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 
+blacklist_extensions = ("apk", "dmg")
+
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
@@ -115,6 +117,8 @@ def demux_sflock(filename, options, package):
 
         if unpacked.package in whitelist_extensions:
             return [filename]
+        if unpacked.package in blacklist_extensions:
+            return retlist
         for sf_child in unpacked.children or []:
             base, ext = os.path.splitext(sf_child.filename)
             ext = ext.lower()

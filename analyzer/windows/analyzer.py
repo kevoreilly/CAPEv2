@@ -1301,7 +1301,7 @@ class CommandPipeHandler(object):
     def _handle_process(self, data):
         """Request for injection into a process."""
         # Parse the process identifier.
-        # PROCESS:1:1824,2856
+        # PROCESS:1:1824,2856
         suspended = False
         process_id = thread_id = None
         # We parse the process ID.
@@ -1384,7 +1384,7 @@ class CommandPipeHandler(object):
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
-        # Syntax -> PATH|PID|Metadata
+        # Syntax -> PATH|PID|Metadata
         file_path, pid, metadata = data.split(b"|")
         #self.analyzer.files.add_file(file_path)
         # We dump immediately.

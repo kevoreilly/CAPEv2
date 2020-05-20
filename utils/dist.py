@@ -30,7 +30,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file
+from lib.cuckoo.common.utils import store_temp_file, get_options
 from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_session
 from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED, TASK_RUNNING, TASK_PENDING, TASK_FAILED_REPORTING, TASK_DISTRIBUTED_COMPLETED, TASK_DISTRIBUTED
 
@@ -636,8 +636,7 @@ class StatusThread(threading.Thread):
                     force_push = False
                     try:
                         # convert the options string to a dict, e.g. {'opt1': 'val1', 'opt2': 'val2', 'opt3': 'val3'}
-                        options = dict((value.strip() for value in option.split(
-                            "=", 1)) for option in t.options.split(",") if option and '=' in option)
+                        options = get_options(t.options)
                         # check if node exist and its correct
                         if "node=" in t.options:
                             requested_node = options.get("node")

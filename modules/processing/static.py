@@ -1461,13 +1461,15 @@ class Office(object):
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
             xlm_kwargs = {
-                'file': filepath,
-                'noninteractive': True,
-                'extract_only': False,
-                'no_ms_excel': True,
-                'start_with_shell': False,
-                'return_deobfuscated': True,
-                'day': 0,
+                "file": filepath,
+                "noninteractive": True,
+                "extract_only": False,
+                "no_ms_excel": True,
+                "start_with_shell": False,
+                "return_deobfuscated": True,
+                "no_indent": False,
+                "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                "day": -1
             }
 
             try:

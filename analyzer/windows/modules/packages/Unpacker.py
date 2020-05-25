@@ -8,8 +8,8 @@ import shutil
 
 from lib.common.abstracts import Package
 
-class Extraction(Package):
-    """CAPE Extraction analysis package."""
+class Unpacker(Package):
+    """CAPE Unpacker analysis package."""
     #PATHS = [
     #    ("SystemRoot", "system32"),
     #]
@@ -19,7 +19,7 @@ class Extraction(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
 
     def start(self, path):

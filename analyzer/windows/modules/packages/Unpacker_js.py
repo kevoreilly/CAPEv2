@@ -19,6 +19,7 @@ class Unpacker_JS(Package):
         self.options = options
         self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")

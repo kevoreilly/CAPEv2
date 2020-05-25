@@ -17,6 +17,7 @@ class Unpacker_PDF(Package):
         self.options = options
         self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")

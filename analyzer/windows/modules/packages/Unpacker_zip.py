@@ -33,6 +33,7 @@ class Unpacker_zip(Package):
         self.pids = []
         self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def extract_zip(self, zip_path, extract_path, password, recursion_depth):
         """Extracts a nested ZIP file.

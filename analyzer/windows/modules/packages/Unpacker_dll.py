@@ -19,6 +19,7 @@ class Unpacker_dll(Package):
         self.config = config
         self.options = options
         self.options["unpacker"] = "1"
+        self.options["injection"] = "0"
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")

@@ -19,6 +19,7 @@ class PS1(Package):
         self.options = options
         self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

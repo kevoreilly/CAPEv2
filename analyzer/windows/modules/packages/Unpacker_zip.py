@@ -19,23 +19,19 @@ from lib.common.exceptions import CuckooPackageError
 
 log = logging.getLogger(__name__)
 
-class Injection_zip(Package):
-    """CAPE Injection zip analysis package."""
+class Unpacker_zip(Package):
+    """CAPE Unpacker zip analysis package."""
 
     PATHS = [
-             ("SystemRoot", "system32", "cmd.exe"),
-             ("SystemRoot", "system32", "wscript.exe"),
-             ("SystemRoot", "system32", "rundll32.exe"),
-             ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
-             ("SystemRoot", "system32", "xpsrchvw.exe"),
-            ]
+        ("SystemRoot", "system32", "cmd.exe"),
+    ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
         self.config = config
         self.options = options
         self.pids = []
-        self.options["injection"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
 
     def extract_zip(self, zip_path, extract_path, password, recursion_depth):
@@ -53,7 +49,7 @@ class Injection_zip(Package):
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
-        # Extraction.
+        # Unpacker.
         with ZipFile(zip_path, "r") as archive:
             try:
                 archive.extractall(path=extract_path, pwd=password)

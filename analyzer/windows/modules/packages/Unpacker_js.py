@@ -7,7 +7,7 @@ import os
 
 from lib.common.abstracts import Package
 
-class Extraction_JS(Package):
+class Unpacker_JS(Package):
     """JavaScript analysis package."""
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
@@ -17,7 +17,7 @@ class Extraction_JS(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
 
     def start(self, path):

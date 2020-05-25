@@ -101,9 +101,9 @@ class CAPE_Decryption(Signature):
         if self.encrypted_binary is True:
             return True
 
-class CAPE_Extraction(Signature):
-    name = "Extraction"
-    description = "Behavioural detection: Executable code extraction"
+class CAPE_Unpacker(Signature):
+    name = "Unpacker"
+    description = "Behavioural detection: Executable code extraction - unpacking"
     severity = 1
     categories = ["allocation"]
     authors = ["kevoreilly"]

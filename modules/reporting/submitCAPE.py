@@ -41,43 +41,22 @@ NUMBER_OF_DEBUG_REGISTERS = 4
 bp = 0
 
 cape_package_list = [
-    "Combo", "Combo_dll", "Compression", "Compression_dll", "Compression_doc", "Compression_zip", "Compression_js", "Compression_pdf",
-    "Debugger", "Debugger_dll", "Debugger_doc", "DumpOnAPI", "Doppelganging", "Emotet", "Emotet_doc", "EvilGrab", "Extraction", "Extraction_dll",
-    "Extraction_regsvr", "Extraction_zip", "Extraction_ps1", "Extraction_jar", "Extraction_pdf", "Extraction_js",
-    "Hancitor", "Hancitor_dll", "Hancitor_doc", "IcedID", "Injection", "Injection_dll", "Injection_doc", "Injection_pdf", "Injection_zip",
-    "Injection_ps1", "Injection_js", "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
-    "Sedreco", "Sedreco_dll", "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
+    "Emotet", "Emotet_doc", "Unpacker", "Unpacker_dll",
+    "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_jar", "Unpacker_pdf", "Unpacker_js",
+    "Hancitor", "Hancitor_dll", "Hancitor_doc",
+    "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
+    "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
 ]
 
-injections = {
-    'doc': 'Injection_doc',
-    'dll': 'Injection_dll',
-    'regsvr': 'Injection_dll',
-    'zip': 'Injection_zip',
-#    'pdf': 'Injection_pdf',
-    'js': 'Injection_js',
-    'exe': 'Injection'
-}
-
-extractions = {
-    'ps1': 'Extraction_ps1',
-    'dll': 'Extraction_dll',
-    'regsvr': 'Extraction_regsvr',
-    'zip': 'Extraction_zip',
-    'pdf': 'Extraction_pdf',
-    'jar': 'Extraction_jar',
-    'js': 'Extraction_js',
-    'exe': 'Extraction',
-}
-
-compressions = {
-    'doc': 'Compression_doc',
-    'dll': 'Compression_dll',
-    'regsvr': 'Compression_dll',
-    'zip': 'Compression_zip',
-    'pdf': 'Compression_pdf',
-    'js': 'Compression_js',
-    'exe': 'Compression',
+unpackers = {
+    'ps1': 'Unpacker_ps1',
+    'dll': 'Unpacker_dll',
+    'regsvr': 'Unpacker_regsvr',
+    'zip': 'Unpacker_zip',
+    'pdf': 'Unpacker_pdf',
+    'jar': 'Unpacker_jar',
+    'js': 'Unpacker_js',
+    'exe': 'Unpacker',
 }
 
 plugx = {
@@ -280,7 +259,7 @@ class SubmitCAPE(Report):
             if results.get("info", {}).get("custom"):
                 self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
 
-            if self.task["package"] in ('Compression', 'Extraction', 'Injection'):
+            if self.task["package"] in ('Unpacker'):
                 self.task["package"] = 'exe'
 
             log.debug("submit_task options: %s", self.task_options)
@@ -309,29 +288,16 @@ class SubmitCAPE(Report):
         if 'disable_cape=1' in self.task_options:
             return
 
-        # Dynamic CAPE hits
-        # Packers, injection or other generic dumping
+        # Dynamic CAPE hits from packers
         if "signatures" in results:
             for entry in results["signatures"]:
                 if parent_package:
-                    if entry["name"] in ("InjectionCreateRemoteThread", "InjectionProcessHollowing", "InjectionSetWindowLong", "InjectionInterProcess"):
-                        if parent_package in injections:
-                            detections.add(injections[parent_package])
-                            continue
-
-                    elif entry["name"] == "Extraction":
+                    if entry["name"] == "Unpacker":
                         if parent_package == 'doc':
-                            # detections.add('Extraction_doc')
-                            # Word triggers this so removed
                             continue
 
-                        if parent_package in extractions:
-                            detections.add(extractions[parent_package])
-                            continue
-
-                    elif entry["name"] == "Compression":
-                        if parent_package in compressions:
-                            detections.add(compressions[parent_package])
+                        if parent_package in unpackers:
+                            detections.add(unpackers[parent_package])
                             continue
 
                     # Specific malware family packages
@@ -340,22 +306,8 @@ class SubmitCAPE(Report):
                         package = plugx[parent_package]
                         continue
 
-                    elif parent_package == 'exe':
-                        if entry["name"] == "Doppelganging":
-                            detections.add('Doppelganging')
-
-                        elif entry["name"] == "EvilGrab":
-                            detections.add('EvilGrab')
-                            package = 'EvilGrab'
-
         if 'GuLoader' in detections:
             return
-
-        if 'Sedreco' in detections:
-            if parent_package == 'dll':
-                package = 'Sedreco_dll'
-            elif parent_package == 'exe':
-                package = 'Sedreco'
 
         elif 'TrickBot' in detections:
             if parent_package == 'doc':
@@ -364,17 +316,17 @@ class SubmitCAPE(Report):
                 package = 'TrickBot'
 
         elif 'Ursnif' in detections:
-            if parent_package in ('doc', 'Injection_doc'):
+            if parent_package in ('doc'):
                 package = 'Ursnif_doc'
-            elif parent_package in ('exe', 'Injection'):
+            elif parent_package in ('exe'):
                 package = 'Ursnif'
 
         elif 'Hancitor' in detections:
-            if parent_package in ('doc', 'Injection_doc'):
+            if parent_package in ('doc'):
                 package = 'Hancitor_doc'
-            elif parent_package in ('exe', 'Injection', 'Compression'):
+            elif parent_package in ('exe'):
                 package = 'Hancitor'
-            elif parent_package in ('dll', 'Injection_dll', 'Compression_dll'):
+            elif parent_package in ('dll'):
                 package = 'Hancitor_dll'
 
         # if 'RegBinary' in detections or 'CreatesLargeKey' in detections:
@@ -384,12 +336,8 @@ class SubmitCAPE(Report):
         elif 'Emotet' in detections:
             if parent_package == 'doc':
                 package = 'Emotet_doc'
-            elif parent_package in ('exe', 'Extraction'):
+            elif parent_package in ('exe', 'Unpacker'):
                 package = 'Emotet'
-
-        #elif parent_package == 'exe' or parent_package == 'Extraction':
-        #    if 'IcedID' in detections:
-        #        package = 'IcedID'
 
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and 'procdump=1' in self.task_options:

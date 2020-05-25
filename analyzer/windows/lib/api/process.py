@@ -574,6 +574,7 @@ class Process:
                 "nohuman",
                 "unpack",
                 "main_task_id",
+                "auto",
             ]
 
             for optname, option in self.options.items():

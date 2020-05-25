@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
-class Compression_PDF(Package):
+class Unpacker_PDF(Package):
     """PDF analysis package."""
     PATHS = [
         ("ProgramFiles", "Adobe", "*a*", "Reader", "AcroRd32.exe"),
@@ -15,7 +15,7 @@ class Compression_PDF(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["compression"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
 
     def start(self, path):

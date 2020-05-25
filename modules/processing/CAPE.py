@@ -47,8 +47,8 @@ COMPRESSION          = 1
 INJECTION_PE         = 3
 INJECTION_SHELLCODE  = 4
 INJECTION_SECTION    = 5
-EXTRACTION_PE        = 8
-EXTRACTION_SHELLCODE = 9
+UNPACKED_PE        = 8
+UNPACKED_SHELLCODE = 9
 PLUGX_PAYLOAD        = 0x10
 PLUGX_CONFIG         = 0x11
 EVILGRAB_PAYLOAD     = 0x14
@@ -214,8 +214,8 @@ class CAPE(Processing):
                     file_info["section_handle"] = metastrings[4]
 
             simple_cape_type_map = {
-                EXTRACTION_PE: "Extracted PE Image",
-                EXTRACTION_SHELLCODE: "Extracted Shellcode",
+                UNPACKED_PE: "Unpacked PE Image",
+                UNPACKED_SHELLCODE: "Unpacked Shellcode",
             }
             if file_info["cape_type_code"] in simple_cape_type_map:
                 file_info["cape_type"] = simple_cape_type_map[file_info["cape_type_code"]]

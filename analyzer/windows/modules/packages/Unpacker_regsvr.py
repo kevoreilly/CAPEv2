@@ -8,23 +8,22 @@ import shutil
 
 from lib.common.abstracts import Package
 
-class Combo_dll(Package):
-    """DLL analysis package."""
+class Unpacker_Regsvr(Package):
+    """CAPE Unpacker DLL analysis package."""
     PATHS = [
-        ("SystemRoot", "system32", "rundll32.exe"),
+        ("SystemRoot", "system32", "regsvr32.exe"),
     ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["combo"] = "1"
+        self.options["unpacker"] = "1"
+        self.options["procdump"] = "0"
 
     def start(self, path):
-        rundll32 = self.get_path("rundll32.exe")
-        function = self.options.get("function", "#1")
+        regsvr32 = self.get_path("regsvr32.exe")
         arguments = self.options.get("arguments")
-        dllloader = self.options.get("dllloader")
 
         # Check file extension.
         ext = os.path.splitext(path)[-1].lower()
@@ -36,13 +35,8 @@ class Combo_dll(Package):
             os.rename(path, new_path)
             path = new_path
 
-        args = "{0},{1}".format(path, function)
+        args = path
         if arguments:
             args += " {0}".format(arguments)
 
-        if dllloader:
-            newname = os.path.join(os.path.dirname(rundll32), dllloader)
-            shutil.copy(rundll32, newname)
-            rundll32 = newname
-
-        return self.execute(rundll32, args, path)
+        return self.execute(regsvr32, args, path)

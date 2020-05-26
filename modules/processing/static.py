@@ -121,6 +121,11 @@ except ImportError:
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
+userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+userdb_signatures = peutils.SignatureDatabase()
+if os.path.exists(userdb_path):
+    userdb_signatures.load(userdb_path)
+
 # Obtained from
 # https://github.com/erocarrera/pefile/blob/master/pefile.py
 # Copyright Ero Carrera and released under the MIT License:
@@ -327,15 +332,13 @@ class PortableExecutable(object):
             return None
 
         try:
-            sig_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-            signatures = peutils.SignatureDatabase(sig_path)
-            result = signatures.match_all(self.pe, ep_only=True)
-            if not result:
-                return None
-            return result
+            result = userdb_signatures.match_all(self.pe, ep_only=True)
+            if result:
+                return result
         except Exception as e:
             log.error(e, exc_info=True)
-            return None
+
+        return None
 
     def _get_pdb_path(self):
         if not self.pe:

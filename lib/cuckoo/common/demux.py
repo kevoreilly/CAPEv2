@@ -102,8 +102,13 @@ def demux_sflock(filename, options, package):
     retlist = []
     # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
     ext = os.path.splitext(filename)[1]
-    if package == b".zip" or ext == b".bin":
+    if ext == b".bin":
         return retlist
+
+    # to handle when side file for exec is required
+    if package == b".zip" and "file=" in options:
+        return [filename]
+
     try:
         password = b"infected"
         tmp_pass = options2passwd(options)

@@ -1166,6 +1166,7 @@ class Office(object):
         self.file_path = file_path
         self.results = results
 
+    # Depricated?
     # Parse a string-casted datetime object that olefile returns. This will parse
     # multiple types of timestamps including when a date is provide without a
     # time.
@@ -1196,17 +1197,21 @@ class Office(object):
         elif docdate:
             return docdate
         else:
-            return "None"
+            return None
 
     def _get_meta(self, meta):
         ret = dict()
         ret["SummaryInformation"] = dict()
         for prop in meta.SUMMARY_ATTRIBS:
             value = getattr(meta, prop)
+            if not value:
+                continue
             ret["SummaryInformation"][prop] = convert_to_printable(str(value))
         ret["DocumentSummaryInformation"] = dict()
         for prop in meta.DOCSUM_ATTRIBS:
             value = getattr(meta, prop)
+            if not value:
+                continue
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
 
@@ -1365,9 +1370,10 @@ class Office(object):
             # must be left this way or we won't see the results
             officeresults["Metadata"] = self._get_meta(meta)
             metares = officeresults["Metadata"]
-            # Fix up some output formatting
-            metares["SummaryInformation"]["create_time"] = self.convert_dt_string(metares["SummaryInformation"]["create_time"])
-            metares["SummaryInformation"]["last_saved_time"] = self.convert_dt_string(metares["SummaryInformation"]["last_saved_time"])
+            if metares["SummaryInformation"]["create_time"]:
+                metares["SummaryInformation"]["create_time"] = metares["SummaryInformation"]["create_time"]
+            if metares["SummaryInformation"]["last_saved_time"]:
+                metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"

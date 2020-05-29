@@ -434,8 +434,7 @@ def init_routing():
         # Populate routing table with entries from main routing table.
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
-            rooter("init_rttable", routing.routing.rt_table,
-                   routing.routing.internet)
+            rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
 
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:

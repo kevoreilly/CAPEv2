@@ -1166,39 +1166,6 @@ class Office(object):
         self.file_path = file_path
         self.results = results
 
-    # Depricated?
-    # Parse a string-casted datetime object that olefile returns. This will parse
-    # multiple types of timestamps including when a date is provide without a
-    # time.
-    def convert_dt_string(self, string):
-        ctime = string.replace("datetime.datetime", "")
-        ctime = ctime.replace("(","")
-        ctime = ctime.replace(")","")
-        ctime = "".join(ctime).split(", ")
-        # Parse date, set to None if we don't have any/not enough data
-        if len(ctime) >= 3:
-            docdate = date(int(ctime[0]), int(ctime[1]), int(ctime[2])).strftime("%B %d, %Y")
-        else:
-            docdate = None
-        # Parse if we are missing minutes and seconds field
-        if len(ctime) == 4:
-            doctime = time(int(ctime[3])).strftime("%H")
-        # Parse if we are missing seconds field
-        elif len(ctime) == 5:
-            doctime = time(int(ctime[3]), int(ctime[4])).strftime("%H:%M")
-        # Parse a full datetime string
-        elif len(ctime) == 6:
-            doctime = time(int(ctime[3]), int(ctime[4]), int(ctime[5])).strftime("%H:%M:%S")
-        else:
-            doctime = None
-
-        if docdate and doctime:
-            return docdate + " " + doctime
-        elif docdate:
-            return docdate
-        else:
-            return None
-
     def _get_meta(self, meta):
         ret = dict()
         ret["SummaryInformation"] = dict()
@@ -1779,9 +1746,9 @@ class ELF(object):
             parsed = "Library runpath: [%s]" % tag.runpath
         elif tag.entry.d_tag == "DT_SONAME":
             parsed = "Library soname: [%s]" % tag.soname
-        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("SZ", "ENT")):
+        elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("SZ", "ENT")):
             parsed = "%i (bytes)" % tag["d_val"]
-        elif isinstance(tag.entry.d_tag, basestring) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
+        elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
             parsed = "%i" % tag["d_val"]
         elif tag.entry.d_tag == "DT_PLTREL":
             s = describe_dyn_tag(tag.entry.d_val)

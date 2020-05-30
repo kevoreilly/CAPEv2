@@ -161,8 +161,8 @@ def forward_enable(src, dst, ipaddr):
     # -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
     run_iptables("-D", "FORWARD", "-i", src, "-j", "REJECT")
     run_iptables("-D", "FORWARD", "-o", src, "-j", "REJECT")
-    run_iptables("-A", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
-    run_iptables("-A", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
+    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "-j", "ACCEPT")
+    run_iptables("-I", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
 
 def forward_disable(src, dst, ipaddr):
     """Disable forwarding of a specific IP address from one interface into

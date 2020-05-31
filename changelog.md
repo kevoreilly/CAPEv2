@@ -1,5 +1,5 @@
 ### [31-05-2020]
-* Rewrite /api/ ratelimit implementation to allow unlimited api for existed users(htpasswd), just set username and password as post arguments
+* Rewrite /api/ ratelimit implementation to allow unlimited api for existing users([htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html)), just set username and password as post arguments
 
 ### [17-05-2020]
 * [XLMMacroDeobfuscator](https://github.com/DissectMalware/XLMMacroDeobfuscator) from @DissectMalware integrated

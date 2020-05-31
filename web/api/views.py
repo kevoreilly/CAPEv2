@@ -140,26 +140,48 @@ apilimiter = {
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
+    username = False
+    password = False
     group = group.split(".")[-1]
     if group in apilimiter and apilimiter[group].get("enabled"):
-        if request.POST.get("username", "") and request.POST.get("password", "") and HAVE_PASSLIB and ht and ht.check_password(request.POST.get("username"), request.POST.get("password")):
+
+        #better way to handle this?
+        if request.method == "POST":
+            username = request.POST.get("password", "")
+            password = request.POST.get("password", "")
+        elif request.method == "GET":
+            username = request.GET.get("username", "")
+            password = request.GET.get("password", "")
+
+        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
             return None
         else:
             return apilimiter[group].get("rps")
 
     return "0/s"
 
+
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_minutes(group, request):
-    # apiconf
-    #group = 'api.views.ext_tasks_search'
     group = group.split(".")[-1]
     if group in apilimiter and apilimiter[group].get("enabled"):
-        if request.POST.get("username", "") and request.POST.get("password", "") and HAVE_PASSLIB and ht and ht.check_password(request.POST.get("username"), request.POST.get("password")):
+        username = False
+        password = False
+
+        #better way to handle this?
+        if request.method == "POST":
+            username = request.POST.get("password", "")
+            password = request.POST.get("password", "")
+        elif request.method == "GET":
+            username = request.GET.get("username", "")
+            password = request.GET.get("password", "")
+
+        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
             return None
         else:
             return apilimiter[group].get("rpm")
-    return "0/s"
+
+    return "0/m"
 
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.

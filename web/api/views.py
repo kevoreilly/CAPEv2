@@ -6,6 +6,7 @@ import sys
 import time
 import socket
 import tarfile
+import logging
 from datetime import datetime, timedelta
 import tempfile
 import requests
@@ -37,10 +38,6 @@ from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_fil
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task
 
-
-#from sqlalchemy.func import extract
-
-import logging
 log = logging.getLogger(__name__)
 
 #FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
@@ -50,7 +47,7 @@ apiconf = Config("api")
 rateblock = apiconf.api.get("ratelimit", False)
 repconf = Config("reporting")
 
-hp = False
+ht = False
 try:
     """
         To enable: sudo apt install apache2-utils

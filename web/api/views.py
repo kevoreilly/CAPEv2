@@ -1149,29 +1149,46 @@ def tasks_reschedule(request, task_id):
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_delete(request, task_id):
+    """
+        task_id: int or string if many
+        example: 1 or 1,2,3,4
+
+    """
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
 
     if not apiconf.taskdelete.get("enabled"):
-        resp = {"error": True,
-                "error_value": "Task Deletion API is Disabled"}
+        resp = {"error": True,"error_value": "Task Deletion API is Disabled"}
         return jsonize(resp, response=True)
 
-    check = validate_task(task_id)
-    if check["error"]:
-        return jsonize(check, response=True)
+    if isinstance(task_id, int):
+        task_id = [task_id]
+    else:
+        task_id = [task.strip() for task in task_id.split(",")]
 
     resp = {}
-    if db.delete_task(task_id):
-        resp["error"] = False
-        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                   "%s" % task_id))
-        resp["data"] = "Task ID {0} has been deleted".format(task_id)
-    else:
-        resp = {"error": True,
-                "error_value": ("An error occured when trying to delete "
-                                "task {0}".format(task_id))}
+    s_deleted = list()
+    f_deleted = list()
+    for task in task_id:
+        check = validate_task(task)
+        if check["error"]:
+            f_deleted.append(task)
+            continue
+
+        # ToDo missed mongo?
+        if db.delete_task(task_id):
+            s_deleted.append(task)
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id))
+        else:
+            f_deleted.append(task)
+
+    if f_deleted:
+        resp["error"] = True
+        resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(s_deleted))
+
+    if s_deleted:
+        resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))
 
     return jsonize(resp, response=True)
 
@@ -1214,8 +1231,7 @@ def tasks_report(request, task_id, report_format="json"):
         return jsonize(check, response=True)
 
     resp = {}
-    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                          "%s" % task_id, "reports")
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
 
     # Report validity check
     if os.path.exists(srcdir) and len(os.listdir(srcdir)) == 0:
@@ -1232,10 +1248,20 @@ def tasks_report(request, task_id, report_format="json"):
         "metadata": "report.metadata.xml",
     }
 
+    bz_formats = {
+        "all": {"type": "-", "files": ["memory.dmp"]},
+        "dropped": {"type": "+", "files": ["files"]},
+        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]}
+    }
+
+    tar_formats = {
+        "bz2": "w:bz2",
+        "gz": "w:gz",
+        "tar": "w",
+    }
+
     if report_format.lower() in formats:
-        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                   "%s" % task_id, "reports",
-                                   formats[report_format.lower()])
+        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
         if os.path.exists(report_path):
             if report_format in ("json", "maec5"):
                 content = "application/json; charset=UTF-8"
@@ -1264,9 +1290,7 @@ def tasks_report(request, task_id, report_format="json"):
 
     elif report_format.lower() == "all":
         if not apiconf.taskreport.get("all"):
-            resp = {"error": True,
-                    "error_value": "Downloading all reports in one call is"
-                    "disabled"}
+            resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
             return jsonize(resp, response=True)
 
         fname = "%s_reports.tar.bz2" % task_id
@@ -1275,10 +1299,37 @@ def tasks_report(request, task_id, report_format="json"):
         for rep in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, rep), arcname=rep)
         tar.close()
-        resp = HttpResponse(s.getvalue(),
-                            content_type="application/octet-stream;")
+        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    elif report_format.lower() in bz_formats:
+        bzf = bz_formats[report_format.lower()]
+        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
+        s = StringIO()
+
+        # By default go for bz2 encoded tar files (for legacy reasons.)
+        # tarmode = tar_formats.get("tar", "w:bz2")
+
+        tar = tarfile.open(fileobj=s, mode="w:bz2")
+        if not os.path.exists(srcdir):
+            resp = {"error": True, "error_value": "Report doesn't exists"}
+            return jsonize(resp, response=True)
+
+        for filedir in os.listdir(srcdir):
+            try:
+                if bzf["type"] == "-" and filedir not in bzf["files"]:
+                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
+                if bzf["type"] == "+" and filedir in bzf["files"]:
+                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
+            except Exception as e:
+                log.error(e, exc_info=True)
+        tar.close()
+
+        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        resp["Content-Length"] = str(len(s.getvalue()))
+        resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
         return resp
 
     else:
@@ -1581,8 +1632,7 @@ def tasks_pcap(request, task_id):
     if check["error"]:
         return jsonize(check, response=True)
 
-    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id,
-                          "dump.pcap")
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if os.path.exists(srcfile):
         with open(srcfile, "rb") as pcap:
             data = pcap.read()
@@ -1593,8 +1643,7 @@ def tasks_pcap(request, task_id):
         return resp
 
     else:
-        resp = {"error": True,
-                "error_value": "PCAP does not exist"}
+        resp = {"error": True, "error_value": "PCAP does not exist"}
         return jsonize(resp, response=True)
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)

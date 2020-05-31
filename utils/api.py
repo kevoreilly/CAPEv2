@@ -826,4 +826,5 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--port", help="Port to bind the API server on", default=8090, action="store", required=False)
     args = parser.parse_args()
 
+    print("Depricated in favour of /api/ that is integrated in webgui")
     run(host=args.host, port=args.port)

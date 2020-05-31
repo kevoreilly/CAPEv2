@@ -29,7 +29,7 @@ class JS_ANTIVM(Package):
         args = "\"%s\"" % path
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
-            if os.path.isfile(path) and "#@~^" in open(path, "rt").read(100):
+            if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
                 os.rename(path,path + ".jse")
                 path = path + ".jse"
             else:

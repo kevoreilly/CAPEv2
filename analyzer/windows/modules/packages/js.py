@@ -18,7 +18,7 @@ class JS(Package):
         args = "\"%s\"" % path
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
-            if ext == ".jse" or (os.path.isfile(path) and "#@~^" in open(path, "rt").read(100)):
+            if ext == ".jse" or (os.path.isfile(path) and "#@~^" == open(path, "rt").read(4)):
                 if ext != ".jse":
                     os.rename(path, path + ".jse")
                     path = path + ".jse"

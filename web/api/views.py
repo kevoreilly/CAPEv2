@@ -47,16 +47,30 @@ log = logging.getLogger(__name__)
 
 # Config variables
 apiconf = Config("api")
-limiter = apiconf.api.get("ratelimit", False)
+rateblock = apiconf.api.get("ratelimit", False)
 repconf = Config("reporting")
+
+hp = False
+try:
+    """
+        To enable: sudo apt install apache2-utils
+
+    """
+    from passlib.apache import HtpasswdFile
+    HAVE_PASSLIB = True
+    ht = HtpasswdFile(apiconf.api.get("users_db"))
+except ImportError:
+    HAVE_PASSLIB = False
+
 
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient( settings.MONGO_HOST,
-                                  port=settings.MONGO_PORT,
-                                  username=settings.MONGO_USER,
-                                  password=settings.MONGO_PASS,
-                                  authSource=settings.MONGO_DB)[settings.MONGO_DB]
+    results_db = pymongo.MongoClient(
+        settings.MONGO_HOST,
+        port=settings.MONGO_PORT,
+        username=settings.MONGO_USER,
+        password=settings.MONGO_PASS,
+        authSource=settings.MONGO_DB)[settings.MONGO_DB]
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -73,11 +87,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
      )
 
 db = Database()
-
-# Default rate limit variables
-rateblock = False
-raterps = None
-raterpm = None
 
 # Conditional decorator for web authentication
 class conditional_login_required(object):
@@ -96,6 +105,64 @@ def force_int(value):
         value = 0
     finally:
         return value
+
+apilimiter = {
+    "tasks_create_file": apiconf.filecreate,
+    "tasks_create_url": apiconf.urlcreate,
+    "tasks_create_dlnexec": apiconf.dlnexeccreate,
+    "tasks_vtdl": apiconf.vtdl,
+    "files_view": apiconf.fileview,
+    "tasks_search": apiconf.tasksearch,
+    "ext_tasks_search": apiconf.extendedtasksearch,
+    "tasks_list": apiconf.tasklist,
+    "tasks_view": apiconf.taskview,
+    "tasks_reschedule": apiconf.taskresched,
+    "tasks_delete": apiconf.taskdelete,
+    "tasks_status": apiconf.taskstatus,
+    "tasks_report":apiconf.taskreport,
+    "tasks_iocs": apiconf.taskiocs,
+    "tasks_screenshot": apiconf.taskscreenshot,
+    "tasks_pcap": apiconf.taskpcap,
+    "tasks_dropped": apiconf.taskdropped,
+    "tasks_surifile": apiconf.tasksurifile,
+    "tasks_rollingsuri": apiconf.rollingsuri,
+    "tasks_rollingshrike": apiconf.rollingshrike,
+    "tasks_procmemory": apiconf.taskprocmemory,
+    "tasks_fullmemory": apiconf.taskprocmemory,
+    "get_files": apiconf.sampledl,
+    "machines_list": apiconf.machinelist,
+    "machines_view": apiconf.machineview,
+    "cuckoo_status": apiconf.cuckoostatus,
+    "task_x_hours": apiconf.task_x_hours,
+    "tasks_latest": apiconf.tasks_latest,
+    #"post_processing":
+    "tasks_payloadfiles": apiconf.payloadfiles,
+    "tasks_procdumpfiles": apiconf.procdumpfiles,
+    "tasks_config": apiconf.capeconfig,
+}
+
+# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
+def my_rate_seconds(group, request):
+    group = group.split(".")[-1]
+    if group in apilimiter and apilimiter[group].get("enabled"):
+        if request.POST.get("username", "") and request.POST.get("password", "") and HAVE_PASSLIB and ht and ht.check_password(request.POST.get("username"), request.POST.get("password")):
+            return None
+        else:
+            return apilimiter[group].get("rps")
+
+    return "0/s"
+
+# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
+def my_rate_minutes(group, request):
+    # apiconf
+    #group = 'api.views.ext_tasks_search'
+    group = group.split(".")[-1]
+    if group in apilimiter and apilimiter[group].get("enabled"):
+        if request.POST.get("username", "") and request.POST.get("password", "") and HAVE_PASSLIB and ht and ht.check_password(request.POST.get("username"), request.POST.get("password")):
+            return None
+        else:
+            return apilimiter[group].get("rpm")
+    return "0/s"
 
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
@@ -147,8 +214,8 @@ def index(request):
     return render(request, "api/index.html",
                              {"config": parsed})
 
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_create_file(request):
     resp = {}
@@ -430,12 +497,8 @@ def tasks_create_file(request):
 
     return jsonize(resp, response=True)
 
-if apiconf.urlcreate.get("enabled"):
-    raterps = apiconf.urlcreate.get("rps", None)
-    raterpm = apiconf.urlcreate.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_create_url(request):
     resp = {}
@@ -537,14 +600,8 @@ def tasks_create_url(request):
     return jsonize(resp, response=True)
 
 
-if apiconf.urlcreate.get("enabled"):
-    raterps = apiconf.urlcreate.get("rps", None)
-    raterpm = apiconf.urlcreate.get("rpm", None)
-    rateblock = limiter
-
-
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_create_dlnexec(request):
     resp = {}
@@ -656,12 +713,8 @@ def tasks_create_dlnexec(request):
     return jsonize(resp, response=True)
 
 # Download a file from VT for analysis
-if apiconf.vtdl.get("enabled"):
-    raterps = apiconf.vtdl.get("rps", None)
-    raterpm = apiconf.vtdl.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_vtdl(request):
     status = "ok"
@@ -792,12 +845,8 @@ def tasks_vtdl(request):
     return jsonize(resp, response=True)
 
 # Return Sample information.
-if apiconf.fileview.get("enabled"):
-    raterps = apiconf.fileview.get("rps", None)
-    raterpm = apiconf.fileview.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -847,12 +896,8 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     return jsonize(resp, response=True)
 
 # Return Task ID's and data that match a hash.
-if apiconf.tasksearch.get("enabled"):
-    raterps = apiconf.tasksearch.get("rps", None)
-    raterpm = apiconf.tasksearch.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_search(request, md5=None, sha1=None, sha256=None):
     resp = {}
     if request.method != "GET":
@@ -907,12 +952,8 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
     return jsonize(resp, response=True)
 
 # Return Task ID's and data that match a hash.
-if apiconf.extendedtasksearch.get("enabled"):
-    raterps = apiconf.extendedtasksearch.get("rps", None)
-    raterpm = apiconf.extendedtasksearch.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def ext_tasks_search(request):
     resp = {}
@@ -974,12 +1015,8 @@ def ext_tasks_search(request):
     return jsonize(resp, response=True)
 
 # Return Task ID's and data within a range of Task ID's
-if apiconf.tasklist.get("enabled"):
-    raterps = apiconf.tasklist.get("rps", None)
-    raterpm = apiconf.tasklist.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_list(request, offset=None, limit=None, window=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1047,12 +1084,8 @@ def tasks_list(request, offset=None, limit=None, window=None):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskview.get("enabled"):
-    raterps = apiconf.taskview.get("rps", None)
-    raterpm = apiconf.taskview.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_view(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1088,12 +1121,8 @@ def tasks_view(request, task_id):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskresched.get("enabled"):
-    raterps = apiconf.taskresched.get("rps", None)
-    raterpm = apiconf.taskresched.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_reschedule(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1120,12 +1149,8 @@ def tasks_reschedule(request, task_id):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskdelete.get("enabled"):
-    raterps = apiconf.taskdelete.get("rps", None)
-    raterpm = apiconf.taskdelete.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_delete(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1153,12 +1178,8 @@ def tasks_delete(request, task_id):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskstatus.get("enabled"):
-    raterps = apiconf.taskstatus.get("rps", None)
-    raterpm = apiconf.taskstatus.get("rpm", None)
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_status(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1179,12 +1200,8 @@ def tasks_status(request, task_id):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskreport.get("enabled"):
-    raterps = apiconf.taskreport.get("rps")
-    raterpm = apiconf.taskreport.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_report(request, task_id, report_format="json"):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1272,12 +1289,8 @@ def tasks_report(request, task_id, report_format="json"):
                 "error_value": "Invalid report format specified"}
         return jsonize(resp, response=True)
 
-if apiconf.taskiocs.get("enabled"):
-    raterps = apiconf.taskiocs.get("rps")
-    raterpm = apiconf.taskiocs.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_iocs(request, task_id, detail=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1506,12 +1519,8 @@ def tasks_iocs(request, task_id, detail=None):
     resp = {"error": False, "data": data}
     return jsonize(resp, response=True)
 
-if apiconf.taskscreenshot.get("enabled"):
-    raterps = apiconf.taskscreenshot.get("rps")
-    raterpm = apiconf.taskscreenshot.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_screenshot(request, task_id, screenshot="all"):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1559,12 +1568,8 @@ def tasks_screenshot(request, task_id, screenshot="all"):
                     "error_value": "Screenshot does not exist"}
             return jsonize(resp, response=True)
 
-if apiconf.taskpcap.get("enabled"):
-    raterps = apiconf.taskpcap.get("rps")
-    raterpm = apiconf.taskpcap.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_pcap(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1595,12 +1600,8 @@ def tasks_pcap(request, task_id):
                 "error_value": "PCAP does not exist"}
         return jsonize(resp, response=True)
 
-if apiconf.taskdropped.get("enabled"):
-    raterps = apiconf.taskdropped.get("rps")
-    raterpm = apiconf.taskdropped.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_dropped(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1636,12 +1637,8 @@ def tasks_dropped(request, task_id):
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
 
-if apiconf.tasksurifile.get("enabled"):
-    raterps = apiconf.tasksurifile.get("rps")
-    raterpm = apiconf.tasksurifile.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_surifile(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1673,13 +1670,8 @@ def tasks_surifile(request, task_id):
                 "error_value": "No suricata files captured for task %s" % task_id}
         return jsonize(resp, response=True)
 
-if apiconf.rollingsuri.get("enabled"):
-    raterps = apiconf.rollingsuri.get("rps")
-    raterpm = apiconf.rollingsuri.get("rpm")
-    rateblock = limiter
-
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 
 def tasks_rollingsuri(request, window=60):
     window = int(window)
@@ -1708,13 +1700,9 @@ def tasks_rollingsuri(request, window=60):
             resp.append(alert)
 
     return jsonize(resp, response=True)
-if apiconf.rollingshrike.get("enabled"):
-    raterps = apiconf.rollingshrike.get("rps")
-    raterpm = apiconf.rollingshrike.get("rpm")
-    rateblock = limiter
 
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 
 def tasks_rollingshrike(request, window=60, msgfilter=None):
     window = int(window)
@@ -1753,12 +1741,8 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
 
     return jsonize(resp, response=True)
 
-if apiconf.taskprocmemory.get("enabled"):
-    raterps = apiconf.taskprocmemory.get("rps")
-    raterpm = apiconf.taskprocmemory.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_procmemory(request, task_id, pid="all"):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1828,12 +1812,8 @@ def tasks_procmemory(request, task_id, pid="all"):
 
     return resp
 
-if apiconf.taskfullmemory.get("enabled"):
-    raterps = apiconf.taskfullmemory.get("rps")
-    raterpm = apiconf.taskfullmemory.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_fullmemory(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1880,12 +1860,8 @@ def tasks_fullmemory(request, task_id):
                 "error_value": "Memory dump not found for task " + task_id}
         return jsonize(resp, response=True)
 
-if apiconf.sampledl.get("enabled"):
-    raterps = apiconf.sampledl.get("rps")
-    raterpm = apiconf.sampledl.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def get_files(request, stype, value):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1924,12 +1900,8 @@ def get_files(request, stype, value):
                 "error_value": "Sample %s was not found" % file_hash}
         return jsonize(file_hash, response=True)
 
-if apiconf.machinelist.get("enabled"):
-    raterps = apiconf.machinelist.get("rps")
-    raterpm = apiconf.machinelist.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def machines_list(request):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1948,12 +1920,8 @@ def machines_list(request):
         resp["data"].append(row.to_dict())
     return jsonize(resp, response=True)
 
-if apiconf.machineview.get("enabled"):
-    raterps = apiconf.machineview.get("rps")
-    raterpm = apiconf.machineview.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def machines_view(request, name=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -1974,12 +1942,8 @@ def machines_view(request, name=None):
         resp["error_value"] = "Machine not found"
     return jsonize(resp, response=True)
 
-if apiconf.cuckoostatus.get("enabled"):
-    raterps = apiconf.cuckoostatus.get("rps")
-    raterpm = apiconf.cuckoostatus.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def cuckoo_status(request):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2008,13 +1972,8 @@ def cuckoo_status(request):
         )
     return jsonize(resp, response=True)
 
-if apiconf.cuckoostatus.get("enabled"):
-    raterps = apiconf.cuckoostatus.get("rps")
-    raterpm = apiconf.cuckoostatus.get("rpm")
-    rateblock = limiter
-
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def task_x_hours(request):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2031,9 +1990,12 @@ def task_x_hours(request):
     return jsonize(resp, response=True)
     #q = ses.query(Task).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
     #tasks = ses.query(func.to_char(Task.added_on, 'HH24:MI'), func.count(Task.added_on)).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1))).group_by(func.to_char(Task.added_on, 'HH24:MI')).order_by(func.to_char(Task.added_on, 'HH24:MI')).all()
-    # https://gist.github.com/yinian1992/6044294
+    # https://gist.github.com/yinian1992/6044294
     #count = session.query(Task).filter(Task.adeded_on.between(datetime.utcnow() - timedelta(hours=24), datetime.utcnow())).all()
 
+
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_latest(request, hours):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2046,41 +2008,8 @@ def tasks_latest(request, hours):
     resp["ids"] = [id.to_dict() for id in ids]
     return jsonize(resp, response=True)
 
-
-"""
-#example how you can inject data after processing to remove slow processing from CAPE
-@csrf_exempt
-def post_processing(request, category, task_id):
-    if request.method != "POST":
-        resp = {"error": True, "error_value": "Method not allowed"}
-        return jsonize(resp, response=True)
-
-    content = request.POST.get("content", "")
-    if content and category:
-        content = json.loads(content)
-        if not content:
-            return jsonize({"error": True, "msg": "Missed content data or category"}, response=True)
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
-        if not buf:
-            return jsonize({"error": True, "msg": "Task id doesn't exist"}, response=True)
-        buf[category] = content
-        #remove old
-        results_db.analysis.remove({"_id": ObjectId(buf["_id"])})
-        #add updated
-        results_db.analysis.save(buf)
-        resp = {"error": False, "msg": "Added under the key {}".format(category)}
-    else:
-        resp = {"error": True, "msg": "Missed content data or category"}
-
-    return jsonize(resp, response=True)
-"""
-
-if apiconf.payloadfiles.get("enabled"):
-    raterps = apiconf.payloadfiles.get("rps")
-    raterpm = apiconf.payloadfiles.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_payloadfiles(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2123,12 +2052,8 @@ def tasks_payloadfiles(request, task_id):
         resp = {"error": True, "error_value": "No CAPE file(s) for task {}.".format(task_id)}
         return jsonize(resp, response=True)
 
-if apiconf.procdumpfiles.get("enabled"):
-    raterps = apiconf.procdumpfiles.get("rps")
-    raterpm = apiconf.procdumpfiles.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_procdumpfiles(request, task_id):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2171,12 +2096,8 @@ def tasks_procdumpfiles(request, task_id):
         resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
         return jsonize(resp, response=True)
 
-if apiconf.capeconfig.get("enabled"):
-    raterps = apiconf.capeconfig.get("rps")
-    raterpm = apiconf.capeconfig.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def tasks_config(request, task_id, cape_name=False):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -2238,6 +2159,8 @@ def tasks_config(request, task_id, cape_name=False):
         return jsonize(resp, response=True)
 
 """
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 #should be securized by checking category, this is just an example how easy to extend webgui with external tools
 @csrf_exempt
 def post_processing(request, category, task_id):

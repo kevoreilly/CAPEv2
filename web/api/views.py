@@ -147,12 +147,11 @@ def my_rate_seconds(group, request):
 
         #better way to handle this?
         if request.method == "POST":
-            username = request.POST.get("password", "")
+            username = request.POST.get("username", "")
             password = request.POST.get("password", "")
         elif request.method == "GET":
             username = request.GET.get("username", "")
             password = request.GET.get("password", "")
-
         if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
             return None
         else:
@@ -170,7 +169,7 @@ def my_rate_minutes(group, request):
 
         #better way to handle this?
         if request.method == "POST":
-            username = request.POST.get("password", "")
+            username = request.POST.get("username", "")
             password = request.POST.get("password", "")
         elif request.method == "GET":
             username = request.GET.get("username", "")
@@ -924,30 +923,26 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
         return jsonize(resp, response=True)
 
     if not apiconf.tasksearch.get("enabled"):
-        resp = {"error": True,
-                "error_value": "Task Search API is Disabled"}
+        resp = {"error": True, "error_value": "Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
     if md5 or sha1 or sha256:
         resp["error"] = False
         if md5:
             if not apiconf.tasksearch.get("md5"):
-                resp = {"error": True,
-                        "error_value": "Task Search by MD5 is Disabled"}
+                resp = {"error": True, "error_value": "Task Search by MD5 is Disabled"}
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(md5=md5)
         elif sha1:
             if not apiconf.tasksearch.get("sha1"):
-                resp = {"error": True,
-                        "error_value": "Task Search by SHA1 is Disabled"}
+                resp = {"error": True, "error_value": "Task Search by SHA1 is Disabled"}
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(sha1=sha1)
         elif sha256:
             if not apiconf.tasksearch.get("sha256"):
-                resp = {"error": True,
-                        "error_value": "Task Search by SHA256 is Disabled"}
+                resp = {"error": True, "error_value": "Task Search by SHA256 is Disabled"}
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(sha256=sha256)
@@ -981,8 +976,7 @@ def ext_tasks_search(request):
         return jsonize(resp, response=True)
 
     if not apiconf.extendedtasksearch.get("enabled"):
-        resp = {"error": True,
-                "error_value": "Extended Task Search API is Disabled"}
+        resp = {"error": True, "error_value": "Extended Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
     term = request.POST.get("option", "")
@@ -991,8 +985,7 @@ def ext_tasks_search(request):
     if term and value:
         records = False
         if not term in search_term_map.keys() and term not in ("malscore", "ttp"):
-            resp = {"error": True,
-                    "error_value": "Invalid Option. '%s' is not a valid option." % term}
+            resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
 
         try:

@@ -545,7 +545,7 @@ class File(object):
                     infos["ep_bytes"] = self.get_ep_bytes(pe).decode("utf-8")
                     infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
             except Exception as e:
-                log.error(e)
+                log.error(e, exc_info=True)
         return infos
 
 class Static(File):

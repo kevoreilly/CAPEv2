@@ -50,7 +50,7 @@
             <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
         {% endif %}
     {% endfor %}
-    {% for file in analysis.CAPE|dictsortreversed:"size" %}
+    {% for file in analysis.CAPE %}
         {% if not file.cape_config %}
         <div class="panel panel-default">
             <table class="table table-striped" style="table-layout: fixed;">

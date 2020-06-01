@@ -47,7 +47,6 @@ class ProcDump(Processing):
             file_info["pid"] = meta[file_path]["pids"][0]
             type_strings = file_info["type"].split()
             if len(type_strings) < 3:
-                print(file_info["type"])
                 continue
             if type_strings[0] == "MS-DOS":
                 file_info["cape_type"] = "DOS MZ image: executable"

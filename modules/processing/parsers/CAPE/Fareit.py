@@ -58,13 +58,13 @@ def config(memdump_path, read=False):
                     elif dll_url.match(url):
                             artifacts_raw['downloads'].append(url.lower())
             except Exception as e:
-                print(e)
+                print(e, sys.exc_info())
         artifacts_raw["controllers"] = list(set(artifacts_raw["controllers"]))
         artifacts_raw["downloads"] = list(set(artifacts_raw["downloads"]))
         if len(artifacts_raw["controllers"]) != 0 or len(artifacts_raw["downloads"]) != 0:
             res = artifacts_raw
     except Exception as e:
-            print(e)
+        print(e, sys.exc_info())
 
     return res
 

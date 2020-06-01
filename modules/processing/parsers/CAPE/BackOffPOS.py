@@ -4,64 +4,29 @@ from __future__ import absolute_import
 from __future__ import print_function
 import sys
 import pefile
-import yara
 from struct import unpack_from
 from sys import argv
 from binascii import hexlify
 from hashlib import md5
 from Crypto.Cipher import ARC4
 
-rule_source = '''
-rule BackOffPOS {
-  meta:
-    author = "enzok"
-    description = "BackOffPOS Payload"
-    cape_type = "BackOffPOS Payload"
 
-    strings:
-        $header = "Content-Type: application/x-www-form-urlencoded"
-    condition:
-        all of them
-}
-
-'''
-
+header_ptrn = b"Content-Type: application/x-www-form-urlencoded"
 
 def RC4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
 
-
-def yara_scan(raw_data, rule_name=None):
-    addresses = []
-    try:
-        yara_rules = yara.compile(source=rule_source)
-        matches = yara_rules.match(data=raw_data)
-        for match in matches:
-            if match.rule == 'BackOffPOS':
-                for item in match.strings:
-                    if rule_name:
-                        if item[1] == rule_name:
-                            addresses.append(item)
-                    else:
-                        addresses.append(item)
-    except Exception as e:
-        print(e, sys.exc_info())
-
-    return addresses
-
-
 def extract_config(data):
     config_data = dict()
     urls = []
     pe = pefile.PE(data=data)
-    type(pe)
     for section in pe.sections:
-        if ".data" in section.Name:
+        if b".data" in section.Name:
             data = section.get_data()
-            cfg_start = yara_scan(data, rule_name='$header')
-            if cfg_start:
-                start_offset = cfg_start[0][0] + len(cfg_start[0][2]) + 1
+            cfg_start = data.find(header_ptrn)
+            if cfg_start and cfg_start != -1:
+                start_offset = cfg_start + len(header_ptrn) + 1
                 rc4_seed = bytes(bytearray(unpack_from('>8B', data, offset=start_offset)))
                 config_data['RC4Seed'] = hexlify(rc4_seed)
                 key = md5(rc4_seed).digest()[:5]
@@ -86,6 +51,6 @@ def config(task_info, data):
 
 if __name__ == "__main__":
     filename = argv[1]
-    with open(filename, "r") as infile:
+    with open(filename, "rb") as infile:
         t = config(0, infile.read())
     print(t)

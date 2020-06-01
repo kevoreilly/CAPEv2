@@ -689,32 +689,7 @@ class Pcap:
         @return: dict with network analysis data.
         """
         log = logging.getLogger("Processing.Pcap")
-        """
-        #this should be configurable
-        missed_urls = list()
-        #https://github.com/kevoreilly/capemon/blob/capemon/hook_network.c
-        missed_urls_apis = (
-            "HttpOpenRequestA",  # hConnect?
-            "HttpOpenRequestW",  # hConnect?
-            "InternetConnectA",  #  ServerName, ServerPort
-            "InternetConnectW",  #  ServerName, ServerPort
-            "HttpSendRequestA",  # Headers: Referer: http://124.150.175.133/sbrQn0ueq8/EhJiZIoBi/jBRna68dNx/L8sAZQMt43z1zh4/SeMGBbEWdtoOs/ Content-Type: multipart/form-data;
-            "HttpSendRequestW",  # Headers: Referer: http://124.150.175.133/sbrQn0ueq8/EhJiZIoBi/jBRna68dNx/L8sAZQMt43z1zh4/SeMGBbEWdtoOs/ Content-Type: multipart/form-data;
-            "InternetOpenUrlA",  # URL
-            "InternetOpenUrlW",  # URL
-            "URLDownloadToCacheFileA",  # URL
-            "URLDownloadToCacheFileW",  # URL
-            #HttpSendRequestExW
-            #HttpSendRequestExA
-            "InternetCrackUrlA", #URL
-            "InternetCrackUrlW", #URL
-        )
 
-        for proc in self.results["behavior"]["processes"]:
-            for call in proc["calls"]:
-                if call.get("api", "") in missed_urls_apis:
-
-        """
         if not IS_DPKT:
             log.error("Python DPKT is not installed, aborting PCAP analysis.")
             return self.results

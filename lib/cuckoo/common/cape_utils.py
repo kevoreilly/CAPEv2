@@ -44,6 +44,8 @@ try:
 except ImportError:
     HAS_MALWARECONFIGS = False
     log.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+except Exception as e:
+    log.error(e, exc_info=True)
 
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 CAPE_DECODERS = [

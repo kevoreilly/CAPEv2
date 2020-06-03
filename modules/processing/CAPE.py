@@ -140,9 +140,6 @@ class CAPE(Processing):
                 os.makedirs(self.CAPE_path)
             newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
             shutil.move(unpacked_file, newname)
-            #infofd = open(newname + "_info.txt", "a")
-            #infofd.write(os.path.basename(unpacked_file) + "\n")
-            #infofd.close()
 
             # Recursive process of unpacked file
             upx_extract = self.process_file(newname, CAPE_output, True, {})
@@ -162,6 +159,9 @@ class CAPE(Processing):
         """
         global cape_config
         cape_name = ""
+
+        if not os.path.exists(file_path):
+            return
 
         buf = self.options.get("buffer", BUFSIZE)
         file_info = File(file_path, metadata.get("metadata", "")).get_all()

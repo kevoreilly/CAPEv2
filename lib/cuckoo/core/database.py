@@ -1421,14 +1421,15 @@ class Database(object, metaclass=Singleton):
                 if parent:
                     parent = parent[0]
             elif task_id:
-                _, parent = session.query(Task.sample_id, Sample.parent).join(
-                    Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+                _, parent = session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
 
             if parent:
                 parent_sample = session.query(Sample).filter(Sample.id == parent).first().to_dict()
 
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))
+        except TypeError:
+            pass
         finally:
             session.close()
 

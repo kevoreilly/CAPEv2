@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 import os
 import json
+import logging
 import requests
 import hashlib
 
@@ -46,8 +47,7 @@ class VirusTotal(Processing):
         do_url_lookup = self.getbool(self.options.get("do_url_lookup", False))
 
         if not key:
-            raise CuckooProcessingError("VirusTotal API key not "
-                                        "configured, skip")
+            raise CuckooProcessingError("VirusTotal API key not configured, skip")
 
         if self.task["category"] == "file" and do_file_lookup:
             if not os.path.exists(self.file_path):
@@ -78,8 +78,11 @@ class VirusTotal(Processing):
             if len(slashsplit) == 3:
                 slashsplit.append("")
             resource = "/".join(slashsplit)
-
-            resource = hashlib.sha256(resource).hexdigest()
+            try:
+                resource = hashlib.sha256(resource.encode("utf-8")).hexdigest()
+            except TypeError as e:
+                logging.error(e, exc_info=True)
+                return virustotal
             url = VIRUSTOTAL_URL_URL
         else:
             # Not supported type, exit.
@@ -91,8 +94,7 @@ class VirusTotal(Processing):
             r = requests.get(url, params=data, verify=True, timeout=int(timeout))
             response_data = r.content
         except requests.exceptions.RequestException as e:
-            raise CuckooProcessingError("Unable to complete connection "
-                                        "to VirusTotal: {0}".format(e))
+            raise CuckooProcessingError("Unable to complete connection to VirusTotal: {0}".format(e))
 
         if not response_data:
             return virustotal
@@ -100,8 +102,7 @@ class VirusTotal(Processing):
         try:
             virustotal = json.loads(response_data)
         except ValueError as e:
-            raise CuckooProcessingError("Unable to convert response to "
-                                        "JSON: {0}".format(e))
+            raise CuckooProcessingError("Unable to convert response to JSON: {0}".format(e))
 
         # Work around VT brain-damage
         if isinstance(virustotal, list) and len(virustotal):
@@ -112,6 +113,6 @@ class VirusTotal(Processing):
             virustotal["scans"] = dict((engine.replace(".", "_"), signature)
                                        for engine, signature in items)
             virustotal["resource"] = resource
-            virustotal["results"]=list(({"vendor":engine.replace(".", "_"),"sig": signature["result"]}) 
+            virustotal["results"]=list(({"vendor":engine.replace(".", "_"),"sig": signature["result"]})
                                             for engine, signature in items)
         return virustotal

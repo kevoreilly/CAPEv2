@@ -776,7 +776,7 @@ def report(request, task_id):
         esdata = {"index": query["_index"], "id": query["_id"]}
         report["es"] = esdata
     if not report:
-        return render(request, "error.html", {"error": "The specified analysis does not exist"})
+        return render(request, "error.html", {"error": "The specified analysis does not exist or not finished yet"})
 
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):

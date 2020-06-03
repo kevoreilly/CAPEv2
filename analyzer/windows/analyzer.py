@@ -1189,9 +1189,6 @@ class CommandPipeHandler(object):
             elif len(data) == 2:
                 pid, tid = data
             log.debug("Resume: %s, %s", str(pid), str(tid))
-            # only do this if it's not our current process/thread
-            p = Process(pid=pid, thread_id=tid)
-            p.dump_memory()
 
     # Handle attempted shutdowns/restarts -- flush logs for all monitored processes
     # additional handling can be added later

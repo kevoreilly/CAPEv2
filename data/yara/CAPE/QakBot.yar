@@ -4,7 +4,6 @@ rule QakBot
         author = "kevoreilly"
         description = "QakBot Payload"
         cape_type = "QakBot Payload"
-        cape_options = "br=$decrypt_config3-70,instr0=pop,action0=dumpesi,dumpsize=eax,dumptype0=0x38,base-on-api=GetSystemInfo,exclude-apis=FindResourceExW"
     strings:
         $crypto = {8B 5D 08 0F B6 C2 8A 16 0F B6 1C 18 88 55 13 0F B6 D2 03 CB 03 CA 81 E1 FF 00 00 80 79 08 49 81 C9 00 FF FF FF 41}
         $anti_sandbox = {8D 4? FC [0-1] E8 [4-7] E8 [4] 85 C0 7E (04|07) [4-7] 33 (C0|D2) 74 02 EB FA}

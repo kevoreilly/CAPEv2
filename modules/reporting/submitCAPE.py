@@ -42,7 +42,7 @@ bp = 0
 
 cape_package_list = [
     "Emotet", "Emotet_doc", "Unpacker", "Unpacker_dll",
-    "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_jar", "Unpacker_pdf", "Unpacker_js",
+    "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_jar", "Unpacker_js",
     "Hancitor", "Hancitor_dll", "Hancitor_doc",
     "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
     "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
@@ -53,7 +53,6 @@ unpackers = {
     'dll': 'Unpacker_dll',
     'regsvr': 'Unpacker_regsvr',
     'zip': 'Unpacker_zip',
-    'pdf': 'Unpacker_pdf',
     'jar': 'Unpacker_jar',
     'js': 'Unpacker_js',
     'exe': 'Unpacker',

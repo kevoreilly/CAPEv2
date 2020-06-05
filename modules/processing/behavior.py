@@ -530,6 +530,8 @@ class Summary:
             infoclass = int(self.get_argument(call, "FileInformationClass"), 10)
             fileinfo = self.get_raw_argument(call, "FileInformation")
             if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
+                if not isinstance(fileinfo, bytes):
+                    fileinfo = fileinfo.encode("utf-8")
                 disp = struct.unpack_from("B", fileinfo)[0]
                 if disp and filename not in self.delete_files:
                     self.delete_files.append(filename)

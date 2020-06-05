@@ -883,7 +883,7 @@ class PortableExecutable(object):
                             if isinstance(name.value, bytes):
                                 cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = base64.b64encode(name.value)
                             else:
-                                cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = name.value
+                                cert_data['extensions_{}_{}'.format(extension.oid._name, index)] = name.value.rfc4514_string()
             except ValueError:
                 continue
 

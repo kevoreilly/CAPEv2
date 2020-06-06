@@ -1218,17 +1218,7 @@ class CommandPipeHandler(object):
 
         process_id = int(data)
         if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.analyzer.process_list.pids:
-            # only notify processes we've hooked
-            event_name = TERMINATE_EVENT + str(process_id)
-            event_handle = KERNEL32.OpenEventA(EVENT_MODIFY_STATE, False, event_name)
-            if not event_handle:
-                log.warning("Unable to open termination event for pid %u.", process_id)
-            else:
-                log.info("Notified of termination of process with pid %u.", process_id)
-                # make sure process is aware of the termination
-                KERNEL32.SetEvent(event_handle)
-                KERNEL32.CloseHandle(event_handle)
-
+            self.analyzer.process_list.remove_pid(process_id)
         self.analyzer.process_lock.release()
 
     def _inject_process(self, process_id, thread_id, mode):

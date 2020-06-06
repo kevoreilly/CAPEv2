@@ -575,7 +575,7 @@ class Analyzer:
                                         log.error(e, exc_info=True)
                                 else:
                                     log.info("procdump not enabled")
-                                log.info("Process with pid %s has terminated", pid)
+                                log.info("Process with pid %s appears to have terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
 
@@ -899,8 +899,6 @@ class CommandPipeHandler(object):
         log.critical(data)
 
     def _handle_loaded(self, data):
-        #LOADED:2012
-        log.info("loaded: %s", data)
         """The monitor has loaded into a particular process."""
         if not data:
             log.warning("Received loaded command with incorrect parameters, "
@@ -1217,6 +1215,7 @@ class CommandPipeHandler(object):
         self.analyzer.process_lock.acquire()
 
         process_id = int(data)
+        log.info("Process with pid %s has terminated", process_id)
         if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.analyzer.process_list.pids:
             self.analyzer.process_list.remove_pid(process_id)
         self.analyzer.process_lock.release()
@@ -1389,9 +1388,7 @@ class CommandPipeHandler(object):
     def _handle_file_dump(self, file_path):
         # We extract the file path.
         # We dump immediately.
-        log.info(file_path)
         if b"\\CAPE\\" in file_path:
-            log.info("cape")
             #Syntax -> PATH|PID|Metadata
             file_path, pid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
@@ -1400,7 +1397,6 @@ class CommandPipeHandler(object):
         if os.path.exists(file_path):
             #Syntax -> PATH
             if b"\\memory\\" in file_path:
-                log.info("memory")
                 # aka send this as data for the command
                 self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
             else:

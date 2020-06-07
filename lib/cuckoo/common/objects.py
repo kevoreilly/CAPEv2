@@ -281,7 +281,10 @@ class File(object):
         """Get file size.
         @return: file size.
         """
-        return os.path.getsize(self.file_path)
+        if os.path.exists(self.file_path):
+            return os.path.getsize(self.file_path)
+        else:
+            return 0
 
     def get_crc32(self):
         """Get CRC32.
@@ -358,29 +361,29 @@ class File(object):
         @return: file type.
         """
         file_type = None
-        if HAVE_MAGIC:
-            try:
-                ms = magic.open(magic.MAGIC_SYMLINK)
-                ms.load()
-                file_type = ms.file(self.file_path)
-            except:
+        if self.file_path:
+            if HAVE_MAGIC:
                 try:
-                    file_type = magic.from_file(self.file_path)
+                    ms = magic.open(magic.MAGIC_SYMLINK)
+                    ms.load()
+                    file_type = ms.file(self.file_path)
                 except:
-                    pass
-            finally:
-                try:
-                    ms.close()
-                except:
-                    pass
+                    try:
+                        file_type = magic.from_file(self.file_path)
+                    except:
+                        pass
+                finally:
+                    try:
+                        ms.close()
+                    except:
+                        pass
 
-        if file_type is None:
-            try:
-                p = subprocess.Popen(["file", "-b", "-L", self.file_path],
-                                     stdout=subprocess.PIPE)
-                file_type = p.stdout.read().strip()
-            except:
-                pass
+            if file_type is None:
+                try:
+                    p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                    file_type = p.stdout.read().strip()
+                except:
+                    pass
 
         return file_type
 
@@ -389,29 +392,29 @@ class File(object):
         @return: file content type.
         """
         file_type = None
-        if HAVE_MAGIC:
-            try:
-                ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
-                ms.load()
-                file_type = ms.file(self.file_path)
-            except:
+        if self.file_path:
+            if HAVE_MAGIC:
                 try:
-                    file_type = magic.from_file(self.file_path, mime=True)
+                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                    ms.load()
+                    file_type = ms.file(self.file_path)
                 except:
-                    pass
-            finally:
-                try:
-                    ms.close()
-                except:
-                    pass
+                    try:
+                        file_type = magic.from_file(self.file_path, mime=True)
+                    except:
+                        pass
+                finally:
+                    try:
+                        ms.close()
+                    except:
+                        pass
 
-        if file_type is None:
-            try:
-                p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path],
-                                     stdout=subprocess.PIPE)
-                file_type = p.stdout.read().strip()
-            except:
-                pass
+            if file_type is None:
+                try:
+                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                    file_type = p.stdout.read().strip()
+                except:
+                    pass
 
         return file_type
 

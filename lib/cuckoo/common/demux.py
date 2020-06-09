@@ -98,6 +98,23 @@ def is_valid_type(magic):
     return False
 
 
+def _sf_chlildren(child):
+    path_to_extract = False
+    base, ext = os.path.splitext(child.filename)
+    ext = ext.lower()
+    if ext in demux_extensions_list or is_valid_type(child.magic):
+        target_path = os.path.join(tmp_path, b"cuckoo-sflock")
+        if not os.path.exists(target_path):
+            os.mkdir(target_path)
+        tmp_dir = tempfile.mkdtemp(dir=target_path)
+        try:
+            path_to_extract = os.path.join(tmp_dir, child.filename)
+            open(path_to_extract, "wb").write(child.contents)
+        except Exception as e:
+            log.error(e, exc_info=True)
+    return path_to_extract
+
+
 def demux_sflock(filename, options, package):
     retlist = []
     # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
@@ -125,24 +142,15 @@ def demux_sflock(filename, options, package):
         if unpacked.package in blacklist_extensions:
             return retlist
         for sf_child in unpacked.children or []:
-            base, ext = os.path.splitext(sf_child.filename)
-            ext = ext.lower()
-            if ext in demux_extensions_list or is_valid_type(sf_child.magic):
-                target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-                if not os.path.exists(target_path):
-                    os.mkdir(target_path)
-                tmp_dir = tempfile.mkdtemp(dir=target_path)
-                try:
-                    path_to_extract = os.path.join(
-                        tmp_dir, sf_child.filename)
-                    open(path_to_extract, "wb").write(sf_child.contents)
-                    retlist.append(path_to_extract)
-                except Exception as e:
-                    log.error(e, exc_info=True)
+            if sf_child.get("children") and sf_child["children"]:
+                retlist = [_sf_chlildren(ch) for ch in sf_child["children"]]
+            else:
+                retlist.append(_sf_chlildren(sf_child))
     except Exception as e:
-        log.error(e)
+        log.error(e, exc_info=True)
 
-    return retlist
+    return list(filter(None, retlist))
+
 
 
 def demux_sample(filename, package, options):

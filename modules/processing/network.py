@@ -65,6 +65,9 @@ proc_cfg = Config("processing")
 enabled_whitelist = proc_cfg.network.dnswhitelist
 whitelist_file = proc_cfg.network.dnswhitelist_file
 
+enabled_ip_whitelist = proc_cfg.network.ipwhitelist
+ip_whitelist_file = proc_cfg.network.ipwhitelist_file
+
 class Pcap:
     """Reads network data from PCAP file."""
 
@@ -145,6 +148,9 @@ class Pcap:
                   self.domain_whitelist = list(set(self.domain_whitelist))
 
         self.ip_whitelist = set()
+        if enabled_ip_whitelist and ip_whitelist_file:
+             with open(os.path.join(CUCKOO_ROOT, ip_whitelist_file), 'r') as f:
+                self.ip_whitelist = set(f.read().split("\n"))
 
     def _dns_gethostbyname(self, name):
         """Get host by name wrapper.

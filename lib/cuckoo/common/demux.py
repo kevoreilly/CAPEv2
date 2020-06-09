@@ -143,7 +143,7 @@ def demux_sflock(filename, options, package):
             return retlist
         for sf_child in unpacked.children or []:
             if sf_child.get("children") and sf_child["children"]:
-                retlist = [_sf_chlildren(ch) for ch in sf_child["children"]]
+                retlist += [_sf_chlildren(ch) for ch in sf_child["children"]]
             else:
                 retlist.append(_sf_chlildren(sf_child))
     except Exception as e:

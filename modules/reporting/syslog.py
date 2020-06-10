@@ -246,7 +246,7 @@ class Syslog(Report):
                 sock.connect(server_address)
                 # Attempt to send the syslog string to the syslog server
                 try:
-                    sock.sendall(result)
+                    sock.sendall(bytes(result,encoding='UTF-8'))
                 except:
                     raise CuckooReportError("Failed to send data to syslog server")
                 finally:
@@ -254,7 +254,7 @@ class Syslog(Report):
             elif proto == "udp":
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 try:
-                    sock.sendto(result, server_address)
+                    sock.sendto(bytes(result, encoding='UTF-8'), server_address)
                 except:
                     raise CuckooReportError("Failed to send data to syslog server")
         except (UnicodeError, TypeError, IOError) as e:

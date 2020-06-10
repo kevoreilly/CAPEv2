@@ -309,8 +309,7 @@ class CAPE(Processing):
                 cape_name = "Ursnif"
                 malwareconfig_loaded = False
                 try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers",
-                                                         "malwareconfig")
+                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
                     file, pathname, description = imp.find_module(cape_name,[malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
@@ -365,8 +364,7 @@ class CAPE(Processing):
                 cape_name = "ScriptDump"
                 malwareconfig_loaded = False
                 try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers",
-                                                         "malwareconfig")
+                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
@@ -465,7 +463,9 @@ class CAPE(Processing):
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
                     if file_info.get("entrypoint") and file_info["entrypoint"] == cape_file["entrypoint"] \
+                            and file_info["cape_type_code"] == cape_file["cape_type_code"] \
                             and file_info["ep_bytes"] == cape_file["ep_bytes"]:
+                        log.info("CAPE duplicate output file skipped")
                         append_file = False
 
         if append_file is True:

@@ -54,7 +54,7 @@ def get_config_item(config, offset):
         config_list = config_string.split(b' ')
         return config_list
     else:
-        return config_string
+        return config_string.decode('utf-8')
 
 def convert_pubkey(pub):
     #bit = struct.unpack_from('<I', pub)[0]

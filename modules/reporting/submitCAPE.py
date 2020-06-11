@@ -42,7 +42,7 @@ bp = 0
 
 cape_package_list = [
     "Emotet", "Emotet_doc", "Unpacker", "Unpacker_dll",
-    "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_jar", "Unpacker_js",
+    "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_js",
     "Hancitor", "Hancitor_dll", "Hancitor_doc",
     "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
     "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
@@ -53,7 +53,6 @@ unpackers = {
     'dll': 'Unpacker_dll',
     'regsvr': 'Unpacker_regsvr',
     'zip': 'Unpacker_zip',
-    'jar': 'Unpacker_jar',
     'js': 'Unpacker_js',
     'exe': 'Unpacker',
 }
@@ -257,9 +256,6 @@ class SubmitCAPE(Report):
             self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
             if results.get("info", {}).get("custom"):
                 self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
-
-            if self.task["package"] in ('Unpacker'):
-                self.task["package"] = 'exe'
 
             log.debug("submit_task options: %s", self.task_options)
             task_id = self.submit_task(

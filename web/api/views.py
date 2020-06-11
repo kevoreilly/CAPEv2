@@ -1003,15 +1003,15 @@ def ext_tasks_search(request):
             if not term and not value:
                 resp = {"error": True,  "error_value": "No option or argument provided."}
 
-        records = perform_search(term, value)
-
         if records:
+
             ids = list()
             for results in records:
                 if repconf.mongodb.enabled:
-                    ids.append(results["info"]["id"])
+                    ids.append(results)
                 if es_as_db:
-                    ids.append(results["_source"]["info"]["id"])
+                    ids.append(results["_source"])
+
             resp = {"error": False, "data": ids}
         else:
             resp = {"error": True,

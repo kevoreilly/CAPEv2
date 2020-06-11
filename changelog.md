@@ -1,3 +1,6 @@
+### [11-06-2020]
+* Extended api search changed, now instead of return only ids, return some basic info, as detection, etc
+
 ### [31-05-2020]
 * Rewrite /api/ ratelimit implementation to allow unlimited api for existing users([htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html)), just set username and password as get/post arguments
 

@@ -130,6 +130,7 @@ curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre></td>
               <td colspan="5"><pre>curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/api/tasks/extendedsearch/
 
 Searchable Options List:
+id : Task id
 name : Name of target file name
 type : Name of file type
 string : Match a string in the static analysis section
@@ -159,7 +160,9 @@ comment : Match a comment posted to a specific task
 md5 : Targets with a specific MD5 hash
 sha1 : Targets with a specific SHA1 hash
 sha256 : Targets with a specific SHA256 hash
-sha512 : Targets with a specific SHA512 hash</pre></td>
+sha512 : Targets with a specific SHA512 hash
+TTP: TTP number
+</pre></td>
             </tr>
             <tr>
                 <td>Tasks List</td>

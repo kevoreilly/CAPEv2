@@ -339,14 +339,14 @@ def validate_task(tid):
 
 perform_search_filters = {
     "info": 1, "info.id": 1, "virustotal_summary": 1, "detections": 1,
-    "info.custom":1, "info.shrike_msg":1, "malscore": 1, "detections": 1,
-    "network.pcap_sha256": 1,
+    "info.custom":1, "info.shrike_msg":1, "malscore": 1,"network.pcap_sha256": 1,
     "mlist_cnt": 1, "f_mlist_cnt": 1, "info.package": 1, "target.file.clamav": 1,
     "suri_tls_cnt": 1, "suri_alert_cnt": 1, "suri_http_cnt": 1, "suri_file_cnt": 1,
     "trid": 1, "_id": 0
 }
 
 search_term_map = {
+    "id": "info.id",
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
@@ -413,7 +413,8 @@ def perform_search(term, value):
         query_val = value
     else:
         query_val = {"$regex": value, "$options": "-i"}
-    if term == "surisid":
+
+    if term in ("surisid", "id"):
         try:
             query_val = int(value)
         except:

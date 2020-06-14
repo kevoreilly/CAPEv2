@@ -186,6 +186,12 @@ def index(request, resubmit_hash=False):
                            if option and '=' in option)
         opt_filename = get_user_filename(options, custom)
 
+        if priority and web_conf.public.enabled and web_conf.public.priority:
+            priority = web_conf.public.priority
+
+        if timeout and web_conf.public.enabled and web_conf.public.timeout:
+            timeout = web_conf.public.timeout
+
         if options:
             options += ","
 
@@ -317,6 +323,8 @@ def index(request, resubmit_hash=False):
                             continue
 
                     orig_options, timeout, enforce_timeout = recon(path, orig_options, timeout, enforce_timeout)
+                    if timeout and web_conf.public.enabled and web_conf.public.timeout:
+                        timeout = web_conf.public.timeout
 
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":

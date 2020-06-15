@@ -55,7 +55,8 @@ try:
     """
     from passlib.apache import HtpasswdFile
     HAVE_PASSLIB = True
-    ht = HtpasswdFile(apiconf.api.get("users_db"))
+    if os.path.exists(apiconf.api.get("users_db")):
+        ht = HtpasswdFile(apiconf.api.get("users_db"))
 except ImportError:
     HAVE_PASSLIB = False
 

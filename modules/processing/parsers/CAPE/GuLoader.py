@@ -9,7 +9,7 @@ def config(data):
     urls_dict = dict()
 
     try:
-        urls_dict["URLs"] = [url.lower() for url in url_regex.findall(data)]
+        urls_dict["URLs"] = [url.lower().decode("utf-8") for url in url_regex.findall(data)]
     except Exception as e:
         print(e)
 

@@ -55,7 +55,7 @@ try:
     """
     from passlib.apache import HtpasswdFile
     HAVE_PASSLIB = True
-    if os.path.exists(apiconf.api.get("users_db")):
+    if apiconf.api.get("users_db") and os.path.exists(apiconf.api.get("users_db")):
         ht = HtpasswdFile(apiconf.api.get("users_db"))
 except ImportError:
     HAVE_PASSLIB = False
@@ -2212,6 +2212,8 @@ def tasks_config(request, task_id, cape_name=False):
                 resp = {"error": False, "configs": data}
             else:
                 resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            print(data)
+            print(resp)
             return jsonize(resp, response=True)
         else:
             resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}

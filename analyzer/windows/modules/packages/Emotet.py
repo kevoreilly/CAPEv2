@@ -16,7 +16,7 @@ class Emotet(Package):
         self.config = config
         self.options = options
         self.pids = []
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "1"
         self.options["exclude-apis"] = "RegOpenKeyExA:SendMessageA:srand:GetSystemTimeAsFileTime"
 

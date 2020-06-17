@@ -45,7 +45,7 @@ cape_package_list = [
     "Unpacker_regsvr", "Unpacker_zip", "Unpacker_ps1", "Unpacker_js",
     "Hancitor", "Hancitor_dll", "Hancitor_doc",
     "PlugX", "PlugXPayload", "PlugX_dll", "PlugX_doc", "PlugX_zip", "RegBinary",
-    "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll", "Ursnif"
+    "Shellcode-Extraction", "TrickBot", "TrickBot_doc", "UPX", "UPX_dll"
 ]
 
 unpackers = {
@@ -136,20 +136,11 @@ class SubmitCAPE(Report):
         if 'disable_cape=1' in self.task_options:
             return
 
-        if cape_yara["name"] == "GuLoader":
-            detections.add('GuLoader')
-
         if cape_yara["name"] == "TrickBot":
             detections.add('TrickBot')
 
         if cape_yara["name"] == "Hancitor":
             detections.add('Hancitor')
-
-        #if cape_yara["name"] == "IcedID":
-        #    detections.add('IcedID')
-
-        if cape_yara["name"] == "Emotet_Loader":
-            detections.add('Emotet')
 
     def submit_task(self, target, package, timeout, task_options, priority, machine, platform, memory, enforce_timeout,
                     clock, tags, parent_id, tlp):
@@ -213,6 +204,7 @@ class SubmitCAPE(Report):
         self.task_custom = None
         detections = set()
         children = []
+        bp = 0
 
         # allow ban unittests
         filename = results.get("target", {}).get("file", {}).get("name", "")
@@ -235,6 +227,12 @@ class SubmitCAPE(Report):
         if 'auto' in self.task_options:
             return
 
+        # We want to suppress spawned jobs if a config
+        # has already been extracted
+        for entry in results.get("CAPE", []):
+            if isinstance(entry, dict) and entry.get("cape_config"):
+                return
+
         parent_package = results["info"].get("package")
 
         # Initial static hits from CAPE's yara signatures
@@ -248,7 +246,6 @@ class SubmitCAPE(Report):
                         self.process_cape_yara(entry, results, detections)
 
         if 'auto=1' in self.task_options:
-            bp = 0
             parent_id = int(results["info"]["id"])
             if results.get("info", {}).get("options", {}).get("main_task_id", ""):
                 parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))
@@ -301,20 +298,11 @@ class SubmitCAPE(Report):
                         package = plugx[parent_package]
                         continue
 
-        if 'GuLoader' in detections:
-            return
-
         elif 'TrickBot' in detections:
             if parent_package == 'doc':
                 package = 'TrickBot_doc'
             elif parent_package == 'exe':
                 package = 'TrickBot'
-
-        elif 'Ursnif' in detections:
-            if parent_package in ('doc'):
-                package = 'Ursnif_doc'
-            elif parent_package in ('exe'):
-                package = 'Ursnif'
 
         elif 'Hancitor' in detections:
             if parent_package in ('doc'):
@@ -327,12 +315,6 @@ class SubmitCAPE(Report):
         # if 'RegBinary' in detections or 'CreatesLargeKey' in detections:
         elif 'RegBinary' in detections:
             package = 'RegBinary'
-
-        elif 'Emotet' in detections:
-            if parent_package == 'doc':
-                package = 'Emotet_doc'
-            elif parent_package in ('exe', 'Unpacker'):
-                package = 'Emotet'
 
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and 'procdump=1' in self.task_options:

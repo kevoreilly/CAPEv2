@@ -35,7 +35,7 @@ from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_se
 from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED, TASK_RUNNING, TASK_PENDING, TASK_FAILED_REPORTING, TASK_DISTRIBUTED_COMPLETED, TASK_DISTRIBUTED
 
 # we need original db to reserve ID in db,
-# to store later report, from master or slave
+# to store later report, from master or worker
 reporting_conf = Config("reporting")
 
 # init
@@ -170,9 +170,10 @@ def node_submit_task(task_id, node_id):
             url = os.path.join(node.url, "tasks", "create", "file")
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
-            if not os.path.isfile(task.path):
+            if not os.path.exist(task.path):
                 task.finished = True
                 task.retrieved = True
+                main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
                 try:
                     db.commit()
                 except Exception as e:
@@ -195,20 +196,21 @@ def node_submit_task(task_id, node_id):
 
         # Zip files preprocessed, so only one id
         if r and r.status_code == 200:
-            if "task_ids" in r.json() and len(r.json()["task_ids"]) > 0:
+            if "task_ids" in r.json() and len(r.json()["task_ids"]) > 0 and r.json()["task_ids"] is not None:
                 task.task_id = r.json()["task_ids"][0]
+                check = True
             elif "task_id" in r.json() and r.json()["task_id"] > 0 and r.json()["task_id"] is not None:
                 task.task_id = r.json()["task_id"]
+                check = True
             else:
                 log.debug("Failed to submit task {} to node: {}, code: {}".format(task_id, node.name, r.status_code))
-            log.debug("Submitted task to slave: {} - {} - {} - {}".format(node.name, task.task_id, task.main_task_id, r.json()))
-            check = True
+
+            log.debug("Submitted task to worker: {} - {} - {} - {}".format(node.name, task.task_id, task.main_task_id, r.json()))
+
         elif r.status_code == 500:
             log.debug((r.status_code, r.text))
-            check = False
         else:
-            log.info("Node: {} - Task submit to slave failed: {} - {}".format(node.id, r.status_code, r.content))
-            check = False
+            log.info("Node: {} - Task submit to worker failed: {} - {}".format(node.id, r.status_code, r.content))
 
         if check:
             task.node_id = node.id
@@ -252,10 +254,10 @@ class Retriever(threading.Thread):
 
         # Delete the task and all its associated files.
         # (It will still remain in the nodes' database, though.)
-        if reporting_conf.distributed.remove_task_on_slave or delete_enabled:
+        if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
             for x in range(20):
                 if remove_lock.acquire(blocking=False):
-                    thread = threading.Thread(target=self.remove_from_slave, args=())
+                    thread = threading.Thread(target=self.remove_from_worker, args=())
                     thread.daemon = True
                     thread.start()
 
@@ -354,8 +356,7 @@ class Retriever(threading.Thread):
                 log.info("Checking for failed tasks on: {}".format(node.name))
                 for status in ("failed_analysis", "failed_processing"):
                     for task in node_fetch_tasks(status, node.url, node.ht_user, node.ht_pass, action="delete"):
-                        t = db.query(Task).filter_by(
-                            task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
+                        t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
                             log.info("Cleaning failed_analysis for id:{}, node:{}".format(t.id, t.node_id))
                             main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
@@ -380,7 +381,7 @@ class Retriever(threading.Thread):
         '''Method that runs forever '''
         while True:
             node, task_id = self.cleaner_queue.get()
-            self.remove_from_slave(node, task_id)
+            self.remove_from_worker(node, task_id)
             if task_id in self.t_is_none.get(node, list()):
                 self.t_is_none[node].remove(task_id)
     """
@@ -453,7 +454,7 @@ class Retriever(threading.Thread):
                 if t is None:
                     self.t_is_none.setdefault(node_id, list()).append(task["id"])
 
-                    # sometime it not deletes tasks in slaves of some fails or something
+                    # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
                     #log.debug("tf else,")
                     if (node_id, task.get("id")) not in self.cleaner_queue.queue:
@@ -531,7 +532,7 @@ class Retriever(threading.Thread):
             self.current_queue[node_id].remove(task["id"])
         db.close()
 
-    def remove_from_slave(self):
+    def remove_from_worker(self):
         db = session()
         nodes = dict()
 
@@ -597,7 +598,6 @@ class StatusThread(threading.Thread):
                     tasks = db.query(Task).filter_by(main_task_id=t.id).all()
                     if tasks:
                         for task in tasks:
-                            print(task.id, task.task_id,task.main_task_id, task.node_id)
                             #log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
                             #db.delete(task)
                             #db.commit()
@@ -744,7 +744,7 @@ class StatusThread(threading.Thread):
                     if not status:
                         failed_count.setdefault(node.name, 0)
                         failed_count[node.name] += 1
-                        # This will declare slave as dead after X failed connections checks
+                        # This will declare worker as dead after X failed connections checks
                         if failed_count[node.name] == dead_count:
                             log.info('[-] {} dead'.format(node.name))
                             #node.enabled = False
@@ -780,7 +780,7 @@ class StatusThread(threading.Thread):
                         continue
                     # If - master only used for storage, not check master queue
                     # elif -  master also analyze samples, check master queue
-                    # send tasks to slaves if master queue has extra tasks(pending)
+                    # send tasks to workers if master queue has extra tasks(pending)
                     if master_storage_only:
                         res = self.submit_tasks(
                             node.name, pend_tasks_num, db=db)
@@ -1101,8 +1101,8 @@ if __name__ == "__main__":
                    help="Disable Node provided in --node")
     p.add_argument("--enable", action="store_true",
                    help="Enable Node provided in --node")
-    p.add_argument("--clean-slaves", action="store_true",
-                   help="Delete reported and notificated tasks from slaves")
+    p.add_argument("--clean-workers", action="store_true",
+                   help="Delete reported and notificated tasks from workers")
     p.add_argument("-ec", "--enable-clean", action="store_true",
                    help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist")
     p.add_argument("-fr", "--force-reported", action="store",

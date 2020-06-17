@@ -23,7 +23,7 @@ Following is a listing of all available commandline options::
     $ ./utils/dist.py -h
 
     usage: dist.py [-h] [-d] [--uptime-logfile UPTIME_LOGFILE] [--node NODE]
-                [--delete-vm DELETE_VM] [--disable] [--enable] [--clean-slaves]
+                [--delete-vm DELETE_VM] [--disable] [--enable] [--clean-workers]
                 [-ec] [-fr FORCE_REPORTED]
                 [host] [port]
 
@@ -41,7 +41,7 @@ Following is a listing of all available commandline options::
                             VM name to delete from Node
     --disable             Disable Node provided in --node
     --enable              Enable Node provided in --node
-    --clean-slaves        Delete reported and notificated tasks from slaves
+    --clean-workers        Delete reported and notificated tasks from workers
     -ec, --enable-clean   Enable delete tasks from nodes, also will remove tasks
                             submited by humands and not dist
     -fr FORCE_REPORTED, --force-reported FORCE_REPORTED
@@ -143,7 +143,7 @@ Update basic information of a Cuckoo node::
     Additional Arguments:
 
     * enabled
-        False=0 or True=1 to activate or deactivate slave node
+        False=0 or True=1 to activate or deactivate worker node
     * ht_user
         Username of htaccess authentication
     * ht_pass
@@ -196,7 +196,7 @@ Proposed setup
 ==============
 
 The following description depicts a Distributed Cuckoo setup with two Cuckoo
-machines, **master** and **slave**. In this setup the first machine,
+machines, **master** and **worker**. In this setup the first machine,
 master, also hosts the Distributed Cuckoo REST API.
 
 Configuration settings
@@ -281,7 +281,7 @@ without htaccess::
 
 with htaccess::
 
-    $ curl http://localhost:9003/node -F name=slave -F url=http://1.2.3.4:8090/ \
+    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8090/ \
       -F ht_user=user -F ht_pass=password
 
 Having registered the Cuckoo nodes all that's left to do now is to submit
@@ -295,7 +295,7 @@ Ocasionally you might want to perform maintenance on VM's without shutting down 
 To do this, you need to remove the VM from being used by cuckoo in its execution, preferably without
 having to restart the ``./cuckoo.py`` daemon.
 
-First get a list of available VM's that are running on the slave::
+First get a list of available VM's that are running on the worker::
 
    $ ./dist.py --node NAME
 
@@ -308,14 +308,14 @@ way to do that, is to disable the node, so no more tasks get submitted to it::
 
    $ ./dist.py --node NAME --disable
 
-Wait for all running VM's to finish their tasks, and then restart the slaves ``./cuckoo.py``, this will
+Wait for all running VM's to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
 re-insert the previously deleted VM's into the Database from ``conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
    $ ./dist.py --node NAME
 
-And enable the slave again::
+And enable the worker again::
 
    $ ./dist.py --node NAME --enable
 
@@ -402,7 +402,7 @@ To add your application to auto start after boot, move your config file to::
 
 Optimizations::
 
-    If you have many slaves is recommended
+    If you have many workers is recommended
         UWSGI:
             set processes to be able handle number of requests dist + dist2 + 10
         DB:
@@ -474,7 +474,7 @@ Add clients, execute on master mongo server::
         sh.addShard( "rs0/192.168.1.55:27017")
         sh.addShard( "rs0/192.168.1.62:27017")
 
-Where 192.168.1.(2,3,4,5) is our cuckoo slaves::
+Where 192.168.1.(2,3,4,5) is our cuckoo workers::
 
     mongo
     use cuckoo

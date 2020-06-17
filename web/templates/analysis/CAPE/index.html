@@ -1,6 +1,6 @@
 {% load key_tags %}
-{% if analysis.CAPE|length > 0 %}
-    {% for file in analysis.CAPE %}
+{% if CAPE %}
+    {% for file in CAPE %}
         {% if file.cape_config %}
         <div class="panel panel-default">
             <table class="table table-striped" style="table-layout: fixed;">
@@ -30,18 +30,6 @@
                         </td>
                     </tr>
                 {% endfor %}
-                {% if file.object_id or file.dropdir %}
-                <tr>
-                    <th></th>
-                    {% if config.mongodb %}
-                    <td><a href="{% url "analysis.views.mongo_file" "CAPE" file.object_id %}" class="btn btn-default btn-small">Download</a>
-                    </td>
-                    {% elif config.elasticsearchdb %}
-                    <td><a href="{% url "analysis.views.elastic_file" "CAPE" analysis.info.id file.dropdir %}" class="btn btn-default btn-small">Download</a>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endif %}
             </table>
         </div>
         </tr>
@@ -50,7 +38,7 @@
             <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
         {% endif %}
     {% endfor %}
-    {% for file in analysis.CAPE %}
+    {% for file in CAPE %}
         {% if not file.cape_config %}
         <div class="panel panel-default">
             <table class="table table-striped" style="table-layout: fixed;">
@@ -189,21 +177,21 @@
                 {% if file.dropdir %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "CAPE" analysis.info.id file.dropdir %}" class="btn btn-default btn-small">Download</a>
+                    <td><a href="{% url "file" "CAPE" id file.dropdir %}" class="btn btn-default btn-small">Download</a>
                     </td>
                 </tr>
                 {% elif file.sha256 %}
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "CAPE" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download</a>
-                        <a href="{% url "file" "CAPEZIP" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download zip</a>
+                        <a href="{% url "file" "CAPE" id file.sha256 %}" class="btn btn-default btn-small">Download</a>
+                        <a href="{% url "file" "CAPEZIP" id file.sha256 %}" class="btn btn-default btn-small">Download zip</a>
                     </td>
                 </tr>
                 {% endif %}
             </table>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-                <h4>BinGraph <a href="{% url "file" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
+                <h4>BinGraph <a href="{% url "file" "bingraph" id file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
                 {{ graphs.bingraph.content|getkey:file.sha256|safe }}
             {% endif %}
         </div>

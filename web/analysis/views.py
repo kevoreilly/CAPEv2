@@ -303,7 +303,7 @@ def pending(request):
 
 
 ajax_mongo_schema = {
-    "cape": "cape",
+    "CAPE": "CAPE",
     "dropped": "dropped",
     "debugger": "debugger",
     "behavior": "behavior",
@@ -314,7 +314,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("cape", "dropped", "behavior", "debugger"):
+    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
@@ -328,7 +328,7 @@ def load_files(request, task_id, category):
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
-            if ajax_mongo_schema.get(category, "") in ("cape", "dropped"):
+            if ajax_mongo_schema.get(category, "") in ("CAPE", "dropped"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
                     for block in files.get(category, []):
@@ -768,7 +768,7 @@ def search_behavior(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "behavior.processes":0}, sort=[("_id", pymongo.DESCENDING)])
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"][0]
         report = query["_source"]
@@ -798,6 +798,11 @@ def report(request, task_id):
         report["dropped"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id":0, "dropped_size": {"$size": "$dropped.sha256"}}}]))[0]["dropped_size"]
     except:
         report["dropped"] = 0
+
+    try:
+        report["CAPE"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id":0, "cape_size": {"$size": "$CAPE.sha256"}}}]))[0]["cape_size"]
+    except:
+        report["CAPE"] = 0
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):

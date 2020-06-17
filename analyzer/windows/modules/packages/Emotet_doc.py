@@ -18,7 +18,7 @@ class Emotet_doc(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
         self.options["exclude-apis"] = "RegOpenKeyExA"
 

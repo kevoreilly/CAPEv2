@@ -499,6 +499,7 @@ func_map = {
 
 
 def unquarantine(f):
+    f = f.decode('utf8')
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 

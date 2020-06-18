@@ -52,7 +52,7 @@ def main():
                 write = 1
 
             # tempalte for CAPE's routing.conf
-            print(template.format(vpn_name = file, vpn_path=path, description=file.split('.ovpn')[0], id=index+1, rt=rt))
+            print(template.format(vpn_name = file.split("/")[-1], vpn_path=path, description=file.split('.ovpn')[0], id=index+1, rt=rt))
             vpns.append('vpn_{0}'.format(index+1))
 
             file = file.replace(' ', '\ ')

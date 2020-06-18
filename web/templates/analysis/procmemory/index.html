@@ -28,8 +28,8 @@
                             <td>
                                 {% for match in proc.yara %}
                                     <p>Match: {{match.name}} - {{match.meta.description}}
-                                    {% if sign.meta.author %}
-                                        - Author: {{sign.meta.author}}
+                                    {% if match.meta.author %}
+                                        - Author: {{math.meta.author}}
                                     {% endif %}
                                     <!--{% for string in match.strings %}
                                         <div>{{string}}</div>
@@ -38,6 +38,18 @@
                                 {% endfor %}
                             </td>
                         </tr>
+                        {% if proc.cape_yara %}
+                        <tr>
+                            <th>CAPE Yara</th>
+                            <td>
+                                {% for match in proc.cape_yara %}
+                                <p>Match: {{match.name}} - {{match.meta.description}} - Author: {{match.meta.author}}
+                                    <!--{% for string in match.strings %} <div>{{string}}</div> {% endfor %}-->
+                                </p>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
                         {% endif %}
                         {% if proc.file %}
                             <tr>

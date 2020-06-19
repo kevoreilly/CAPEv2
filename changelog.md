@@ -1,3 +1,7 @@
+### [18-06-2020]
+* Restore original dump file, don't dump inmediatelly
+* CAPE tab now also loaded via ajax request
+
 ### [11-06-2020]
 * Extended api search changed, now instead of return only ids, return some basic info, as detection, etc
 

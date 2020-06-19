@@ -571,7 +571,6 @@ class Analyzer:
                                     try:
                                         Process(pid=pid).upload_memdump()
                                     except Exception as e:
-                                        print(e)
                                         log.error(e, exc_info=True)
                                 else:
                                     log.info("procdump not enabled")
@@ -741,20 +740,16 @@ class Files(object):
             #PROCESS_LIST.append(int(pid))
             add_pid_to_aux_modules(int(pid))
 
-    def add_file(self, filepath, pid=None):
+    def add_file(self, filepath, pid=None, category="files", metadata=""):
         """Add filepath to the list of files and track the pid."""
         if filepath.lower() not in self.files:
-            log.info(
-                "Added new file to list with pid %s and path %s",
-                pid, filepath
-            )
+            log.info("Added new file to list with pid %s and path %s", pid, filepath )
             self.files[filepath.lower()] = []
-            self.files_orig[filepath.lower()] = filepath
+            self.files_orig[filepath.lower()] = {"category": category, "metadata": metadata, "path": filepath}
 
         self.add_pid(filepath, pid, verbose=False)
 
     def dump_file(self, filepath, metadata="", pids=False, category="files"):
-        log.info(("dump_file", filepath, metadata, pids, category))
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -769,6 +764,15 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
+        # load metadata
+        if self.files_orig.get(filepath.lower()):
+            file_details = self.files_orig.get(filepath.lower())
+            category = file_details["category"]
+            metadata = file_details["metadata"]
+            path = self.files_orig.get(filepath.lower(), {}).get("path") or filepath
+            pids = self.files.get(filepath.lower(), [])
+            filepath = self.files_orig.get(filepath.lower(), {}).get("path") or filepath
+
         if category == "memory":
             if pids:
                 upload_path = os.path.join(category, "{}.dmp".format(pids[0]))
@@ -780,27 +784,16 @@ class Files(object):
             upload_path = os.path.join(category, sha256)
 
         try:
-            upload_to_host(
-                # If available use the original filepath, the one that is
-                # not lowercased.
-                self.files_orig.get(filepath.lower(), filepath),
-                upload_path, self.files.get(filepath.lower(), pids),
-                metadata=metadata, category=category,
-            )
+            # If available use the original filepath, the one that is not lowercased.
+            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
-            print(e)
-            log.error(
-                "Unable to upload dropped file at path \"%s\": %s",
-                filepath, e
-            )
+            log.error( "Unable to upload dropped file at path \"%s\": %s", filepath, e )
         except Exception as e:
-            print(e)
             log.error(e, exc_info=True)
 
     def delete_file(self, filepath, pid=None):
         """A file is about to removed and thus should be dumped right away."""
-        log.info(("delete_file", filepath))
         self.add_pid(filepath, pid)
         self.dump_file(filepath)
 
@@ -813,8 +806,7 @@ class Files(object):
         self.add_pid(oldfilepath, pid)
         if oldfilepath.lower() in self.files:
             # Replace the entry with the new filepath.
-            self.files[newfilepath.lower()] = \
-                self.files.pop(oldfilepath.lower(), [])
+            self.files[newfilepath.lower()] = self.files.pop(oldfilepath.lower(), [])
 
     def dump_files(self):
         """Dump all pending files."""
@@ -1358,18 +1350,13 @@ class CommandPipeHandler(object):
 
     def _handle_file_new(self, file_path):
         """Notification of a new dropped file."""
-        #self.analyzer.files.add_file(file_path, self.pid)
-        #self.analyzer.files_list_lock.acquire()
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"))
-        #self.analyzer.files_list_lock.release()
+            self.analyzer.files.add_file(file_path.decode("utf-8"))
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
         # Syntax -> PATH|PID|Metadata
         file_path, pid, metadata = data.split(b"|")
-        #self.analyzer.files.add_file(file_path)
-        # We dump immediately.
         if os.path.exists(file_path):
             self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
 
@@ -1380,27 +1367,26 @@ class CommandPipeHandler(object):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
         file_path = data.decode("utf8")
-        self.analyzer.files_list_lock.acquire()
         if os.path.exists(file_path):
             self.analyzer.files.delete_file(file_path, self.pid)
-        self.analyzer.files_list_lock.release()
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
         # We dump immediately.
-        if b"\\CAPE\\" in file_path:
-            #Syntax -> PATH|PID|Metadata
-            file_path, pid, metadata = file_path.split(b"|")
-            if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
-
         if os.path.exists(file_path):
+            if b"\\CAPE\\" in file_path:
+                #Syntax -> PATH|PID|Metadata
+                file_path, pid, metadata = file_path.split(b"|")
+                #self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.add_file(file_path.decode("utf-8"), pid=pid.decode("utf-8"), metadata=metadata, category="procdump")
             #Syntax -> PATH
-            if b"\\memory\\" in file_path:
+            elif b"\\memory\\" in file_path:
                 # aka send this as data for the command
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+                #self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+                self.analyzer.files.add_file(file_path.decode("utf-8"), category="memory")
             else:
-                self.analyzer.files.dump_file(file_path.decode("utf-8"))
+                #self.analyzer.files.dump_file(file_path.decode("utf-8"))
+                self.analyzer.files.add_file(file_path.decode("utf-8"))
 
     def _handle_dumpreqs(self, data):
         if not data.isdigit():
@@ -1432,19 +1418,12 @@ class CommandPipeHandler(object):
         """A file is being moved - track these changes."""
         # Syntax = "FILE_MOVE:old_file_path::new_file_path".
         if b"::" not in data:
-            log.warning("Received FILE_MOVE command from monitor with an "
-                        "incorrect argument.")
+            log.warning("Received FILE_MOVE command from monitor with an incorrect argument.")
             return
 
-        self.analyzer.files_list_lock.acquire()
         old_filepath, new_filepath = data.split(b"::", 1)
         new_filepath = new_filepath.decode("utf8")
-        self.analyzer.files.move_file(
-            old_filepath.decode("utf8"), new_filepath, self.pid
-        )
-        if os.path.exists(new_filepath):
-            self.analyzer.files.dump_file(new_filepath, pids=self.pid)
-        self.analyzer.files_list_lock.release()
+        self.analyzer.files.move_file(old_filepath.decode("utf8"), new_filepath, self.pid)
 
     def dispatch(self, data):
         response = "NOPE"

@@ -31,7 +31,8 @@ class Usage(Auxiliary, Thread):
         self.pidlist.append(pid)
 
     def del_pid(self, pid):
-        self.pidlist.remove(pid)
+        if pid in self.pidlist:
+            self.pidlist.remove(pid)
 
     def run(self):
         """Run capturing of usage info.
@@ -57,7 +58,8 @@ class Usage(Auxiliary, Thread):
             PDH.PdhAddCounterA(phquery, counter, None, byref(phcounter))
             counter_handles.append(phcounter)
 
-        nf = NetlogFile(b"aux/usage.log")
+        nf = NetlogFile()
+        nf.init("aux/usage.log")
 
         PDH.PdhCollectQueryData(phquery)
 
@@ -73,7 +75,7 @@ class Usage(Auxiliary, Thread):
 
             KERNEL32.GlobalMemoryStatusEx(byref(meminfo))
             usagedata = b"%d %d\n" % (meminfo.dwMemoryLoad, round(bigfloat))
-            nf.sock.sendall(usagedata)
+            nf.send(usagedata)
 
         for counter_handle in counter_handles:
             PDH.PdhRemoveCounter(counter_handle)
@@ -82,4 +84,3 @@ class Usage(Auxiliary, Thread):
         nf.close()
 
         return True
-

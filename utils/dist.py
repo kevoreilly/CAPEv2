@@ -65,6 +65,7 @@ remove_lock = threading.BoundedSemaphore(20)
 fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
+failed_clean_enabled = False
 
 def required(package):
     sys.exit("The %s package is required: pip3 install %s" %
@@ -261,7 +262,7 @@ class Retriever(threading.Thread):
                     thread.daemon = True
                     thread.start()
 
-        if reporting_conf.distributed.failed_cleaner:
+        if reporting_conf.distributed.failed_cleaner or failed_clean_enabled:
             thread = threading.Thread(target=self.failed_cleaner, args=())
             thread.daemon = True
             thread.start()
@@ -1087,26 +1088,18 @@ def init_logging(debug=False):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("host", nargs="?", default="0.0.0.0",
-                   help="Host to listen on")
-    p.add_argument("port", nargs="?", type=int,
-                   default=9003, help="Port to listen on")
-    p.add_argument("-d", "--debug", action="store_true",
-                   help="Enable debug logging")
+    p.add_argument("host", nargs="?", default="0.0.0.0", help="Host to listen on")
+    p.add_argument("port", nargs="?", type=int, default=9003, help="Port to listen on")
+    p.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     p.add_argument("--uptime-logfile", type=str, help="Uptime logfile path")
-    p.add_argument("--node", type=str,
-                   help="Node name to update in distributed DB")
+    p.add_argument("--node", type=str, help="Node name to update in distributed DB")
     p.add_argument("--delete-vm", type=str, help="VM name to delete from Node")
-    p.add_argument("--disable", action="store_true",
-                   help="Disable Node provided in --node")
-    p.add_argument("--enable", action="store_true",
-                   help="Enable Node provided in --node")
-    p.add_argument("--clean-workers", action="store_true",
-                   help="Delete reported and notificated tasks from workers")
-    p.add_argument("-ec", "--enable-clean", action="store_true",
-                   help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist")
-    p.add_argument("-fr", "--force-reported", action="store",
-                   help="change report to reported")
+    p.add_argument("--disable", action="store_true", help="Disable Node provided in --node")
+    p.add_argument("--enable", action="store_true", help="Enable Node provided in --node")
+    p.add_argument("--clean-workers", action="store_true", help="Delete reported and notificated tasks from workers")
+    p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist")
+    p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist")
+    p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -1122,6 +1115,7 @@ if __name__ == "__main__":
         main_db.set_status(args.force_reported, TASK_REPORTED)
         sys.exit()
 
+    failed_clean_enabled = args.enable_failed_clean
     delete_enabled = args.enable_clean
     if args.node:
         if args.delete_vm:

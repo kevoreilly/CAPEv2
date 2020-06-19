@@ -170,10 +170,6 @@ class CAPE(Processing):
         try:
             with open(file_info["path"], "rb") as file_open:
                 file_data = file_open.read()
-                if len(file_data) > buf:
-                    file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
-                else:
-                    file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
             with open(file_info["path"], "rb") as file_open:
                 file_data = file_open.read()
@@ -360,7 +356,6 @@ class CAPE(Processing):
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:
                 data = file_data.decode("utf-16").replace("\x00", "")
-                file_info["data"] = data
                 cape_name = "ScriptDump"
                 malwareconfig_loaded = False
                 try:

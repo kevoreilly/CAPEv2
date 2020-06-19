@@ -158,16 +158,20 @@ def init_logging(auto=False, tid=0, debug=False):
     ch = ConsoleHandler()
     ch.setFormatter(formatter)
     log.addHandler(ch)
-    if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
-        os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
-    if auto:
-        if cfg.logging.enabled:
-            days = cfg.logging.backup_count
-            fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=days)
+    try:
+        if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
+            os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
+        if auto:
+            if cfg.logging.enabled:
+                days = cfg.logging.backup_count
+                fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=days)
+            else:
+                fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
-            fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
-    else:
-        fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % tid))
+            fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % tid))
+
+    except PermissionError:
+        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
 
     fh.setFormatter(formatter)
     log.addHandler(fh)

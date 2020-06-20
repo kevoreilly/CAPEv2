@@ -246,6 +246,8 @@ class SubmitCAPE(Report):
                         self.process_cape_yara(entry, results, detections)
 
         if 'auto=1' in self.task_options:
+            if parent_package and parent_package in unpackers:
+                continue
             parent_id = int(results["info"]["id"])
             if results.get("info", {}).get("options", {}).get("main_task_id", ""):
                 parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))

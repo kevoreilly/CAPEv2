@@ -142,8 +142,8 @@ def demux_sflock(filename, options, package):
         if unpacked.package in blacklist_extensions:
             return retlist
         for sf_child in unpacked.children or []:
-            if sf_child.get("children") and sf_child["children"]:
-                retlist += [_sf_chlildren(ch) for ch in sf_child["children"]]
+            if sf_child.to_dict().get("children") and sf_child.to_dict()["children"]:
+                retlist += [_sf_chlildren(ch) for ch in sf_child.to_dict()["children"]]
             else:
                 retlist.append(_sf_chlildren(sf_child))
     except Exception as e:

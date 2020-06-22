@@ -1373,20 +1373,24 @@ class CommandPipeHandler(object):
     def _handle_file_dump(self, file_path):
         # We extract the file path.
         # We dump immediately.
-        if os.path.exists(file_path):
-            if b"\\CAPE\\" in file_path:
-                #Syntax -> PATH|PID|Metadata
-                file_path, pid, metadata = file_path.split(b"|")
-                #self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
-                self.analyzer.files.add_file(file_path.decode("utf-8"), pid=pid.decode("utf-8"), metadata=metadata, category="procdump")
-            #Syntax -> PATH
-            elif b"\\memory\\" in file_path:
-                # aka send this as data for the command
-                #self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
-                self.analyzer.files.add_file(file_path.decode("utf-8"), category="memory")
+        if b"\\CAPE\\" in file_path:
+            #Syntax -> PATH|PID|Metadata
+            file_path, pid, metadata = file_path.split(b"|")
+            if os.path.exists(file_path):
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+
+        else:
+            if os.path.exists(file_path):
+                #Syntax -> PATH
+                elif b"\\memory\\" in file_path:
+                    # aka send this as data for the command
+                    self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+                    #self.analyzer.files.add_file(file_path.decode("utf-8"), category="memory")
+                else:
+                    #self.analyzer.files.dump_file(file_path.decode("utf-8"))
+                    self.analyzer.files.add_file(file_path.decode("utf-8"))
             else:
-                #self.analyzer.files.dump_file(file_path.decode("utf-8"))
-                self.analyzer.files.add_file(file_path.decode("utf-8"))
+                log.info("File doesn't exist, %s", file_path)
 
     def _handle_dumpreqs(self, data):
         if not data.isdigit():

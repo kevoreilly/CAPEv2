@@ -1381,13 +1381,9 @@ class CommandPipeHandler(object):
 
         else:
             if os.path.exists(file_path):
-                #Syntax -> PATH
-                elif b"\\memory\\" in file_path:
-                    # aka send this as data for the command
+                if b"\\memory\\" in file_path:
                     self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
-                    #self.analyzer.files.add_file(file_path.decode("utf-8"), category="memory")
                 else:
-                    #self.analyzer.files.dump_file(file_path.decode("utf-8"))
                     self.analyzer.files.add_file(file_path.decode("utf-8"))
             else:
                 log.info("File doesn't exist, %s", file_path)

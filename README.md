@@ -85,5 +85,18 @@ __requirements.txt is decprecated now in favour of the script__
 ## Virtual machine core dependecy
 * [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
 
+## How to update
+* CAPE: `git pull`
+* community: `python3 utils/community.py -waf` see `-h` before to ensure you understand
+
+## How to upgrade with a lot of custom small mofications that can't be public?
+```
+git add --all
+git commit -m '[STASH]'
+git pull --rebase origin master
+# fix conflict (rebase) if needed
+git reset HEAD~1
+```
+
 #### What doesn't work
 * volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.

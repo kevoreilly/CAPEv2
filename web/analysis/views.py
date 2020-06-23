@@ -318,7 +318,6 @@ def load_files(request, task_id, category):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
-        files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):

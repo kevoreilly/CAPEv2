@@ -89,7 +89,7 @@ __requirements.txt is decprecated now in favour of the script__
 * CAPE: `git pull`
 * community: `python3 utils/community.py -waf` see `-h` before to ensure you understand
 
-## How to upgrade with a lot of custom small mofications that can't be public?
+## How to upgrade with a lot of custom small modifications that can't be public?
 ```
 git add --all
 git commit -m '[STASH]'

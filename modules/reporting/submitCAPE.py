@@ -247,7 +247,7 @@ class SubmitCAPE(Report):
 
         if 'auto=1' in self.task_options:
             if parent_package and parent_package in unpackers:
-                continue
+                return
             parent_id = int(results["info"]["id"])
             if results.get("info", {}).get("options", {}).get("main_task_id", ""):
                 parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))

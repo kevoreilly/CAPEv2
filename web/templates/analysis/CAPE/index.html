@@ -190,9 +190,9 @@
                 </tr>
                 {% endif %}
             </table>
-            {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
+            {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
                 <h4>BinGraph <a href="{% url "file" "bingraph" id file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
-                {{ graphs.bingraph.content|getkey:file.sha256|safe }}
+                {{ bingraph.content|getkey:file.sha256|safe }}
             {% endif %}
         </div>
         {% endif %}

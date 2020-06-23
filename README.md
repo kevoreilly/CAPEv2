@@ -85,5 +85,35 @@ __requirements.txt is decprecated now in favour of the script__
 ## Virtual machine core dependecy
 * [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
 
+## How to update
+* CAPE: `git pull`
+* community: `python3 utils/community.py -waf` see `-h` before to ensure you understand
+
+## How to upgrade with a lot of custom small modifications that can't be public?
+
+#### With rebase
+```
+git add --all
+git commit -m '[STASH]'
+git pull --rebase origin master
+# fix conflict (rebase) if needed
+git reset HEAD~1
+```
+
+#### With merge
+```
+# make sure kevoreilly repo has been added as a remote (only needs to be done once)
+git remote add kevoreilly https://github.com/kevoreilly/CAPEv2.git
+# make sure all your changes are commited on the branch which you will be merging 
+git commit -a -m '<your commit message goes here>'
+# fetch changes from kevoreilly repo
+git fetch kevoreilly
+# merge kevoreilly master branch into your current branch
+git merge kevoreilly/master
+# fix merge conflicts if needed
+# push to your repo if desired
+git push
+```
+
 #### What doesn't work
 * volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.

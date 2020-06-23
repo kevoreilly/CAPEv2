@@ -318,7 +318,6 @@ def load_files(request, task_id, category):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
-        files = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
@@ -331,7 +330,9 @@ def load_files(request, task_id, category):
             if ajax_mongo_schema.get(category, "") in ("CAPE", "dropped"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
-                    for block in files.get(category, []):
+                    for block in data.get(category, []):
+                        if not block.get("sha256"):
+                            continue
                         tmp_file = os.path.join(bingraph_path, block["sha256"]+"-ent.svg")
                         if os.path.exists(tmp_file):
                             with open(tmp_file, "r") as f:

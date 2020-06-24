@@ -559,7 +559,7 @@ class ProcDump(object):
         self._dumpfile = open(dump_file, "rb")
         self.dumpfile = mmap.mmap(self._dumpfile.fileno(), 0, access=mmap.ACCESS_READ)
         self.address_space = self.parse_dump()
-        self.protmap = protmap = {
+        self.protmap = {
             PAGE_NOACCESS : "NOACCESS",
             PAGE_READONLY : "R",
             PAGE_READWRITE : "RW",

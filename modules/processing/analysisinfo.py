@@ -109,6 +109,7 @@ class AnalysisInfo(Processing):
                 print(e)
 
         parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
+        source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
         return dict(
             version=CUCKOO_VERSION,
@@ -129,5 +130,6 @@ class AnalysisInfo(Processing):
             tlp=self.task["tlp"],
             parent_sample=parent_sample_details,
             distributed=distributed,
-            options=get_options(self.task["options"])
+            options=get_options(self.task["options"]),
+            source_url = source_url,
         )

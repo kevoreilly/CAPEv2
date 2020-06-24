@@ -1,3 +1,7 @@
+### [24-06-2020]
+* Show url from where file was downloaded when using Download'n'Exec
+* Zip package is depricate as it doesn't support AES etc, to upload with side files use file=X and submit in zip archive, for rest you have [sflock](https://github.com/doomedraven/sflock) <3
+
 ### [18-06-2020]
 * Restore original dump file, don't dump inmediatelly
 * CAPE tab now also loaded via ajax request

@@ -512,9 +512,7 @@ def index(request, resubmit_hash=False):
             elif machine:
                 machine_details = db.view_machine(machine[0])
                 if not machine_details.platform == platform:
-                    return render(request, "error.html",
-                                  {"error": "Wrong platform, {} VM selected for {} sample".format(
-                                       machine_details.platform, platform)})
+                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)})
                 else:
                     task_machines = [machine]
             else:
@@ -527,7 +525,7 @@ def index(request, resubmit_hash=False):
                                                              options=options, priority=priority, machine=entry,
                                                              custom=custom, memory=memory,
                                                              enforce_timeout=enforce_timeout, tags=tags,
-                                                             platform=platform, clock=clock, tlp=tlp)
+                                                             platform=platform, clock=clock, tlp=tlp, source_url=url)
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
 

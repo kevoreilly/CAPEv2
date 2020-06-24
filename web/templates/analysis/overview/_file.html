@@ -44,9 +44,14 @@
     </div>
     {% endif %}
 
-
     <div class="panel panel-default">
         <table class="table table-striped" style="table-layout: fixed;">
+            {% if analysis.info.source_url %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">File downloaded from</th>
+                <td style="border-top: 0; word-wrap: break-word;">{{analysis.info.source_url|safe}}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <th style="border-top: 0; width: 15%;">File Name</th>
                 <td style="border-top: 0; word-wrap: break-word;">{{analysis.target.file.name}}</td>

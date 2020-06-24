@@ -697,22 +697,23 @@ def tasks_create_dlnexec(request):
 
         for entry in task_machines:
             task_ids = db.demux_sample_and_add_to_db(
-                                file_path=path,
-                                package=package,
-                                timeout=timeout,
-                                priority=priority,
-                                options=options,
-                                machine=entry,
-                                platform=platform,
-                                tags=tags,
-                                custom=custom,
-                                memory=memory,
-                                enforce_timeout=enforce_timeout,
-                                clock=clock,
-                                shrike_url=shrike_url,
-                                shrike_msg=shrike_msg,
-                                shrike_sid=shrike_sid,
-                                shrike_refer=shrike_refer
+                file_path=path,
+                package=package,
+                timeout=timeout,
+                priority=priority,
+                options=options,
+                machine=entry,
+                platform=platform,
+                tags=tags,
+                custom=custom,
+                memory=memory,
+                enforce_timeout=enforce_timeout,
+                clock=clock,
+                shrike_url=shrike_url,
+                shrike_msg=shrike_msg,
+                shrike_sid=shrike_sid,
+                shrike_refer=shrike_refer,
+                source_url=url,
             )
 
         if len(task_ids):

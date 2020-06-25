@@ -82,6 +82,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 __requirements.txt is decprecated now in favour of the script__
 
+## How to create VMs with virt-manager [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
+
 ## Virtual machine core dependecy
 * [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
 

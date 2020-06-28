@@ -805,6 +805,11 @@ def report(request, task_id):
     except:
         report["CAPE"] = 0
 
+    reports_exist = False
+    reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
+    if os.path.exists(reporting_path) and os.listdir(reporting_path):
+        reports_exist = True
+
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if os.path.exists(debugger_log_path) and os.listdir(debugger_log_path):
         report["debugger_logs"] = 1
@@ -838,38 +843,40 @@ def report(request, task_id):
     similarinfo = []
     if enabledconf["malheur"]:
         malheur_file = os.path.join(CUCKOO_ROOT, "storage", "malheur", "malheur.txt")
-        classes = dict()
-        ourclassname = None
-        try:
-            with open(malheur_file, "r") as malfile:
-                for line in malfile:
-                    if line[0] == '#':
-                            continue
-                    parts = line.strip().split(' ')
-                    classname = parts[1]
-                    if classname != "rejected":
-                        if classname not in classes:
-                            classes[classname] = []
-                        addval = dict()
-                        addval["id"] = parts[0][:-4]
-                        addval["proto"] = parts[2][:-4]
-                        addval["distance"] = parts[3]
-                        if addval["id"] == task_id:
-                            ourclassname = classname
-                        else:
-                            classes[classname].append(addval)
-            if ourclassname:
-                similar = classes[ourclassname]
-                for sim in similar[:maxsimilar]:
-                    siminfo = get_analysis_info(db, id=int(sim["id"]))
-                    if siminfo:
-                        similarinfo.append(siminfo)
-                if similarinfo:
-                    buf = sorted(similarinfo, key=lambda z: z["id"], reverse=True)
-                    similarinfo = buf
+        if os.path.exists(malheur_file):
+            classes = dict()
+            ourclassname = None
 
-        except Exception as e:
-            print(e)
+            try:
+                with open(malheur_file, "r") as malfile:
+                    for line in malfile:
+                        if line[0] == '#':
+                                continue
+                        parts = line.strip().split(' ')
+                        classname = parts[1]
+                        if classname != "rejected":
+                            if classname not in classes:
+                                classes[classname] = []
+                            addval = dict()
+                            addval["id"] = parts[0][:-4]
+                            addval["proto"] = parts[2][:-4]
+                            addval["distance"] = parts[3]
+                            if addval["id"] == task_id:
+                                ourclassname = classname
+                            else:
+                                classes[classname].append(addval)
+                if ourclassname:
+                    similar = classes[ourclassname]
+                    for sim in similar[:maxsimilar]:
+                        siminfo = get_analysis_info(db, id=int(sim["id"]))
+                        if siminfo:
+                            similarinfo.append(siminfo)
+                    if similarinfo:
+                        buf = sorted(similarinfo, key=lambda z: z["id"], reverse=True)
+                        similarinfo = buf
+
+            except Exception as e:
+                print(e)
 
     vba2graph = False
     vba2graph_svg_content = ""
@@ -898,6 +905,7 @@ def report(request, task_id):
             "similar": similarinfo,
             "settings": settings,
             "config": enabledconf,
+            "reports_exist": reports_exist,
             "graphs": {
                 "vba2graph": {"enabled": vba2graph, "content": vba2graph_svg_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},

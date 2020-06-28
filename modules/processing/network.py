@@ -140,6 +140,8 @@ class Pcap:
             "^sv\.symcd\.com$",
             "^s\.symcd\.com$",
             "^ts-ocsp\.ws\.symantec\.com$",
+            "^ocsp\.thawte\.com$",
+            "^crl\.thawte\.com$",
         ]
 
         if enabled_whitelist and whitelist_file:

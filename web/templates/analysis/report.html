@@ -99,7 +99,7 @@ $(function() {
             {% endif %}
         {% endif %}
     {% endif %}
-    <li><a href="#reports" data-toggle="tab">Reports</a></li>
+    {% if analysis.reports_exist %}<li><a href="#reports" data-toggle="tab">Reports</a></li>{% endif %}
     {% if settings.COMMENTS %}
         {% if analysis.info.comments|length %}
             <li><a href="#comments" data-toggle="tab">Comments ({{analysis.info.comments|length}})</a></li>

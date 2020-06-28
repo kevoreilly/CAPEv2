@@ -100,7 +100,7 @@ def is_valid_type(magic):
 
 def _sf_chlildren(child):
     path_to_extract = False
-    base, ext = os.path.splitext(child.filename)
+    _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):
         target_path = os.path.join(tmp_path, b"cuckoo-sflock")
@@ -123,7 +123,7 @@ def demux_sflock(filename, options, package):
         return retlist
 
     # to handle when side file for exec is required
-    if package == b".zip" and "file=" in options:
+    if "file=" in options:
         return [filename]
 
     try:
@@ -137,6 +137,8 @@ def demux_sflock(filename, options, package):
         except UnpackException:
             unpacked = unpack(filename)
 
+        if unpacked.magic == "data":
+            return []
         if unpacked.package in whitelist_extensions:
             return [filename]
         if unpacked.package in blacklist_extensions:

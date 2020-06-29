@@ -137,8 +137,6 @@ def demux_sflock(filename, options, package):
         except UnpackException:
             unpacked = unpack(filename)
 
-        if unpacked.magic == "data":
-            return []
         if unpacked.package in whitelist_extensions:
             return [filename]
         if unpacked.package in blacklist_extensions:
@@ -169,9 +167,6 @@ def demux_sample(filename, package, options):
 
     # don't try to extract from office docs
     magic = File(filename).get_type()
-
-    if magic == "data":
-        return []
 
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:

@@ -220,11 +220,10 @@ class AWS(Machinery):
 
     """override Machinery method"""
 
-    def start(self, label, task):
+    def start(self, label):
         """
         Start a virtual machine.
         @param label: virtual machine label.
-        @param task: task object.
         @raise CuckooMachineError: if unable to start.
         """
         log.debug("Starting vm {}".format(label))

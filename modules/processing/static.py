@@ -986,14 +986,16 @@ class PDF(object):
                     elem = trailer.dict.getElementByName("/Root")
                     if elem:
                         elem = self._get_obj_val(version, elem)
-                        elem = elem.getElementByName("/URI")
                         if elem:
-                            elem = self._get_obj_val(version, elem)
-                            elem = elem.getElementByName("/Base")
+                            elem = elem.getElementByName("/URI")
                             if elem:
                                 elem = self._get_obj_val(version, elem)
                                 if elem:
-                                    self.base_uri = elem.getValue()
+                                    elem = elem.getElementByName("/Base")
+                                    if elem:
+                                        elem = self._get_obj_val(version, elem)
+                                        if elem:
+                                            self.base_uri = elem.getValue()
         except Exception as e:
             log.error(e, exc_info=True)
             pass

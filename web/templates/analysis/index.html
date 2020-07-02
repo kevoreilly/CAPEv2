@@ -808,7 +808,7 @@
     </div>
     {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
     <nav>
-        <ul class="pager">
+        <center><ul class="pagination">
             {% if paging.show_pcap_prev == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
             {% endif %}
@@ -824,7 +824,7 @@
             {% if paging.show_pcap_next == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
             {% endif %}
-        </ul>
+        </ul></center>
     </nav>
     {% endif %}
 </div>

@@ -424,8 +424,7 @@ def cuckoo_dedup_cluster_queue():
     Cleans duplicated pending tasks from cluster queue
     """
 
-    main_db = Database()
-    session = main_db.Session()
+    session = db.Session()
     dist_session = create_session(rep_config.distributed.db, echo=False)
     dist_db = dist_session()
     hash_dict = dict()
@@ -441,6 +440,18 @@ def cuckoo_dedup_cluster_queue():
 
     resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
 
+def cape_clean_tlp():
+
+    create_structure()
+    init_console_logging()
+
+    results_db = connect_to_mongo()[mdb]
+    if not results_db:
+        log.info("Can't connect to mongo")
+        return
+
+    tlp_tasks = db.get_tlp_tasks()
+    resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
 
 
 if __name__ == "__main__":
@@ -457,6 +468,7 @@ if __name__ == "__main__":
     parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
     parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
     parser.add_argument("--malscore",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
+    parser.add_argument("--tlp",help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False)
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False)
@@ -465,6 +477,10 @@ if __name__ == "__main__":
     if args.clean:
         cuckoo_clean()
         sys.exit(0)
+
+    if args.tlp:
+        cape_clean_tlp()
+        sys.exit()
 
     if args.failed_clean:
         cuckoo_clean_failed_tasks()

@@ -1517,6 +1517,24 @@ class Database(object, metaclass=Singleton):
              session.close()
 
     @classlock
+    def get_tlp_tasks(self):
+        """
+            Retrieve tasks with TLP
+        """
+        session = self.Session()
+        try:
+            tasks = session.query(Task).filter(Task.tlp == "true").all()
+            if tasks:
+                return [task.id for task in tasks]
+            else:
+                return []
+        except SQLAlchemyError as e:
+            log.debug("Database error listing tasks: {0}".format(e))
+            return []
+        finally:
+            session.close()
+
+    @classlock
     def get_file_types(self):
         """Get sample filetypes
 

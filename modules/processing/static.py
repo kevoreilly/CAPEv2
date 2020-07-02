@@ -1192,7 +1192,11 @@ class Office(object):
         for line in lines:
             if "CHAR" not in line:
                 continue
-            col = "C{}".format(re.findall('.*R\d+C(\d+)\s', line)[0])
+            res = re.findall('.*R\d+C(\d+)\s', line)
+            if not res:
+                continue
+
+            col = "C{}".format(res[0])
             if not strdict.get(col, False):
                 strdict[col] = ""
             found = numre.findall(line)

@@ -10,5 +10,5 @@ rule Kronos
         $a3 = "wow64cpu.dll" wide
         $a4 = "Kronos" fullword ascii wide
     condition:
-        uint16(0) == 0x5A4D and (any of ($a*))
+        uint16(0) == 0x5A4D and (2 of ($a*))
 }

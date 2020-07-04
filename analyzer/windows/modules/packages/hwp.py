@@ -8,6 +8,7 @@ class HWP(Package):
     """Hangul (Korean) Word Processor File 5.x analysis package."""
     PATHS = [
         ("ProgramFiles", "Hnc", "Hwp80", "Hwp.exe"),
+        ("ProgramFiles", "Hnc", "Office 2020", "HOffice110", "Bin", "Hword.exe")
     ]
 
     def start(self, path):

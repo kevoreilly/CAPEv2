@@ -88,7 +88,7 @@ def choose_package(file_type, file_name, exports, target):
         return "lnk"
     elif file_name.endswith(".chm") or "MS Windows HtmlHelp Data" in file_type:
         return "chm"
-    elif file_name.endswith(".hwp") or "Hangul (Korean) Word Processor File" in file_type:
+    elif file_name.endswith((".hwp",".hwpx",".hwt",".hml")) or "Hangul (Korean) Word Processor File" in file_type:
         return "hwp"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"

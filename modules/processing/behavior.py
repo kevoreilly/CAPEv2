@@ -414,7 +414,7 @@ class Processes:
                 if not CuckooBsonCompressor().run(file_path):
                     log.debug("Could not execute loop detection analysis.")
                 else:
-                    log.info("BSON was compressed successfully.")
+                    log.debug("BSON was compressed successfully.")
                     return True
             except Exception as e:
                 log.error("BSON compression failed on file {}: {}".format(file_path, e))

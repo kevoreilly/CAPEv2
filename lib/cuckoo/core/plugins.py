@@ -141,6 +141,7 @@ suricata_blacklist = (
     "worm",
     "wscript",
     #"http",
+    "ptsecurity",
 )
 
 def get_suricata_family(signature):
@@ -166,6 +167,9 @@ def get_suricata_family(signature):
         famchecklower = famchecklower.split(".")[-1]
         famcheck = famcheck.split(".")[-1]
     if famchecklower in ("win32", "w32", "ransomware"):
+        famcheck = words[3]
+        famchecklower = famcheck.lower()
+    if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
     isbad = any([black in famchecklower for black in suricata_blacklist])

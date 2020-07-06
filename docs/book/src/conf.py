@@ -40,8 +40,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'CUCKOO Sandbox'
-copyright = u'2010-2015, Cuckoo Foundation'
+project = u'CAPE Sandbox'
+copyright = u'2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

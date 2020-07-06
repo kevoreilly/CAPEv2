@@ -16,36 +16,30 @@ General Questions
 
 .. _analyze_urls:
 
-Can I analyze URLs with Cuckoo?
+Can I analyze URLs with CAPE?
 -------------------------------
 
-Yes you can. Since version 0.5 URLs are natively supported by Cuckoo.
+Yes you can. But modern browsers has a lot of problems
 
 .. _general_volatility:
 
-Can I use Volatility with Cuckoo?
+Can I use Volatility v3 with CAPE?
 ---------------------------------
 
-Cuckoo 0.5 introduces support for optional full memory dumps, which are created at
-the end of the analysis process. You can use these memory dumps to perform additional
-memory forensic analysis with `Volatility`_.
+SOON ;)
 
-Please also consider that we don't particularly encourage this: since Cuckoo employs
-some rootkit-like technologies to perform its operations, the results of a forensic
-analysis would be polluted by the sandbox's components.
-
-.. _`Volatility`: http://code.google.com/p/volatility/
+.. _`Volatility`: https://github.com/volatilityfoundation/volatility3/
 
 .. _esxi_reqs:
 
-What I need to use Cuckoo with VMware ESXi?
+What I need to use CAPE with VMware ESXi?
 -------------------------------------------
 
-To run with VMware vSphere Hypervisor (or ESXi) Cuckoo levareges on libvirt.
+To run with VMware vSphere Hypervisor (or ESXi) CAPE levareges on libvirt.
 Libivirt is currently using VMware API to take control over virtual machines,
 althogh these API are available ony in licensed version.
 In VMware vSphere free edition, these API are read only, so you are unable
-to use Cuckoo with it.
+to use CAPE with it.
 For the minimum license needed, please have a look at VMware website.
 
 Troubleshooting
@@ -53,25 +47,25 @@ Troubleshooting
 
 .. _troubles_upgrade:
 
-After upgrade Cuckoo stops to work
+After upgrade CAPE stops to work
 ----------------------------------
 
 Probably you upgraded it in a wrong way.
-It's not a good practice to rewrite the files due to Cuckoo's complexity and
+It's not a good practice to rewrite the files due to CAPE's complexity and
 quick evolution.
 
 Please follow the upgrade steps described in :doc:`../installation/upgrade`.
 
 .. _troubles_problem:
 
-Cuckoo stumbles and produces some error I don't understand
+CAPE stumbles and produces some error I don't understand
 ----------------------------------------------------------
 
-Cuckoo is a young and still evolving project, it's possible that
+CAPE is a young and still evolving project, it's possible that
 you encounter some problems while running it, but before you rush into
 sending emails to everyone make sure you read what follows.
 
-Cuckoo is not meant to be a point-and-click tool: it's designed to be a highly
+CAPE is not meant to be a point-and-click tool: it's designed to be a highly
 customizable and configurable solution for somewhat experienced users and
 malware analysts.
 
@@ -92,7 +86,7 @@ the development and fixing of actual bugs.
     * We have a `Community`_ platform for asking questions, use it.
     * We have lot of users producing content on Internet, `Google`_ it.
     * Spend some of your own time trying fixing the issues before asking ours, you
-      might even get to learn and understand Cuckoo better.
+      might even get to learn and understand CAPE better.
 
 Long story short: use the existing resources, put some efforts into it and don't
 abuse people.
@@ -102,15 +96,14 @@ If you still can't figure out your problem, you can ask help on our online commu
 Make sure when you ask for help to:
 
     * Use a clear and explicit title for your emails: "I have a problem", "Help me" or
-      "Cuckoo error" are **NOT** good titles.
+      "CAPE error" are **NOT** good titles.
     * Explain **in details** what you're experiencing. Try to reproduce several
       times your issue and write down all steps to achieve that.
     * Use no-paste services and link your logs, configuration files and details on your
       setup.
     * Eventually provide a copy of the analysis that generated the problem.
 
-.. _`Community`: http://community.cuckoosandbox.org
-.. _`Google`: http://www.google.com
+.. _`search before open new issue`: https://github.com/kevoreilly/CAPEv2/issues
 
 Check and restore current snapshot with KVM
 -------------------------------------------
@@ -171,13 +164,13 @@ you have to restore the current snapshot::
 Unable to bind result server error
 ----------------------------------
 
-At Cuckoo startup if you get an error message like this one::
+At CAPE startup if you get an error message like this one::
 
     2014-01-07 18:42:12,686 [root] CRITICAL: CuckooCriticalError: Unable to bind result server on 192.168.56.1:2042: [Errno 99] Cannot assign requested address
 
-It means that Cuckoo is unable to start the result server on the IP address written
+It means that CAPE is unable to start the result server on the IP address written
 in cuckoo.conf (or in machinery.conf if you are using the resultserver_ip option inside).
-This usually happen when you start Cuckoo without bringing up the virtual interface associated
+This usually happen when you start CAPE without bringing up the virtual interface associated
 with the result server IP address.
 You can bring it up manually, it depends from one virtualization software to another, but
 if you don't know how to do, a good trick is to manually start and stop an analysis virtual

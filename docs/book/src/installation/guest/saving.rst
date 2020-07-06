@@ -5,30 +5,20 @@ Saving the Virtual Machine
 Now you should be ready to save the virtual machine to a snapshot state.
 
 Before doing this **make sure you rebooted it softly and that it's currently
-running, with Cuckoo's agent running and with Windows fully booted**.
+running, with CAPE's agent running and with Windows fully booted**.
 
 Now you can proceed saving the machine. The way to do it obviously depends on
 the virtualization software you decided to use.
 
 If you follow all the below steps properly, your virtual machine should be ready
-to be used by Cuckoo.
-
-VirtualBox
-==========
-
-If you are going for VirtualBox you can take the snapshot from the graphical user
-interface or from the command line::
-
-    $ VBoxManage snapshot "<Name of VM>" take "<Name of snapshot>" --pause
-
-After the snapshot creation is completed, you can power off the machine and
-restore it::
-
-    $ VBoxManage controlvm "<Name of VM>" poweroff
-    $ VBoxManage snapshot "<Name of VM>" restorecurrent
+to be used by CAPE.
 
 KVM
 ===
+
+You can check here how to simple create virtual machine with virt-manager
+
+.. _`Create virtual machine with virt-manager aka GUI client`: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
 
 If decided to adopt KVM, you must first of all be sure to use a disk format for
 your virtual machines which supports snapshots.
@@ -89,7 +79,7 @@ Instead of using "host", you can also choose a number of other CPU models from t
 list displayed with the "qemu-system-i386 -cpu help" command (SandyBridge, Haswell, etc).
 
 Now test your virtual machine, if everything works prepare it for snapshotting while
-running Cuckoo's agent. This means the virtual machine needs to be running
+running CAPE's agent. This means the virtual machine needs to be running
 while you are taking the snapshot. Then you can shut it down.
 You can finally take a snapshot with the following command::
 
@@ -104,6 +94,20 @@ VM snapshots can be managed using the following commands.
     $ virsh snapshot-list "VM-Name"
 
     $ virsh snapshot-delete "VM-Name" 1234567890
+
+VirtualBox
+==========
+
+If you are going for VirtualBox you can take the snapshot from the graphical user
+interface or from the command line::
+
+    $ VBoxManage snapshot "<Name of VM>" take "<Name of snapshot>" --pause
+
+After the snapshot creation is completed, you can power off the machine and
+restore it::
+
+    $ VBoxManage controlvm "<Name of VM>" poweroff
+    $ VBoxManage snapshot "<Name of VM>" restorecurrent
 
 VMware Workstation
 ==================
@@ -136,7 +140,7 @@ Memory Snapshots
 
 The Xen guest tools can be installed from the XenCenter application that ships
 with XenServer. Once installed, restart the virtual machine and ensure that the
-Cuckoo agent is running.
+CAPE agent is running.
 
 Snapshots can be taken through the XenCenter application and the command line
 interface on the control domain (Dom0). When creating the snapshot from
@@ -158,7 +162,7 @@ Booting from Disk
 
 If you can't install the Xen guest tools or if you don't need to use memory
 snapshots, you will need to ensure that the virtual machine's disks are reset on
-boot and that the Cuckoo agent is set to run at boot time.
+boot and that the CAPE agent is set to run at boot time.
 
 Running the agent at boot time can be configured in Windows by adding a startup
 item for the agent.

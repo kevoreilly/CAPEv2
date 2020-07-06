@@ -3,7 +3,7 @@
 Usage
 =====
 
-This chapter explains how to use Cuckoo.
+This chapter explains how to use CAPE.
 
 .. toctree::
 

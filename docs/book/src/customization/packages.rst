@@ -3,7 +3,7 @@ Analysis Packages
 =================
 
 As explained in :doc:`../usage/packages`, analysis packages are structured
-Python classes that describe how Cuckoo's analyzer component should conduct
+Python classes that describe how CAPE's analyzer component should conduct
 the analysis procedure for a given file inside the guest environment.
 
 As you already know, you can create your own packages and add them along with
@@ -100,7 +100,7 @@ taking memory snapshots and more.
 ``check()``
 -----------
 
-This function is executed by Cuckoo every second while the malware is running.
+This function is executed by CAPE every second while the malware is running.
 You can use this function to perform any kind of recurrent operation.
 
 For example if in your analysis you are looking for just one specific indicator to
@@ -117,7 +117,7 @@ For example::
         else:
             return True
 
-This ``check()`` function will cause Cuckoo to immediately terminate the analysis
+This ``check()`` function will cause CAPE to immediately terminate the analysis
 whenever *C:\\config.bin* is created.
 
 ``execute()``
@@ -128,7 +128,7 @@ Wraps the malware execution and deal with DLL injection.
 ``finish()``
 ------------
 
-This function is simply called by Cuckoo before terminating the analysis and powering
+This function is simply called by CAPE before terminating the analysis and powering
 off the machine.
 By default, this function contains an optional feature to dump the process memory of
 all the monitored processes.
@@ -299,11 +299,11 @@ Methods
 
 .. function:: Process.inject([dll[, apc=False]])
 
-    Injects a DLL (by default "dll/cuckoomon.dll") into the opened process. Returns ``True`` or ``False`` in case of success or failure of the operation.
+    Injects a DLL (by default "dll/capemon.dll") into the opened process. Returns ``True`` or ``False`` in case of success or failure of the operation.
 
     :param dll: path to the DLL to inject into the process
     :type dll: string
-    :param apc: enable to use ``QueueUserAPC()`` injection instead of ``CreateRemoteThread()``, beware that if the process is in suspended mode, Cuckoo will always use ``QueueUserAPC()``
+    :param apc: enable to use ``QueueUserAPC()`` injection instead of ``CreateRemoteThread()``, beware that if the process is in suspended mode, capemon will always use ``QueueUserAPC()``
     :type apc: boolean
     :rtype: boolean
 

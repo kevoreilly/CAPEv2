@@ -4,7 +4,7 @@ Reporting Modules
 
 After the raw analysis results have been processed and abstracted by the
 processing modules and the global container is generated (ref. :doc:`processing`),
-it is passed over by Cuckoo to all the reporting modules available, which will
+it is passed over by CAPE to all the reporting modules available, which will
 make use of it and will make it accessible and consumable in different
 formats.
 

@@ -1,40 +1,24 @@
 =================
-Installing Cuckoo
+Installing CAPE
 =================
 
 Proceed with download and installation. Read :doc:`../../introduction/what` to
 learn where you can obtain a copy of the sandbox.
 
-Create a user
+Automated installation, read full page before start
 =============
 
-You either can run Cuckoo from your own user or create a new one dedicated just
-to your sandbox setup.
-Make sure that the user that runs Cuckoo is the same user that you will
-use to create and run the virtual machines, otherwise Cuckoo won't be able to
-identify and launch them.
+We have automated all work for you, but beat in mind, that 3rd part dependencies changes frequently and can break it,
+so please check instalation log and try to provide fix/correct issue to developers
 
-Create a new user::
+.. _`cape2.sh`: https://github.com/doomedraven/Tools/edit/master/Sandbox/cape2.sh
 
-    $ sudo adduser cuckoo
+To Install base
+================
 
-If you're using VirtualBox, make sure the new user belongs to the "vboxusers"
-group (or the group you used to run VirtualBox)::
+You need to give execution permission to script `chmod a+x cape2.sh`
+Please become familiar with available options using `./cape2.sh -h`
 
-    $ sudo usermod -a -G vboxusers cuckoo
+To install base, this should install all libraries and services for you, read code if you need more details:
 
-If you're using KVM or any other libvirt based module, make sure the new user
-belongs to the "libvirtd" group (or the group your Linux distribution uses to
-run libvirt)::
-
-    $ sudo usermod -a -G libvirtd cuckoo
-
-Install Cuckoo
-==============
-
-Extract or checkout your copy of Cuckoo to a path of your choice and you're
-ready to go ;-).
-
-After configuration, don't forget to run utils/community.py --force --rewrite --all
-to install all the available Cuckoo signature modules.
-
+    $ sudo ./cape2.sh base cape

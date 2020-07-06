@@ -29,7 +29,7 @@ command-line utility. It currently has the following options available::
 
     optional arguments:
       -h, --help           show this help message and exit
-      --remote REMOTE      Specify IP:port to a Cuckoo API server to submit
+      --remote REMOTE      Specify IP:port to a CAPE API server to submit
                            remotely
       --url                Specify whether the target is an URL
       --package PACKAGE    Specify an analysis package
@@ -85,9 +85,9 @@ some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
 
-*Example*: submit a local binary to be run on virtual machine *cuckoo1*::
+*Example*: submit a local binary to be run on virtual machine *cape1*::
 
-    $ ./utils/submit.py --machine cuckoo1 /path/to/binary
+    $ ./utils/submit.py --machine cape1 /path/to/binary
 
 *Example*: submit a local binary to be run on a Windows machine::
 
@@ -97,7 +97,7 @@ some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --memory /path/to/binary
 
-*Example*: submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that Cuckoo uses to decide when to terminate the analysis)::
+*Example*: submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that CAPE uses to decide when to terminate the analysis)::
 
     $ ./utils/submit.py --enforce-timeout /path/to/binary
 
@@ -105,22 +105,11 @@ some options (in this case a command line argument for the malware)::
 
     $ ./utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
 
-*Example*: submit a sample for Volatility analysis (to reduce side effects of the cuckoo hooking, switch it off with *options free=True*)::
+*Example*: submit a sample for Volatility analysis (to reduce side effects of the CAPE hooking, switch it off with *options free=True*)::
 
     $ ./utils/submit.py --memory --options free=True /path/to/binary
 
 .. _webpy:
-
-web.py
-======
-
-Cuckoo provides a very small utility under ``utils/web.py``, which will bind a simple
-webserver on localhost port 8080, through which you will be able to browse through
-existing reports as well as submit new files.
-
-Beware that this is not a full-fledged web interface, which is instead provided
-under the folder ``web/`` as a Django-powered application. You can find more details
-about that under :doc:`web`.
 
 .. _apipy:
 
@@ -131,10 +120,10 @@ Detailed usage of the REST API interface is described in :doc:`api`.
 
 .. _distpy:
 
-Distributed Cuckoo
+Distributed CAPE
 ==================
 
-Detailed usage of the Distributed Cuckoo API interface is described in
+Detailed usage of the Distributed CAPE API interface is described in
 :doc:`dist`.
 
 .. _python:
@@ -142,11 +131,11 @@ Detailed usage of the Distributed Cuckoo API interface is described in
 Python Functions
 ================
 
-In order to keep track of submissions, samples and overall execution, Cuckoo
+In order to keep track of submissions, samples and overall execution, CAPE
 uses a popular Python ORM called `SQLAlchemy`_ that allows you to make the sandbox
-use SQLite, MySQL, PostgreSQL and several other SQL database systems.
+use PostgreSQL, SQLite, MySQL and several other SQL database systems.
 
-Cuckoo is designed to be easily integrated in larger solutions and to be fully
+CAPE is designed to be easily integrated in larger solutions and to be fully
 automated. In order to automate analysis submission we suggest to use the REST
 API interface described in :doc:`api`, but in case you want to write your
 own Python submission script, you can also use the ``add_path()`` and ``add_url()`` functions.
@@ -167,7 +156,7 @@ own Python submission script, you can also use the ``add_path()`` and ``add_url(
     :type priority: integer
     :param custom: custom value to be passed over and possibly reused at processing or reporting
     :type custom: string or None
-    :param machine: Cuckoo identifier of the virtual machine you want to use, if none is specified one will be selected automatically
+    :param machine: CAPE identifier of the virtual machine you want to use, if none is specified one will be selected automatically
     :type machine: string or None
     :param platform: operating system platform you want to run the analysis one (currently only Windows)
     :type platform: string or None
@@ -206,7 +195,7 @@ own Python submission script, you can also use the ``add_path()`` and ``add_url(
     :type priority: integer
     :param custom: custom value to be passed over and possibly reused at processing or reporting
     :type custom: string or None
-    :param machine: Cuckoo identifier of the virtual machine you want to use, if none is specified one will be selected automatically
+    :param machine: CAPE identifier of the virtual machine you want to use, if none is specified one will be selected automatically
     :type machine: string or None
     :param platform: operating system platform you want to run the analysis one (currently only Windows)
     :type platform: string or None

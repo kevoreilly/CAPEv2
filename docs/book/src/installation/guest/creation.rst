@@ -16,15 +16,14 @@ guide, so please refer to the official documentation.
 
     .. note::
 
-        For analysis purposes you are recommended to use Windows XP Service Pack
-        3, but Cuckoo Sandbox also proved to work with Windows 7 with User
-        Access Control disabled.
+        For analysis purposes you are recommended  Windows 7 with User
+        Access Control disabled. CAPE supports Windows 10 too
 
     .. note::
 
-        KVM Users - Be sure to choose a hard drive image format that supports snapshots.
+        KVM Users - Be sure to choose a hard drive image format that supports snapshots(QCOW2).
         See :doc:`saving`
         for more information.
 
-When creating the virtual machine, Cuckoo doesn't require any specific
+When creating the virtual machine, CAPE doesn't require any specific
 configuration. You can choose the options that best fit your needs.

@@ -1,18 +1,18 @@
-.. _cuckoo-clean:
+.. _CAPE-clean:
 
 ===========================
 Clean all Tasks and Samples
 ===========================
 
-Since Cuckoo 1.2 a built-in **--clean** feature has been added which does not
-only have the same functionality as the now-deprecated :ref:`./utils/clean.sh
+Since CAPEv2 a built-in **--clean** feature has been added which does not
+only have the same functionality as the now-deprecated :ref:`./utils/cleaner.py`
 utility <cleanup-utility>`, but also drops all associated information of the
 tasks and samples in the database. If you submit a task after running
 **--clean** then you'll start with ``Task #1`` again.
 
-To clean your setup, run::
+To clean your setup, run `-h` to see available options::
 
-    $ ./cuckoo.py --clean
+    $ ./utils/cleaner.py -h
 
 To sum up, this command does the following:
 
@@ -23,6 +23,6 @@ To sum up, this command does the following:
 * Delete all data in ElasticSearch (if configured and enabled in reporting.conf).
 
 .. warning::
-   If you use this command you will delete permanently all data stored by Cuckoo in all
-   storages: file system, SQL database and MongoDB/ElasticSearch database. Use it only 
+   If you use this command you will delete permanently all data stored by CAPE in all
+   storages: file system, SQL database and MongoDB/ElasticSearch database. Use it only
    if you are sure you would clean up all the data.

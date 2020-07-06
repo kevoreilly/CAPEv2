@@ -2,7 +2,7 @@
 Web interface
 =============
 
-Cuckoo provides a full-fledged web interface in the form of a Django application.
+CAPE provides a full-fledged web interface in the form of a Django application.
 This interface will allow you to submit files, browse through the reports as well
 as search across all the analysis results.
 
@@ -17,8 +17,8 @@ the database modules enabled at a time.
 
 The interface can be configured by editing ``local_settings.py`` under ``web/web/``::
 
-    # If you want to customize your cuckoo path set it here.
-    # CUCKOO_PATH = "/where/cuckoo/is/placed/"
+    # If you want to customize your CAPE path set it here.
+    # CAPE_PATH = "/where/CAPE/is/placed/"
 
     # Maximum upload size.
     MAX_UPLOAD_SIZE = 26214400
@@ -64,15 +64,15 @@ Usage
 In order to start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ python manage.py runserver
+    $ python3 manage.py runserver
 
 If you want to configure the web interface as listening for any IP on a
 specified port, you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ python manage.py runserver 0.0.0.0:PORT
+    $ python3 manage.py runserver 0.0.0.0:PORT
 
-You can serve Cuckoo's web interface using WSGI interface with common web servers:
+You can serve CAPE's web interface using WSGI interface with common web servers:
 Apache, Nginx, Unicorn and so on.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 

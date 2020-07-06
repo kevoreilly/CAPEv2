@@ -7,7 +7,7 @@ In order for the physical machine manager to work, you must have a way
 for physical machines to be returned to a clean state.
 
 Before doing this **make sure you rebooted it softly and that it's currently
-running, with Cuckoo's agent running and with Windows fully booted**.
+running, with CAPE's agent running and with Windows fully booted**.
 
 Now you can proceed saving the machine. The way to do it obviously depends on
 the imaging software you decided to use.
@@ -18,7 +18,7 @@ However, any re-imaging platform can be used (Clonezilla, Deepfreeze, etc.) to
 accomplish this.
 
 If you follow all the below steps properly, your virtual machine should be ready
-to be used by Cuckoo.
+to be used by CAPE.
 
 Fog
 ===
@@ -50,11 +50,11 @@ In order to take an image you will need to navigate to the Task Management page
 and list all hosts (http://<your_fog_server>/fog/management/index.php?node=tasks&sub=listhosts).
 From here you should be able to click the Upload icon (Green up arrow), which
 should instantly add a task to the queue to take an image.
-Now you should reboot your Cuckoo guest image and it should PXE boot into Fog
-and capture the base image from the cuckoo guest.
+Now you should reboot your CAPE guest image and it should PXE boot into Fog
+and capture the base image from the CAPE guest.
 
 After you have successfully taken an image of the guest machine, you can use
-that image as one to deploy to the Cuckoo physical sandbox as needed.
+that image as one to deploy to the CAPE physical sandbox as needed.
 It is recommended to use a scheduled task to accomplish this.
 In order to create a scheduled task to re-image sandboxes, navigate to the Host
 Management page on Fog (http://<your_fog_server>/fog/management/index.php?node=host&sub=list).
@@ -70,11 +70,11 @@ screenshot below, but you may need to tweak these times for your environment.
 Setup using VMWare (Bonus!)
 ===========================
 
-Traditionally Cuckoo requires to be running some sort of virtualization software
-(e.g. VMware, Virtualbox, etc).
+Traditionally CAPE requires to be running some sort of virtualization software
+(e.g. KVM, VMware, Virtualbox, etc).
 The physical machine manager will also work with other virtual machines, so long
 as they are configured to revert to a snapshot on shutdown/reboot, and running
 the agent.py script.
-A use case for this functionality would be to run the cuckoo server and the
+A use case for this functionality would be to run the CAPE server and the
 guest sandboxes each in their own virtual machine on a single host, allowing for
-development/testing of Cuckoo without requiring a dedicated Linux host.
+development/testing of CAPE without requiring a dedicated Linux host.

@@ -20,7 +20,7 @@ obtain additional details on the malware, such as its network behavior.
 Therefore it's a good practice to perform both static and dynamic analysis while
 inspecting a malware, in order to gain a deeper understanding of it.
 
-Simple as it is, Cuckoo is a tool that allows you to perform sandboxed malware
+Simple as it is, CAPE is a tool that allows you to perform sandboxed malware
 analysis.
 
 .. _`Wikipedia`: http://en.wikipedia.org/wiki/Sandbox_%28computer_security%29
@@ -28,7 +28,7 @@ analysis.
 Using a Sandbox
 ===============
 
-Before starting to install, configure and use Cuckoo, you should take some
+Before starting to install, configure and use CAPE, you should take some
 time to think on what you want to achieve with it and how.
 
 Some questions you should ask yourself:

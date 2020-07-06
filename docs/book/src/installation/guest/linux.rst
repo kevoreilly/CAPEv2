@@ -3,8 +3,6 @@ Installing the Linux host
 =========================
 
 First prepare the networking for your machinery platform on the host side.
-If you use VirtualBox with e.g. host-only interfaces and you have a
-``vboxnet0`` interface, you do not need to install additional dependencies.
 
 .. This has not been tested recently:
 
@@ -32,13 +30,13 @@ avoid have to start as root, e.g.::
 with your user. You also have script in utils/linux_mktaps.sh**
 
 
-Preparing x32/x64 Ubuntu 18.04 Linux guests
+Preparing x32/x64 Ubuntu 17.10 Linux guests
 ===========================================
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 
     $ sudo crontab -e
-    @reboot python /path/to/agent.py
+    @reboot python3 /path/to/agent.py
 
 Install dependencies inside of the virtual machine::
 
@@ -85,10 +83,10 @@ Output should be something like as follows::
 
     staprun:insert_module:x Module stap_ inserted from file path_to_stap_.ko
 
-The ``stap_.ko`` file should be placed in /root/.cuckoo::
+The ``stap_.ko`` file should be placed in /root/.cape::
 
-    $ sudo mkdir /root/.cuckoo
-    $ sudo mv stap_.ko /root/.cuckoo/
+    $ sudo mkdir /root/.cape
+    $ sudo mv stap_.ko /root/.cape/
 
 Disable the firewall inside of the VM, if it exists::
 

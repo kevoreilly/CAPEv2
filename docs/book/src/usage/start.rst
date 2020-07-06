@@ -1,50 +1,40 @@
 ===============
-Starting Cuckoo
+Starting CAPE
 ===============
 
-To start Cuckoo use the command::
+To start CAPE use the command::
 
-    $ python cuckoo.py
+    $ python3 cuckoo.py
 
-Make sure to run it inside Cuckoo's root directory.
+Make sure to run it inside CAPE's root directory.
 
 You will get an output similar to this::
 
-      eeee e   e eeee e   e  eeeee eeeee
-      8  8 8   8 8  8 8   8  8  88 8  88
-      8e   8e  8 8e   8eee8e 8   8 8   8
-      88   88  8 88   88   8 8   8 8   8
-      88e8 88ee8 88e8 88   8 8eee8 8eee8
+    Cuckoo Sandbox 2.1-CAPE
+    www.cuckoosandbox.org
+    Copyright (c) 2010-2015
 
-     Cuckoo Sandbox 1.2
-     www.cuckoosandbox.org
-     Copyright (c) 2010-2015
+    CAPE: Config and Payload Extraction
+    github.com/kevoreilly/CAPEv2
 
-     Checking for updates...
-     Good! You have the latest version available.
+    2020-07-06 10:24:38,490 [lib.cuckoo.core.scheduler] INFO: Using "kvm" machine manager with max_analysis_count=0, max_machines_count=10, and max_vmstartup_count=10
+    2020-07-06 10:24:38,552 [lib.cuckoo.core.scheduler] INFO: Loaded 100 machine/s
+    2020-07-06 10:24:38,571 [lib.cuckoo.core.scheduler] INFO: Waiting for analysis tasks.
 
-    2013-04-07 15:57:17,459 [lib.cuckoo.core.scheduler] INFO: Using "virtualbox" machine manager
-    2013-04-07 15:57:17,861 [lib.cuckoo.core.scheduler] INFO: Loaded 1 machine/s
-    2013-04-07 15:57:17,862 [lib.cuckoo.core.scheduler] INFO: Waiting for analysis tasks...
-
-Now Cuckoo is ready to run and it's waiting for submissions.
+Now CAPE is ready to run and it's waiting for submissions.
 
 ``cuckoo.py`` accepts some command line options as shown by the help::
 
-    usage: cuckoo.py [-h] [-q] [-d] [-v] [-a] [-t] [-m MAX_ANALYSIS_COUNT]
-                     [--clean]
+        usage: cuckoo.py [-h] [-q] [-d] [-v] [-a] [-t] [-m MAX_ANALYSIS_COUNT]
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -q, --quiet           Display only error messages
-      -d, --debug           Display debug messages
-      -v, --version         show program's version number and exit
-      -a, --artwork         Show artwork
-      -t, --test            Test startup
-      -m MAX_ANALYSIS_COUNT, --max-analysis-count MAX_ANALYSIS_COUNT
-                            Maximum number of analyses
-      --clean               Remove all tasks and samples and their associated data
+        optional arguments:
+        -h, --help            show this help message and exit
+        -q, --quiet           Display only error messages
+        -d, --debug           Display debug messages
+        -v, --version         show program's version number and exit
+        -a, --artwork         Show artwork
+        -t, --test            Test startup
+        -m MAX_ANALYSIS_COUNT, --max-analysis-count MAX_ANALYSIS_COUNT
+                                Maximum number of analyses
 
-
-Most importantly ``--debug`` and ``--quiet`` respectively increase and decrease the logging
-verbosity.
+Most importantly ``--debug`` and ``--quiet`` respectively increase and decrease the logging verbosity.

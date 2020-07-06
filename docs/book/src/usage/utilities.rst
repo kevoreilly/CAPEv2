@@ -2,16 +2,15 @@
 Utilities
 =========
 
-Cuckoo comes with a set of pre-built utilities to automate several common
-tasks.
-You can find them under the "utils" folder.
+CAPE comes with a set of pre-built utilities to automate several common
+tasks. You can find them under the "utils" folder. There more utilities than documented
 
 .. _cleanup-utility:
 
 Cleanup utility
 ===============
 
-Use :ref:`./cuckoo.py --clean` instead which *also* takes care of cleaning
+Use :ref:`./utils/cleaner.py -h` instead which *also* takes care of cleaning
 sample and task information from MySQL and PostgreSQL databases. This utility
 will also delete all data from the configured MongoDB or ElasticSearch
 databases.
@@ -24,7 +23,7 @@ Submits samples to analysis. This tool is already described in :doc:`submit`.
 Web Utility
 ===========
 
-Cuckoo's web interface. This tool is already described in :doc:`submit`.
+CAPE's web interface. This tool is already described in :doc:`submit`.
 
 Processing Utility
 ==================
@@ -32,10 +31,10 @@ Processing Utility
 Run the results processing engine and optionally the reporting engine (run
 all reports) on an already available analysis folder, in order to not re-run
 the analysis if you want to re-generate the reports for it.
-This is used mainly in debugging and developing Cuckoo.
+This is used mainly in debugging and developing CAPE.
 For example if you want run again the report engine for analysis number 1::
 
-    $ ./utils/process.py 1
+    $ ./utils/process.py -r 1
 
 If you want to re-generate the reports::
 
@@ -45,32 +44,40 @@ Following are the usage options::
 
     $ ./utils/process.py -h
 
-    usage: process.py [-h] [-d] [-r] [-p PARALLEL] id
+    usage: process.py [-h] [-c] [-d] [-r] [-s] [-p PARALLEL] [-fp] [-mc MAXTASKSPERCHILD] [-md] [-pt PROCESSING_TIMEOUT] id
 
     positional arguments:
-      id                    ID of the analysis to process (auto for continuous
-                            processing of unprocessed tasks).
+      id                    ID of the analysis to process (auto for continuous processing of unprocessed tasks).
 
     optional arguments:
       -h, --help            show this help message and exit
+      -c, --caperesubmit    Allow CAPE resubmit processing.
       -d, --debug           Display debug messages
       -r, --report          Re-generate report
+      -s, --signatures      Re-execute signatures on the report
       -p PARALLEL, --parallel PARALLEL
                             Number of parallel threads to use (auto mode only).
+      -fp, --failed-processing
+                            reprocess failed processing
+      -mc MAXTASKSPERCHILD, --maxtasksperchild MAXTASKSPERCHILD
+                            Max children tasks per worker
+      -md, --memory-debugging
+                            Enable logging garbage collection related info
+      -pt PROCESSING_TIMEOUT, --processing-timeout PROCESSING_TIMEOUT
+                            Max amount of time spent in processing before we fail a task
 
 As best practice we suggest to adopt the following configuration if you are
-running Cuckoo with many virtual machines:
+running CAPE with many virtual machines:
 
     * Run a stand alone process.py in auto mode (you choose the number of parallel threads)
-    * Disable Cuckoo reporting in cuckoo.conf (set process_results to off)
 
 This could increase the performance of your system because the reporting is not
-yet demanded to Cuckoo.
+yet demanded to CAPE.
 
 Community Download Utility
 ==========================
 
-This utility downloads signatures from `Cuckoo Community Repository`_ and installs
+This utility downloads signatures from `CAPE Community Repository`_ and installs
 specific additional modules in your local setup.
 Following are the usage options::
 
@@ -95,12 +102,12 @@ Following are the usage options::
 
   $ ./utils/community.py --signatures --force
 
-.. _`Cuckoo Community Repository`: https://github.com/cuckoobox/community
+.. _`CAPE Community Repository`: https://github.com/kevoreilly/community/
 
 Database migration utility
 ==========================
 
-This utility is developed to migrate your data between Cuckoo's release.
+This utility is developed to migrate your data between CAPE's release.
 It's developed on top of the `Alembic`_ framework and it should provide data
 migration for both SQL database and Mongo database.
 This tool is already described in :doc:`../installation/upgrade`.
@@ -131,7 +138,7 @@ Machine utility
 ===============
 
 The machine.py utility is designed to help you automatize the configuration of
-virtual machines in Cuckoo.
+virtual machines in CAPE.
 It takes a list of machine details as arguments and write them in the specified
 configuration file of the machinery module enabled in *cuckoo.conf*.
 Following are the available options::

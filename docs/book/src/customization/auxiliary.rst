@@ -25,5 +25,5 @@ The function ``start()`` will be executed before starting the analysis machine a
 executing the submitted malicious file, while the ``stop()`` function will be launched at the
 very end of the analysis process, before launching the processing and reporting procedures.
 
-For example, an auxiliary module provided by default in Cuckoo is called *sniffer.py* and
+For example, an auxiliary module provided by default in CAPE is called *sniffer.py* and
 takes care of executing **tcpdump** in order to dump the generated network traffic.

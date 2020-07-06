@@ -2,7 +2,7 @@
 Signatures
 ==========
 
-With Cuckoo you're able to create some customized signatures that you can run against
+With CAPE you're able to create some customized signatures that you can run against
 the analysis results in order to identify some predefined pattern that might
 represent a particular malicious behavior or an indicator you're interested in.
 
@@ -10,14 +10,14 @@ These signatures are very useful to give a context to the analyses: both because
 simplify the interpretation of the results as well as for automatically identifying
 malware samples of interest.
 
-Some examples of what you can use Cuckoo's signatures for:
+Some examples of what you can use CAPE's signatures for:
     * Identify a particular malware family you're interested in by isolating some unique behaviors (like file names or mutexes).
     * Spot interesting modifications the malware performs on the system, such as installation of device drivers.
     * Identify particular malware categories, such as Banking Trojans or Ransomware by isolating typical actions commonly performed by those.
 
-You can find signatures created by us and by other Cuckoo users on our `Community`_ repository.
+You can find signatures created by us and by other CAPE users on our `Community`_ repository.
 
-.. _`Community`: https://github.com/cuckoobox/community
+.. _`Community`: https://github.com/kevoreilly/community
 
 Getting started
 ===============
@@ -39,7 +39,7 @@ The following is a basic example signature:
             description = "Creates a Windows executable on the filesystem"
             severity = 2
             categories = ["generic"]
-            authors = ["Cuckoo Developers"]
+            authors = ["CAPE Developers"]
             minimum = "0.5"
 
             def run(self):
@@ -48,7 +48,7 @@ The following is a basic example signature:
 
 As you can see the structure is really simple and consistent with the other
 modules. We're going to get into details later, but as you can see at line **12**
-from version 0.5 Cuckoo provides some helper functions that make the process of
+from version 0.5 CAPE provides some helper functions that make the process of
 creating signatures much easier.
 
 In this example we just walk through all the accessed files in the summary and check
@@ -120,8 +120,8 @@ some initial attributes. These are the ones you can currently set:
     * ``references``: a list of references (URLs) to give context to the signature.
     * ``enable``: if set to False the signature will be skipped.
     * ``alert``: if set to True can be used to specify that the signature should be reported (perhaps by a dedicated reporting module).
-    * ``minimum``: the minimum required version of Cuckoo to successfully run this signature.
-    * ``maximum``: the maximum required version of Cuckoo to successfully run this signature.
+    * ``minimum``: the minimum required version of CAPE to successfully run this signature.
+    * ``maximum``: the maximum required version of CAPE to successfully run this signature.
 
 In our example, we would create the following skeleton:
 
@@ -137,7 +137,7 @@ In our example, we would create the following skeleton:
             categories = ["trojan"] # We add a category
             families = ["badbadmalware"] # We add the name of our fictional malware family
             authors = ["Me"] # We specify the author
-            minimum = "0.5" # We specify that in order to run the signature, the user will need at least Cuckoo 0.5
+            minimum = "0.5" # We specify that in order to run the signature, the user will need at least CAPE 0.5
 
         def run(self):
             return
@@ -194,12 +194,12 @@ you could translate the previous signature in the following way:
 Evented Signatures
 ==================
 
-Since version 1.0, Cuckoo provides a way to write more high-performance signatures.
+Since version 1.0, CAPE provides a way to write more high-performance signatures.
 In the past every signature was required to loop through the whole collection of API calls
 collected during the analysis. This was necessarily causing some performance issues when such
 collection would be of a large size.
 
-Cuckoo now supports both the old model as well as what we call "evented signatures".
+CAPE now supports both the old model as well as what we call "evented signatures".
 The main difference is that with this new format, all the signatures will be executed in parallel
 and a callback function called ``on_call()`` will be invoked for each signature within one
 single loop through the collection of API calls.
@@ -216,7 +216,7 @@ An example signature using this technique is the following:
             description = "Uses GetSystemMetrics"
             severity = 2
             categories = ["generic"]
-            authors = ["Cuckoo Developers"]
+            authors = ["CAPE Developers"]
             minimum = "1.0"
 
             # Evented signatures need to implement the "on_call" method
@@ -259,7 +259,7 @@ An example signature using this technique is the following:
 The inline comments are already self-explanatory.
 You can find many more example of both evented and traditional signatures in our `community repository`_.
 
-.. _`community repository`: https://github.com/cuckoobox/community
+.. _`community repository`:https://github.com/kevoreilly/community
 
 Matches
 =======
@@ -422,7 +422,7 @@ Following is a list of available methods.
     .. code-block:: python
         :linenos:
 
-        self.check_argument(pattern=".*cuckoo.*", category="filesystem", regex=True)
+        self.check_argument(pattern=".*CAPE.*", category="filesystem", regex=True)
 
 .. function:: Signature.check_ip(pattern[, regex=False])
 
@@ -456,7 +456,7 @@ Following is a list of available methods.
     .. code-block:: python
         :linenos:
 
-        self.check_domain(pattern=".*cuckoosandbox.org$", regex=True)
+        self.check_domain(pattern=".*capesandbox.com$", regex=True)
 
 .. function:: Signature.check_url(pattern[, regex=False])
 

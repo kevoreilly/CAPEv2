@@ -2,10 +2,10 @@
 .. _index:
 
 ===================
-Cuckoo Sandbox Book
+CAPE Sandbox Book
 ===================
 
-Cuckoo Sandbox is an *Open Source* software for automating analysis of suspicious files.
+CAPE Sandbox is an *Open Source* software for automating analysis of suspicious files.
 To do so it makes use of custom components that monitor the behavior of the malicious
 processes while running in an isolated environment.
 

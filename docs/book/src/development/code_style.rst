@@ -7,7 +7,7 @@ style rules describe in this chapter. Having a clean and structured code is
 very important for our development lifecycle, and not compliant code will
 most likely be rejected.
 
-Essentially Cuckoo's code style is based on `PEP 8 - Style Guide for Python Code
+Essentially CAPE's code style is based on `PEP 8 - Style Guide for Python Code
 <http://www.python.org/dev/peps/pep-0008/>`_ and `PEP 257 -- Docstring
 Conventions <http://www.python.org/dev/peps/pep-0257/>`_.
 
@@ -19,8 +19,8 @@ Copyright header
 
 All source code files must start with the following copyright header::
 
-    # Copyright (C) 2010-2015 Cuckoo Foundation.
-    # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
+    # Copyright (C) 2010-2015  X.
+    # This file is part of CAPE Sandbox - https://capesandbox.com
     # See the file 'docs/LICENSE' for copying permission.
 
 Indentation
@@ -89,7 +89,7 @@ Printing and Logging
 --------------------
 
 We discourage the use of ``print()``: if you need to log an event please use
-Python's ``logging`` which is already initialized by Cuckoo.
+Python's ``logging`` which is already initialized by CAPE.
 
 In your module add::
 
@@ -121,7 +121,7 @@ Exceptions
 Custom exceptions must be defined in the *lib/cuckoo/common/exceptions.py* file
 or in the local module if the exception should not be global.
 
-The following is the current Cuckoo exceptions chain::
+The following is the current CAPE exceptions chain::
 
     .-- CuckooCriticalError
     |   |-- CuckooStartupError
@@ -135,7 +135,7 @@ The following is the current Cuckoo exceptions chain::
     `-- CuckooGuestError
 
 Beware that the use of ``CuckooCriticalError`` and its child exceptions will
-cause Cuckoo to terminate.
+cause CAPE to terminate.
 
 Naming
 ------
@@ -177,6 +177,6 @@ bugs.
 When possible, all code must be committed with proper unit tests. Particular
 attention must be placed when fixing bugs: it's good practice to write unit
 tests to reproduce the bug.
-All unit tests and fixtures are placed in the tests folder in the Cuckoo
+All unit tests and fixtures are placed in the tests folder in the CAPE
 root.
 We adopted `Nose <http://nose.readthedocs.org/en/latest/>`_ as unit testing framework.

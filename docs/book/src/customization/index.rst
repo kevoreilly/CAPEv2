@@ -3,8 +3,8 @@
 Customization
 =============
 
-This chapter explains how to customize Cuckoo.
-Cuckoo is written in a modular architecture built to be as customizable as it can,
+This chapter explains how to customize CAPE.
+CAPE is written in a modular architecture built to be as customizable as it can,
 to fit the needs of all users.
 
 .. toctree::

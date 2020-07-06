@@ -2,14 +2,14 @@
 License
 =======
 
-Cuckoo Sandbox license is shipped with Cuckoo and contained in the "LICENSE"
+Cuckoo/CAPE Sandbox license is shipped with Cuckoo/CAPE and contained in the "LICENSE"
 file inside the "docs" folder.
 
 ==========
 Disclaimer
 ==========
 
-Cuckoo is distributed as it is, in the hope that it will be useful, but without
+Cuckoo/CAPE is distributed as it is, in the hope that it will be useful, but without
 any warranty neither the implied merchantability or fitness for a particular
 purpose.
 

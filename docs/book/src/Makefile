@@ -72,7 +72,7 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/CuckooSandbox.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/CAPESandbox.qhcp"
 	@echo "To view the help file:"
 	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/CuckooSandbox.qhc"
 
@@ -81,8 +81,8 @@ devhelp:
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/CuckooSandbox"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/CuckooSandbox"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/CAPESandbox"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/CAPESandbox"
 	@echo "# devhelp"
 
 epub:

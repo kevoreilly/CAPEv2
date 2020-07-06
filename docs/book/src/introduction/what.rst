@@ -1,8 +1,8 @@
 ===============
-What is Cuckoo?
+What is CAPE?
 ===============
 
-Cuckoo is an open source automated malware analysis system.
+CAPE is an open source automated malware analysis system.
 
 It's used to automatically run and analyze files and collect comprehensive
 analysis results that outline what the malware does while running inside an
@@ -79,10 +79,21 @@ On 7th April 2014, Cuckoo Sandbox 1.1 is released.
 .. _`Rapid7`: http://www.rapid7.com
 .. _`Cuckoo Foundation`: http://cuckoofoundation.org/
 
+On 30th of November 2015 Cuckoo-modified was moved to Brad's repository, that got huge improvements to monitor and other parts of core system
+.. _ `Cuckoo-modified`: https://github.com/spender-sandbox/cuckoo-modified
+
+On 16th September 2016 CAPE(Configuration And Payload Extraction) was born
+.. _ `CAPE CTXIS`: https://github.com/ctxis/CAPE
+.. _ `CAPE upstream`: https://github.com/kevoreilly/CAPE
+
+On 20th October 2019 CAPEv2 Python3
+.. _ `CAPEv2 upstream`: https://github.com/kevoreilly/CAPEv2
+
+
 Use Cases
 =========
 
-Cuckoo is designed to be used both as a standalone application as well as to be
+CAPE is designed to be used both as a standalone application as well as to be
 integrated in larger frameworks, thanks to its extremely modular design.
 
 It can be used to analyze:
@@ -101,48 +112,44 @@ It can be used to analyze:
     * *Almost anything else*
 
 Thanks to its modularity and powerful scripting capabilities, there's not limit
-to what you can achieve with Cuckoo.
+to what you can achieve with CAPE.
 
-For more information on customizing Cuckoo, see the :doc:`../customization/index`
+For more information on customizing CAPE, see the :doc:`../customization/index`
 chapter.
 
 Architecture
 ============
 
-Cuckoo Sandbox consists of a central management software which handles sample
+CAPE Sandbox consists of a central management software which handles sample
 execution and analysis.
 
 Each analysis is launched in a fresh and isolated virtual machine.
-Cuckoo's infrastructure is composed by an Host machine (the management
+CAPE's infrastructure is composed by an Host machine (the management
 software) and a number of Guest machines (virtual machines for analysis).
 
 The Host runs the core component of the sandbox that manages the whole
 analysis process, while the Guests are the isolated environments
 where the malware samples get actually safely executed and analyzed.
 
-The following picture explains Cuckoo's main architecture:
+The following picture explains CAPE's main architecture:
 
     .. image:: ../_images/schemas/architecture-main.png
         :align: center
 
-Although the recommended setup is *GNU/Linux* (Ubuntu preferably) as host and
-*Windows XP Service Pack 3* as guest, Cuckoo has proved to work smoothly also on
-*Mac OS X* as host and *Windows Vista* and *Windows 7* as guests.
+Although the recommended setup is *GNU/Linux* (Ubuntu LTS preferably) as host and
+*Windows 7* as guest.
 
-Obtaining Cuckoo
+Obtaining CAPE
 ================
 
-Cuckoo can be downloaded from the `official website`_, where the stable and
+CAPE can be downloaded from the `official git repository`_, where the stable and
 packaged releases are distributed, or can be cloned from our `official git
 repository`_.
 
     .. warning::
 
-        While being more updated, including new features and bugfixes, the
-        version available in the git repository should be considered an
-        *under development* stage. Therefore its stability is not guaranteed
-        and it most likely lacks updated documentation.
+        Tt most likely lacks updated documentation will happens, for that we try to keep `changelog`_.
 
-.. _`official website`: http://www.cuckoosandbox.org
-.. _`official git repository`: http://github.com/cuckoobox/cuckoo
+.. _`official git repository`: https://github.com/kevoreilly/CAPEv2
+.. _`changelog`: https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md
 

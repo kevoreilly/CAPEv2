@@ -15,10 +15,9 @@ guide, so please refer to the official documentation.
         chapter.
 
     .. note::
-        For analysis purposes you are recommended to use Windows XP Service Pack
-        3, but Cuckoo Sandbox also proved to work with Windows 7 with User
+        For analysis purposes you are recommended to use Windows 7 with User
         Access Control disabled.
 
 
-When creating the physical machine, Cuckoo doesn't require any specific
+When creating the physical machine, CAPE doesn't require any specific
 configuration. You can choose the options that best fit your needs.

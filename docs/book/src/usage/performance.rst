@@ -2,7 +2,7 @@
 Performance
 ===========
 
-There are several ways to tune the Cuckoo performance
+There are several ways to tune the CAPE performance
 
 Processing
 ==========

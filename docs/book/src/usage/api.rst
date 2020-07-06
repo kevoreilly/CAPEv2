@@ -1,8 +1,16 @@
-========
-REST API
-========
+===========================
+Current REST API depricated
+===========================
 
-As mentioned in :doc:`submit`, Cuckoo provides a simple and lightweight REST
+To see current REST api see /api/ you will find all endpoints and details how to do requests
+
+.. _`capesandbox api example`: https://capesandbox.com/api/
+
+===================
+REST API depricated
+===================
+
+As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
 API server implemented in `Bottle.py`_, therefore in order to make the service
 work you'll need it installed. Bottle release must be 0.10 or above.
 
@@ -78,24 +86,24 @@ Following is a list of currently available resources and a brief description of 
         **Example request**::
 
             curl -F file=@/path/to/file http://localhost:8090/tasks/create/file
-            
+
         **Example request using Python**::
 
             import requests
             import json
-            
+
             REST_URL = "http://localhost:8090/tasks/create/file"
             SAMPLE_FILE = "/path/to/malwr.exe"
 
             with open(SAMPLE_FILE, "rb") as sample:
                 multipart_file = {"file": ("temp_file_name", sample)}
                 request = requests.post(REST_URL, files=multipart_file)
-            
+
             # Add your code to error checking for request.status_code.
-            
+
             json_decoder = json.JSONDecoder()
             task_id = json_decoder.decode(request.text)["task_id"]
-            
+
             # Add your code for error checking if task_id is None.
 
         **Example response**::
@@ -133,25 +141,25 @@ Following is a list of currently available resources and a brief description of 
         **Example request**::
 
             curl -F url="http://www.malicious.site" http://localhost:8090/tasks/create/url
-        
+
         **Example request using Python**::
 
             import requests
             import json
-            
+
             REST_URL = "http://localhost:8090/tasks/create/url"
             SAMPLE_URL = "http://example.org/malwr.exe"
-            
+
             multipart_url = {"url": ("", SAMPLE_URL)}
             request = requests.post(REST_URL, files=multipart_url)
-            
+
             # Add your code to error checking for request.status_code.
-            
+
             json_decoder = json.JSONDecoder()
             task_id = json_decoder.decode(request.text)["task_id"]
-            
+
             # Add your code toerror checking if task_id is None.
-            
+
         **Example response**::
 
             {

@@ -2,34 +2,34 @@
 Requirements
 ============
 
-In order to make Cuckoo run properly in your physical Windows system, you
+In order to make CAPE run properly in your physical Windows system, you
 will have to install some required software and libraries.
 
 Install Python
 ==============
 
-Python is a strict requirement for the Cuckoo guest component (*analyzer*) in
+Python is a strict requirement for the CAPE guest component (*analyzer*) in
 order to run properly.
 
 You can download the proper Windows installer from the `official website`_.
-Also in this case Python 2.7 is preferred.
+Also in this case Python > 3.6 is preferred.
 
 Some Python libraries are optional and provide some additional features to
-Cuckoo guest component. They include:
+CAPE guest component. They include:
 
     * `Python Image Library`_: it's used for taking screenshots of the Windows desktop during the analysis.
 
-They are not strictly required by Cuckoo to work properly, but you are encouraged
+They are not strictly required by CAPE to work properly, but you are encouraged
 to install them if you want to have access to all available features. Make sure
 to download and install the proper packages according to your Python version.
 
 .. _`official website`: http://www.python.org/getit/
-.. _`Python Image Library`: http://www.pythonware.com/products/pil/
+.. _`Python Image Library`: https://python-pillow.org
 
 Additional Software
 ===================
 
-At this point you should have installed everything needed by Cuckoo to run
+At this point you should have installed everything needed by CAPE to run
 properly.
 
 Depending on what kind of files you want to analyze and what kind of sandboxed
@@ -46,7 +46,7 @@ Additional Host Requirements
 ============================
 The physical machine manager uses RPC requests to reboot physical machines.
   The `net` command is required for this to be accomplished, and is available
-  from the samba-common-bin package.  
+  from the samba-common-bin package.
 
 On Debian/Ubuntu:
 
@@ -59,3 +59,7 @@ the physical machines.  However, any re-imaging platform can be used
 (Clonezilla, Deepfreeze, etc) to accomplish this.
 
 .. _`http://www.fogproject.org/`: http://www.fogproject.org/
+
+Some extras by doomedraven:
+.. _`choco.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat
+.. _`disablewin7noise.bat`: https://github.com/doomedraven/Tools/blob/master/Windows/disable_win7noise.bat

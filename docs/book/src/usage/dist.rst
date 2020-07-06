@@ -1,5 +1,5 @@
 ==================
-Distributed Cuckoo
+Distributed CAPE
 ==================
 
 This works under the main server web interface/api, so everything is transparent for end user, even if they were analyzer on another server(s)
@@ -57,9 +57,9 @@ Following are all RESTful resources. Also make sure to check out the
 +-----------------------------------+---------------------------------------------------------------+
 | Resource                          | Description                                                   |
 +===================================+===============================================================+
-| ``GET`` :ref:`node_root_get`      | Get a list of all enabled Cuckoo nodes.                       |
+| ``GET`` :ref:`node_root_get`      | Get a list of all enabled CAPE nodes  .                       |
 +-----------------------------------+---------------------------------------------------------------+
-| ``POST`` :ref:`node_root_post`    | Register a new Cuckoo node.                                   |
+| ``POST`` :ref:`node_root_post`    | Register a new CAPE node.                                     |
 +-----------------------------------+---------------------------------------------------------------+
 | ``GET`` :ref:`node_get`           | Get basic information about a node.                           |
 +-----------------------------------+---------------------------------------------------------------+
@@ -422,7 +422,7 @@ This execute on all nodes, master included:
 This commands should be executed only on master::
 
     # create config server instance with the "cuckoo_config" replica set
-    # Preferly to execute few config servers on different shards
+    # Preferly to execute few config servers on different shards
     /usr/bin/mongod --configsvr --replSet cuckoo_config --bind_ip_all
 
     # initialize the "cuckoo_config" replica set
@@ -458,7 +458,7 @@ Add clients, execute on master mongo server::
     })
 
     # Check which node is primary and change the prior if is incorrect
-    # https://docs.mongodb.com/manual/tutorial/force-member-to-be-primary/
+    # https://docs.mongodb.com/manual/tutorial/force-member-to-be-primary/
     cfg = rs.conf()
     cfg.members[0].priority = 0.5
     cfg.members[1].priority = 0.5

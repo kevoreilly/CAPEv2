@@ -6,8 +6,10 @@ from __future__ import absolute_import
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
 
+
 class Package(object):
     """Base abstract analysis package."""
+
     PATHS = []
 
     def __init__(self, options={}):
@@ -39,8 +41,7 @@ class Package(object):
         """
         p = Process()
         if not p.execute(cmd):
-            raise CuckooPackageError("Unable to execute the initial process, "
-                                     "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
 
         return p.pid
 
@@ -66,9 +67,9 @@ class Package(object):
     def get_pids(self):
         return []
 
+
 class Auxiliary(object):
     priority = 0
-
 
     def __init__(self, options={}, analyzer=None):
         self.options = options

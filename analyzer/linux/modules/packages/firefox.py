@@ -6,6 +6,7 @@
 from os import system
 from lib.core.packages import Package
 
+
 class Ff(Package):
     """ Firefox analysys package. """
 

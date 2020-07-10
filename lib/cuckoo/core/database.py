@@ -27,10 +27,10 @@ try:
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.exc import SQLAlchemyError, IntegrityError
     from sqlalchemy.orm import sessionmaker, relationship, joinedload, backref
+
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy "
-                                "(install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy " "(install with `pip3 install sqlalchemy`)")
 
 log = logging.getLogger(__name__)
 
@@ -41,8 +41,8 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource=repconf.mongodb.db
-    )[repconf.mongodb.db]
+    authSource=repconf.mongodb.db,
+)[repconf.mongodb.db]
 
 SCHEMA_VERSION = "2996ec5ea15c"
 TASK_PENDING = "pending"
@@ -58,21 +58,18 @@ TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
-    "machines_tags", Base.metadata,
-    Column("machine_id", Integer, ForeignKey("machines.id")),
-    Column("tag_id", Integer, ForeignKey("tags.id"))
+    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
 )
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(
-    "tasks_tags", Base.metadata,
-    Column("task_id", Integer, ForeignKey("tasks.id")),
-    Column("tag_id", Integer, ForeignKey("tags.id"))
+    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
 )
 
 
 class Machine(Base):
     """Configured virtual machines to be used as guests."""
+
     __tablename__ = "machines"
 
     id = Column(Integer(), primary_key=True)
@@ -115,8 +112,7 @@ class Machine(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, ip, platform, interface, snapshot,
-                 resultserver_ip, resultserver_port):
+    def __init__(self, name, label, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
         self.name = name
         self.label = label
         self.ip = ip
@@ -126,8 +122,10 @@ class Machine(Base):
         self.resultserver_ip = resultserver_ip
         self.resultserver_port = resultserver_port
 
+
 class Tag(Base):
     """Tag describing anything you want."""
+
     __tablename__ = "tags"
 
     id = Column(Integer(), primary_key=True)
@@ -142,6 +140,7 @@ class Tag(Base):
 
 class Guest(Base):
     """Tracks guest run."""
+
     __tablename__ = "guests"
 
     id = Column(Integer(), primary_key=True)
@@ -149,14 +148,9 @@ class Guest(Base):
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
     manager = Column(String(255), nullable=False)
-    started_on = Column(DateTime(timezone=False),
-                        default=datetime.now,
-                        nullable=False)
+    started_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     shutdown_on = Column(DateTime(timezone=False), nullable=True)
-    task_id = Column(Integer,
-                     ForeignKey("tasks.id"),
-                     nullable=False,
-                     unique=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, unique=True)
 
     def __repr__(self):
         return "<Guest('{0}','{1}')>".format(self.id, self.name)
@@ -188,6 +182,7 @@ class Guest(Base):
 
 class Sample(Base):
     """Submitted files details."""
+
     __tablename__ = "samples"
 
     id = Column(Integer(), primary_key=True)
@@ -201,7 +196,11 @@ class Sample(Base):
     ssdeep = Column(String(255), nullable=True)
     parent = Column(Integer(), nullable=True)
     source_url = Column(String(2000), nullable=True)
-    __table_args__ = Index("md5_index", "md5"), Index("sha1_index", "sha1"), Index("sha256_index", "sha256", unique=True),
+    __table_args__ = (
+        Index("md5_index", "md5"),
+        Index("sha1_index", "sha1"),
+        Index("sha256_index", "sha256", unique=True),
+    )
 
     def __repr__(self):
         return "<Sample('{0}','{1}')>".format(self.id, self.sha256)
@@ -240,6 +239,7 @@ class Sample(Base):
 
 class Error(Base):
     """Analysis errors."""
+
     __tablename__ = "errors"
 
     id = Column(Integer(), primary_key=True)
@@ -271,6 +271,7 @@ class Error(Base):
 
 class Task(Base):
     """Analysis task queue."""
+
     __tablename__ = "tasks"
 
     id = Column(Integer(), primary_key=True)
@@ -286,19 +287,26 @@ class Task(Base):
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
     enforce_timeout = Column(Boolean, nullable=False, default=False)
-    clock = Column(DateTime(timezone=False),
-                   default=datetime.now(),
-                   nullable=False)
-    added_on = Column(DateTime(timezone=False),
-                      default=datetime.now,
-                      nullable=False)
+    clock = Column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    added_on = Column(DateTime(timezone=False), default=datetime.now, nullable=False)
     started_on = Column(DateTime(timezone=False), nullable=True)
     completed_on = Column(DateTime(timezone=False), nullable=True)
-    status = Column(Enum(TASK_PENDING, TASK_RUNNING, TASK_COMPLETED, TASK_DISTRIBUTED,
-                         TASK_REPORTED, TASK_RECOVERED, TASK_FAILED_ANALYSIS,
-                         TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, name="status_type"),
-                    server_default=TASK_PENDING,
-                    nullable=False)
+    status = Column(
+        Enum(
+            TASK_PENDING,
+            TASK_RUNNING,
+            TASK_COMPLETED,
+            TASK_DISTRIBUTED,
+            TASK_REPORTED,
+            TASK_RECOVERED,
+            TASK_FAILED_ANALYSIS,
+            TASK_FAILED_PROCESSING,
+            TASK_FAILED_REPORTING,
+            name="status_type",
+        ),
+        server_default=TASK_PENDING,
+        nullable=False,
+    )
 
     # Statistics data to identify broken Cuckoos servers or VMs
     # Also for doing profiling to improve speed
@@ -336,7 +344,12 @@ class Task(Base):
     parent_id = Column(Integer(), nullable=True)
     tlp = Column(String(255), nullable=True)
 
-    __table_args__ = Index("category_index", "category"), Index("status_index", "status"), Index("added_on_index", "added_on"), Index("completed_on_index", "completed_on"),
+    __table_args__ = (
+        Index("category_index", "category"),
+        Index("status_index", "status"),
+        Index("added_on_index", "added_on"),
+        Index("completed_on_index", "completed_on"),
+    )
 
     def to_dict(self):
         """Converts object to dict.
@@ -369,6 +382,7 @@ class Task(Base):
 
 class AlembicVersion(Base):
     """Table used to pinpoint actual database schema release."""
+
     __tablename__ = "alembic_version"
 
     version_num = Column(String(32), nullable=False, primary_key=True)
@@ -419,7 +433,7 @@ class Database(object, metaclass=Singleton):
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)
-        #load vms tags
+        # load vms tags
         self.vms_tags = dict()
         self.tasks_filters = dict()
         session = self.Session()
@@ -429,7 +443,7 @@ class Database(object, metaclass=Singleton):
             self.tasks_filters[machine.name] = or_(*[Task.tags.any(name=tag.name) for tag in machine.tags])
         session.close()
 
-        @event.listens_for(self.Session, 'after_flush')
+        @event.listens_for(self.Session, "after_flush")
         def delete_tag_orphans(session, ctx):
             session.query(Tag).filter(~Tag.tasks.any()).filter(~Tag.machines.any()).delete(synchronize_session=False)
 
@@ -454,7 +468,8 @@ class Database(object, metaclass=Singleton):
                 raise CuckooDatabaseError(
                     "DB schema version mismatch: found {0}, expected {1}. "
                     "Try to apply all migrations (cd utils/db_migration/ && "
-                    "alembic upgrade head).".format(last.version_num, SCHEMA_VERSION))
+                    "alembic upgrade head).".format(last.version_num, SCHEMA_VERSION)
+                )
 
     def __del__(self):
         """Disconnects pool."""
@@ -480,9 +495,7 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError("Missing database driver, unable to "
-                                        "import %s (install with `pip "
-                                        "install %s`)" % (lib, lib))
+            raise CuckooDependencyError("Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib))
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -538,10 +551,8 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
 
-
     @classlock
-    def add_machine(self, name, label, ip, platform, tags, interface,
-                    snapshot, resultserver_ip, resultserver_port):
+    def add_machine(self, name, label, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
@@ -554,14 +565,16 @@ class Database(object, metaclass=Singleton):
         @param resultserver_port: port of the Result Server
         """
         session = self.Session()
-        machine = Machine(name=name,
-                          label=label,
-                          ip=ip,
-                          platform=platform,
-                          interface=interface,
-                          snapshot=snapshot,
-                          resultserver_ip=resultserver_ip,
-                          resultserver_port=resultserver_port)
+        machine = Machine(
+            name=name,
+            label=label,
+            ip=ip,
+            platform=platform,
+            interface=interface,
+            snapshot=snapshot,
+            resultserver_ip=resultserver_ip,
+            resultserver_port=resultserver_port,
+        )
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.replace(" ", "").split(","):
@@ -676,12 +689,31 @@ class Database(object, metaclass=Singleton):
         row = None
         try:
             if machine != "":
-                row = session.query(Task).filter_by(status=TASK_PENDING).filter_by(machine=machine).order_by(Task.priority.desc(), Task.added_on).first()
+                row = (
+                    session.query(Task)
+                    .filter_by(status=TASK_PENDING)
+                    .filter_by(machine=machine)
+                    .order_by(Task.priority.desc(), Task.added_on)
+                    .first()
+                )
                 if not row and self.vms_tags.get(machine, False):
                     cond = self.tasks_filters[machine]
-                    row = session.query(Task).options(joinedload("tags")).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(cond).first()
+                    row = (
+                        session.query(Task)
+                        .options(joinedload("tags"))
+                        .filter_by(status=TASK_PENDING)
+                        .order_by(Task.priority.desc(), Task.added_on)
+                        .filter(cond)
+                        .first()
+                    )
             else:
-                row = session.query(Task).filter_by(status=TASK_PENDING).order_by(Task.priority.desc(), Task.added_on).filter(Task.tags==None).first()
+                row = (
+                    session.query(Task)
+                    .filter_by(status=TASK_PENDING)
+                    .order_by(Task.priority.desc(), Task.added_on)
+                    .filter(Task.tags == None)
+                    .first()
+                )
             if not row:
                 return None
 
@@ -757,7 +789,6 @@ class Database(object, metaclass=Singleton):
             return None
         finally:
             session.close()
-
 
     @classlock
     def guest_remove(self, guest_id):
@@ -1027,15 +1058,31 @@ class Database(object, metaclass=Singleton):
         else:
             return None
 
-
-
     @classlock
-    def add(self, obj, timeout=0, package="", options="", priority=1,
-            custom="", machine="", platform="", tags=None,
-            memory=False, enforce_timeout=False, clock=None,
-            shrike_url=None, shrike_msg=None,
-            shrike_sid=None, shrike_refer=None, parent_id=None,
-            sample_parent_id=None, tlp=None, static=False, source_url=False):
+    def add(
+        self,
+        obj,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        sample_parent_id=None,
+        tlp=None,
+        static=False,
+        source_url=False,
+    ):
         """Add a task to database.
         @param obj: object to add (File or URL).
         @param timeout: selected timeout.
@@ -1163,11 +1210,30 @@ class Database(object, metaclass=Singleton):
 
         return task_id
 
-    def add_path(self, file_path, timeout=0, package="", options="",
-                 priority=1, custom="", machine="", platform="", tags=None,
-                 memory=False, enforce_timeout=False, clock=None, shrike_url=None,
-                 shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                 sample_parent_id=None, tlp=None, static=False, source_url=False):
+    def add_path(
+        self,
+        file_path,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        sample_parent_id=None,
+        tlp=None,
+        static=False,
+        source_url=False,
+    ):
         """Add a task to database from file path.
         @param file_path: sample path.
         @param timeout: selected timeout.
@@ -1196,16 +1262,53 @@ class Database(object, metaclass=Singleton):
         if not priority:
             priority = 1
 
-        return self.add(File(file_path), timeout, package, options, priority,
-                        custom, machine, platform, tags, memory,
-                        enforce_timeout, clock, shrike_url, shrike_msg, shrike_sid,
-                        shrike_refer, parent_id, sample_parent_id, tlp, source_url=source_url)
+        return self.add(
+            File(file_path),
+            timeout,
+            package,
+            options,
+            priority,
+            custom,
+            machine,
+            platform,
+            tags,
+            memory,
+            enforce_timeout,
+            clock,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            parent_id,
+            sample_parent_id,
+            tlp,
+            source_url=source_url,
+        )
 
-    def demux_sample_and_add_to_db(self, file_path, timeout=0, package="", options="", priority=1,
-                                   custom="", machine="", platform="", tags=None,
-                                   memory=False, enforce_timeout=False, clock=None,shrike_url=None,
-                                   shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                                   sample_parent_id=None, tlp=None, static=False, source_url=False):
+    def demux_sample_and_add_to_db(
+        self,
+        file_path,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        sample_parent_id=None,
+        tlp=None,
+        static=False,
+        source_url=False,
+    ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
         Returns a list of added task IDs
@@ -1226,7 +1329,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode('utf8')
+                runfile = runfile.encode("utf8")
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1260,38 +1363,123 @@ class Database(object, metaclass=Singleton):
                     parent_id=parent_id,
                     sample_parent_id=sample_parent_id,
                     tlp=tlp,
-                    source_url=source_url)
+                    source_url=source_url,
+                )
             if task_id:
                 task_ids.append(task_id)
 
         return task_ids
 
     @classlock
-    def add_pcap(self, file_path, timeout=0, package="", options="", priority=1,
-                custom="", machine="", platform="", tags=None, memory=False,
-                enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid = None, shrike_refer=None, parent_id=None, tlp=None):
-        return self.add(PCAP(file_path.decode()), timeout, package, options, priority,
-                        custom, machine, platform, tags, memory,
-                        enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id, tlp)
+    def add_pcap(
+        self,
+        file_path,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        tlp=None,
+    ):
+        return self.add(
+            PCAP(file_path.decode()),
+            timeout,
+            package,
+            options,
+            priority,
+            custom,
+            machine,
+            platform,
+            tags,
+            memory,
+            enforce_timeout,
+            clock,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            parent_id,
+            tlp,
+        )
 
     @classlock
-    def add_static(self, file_path, timeout=0, package="", options="", priority=1,
-                custom="", machine="", platform="", tags=None, memory=False,
-                enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid=None, shrike_refer=None, parent_id=None, tlp=None, static=True):
-        return self.add(Static(file_path.decode()), timeout, package, options, priority,
-                        custom, machine, platform, tags, memory,
-                        enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id, tlp, static)
-
+    def add_static(
+        self,
+        file_path,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        tlp=None,
+        static=True,
+    ):
+        return self.add(
+            Static(file_path.decode()),
+            timeout,
+            package,
+            options,
+            priority,
+            custom,
+            machine,
+            platform,
+            tags,
+            memory,
+            enforce_timeout,
+            clock,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            parent_id,
+            tlp,
+            static,
+        )
 
     @classlock
-    def add_url(self, url, timeout=0, package="", options="", priority=1,
-                custom="", machine="", platform="", tags=None, memory=False,
-                enforce_timeout=False, clock=None, shrike_url=None, shrike_msg=None,
-                shrike_sid = None, shrike_refer=None, parent_id=None, tlp=None):
+    def add_url(
+        self,
+        url,
+        timeout=0,
+        package="",
+        options="",
+        priority=1,
+        custom="",
+        machine="",
+        platform="",
+        tags=None,
+        memory=False,
+        enforce_timeout=False,
+        clock=None,
+        shrike_url=None,
+        shrike_msg=None,
+        shrike_sid=None,
+        shrike_refer=None,
+        parent_id=None,
+        tlp=None,
+    ):
         """Add a task to database from url.
         @param url: url.
         @param timeout: selected timeout.
@@ -1314,10 +1502,26 @@ class Database(object, metaclass=Singleton):
         if not priority:
             priority = 1
 
-        return self.add(URL(url), timeout, package, options, priority,
-                        custom, machine, platform, tags, memory,
-                        enforce_timeout, clock, shrike_url, shrike_msg,
-                        shrike_sid, shrike_refer, parent_id, tlp)
+        return self.add(
+            URL(url),
+            timeout,
+            package,
+            options,
+            priority,
+            custom,
+            machine,
+            platform,
+            tags,
+            memory,
+            enforce_timeout,
+            clock,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            parent_id,
+            tlp,
+        )
 
     @classlock
     def reschedule(self, task_id):
@@ -1357,12 +1561,24 @@ class Database(object, metaclass=Singleton):
         else:
             tags = task.tags
 
-        return add(task.target, task.timeout, task.package, task.options,
-                   task.priority, task.custom, task.machine, task.platform,
-                   tags, task.memory, task.enforce_timeout, task.clock, tlp=task.tlp)
+        return add(
+            task.target,
+            task.timeout,
+            task.package,
+            task.options,
+            task.priority,
+            task.custom,
+            task.machine,
+            task.platform,
+            tags,
+            task.memory,
+            task.enforce_timeout,
+            task.clock,
+            tlp=task.tlp,
+        )
+
     @classlock
-    def count_matching_tasks(self, category=None,
-                   status=None, not_status=None):
+    def count_matching_tasks(self, category=None, status=None, not_status=None):
         """Retrieve list of task.
         @param category: filter by category
         @param status: filter by task status
@@ -1403,7 +1619,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            tasks = session.query(Task).filter(Task.parent_id==parent_id).all()
+            tasks = session.query(Task).filter(Task.parent_id == parent_id).all()
             if tasks:
                 return [[task.id, task.package] for task in tasks]
             else:
@@ -1430,7 +1646,9 @@ class Database(object, metaclass=Singleton):
                 if parent:
                     parent = parent[0]
             elif task_id:
-                _, parent = session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+                _, parent = (
+                    session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+                )
 
             if parent:
                 parent_sample = session.query(Sample).filter(Sample.id == parent).first().to_dict()
@@ -1445,10 +1663,22 @@ class Database(object, metaclass=Singleton):
         return parent_sample
 
     @classlock
-    def list_tasks(self, limit=None, details=False, category=None,
-                   offset=None, status=None, sample_id=None, not_status=None,
-                   completed_after=None, order_by=None, added_before=None,
-                   id_before=None, id_after=None, options_like=False):
+    def list_tasks(
+        self,
+        limit=None,
+        details=False,
+        category=None,
+        offset=None,
+        status=None,
+        sample_id=None,
+        not_status=None,
+        completed_after=None,
+        order_by=None,
+        added_before=None,
+        id_before=None,
+        id_after=None,
+        options_like=False,
+    ):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
         @param details: if details about must be included
@@ -1502,19 +1732,19 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     def minmax_tasks(self):
-         """Find tasks minimum and maximum
+        """Find tasks minimum and maximum
          @return: unix timestamps of minimum and maximum
          """
-         session = self.Session()
-         try:
-             _min = session.query(func.min(Task.started_on).label("min")).first()
-             _max = session.query(func.max(Task.completed_on).label("max")).first()
-             return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
-         except SQLAlchemyError as e:
-             log.debug("Database error counting tasks: {0}".format(e))
-             return 0
-         finally:
-             session.close()
+        session = self.Session()
+        try:
+            _min = session.query(func.min(Task.started_on).label("min")).first()
+            _max = session.query(func.max(Task.completed_on).label("max")).first()
+            return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
+        except SQLAlchemyError as e:
+            log.debug("Database error counting tasks: {0}".format(e))
+            return 0
+        finally:
+            session.close()
 
     @classlock
     def get_tlp_tasks(self):
@@ -1688,7 +1918,6 @@ class Database(object, metaclass=Singleton):
             128: "dropped.sha512",
         }
 
-
         query_filter = sizes.get(len(sample_hash), "")
         sample = None
         # check storage/binaries
@@ -1716,7 +1945,7 @@ class Database(object, metaclass=Singleton):
                     db_sample = session.query(Task).filter(query_filter == sample_hash).filter(Sample.id == Task.sample_id).all()
                     if db_sample is not None:
                         samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
-                        #hash validation and if exist
+                        # hash validation and if exist
                         samples = [path for path in samples if os.path.exists(path)]
                         for path in samples:
                             with open(path, "rb").read() as f:

@@ -4,6 +4,7 @@
 
 import ctypes
 
+
 class Structure(ctypes.Structure):
     def as_dict(self):
         ret = {}
@@ -18,6 +19,7 @@ class Structure(ctypes.Structure):
             else:
                 ret[field] = value
         return ret
+
 
 class LnkHeader(Structure):
     _fields_ = [
@@ -34,6 +36,7 @@ class LnkHeader(Structure):
         ("hotkey", ctypes.c_uint),
     ]
 
+
 class LnkEntry(Structure):
     _fields_ = [
         ("length", ctypes.c_uint),
@@ -45,6 +48,7 @@ class LnkEntry(Structure):
         ("path_remainder", ctypes.c_uint),
     ]
 
+
 class PUBLICKEYSTRUC(Structure):
     _pack_ = 1
     _fields_ = [
@@ -53,6 +57,7 @@ class PUBLICKEYSTRUC(Structure):
         ("reserved", ctypes.c_ushort),
         ("algid", ctypes.c_uint),
     ]
+
 
 class RSAPUBKEY(Structure):
     _pack_ = 1

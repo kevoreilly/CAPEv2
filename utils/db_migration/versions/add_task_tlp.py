@@ -11,9 +11,10 @@ Create Date: 2020-04-10 12:17:18.530901
 """
 from __future__ import absolute_import
 from __future__ import print_function
+
 # revision identifiers, used by Alembic.
-revision = '7331c4d994fd'
-down_revision = '30d0230de7cd'
+revision = "7331c4d994fd"
+down_revision = "30d0230de7cd"
 
 import sqlalchemy as sa
 import sys
@@ -26,8 +27,8 @@ except ImportError:
 
 
 def upgrade():
-    op.add_column('tasks', sa.Column("tlp", sa.String(length=255), nullable=True))
+    op.add_column("tasks", sa.Column("tlp", sa.String(length=255), nullable=True))
 
 
 def downgrade():
-    op.drop_column('tasks', "tlp")
+    op.drop_column("tasks", "tlp")

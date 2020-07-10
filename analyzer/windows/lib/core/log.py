@@ -22,6 +22,7 @@ log = logging.getLogger()
 BUFSIZE = 512
 LOGBUFSIZE = 16384
 
+
 class LogServerThread(Thread):
     """Cuckoo Log Server.
 
@@ -56,13 +57,9 @@ class LogServerThread(Thread):
             while True:
                 bytes_read = c_int(0)
                 buf = create_string_buffer(LOGBUFSIZE)
-                success = KERNEL32.ReadFile(self.h_pipe,
-                                            buf,
-                                            sizeof(buf),
-                                            byref(bytes_read),
-                                            None)
+                success = KERNEL32.ReadFile(self.h_pipe, buf, sizeof(buf), byref(bytes_read), None)
 
-                data += buf.raw[:bytes_read.value]
+                data += buf.raw[: bytes_read.value]
                 if success or KERNEL32.GetLastError() != ERROR_MORE_DATA:
                     break
 
@@ -106,16 +103,16 @@ class LogServer(object):
         sa.bInheritHandle = False
         sa.lpSecurityDescriptor = addressof(sd)
 
-        h_pipe = KERNEL32.CreateNamedPipeW(logserver_path,
-                                            PIPE_ACCESS_INBOUND,
-                                            PIPE_TYPE_MESSAGE |
-                                            PIPE_READMODE_MESSAGE |
-                                            PIPE_WAIT,
-                                            PIPE_UNLIMITED_INSTANCES,
-                                            BUFSIZE,
-                                            LOGBUFSIZE,
-                                            0,
-                                            byref(sa))
+        h_pipe = KERNEL32.CreateNamedPipeW(
+            logserver_path,
+            PIPE_ACCESS_INBOUND,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+            PIPE_UNLIMITED_INSTANCES,
+            BUFSIZE,
+            LOGBUFSIZE,
+            0,
+            byref(sa),
+        )
 
         if h_pipe == INVALID_HANDLE_VALUE:
             log.warning("Unable to create log server pipe.")
@@ -124,4 +121,3 @@ class LogServer(object):
         logserver = LogServerThread(h_pipe, result_ip, result_port)
         logserver.daemon = True
         logserver.start()
-

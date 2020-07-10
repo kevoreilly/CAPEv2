@@ -3,21 +3,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
 import logging
+
 log = logging.getLogger(__name__)
 
 log.debug("Importing 'time'")
 import time
+
 log.debug("Importing 'StringIO'")
 from io import BytesIO
+
 log.debug("Importing 'Thread'")
 from threading import Thread
 
 log.debug("Importing 'Auxiliary'")
 from lib.common.abstracts import Auxiliary
+
 log.debug("Importing 'NetlogFile'")
 from lib.common.results import NetlogFile
+
 log.debug("Importing 'Screenshot'")
 from lib.api.screenshot import Screenshot
+
 log.debug("Imports OK")
 
 SHOT_DELAY = 1
@@ -25,6 +31,7 @@ SHOT_DELAY = 1
 # Example for 800x600 screen resolution.
 # SKIP_AREA = ((735, 575), (790, 595))
 SKIP_AREA = None
+
 
 class Screenshots(Auxiliary, Thread):
     """Take screenshots."""
@@ -43,8 +50,7 @@ class Screenshots(Auxiliary, Thread):
         @return: operation status.
         """
         if not Screenshot().have_pil():
-            log.warning("Python Image Library is not installed, "
-                        "screenshots are disabled")
+            log.warning("Python Image Library is not installed, " "screenshots are disabled")
             return False
 
         img_counter = 0

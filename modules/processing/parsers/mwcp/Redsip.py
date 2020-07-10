@@ -18,7 +18,7 @@ import pefile
 import yara
 import os.path
 
-rule_source = '''
+rule_source = """
 rule Redsip
 {
     meta:
@@ -32,45 +32,49 @@ rule Redsip
         uint16(0) == 0x5A4D and $decrypt and $call_decrypt
 }
 
-'''
+"""
 
-MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'Redsip':
+        if match.rule == "Redsip":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
 
+
 def unicode_string_from_offset(buffer, offset, max):
     try:
-        string = buffer[offset:offset+max].decode('utf-16')
+        string = buffer[offset : offset + max].decode("utf-16")
     except:
         return
     return string
+
 
 def decode(ciphertext, size, key):
 
     if size == 0:
         return
 
-    key = (key & 0xff)
+    key = key & 0xFF
     decoded_chars = bytearray(size)
     count = 0
 
     while count < size:
-        if (count % 10):
-            decoded_chars[count] = struct.unpack('B', ciphertext[count:count+1])[0] ^ ((key + count) & 0xff)
+        if count % 10:
+            decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ ((key + count) & 0xFF)
         else:
-            decoded_chars[count] = struct.unpack('B', ciphertext[count:count+1])[0] ^ key
+            decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ key
         count = count + 1
 
     return decoded_chars
+
 
 def process_file(filepath, filesize, key):
 
@@ -85,23 +89,23 @@ def process_file(filepath, filesize, key):
 
 class Redsip(Parser):
 
-    DESCRIPTION = 'Redsip configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "Redsip configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        call_decrypt = yara_scan(filebuf, '$call_decrypt')
+        call_decrypt = yara_scan(filebuf, "$call_decrypt")
 
         if call_decrypt:
-            yara_offset = int(call_decrypt['$call_decrypt'])
+            yara_offset = int(call_decrypt["$call_decrypt"])
         else:
             return
 
-        key = struct.unpack('B', filebuf[yara_offset+24:yara_offset+25])[0]
-        size = struct.unpack('I', filebuf[yara_offset+26:yara_offset+30])[0]
+        key = struct.unpack("B", filebuf[yara_offset + 24 : yara_offset + 25])[0]
+        size = struct.unpack("I", filebuf[yara_offset + 26 : yara_offset + 30])[0]
         config_found = False
 
         # The config is in a dropped file
@@ -118,20 +122,20 @@ class Redsip(Parser):
 
         # The config file hasn't been found/decrypted so fall back to hardcoded config
         if config_found == False:
-            config_rva = struct.unpack('I', filebuf[yara_offset+31:yara_offset+35])[0] - image_base
+            config_rva = struct.unpack("I", filebuf[yara_offset + 31 : yara_offset + 35])[0] - image_base
             config_offset = pe.get_offset_from_rva(config_rva)
-            config = filebuf[config_offset:config_offset+size]
+            config = filebuf[config_offset : config_offset + size]
 
-        c2_address = str(config[16:16+MAX_IP_STRING_SIZE])
+        c2_address = str(config[16 : 16 + MAX_IP_STRING_SIZE])
         if c2_address == "":
             return
-        self.reporter.add_metadata('c2_address', c2_address)
+        self.reporter.add_metadata("c2_address", c2_address)
 
         missionid = unicode_string_from_offset(config, 0x628, 128)
         if missionid:
             try:
-                missionid.decode('ascii')
-                self.reporter.add_metadata('missionid', missionid)
+                missionid.decode("ascii")
+                self.reporter.add_metadata("missionid", missionid)
             except:
                 pass
         return

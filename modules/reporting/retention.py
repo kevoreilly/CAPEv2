@@ -28,32 +28,26 @@ lock = Lock()
 # Global connections
 if cfg.mongodb and cfg.mongodb.enabled:
     from pymongo import MongoClient
+
     host = cfg.mongodb.get("host", "127.0.0.1")
     port = cfg.mongodb.get("port", 27017)
     mdb = cfg.mongodb.get("db", "cuckoo")
     try:
-        results_db = MongoClient(   host,
-                                    port=port,
-                                    username=cfg.mongodb.get("username", None),
-                                    password=cfg.mongodb.get("password", None),
-                                    authSource=mdb
-                                    )[mdb]
+        results_db = MongoClient(
+            host, port=port, username=cfg.mongodb.get("username", None), password=cfg.mongodb.get("password", None), authSource=mdb
+        )[mdb]
     except Exception as e:
         log.warning("Unable to connect to MongoDB: %s", str(e))
 
 if cfg.elasticsearchdb and cfg.elasticsearchdb.enabled and not cfg.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
+
     idx = cfg.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(
-                hosts = [{
-                    "host": cfg.elasticsearchdb.host,
-                    "port": cfg.elasticsearchdb.port,
-                }],
-                timeout = 60,
-             )
+        es = Elasticsearch(hosts=[{"host": cfg.elasticsearchdb.host, "port": cfg.elasticsearchdb.port,}], timeout=60,)
     except Exception as e:
         log.warning("Unable to connect to ElasticSearch: %s", str(e))
+
 
 def delete_mongo_data(curtask, tid):
     # TODO: Class-ify this or make it a function in utils, some code reuse
@@ -65,17 +59,13 @@ def delete_mongo_data(curtask, tid):
                 for call in process["calls"]:
                     results_db.calls.remove({"_id": ObjectId(call)})
             results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-        log.debug("Task #{0} deleting MongoDB data for Task #{1}".format(
-                  curtask, tid))
+        log.debug("Task #{0} deleting MongoDB data for Task #{1}".format(curtask, tid))
+
 
 def delete_elastic_data(curtask, tid):
     # TODO: Class-ify this or make it a function in utils, some code reuse
     # between this/process.py/django view
-    analyses = es.search(
-                   index=fullidx,
-                   doc_type="analysis",
-                   q="info.id: \"{0}\"".format(task_id)
-               )["hits"]["hits"]
+    analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "{0}"'.format(task_id))["hits"]["hits"]
     if len(analyses) > 0:
         for analysis in analyses:
             esidx = analysis["_index"]
@@ -84,17 +74,13 @@ def delete_elastic_data(curtask, tid):
                 for process in analysis["_source"]["behavior"]["processes"]:
                     for call in process["calls"]:
                         es.delete(
-                            index=esidx,
-                            doc_type="calls",
-                            id=call,
+                            index=esidx, doc_type="calls", id=call,
                         )
             es.delete(
-                index=esidx,
-                doc_type="analysis",
-                id=esid,
-                )
-        log.debug("Task #{0} deleting ElasticSearch data for Task #{1}".format(
-                  curtask, tid))
+                index=esidx, doc_type="analysis", id=esid,
+            )
+        log.debug("Task #{0} deleting ElasticSearch data for Task #{1}".format(curtask, tid))
+
 
 def delete_files(curtask, delfiles, target_id):
     delfiles_list = delfiles
@@ -106,22 +92,22 @@ def delete_files(curtask, delfiles, target_id):
         if os.path.isdir(delent):
             try:
                 shutil.rmtree(delent)
-                log.debug("Task #{0} deleting {1} due to retention quota".format(
-                    curtask, delent))
+                log.debug("Task #{0} deleting {1} due to retention quota".format(curtask, delent))
             except (IOError, OSError) as e:
                 log.warn("Error removing {0}: {1}".format(delent, e))
         elif os.path.exists(delent):
             try:
                 os.remove(delent)
-                log.debug("Task #{0} deleting {1} due to retention quota".format(
-                    curtask, delent))
+                log.debug("Task #{0} deleting {1} due to retention quota".format(curtask, delent))
             except OSError as e:
                 log.warn("Error removing {0}: {1}".format(delent, e))
+
 
 class Retention(Report):
     """Used to manage data retention and delete task data from
     disk after they have become older than the configured values.
     """
+
     order = 10000
 
     def run(self, results):
@@ -151,16 +137,14 @@ class Retention(Report):
                 with open(taskFile, "r") as taskLog:
                     taskCheck = json.loads(taskLog.read())
             except Exception as e:
-                log.warn("Failed to load retention log, if this is not the "
-                         "time running retention, review the error: {0}".format(
-                         e))
+                log.warn("Failed to load retention log, if this is not the " "time running retention, review the error: {0}".format(e))
             curtime = datetime.now()
             since_retlog_modified = curtime - datetime.fromtimestamp(os.path.getmtime(taskFile))
             since_conf_modified = curtime - datetime.fromtimestamp(os.path.getmtime(confPath))
 
             # We'll only do anything in this module once every 'run_every' hours, or immediately
             # after changes to reporting.conf
-            if (since_retlog_modified < timedelta(hours=self.options["run_every"]) and since_conf_modified > since_retlog_modified):
+            if since_retlog_modified < timedelta(hours=self.options["run_every"]) and since_conf_modified > since_retlog_modified:
                 return
 
         # only allow one reporter to execute this code, otherwise rmtree will race, etc
@@ -196,9 +180,7 @@ class Retention(Report):
                 else:
                     lastTaskLogged = taskCheck[item]
                 add_date = datetime.now() - timedelta(days=retentions[item])
-                buf = db.list_tasks(added_before=add_date,
-                                    id_after=lastTaskLogged,
-                                    order_by=Task.id.asc())
+                buf = db.list_tasks(added_before=add_date, id_after=lastTaskLogged, order_by=Task.id.asc())
                 lastTask = 0
                 if buf:
                     # We need to delete some data

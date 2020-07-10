@@ -23,12 +23,13 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "DridexLoader.yar")
 rule_source = open(yara_path, "r").read()
 
-MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
+
 
 class DridexLoader(Parser):
 
-    DESCRIPTION = 'DridexDropper configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "DridexDropper configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
@@ -43,24 +44,24 @@ class DridexLoader(Parser):
 
         line, c2va_offset = False, False
         for match in matches:
-            if match.rule != 'DridexLoader':
+            if match.rule != "DridexLoader":
                 continue
 
             for item in match.strings:
-                if item[1] in ('$c2parse_4', '$c2parse_3', '$c2parse_2', '$c2parse_1'):
+                if item[1] in ("$c2parse_4", "$c2parse_3", "$c2parse_2", "$c2parse_1"):
                     c2va_offset = int(item[0])
                     line = item[1]
                     break
 
-        if line == '$c2parse_4':
-            c2_rva = struct.unpack('i', filebuf[c2va_offset+6:c2va_offset+10])[0] - image_base + 1
-        elif line == '$c2parse_3':
-            c2_rva = struct.unpack('i', filebuf[c2va_offset+60:c2va_offset+64])[0] - image_base
+        if line == "$c2parse_4":
+            c2_rva = struct.unpack("i", filebuf[c2va_offset + 6 : c2va_offset + 10])[0] - image_base + 1
+        elif line == "$c2parse_3":
+            c2_rva = struct.unpack("i", filebuf[c2va_offset + 60 : c2va_offset + 64])[0] - image_base
             delta = 2
-        elif line == '$c2parse_2':
-            c2_rva = struct.unpack('i', filebuf[c2va_offset+47:c2va_offset+51])[0] - image_base
-        elif line == '$c2parse_1':
-            c2_rva = struct.unpack('i', filebuf[c2va_offset+27:c2va_offset+31])[0] - image_base
+        elif line == "$c2parse_2":
+            c2_rva = struct.unpack("i", filebuf[c2va_offset + 47 : c2va_offset + 51])[0] - image_base
+        elif line == "$c2parse_1":
+            c2_rva = struct.unpack("i", filebuf[c2va_offset + 27 : c2va_offset + 31])[0] - image_base
             delta = 2
         else:
             return
@@ -68,13 +69,13 @@ class DridexLoader(Parser):
         c2_offset = pe.get_offset_from_rva(c2_rva)
 
         for i in range(0, 4):
-            ip = struct.unpack('>I', filebuf[c2_offset:c2_offset+4])[0]
-            c2_address = socket.inet_ntoa(struct.pack('!L', ip))
-            port = str(struct.unpack('H', filebuf[c2_offset+4:c2_offset+6])[0])
+            ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
             if c2_address and port:
-                self.reporter.add_metadata('address', c2_address+':' + port)
+                self.reporter.add_metadata("address", c2_address + ":" + port)
 
-            c2_offset += (6 + delta)
+            c2_offset += 6 + delta
 
         return

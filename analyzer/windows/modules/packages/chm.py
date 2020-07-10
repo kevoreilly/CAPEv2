@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class CHM(Package):
     """Chm analysis package."""
+
     PATHS = [
         ("SystemRoot", "hh.exe"),
     ]
@@ -26,5 +28,4 @@ class CHM(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(hh, "\"%s\"" % path, path)
-    
+        return self.execute(hh, '"%s"' % path, path)

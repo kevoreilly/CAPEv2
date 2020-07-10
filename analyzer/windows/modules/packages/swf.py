@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
+
 class SWF(Package):
     """Shockwave Flash analysis package.
         Download a version of standalone flash from adobe and 

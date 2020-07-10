@@ -10,7 +10,9 @@ from PIL import Image
 import six
 
 from lib.cuckoo.common.abstracts import Processing
+
 log = logging.getLogger()
+
 
 class Deduplicate(Processing):
     """Deduplicate screenshots."""
@@ -44,9 +46,9 @@ class Deduplicate(Processing):
             images[hash] = images.get(hash, []) + [img]
         for k, img_list in six.iteritems(images):
             dd_img_set.append(os.path.basename(img_list[0]))
-        #Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
-        #We flip the list back around after prune.
-        dd_img_set.sort(reverse=True)    
+        # Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
+        # We flip the list back around after prune.
+        dd_img_set.sort(reverse=True)
         return dd_img_set
 
     def run(self):
@@ -55,25 +57,25 @@ class Deduplicate(Processing):
         """
         self.key = "deduplicated_shots"
         shots = []
-        hashmethod = self.options.get("hashmethod", 'ahash')
+        hashmethod = self.options.get("hashmethod", "ahash")
         try:
-            if hashmethod == 'ahash':
+            if hashmethod == "ahash":
                 hashfunc = imagehash.average_hash
-            elif hashmethod == 'phash':
+            elif hashmethod == "phash":
                 hashfunc = imagehash.phash
-            elif hashmethod == 'dhash':
+            elif hashmethod == "dhash":
                 hashfunc = imagehash.dhash
-            elif hashmethod == 'whash-haar':
+            elif hashmethod == "whash-haar":
                 hashfunc = imagehash.whash
-            elif hashmethod == 'whash-db4':
-                hashfunc = lambda img: imagehash.whash(img, mode='db4')
+            elif hashmethod == "whash-db4":
+                hashfunc = lambda img: imagehash.whash(img, mode="db4")
 
             shots_path = os.path.join(self.analysis_path, "shots")
             if os.path.exists(shots_path):
                 screenshots = self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc)
                 screenshots.sort()
                 for screenshot in screenshots:
-                    shots.append(screenshot.replace(".jpg",""))
+                    shots.append(screenshot.replace(".jpg", ""))
         except Exception as e:
             log.error(e)
 

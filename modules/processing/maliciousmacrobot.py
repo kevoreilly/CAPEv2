@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 try:
     from mmbot import MaliciousMacroBot
+
     HAVE_MMBOT = True
 except:
     HAVE_MMBOT = False
@@ -47,25 +48,20 @@ class MMBot(Processing):
             if "info" in self.results and "package" in self.results["info"]:
                 package = self.results["info"]["package"]
 
-            if (package not in ("doc", "ppt", "xls", "pub") and
-                    ("Zip archive data, at least v2.0" not in ftype or
-                     "Composite Document File V2 Document" not in ftype or
-                     "Microsoft OOXML" not in ftype)):
+            if package not in ("doc", "ppt", "xls", "pub") and (
+                "Zip archive data, at least v2.0" not in ftype
+                or "Composite Document File V2 Document" not in ftype
+                or "Microsoft OOXML" not in ftype
+            ):
                 return results
 
             opts = dict()
-            opts['benign_path'] = self.options.get("benign_path",
-                                                   os.path.join(CUCKOO_ROOT, "data", "mmbot", "benign"))
-            opts['malicious_path'] = self.options.get("malicious_path",
-                                                      os.path.join(CUCKOO_ROOT, "data", "mmbot", "malicious"))
-            opts['model_path'] = self.options.get("model_path",
-                                                  os.path.join(CUCKOO_ROOT, "data", "mmbot", "model"))
+            opts["benign_path"] = self.options.get("benign_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "benign"))
+            opts["malicious_path"] = self.options.get("malicious_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "malicious"))
+            opts["model_path"] = self.options.get("model_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "model"))
 
             try:
-                mmb = MaliciousMacroBot(opts["benign_path"],
-                                        opts["malicious_path"],
-                                        opts["model_path"],
-                                        retain_sample_contents=False)
+                mmb = MaliciousMacroBot(opts["benign_path"], opts["malicious_path"], opts["model_path"], retain_sample_contents=False)
 
                 mmb.mmb_init_model(modelRebuild=False)
                 predresult = mmb.mmb_predict(self.file_path)
@@ -84,4 +80,3 @@ class MMBot(Processing):
                 log.error("Failed to run mmbot processing: %s", xcpt)
 
         return results
-

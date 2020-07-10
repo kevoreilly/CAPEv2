@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
@@ -8,6 +9,7 @@ import os
 
 try:
     import re2 as re
+
     HAVE_RE2 = True
 except ImportError:
     HAVE_RE2 = False
@@ -20,8 +22,10 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger(__name__)
 
+
 class ProcessMemory(Processing):
     """Analyze process memory dumps."""
+
     order = 10
 
     def get_procmemory_pe(self, mem_pe):
@@ -37,7 +41,7 @@ class ProcessMemory(Processing):
                     file_item.seek(chunk["offset"])
                     data += file_item.read(int(chunk["size"], 16))
 
-            #save pe to disk
+            # save pe to disk
             path = os.path.join(self.pmemory_path, "{}_{}".format(mem_pe["pid"], memmap["start"]))
             with open(path, "wb") as f:
                 f.write(data)
@@ -87,7 +91,7 @@ class ProcessMemory(Processing):
                     address_space=procdump.pretty_print(),
                 )
 
-                #if self.options.get("extract_pe", False)
+                # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
 
                 endlimit = b""
@@ -111,11 +115,10 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = dmp_path + ".strings"
                     proc["extracted_pe"] = extracted_pes
-                    f=open(proc["strings_path"], "wb")
+                    f = open(proc["strings_path"], "wb")
                     f.write(b"\n".join(strings))
                     f.close()
 
                 procdump.close()
                 results.append(proc)
         return results
-

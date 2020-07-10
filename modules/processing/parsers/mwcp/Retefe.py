@@ -8,7 +8,7 @@ import yara
 import struct
 import pefile
 
-rule_source = '''
+rule_source = """
 rule Retefe
 {
     meta:
@@ -24,24 +24,26 @@ rule Retefe
         uint16(0) == 0x5A4D and (all of them)
 }
 
-'''
+"""
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'Retefe':
+        if match.rule == "Retefe":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
 
+
 def number_gen_rec(buffer_size, number):
     if number == 1:
         return buffer_size
-    return 0xFFFFFFFF & buffer_size * \
-        (0xFFFFFFFF & number_gen_rec(buffer_size, number - 1))
+    return 0xFFFFFFFF & buffer_size * (0xFFFFFFFF & number_gen_rec(buffer_size, number - 1))
+
 
 def number_gen(buffer_size, number, shifts, subtract_val):
     calculated_number = number_gen_rec(buffer_size, number)
@@ -49,7 +51,8 @@ def number_gen(buffer_size, number, shifts, subtract_val):
     number = calculated_number << shifts  # * 8
     number = subtract_val - number
 
-    return number & 0xffffffff
+    return number & 0xFFFFFFFF
+
 
 def pwd_calc(buffer_size, number, shifts, subtract_val):
     xor_arr = []
@@ -57,69 +60,70 @@ def pwd_calc(buffer_size, number, shifts, subtract_val):
     seed = number_gen(buffer_size, number, shifts, subtract_val)
 
     while seed:
-        xor_arr.append(seed & 0xff)
+        xor_arr.append(seed & 0xFF)
         seed = seed >> 8
 
     return xor_arr
 
+
 class Retefe(Parser):
 
-    DESCRIPTION = 'Retefe configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "Retefe configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
 
         # Offset to seed for xor
-        retefe_xor_seed = yara_scan(filebuf, '$retefe_xor_seed')
+        retefe_xor_seed = yara_scan(filebuf, "$retefe_xor_seed")
         if retefe_xor_seed:
-            offset = int(retefe_xor_seed['$retefe_xor_seed'])
+            offset = int(retefe_xor_seed["$retefe_xor_seed"])
         else:
             return
 
         # Offset to value that will be used to take xor^value
         xor_seed_2ndarg = yara_scan(filebuf, "$retefe_xor_seed_2ndarg")
         if xor_seed_2ndarg:
-            offset2 = int(xor_seed_2ndarg['$retefe_xor_seed_2ndarg'])
+            offset2 = int(xor_seed_2ndarg["$retefe_xor_seed_2ndarg"])
         else:
             return
 
         # Offset to values that will be used in part of subtraction and shifts of xor^value
         shift_and_subtract = yara_scan(filebuf, "$retefe_shift_and_sub_match")
         if shift_and_subtract:
-            offset3 = int(shift_and_subtract['$retefe_shift_and_sub_match'])
+            offset3 = int(shift_and_subtract["$retefe_shift_and_sub_match"])
         else:
             return
 
         retefe_encoded_buffer = yara_scan(filebuf, "$retefe_encoded_buffer")
         if retefe_encoded_buffer:
-            offset4 = int(retefe_encoded_buffer['$retefe_encoded_buffer'])
+            offset4 = int(retefe_encoded_buffer["$retefe_encoded_buffer"])
         else:
             return
 
         # Offset starts at match, we want end of match
-        seed_val = struct.unpack('<i', filebuf[offset + 10:offset + 14])[0] - 1  # -1 because of indexing in code
-        #print("Found seed (and buffer size) value {}".format(hex(seed_val)))
+        seed_val = struct.unpack("<i", filebuf[offset + 10 : offset + 14])[0] - 1  # -1 because of indexing in code
+        # print("Found seed (and buffer size) value {}".format(hex(seed_val)))
 
         # Offset starts at match, we want end of match
-        power_to_val = struct.unpack('<i', filebuf[offset2 + 14:offset2 + 18])[0]
-        #print("Found power to value {}".format(hex(power_to_val)))
+        power_to_val = struct.unpack("<i", filebuf[offset2 + 14 : offset2 + 18])[0]
+        # print("Found power to value {}".format(hex(power_to_val)))
 
-        shift_val = struct.unpack('b', filebuf[offset3 + 2:offset3 + 3])[0]
-        #print("Found shift left value {}".format(hex(shift_val)))
+        shift_val = struct.unpack("b", filebuf[offset3 + 2 : offset3 + 3])[0]
+        # print("Found shift left value {}".format(hex(shift_val)))
 
-        subtract_val = struct.unpack('<i', filebuf[offset3 + 4:offset3 + 8])[0]
-        #print("Found subtract value {}".format(hex(subtract_val)))
+        subtract_val = struct.unpack("<i", filebuf[offset3 + 4 : offset3 + 8])[0]
+        # print("Found subtract value {}".format(hex(subtract_val)))
 
         # (match length before instruction) + 7 (instruction length)
-        buffer_place = struct.unpack('<i', filebuf[offset4 + 16:offset4 + 20])[0] + 13 + 7
+        buffer_place = struct.unpack("<i", filebuf[offset4 + 16 : offset4 + 20])[0] + 13 + 7
 
-        #print("Found buffer place arg {}".format(hex(buffer_place)))
+        # print("Found buffer place arg {}".format(hex(buffer_place)))
 
         xor_arr = pwd_calc(seed_val, power_to_val, shift_val, subtract_val)
 
-        #print("XOR array that will be used for decryption {}".format(xor_arr))
+        # print("XOR array that will be used for decryption {}".format(xor_arr))
 
         text_va_base = None
         text_raw_base = None
@@ -134,9 +138,9 @@ class Retefe(Parser):
         # Encoded buffer rva address :
         rva = rva_next_instr + text_va_base + buffer_place
 
-        #print("Calculated RVA for encoded buffer is {}".format(hex(rva)))
+        # print("Calculated RVA for encoded buffer is {}".format(hex(rva)))
 
-        buffer = pe.get_memory_mapped_image()[rva:rva + seed_val]
+        buffer = pe.get_memory_mapped_image()[rva : rva + seed_val]
 
         n = 0
         result = ""
@@ -144,7 +148,8 @@ class Retefe(Parser):
             result += chr((ord(ch) ^ xor_arr[n % 4]))
             n += 1
 
-        self.reporter.add_metadata('other', {'Script': result})
+        self.reporter.add_metadata("other", {"Script": result})
+
 
 # Some logical reasoning left behind....
 # Now also find buffer and calculate va to physical and dump it

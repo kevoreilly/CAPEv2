@@ -68,6 +68,7 @@ whitelist_file = proc_cfg.network.dnswhitelist_file
 enabled_ip_whitelist = proc_cfg.network.ipwhitelist
 ip_whitelist_file = proc_cfg.network.ipwhitelist_file
 
+
 class Pcap:
     """Reads network data from PCAP file."""
 
@@ -145,13 +146,13 @@ class Pcap:
         ]
 
         if enabled_whitelist and whitelist_file:
-             with open(os.path.join(CUCKOO_ROOT, whitelist_file), 'r') as f:
-                  self.domain_whitelist += self.domain_whitelist + f.read().split("\n")
-                  self.domain_whitelist = list(set(self.domain_whitelist))
+            with open(os.path.join(CUCKOO_ROOT, whitelist_file), "r") as f:
+                self.domain_whitelist += self.domain_whitelist + f.read().split("\n")
+                self.domain_whitelist = list(set(self.domain_whitelist))
 
         self.ip_whitelist = set()
         if enabled_ip_whitelist and ip_whitelist_file:
-             with open(os.path.join(CUCKOO_ROOT, ip_whitelist_file), 'r') as f:
+            with open(os.path.join(CUCKOO_ROOT, ip_whitelist_file), "r") as f:
                 self.ip_whitelist = set(f.read().split("\n"))
 
     def _dns_gethostbyname(self, name):
@@ -187,7 +188,7 @@ class Pcap:
             ("203.0.113.0", 24),
             ("240.0.0.0", 4),
             ("255.255.255.255", 32),
-            ("224.0.0.0", 4)
+            ("224.0.0.0", 4),
         ]
 
         try:
@@ -224,7 +225,7 @@ class Pcap:
 
                 if ip not in self.hosts:
                     if ip in self.ip_whitelist:
-                         return False
+                        return False
                     self.hosts.append(ip)
 
                     # We add external IPs to the list, only the first time
@@ -253,15 +254,14 @@ class Pcap:
                 except:
                     pass
             for request in self.dns_requests.values():
-                for answer in request['answers']:
+                for answer in request["answers"]:
                     if answer["data"] == ip:
                         hostname = request["request"]
                         break
                 if hostname:
                     break
 
-            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip),
-                                   "hostname": hostname, "inaddrarpa": inaddrarpa})
+            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
         return enriched_hosts
 
     def _tcp_dissect(self, conn, data):
@@ -297,8 +297,7 @@ class Pcap:
         @param icmp_data: ICMP data flow.
         """
         try:
-            return isinstance(icmp_data, dpkt.icmp.ICMP) and \
-                   len(icmp_data.data) > 0
+            return isinstance(icmp_data, dpkt.icmp.ICMP) and len(icmp_data.data) > 0
         except:
             return False
 
@@ -347,9 +346,7 @@ class Pcap:
         # DNS query parsing.
         query = {}
 
-        if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or \
-                        dns.qr == dpkt.dns.DNS_R or \
-                        dns.opcode == dpkt.dns.DNS_QUERY or True:
+        if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or dns.qr == dpkt.dns.DNS_R or dns.opcode == dpkt.dns.DNS_QUERY or True:
             # DNS question.
             try:
                 q_name = dns.qd[0].name
@@ -392,8 +389,7 @@ class Pcap:
                 elif answer.type == dpkt.dns.DNS_AAAA:
                     ans["type"] = "AAAA"
                     try:
-                        ans["data"] = socket.inet_ntop(socket.AF_INET6,
-                                                       answer.rdata)
+                        ans["data"] = socket.inet_ntop(socket.AF_INET6, answer.rdata)
                     except (socket.error, ValueError):
                         continue
                 elif answer.type == dpkt.dns.DNS_CNAME:
@@ -410,13 +406,17 @@ class Pcap:
                     ans["data"] = answer.nsname
                 elif answer.type == dpkt.dns.DNS_SOA:
                     ans["type"] = "SOA"
-                    ans["data"] = ",".join([answer.mname,
-                                            answer.rname,
-                                            str(answer.serial),
-                                            str(answer.refresh),
-                                            str(answer.retry),
-                                            str(answer.expire),
-                                            str(answer.minimum)])
+                    ans["data"] = ",".join(
+                        [
+                            answer.mname,
+                            answer.rname,
+                            str(answer.serial),
+                            str(answer.refresh),
+                            str(answer.retry),
+                            str(answer.expire),
+                            str(answer.minimum),
+                        ]
+                    )
                 elif answer.type == dpkt.dns.DNS_HINFO:
                     ans["type"] = "HINFO"
                     ans["data"] = " ".join(answer.text)
@@ -436,13 +436,13 @@ class Pcap:
             if enabled_whitelist:
                 for reject in self.domain_whitelist:
                     if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue # comment or empty line
+                        continue  # comment or empty line
                     try:
                         if re.search(reject, query["request"]):
                             if query["answers"]:
                                 for addip in query["answers"]:
                                     if addip["type"] == "A" or addip["type"] == "AAAA":
-                                         self.ip_whitelist.add(addip["data"])
+                                        self.ip_whitelist.add(addip["data"])
                             return True
                     except re.RegexError as e:
                         log.error(("bad regex", reject, e))
@@ -462,11 +462,7 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
-        filters = [
-            ".*\\.windows\\.com$",
-            ".*\\.in\\-addr\\.arpa$",
-            ".*\\.ip6\\.arpa$"
-        ]
+        filters = [".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$"]
 
         regexps = [re.compile(filter) for filter in filters]
         for regexp in regexps:
@@ -477,8 +473,7 @@ class Pcap:
             if entry["domain"] == domain:
                 return
 
-        self.unique_domains.append({"domain": domain,
-                                    "ip": self._dns_gethostbyname(domain)})
+        self.unique_domains.append({"domain": domain, "ip": self._dns_gethostbyname(domain)})
 
     def _check_http(self, tcpdata):
         """Checks for HTTP traffic.
@@ -489,8 +484,7 @@ class Pcap:
             r.method, r.version, r.uri = None, None, None
             r.unpack(tcpdata)
         except dpkt.dpkt.UnpackError:
-            if r.method is not None or r.version is not None or \
-                            r.uri is not None:
+            if r.method is not None or r.version is not None or r.uri is not None:
                 return True
             return False
 
@@ -515,8 +509,10 @@ class Pcap:
             entry = {"count": 1}
 
             if "host" in http.headers and re.match(
-                    '^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$',
-                    http.headers["host"], re.IGNORECASE):
+                "^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
+                http.headers["host"],
+                re.IGNORECASE,
+            ):
                 entry["host"] = convert_to_printable(http.headers["host"])
             else:
                 entry["host"] = conn["dst"]
@@ -538,14 +534,12 @@ class Pcap:
                 netloc += ":" + str(entry["port"])
 
             entry["data"] = convert_to_printable(tcpdata)
-            entry["uri"] = convert_to_printable(
-                urlunparse(("http", netloc, http.uri, None, None, None)))
+            entry["uri"] = convert_to_printable(urlunparse(("http", netloc, http.uri, None, None, None)))
             entry["body"] = convert_to_printable(http.body)
             entry["path"] = convert_to_printable(http.uri)
 
             if "user-agent" in http.headers:
-                entry["user-agent"] = \
-                    convert_to_printable(http.headers["user-agent"])
+                entry["user-agent"] = convert_to_printable(http.headers["user-agent"])
             else:
                 entry["user-agent"] = ""
 
@@ -573,8 +567,7 @@ class Pcap:
         for conn, data in six.iteritems(self.smtp_flow):
             # Detect new SMTP flow.
             if data.startswith((b"EHLO", b"HELO")):
-                self.smtp_requests.append({"dst": conn,
-                                           "raw": convert_to_printable(data)})
+                self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(data)})
 
     def _check_irc(self, tcpdata):
         """
@@ -597,9 +590,9 @@ class Pcap:
 
         if enabled_whitelist:
             if conn["src"] in self.ip_whitelist:
-                 return False
+                return False
             if conn["dst"] in self.ip_whitelist:
-                 return False
+                return False
 
         try:
             reqc = ircMessage()
@@ -611,9 +604,7 @@ class Pcap:
             server = reqs.getServerMessagesFilter(tcpdata, filters_sc)
             for message in server:
                 message.update(conn)
-            self.irc_requests = self.irc_requests + \
-                                client + \
-                                server
+            self.irc_requests = self.irc_requests + client + server
         except Exception:
             return False
 
@@ -703,11 +694,11 @@ class Pcap:
             return self.results
 
         if not os.path.exists(self.filepath):
-            log.warning("The PCAP file does not exist at path \"%s\".", self.filepath)
+            log.warning('The PCAP file does not exist at path "%s".', self.filepath)
             return self.results
 
         if os.path.getsize(self.filepath) == 0:
-            log.error("The PCAP file at path \"%s\" is empty." % self.filepath)
+            log.error('The PCAP file at path "%s" is empty.' % self.filepath)
             return self.results
 
         try:
@@ -719,12 +710,10 @@ class Pcap:
         try:
             pcap = dpkt.pcap.Reader(file)
         except dpkt.dpkt.NeedData:
-            log.error("Unable to read PCAP file at path \"%s\".",
-                      self.filepath)
+            log.error('Unable to read PCAP file at path "%s".', self.filepath)
             return self.results
         except ValueError:
-            log.error("Unable to read PCAP file at path \"%s\". File is "
-                      "corrupted or wrong format." % self.filepath)
+            log.error('Unable to read PCAP file at path "%s". File is ' "corrupted or wrong format." % self.filepath)
             return self.results
 
         offset = file.tell()
@@ -741,10 +730,8 @@ class Pcap:
                     connection["src"] = socket.inet_ntoa(ip.src)
                     connection["dst"] = socket.inet_ntoa(ip.dst)
                 elif isinstance(ip, dpkt.ip6.IP6):
-                    connection["src"] = socket.inet_ntop(socket.AF_INET6,
-                                                         ip.src)
-                    connection["dst"] = socket.inet_ntop(socket.AF_INET6,
-                                                         ip.dst)
+                    connection["src"] = socket.inet_ntop(socket.AF_INET6, ip.src)
+                    connection["dst"] = socket.inet_ntop(socket.AF_INET6, ip.dst)
                 else:
                     offset = file.tell()
                     continue
@@ -764,10 +751,8 @@ class Pcap:
                     if len(tcp.data) > 0:
                         self._tcp_dissect(connection, tcp.data)
 
-                    src, sport, dst, dport = (
-                        connection["src"], connection["sport"], connection["dst"], connection["dport"])
-                    if not ((dst, dport, src, sport) in self.tcp_connections_seen or (
-                             src, sport, dst, dport) in self.tcp_connections_seen):
+                    src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                    if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
                         self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.tcp_connections_seen.add((src, sport, dst, dport))
 
@@ -781,10 +766,8 @@ class Pcap:
                     if len(udp.data) > 0:
                         self._udp_dissect(connection, udp.data)
 
-                    src, sport, dst, dport = (
-                        connection["src"], connection["sport"], connection["dst"], connection["dport"])
-                    if not ((dst, dport, src, sport) in self.udp_connections_seen or (
-                             src, sport, dst, dport) in self.udp_connections_seen):
+                    src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                    if not ((dst, dport, src, sport) in self.udp_connections_seen or (src, sport, dst, dport) in self.udp_connections_seen):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
 
@@ -849,12 +832,12 @@ class NetworkAnalysis(Processing):
         """
         ja3_fprints = {}
         if os.path.exists(self.ja3_file):
-            with open(self.ja3_file, 'r') as fpfile:
+            with open(self.ja3_file, "r") as fpfile:
                 for line in fpfile:
                     try:
-                        ja3 = (loads(line))
-                        if "ja3_hash" in ja3 and 'desc' in ja3:
-                            ja3_fprints[ja3['ja3_hash']] = ja3['desc']
+                        ja3 = loads(line)
+                        if "ja3_hash" in ja3 and "desc" in ja3:
+                            ja3_fprints[ja3["ja3_hash"]] = ja3["desc"]
                     except Exception as e:
                         pass
 
@@ -868,12 +851,11 @@ class NetworkAnalysis(Processing):
             return {}
 
         if not os.path.exists(self.pcap_path):
-            log.warning("The PCAP file does not exist at path \"%s\".",
-                        self.pcap_path)
+            log.warning('The PCAP file does not exist at path "%s".', self.pcap_path)
             return {}
 
         if os.path.getsize(self.pcap_path) == 0:
-            log.error("The PCAP file at path \"%s\" is empty." % self.pcap_path)
+            log.error('The PCAP file at path "%s" is empty.' % self.pcap_path)
             return {}
 
         ja3_fprints = self._import_ja3_fprints()
@@ -915,9 +897,7 @@ def iplayer_from_raw(raw, linktype=1):
 def conn_from_flowtuple(ft):
     """Convert the flow tuple into a dictionary (suitable for JSON)"""
     sip, sport, dip, dport, offset, relts = ft
-    return {"src": sip, "sport": sport,
-            "dst": dip, "dport": dport,
-            "offset": offset, "time": relts}
+    return {"src": sip, "sport": sport, "dst": dip, "dport": dport, "offset": offset, "time": relts}
 
 
 # input_iterator should be a class that also supports writing so we can use
@@ -1070,7 +1050,10 @@ def next_connection_packets(piter, linktype=1):
             break
 
         yield {
-            "src": sip, "dst": dip, "sport": sport, "dport": dport,
+            "src": sip,
+            "dst": dip,
+            "sport": sport,
+            "dport": dport,
             "raw": b64encode(payload_from_raw(raw, linktype)).decode("utf-8"),
             "direction": first_ft == ft,
         }

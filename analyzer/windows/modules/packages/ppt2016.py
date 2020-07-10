@@ -5,8 +5,10 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
+
 class PPT2007(Package):
     """PowerPoint analysis package."""
+
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
@@ -18,4 +20,4 @@ class PPT2007(Package):
 
     def start(self, path):
         powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
-        return self.execute(powerpoint, "/s \"%s\"" % path, path)
+        return self.execute(powerpoint, '/s "%s"' % path, path)

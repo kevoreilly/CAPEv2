@@ -21,14 +21,12 @@ log = logging.getLogger(__name__)
 EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
 
-RESOLUTION = {
-    "x": USER32.GetSystemMetrics(0),
-    "y": USER32.GetSystemMetrics(1)
-}
+RESOLUTION = {"x": USER32.GetSystemMetrics(0), "y": USER32.GetSystemMetrics(1)}
 
 INITIAL_HWNDS = []
 
 CLOSED_OFFICE = False
+
 
 def foreach_child(hwnd, lparam):
     # List of buttons labels to click.
@@ -55,7 +53,7 @@ def foreach_child(hwnd, lparam):
         "end",
         "allow access",
         "remind me later",
-        #german
+        # german
         "ja",
         "weiter",
         "akzeptieren",
@@ -81,7 +79,7 @@ def foreach_child(hwnd, lparam):
         "nicht speichern",
         "ausfuehren",
         "spaeter",
-        "einverstanden"
+        "einverstanden",
     ]
 
     # List of buttons labels to not click.
@@ -93,13 +91,13 @@ def foreach_child(hwnd, lparam):
         "cancel",
         "do not accept the agreement",
         "i would like to help make reader even better",
-        #german
+        # german
         "abbrechen",
         "online nach losung suchen",
         "abbruch",
         "nicht ausfuehren",
         "hilfe",
-        "stimme nicht zu"
+        "stimme nicht zu",
     ]
 
     classname = create_unicode_buffer(128)
@@ -113,13 +111,13 @@ def foreach_child(hwnd, lparam):
             return True
         text = create_unicode_buffer(length + 1)
         USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
-        textval = text.value.replace('&','')
+        textval = text.value.replace("&", "")
         if "Microsoft" in textval and (classname.value in ("NUIDialog", "bosa_sdm_msword")):
             log.info("Issuing keypress on Office dialog")
             USER32.SetForegroundWindow(hwnd)
             # enter key down/up
-            USER32.keybd_event(0x0d, 0x1c, 0, 0)
-            USER32.keybd_event(0x0d, 0x1c, 2, 0)
+            USER32.keybd_event(0x0D, 0x1C, 0, 0)
+            USER32.keybd_event(0x0D, 0x1C, 2, 0)
             return False
 
         # we don't want to bother clicking any non-visible child elements, as they
@@ -137,7 +135,7 @@ def foreach_child(hwnd, lparam):
                     if btn in textval.lower():
                         dontclickb = True
                 if not dontclickb:
-                    log.info("Found button \"%s\", clicking it" % text.value)
+                    log.info('Found button "%s", clicking it' % text.value)
                     USER32.SetForegroundWindow(hwnd)
                     KERNEL32.Sleep(1000)
                     USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
@@ -156,11 +154,13 @@ def foreach_window(hwnd, lparam):
         USER32.EnumChildWindows(hwnd, EnumChildProc(foreach_child), 0)
     return True
 
+
 def getwindowlist(hwnd, lparam):
     global INITIAL_HWNDS
     if USER32.IsWindowVisible(hwnd):
         INITIAL_HWNDS.append(hwnd)
     return True
+
 
 def move_mouse():
     x = random.randint(0, RESOLUTION["x"])
@@ -174,6 +174,7 @@ def move_mouse():
     # this featur optional.
     USER32.SetCursorPos(x, y)
 
+
 def click_mouse():
     # Move mouse to top-middle position.
     USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
@@ -183,11 +184,12 @@ def click_mouse():
     # Mouse up.
     USER32.mouse_event(4, 0, 0, 0, None)
 
+
 # Callback procedure invoked for every enumerated window.
 def get_office_window(hwnd, lparam):
     global CLOSED_OFFICE
     if USER32.IsWindowVisible(hwnd):
-        text = create_unicode_buffer(1024) #create_unicode_buffer(1024)
+        text = create_unicode_buffer(1024)  # create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
         if any([value in text.value for value in (b"- Microsoft", b"- Word", b"- Excel", b"- PowerPoint")]):
             # send ALT+F4 equivalent
@@ -195,6 +197,7 @@ def get_office_window(hwnd, lparam):
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
             CLOSED_OFFICE = True
     return True
+
 
 class Human(Auxiliary, Thread):
     """Human after all"""
@@ -217,7 +220,7 @@ class Human(Auxiliary, Thread):
             cliplen = random.randint(10, 1000)
             clipval = []
             for i in range(cliplen):
-                clipval.append(randchars[random.randint(0, len(randchars)-1)])
+                clipval.append(randchars[random.randint(0, len(randchars) - 1)])
             clipstr = "".join(clipval)
             cliprawstr = create_unicode_buffer(clipstr)
             USER32.OpenClipboard(None)
@@ -238,15 +241,23 @@ class Human(Auxiliary, Thread):
             if hasattr(self.config, "file_type"):
                 file_type = self.config.file_type
                 file_name = self.config.file_name
-                if "Rich Text Format" in file_type or "Microsoft Word" in file_type or \
-                    "Microsoft Office Word" in file_type or "MIME entity" in file_type or \
-                    file_name.endswith((".doc", ".docx", ".rtf", ".mht", ".mso")):
+                if (
+                    "Rich Text Format" in file_type
+                    or "Microsoft Word" in file_type
+                    or "Microsoft Office Word" in file_type
+                    or "MIME entity" in file_type
+                    or file_name.endswith((".doc", ".docx", ".rtf", ".mht", ".mso"))
+                ):
                     officedoc = True
-                elif "Microsoft Office Excel" in file_type or "Microsoft Excel" in file_type or \
-                    file_name.endswith((".xls", ".xlsx", ".xlsm", ".xlsb")):
+                elif (
+                    "Microsoft Office Excel" in file_type
+                    or "Microsoft Excel" in file_type
+                    or file_name.endswith((".xls", ".xlsx", ".xlsm", ".xlsb"))
+                ):
                     officedoc = True
-                elif "Microsoft PowerPoint" in file_type or \
-                    file_name.endswith((".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")):
+                elif "Microsoft PowerPoint" in file_type or file_name.endswith(
+                    (".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")
+                ):
                     officedoc = True
 
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
@@ -268,7 +279,7 @@ class Human(Auxiliary, Thread):
                     except:
                         pass
                     if len(other_hwnds):
-                        USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds)-1)])
+                        USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds) - 1)])
 
                 USER32.EnumWindows(EnumWindowsProc(foreach_window), 0)
                 KERNEL32.Sleep(1000)

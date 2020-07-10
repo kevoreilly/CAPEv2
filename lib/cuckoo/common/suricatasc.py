@@ -34,6 +34,7 @@ class SuricataException(Exception):
     """
     Generic class for suricatasc exception
     """
+
     def __init__(self, value):
         super(SuricataException, self).__init__(value)
         self.value = value
@@ -83,31 +84,31 @@ class SuricataCompleter:
 class SuricataSC:
     def __init__(self, sck_path, verbose=False):
         self.basic_commands = [
-                "shutdown",
-                "quit",
-                "pcap-file-number",
-                "pcap-file-list",
-                "pcap-last-processed",
-                "pcap-interrupt",
-                "iface-list",
-                ]
+            "shutdown",
+            "quit",
+            "pcap-file-number",
+            "pcap-file-list",
+            "pcap-last-processed",
+            "pcap-interrupt",
+            "iface-list",
+        ]
         self.fn_commands = [
-                "pcap-file",
-                "pcap-file-continuous",
-                "iface-stat",
-                "conf-get",
-                "unregister-tenant-handler",
-                "register-tenant-handler",
-                "unregister-tenant",
-                "register-tenant",
-                "reload-tenant",
-                "add-hostbit",
-                "remove-hostbit",
-                "list-hostbit",
-                "memcap-set",
-                "memcap-show",
-                "dataset-add",
-                ]
+            "pcap-file",
+            "pcap-file-continuous",
+            "iface-stat",
+            "conf-get",
+            "unregister-tenant-handler",
+            "register-tenant-handler",
+            "unregister-tenant",
+            "register-tenant",
+            "reload-tenant",
+            "add-hostbit",
+            "remove-hostbit",
+            "list-hostbit",
+            "memcap-set",
+            "memcap-show",
+            "dataset-add",
+        ]
         self.cmd_list = self.basic_commands + self.fn_commands
         self.sck_path = sck_path
         self.verbose = verbose
@@ -117,30 +118,30 @@ class SuricataSC:
         cmdret = None
         data = ""
         while True:
-            if sys.version < '3':
+            if sys.version < "3":
                 data += self.socket.recv(INC_SIZE)
             else:
-                data += self.socket.recv(INC_SIZE).decode('iso-8859-1')
-            if data.endswith('\n'):
+                data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
+            if data.endswith("\n"):
                 cmdret = json.loads(data)
                 break
         return cmdret
 
     def send_command(self, command, arguments=None):
-        if command not in self.cmd_list and command != 'command-list':
+        if command not in self.cmd_list and command != "command-list":
             raise SuricataCommandException("Command not found: {}".format(command))
 
         cmdmsg = {}
-        cmdmsg['command'] = command
+        cmdmsg["command"] = command
         if arguments:
-            cmdmsg['arguments'] = arguments
+            cmdmsg["arguments"] = arguments
         if self.verbose:
             print("SND: " + json.dumps(cmdmsg))
         cmdmsg_str = json.dumps(cmdmsg) + "\n"
-        if sys.version < '3':
+        if sys.version < "3":
             self.socket.send(cmdmsg_str)
         else:
-            self.socket.send(bytes(cmdmsg_str, 'iso-8859-1'))
+            self.socket.send(bytes(cmdmsg_str, "iso-8859-1"))
 
         ready = select.select([self.socket], [], [], 600)
         if ready[0]:
@@ -151,7 +152,7 @@ class SuricataSC:
             raise SuricataReturnException("Unable to get message from server")
 
         if self.verbose:
-            print("RCV: "+ json.dumps(cmdret))
+            print("RCV: " + json.dumps(cmdret))
 
         return cmdret
 
@@ -164,13 +165,13 @@ class SuricataSC:
             raise SuricataNetException(err)
 
         self.socket.settimeout(10)
-        #send version
+        # send version
         if self.verbose:
             print("SND: " + json.dumps({"version": VERSION}))
-        if sys.version < '3':
+        if sys.version < "3":
             self.socket.send(json.dumps({"version": VERSION}))
         else:
-            self.socket.send(bytes(json.dumps({"version": VERSION}), 'iso-8859-1'))
+            self.socket.send(bytes(json.dumps({"version": VERSION}), "iso-8859-1"))
 
         ready = select.select([self.socket], [], [], 600)
         if ready[0]:
@@ -182,7 +183,7 @@ class SuricataSC:
             raise SuricataReturnException("Unable to get message from server")
 
         if self.verbose:
-            print("RCV: "+ json.dumps(cmdret))
+            print("RCV: " + json.dumps(cmdret))
 
         if cmdret["return"] == "NOK":
             raise SuricataReturnException("Error: %s" % (cmdret["message"]))
@@ -237,9 +238,9 @@ class SuricataSC:
         try:
             readline.set_completer(SuricataCompleter(self.cmd_list))
             readline.set_completer_delims(";")
-            readline.parse_and_bind('tab: complete')
+            readline.parse_and_bind("tab: complete")
             while True:
-                if sys.version < '3':
+                if sys.version < "3":
                     command = raw_input(">>> ").strip()
                 else:
                     command = input(">>> ").strip()
@@ -262,12 +263,12 @@ class SuricataSC:
                         print("Can't reconnect to suricata socket, discarding command")
                         continue
                     cmdret = self.send_command(cmd, arguments)
-                #decode json message
+                # decode json message
                 if cmdret["return"] == "NOK":
                     print("Error:")
-                    print(json.dumps(cmdret["message"], sort_keys=True, indent=4, separators=(',', ': ')))
+                    print(json.dumps(cmdret["message"], sort_keys=True, indent=4, separators=(",", ": ")))
                 else:
                     print("Success:")
-                    print(json.dumps(cmdret["message"], sort_keys=True, indent=4, separators=(',', ': ')))
+                    print(json.dumps(cmdret["message"], sort_keys=True, indent=4, separators=(",", ": ")))
         except KeyboardInterrupt:
             print("[!] Interrupted")

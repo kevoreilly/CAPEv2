@@ -4,10 +4,12 @@
 from __future__ import absolute_import
 import hashlib
 
-BUFSIZE = 1024*1024
+BUFSIZE = 1024 * 1024
+
 
 def sha256_file(path):
     return hash_file(hashlib.sha256, path)
+
 
 def hash_file(method, path):
     """Calculate a hash on a file by path.

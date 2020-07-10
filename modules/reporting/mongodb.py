@@ -19,14 +19,17 @@ try:
     from pymongo import MongoClient
     from bson.objectid import ObjectId
     from pymongo.errors import ConnectionFailure, InvalidDocument
+
     HAVE_MONGO = True
 except ImportError:
     HAVE_MONGO = False
 
 log = logging.getLogger(__name__)
 
+
 class MongoDB(Report):
     """Stores report in MongoDB."""
+
     order = 9999
 
     # Mongo schema version, used for data migration.
@@ -42,11 +45,7 @@ class MongoDB(Report):
 
         try:
             self.conn = MongoClient(
-                host,
-                port=port,
-                username=self.options.get("username", None),
-                password=self.options.get("password", None),
-                authSource=db
+                host, port=port, username=self.options.get("username", None), password=self.options.get("password", None), authSource=db
             )
             self.db = self.conn[db]
         except TypeError:
@@ -59,6 +58,7 @@ class MongoDB(Report):
             dct = dct[0]
 
         totals = dict((k, 0) for k in dct)
+
         def walk(root, key, val):
             if isinstance(val, dict):
                 for k, v in val.items():
@@ -97,9 +97,9 @@ class MongoDB(Report):
             # we do not want to convert that.
             if type(v) is str:
                 try:
-                    v.encode('utf-8')
+                    v.encode("utf-8")
                 except UnicodeEncodeError:
-                    obj[k] = ''.join(str(ord(_)) for _ in v).encode('utf-8')
+                    obj[k] = "".join(str(ord(_)) for _ in v).encode("utf-8")
             else:
                 cls.ensure_valid_utf8(v)
 
@@ -111,8 +111,7 @@ class MongoDB(Report):
         # We put the raise here and not at the import because it would
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_MONGO:
-            raise CuckooDependencyError("Unable to import pymongo "
-                                        "(install with `pip3 install pymongo`)")
+            raise CuckooDependencyError("Unable to import pymongo " "(install with `pip3 install pymongo`)")
 
         self.connect()
 
@@ -202,7 +201,7 @@ class MongoDB(Report):
         # Note: Silently ignores the creation if the index already exists.
         self.db.analysis.create_index("info.id", background=True)
 
-        #trick for distributed api
+        # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 

@@ -5,6 +5,7 @@
 
 from lib.core.packages import Package
 
+
 class Js(Package):
     """ Java script analysys package. """
 

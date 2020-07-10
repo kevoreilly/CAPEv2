@@ -15,6 +15,7 @@
 
 from lib.cuckoo.common.abstracts import Signature
 
+
 class NetworkHTTPS(Signature):
     name = "https_urls"
     description = "HTTPS urls from behavior."

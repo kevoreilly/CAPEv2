@@ -24,17 +24,14 @@ if len(sys.argv) == 2:
         results_db = pymongo.MongoClient(
             repconf.mongodb.host,
             port=repconf.mongodb.port,
-            username=repconf.mongodb.get(
-                "username", None),
-            password=repconf.mongodb.get(
-                "password", None),
-            authSource=repconf.mongodb.db
-            )[repconf.mongodb.db]
+            username=repconf.mongodb.get("username", None),
+            password=repconf.mongodb.get("password", None),
+            authSource=repconf.mongodb.db,
+        )[repconf.mongodb.db]
         tasks = results_db.analysis.find({"dropped.sha256": sys.argv[1]})
         if tasks:
             for task in tasks:
-                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(
-                    task["info"]["id"]), "files", sys.argv[1])
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sys.argv[1])
                 if os.path.exists(path):
                     paths = [path]
                     print(("Found by dropped in mongo: {}".format(sys.argv[1])))

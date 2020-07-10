@@ -18,7 +18,7 @@ import pefile
 import yara
 from Crypto.Cipher import ARC4
 
-rule_source = '''
+rule_source = """
 rule BitPaymer
 {
     meta:
@@ -33,42 +33,47 @@ rule BitPaymer
         uint16(0) == 0x5A4D and all of them
 }
 
-'''
+"""
 
 LEN_BLOB_KEY = 40
 
+
 def convert_char(c):
     if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
-        #ToDo gonna break as its int
+        # ToDo gonna break as its int
         return c
     else:
         return "\\x%02x" % ord(c)
 
+
 def decrypt_rc4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'BitPaymer':
+        if match.rule == "BitPaymer":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def extract_rdata(pe):
     for section in pe.sections:
-        if '.rdata' in section.Name:
+        if ".rdata" in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
     return None
 
+
 class BitPaymer(Parser):
 
-    DESCRIPTION = 'BitPaymer configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "BitPaymer configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
@@ -83,7 +88,7 @@ class BitPaymer(Parser):
             for item in raw.split(b"\x00"):
                 data = "".join(convert_char(c) for c in item)
                 if len(data) == 760:
-                    self.reporter.add_metadata('other', {'RSA public key': data})
-                elif len(data) > 1 and '\\x' not in data:
-                    self.reporter.add_metadata('other', {'strings': data})
+                    self.reporter.add_metadata("other", {"RSA public key": data})
+                elif len(data) > 1 and "\\x" not in data:
+                    self.reporter.add_metadata("other", {"strings": data})
         return

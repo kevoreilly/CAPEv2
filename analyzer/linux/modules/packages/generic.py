@@ -13,6 +13,6 @@ class Generic(Package):
     def prepare(self):
         # Make sure that our target is executable
         # /usr/bin/open will handle it
-        system("/bin/chmod +x \"%s\"" % self.target)
+        system('/bin/chmod +x "%s"' % self.target)
         self.args = [self.target] + self.args
         self.target = "sh -c"

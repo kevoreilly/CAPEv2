@@ -11,6 +11,7 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class PlugX(Package):
     """CAPE PlugX analysis package."""
 
@@ -22,17 +23,17 @@ class PlugX(Package):
         self.options["dll"] = "PlugX.dll"
 
         log.info("Timeout: " + str(self.config.timeout))
-        
-        #if self.config.timeout > 10:
+
+        # if self.config.timeout > 10:
         #    self.config.timeout = 5
-        #    log.info("Timeout reset to: " + str(self.config.timeout))       
-        
+        #    log.info("Timeout reset to: " + str(self.config.timeout))
+
     def start(self, path):
         args = self.options.get("arguments")
         appdata = self.options.get("appdata")
         runasx86 = self.options.get("runasx86")
         self.options["dll"] = "PlugX.dll"
-        
+
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does
@@ -44,7 +45,7 @@ class PlugX(Package):
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware
-            basepath = os.getenv('APPDATA')
+            basepath = os.getenv("APPDATA")
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath

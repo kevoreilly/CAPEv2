@@ -11,4 +11,3 @@ sys.path.append(CUCKOO_ROOT)
 from lib.cuckoo.core.plugins import get_suricata_family
 
 print("Suricata detects as:", get_suricata_family(sys.argv[1]))
-

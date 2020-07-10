@@ -24,6 +24,7 @@ from lib.cuckoo.common.config import Config
 
 email_config = Config("smtp_sinkhole")
 
+
 class SmtpSink(SMTPServer):
     """SMTP Sinkhole server."""
 
@@ -52,16 +53,16 @@ class SmtpSink(SMTPServer):
             try:
                 timestamp = datetime.now()
                 msg = MIMEMultipart()
-                msg['Subject'] = "Email from smtp sinkhole: {0}".format(timestamp.strftime("%Y-%m-%d %H:%M:%S"))
-                msg['From'] = email_config.email['from']
-                msg['To'] = email_config.email['to']
-                part = MIMEBase('application', "octet-stream")
+                msg["Subject"] = "Email from smtp sinkhole: {0}".format(timestamp.strftime("%Y-%m-%d %H:%M:%S"))
+                msg["From"] = email_config.email["from"]
+                msg["To"] = email_config.email["to"]
+                part = MIMEBase("application", "octet-stream")
                 part.set_payload(data)
                 Encoders.encode_base64(part)
-                part.add_header('Content-Disposition', 'attachment; filename="cuckoo.eml"')
+                part.add_header("Content-Disposition", 'attachment; filename="cuckoo.eml"')
                 msg.attach(part)
-                server = smtplib.SMTP_SSL(email_config.email['server'], int(email_config.email["port"]))
-                server.login(email_config.email['user'], email_config.email['password'])
+                server = smtplib.SMTP_SSL(email_config.email["server"], int(email_config.email["port"]))
+                server.login(email_config.email["user"], email_config.email["password"])
                 server.set_debuglevel(1)
                 server.sendmail(email_config.email["from"], email_config.email["to"].split(" ,"), msg.as_string())
                 server.quit()
@@ -70,14 +71,11 @@ class SmtpSink(SMTPServer):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="smtp_sinkhole.py",
-                                     usage="%(prog)s [host [port]]",
-                                     description="SMTP Sinkhole")
+    parser = argparse.ArgumentParser(prog="smtp_sinkhole.py", usage="%(prog)s [host [port]]", description="SMTP Sinkhole")
     parser.add_argument("host", nargs="?", default="127.0.0.1")
     parser.add_argument("port", nargs="?", type=int, default=1025)
-    parser.add_argument("--dir", default=None,
-                        help="Directory used to dump emails.")
-    parser.add_argument("--forward", action='store_true', default=False, help="Forward emails to specific email address")
+    parser.add_argument("--dir", default=None, help="Directory used to dump emails.")
+    parser.add_argument("--forward", action="store_true", default=False, help="Forward emails to specific email address")
 
     args = parser.parse_args()
 
@@ -89,4 +87,3 @@ if __name__ == "__main__":
         asyncore.loop()
     except KeyboardInterrupt:
         pass
-

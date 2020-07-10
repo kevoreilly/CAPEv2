@@ -15,6 +15,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database
 
+
 def update_conf(machinery, args):
     """Writes the new machine to the relevant configuration file."""
     path = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery)
@@ -57,6 +58,7 @@ def update_conf(machinery, args):
 
     open(path, "wb").write("\n".join(lines))
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("vmname", type=str, help="Name of the Virtual Machine.")
@@ -86,12 +88,13 @@ def main():
         resultserver_port = conf.resultserver.port
 
     if args.add:
-        db.add_machine(args.vmname, args.vmname, args.ip, args.platform,
-                       args.tags, args.interface, args.snapshot,
-                       resultserver_ip, int(resultserver_port))
+        db.add_machine(
+            args.vmname, args.vmname, args.ip, args.platform, args.tags, args.interface, args.snapshot, resultserver_ip, int(resultserver_port)
+        )
         db.unlock_machine(args.vmname)
 
         update_conf(conf.cuckoo.machinery, args)
+
 
 if __name__ == "__main__":
     main()

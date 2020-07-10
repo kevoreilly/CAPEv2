@@ -8,6 +8,7 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Hancitor(Package):
     """CAPE Hancitor analysis package."""
 
@@ -20,7 +21,7 @@ class Hancitor(Package):
 
     def start(self, path):
         args = self.options.get("arguments")
-        
+
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does

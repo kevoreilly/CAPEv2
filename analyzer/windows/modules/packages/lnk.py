@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import os
 from lib.common.abstracts import Package
 
+
 class LNK(Package):
     """LNK analysis package."""
 
@@ -20,5 +21,5 @@ class LNK(Package):
             path = new_path
 
         cmd_path = self.get_path("cmd.exe")
-        cmd_args = "/c start /wait \"\" \"{0}\"".format(path)
+        cmd_args = '/c start /wait "" "{0}"'.format(path)
         return self.execute(cmd_path, cmd_args, path)

@@ -17,10 +17,7 @@ from lib.common.abstracts import Auxiliary
 log = logging.getLogger(__name__)
 logging.disable(level=logging.DEBUG)
 
-RESOLUTION = {
-    "x": pyautogui.size()[0],
-    "y": pyautogui.size()[1]
-}
+RESOLUTION = {"x": pyautogui.size()[0], "y": pyautogui.size()[1]}
 
 DELAY = 0.5
 pyautogui.PAUSE = 1
@@ -37,9 +34,9 @@ def click_mouse():
     x = random.randint(100, RESOLUTION["x"])
     y = random.randint(100, RESOLUTION["y"])
 
-    #pyautogui.click(x, y)
-    pyautogui.mouseDown(x,y)
-    pyautogui.mouseUp(x,y)
+    # pyautogui.click(x, y)
+    pyautogui.mouseDown(x, y)
+    pyautogui.mouseUp(x, y)
 
 
 def destroyOfficeWindows(window):
@@ -48,12 +45,14 @@ def destroyOfficeWindows(window):
     except:
         return
     for w in children:
-        if w.get_wm_class() in [('libreoffice', 'libreoffice-writer'),
-                                #('soffice.bin', 'soffice.bin'),
-                                ('libreoffice', 'libreoffice-calc'),
-                                ('libreoffice', 'libreoffice-draw'),
-                                ('libreoffice', 'libreoffice-impress'),
-                                ('win', 'Xpdf')]:
+        if w.get_wm_class() in [
+            ("libreoffice", "libreoffice-writer"),
+            # ('soffice.bin', 'soffice.bin'),
+            ("libreoffice", "libreoffice-calc"),
+            ("libreoffice", "libreoffice-draw"),
+            ("libreoffice", "libreoffice-impress"),
+            ("win", "Xpdf"),
+        ]:
             log.debug("Destroying: %s" % w.get_wm_class()[1])
             w.destroy()
         destroyOfficeWindows(w)
@@ -72,7 +71,7 @@ class Human(Thread, Auxiliary):
         Thread.__init__(self)
         Auxiliary.__init__(self, options, analyzer)
         self.initComplete = False
-        self.thread = Thread(target = self.run)
+        self.thread = Thread(target=self.run)
         self.thread.start()
         while self.initComplete == False:
             self.thread.join(0.5)
@@ -126,8 +125,8 @@ class Human(Thread, Auxiliary):
                 move_mouse()
 
             # todo click buttons
-            #if self.do_click_buttons:
-                #foreach_window
+            # if self.do_click_buttons:
+            # foreach_window
 
             time.sleep(DELAY)
             seconds += 1

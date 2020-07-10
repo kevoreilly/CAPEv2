@@ -13,7 +13,7 @@ from six.moves import range
 iface = ""
 for idx, arg in enumerate(sys.argv):
     if arg == "-i" and idx < len(sys.argv) - 1:
-        iface = sys.argv[idx+1]
+        iface = sys.argv[idx + 1]
 
 for i in range(30):
     f = open("/proc/net/dev", "rb")

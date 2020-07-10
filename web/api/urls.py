@@ -7,7 +7,7 @@ from django.conf.urls import url
 from api import views
 
 urlpatterns = [
-    url(r"^$", views.index, name='api'),
+    url(r"^$", views.index, name="api"),
     url(r"^tasks/create/file/$", views.tasks_create_file),
     url(r"^tasks/stats/$", views.task_x_hours),
     url(r"^tasks/create/url/$", views.tasks_create_url),
@@ -56,5 +56,5 @@ urlpatterns = [
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/(?P<msgfilter>[\w$-/:-?{-~!^_`\[\]\s\x5c]+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
-    #url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
+    # url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
 ]

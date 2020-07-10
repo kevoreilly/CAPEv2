@@ -34,18 +34,16 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
         # FIXME(rodionovd):
         # I couldn't figure out how to make __import__ import anything from
         # the (grand)parent package, so here I just patch the PATH
-        sys.path.append(path.abspath(path.join(path.dirname(__file__), '..', '..')))
+        sys.path.append(path.abspath(path.join(path.dirname(__file__), "..", "..")))
         # Since we don't know the package class yet, we'll just import everything
         # from this module and then try to figure out the required member class
-        module = __import__(full_name, globals(), locals(), ['*'])
+        module = __import__(full_name, globals(), locals(), ["*"])
     except ImportError:
-        raise Exception("Unable to import package \"{0}\": it does not "
-                        "exist.".format(name))
+        raise Exception('Unable to import package "{0}": it does not ' "exist.".format(name))
     try:
         pkg_class = _found_target_class(module, name)
     except IndexError as err:
-        raise Exception("Unable to select package class (package={0}): "
-                        "{1}".format(full_name, err))
+        raise Exception("Unable to select package class (package={0}): " "{1}".format(full_name, err))
     return pkg_class
 
 
@@ -92,13 +90,12 @@ class Package(object):
         self.timeout = kwargs.get("timeout", None)
         # Command-line arguments for the target.
 
-
         self.args = self.options.get("args", [])
         # Choose an analysis method (or fallback to apicalls)
         self.method = self.options.get("method", "apicalls")
         # Should our target be launched as root or not
         self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
-        #free: do not inject our monitor.
+        # free: do not inject our monitor.
         self.free = self.options.get("free", None)
         self.proc = None
         self.pids = []
@@ -162,20 +159,15 @@ class Package(object):
         return []
 
     def apicalls_analysis(self):
-        kwargs = {
-            'args': self.args,
-            'timeout': self.timeout,
-            'run_as_root': self.run_as_root
-        }
+        kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
         log.info(self.target)
         cmd = apicalls(self.target, **kwargs)
         stap_start = time.time()
         log.info(cmd)
-        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY":"/root/.Xauthority", "DISPLAY":":0"},
-                                     stderr=subprocess.PIPE, shell=True)
+        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
 
         while "systemtap_module_init() returned 0" not in self.proc.stderr.readline():
-            #log.debug(self.proc.stderr.readline())
+            # log.debug(self.proc.stderr.readline())
             pass
 
         stap_stop = time.time()
@@ -183,17 +175,12 @@ class Package(object):
         return True
 
     def normal_analysis(self):
-        kwargs = {
-            'args': self.args,
-            'timeout': self.timeout,
-            'run_as_root': self.run_as_root
-        }
+        kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
 
-        #cmd = apicalls(self.target, **kwargs)
+        # cmd = apicalls(self.target, **kwargs)
         cmd = "%s %s" % (self.target, " ".join(kwargs["args"]))
         stap_start = time.time()
-        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY":"/root/.Xauthority", "DISPLAY":":0"},
-                                     stderr=subprocess.PIPE, shell=True)
+        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
 
         log.debug(self.proc.stderr.readline())
 
@@ -216,11 +203,12 @@ class Package(object):
             r = self.proc.poll()
             log.debug("stap subprocess retval %r", r)
             self.proc.kill()
-            #subprocess.check_call(["sudo","kill", str(self.proc.pid)])
+            # subprocess.check_call(["sudo","kill", str(self.proc.pid)])
             waitpid(self.proc.pid, 0)
             self._upload_file("stap.log", "logs/all.stap")
         except Exception as e:
             log.warning("Exception uploading log: %s", e)
+
 
 def _string_to_bool(raw):
     if not isinstance(raw, str):

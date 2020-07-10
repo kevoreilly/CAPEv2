@@ -13,6 +13,7 @@ Create Date: 2014-08-21 12:41:30.863956
 
 # Revision identifiers, used by Alembic.
 from __future__ import absolute_import
+
 revision = "18eee46c6f81"
 down_revision = "263a45963c72"
 
@@ -26,25 +27,27 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 
 import lib.cuckoo.core.database as db
 
+
 def _perform(upgrade):
     conn = op.get_bind()
 
-    sample_list = conn.execute("SELECT id, file_size, file_type, md5, crc32, "
-                               "sha1, sha256, sha512, ssdeep FROM samples")
+    sample_list = conn.execute("SELECT id, file_size, file_type, md5, crc32, " "sha1, sha256, sha512, ssdeep FROM samples")
 
     samples = []
     for sample in sample_list:
-        samples.append({
-            "id": sample[0],
-            "file_size": sample[1],
-            "file_type": sample[2],
-            "md5": sample[3],
-            "crc32": sample[4],
-            "sha1": sample[5],
-            "sha256": sample[6],
-            "sha512": sample[7],
-            "ssdeep": sample[8],
-        })
+        samples.append(
+            {
+                "id": sample[0],
+                "file_size": sample[1],
+                "file_type": sample[2],
+                "md5": sample[3],
+                "crc32": sample[4],
+                "sha1": sample[5],
+                "sha256": sample[6],
+                "sha512": sample[7],
+                "ssdeep": sample[8],
+            }
+        )
 
     # PostgreSQL and MySQL have different names for the foreign key of
     # Task.sample_id -> Sample.id; for SQLite we don't drop/recreate the
@@ -90,23 +93,23 @@ def _perform(upgrade):
         sa.Column("sha256", sa.String(64), nullable=False),
         sa.Column("sha512", sa.String(128), nullable=False),
         sa.Column("ssdeep", sa.Text(), nullable=True),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     # Insert data.
     op.bulk_insert(db.Sample.__table__, samples)
 
     # Restore the indices.
-    op.create_index("hash_index", "samples",
-                    ["md5", "crc32", "sha1", "sha256", "sha512"],
-                    unique=True)
+    op.create_index("hash_index", "samples", ["md5", "crc32", "sha1", "sha256", "sha512"], unique=True)
 
     # Create the foreign key.
     if fkey:
         op.create_foreign_key(fkey, "tasks", "samples", ["sample_id"], ["id"])
 
+
 def upgrade():
     _perform(upgrade=True)
+
 
 def downgrade():
     _perform(upgrade=False)

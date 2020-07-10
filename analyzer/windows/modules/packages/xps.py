@@ -15,5 +15,5 @@ class Xps(Package):
 
     def start(self, path):
         xpsrchvw_path = self.get_path("xpsrchvw.exe")
-        xpsrchvw_args = "\"{0}\"".format(path)
+        xpsrchvw_args = '"{0}"'.format(path)
         return self.execute(xpsrchvw_path, xpsrchvw_args, path)

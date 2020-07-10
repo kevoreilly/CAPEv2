@@ -24,43 +24,45 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
 ipwhitelist = [
-              '131.107.255.255', # msftncsi
-              '134.170.51.254',  # M$
-              '157.56.106.189',  # teredo
-              '178.255.83.1',    # ocsp
-              '192.168.',        # internal IP's
-              '204.93.38.138',   # windows update
-              '239.255.255.250', # Multicast IP in captures...
-              '4.2.2.2',         # DNS
-              '64.4.10.33',      # M$
-              '65.55.56.206',    # M$
-              '66.198.8.96',     # msftncsi
-              '74.125.228.',     # google
-              '8.8.4.4',         # DNS
-              '8.8.8.8',         # DNS
-              ]
+    "131.107.255.255",  # msftncsi
+    "134.170.51.254",  # M$
+    "157.56.106.189",  # teredo
+    "178.255.83.1",  # ocsp
+    "192.168.",  # internal IP's
+    "204.93.38.138",  # windows update
+    "239.255.255.250",  # Multicast IP in captures...
+    "4.2.2.2",  # DNS
+    "64.4.10.33",  # M$
+    "65.55.56.206",  # M$
+    "66.198.8.96",  # msftncsi
+    "74.125.228.",  # google
+    "8.8.4.4",  # DNS
+    "8.8.8.8",  # DNS
+]
 
 dnwhitelist = [
-              '.google.com',
-              '.gmail.com',
-              '.gstatic.com',
-              '.youtube.com',
-              '.googleusercontent.com',
-              '.microsoft.com',
-              '.msftncsi.com',
-              '.windowsupdate.com',
-              'ocsp.usertrust.com',
-              'ocsp.comodoca.com'
-              ]
+    ".google.com",
+    ".gmail.com",
+    ".gstatic.com",
+    ".youtube.com",
+    ".googleusercontent.com",
+    ".microsoft.com",
+    ".msftncsi.com",
+    ".windowsupdate.com",
+    "ocsp.usertrust.com",
+    "ocsp.comodoca.com",
+]
+
 
 class Syslog(Report):
     """Creates the syslog data to be sent.
        @param results: Cuckoo results dict
        @return: String containing syslog data built from the results dict.
     """
+
     def createLog(self, results):
-        syslog = ''
-        syslog += 'Timestamp="' + results["info"]["started"].replace("-","/") + '" '
+        syslog = ""
+        syslog += 'Timestamp="' + results["info"]["started"].replace("-", "/") + '" '
         syslog += 'id="' + str(results["info"]["id"]) + '" '
         submittype = results["target"]["category"]
         syslog += 'Submission="' + submittype + '" '
@@ -85,18 +87,18 @@ class Syslog(Report):
         # usernames and ticket numbers in the Custom field. I parse and output
         # it for syslog translation. Fields in custom are seperated by ";" and
         # key/value pairs are seperated by ":".
-        #custom = results["info"]["custom"]
+        # custom = results["info"]["custom"]
         # Set default value of "-"
-        #ticket = 'ticket="-" '
-        #uname = 'User="-" '
+        # ticket = 'ticket="-" '
+        # uname = 'User="-" '
         # Parse custom, check for a new value.
-        #for option in custom.split(';'):
+        # for option in custom.split(';'):
         #    if "user:" in option:
         #        uname = 'User="' + str(option.split(':')[-1]) + '" '
         #    if "ticket:" in option:
         #        ticket = 'ticket="' + str(option.split(':')[-1]) + '" '
-        #syslog += uname
-        #syslog += ticket
+        # syslog += uname
+        # syslog += ticket
 
         if "malscore" in results:
             syslog += 'MalScore="' + str(results["malscore"]) + '" '
@@ -113,7 +115,7 @@ class Syslog(Report):
                 if goodips == []:
                     syslog += 'Related_IPs="-" '
                 else:
-                    syslog += 'Related_IPs="' + ';'.join(f for f in goodips) + '" '
+                    syslog += 'Related_IPs="' + ";".join(f for f in goodips) + '" '
             else:
                 syslog += 'Related_IPs="-" '
 
@@ -134,7 +136,7 @@ class Syslog(Report):
                 if gooddms == []:
                     syslog += 'Related_Domains="-" '
                 else:
-                    syslog += 'Related_Domains="' + ';'.join(f for f in gooddms) + '" '
+                    syslog += 'Related_Domains="' + ";".join(f for f in gooddms) + '" '
             else:
                 syslog += 'Related_Domains="-" '
             # Some network stats...
@@ -151,11 +153,11 @@ class Syslog(Report):
             if all(val in list(results["virustotal"].keys()) for val in ["positives", "total"]):
                 VT_bad = str(results["virustotal"]["positives"])
                 VT_total = str(results["virustotal"]["total"])
-                syslog += 'Virustotal="' + VT_bad + '/' + VT_total + '" '
+                syslog += 'Virustotal="' + VT_bad + "/" + VT_total + '" '
             else:
                 syslog += 'Virustotal="Not Found" '
             # Vendor specific detections here. Included two examples.
-            #if submittype == "file":
+            # if submittype == "file":
             #    if results["virustotal"]["scans"]["Symantec"]["detected"] == True:
             #        svirus = results["virustotal"]["scans"]["Symantec"]["result"]
             #        syslog += 'Symantec="' + svirus + '" '
@@ -169,7 +171,7 @@ class Syslog(Report):
         else:
             syslog += 'Virustotal="Not Checked" '
             # Vendor specific case when there is no detection
-            #if submittype == "file":
+            # if submittype == "file":
             #    syslog += 'Symantec="N/A" '
             #    syslog += 'McAfee="N/A" '
         sigs = []
@@ -184,7 +186,7 @@ class Syslog(Report):
                 syslog += 'Cuckoo_Sigs="antivirus_virustotal" '
             # Otherwise generate the multi-value field.
             elif submittype == "file":
-                syslog += 'Cuckoo_Sigs="' + ';'.join(s for s in sigs) + '" '
+                syslog += 'Cuckoo_Sigs="' + ";".join(s for s in sigs) + '" '
             else:
                 syslog += 'Cuckoo_Sigs="-" '
         # Creates a multi-value ";" delimited field for yara signatures
@@ -197,7 +199,7 @@ class Syslog(Report):
             if yara == []:
                 syslog += 'Yara="-" '
             else:
-                syslog += 'Yara="' + ';'.join(r for r in yara) + '" '
+                syslog += 'Yara="' + ";".join(r for r in yara) + '" '
 
         return syslog
 
@@ -212,14 +214,13 @@ class Syslog(Report):
         proto = self.options.get("protocol", None).lower()
         # A few validations...
         if not server:
-                raise CuckooReportError("Syslog Server IP not defined")
+            raise CuckooReportError("Syslog Server IP not defined")
         if not port:
-                raise CuckooReportError("Syslog Server port not defined")
+            raise CuckooReportError("Syslog Server port not defined")
         if not proto:
-                raise CuckooReportError("Syslog Protocol not defined")
+            raise CuckooReportError("Syslog Protocol not defined")
         if proto != "tcp" and proto != "udp":
-                raise CuckooReportError("Syslog Protocol configuration error, "
-                                           "protocol must be TCP or UDP.")
+            raise CuckooReportError("Syslog Protocol configuration error, " "protocol must be TCP or UDP.")
         # Generate the syslog string
         try:
             result = self.createLog(results)
@@ -246,7 +247,7 @@ class Syslog(Report):
                 sock.connect(server_address)
                 # Attempt to send the syslog string to the syslog server
                 try:
-                    sock.sendall(bytes(result,encoding='UTF-8'))
+                    sock.sendall(bytes(result, encoding="UTF-8"))
                 except:
                     raise CuckooReportError("Failed to send data to syslog server")
                 finally:
@@ -254,7 +255,7 @@ class Syslog(Report):
             elif proto == "udp":
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 try:
-                    sock.sendto(bytes(result, encoding='UTF-8'), server_address)
+                    sock.sendto(bytes(result, encoding="UTF-8"), server_address)
                 except:
                     raise CuckooReportError("Failed to send data to syslog server")
         except (UnicodeError, TypeError, IOError) as e:

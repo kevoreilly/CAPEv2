@@ -11,6 +11,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.colors import red, bold
 
+
 def parse_options(options):
     """Parse the analysis options field to a dictionary."""
     ret = {}
@@ -21,6 +22,7 @@ def parse_options(options):
         key, value = field.split("=", 1)
         ret[key.strip()] = value.strip()
     return ret
+
 
 def emit_options(options):
     """Emit the analysis options from a dictionary to a string."""
@@ -43,7 +45,15 @@ class Config:
             try:
                 config.read(os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % file_name))
             except UnicodeDecodeError as e:
-                print(bold(red("please fix your config file: {}.conf - Pay attention for bytes c2 xa - {}\n\n{}".format(file_name, e.object, e.reason))))
+                print(
+                    bold(
+                        red(
+                            "please fix your config file: {}.conf - Pay attention for bytes c2 xa - {}\n\n{}".format(
+                                file_name, e.object, e.reason
+                            )
+                        )
+                    )
+                )
                 raise UnicodeDecodeError
 
         self.fullconfig = config._sections
@@ -77,9 +87,7 @@ class Config:
         try:
             return getattr(self, section)
         except AttributeError as e:
-            raise CuckooOperationalError("Option %s is not found in "
-                                         "configuration, error: %s" %
-                                         (section, e))
+            raise CuckooOperationalError("Option %s is not found in " "configuration, error: %s" % (section, e))
+
     def get_config(self):
         return self.fullconfig
-

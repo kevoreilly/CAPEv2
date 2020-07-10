@@ -9,6 +9,7 @@ import zipfile
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
+
 class Compression(Report):
     """Compresses analysis artifacts after processing/signatures are complete for permanent storage."""
 
@@ -29,7 +30,7 @@ class Compression(Report):
                         f.write(dmp_path, os.path.basename(dmp_path), zipfile.ZIP_DEFLATED)
                         f.close()
                         os.remove(dmp_path)
-                        proc["file"]="%s.zip" % (dmp_path)
+                        proc["file"] = "%s.zip" % (dmp_path)
                     except Exception as e:
                         raise CuckooReportError("Error creating Process Memory Zip File %s" % e)
 
@@ -40,7 +41,7 @@ class Compression(Report):
                 f.close()
                 os.remove(self.memory_path)
             except Exception as e:
-                 raise CuckooReportError("Error creating Full Memory Zip File %s" % e)
+                raise CuckooReportError("Error creating Full Memory Zip File %s" % e)
 
         if zipmemstrings and self.memory_path and os.path.exists(self.memory_path + ".strings"):
             strings_path = self.memory_path + ".strings"

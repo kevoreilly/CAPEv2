@@ -8,8 +8,9 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger(__name__)
 
-__author__  = "@FernandoDoming"
+__author__ = "@FernandoDoming"
 __version__ = "1.0.0"
+
 
 def parseXmlToJson(xml):
     response = {}
@@ -17,11 +18,11 @@ def parseXmlToJson(xml):
         if len(list(child)) > 0:
             response[child.tag] = parseXmlToJson(child)
         else:
-            response[child.tag] = child.text or ''
+            response[child.tag] = child.text or ""
     return response
 
-class Sysmon(Processing):
 
+class Sysmon(Processing):
     def remove_noise(self, data):
         filtered_proc_creations_re = [
             r"C:\\Windows\\System32\\wevtutil\.exe\s+clear-log\s+microsoft-windows-(sysmon|powershell)\/operational",
@@ -61,10 +62,7 @@ class Sysmon(Processing):
                 except:
                     log.error("Failed to remove sysmon file log %s" % f)
 
-        os.rename(
-            "%s/sysmon/%s" % (self.analysis_path, lastlog),
-            "%s/sysmon/sysmon.xml" % self.analysis_path
-        )
+        os.rename("%s/sysmon/%s" % (self.analysis_path, lastlog), "%s/sysmon/sysmon.xml" % self.analysis_path)
 
         sysmon_path = "%s/sysmon/sysmon.xml" % self.analysis_path
 

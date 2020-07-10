@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
 import logging
+
 log = logging.getLogger(__name__)
 
 log.debug("Importing 'math'")
@@ -13,12 +14,15 @@ log = logging.getLogger(__name__)
 
 try:
     log.debug("Importing 'PIL.ImageChops'")
-    #from PIL import ImageChops
+    # from PIL import ImageChops
     from PIL.ImageChops import difference
+
     log.debug("Importing 'PIL.ImageGrab'")
     from PIL import ImageGrab
+
     log.debug("Importing 'PIL.ImageDraw'")
     from PIL import ImageDraw
+
     try:
         from PIL import __version__
     except ImportError:
@@ -30,6 +34,7 @@ try:
 except Exception as e:
     HAVE_PIL = False
     log.error(e)
+
 
 class Screenshot:
     """Get screenshots."""
@@ -75,12 +80,12 @@ class Screenshot:
         # To get a measure of how similar two images are, we use
         # root-mean-square (RMS). If the images are exactly identical,
         # this value is zero.
-        #diff = ImageChops.difference(img1, img2)
+        # diff = ImageChops.difference(img1, img2)
         diff = difference(img1, img2)
         h = diff.histogram()
-        sq = (value * ((idx % 256)**2) for idx, value in enumerate(h))
+        sq = (value * ((idx % 256) ** 2) for idx, value in enumerate(h))
         sum_of_squares = sum(sq)
-        rms = math.sqrt(sum_of_squares/float(img1.size[0] * img1.size[1]))
+        rms = math.sqrt(sum_of_squares / float(img1.size[0] * img1.size[1]))
 
         # Might need to tweak the threshold.
         return rms < 8

@@ -10,8 +10,10 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class MHT(Package):
     """MHT file analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
@@ -30,4 +32,4 @@ class MHT(Package):
             path += ".mht"
             log.info("Submitted file is missing extension, adding .mht")
 
-        return self.execute(iexplore, "\"%s\"" % path, path)
+        return self.execute(iexplore, '"%s"' % path, path)

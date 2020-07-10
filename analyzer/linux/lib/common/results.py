@@ -12,7 +12,8 @@ from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
-BUFSIZE = 1024*1024
+BUFSIZE = 1024 * 1024
+
 
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
@@ -22,9 +23,9 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
 
     try:
         nc = NetlogFile()
-        #nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
+        # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
         nc.init(dump_path, file_path, pids, metadata, category)
-        infd = open(file_path, "rb") #rb
+        infd = open(file_path, "rb")  # rb
         buf = infd.read(BUFSIZE)
         log.info("Uploading file {} to host -> {}".format(file_path, dump_path))
         while buf:
@@ -90,6 +91,7 @@ class NetlogConnection(object):
             print(e)
             pass
 
+
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
@@ -117,8 +119,9 @@ class NetlogFile(NetlogConnection):
                 category.encode("utf8") if isinstance(category, str) else category,
             )
         else:
-           self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
+            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
         self.connect()
+
 
 class NetlogHandler(logging.Handler, NetlogConnection):
     def __init__(self):
@@ -128,4 +131,4 @@ class NetlogHandler(logging.Handler, NetlogConnection):
 
     def emit(self, record):
         msg = self.format(record)
-        self.send(msg.encode("utf-8")+b"\n")
+        self.send(msg.encode("utf-8") + b"\n")

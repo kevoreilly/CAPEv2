@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class PlugX_dll(Package):
     """DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "rundll32.exe"),
     ]

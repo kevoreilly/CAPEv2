@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule RedLeaf
 {
     meta:
@@ -36,21 +36,23 @@ rule RedLeaf
         $crypto and $decrypt_config
 }
 
-'''
+"""
 
 MAX_STRING_SIZE = 64
-MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'RedLeaf':
+        if match.rule == "RedLeaf":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
+
 
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -58,62 +60,64 @@ def pe_data(pe, va, size):
     data = pe.get_data(rva, size)
     return data
 
+
 def string_from_offset(buffer, offset):
-    string = buffer[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
+
 def unicode_string_from_offset(buffer, offset):
-    string = buffer[offset:offset+MAX_STRING_SIZE].split(b"\x00\x00")[0]
+    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\x00\x00")[0]
     return string
+
 
 class redleaf(Parser):
 
-    DESCRIPTION = 'RedLeaf configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "RedLeaf configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        decrypt_config = yara_scan(filebuf, '$decrypt_config')
+        decrypt_config = yara_scan(filebuf, "$decrypt_config")
 
         if decrypt_config:
-            yara_offset = int(decrypt_config['$decrypt_config'])
+            yara_offset = int(decrypt_config["$decrypt_config"])
         else:
             return
 
-        config_rva = struct.unpack('i', filebuf[yara_offset+23:yara_offset+27])[0] - image_base
+        config_rva = struct.unpack("i", filebuf[yara_offset + 23 : yara_offset + 27])[0] - image_base
 
         config_offset = pe.get_offset_from_rva(config_rva)
 
-        xor_key = struct.unpack('b', filebuf[yara_offset+27:yara_offset+28])[0]
+        xor_key = struct.unpack("b", filebuf[yara_offset + 27 : yara_offset + 28])[0]
 
-        config_size = struct.unpack('i', filebuf[yara_offset+30:yara_offset+34])[0]
+        config_size = struct.unpack("i", filebuf[yara_offset + 30 : yara_offset + 34])[0]
 
-        config = ''.join([chr(xor_key^ord(x)) for x in filebuf[config_offset:config_offset+config_size]])
+        config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset : config_offset + config_size]])
 
-        c2_address = config[8:8+MAX_IP_STRING_SIZE]
+        c2_address = config[8 : 8 + MAX_IP_STRING_SIZE]
         if c2_address != "":
-            self.reporter.add_metadata('c2_address', c2_address)
+            self.reporter.add_metadata("c2_address", c2_address)
 
-        c2_address = config[0x48:0x48+MAX_IP_STRING_SIZE]
+        c2_address = config[0x48 : 0x48 + MAX_IP_STRING_SIZE]
         if c2_address != "":
-            self.reporter.add_metadata('c2_address', c2_address)
+            self.reporter.add_metadata("c2_address", c2_address)
 
-        c2_address = config[0x88:0x88+MAX_IP_STRING_SIZE]
+        c2_address = config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
         if c2_address != "":
-            self.reporter.add_metadata('c2_address', c2_address)
+            self.reporter.add_metadata("c2_address", c2_address)
 
-        missionid = string_from_offset(config, 0x1ec)
+        missionid = string_from_offset(config, 0x1EC)
         if missionid:
-            self.reporter.add_metadata('missionid', missionid)
+            self.reporter.add_metadata("missionid", missionid)
 
         mutex = unicode_string_from_offset(config, 0x508)
         if mutex:
-            self.reporter.add_metadata('mutex', mutex)
+            self.reporter.add_metadata("mutex", mutex)
 
         key = string_from_offset(config, 0x832)
         if key:
-            self.reporter.add_metadata('key', key)
-
+            self.reporter.add_metadata("key", key)

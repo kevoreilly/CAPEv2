@@ -23,1516 +23,2441 @@ try:
     from cybox.core import Object
     from cybox.common import ToolInformation
     from cybox.common import StructuredText
+
     HAVE_CYBOX = True
 except ImportError as e:
     HAVE_CYBOX = False
 
 try:
-    from maec.bundle import (Bundle, MalwareAction, BundleReference,
-                             ProcessTree, AVClassification)
+    from maec.bundle import Bundle, MalwareAction, BundleReference, ProcessTree, AVClassification
     from maec.package import MalwareSubject, Package, Analysis
     import maec.utils
     import mixbox
+
     HAVE_MAEC = True
 except ImportError as e:
     HAVE_MAEC = False
 
 
 api_call_mappings = {
-    "NtCreateFile": {"action_name": "create file",
-                     "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                     "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                     "associated_object_element": "ID",
-                                                                     "association_type": "output",
-                                                                     "forced": {"associated_object_element": "Type",
-                                                                                "value": "File"}},
-                                                      "FileName": {"associated_object_type": "FileObjectType",
-                                                                   "associated_object_element": "File_Path",
-                                                                   "association_type": "output"}}},
-    "NtOpenFile": {"action_name": "open file",
-                   "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                   "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "output",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "File"}},
-                                                    "FileName": {"associated_object_type": "FileObjectType",
-                                                                 "associated_object_element": "File_Path",
-                                                                 "association_type": "input"}}},
-    "NtReadFile": {"action_name": "read from file",
-                   "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                   "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "File"}}}},
-    "NtWriteFile": {"action_name": "write to file",
-                    "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                    "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "File"}}}},
-    "NtDeleteFile": {"action_name": "delete file",
-                     "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                     "parameter_associated_objects": {"FileName": {"associated_object_type": "FileObjectType",
-                                                                   "associated_object_element": "File_Path",
-                                                                   "association_type": "input"}}},
-    "NtDeviceIoControlFile": {"action_name": "send control code to file",
-                              "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                              "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "File"}}}},
-    "NtQueryDirectoryFile": {"action_name": "find file",
-                             "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                             "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "File"}},
-                                                              "FileName": {"associated_object_type": "FileObjectType",
-                                                                           "associated_object_element": "File_Path",
-                                                                           "association_type": "input"}}},
-    "NtQueryInformationFile": {"action_name": "get file attributes",
-                               "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                               "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "File"}}}},
-    "NtSetInformationFile": {"action_name": "set file attributes",
-                             "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                             "parameter_associated_objects": {"FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "File"}}}},
-    "NtCreateDirectoryObject": {"action_name": "create directory",
-                                "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
-                                "parameter_associated_objects": {"DirectoryHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                     "associated_object_element": "ID",
-                                                                                     "association_type": "output",
-                                                                                     "forced": {"associated_object_element": "Type",
-                                                                                                "value": "File"}}}},
-    "CreateDirectoryW": {"action_name": "create directory",
-                         "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"DirectoryName": {"associated_object_type": "FileObjectType",
-                                                                            "associated_object_element": "File_Path",
-                                                                            "association_type": "output"}}},
-    "CreateDirectoryExW": {"action_name": "create directory",
-                           "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
-                           "parameter_associated_objects": {"DirectoryName": {"associated_object_type": "FileObjectType",
-                                                                              "associated_object_element": "File_Path",
-                                                                              "association_type": "output"}}},
-    "RemoveDirectoryA": {"action_name": "delete directory",
-                         "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"DirectoryName": {"associated_object_type": "FileObjectType",
-                                                                            "associated_object_element": "File_Path",
-                                                                            "association_type": "input"}}},
-    "RemoveDirectoryW": {"action_name": "delete directory",
-                         "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"DirectoryName": {"associated_object_type": "FileObjectType",
-                                                                            "associated_object_element": "File_Path",
-                                                                            "association_type": "input"}}},
-    "MoveFileWithProgressW": {"action_name": "move file",
-                              "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                              "parameter_associated_objects": {"ExistingFileName": {"associated_object_type": "FileObjectType",
-                                                                                    "associated_object_element": "File_Path",
-                                                                                    "association_type": "input"},
-                                                               "NewFileName": {"associated_object_type": "FileObjectType",
-                                                                               "associated_object_element": "File_Path",
-                                                                               "association_type": "output"}}},
-    "FindFirstFileExA": {"action_name": "find file",
-                         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                         "parameter_associated_objects": {"FileName": {"associated_object_type": "FileObjectType",
-                                                                       "associated_object_element": "File_Path",
-                                                                       "association_type": "input"}}},
-    "FindFirstFileExW": {"action_name": "find file",
-                         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                         "parameter_associated_objects": {"FileName": {"associated_object_type": "FileObjectType",
-                                                                       "associated_object_element": "File_Path",
-                                                                       "association_type": "input"}}},
-    "CopyFileA": {"action_name": "copy file",
-                  "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                  "parameter_associated_objects": {"ExistingFileName": {"associated_object_type": "FileObjectType",
-                                                                        "associated_object_element": "File_Path",
-                                                                        "association_type": "input"},
-                                                   "NewFileName": {"associated_object_type": "FileObjectType",
-                                                                   "associated_object_element": "File_Path",
-                                                                   "association_type": "output"}}},
-    "CopyFileW": {"action_name": "copy file",
-                  "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                  "parameter_associated_objects": {"ExistingFileName": {"associated_object_type": "FileObjectType",
-                                                                        "associated_object_element": "File_Path",
-                                                                        "association_type": "input"},
-                                                   "NewFileName": {"associated_object_type": "FileObjectType",
-                                                                   "associated_object_element": "File_Path",
-                                                                   "association_type": "output"}}},
-    "CopyFileExW": {"action_name": "copy file",
-                    "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                    "parameter_associated_objects": {"ExistingFileName": {"associated_object_type": "FileObjectType",
-                                                                          "associated_object_element": "File_Path",
-                                                                          "association_type": "input"},
-                                                     "NewFileName": {"associated_object_type": "FileObjectType",
-                                                                     "associated_object_element": "File_Path",
-                                                                     "association_type": "output"}}},
-    "DeleteFileA": {"action_name": "delete file",
-                    "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                    "parameter_associated_objects": {"FileName": {"associated_object_type": "FileObjectType",
-                                                                  "associated_object_element": "File_Path",
-                                                                  "association_type": "input"}}},
-    "DeleteFileW": {"action_name": "delete file",
-                    "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
-                    "parameter_associated_objects": {"FileName": {"associated_object_type": "FileObjectType",
-                                                                  "associated_object_element": "File_Path",
-                                                                  "association_type": "input"}}},
-    "RegOpenKeyExA": {"action_name": "open registry key",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Registry": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                    "associated_object_element": "Hive",
-                                                                    "association_type": "input",
-                                                                    "post_processing": "hiveHexToString"},
-                                                       "SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                  "associated_object_element": "Key",
-                                                                  "association_type": "input", },
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "output",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}},
-                                                       "group_together": ["Registry", "SubKey"]}},
-    "RegOpenKeyExW": {"action_name": "open registry key",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Registry": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                    "associated_object_element": "Hive",
-                                                                    "association_type": "input",
-                                                                    "post_processing": "hiveHexToString"},
-                                                       "SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                  "associated_object_element": "Key",
-                                                                  "association_type": "input", },
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "output",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}},
-                                                       "group_together": ["Registry", "SubKey"]}},
-    "RegCreateKeyExA": {"action_name": "create registry key",
-                        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                        "parameter_associated_objects": {"Registry": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                      "associated_object_element": "Hive",
-                                                                      "association_type": "output",
-                                                                      "post_processing": "hiveHexToString"},
-                                                         "SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                    "associated_object_element": "Key",
-                                                                    "association_type": "output"},
-                                                         "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "output",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}},
-                                                         "group_together": ["Registry", "SubKey"]}},
-    "RegCreateKeyExW": {"action_name": "create registry key",
-                        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                        "parameter_associated_objects": {"Registry": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                      "associated_object_element": "Hive",
-                                                                      "association_type": "output",
-                                                                      "post_processing": "hiveHexToString"},
-                                                         "SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                    "associated_object_element": "Key",
-                                                                    "association_type": "output"},
-                                                         "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "output",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}},
-                                                         "group_together": ["Registry", "SubKey"]}},
-    "RegDeleteKeyA": {"action_name": "delete registry key",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                  "associated_object_element": "Key",
-                                                                  "association_type": "input"},
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "RegDeleteKeyW": {"action_name": "delete registry key",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"SubKey": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                  "associated_object_element": "Key",
-                                                                  "association_type": "input"},
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "RegEnumKeyW": {"action_name": "enumerate registry key subkeys",
-                    "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                    "parameter_associated_objects": {"Name": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                              "associated_object_element": "Key",
-                                                              "association_type": "output"},
-                                                     "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                "associated_object_element": "ID",
-                                                                "association_type": "input",
-                                                                "forced": {"associated_object_element": "Type",
-                                                                           "value": "RegistryKey"}}}},
-    "RegEnumKeyExA": {"action_name": "enumerate registry key subkeys",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Name": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                "associated_object_element": "Key",
-                                                                "association_type": "output"},
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "RegEnumKeyExW": {"action_name": "enumerate registry key subkeys",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Name": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                "associated_object_element": "Key",
-                                                                "association_type": "output"},
-                                                       "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "RegEnumValueA": {"action_name": "enumerate registry key values",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}},
-                                                       "group_together_nested": {"parameter_mappings": [{"parameter_name": "ValueName", "element_name": "Name"},
-                                                                                                        {"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                         "post_processing": "regDatatypeToString"},
-                                                                                                        {"parameter_name": "Data", "element_name": "Data"}],
-                                                                                 "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                 "associated_object_element": "Values/list__",
-                                                                                 "association_type": "output"}}},
-    "RegEnumValueW": {"action_name": "enumerate registry key values",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}},
-                                                       "group_together_nested": {"parameter_mappings": [{"parameter_name": "ValueName", "element_name": "Name"},
-                                                                                                        {"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                         "post_processing": "regDatatypeToString"},
-                                                                                                        {"parameter_name": "Data", "element_name": "Data"}],
-                                                                                 "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                 "associated_object_element": "Values/list__",
-                                                                                 "association_type": "output"}}},
-    "RegSetValueExA": {"action_name": "modify registry key value",
-                       "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                       "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}},
-                                                        "group_together_nested": {"parameter_mappings": [{"parameter_name": "ValueName", "element_name": "Name"},
-                                                                                                         {"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                          "post_processing": "regDatatypeToString"},
-                                                                                                         {"parameter_name": "Buffer", "element_name": "Data"}],
-                                                                                  "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                  "associated_object_element": "Values/list__",
-                                                                                  "association_type": "output"}}},
-    "RegSetValueExW": {"action_name": "modify registry key value",
-                       "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                       "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}},
-                                                        "group_together_nested": {"parameter_mappings": [{"parameter_name": "ValueName", "element_name": "Name"},
-                                                                                                         {"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                          "post_processing": "regDatatypeToString"},
-                                                                                                         {"parameter_name": "Buffer", "element_name": "Data"}],
-                                                                                  "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                  "associated_object_element": "Values/list__",
-                                                                                  "association_type": "output"}}},
-    "RegQueryValueExA": {"action_name": "read registry key value",
-                         "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                        "associated_object_element": "Values/list__Name",
-                                                                        "association_type": "input"},
-                                                          "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                     "associated_object_element": "ID",
-                                                                     "association_type": "input",
-                                                                     "forced": {"associated_object_element": "Type",
-                                                                                "value": "RegistryKey"}},
-                                                          "group_together_nested": {"parameter_mappings": [{"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                            "post_processing": "regDatatypeToString"},
-                                                                                                           {"parameter_name": "Data", "element_name": "Data"}],
-                                                                                    "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                    "associated_object_element": "Values/list__",
-                                                                                    "association_type": "output"}}},
-    "RegQueryValueExW": {"action_name": "read registry key value",
-                         "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                        "associated_object_element": "Values/list__Name",
-                                                                        "association_type": "input"},
-                                                          "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                     "associated_object_element": "ID",
-                                                                     "association_type": "input",
-                                                                     "forced": {"associated_object_element": "Type",
-                                                                                "value": "RegistryKey"}},
-                                                          "group_together_nested": {"parameter_mappings": [{"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                            "post_processing": "regDatatypeToString"},
-                                                                                                           {"parameter_name": "Data", "element_name": "Data"}],
-                                                                                    "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                    "associated_object_element": "Values/list__",
-                                                                                    "association_type": "output"}}},
-    "RegDeleteValueA": {"action_name": "delete registry key value",
-                        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                        "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                       "associated_object_element": "Values/list__Name",
-                                                                       "association_type": "input"},
-                                                         "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}}}},
-    "RegDeleteValueW": {"action_name": "delete registry key value",
-                        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                        "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                       "associated_object_element": "Values/list__Name",
-                                                                       "association_type": "input"},
-                                                         "Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}}}},
-    "RegQueryInfoKeyA": {"action_name": "get registry key attributes",
-                         "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                        "associated_object_element": "ID",
-                                                                        "association_type": "input",
-                                                                        "forced": {"associated_object_element": "Type",
-                                                                                   "value": "RegistryKey"}}}},
-    "RegQueryInfoKeyW": {"action_name": "get registry key attributes",
-                         "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                        "associated_object_element": "ID",
-                                                                        "association_type": "input",
-                                                                        "forced": {"associated_object_element": "Type",
-                                                                                   "value": "RegistryKey"}}}},
-    "RegCloseKey": {"action_name": "close registry key",
-                    "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                    "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                "associated_object_element": "ID",
-                                                                "association_type": "input",
-                                                                "forced": {"associated_object_element": "Type",
-                                                                           "value": "RegistryKey"}}}},
-    "NtCreateKey": {"action_name": "create registry key",
-                    "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                    "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "ObjectAttributes", "element_name": "Hive",
-                                                                                                       "post_processing": "regStringToHive"},
-                                                                                                      {"parameter_name": "ObjectAttributes", "element_name": "Key",
-                                                                                                       "post_processing": "regStringToKey"}],
-                                                                               "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                               "association_type": "output"},
-                                                     "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "output",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}}}},
-    "NtOpenKey": {"action_name": "open registry key",
-                  "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                  "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "ObjectAttributes", "element_name": "Hive",
-                                                                                                     "post_processing": "regStringToHive"},
-                                                                                                    {"parameter_name": "ObjectAttributes", "element_name": "Key",
-                                                                                                     "post_processing": "regStringToKey"}],
-                                                                             "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                             "association_type": "input"},
-                                                   "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                 "associated_object_element": "ID",
-                                                                 "association_type": "output",
-                                                                 "forced": {"associated_object_element": "Type",
-                                                                            "value": "RegistryKey"}}}},
-    "NtOpenKeyEx": {"action_name": "open registry key",
-                    "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                    "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "ObjectAttributes", "element_name": "Hive",
-                                                                                                       "post_processing": "regStringToHive"},
-                                                                                                      {"parameter_name": "ObjectAttributes", "element_name": "Key",
-                                                                                                       "post_processing": "regStringToKey"}],
-                                                                               "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                               "association_type": "input"},
-                                                     "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "output",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}}}},
-    "NtRenameKey": {"action_name": "rename registry key",
-                    "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "NewName", "element_name": "Hive",
-                                                                                                       "post_processing": "regStringToHive"},
-                                                                                                      {"parameter_name": "NewName", "element_name": "Key",
-                                                                                                       "post_processing": "regStringToKey"}],
-                                                                               "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                               "association_type": "input"},
-                                                     "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}}}},
-    "NtReplaceKey": {"action_name": "save hive key to file",
-                     "parameter_associated_objects": {"NewHiveFileName": {"associated_object_type": "FileObjectType",
-                                                                          "associated_object_element": "File_Path",
-                                                                          "association_type": "output"},
-                                                      "OldHiveFileName": {"associated_object_type": "FileObjectType",
-                                                                          "associated_object_element": "File_Path",
-                                                                          "association_type": "input"},
-                                                      "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}}}},
-    "NtEnumerateKey": {"action_name": "enumerate registry key subkeys",
-                       "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                       "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                      "associated_object_element": "ID",
-                                                                      "association_type": "input",
-                                                                      "forced": {"associated_object_element": "Type",
-                                                                                 "value": "RegistryKey"}}}},
-    "NtEnumerateValueKey": {"action_name": "enumerate registry key values",
-                            "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                            "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                           "associated_object_element": "ID",
-                                                                           "association_type": "input",
-                                                                           "forced": {"associated_object_element": "Type",
-                                                                                      "value": "RegistryKey"}}}},
-    "NtSetValueKey": {"action_name": "modify registry key value",
-                      "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                     "associated_object_element": "ID",
-                                                                     "association_type": "input",
-                                                                     "forced": {"associated_object_element": "Type",
-                                                                                "value": "RegistryKey"}},
-                                                       "group_together_nested": {"parameter_mappings": [{"parameter_name": "ValueName", "element_name": "Name"},
-                                                                                                        {"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                         "post_processing": "regDatatypeToString"},
-                                                                                                        {"parameter_name": "Buffer", "element_name": "Data"}],
-                                                                                 "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                 "associated_object_element": "Values/list__",
-                                                                                 "association_type": "output"}}},
-    "NtQueryValueKey": {"action_name": "read registry key value",
-                        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                        "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                       "associated_object_element": "Values/list__Name",
-                                                                       "association_type": "input"},
-                                                         "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                       "associated_object_element": "ID",
-                                                                       "association_type": "input",
-                                                                       "forced": {"associated_object_element": "Type",
-                                                                                  "value": "RegistryKey"}},
-                                                         "group_together_nested": {"parameter_mappings": [{"parameter_name": "Type", "element_name": "Datatype",
-                                                                                                           "post_processing": "regDatatypeToString"},
-                                                                                                          {"parameter_name": "Information", "element_name": "Data"}],
-                                                                                   "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                   "associated_object_element": "Values/list__",
-                                                                                   "association_type": "output"}}},
-    "NtQueryMultipleValueKey": {"action_name": "read registry key value",
-                                "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                                "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                               "associated_object_element": "Values/list__Name",
-                                                                               "association_type": "input"},
-                                                                 "ValueBuffer": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                                 "associated_object_element": "Values/list__Data",
-                                                                                 "association_type": "output"},
-                                                                 "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "RegistryKey"}}}},
-    "NtDeleteKey": {"action_name": "delete registry key",
-                    "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                    "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}}}},
-    "NtDeleteValueKey": {"action_name": "delete registry key value",
-                         "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ValueName": {"associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                        "associated_object_element": "Values/list__Name",
-                                                                        "association_type": "input"},
-                                                          "KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                        "associated_object_element": "ID",
-                                                                        "association_type": "input",
-                                                                        "forced": {"associated_object_element": "Type",
-                                                                                   "value": "RegistryKey"}}}},
-    "NtLoadKey": {"action_name": "load registry keys from file",
-                  "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "TargetKey", "element_name": "Hive",
-                                                                                                     "post_processing": "regStringToHive"},
-                                                                                                    {"parameter_name": "TargetKey", "element_name": "Key",
-                                                                                                     "post_processing": "regStringToKey"}],
-                                                                             "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                             "association_type": "input"},
-                                                   "SourceFile": {"associated_object_type": "FileObjectType",
-                                                                  "associated_object_element": "File_Path",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "NtLoadKey2": {"action_name": "load registry keys from file",
-                   "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "TargetKey", "element_name": "Hive",
-                                                                                                      "post_processing": "regStringToHive"},
-                                                                                                     {"parameter_name": "TargetKey", "element_name": "Key",
-                                                                                                      "post_processing": "regStringToKey"}],
-                                                                              "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                              "association_type": "input"},
-                                                    "SourceFile": {"associated_object_type": "FileObjectType",
-                                                                   "associated_object_element": "File_Path",
-                                                                   "association_type": "input",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "RegistryKey"}}}},
-    "NtLoadKeyEx": {"action_name": "load registry keys from file",
-                    "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "TargetKey", "element_name": "Hive",
-                                                                                                       "post_processing": "regStringToHive"},
-                                                                                                      {"parameter_name": "TargetKey", "element_name": "Key",
-                                                                                                       "post_processing": "regStringToKey"}],
-                                                                               "associated_object_type": "WindowsRegistryKeyObjectType",
-                                                                               "association_type": "input"},
-                                                     "SourceFile": {"associated_object_type": "FileObjectType",
-                                                                    "associated_object_element": "File_Path",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "RegistryKey"}}}},
-    "NtQueryKey": {"action_name": "get registry key attributes",
-                   "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
-                   "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "NtSaveKey": {"action_name": "save registry key subtree to file",
-                  "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                 "associated_object_element": "ID",
-                                                                 "association_type": "input"},
-                                                   "FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                  "associated_object_element": "ID",
-                                                                  "association_type": "input",
-                                                                  "forced": {"associated_object_element": "Type",
-                                                                             "value": "RegistryKey"}}}},
-    "NtSaveKeyEx": {"action_name": "save registry key subtree to file",
-                    "parameter_associated_objects": {"KeyHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "input"},
-                                                     "FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "input",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "Process"}}}},
-    "NtCreateProcess": {"action_name": "create process",
-                        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                        "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                           "associated_object_element": "ID",
-                                                                           "association_type": "output",
-                                                                           "forced": {"associated_object_element": "Type",
-                                                                                      "value": "Process"}},
-                                                         "FileName": {"associated_object_type": "FileObjectType",
-                                                                      "associated_object_element": "File_Path",
-                                                                      "association_type": "input"}}},
-    "NtCreateProcessEx": {"action_name": "create process",
-                          "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                          "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "output",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Process"}},
-                                                           "FileName": {"associated_object_type": "FileObjectType",
-                                                                        "associated_object_element": "File_Path",
-                                                                        "association_type": "input"}}},
-    "NtCreateUserProcess": {"action_name": "create process",
-                            "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                            "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "output",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "Process"}},
-                                                             "ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "output",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Thread"}},
-                                                             "ThreadName": {"associated_object_type": "WindowsThreadObjectType",
-                                                                            "associated_object_element": "Thread_ID",
-                                                                            "association_type": "output"},
-                                                             "group_together_nested": {"parameter_mappings": [{"parameter_name": "ProcessFileName", "element_name": "File_Name", },
-                                                                                                              {"parameter_name": "ImagePathName", "element_name": "Path"}],
-                                                                                       "associated_object_type": "ProcessObjectType",
-                                                                                       "associated_object_element": "Image_Info",
-                                                                                       "association_type": "output"}}},
-    "RtlCreateUserProcess": {"action_name": "create process",
-                             "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                             "parameter_associated_objects": {"ParentProcess": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "output",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "Process"}},
-                                                              "ImagePath": {"associated_object_type": "ProcessObjectType",
-                                                                            "associated_object_element": "Image_Info/Path",
-                                                                            "association_type": "input"}}},
-    "NtOpenProcess": {"action_name": "open process",
-                      "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                      "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "output",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Process"}},
-                                                       "ProcessIdentifier": {"associated_object_type": "ProcessObjectType",
-                                                                             "associated_object_element": "PID",
-                                                                             "association_type": "input"}}},
-    "NtTerminateProcess": {"action_name": "kill process",
-                           "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                           "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Process"}}}},
-    "NtCreateSection": {"action_name": "create section",
-                        "parameter_associated_objects": {"SectionHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                           "associated_object_element": "ID",
-                                                                           "association_type": "output",
-                                                                           "forced": {"associated_object_element": "Type",
-                                                                                      "value": "Section"}},
-                                                         "FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                        "associated_object_element": "ID",
-                                                                        "association_type": "input",
-                                                                        "forced": {"associated_object_element": "Type",
-                                                                                   "value": "File"}}}},
-    "NtOpenSection": {"action_name": "open section",
-                      "parameter_associated_objects": {"SectionHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "output",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Section"}},
-                                                       "ObjectAttributes": {"associated_object_type": "MemoryObjectType",
-                                                                            "associated_object_element": "Name",
-                                                                            "association_type": "input"}}},
-    "CreateProcessInternalW": {"action_name": "create process",
-                               "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                               "parameter_associated_objects": {"ProcessId": {"associated_object_type": "WindowsProcessObjectType",
-                                                                              "associated_object_element": "PID",
-                                                                              "association_type": "output"},
-                                                                "ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                             "associated_object_element": "Thread_ID",
-                                                                             "association_type": "output"},
-                                                                "ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                  "associated_object_element": "ID",
-                                                                                  "association_type": "output",
-                                                                                  "forced": {"associated_object_element": "Type",
-                                                                                             "value": "Process"}},
-                                                                "ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                 "associated_object_element": "ID",
-                                                                                 "association_type": "output",
-                                                                                 "forced": {"associated_object_element": "Type",
-                                                                                            "value": "Thread"}}},
-                               "parameter_associated_arguments": {"ApplicationName": {"associated_argument_name": "Application Name"}}},
-    "ExitProcess": {"action_name": "kill process",
-                    "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                    "parameter_associated_arguments": {"ExitCode": {"associated_argument_name": "Exit Code"}}},
-
-    "ShellExecuteExW": {"action_name": "create process",
-                        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
-                        "parameter_associated_objects": {"FilePath": {"associated_object_type": "FileObjectType",
-                                                                      "associated_object_element": "File_Path",
-                                                                      "association_type": "input"}}},
-    "NtUnmapViewOfSection": {"action_name": "unmap view of section",
-                             "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "input",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "Process"}}}},
-    "NtAllocateVirtualMemory": {"action_name": "allocate process virtual memory",
-                                "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                                "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                   "associated_object_element": "ID",
-                                                                                   "association_type": "input",
-                                                                                   "forced": {"associated_object_element": "Type",
-                                                                                              "value": "Process"}}}},
-    "NtReadVirtualMemory": {"action_name": "read from process memory",
-                            "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                            "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "Process"}}}},
-    "ReadProcessMemory": {"action_name": "read from process memory",
-                          "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                          "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Process"}}}},
-    "NtWriteVirtualMemory": {"action_name": "write to process memory",
-                             "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                             "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "input",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "Process"}}}},
-    "WriteProcessMemory": {"action_name": "write to process memory",
-                           "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                           "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Process"}}}},
-    "NtProtectVirtualMemory": {"action_name": "modify process virtual memory protection",
-                               "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                               "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                  "associated_object_element": "ID",
-                                                                                  "association_type": "input",
-                                                                                  "forced": {"associated_object_element": "Type",
-                                                                                             "value": "Process"}}}},
-    "VirtualProtectEx": {"action_name": "modify process virtual memory protection",
-                         "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                            "associated_object_element": "ID",
-                                                                            "association_type": "input",
-                                                                            "forced": {"associated_object_element": "Type",
-                                                                                       "value": "Process"}}}},
-    "NtFreeVirtualMemory": {"action_name": "free process virtual memory",
-                            "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                            "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "Process"}}}},
-    "VirtualFreeEx": {"action_name": "free process virtual memory",
-                      "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
-                      "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Process"}}}},
-    "FindWindowA": {"action_name": "find window",
-                    "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
-                    "parameter_associated_objects": {"WindowName": {"associated_object_type": "GUIWindowObjectType",
-                                                                    "associated_object_element": "Window_Display_Name",
-                                                                    "association_type": "input"}}},
-    "FindWindowW": {"action_name": "find window",
-                    "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
-                    "parameter_associated_objects": {"WindowName": {"associated_object_type": "GUIWindowObjectType",
-                                                                    "associated_object_element": "Window_Display_Name",
-                                                                    "association_type": "input"}}},
-    "FindWindowExA": {"action_name": "find window",
-                      "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
-                      "parameter_associated_objects": {"WindowName": {"associated_object_type": "GUIWindowObjectType",
-                                                                      "associated_object_element": "Window_Display_Name",
-                                                                      "association_type": "input"}}},
-    "FindWindowExW": {"action_name": "find window",
-                      "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
-                      "parameter_associated_objects": {"WindowName": {"associated_object_type": "GUIWindowObjectType",
-                                                                      "associated_object_element": "Window_Display_Name",
-                                                                      "association_type": "input"}}},
-    "SetWindowsHookExA": {"action_name": "add windows hook",
-                          "action_vocab": "maecVocabs:HookingActionNameVocab-1.0",
-                          "parameter_associated_objects": {"HookIdentifier": {"associated_object_type": "WindowsKernelHookObjectType",
-                                                                              "associated_object_element": "Type",
-                                                                              "association_type": "input"},
-                                                           "ProcedureAddress": {"associated_object_type": "WindowsKernelHookObjectType",
-                                                                                "associated_object_element": "Hooking_Address",
-                                                                                "association_type": "input"},
-                                                           "ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                        "associated_object_element": "Thread_ID",
-                                                                        "association_type": "input"},
-                                                           "group_together": ["HookIdentifier", "ProcedureAddress"]}},
-    "SetWindowsHookExW": {"action_name": "add windows hook",
-                          "action_vocab": "maecVocabs:HookingActionNameVocab-1.0",
-                          "parameter_associated_objects": {"HookIdentifier": {"associated_object_type": "WindowsKernelHookObjectType",
-                                                                              "associated_object_element": "Type",
-                                                                              "association_type": "input"},
-                                                           "ProcedureAddress": {"associated_object_type": "WindowsKernelHookObjectType",
-                                                                                "associated_object_element": "Hooking_Address",
-                                                                                "association_type": "input"},
-                                                           "ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                        "associated_object_element": "Thread_ID",
-                                                                        "association_type": "input"},
-                                                           "group_together": ["HookIdentifier", "ProcedureAddress"]}},
-    "UnhookWindowsHookEx": {"action_name": "remove windows hook",
-                            "parameter_associated_objects": {"HookHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                            "associated_object_element": "ID",
-                                                                            "association_type": "input",
-                                                                            "forced": {"associated_object_element": "Type",
-                                                                                       "value": "Hook"}}}},
-    "LdrLoadDll": {"action_name": "load library",
-                   "action_vocab": "maecVocabs:LibraryActionNameVocab-1.0",
-                   "parameter_associated_objects": {"FileName": {"associated_object_type": "LibraryObjectType",
-                                                                 "associated_object_element": "Name",
-                                                                 "association_type": "input"},
-                                                    "BaseAddress": {"associated_object_type": "WindowsHandleObjectType",
-                                                                    "associated_object_element": "ID",
-                                                                    "association_type": "output",
-                                                                    "forced": {"associated_object_element": "Type",
-                                                                               "value": "Module"}}}},
-    "LdrGetDllHandle": {"action_name": "get dll handle",
-                        "parameter_associated_objects": {"FileName": {"associated_object_type": "LibraryObjectType",
-                                                                      "associated_object_element": "Name",
-                                                                      "association_type": "input"},
-                                                         "ModuleHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                          "associated_object_element": "ID",
-                                                                          "association_type": "output",
-                                                                          "forced": {"associated_object_element": "Type",
-                                                                                     "value": "Module"}}}},
-    "LdrGetProcedureAddress": {"action_name": "get function address",
-                               "action_vocab": "maecVocabs:LibraryActionNameVocab-1.0",
-                               "parameter_associated_objects": {"ModuleHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                 "associated_object_element": "ID",
-                                                                                 "association_type": "input",
-                                                                                 "forced": {"associated_object_element": "Type",
-                                                                                            "value": "Module"}},
-                                                                "FunctionAddress": {"associated_object_type": "APIObjectType",
-                                                                                    "associated_object_element": "Address",
-                                                                                    "association_type": "output",
-                                                                                    "post_processing": "intToHex"},
-                                                                "group_together_nested": {"parameter_mappings": [{"parameter_name": "FunctionName", "element_name": "Function_Name"},
-                                                                                                                 {"parameter_name": "Ordinal", "element_name": "Ordinal"}],
-                                                                                          "associated_object_type": "WindowsExecutableFileObjectType",
-                                                                                          "associated_object_element": "Exports/Exported_Functions/list__",
-                                                                                          "association_type": "input"}}},
-    "DeviceIoControl": {"action_name": "send control code to driver",
-                        "parameter_associated_objects": {"DeviceHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                          "associated_object_element": "ID",
-                                                                          "association_type": "input",
-                                                                          "forced": {"associated_object_element": "Type",
-                                                                                     "value": "Device"}}},
-                        "parameter_associated_arguments": {"IoControlCode": {"associated_argument_name": "Control Code",
-                                                                             "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "ExitWindowsEx": {"action_name": "shutdown system",
-                      "action_vocab": "maecVocabs:SystemActionNameVocab-1.0",
-                      "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"},
-                                                         "Reason": {"associated_argument_name": "Reason"}}},
-    "IsDebuggerPresent": {"action_name": "check for remote debugger",
-                          "action_vocab": "maecVocabs:DebuggingActionNameVocab-1.0"},
-    "LookupPrivilegeValueW": {"action_name": "find privilege value",
-                              "parameter_associated_objects": {"SystemName": {"associated_object_type": "SystemObjectType",
-                                                                              "associated_object_element": "Hostname",
-                                                                              "association_type": "input"}},
-                              "parameter_associated_arguments": {"PrivilegeName": {"associated_argument_name": "Privilege Name"}}},
-    "NtClose": {"action_name": "close handle",
-                "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                            "associated_object_element": "ID",
-                                                            "association_type": "input"}}},
-    "WriteConsoleA": {"action_name": "write to console",
-                      "parameter_associated_objects": {"ConsoleHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Console"}}}},
-    "WriteConsoleW": {"action_name": "write to console",
-                      "parameter_associated_objects": {"ConsoleHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Console"}}}},
-    "ZwMapViewOfSection": {"action_name": "map view of section",
-                           "parameter_associated_objects": {"SectionHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Section"}},
-                                                            "ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Process"}}},
-                           "parameter_associated_arguments": {"BaseAddress": {"associated_argument_name": "Base Address",
-                                                                              "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                              "SectionOffset": {"associated_argument_name": "Section Offset"}}},
-    "GetSystemMetrics": {"action_name": "get system metrics",
-                         "parameter_associated_arguments": {"SystemMetricIndex": {"associated_argument_name": "System Metric Index"}}},
-    "NtDelayExecution": {"action_name": "delay execution",
-                         "parameter_associated_arguments": {"Milliseconds": {"associated_argument_name": "Milliseconds"}}},
-    "GetLocalTime": {"action_name": "get system local time",
-                     "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
-    "GetSystemTime": {"action_name": "get system time",
-                      "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
+    "NtCreateFile": {
+        "action_name": "create file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            },
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "NtOpenFile": {
+        "action_name": "open file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            },
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+        },
+    },
+    "NtReadFile": {
+        "action_name": "read from file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "NtWriteFile": {
+        "action_name": "write to file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "NtDeleteFile": {
+        "action_name": "delete file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "NtDeviceIoControlFile": {
+        "action_name": "send control code to file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "NtQueryDirectoryFile": {
+        "action_name": "find file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            },
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+        },
+    },
+    "NtQueryInformationFile": {
+        "action_name": "get file attributes",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "NtSetInformationFile": {
+        "action_name": "set file attributes",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "NtCreateDirectoryObject": {
+        "action_name": "create directory",
+        "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "DirectoryHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            }
+        },
+    },
+    "CreateDirectoryW": {
+        "action_name": "create directory",
+        "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "DirectoryName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            }
+        },
+    },
+    "CreateDirectoryExW": {
+        "action_name": "create directory",
+        "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "DirectoryName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            }
+        },
+    },
+    "RemoveDirectoryA": {
+        "action_name": "delete directory",
+        "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "DirectoryName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "RemoveDirectoryW": {
+        "action_name": "delete directory",
+        "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "DirectoryName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "MoveFileWithProgressW": {
+        "action_name": "move file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ExistingFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
+            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "FindFirstFileExA": {
+        "action_name": "find file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "FindFirstFileExW": {
+        "action_name": "find file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "CopyFileA": {
+        "action_name": "copy file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ExistingFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
+            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "CopyFileW": {
+        "action_name": "copy file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ExistingFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
+            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "CopyFileExW": {
+        "action_name": "copy file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ExistingFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
+            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "DeleteFileA": {
+        "action_name": "delete file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "DeleteFileW": {
+        "action_name": "delete file",
+        "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "RegOpenKeyExA": {
+        "action_name": "open registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Registry": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Hive",
+                "association_type": "input",
+                "post_processing": "hiveHexToString",
+            },
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together": ["Registry", "SubKey"],
+        },
+    },
+    "RegOpenKeyExW": {
+        "action_name": "open registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Registry": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Hive",
+                "association_type": "input",
+                "post_processing": "hiveHexToString",
+            },
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together": ["Registry", "SubKey"],
+        },
+    },
+    "RegCreateKeyExA": {
+        "action_name": "create registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Registry": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Hive",
+                "association_type": "output",
+                "post_processing": "hiveHexToString",
+            },
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "output",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together": ["Registry", "SubKey"],
+        },
+    },
+    "RegCreateKeyExW": {
+        "action_name": "create registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Registry": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Hive",
+                "association_type": "output",
+                "post_processing": "hiveHexToString",
+            },
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "output",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together": ["Registry", "SubKey"],
+        },
+    },
+    "RegDeleteKeyA": {
+        "action_name": "delete registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegDeleteKeyW": {
+        "action_name": "delete registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "SubKey": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegEnumKeyW": {
+        "action_name": "enumerate registry key subkeys",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Name": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "output",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegEnumKeyExA": {
+        "action_name": "enumerate registry key subkeys",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Name": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "output",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegEnumKeyExW": {
+        "action_name": "enumerate registry key subkeys",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Name": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Key",
+                "association_type": "output",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegEnumValueA": {
+        "action_name": "enumerate registry key values",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ValueName", "element_name": "Name"},
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Data", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegEnumValueW": {
+        "action_name": "enumerate registry key values",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ValueName", "element_name": "Name"},
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Data", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegSetValueExA": {
+        "action_name": "modify registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ValueName", "element_name": "Name"},
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Buffer", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegSetValueExW": {
+        "action_name": "modify registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ValueName", "element_name": "Name"},
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Buffer", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegQueryValueExA": {
+        "action_name": "read registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Data", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegQueryValueExW": {
+        "action_name": "read registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Data", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "RegDeleteValueA": {
+        "action_name": "delete registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegDeleteValueW": {
+        "action_name": "delete registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "RegQueryInfoKeyA": {
+        "action_name": "get registry key attributes",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "RegQueryInfoKeyW": {
+        "action_name": "get registry key attributes",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "RegCloseKey": {
+        "action_name": "close registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "NtCreateKey": {
+        "action_name": "create registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ObjectAttributes", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "ObjectAttributes", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "output",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtOpenKey": {
+        "action_name": "open registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ObjectAttributes", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "ObjectAttributes", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtOpenKeyEx": {
+        "action_name": "open registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ObjectAttributes", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "ObjectAttributes", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtRenameKey": {
+        "action_name": "rename registry key",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "NewName", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "NewName", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtReplaceKey": {
+        "action_name": "save hive key to file",
+        "parameter_associated_objects": {
+            "NewHiveFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
+            "OldHiveFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtEnumerateKey": {
+        "action_name": "enumerate registry key subkeys",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "NtEnumerateValueKey": {
+        "action_name": "enumerate registry key values",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "NtSetValueKey": {
+        "action_name": "modify registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ValueName", "element_name": "Name"},
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Buffer", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "NtQueryValueKey": {
+        "action_name": "read registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Type", "element_name": "Datatype", "post_processing": "regDatatypeToString"},
+                    {"parameter_name": "Information", "element_name": "Data"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__",
+                "association_type": "output",
+            },
+        },
+    },
+    "NtQueryMultipleValueKey": {
+        "action_name": "read registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "ValueBuffer": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Data",
+                "association_type": "output",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtDeleteKey": {
+        "action_name": "delete registry key",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "NtDeleteValueKey": {
+        "action_name": "delete registry key value",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ValueName": {
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "associated_object_element": "Values/list__Name",
+                "association_type": "input",
+            },
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtLoadKey": {
+        "action_name": "load registry keys from file",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "TargetKey", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "TargetKey", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "SourceFile": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtLoadKey2": {
+        "action_name": "load registry keys from file",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "TargetKey", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "TargetKey", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "SourceFile": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtLoadKeyEx": {
+        "action_name": "load registry keys from file",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "TargetKey", "element_name": "Hive", "post_processing": "regStringToHive"},
+                    {"parameter_name": "TargetKey", "element_name": "Key", "post_processing": "regStringToKey"},
+                ],
+                "associated_object_type": "WindowsRegistryKeyObjectType",
+                "association_type": "input",
+            },
+            "SourceFile": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtQueryKey": {
+        "action_name": "get registry key attributes",
+        "action_vocab": "maecVocabs:RegistryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            }
+        },
+    },
+    "NtSaveKey": {
+        "action_name": "save registry key subtree to file",
+        "parameter_associated_objects": {
+            "KeyHandle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "RegistryKey"},
+            },
+        },
+    },
+    "NtSaveKeyEx": {
+        "action_name": "save registry key subtree to file",
+        "parameter_associated_objects": {
+            "KeyHandle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+        },
+    },
+    "NtCreateProcess": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+        },
+    },
+    "NtCreateProcessEx": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+        },
+    },
+    "NtCreateUserProcess": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            },
+            "ThreadName": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "output",
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ProcessFileName", "element_name": "File_Name",},
+                    {"parameter_name": "ImagePathName", "element_name": "Path"},
+                ],
+                "associated_object_type": "ProcessObjectType",
+                "associated_object_element": "Image_Info",
+                "association_type": "output",
+            },
+        },
+    },
+    "RtlCreateUserProcess": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ParentProcess": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "ImagePath": {
+                "associated_object_type": "ProcessObjectType",
+                "associated_object_element": "Image_Info/Path",
+                "association_type": "input",
+            },
+        },
+    },
+    "NtOpenProcess": {
+        "action_name": "open process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "ProcessIdentifier": {
+                "associated_object_type": "ProcessObjectType",
+                "associated_object_element": "PID",
+                "association_type": "input",
+            },
+        },
+    },
+    "NtTerminateProcess": {
+        "action_name": "kill process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtCreateSection": {
+        "action_name": "create section",
+        "parameter_associated_objects": {
+            "SectionHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Section"},
+            },
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            },
+        },
+    },
+    "NtOpenSection": {
+        "action_name": "open section",
+        "parameter_associated_objects": {
+            "SectionHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Section"},
+            },
+            "ObjectAttributes": {
+                "associated_object_type": "MemoryObjectType",
+                "associated_object_element": "Name",
+                "association_type": "input",
+            },
+        },
+    },
+    "CreateProcessInternalW": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessId": {
+                "associated_object_type": "WindowsProcessObjectType",
+                "associated_object_element": "PID",
+                "association_type": "output",
+            },
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "output",
+            },
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            },
+        },
+        "parameter_associated_arguments": {"ApplicationName": {"associated_argument_name": "Application Name"}},
+    },
+    "ExitProcess": {
+        "action_name": "kill process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_arguments": {"ExitCode": {"associated_argument_name": "Exit Code"}},
+    },
+    "ShellExecuteExW": {
+        "action_name": "create process",
+        "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FilePath": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+        },
+    },
+    "NtUnmapViewOfSection": {
+        "action_name": "unmap view of section",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtAllocateVirtualMemory": {
+        "action_name": "allocate process virtual memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtReadVirtualMemory": {
+        "action_name": "read from process memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "ReadProcessMemory": {
+        "action_name": "read from process memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtWriteVirtualMemory": {
+        "action_name": "write to process memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "WriteProcessMemory": {
+        "action_name": "write to process memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtProtectVirtualMemory": {
+        "action_name": "modify process virtual memory protection",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "VirtualProtectEx": {
+        "action_name": "modify process virtual memory protection",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "NtFreeVirtualMemory": {
+        "action_name": "free process virtual memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "VirtualFreeEx": {
+        "action_name": "free process virtual memory",
+        "action_vocab": "maecVocabs:ProcessMemoryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            }
+        },
+    },
+    "FindWindowA": {
+        "action_name": "find window",
+        "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "WindowName": {
+                "associated_object_type": "GUIWindowObjectType",
+                "associated_object_element": "Window_Display_Name",
+                "association_type": "input",
+            }
+        },
+    },
+    "FindWindowW": {
+        "action_name": "find window",
+        "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "WindowName": {
+                "associated_object_type": "GUIWindowObjectType",
+                "associated_object_element": "Window_Display_Name",
+                "association_type": "input",
+            }
+        },
+    },
+    "FindWindowExA": {
+        "action_name": "find window",
+        "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "WindowName": {
+                "associated_object_type": "GUIWindowObjectType",
+                "associated_object_element": "Window_Display_Name",
+                "association_type": "input",
+            }
+        },
+    },
+    "FindWindowExW": {
+        "action_name": "find window",
+        "action_vocab": "maecVocabs:GUIActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "WindowName": {
+                "associated_object_type": "GUIWindowObjectType",
+                "associated_object_element": "Window_Display_Name",
+                "association_type": "input",
+            }
+        },
+    },
+    "SetWindowsHookExA": {
+        "action_name": "add windows hook",
+        "action_vocab": "maecVocabs:HookingActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "HookIdentifier": {
+                "associated_object_type": "WindowsKernelHookObjectType",
+                "associated_object_element": "Type",
+                "association_type": "input",
+            },
+            "ProcedureAddress": {
+                "associated_object_type": "WindowsKernelHookObjectType",
+                "associated_object_element": "Hooking_Address",
+                "association_type": "input",
+            },
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "input",
+            },
+            "group_together": ["HookIdentifier", "ProcedureAddress"],
+        },
+    },
+    "SetWindowsHookExW": {
+        "action_name": "add windows hook",
+        "action_vocab": "maecVocabs:HookingActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "HookIdentifier": {
+                "associated_object_type": "WindowsKernelHookObjectType",
+                "associated_object_element": "Type",
+                "association_type": "input",
+            },
+            "ProcedureAddress": {
+                "associated_object_type": "WindowsKernelHookObjectType",
+                "associated_object_element": "Hooking_Address",
+                "association_type": "input",
+            },
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "input",
+            },
+            "group_together": ["HookIdentifier", "ProcedureAddress"],
+        },
+    },
+    "UnhookWindowsHookEx": {
+        "action_name": "remove windows hook",
+        "parameter_associated_objects": {
+            "HookHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Hook"},
+            }
+        },
+    },
+    "LdrLoadDll": {
+        "action_name": "load library",
+        "action_vocab": "maecVocabs:LibraryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "LibraryObjectType", "associated_object_element": "Name", "association_type": "input"},
+            "BaseAddress": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Module"},
+            },
+        },
+    },
+    "LdrGetDllHandle": {
+        "action_name": "get dll handle",
+        "parameter_associated_objects": {
+            "FileName": {"associated_object_type": "LibraryObjectType", "associated_object_element": "Name", "association_type": "input"},
+            "ModuleHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Module"},
+            },
+        },
+    },
+    "LdrGetProcedureAddress": {
+        "action_name": "get function address",
+        "action_vocab": "maecVocabs:LibraryActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ModuleHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Module"},
+            },
+            "FunctionAddress": {
+                "associated_object_type": "APIObjectType",
+                "associated_object_element": "Address",
+                "association_type": "output",
+                "post_processing": "intToHex",
+            },
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "FunctionName", "element_name": "Function_Name"},
+                    {"parameter_name": "Ordinal", "element_name": "Ordinal"},
+                ],
+                "associated_object_type": "WindowsExecutableFileObjectType",
+                "associated_object_element": "Exports/Exported_Functions/list__",
+                "association_type": "input",
+            },
+        },
+    },
+    "DeviceIoControl": {
+        "action_name": "send control code to driver",
+        "parameter_associated_objects": {
+            "DeviceHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Device"},
+            }
+        },
+        "parameter_associated_arguments": {
+            "IoControlCode": {
+                "associated_argument_name": "Control Code",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            }
+        },
+    },
+    "ExitWindowsEx": {
+        "action_name": "shutdown system",
+        "action_vocab": "maecVocabs:SystemActionNameVocab-1.0",
+        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}, "Reason": {"associated_argument_name": "Reason"}},
+    },
+    "IsDebuggerPresent": {"action_name": "check for remote debugger", "action_vocab": "maecVocabs:DebuggingActionNameVocab-1.0"},
+    "LookupPrivilegeValueW": {
+        "action_name": "find privilege value",
+        "parameter_associated_objects": {
+            "SystemName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+        },
+        "parameter_associated_arguments": {"PrivilegeName": {"associated_argument_name": "Privilege Name"}},
+    },
+    "NtClose": {
+        "action_name": "close handle",
+        "parameter_associated_objects": {
+            "Handle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"}
+        },
+    },
+    "WriteConsoleA": {
+        "action_name": "write to console",
+        "parameter_associated_objects": {
+            "ConsoleHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Console"},
+            }
+        },
+    },
+    "WriteConsoleW": {
+        "action_name": "write to console",
+        "parameter_associated_objects": {
+            "ConsoleHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Console"},
+            }
+        },
+    },
+    "ZwMapViewOfSection": {
+        "action_name": "map view of section",
+        "parameter_associated_objects": {
+            "SectionHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Section"},
+            },
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+        },
+        "parameter_associated_arguments": {
+            "BaseAddress": {"associated_argument_name": "Base Address", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "SectionOffset": {"associated_argument_name": "Section Offset"},
+        },
+    },
+    "GetSystemMetrics": {
+        "action_name": "get system metrics",
+        "parameter_associated_arguments": {"SystemMetricIndex": {"associated_argument_name": "System Metric Index"}},
+    },
+    "NtDelayExecution": {
+        "action_name": "delay execution",
+        "parameter_associated_arguments": {"Milliseconds": {"associated_argument_name": "Milliseconds"}},
+    },
+    "GetLocalTime": {"action_name": "get system local time", "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
+    "GetSystemTime": {"action_name": "get system time", "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
     "GetTickCount": {"action_name": "get tick count"},
-    "NtQuerySystemTime": {"action_name": "get system time",
-                          "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
-    "WSAStartup": {"action_name": "initialize winsock",
-                   "parameter_associated_arguments": {"VersionRequested": {"associated_argument_name": "Version Requested"}}},
-    "gethostbyname": {"action_name": "get host by name",
-                      "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                      "parameter_associated_arguments": {"Name": {"associated_argument_name": "Hostname",
-                                                                  "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "socket": {"action_name": "create socket",
-               "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-               "parameter_associated_objects": {"type": {"associated_object_type": "NetworkSocketObjectType",
-                                                         "associated_object_element": "Type",
-                                                         "association_type": "output",
-                                                         "post_processing": "socketTypeToString"},
-                                                "af": {"associated_object_type": "NetworkSocketObjectType",
-                                                       "associated_object_element": "Address_Family",
-                                                       "association_type": "output",
-                                                       "post_processing": "socketAFToString"},
-                                                "protocol": {"associated_object_type": "NetworkSocketObjectType",
-                                                             "associated_object_element": "Protocol",
-                                                             "association_type": "output",
-                                                             "post_processing": "socketProtoToString"},
-                                                "group_together": ["type", "protocol", "af"]}},
-    "connect": {"action_name": "connect to socket",
-                "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "send": {"action_name": "send data on socket",
-             "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-             "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                "buffer": {"associated_argument_name": "Data Buffer"}}},
-    "sendto": {"action_name": "send data to address on socket",
-               "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-               "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                  "buffer": {"associated_argument_name": "Data Buffer"}}},
-    "recv": {"action_name": "receive data on socket",
-             "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-             "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                "buffer": {"associated_argument_name": "Data Buffer"}}},
-    "recvfrom": {"action_name": "receive data on socket",
-                 "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                 "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                    "buffer": {"associated_argument_name": "Data Buffer"}}},
-    "accept": {"action_name": "accept socket connection",
-               "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-               "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "bind": {"action_name": "bind address to socket",
-             "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-             "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "ip", "element_name": "IP_Address/Address_Value"},
-                                                                                               {"parameter_name": "port", "element_name": "Port/Port_Value"}],
-                                                                        "associated_object_type": "NetworkSocketObjectType",
-                                                                        "associated_object_element": "Local_Address",
-                                                                        "association_type": "input"}},
-             "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "listen": {"action_name": "listen on socket",
-               "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-               "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "select": {"action_name": "check for ready sockets",
-               "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "setsockopt": {"action_name": "set socket option",
-                   "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "ioctlsocket": {"action_name": "send command to socket",
-                    "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                       "command": {"associated_argument_name": "Command"}}},
-    "closesocket": {"action_name": "close socket",
-                    "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                    "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "shutdown": {"action_name": "disable socket operation",
-                 "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"},
-                                                    "how": {"associated_argument_name": "Operation"}}},
-    "WSARecv": {"action_name": "receive data on socket",
-                "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "WSARecvFrom": {"action_name": "receive data on socket",
-                    "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                    "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "WSASend": {"action_name": "send data on socket",
-                "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "WSASendTo": {"action_name": "send data on socket",
-                  "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                  "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "WSASocketA": {"action_name": "create socket",
-                   "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                   "parameter_associated_objects": {"type": {"associated_object_type": "NetworkSocketObjectType",
-                                                             "associated_object_element": "Type",
-                                                             "association_type": "output",
-                                                             "post_processing": "socketTypeToString"},
-                                                    "af": {"associated_object_type": "NetworkSocketObjectType",
-                                                           "associated_object_element": "Address_Family",
-                                                           "association_type": "output",
-                                                           "post_processing": "socketAFToString"},
-                                                    "protocol": {"associated_object_type": "NetworkSocketObjectType",
-                                                                 "associated_object_element": "Protocol",
-                                                                 "association_type": "output",
-                                                                 "post_processing": "socketProtoToString"},
-                                                    "group_together": ["type", "protocol", "af"]}},
-    "WSASocketW": {"action_name": "create socket",
-                   "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                   "parameter_associated_objects": {"type": {"associated_object_type": "NetworkSocketObjectType",
-                                                             "associated_object_element": "Type",
-                                                             "association_type": "output",
-                                                             "post_processing": "socketTypeToString"},
-                                                    "af": {"associated_object_type": "NetworkSocketObjectType",
-                                                           "associated_object_element": "Address_Family",
-                                                           "association_type": "output",
-                                                           "post_processing": "socketAFToString"},
-                                                    "protocol": {"associated_object_type": "NetworkSocketObjectType",
-                                                                 "associated_object_element": "Protocol",
-                                                                 "association_type": "output",
-                                                                 "post_processing": "socketProtoToString"},
-                                                    "group_together": ["type", "protocol", "af"]}},
-    "ConnectEx": {"action_name": "connect to socket",
-                  "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                  "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}}},
-    "TransmitFile": {"action_name": "send file over socket",
-                     "parameter_associated_objects": {"socket": {"associated_object_type": "WindowsHandleObjectType",
-                                                                 "associated_object_element": "ID",
-                                                                 "association_type": "input"},
-                                                      "FileHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                     "associated_object_element": "ID",
-                                                                     "association_type": "input",
-                                                                     "forced": {"associated_object_element": "Type",
-                                                                                "value": "File"}},
-                                                      "NumberOfBytesToWrite": {"associated_object_type": "FileObjectType",
-                                                                               "associated_object_element": "Size_In_Bytes",
-                                                                               "association_type": "output"}},
-                     "parameter_associated_arguments": {"NumberOfBytesPerSend": {"associated_argument_name": "Send Data Block Size"}}},
-    "NtCreateMutant": {"action_name": "create mutex",
-                       "action_vocab": "maecVocabs:SynchronizationActionNameVocab-1.0",
-                       "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                   "associated_object_element": "ID",
-                                                                   "association_type": "output",
-                                                                   "forced": {"associated_object_element": "Type",
-                                                                              "value": "Mutex"}},
-                                                        "MutexName": {"associated_object_type": "WindowsMutexObjectType",
-                                                                      "associated_object_element": "Name",
-                                                                      "association_type": "output"}},
-                       "parameter_associated_arguments": {"InitialOwner": {"associated_argument_name": "Initial Owner"}}},
-    "NtOpenMutant": {"action_name": "open mutex",
-                     "action_vocab": "maecVocabs:SynchronizationActionNameVocab-1.0",
-                     "parameter_associated_objects": {"Handle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                 "associated_object_element": "ID",
-                                                                 "association_type": "output",
-                                                                 "forced": {"associated_object_element": "Type",
-                                                                            "value": "Mutex"}},
-                                                      "MutexName": {"associated_object_type": "WindowsMutexObjectType",
-                                                                    "associated_object_element": "Name",
-                                                                    "association_type": "input"}}},
-    "NtCreateNamedPipeFile": {"action_name": "create named pipe",
-                              "action_vocab": "maecVocabs:IPCActionNameVocab-1.0",
-                              "parameter_associated_objects": {"NamedPipeHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                   "associated_object_element": "ID",
-                                                                                   "association_type": "output",
-                                                                                   "forced": {"associated_object_element": "Type",
-                                                                                              "value": "NamedPipe"}},
-                                                               "PipeName": {"associated_object_type": "WindowsPipeObjectType",
-                                                                            "associated_object_element": "Name",
-                                                                            "association_type": "output"}},
-                              "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                                   "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                                 "ShareAccess": {"associated_argument_name": "Share Access Mode"}}},
-    "OpenSCManagerA": {"action_name": "open service control manager",
-                       "parameter_associated_objects": {"MachineName": {"associated_object_type": "SystemObjectType",
-                                                                        "associated_object_element": "Hostname",
-                                                                        "association_type": "input"}},
-                       "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                            "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                          "DatabaseName": {"associated_argument_name": "Database Name"}}},
-    "OpenSCManagerW": {"action_name": "open service control manager",
-                       "parameter_associated_objects": {"MachineName": {"associated_object_type": "SystemObjectType",
-                                                                        "associated_object_element": "Hostname",
-                                                                        "association_type": "input"}},
-                       "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                            "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                          "DatabaseName": {"associated_argument_name": "Database Name"}}},
-    "CreateServiceA": {"action_name": "create service",
-                       "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                       "parameter_associated_objects": {"ServiceControlHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                 "associated_object_element": "ID",
-                                                                                 "association_type": "input",
-                                                                                 "forced": {"associated_object_element": "Type",
-                                                                                            "value": "ServiceControlManager"}},
-                                                        "ServiceName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Service_Name",
-                                                                        "association_type": "output"},
-                                                        "DisplayName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Display_Name",
-                                                                        "association_type": "output"},
-                                                        "ServiceType": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Service_Type",
-                                                                        "association_type": "output"},
-                                                        "StartType": {"associated_object_type": "WindowsServiceObjectType",
-                                                                      "associated_object_element": "Startup_Type",
-                                                                      "association_type": "output"},
-                                                        "ServiceStartName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                             "associated_object_element": "Started_As",
-                                                                             "association_type": "output"},
-                                                        "BinaryPathName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                           "associated_object_element": "Image_Info/Path",
-                                                                           "association_type": "output"},
-                                                        "group_together": ["ServiceName", "DisplayName", "ServiceType",
-                                                                           "StartType", "ServiceStartName", "BinaryPathName"]},
-                       "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                            "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                          "ErrorControl": {"associated_argument_name": "Error Control"}}},
-    "CreateServiceW": {"action_name": "create service",
-                       "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                       "parameter_associated_objects": {"ServiceControlHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                 "associated_object_element": "ID",
-                                                                                 "association_type": "input",
-                                                                                 "forced": {"associated_object_element": "Type",
-                                                                                            "value": "ServiceControlManager"}},
-                                                        "ServiceName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Service_Name",
-                                                                        "association_type": "output"},
-                                                        "DisplayName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Display_Name",
-                                                                        "association_type": "output"},
-                                                        "ServiceType": {"associated_object_type": "WindowsServiceObjectType",
-                                                                        "associated_object_element": "Service_Type",
-                                                                        "association_type": "output"},
-                                                        "StartType": {"associated_object_type": "WindowsServiceObjectType",
-                                                                      "associated_object_element": "Startup_Type",
-                                                                      "association_type": "output"},
-                                                        "ServiceStartName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                             "associated_object_element": "Started_As",
-                                                                             "association_type": "output"},
-                                                        "BinaryPathName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                           "associated_object_element": "Image_Info/Path",
-                                                                           "association_type": "output"},
-                                                        "group_together": ["ServiceName", "DisplayName", "ServiceType",
-                                                                           "StartType", "ServiceStartName", "BinaryPathName"]},
-                       "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                            "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                          "ErrorControl": {"associated_argument_name": "Error Control"}}},
-    "OpenServiceA": {"action_name": "open service",
-                     "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                     "parameter_associated_objects": {"ServiceControlManager": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "input",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "ServiceControlManager"}},
-                                                      "ServiceName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                      "associated_object_element": "Service_Name",
-                                                                      "association_type": "input"}},
-                     "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                          "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "OpenServiceW": {"action_name": "open service",
-                     "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                     "parameter_associated_objects": {"ServiceControlManager": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "input",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "ServiceControlManager"}},
-                                                      "ServiceName": {"associated_object_type": "WindowsServiceObjectType",
-                                                                      "associated_object_element": "Service_Name",
-                                                                      "association_type": "input"}},
-                     "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                          "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "StartServiceA": {"action_name": "start service",
-                      "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                      "parameter_associated_objects": {"ServiceHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Service"}}},
-                      "parameter_associated_arguments": {"Arguments": {"associated_argument_name": "Access Mode"}}},
-    "StartServiceW": {"action_name": "start service",
-                      "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                      "parameter_associated_objects": {"ServiceHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Service"}}},
-                      "parameter_associated_arguments": {"Arguments": {"associated_argument_name": "Access Mode"}}},
-    "ControlService": {"action_name": "send control code to service",
-                       "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                       "parameter_associated_objects": {"ServiceHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                          "associated_object_element": "ID",
-                                                                          "association_type": "input",
-                                                                          "forced": {"associated_object_element": "Type",
-                                                                                     "value": "Service"}}},
-                       "parameter_associated_arguments": {"ControlCode": {"associated_argument_name": "Control Code",
-                                                                          "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "DeleteService": {"action_name": "delete service",
-                      "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
-                      "parameter_associated_objects": {"ServiceHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Service"}}}},
-    "NtCreateThread": {"action_name": "create thread",
-                       "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                       "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "output",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Thread"}},
-                                                        "ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                          "associated_object_element": "ID",
-                                                                          "association_type": "input",
-                                                                          "forced": {"associated_object_element": "Type",
-                                                                                     "value": "Process"}}},
-                       "parameter_associated_arguments": {"ObjectAttributes": {"associated_argument_name": "Options",
-                                                                               "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-
-    "NtOpenThread": {"action_name": "open thread",
-                     "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                       "associated_object_element": "ID",
-                                                                       "association_type": "output",
-                                                                       "forced": {"associated_object_element": "Type",
-                                                                                  "value": "Thread"}}},
-                     "parameter_associated_arguments": {"DesiredAccess": {"associated_argument_name": "Access Mode",
-                                                                          "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                        "ObjectAttributes": {"associated_argument_name": "Options",
-                                                                             "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-
-    "NtGetContextThread": {"action_name": "get thread context",
-                           "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                           "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Thread"}}}},
-
-    "NtSetContextThread": {"action_name": "set thread context",
-                           "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                           "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Thread"}}}},
-    "NtSuspendThread": {"action_name": "suspend thread",
-                        "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                          "associated_object_element": "ID",
-                                                                          "association_type": "input",
-                                                                          "forced": {"associated_object_element": "Type",
-                                                                                     "value": "Thread"}}}},
-    "NtResumeThread": {"action_name": "resume thread",
-                       "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                         "associated_object_element": "ID",
-                                                                         "association_type": "input",
-                                                                         "forced": {"associated_object_element": "Type",
-                                                                                    "value": "Thread"}}}},
-    "NtTerminateThread": {"action_name": "kill thread",
-                          "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                          "parameter_associated_objects": {"ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                            "associated_object_element": "ID",
-                                                                            "association_type": "input",
-                                                                            "forced": {"associated_object_element": "Type",
-                                                                                       "value": "Thread"}}}},
-    "CreateThread": {"action_name": "create thread",
-                     "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                     "parameter_associated_objects": {"ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                   "associated_object_element": "Thread_ID",
-                                                                   "association_type": "output"}},
-                     "parameter_associated_arguments": {"StartRoutine": {"associated_argument_name": "Code Address",
-                                                                         "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                        "Parameter": {"associated_argument_name": "Options",
-                                                                      "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                        "CreationFlags": {"associated_argument_name": "Creation Flags",
-                                                                          "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-
-    "CreateRemoteThread": {"action_name": "create remote thread in process",
-                           "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                           "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input"},
-                                                            "ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                         "associated_object_element": "Thread_ID",
-                                                                         "association_type": "output"}},
-                           "parameter_associated_arguments": {"StartRoutine": {"associated_argument_name": "Code Address",
-                                                                               "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                              "Parameter": {"associated_argument_name": "Options",
-                                                                            "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                              "CreationFlags": {"associated_argument_name": "Creation Flags",
-                                                                                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
+    "NtQuerySystemTime": {"action_name": "get system time", "action_vocab": "maecVocabs:SystemActionNameVocab-1.0"},
+    "WSAStartup": {
+        "action_name": "initialize winsock",
+        "parameter_associated_arguments": {"VersionRequested": {"associated_argument_name": "Version Requested"}},
+    },
+    "gethostbyname": {
+        "action_name": "get host by name",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {
+            "Name": {"associated_argument_name": "Hostname", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+        },
+    },
+    "socket": {
+        "action_name": "create socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "type": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Type",
+                "association_type": "output",
+                "post_processing": "socketTypeToString",
+            },
+            "af": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Address_Family",
+                "association_type": "output",
+                "post_processing": "socketAFToString",
+            },
+            "protocol": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Protocol",
+                "association_type": "output",
+                "post_processing": "socketProtoToString",
+            },
+            "group_together": ["type", "protocol", "af"],
+        },
+    },
+    "connect": {
+        "action_name": "connect to socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "send": {
+        "action_name": "send data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "buffer": {"associated_argument_name": "Data Buffer"},
+        },
+    },
+    "sendto": {
+        "action_name": "send data to address on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "buffer": {"associated_argument_name": "Data Buffer"},
+        },
+    },
+    "recv": {
+        "action_name": "receive data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "buffer": {"associated_argument_name": "Data Buffer"},
+        },
+    },
+    "recvfrom": {
+        "action_name": "receive data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "buffer": {"associated_argument_name": "Data Buffer"},
+        },
+    },
+    "accept": {
+        "action_name": "accept socket connection",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "bind": {
+        "action_name": "bind address to socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "ip", "element_name": "IP_Address/Address_Value"},
+                    {"parameter_name": "port", "element_name": "Port/Port_Value"},
+                ],
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Local_Address",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "listen": {
+        "action_name": "listen on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "select": {
+        "action_name": "check for ready sockets",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "setsockopt": {
+        "action_name": "set socket option",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "ioctlsocket": {
+        "action_name": "send command to socket",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "command": {"associated_argument_name": "Command"},
+        },
+    },
+    "closesocket": {
+        "action_name": "close socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "shutdown": {
+        "action_name": "disable socket operation",
+        "parameter_associated_arguments": {
+            "socket": {"associated_argument_name": "Socket Descriptor"},
+            "how": {"associated_argument_name": "Operation"},
+        },
+    },
+    "WSARecv": {
+        "action_name": "receive data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "WSARecvFrom": {
+        "action_name": "receive data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "WSASend": {
+        "action_name": "send data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "WSASendTo": {
+        "action_name": "send data on socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "WSASocketA": {
+        "action_name": "create socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "type": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Type",
+                "association_type": "output",
+                "post_processing": "socketTypeToString",
+            },
+            "af": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Address_Family",
+                "association_type": "output",
+                "post_processing": "socketAFToString",
+            },
+            "protocol": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Protocol",
+                "association_type": "output",
+                "post_processing": "socketProtoToString",
+            },
+            "group_together": ["type", "protocol", "af"],
+        },
+    },
+    "WSASocketW": {
+        "action_name": "create socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "type": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Type",
+                "association_type": "output",
+                "post_processing": "socketTypeToString",
+            },
+            "af": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Address_Family",
+                "association_type": "output",
+                "post_processing": "socketAFToString",
+            },
+            "protocol": {
+                "associated_object_type": "NetworkSocketObjectType",
+                "associated_object_element": "Protocol",
+                "association_type": "output",
+                "post_processing": "socketProtoToString",
+            },
+            "group_together": ["type", "protocol", "af"],
+        },
+    },
+    "ConnectEx": {
+        "action_name": "connect to socket",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_arguments": {"socket": {"associated_argument_name": "Socket Descriptor"}},
+    },
+    "TransmitFile": {
+        "action_name": "send file over socket",
+        "parameter_associated_objects": {
+            "socket": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "FileHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "File"},
+            },
+            "NumberOfBytesToWrite": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "Size_In_Bytes",
+                "association_type": "output",
+            },
+        },
+        "parameter_associated_arguments": {"NumberOfBytesPerSend": {"associated_argument_name": "Send Data Block Size"}},
+    },
+    "NtCreateMutant": {
+        "action_name": "create mutex",
+        "action_vocab": "maecVocabs:SynchronizationActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Mutex"},
+            },
+            "MutexName": {
+                "associated_object_type": "WindowsMutexObjectType",
+                "associated_object_element": "Name",
+                "association_type": "output",
+            },
+        },
+        "parameter_associated_arguments": {"InitialOwner": {"associated_argument_name": "Initial Owner"}},
+    },
+    "NtOpenMutant": {
+        "action_name": "open mutex",
+        "action_vocab": "maecVocabs:SynchronizationActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Mutex"},
+            },
+            "MutexName": {"associated_object_type": "WindowsMutexObjectType", "associated_object_element": "Name", "association_type": "input"},
+        },
+    },
+    "NtCreateNamedPipeFile": {
+        "action_name": "create named pipe",
+        "action_vocab": "maecVocabs:IPCActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "NamedPipeHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "NamedPipe"},
+            },
+            "PipeName": {"associated_object_type": "WindowsPipeObjectType", "associated_object_element": "Name", "association_type": "output"},
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "ShareAccess": {"associated_argument_name": "Share Access Mode"},
+        },
+    },
+    "OpenSCManagerA": {
+        "action_name": "open service control manager",
+        "parameter_associated_objects": {
+            "MachineName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "DatabaseName": {"associated_argument_name": "Database Name"},
+        },
+    },
+    "OpenSCManagerW": {
+        "action_name": "open service control manager",
+        "parameter_associated_objects": {
+            "MachineName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "DatabaseName": {"associated_argument_name": "Database Name"},
+        },
+    },
+    "CreateServiceA": {
+        "action_name": "create service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceControlHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "ServiceControlManager"},
+            },
+            "ServiceName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Name",
+                "association_type": "output",
+            },
+            "DisplayName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Display_Name",
+                "association_type": "output",
+            },
+            "ServiceType": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Type",
+                "association_type": "output",
+            },
+            "StartType": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Startup_Type",
+                "association_type": "output",
+            },
+            "ServiceStartName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Started_As",
+                "association_type": "output",
+            },
+            "BinaryPathName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Image_Info/Path",
+                "association_type": "output",
+            },
+            "group_together": ["ServiceName", "DisplayName", "ServiceType", "StartType", "ServiceStartName", "BinaryPathName"],
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "ErrorControl": {"associated_argument_name": "Error Control"},
+        },
+    },
+    "CreateServiceW": {
+        "action_name": "create service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceControlHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "ServiceControlManager"},
+            },
+            "ServiceName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Name",
+                "association_type": "output",
+            },
+            "DisplayName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Display_Name",
+                "association_type": "output",
+            },
+            "ServiceType": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Type",
+                "association_type": "output",
+            },
+            "StartType": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Startup_Type",
+                "association_type": "output",
+            },
+            "ServiceStartName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Started_As",
+                "association_type": "output",
+            },
+            "BinaryPathName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Image_Info/Path",
+                "association_type": "output",
+            },
+            "group_together": ["ServiceName", "DisplayName", "ServiceType", "StartType", "ServiceStartName", "BinaryPathName"],
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "ErrorControl": {"associated_argument_name": "Error Control"},
+        },
+    },
+    "OpenServiceA": {
+        "action_name": "open service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceControlManager": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "ServiceControlManager"},
+            },
+            "ServiceName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Name",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+        },
+    },
+    "OpenServiceW": {
+        "action_name": "open service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceControlManager": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "ServiceControlManager"},
+            },
+            "ServiceName": {
+                "associated_object_type": "WindowsServiceObjectType",
+                "associated_object_element": "Service_Name",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+        },
+    },
+    "StartServiceA": {
+        "action_name": "start service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Service"},
+            }
+        },
+        "parameter_associated_arguments": {"Arguments": {"associated_argument_name": "Access Mode"}},
+    },
+    "StartServiceW": {
+        "action_name": "start service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Service"},
+            }
+        },
+        "parameter_associated_arguments": {"Arguments": {"associated_argument_name": "Access Mode"}},
+    },
+    "ControlService": {
+        "action_name": "send control code to service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Service"},
+            }
+        },
+        "parameter_associated_arguments": {
+            "ControlCode": {"associated_argument_name": "Control Code", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+        },
+    },
+    "DeleteService": {
+        "action_name": "delete service",
+        "action_vocab": "maecVocabs:ServiceActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ServiceHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Service"},
+            }
+        },
+    },
+    "NtCreateThread": {
+        "action_name": "create thread",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            },
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Process"},
+            },
+        },
+        "parameter_associated_arguments": {
+            "ObjectAttributes": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+        },
+    },
+    "NtOpenThread": {
+        "action_name": "open thread",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+        "parameter_associated_arguments": {
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "ObjectAttributes": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+        },
+    },
+    "NtGetContextThread": {
+        "action_name": "get thread context",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+    },
+    "NtSetContextThread": {
+        "action_name": "set thread context",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+    },
+    "NtSuspendThread": {
+        "action_name": "suspend thread",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+    },
+    "NtResumeThread": {
+        "action_name": "resume thread",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+    },
+    "NtTerminateThread": {
+        "action_name": "kill thread",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            }
+        },
+    },
+    "CreateThread": {
+        "action_name": "create thread",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "output",
+            }
+        },
+        "parameter_associated_arguments": {
+            "StartRoutine": {
+                "associated_argument_name": "Code Address",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "Parameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "CreationFlags": {
+                "associated_argument_name": "Creation Flags",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+        },
+    },
+    "CreateRemoteThread": {
+        "action_name": "create remote thread in process",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            },
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "output",
+            },
+        },
+        "parameter_associated_arguments": {
+            "StartRoutine": {
+                "associated_argument_name": "Code Address",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "Parameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "CreationFlags": {
+                "associated_argument_name": "Creation Flags",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+        },
+    },
     "ExitThread": {"action_name": "exit thread"},
-    "RtlCreateUserThread": {"action_name": "create thread",
-                            "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
-                            "parameter_associated_objects": {"ProcessHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input"},
-                                                             "ThreadHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "output",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Thread"}},
-                                                             "ThreadId": {"associated_object_type": "WindowsThreadObjectType",
-                                                                          "associated_object_element": "Thread_ID",
-                                                                          "association_type": "output"}},
-                            "parameter_associated_arguments": {"CreatedSuspended": {"associated_argument_name": "Control Parameter",
-                                                                                    "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                               "StartAddress": {"associated_argument_name": "Code Address",
-                                                                                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                               "StartParameter": {"associated_argument_name": "Options",
-                                                                                  "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}}},
-    "URLDownloadToFileW": {"action_name": "download file",
-                           "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
-                           "parameter_associated_objects": {"URL": {"associated_object_type": "URIObjectType",
-                                                                    "associated_object_element": "Value",
-                                                                    "association_type": "input"},
-                                                            "FileName": {"associated_object_type": "FileObjectType",
-                                                                         "associated_object_element": "File_Path",
-                                                                         "association_type": "output"}}},
-    "InternetOpenA": {"action_name": "initialize wininet",
-                      "parameter_associated_objects": {"Agent": {"associated_object_type": "HTTPSessionObjectType",
-                                                                 "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/User_Agent",
-                                                                 "association_type": "input"}},
-                      "parameter_associated_arguments": {"AccessType": {"associated_argument_name": "Access Mode",
-                                                                        "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                         "ProxyName": {"associated_argument_name": "Proxy Name"},
-                                                         "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
-                                                         "Flags": {"associated_argument_name": "Flags"}}},
-    "InternetOpenW": {"action_name": "initialize wininet",
-                      "parameter_associated_objects": {"Agent": {"associated_object_type": "HTTPSessionObjectType",
-                                                                 "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/User_Agent",
-                                                                 "association_type": "input"}},
-                      "parameter_associated_arguments": {"AccessType": {"associated_argument_name": "Access Mode",
-                                                                        "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
-                                                         "ProxyName": {"associated_argument_name": "Proxy Name"},
-                                                         "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
-                                                         "Flags": {"associated_argument_name": "Flags"}}},
-    "InternetConnectA": {"action_name": "connect to server",
-                         "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Internet Resource"}},
-                                                          "ServerName": {"associated_object_type": "URIObjectType",
-                                                                         "associated_object_element": "Value",
-                                                                         "association_type": "input"},
-                                                          "ServerPort": {"associated_object_type": "PortObjectType",
-                                                                         "associated_object_element": "Port_Value",
-                                                                         "association_type": "input"}},
-                         "parameter_associated_arguments": {"Username": {"associated_argument_name": "Username"},
-                                                            "Password": {"associated_argument_name": "Password"},
-                                                            "Service": {"associated_argument_name": "Service Type"},
-                                                            "Flags": {"associated_argument_name": "Flags"}}},
-    "InternetConnectW": {"action_name": "connect to server",
-                         "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Internet Resource"}},
-                                                          "ServerName": {"associated_object_type": "URIObjectType",
-                                                                         "associated_object_element": "Value",
-                                                                         "association_type": "input"},
-                                                          "ServerPort": {"associated_object_type": "PortObjectType",
-                                                                         "associated_object_element": "Port_Value",
-                                                                         "association_type": "input"}},
-                         "parameter_associated_arguments": {"Username": {"associated_argument_name": "Username"},
-                                                            "Password": {"associated_argument_name": "Password"},
-                                                            "Service": {"associated_argument_name": "Service Type"},
-                                                            "Flags": {"associated_argument_name": "Flags"}}},
-    "InternetOpenURLA": {"action_name": "connect to url",
-                         "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ConnectionHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "Internet Connection"}},
-                                                          "URL": {"associated_object_type": "URIObjectType",
-                                                                  "associated_object_element": "Value",
-                                                                  "association_type": "input"},
-                                                          "Headers": {"associated_object_type": "HTTPSessionObjectType",
-                                                                      "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/Raw_Header",
-                                                                      "association_type": "input"}},
-                         "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}}},
-    "InternetOpenURLW": {"action_name": "connect to url",
-                         "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
-                         "parameter_associated_objects": {"ConnectionHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                               "associated_object_element": "ID",
-                                                                               "association_type": "input",
-                                                                               "forced": {"associated_object_element": "Type",
-                                                                                          "value": "Internet Connection"}},
-                                                          "URL": {"associated_object_type": "URIObjectType",
-                                                                  "associated_object_element": "Value",
-                                                                  "association_type": "input"},
-                                                          "Headers": {"associated_object_type": "HTTPSessionObjectType",
-                                                                      "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/Raw_Header",
-                                                                      "association_type": "input"}},
-                         "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}}},
-    "HttpOpenRequestA": {"action_name": "open http request",
-                         "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Internet Resource"}},
-                                                          "Path": {"associated_object_type": "URIObjectType",
-                                                                   "associated_object_element": "Value",
-                                                                   "association_type": "input"}},
-                         "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}}},
-
-    "HttpOpenRequestW": {"action_name": "open http request",
-                         "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Internet Resource"}},
-                                                          "Path": {"associated_object_type": "URIObjectType",
-                                                                   "associated_object_element": "Value",
-                                                                   "association_type": "input"}},
-                         "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}}},
-    "InternetReadFile": {"action_name": "read from internet resource",
-                         "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                             "associated_object_element": "ID",
-                                                                             "association_type": "input",
-                                                                             "forced": {"associated_object_element": "Type",
-                                                                                        "value": "Internet Resource"}}}},
-
-    "InternetWriteFile": {"action_name": "write to internet resource",
-                          "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                              "associated_object_element": "ID",
-                                                                              "association_type": "input",
-                                                                              "forced": {"associated_object_element": "Type",
-                                                                                         "value": "Internet Resource"}}}},
-
-    "InternetCloseHandle": {"action_name": "close internet resource handle",
-                            "parameter_associated_objects": {"InternetHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                                "associated_object_element": "ID",
-                                                                                "association_type": "input",
-                                                                                "forced": {"associated_object_element": "Type",
-                                                                                           "value": "Internet Resource"}}}},
-    "HttpSendRequestA": {"action_name": "send http request",
-                         "parameter_associated_objects": {"RequestHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                            "associated_object_element":  "ID",
-                                                                            "association_type": "input",
-                                                                            "forced": {"associated_object_element": "Type",
-                                                                                       "value": "HTTPRequest"}},
-                                                          "Headers": {"associated_object_type": "HTTPSessionObjectType",
-                                                                      "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Raw_Header",
-                                                                      "association_type": "input"}},
-                         "parameter_associated_arguments": {"PostData": {"associated_argument_name": "Post Data"}}},
-    "HttpSendRequestW": {"action_name": "send http request",
-                         "parameter_associated_objects": {"RequestHandle": {"associated_object_type": "WindowsHandleObjectType",
-                                                                            "associated_object_element":  "ID",
-                                                                            "association_type": "input",
-                                                                            "forced": {"associated_object_element": "Type",
-                                                                                       "value": "HTTPRequest"}},
-                                                          "Headers": {"associated_object_type": "HTTPSessionObjectType",
-                                                                      "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Raw_Header",
-                                                                      "association_type": "input"}},
-                         "parameter_associated_arguments": {"PostData": {"associated_argument_name": "Post Data"}}},
-    "DnsQuery_A": {"action_name": "send dns query",
-                   "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
-                   "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "Name", "element_name": "QName/Value"},
-                                                                                                     {"parameter_name": "Type", "element_name": "QType"}],
-                                                                              "associated_object_type": "DNSQueryObjectType",
-                                                                              "associated_object_element": "Question",
-                                                                              "association_type": "input"}},
-                   "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}}},
-    "DnsQuery_UTF8": {"action_name": "send dns query",
-                      "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
-                      "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "Name", "element_name": "QName/Value"},
-                                                                                                        {"parameter_name": "Type", "element_name": "QType"}],
-                                                                                 "associated_object_type": "DNSQueryObjectType",
-                                                                                 "associated_object_element": "Question",
-                                                                                 "association_type": "input"}},
-                      "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}}},
-    "DnsQuery_W": {"action_name": "send dns query",
-                   "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
-                   "parameter_associated_objects": {"group_together_nested": {"parameter_mappings": [{"parameter_name": "Name", "element_name": "QName/Value"},
-                                                                                                     {"parameter_name": "Type", "element_name": "QType"}],
-                                                                              "associated_object_type": "DNSQueryObjectType",
-                                                                              "associated_object_element": "Question",
-                                                                              "association_type": "input"}},
-                   "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}}},
-    "getaddrinfo": {"action_name": "get host by name",
-                    "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                    "parameter_associated_objects": {"NodeName": {"associated_object_type": "URIObjectType",
-                                                                  "associated_object_element": "Value",
-                                                                  "association_type": "input"}},
-                    "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}}},
-    "GetAddrInfoW": {"action_name": "get host by name",
-                     "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
-                     "parameter_associated_objects": {"NodeName": {"associated_object_type": "URIObjectType",
-                                                                   "associated_object_element": "Value",
-                                                                   "association_type": "input"}},
-                     "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}}}
-
+    "RtlCreateUserThread": {
+        "action_name": "create thread",
+        "action_vocab": "maecVocabs:ProcessThreadActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ProcessHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            },
+            "ThreadHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "output",
+                "forced": {"associated_object_element": "Type", "value": "Thread"},
+            },
+            "ThreadId": {
+                "associated_object_type": "WindowsThreadObjectType",
+                "associated_object_element": "Thread_ID",
+                "association_type": "output",
+            },
+        },
+        "parameter_associated_arguments": {
+            "CreatedSuspended": {
+                "associated_argument_name": "Control Parameter",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "StartAddress": {
+                "associated_argument_name": "Code Address",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
+            "StartParameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+        },
+    },
+    "URLDownloadToFileW": {
+        "action_name": "download file",
+        "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "URL": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+        },
+    },
+    "InternetOpenA": {
+        "action_name": "initialize wininet",
+        "parameter_associated_objects": {
+            "Agent": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/User_Agent",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {
+            "AccessType": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "ProxyName": {"associated_argument_name": "Proxy Name"},
+            "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
+            "Flags": {"associated_argument_name": "Flags"},
+        },
+    },
+    "InternetOpenW": {
+        "action_name": "initialize wininet",
+        "parameter_associated_objects": {
+            "Agent": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/User_Agent",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {
+            "AccessType": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "ProxyName": {"associated_argument_name": "Proxy Name"},
+            "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
+            "Flags": {"associated_argument_name": "Flags"},
+        },
+    },
+    "InternetConnectA": {
+        "action_name": "connect to server",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            },
+            "ServerName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+            "ServerPort": {"associated_object_type": "PortObjectType", "associated_object_element": "Port_Value", "association_type": "input"},
+        },
+        "parameter_associated_arguments": {
+            "Username": {"associated_argument_name": "Username"},
+            "Password": {"associated_argument_name": "Password"},
+            "Service": {"associated_argument_name": "Service Type"},
+            "Flags": {"associated_argument_name": "Flags"},
+        },
+    },
+    "InternetConnectW": {
+        "action_name": "connect to server",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            },
+            "ServerName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+            "ServerPort": {"associated_object_type": "PortObjectType", "associated_object_element": "Port_Value", "association_type": "input"},
+        },
+        "parameter_associated_arguments": {
+            "Username": {"associated_argument_name": "Username"},
+            "Password": {"associated_argument_name": "Password"},
+            "Service": {"associated_argument_name": "Service Type"},
+            "Flags": {"associated_argument_name": "Flags"},
+        },
+    },
+    "InternetOpenURLA": {
+        "action_name": "connect to url",
+        "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ConnectionHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Connection"},
+            },
+            "URL": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+            "Headers": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/Raw_Header",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}},
+    },
+    "InternetOpenURLW": {
+        "action_name": "connect to url",
+        "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "ConnectionHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Connection"},
+            },
+            "URL": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+            "Headers": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Parsed_Header/Raw_Header",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}},
+    },
+    "HttpOpenRequestA": {
+        "action_name": "open http request",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            },
+            "Path": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+        },
+        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}},
+    },
+    "HttpOpenRequestW": {
+        "action_name": "open http request",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            },
+            "Path": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
+        },
+        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}},
+    },
+    "InternetReadFile": {
+        "action_name": "read from internet resource",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            }
+        },
+    },
+    "InternetWriteFile": {
+        "action_name": "write to internet resource",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            }
+        },
+    },
+    "InternetCloseHandle": {
+        "action_name": "close internet resource handle",
+        "parameter_associated_objects": {
+            "InternetHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
+            }
+        },
+    },
+    "HttpSendRequestA": {
+        "action_name": "send http request",
+        "parameter_associated_objects": {
+            "RequestHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "HTTPRequest"},
+            },
+            "Headers": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Raw_Header",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {"PostData": {"associated_argument_name": "Post Data"}},
+    },
+    "HttpSendRequestW": {
+        "action_name": "send http request",
+        "parameter_associated_objects": {
+            "RequestHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+                "forced": {"associated_object_element": "Type", "value": "HTTPRequest"},
+            },
+            "Headers": {
+                "associated_object_type": "HTTPSessionObjectType",
+                "associated_object_element": "list__HTTP_Request_Response/HTTP_Client_Request/HTTP_Request_Header/Raw_Header",
+                "association_type": "input",
+            },
+        },
+        "parameter_associated_arguments": {"PostData": {"associated_argument_name": "Post Data"}},
+    },
+    "DnsQuery_A": {
+        "action_name": "send dns query",
+        "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Name", "element_name": "QName/Value"},
+                    {"parameter_name": "Type", "element_name": "QType"},
+                ],
+                "associated_object_type": "DNSQueryObjectType",
+                "associated_object_element": "Question",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}},
+    },
+    "DnsQuery_UTF8": {
+        "action_name": "send dns query",
+        "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Name", "element_name": "QName/Value"},
+                    {"parameter_name": "Type", "element_name": "QType"},
+                ],
+                "associated_object_type": "DNSQueryObjectType",
+                "associated_object_element": "Question",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}},
+    },
+    "DnsQuery_W": {
+        "action_name": "send dns query",
+        "action_vocab": "maecVocabs:DNSActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "group_together_nested": {
+                "parameter_mappings": [
+                    {"parameter_name": "Name", "element_name": "QName/Value"},
+                    {"parameter_name": "Type", "element_name": "QType"},
+                ],
+                "associated_object_type": "DNSQueryObjectType",
+                "associated_object_element": "Question",
+                "association_type": "input",
+            }
+        },
+        "parameter_associated_arguments": {"Options": {"associated_argument_name": "Options"}},
+    },
+    "getaddrinfo": {
+        "action_name": "get host by name",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "NodeName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"}
+        },
+        "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}},
+    },
+    "GetAddrInfoW": {
+        "action_name": "get host by name",
+        "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
+        "parameter_associated_objects": {
+            "NodeName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"}
+        },
+        "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}},
+    },
 }
 
 
@@ -1739,7 +2664,7 @@ class MAEC41Report(Report):
             self.static_bundle = Bundle(None, False, "4.1", "static analysis tool output")
             self.subject.add_findings_bundle(self.static_bundle)
         if self.options["strings"] and "strings" in self.results and self.results["strings"]:
-            self.strings_bundle = Bundle(None, False, '4.1', "static analysis tool output")
+            self.strings_bundle = Bundle(None, False, "4.1", "static analysis tool output")
             self.subject.add_findings_bundle(self.strings_bundle)
         if self.options["virustotal"] and "virustotal" in self.results and self.results["virustotal"]:
             self.virustotal_bundle = Bundle(None, False, "4.1", "static analysis tool output")
@@ -1753,22 +2678,52 @@ class MAEC41Report(Report):
                 self.createProcessActions(process)
         # Network actions.
         if "network" in self.results and isinstance(self.results["network"], dict) and len(self.results["network"]) > 0:
-            if "udp" in self.results["network"] and isinstance(self.results["network"]["udp"], list) and len(self.results["network"]["udp"]) > 0:
+            if (
+                "udp" in self.results["network"]
+                and isinstance(self.results["network"]["udp"], list)
+                and len(self.results["network"]["udp"]) > 0
+            ):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["udp"]:
-                    self.createActionNet(network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "UDP")
-            if "dns" in self.results["network"] and isinstance(self.results["network"]["dns"], list) and len(self.results["network"]["dns"]) > 0:
+                    self.createActionNet(
+                        network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "UDP"
+                    )
+            if (
+                "dns" in self.results["network"]
+                and isinstance(self.results["network"]["dns"], list)
+                and len(self.results["network"]["dns"]) > 0
+            ):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["dns"]:
-                    self.createActionNet(network_data, {"value": "send dns query", "xsi:type": "maecVocabs:DNSActionNameVocab-1.0"}, "UDP", "DNS")
-            if "tcp" in self.results["network"] and isinstance(self.results["network"]["tcp"], list) and len(self.results["network"]["tcp"]) > 0:
+                    self.createActionNet(
+                        network_data, {"value": "send dns query", "xsi:type": "maecVocabs:DNSActionNameVocab-1.0"}, "UDP", "DNS"
+                    )
+            if (
+                "tcp" in self.results["network"]
+                and isinstance(self.results["network"]["tcp"], list)
+                and len(self.results["network"]["tcp"]) > 0
+            ):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["tcp"]:
-                    self.createActionNet(network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "TCP")
-            if "http" in self.results["network"] and isinstance(self.results["network"]["http"], list) and len(self.results["network"]["http"]) > 0:
+                    self.createActionNet(
+                        network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "TCP"
+                    )
+            if (
+                "http" in self.results["network"]
+                and isinstance(self.results["network"]["http"], list)
+                and len(self.results["network"]["http"]) > 0
+            ):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["http"]:
-                    self.createActionNet(network_data, {"value": "send http " + str(network_data["method"]).lower() + " request", "xsi:type": "maecVocabs:HTTPActionNameVocab-1.0"}, "TCP", "HTTP")
+                    self.createActionNet(
+                        network_data,
+                        {
+                            "value": "send http " + str(network_data["method"]).lower() + " request",
+                            "xsi:type": "maecVocabs:HTTPActionNameVocab-1.0",
+                        },
+                        "TCP",
+                        "HTTP",
+                    )
         # Deduplicate the Bundle.
         if self.options["deduplicate"]:
             self.dynamic_bundle.deduplicate()
@@ -1779,70 +2734,110 @@ class MAEC41Report(Report):
         """
         src_category = "ipv4-addr"
         dst_category = "ipv4-addr"
-        if ":" in network_data.get("src", ""): src_category = "ipv6-addr"
-        if ":" in network_data.get("dst", ""): dst_category = "ipv6-addr"
+        if ":" in network_data.get("src", ""):
+            src_category = "ipv6-addr"
+        if ":" in network_data.get("dst", ""):
+            dst_category = "ipv6-addr"
         # Construct the various dictionaries.
         if layer7_protocol is not None:
-            object_properties = {"xsi:type": "NetworkConnectionObjectType",
-                                 "layer4_protocol": {"value": layer4_protocol, "force_datatype": True},
-                                 "layer7_protocol": {"value": layer7_protocol, "force_datatype": True}}
+            object_properties = {
+                "xsi:type": "NetworkConnectionObjectType",
+                "layer4_protocol": {"value": layer4_protocol, "force_datatype": True},
+                "layer7_protocol": {"value": layer7_protocol, "force_datatype": True},
+            }
         else:
-            object_properties = {"xsi:type": "NetworkConnectionObjectType",
-                                 "layer4_protocol": {"value": layer4_protocol, "force_datatype": True}}
+            object_properties = {
+                "xsi:type": "NetworkConnectionObjectType",
+                "layer4_protocol": {"value": layer4_protocol, "force_datatype": True},
+            }
         associated_object = {"id": mixbox.idgen.create_id(prefix="object"), "properties": object_properties}
         # General network connection properties.
         if layer7_protocol is None:
-            object_properties["source_socket_address"] = {"ip_address": {"category": src_category, "address_value": network_data["src"]},
-                                                          "port": {"port_value": network_data["sport"]}}
-            object_properties["destination_socket_address"] = {"ip_address": {"category": dst_category, "address_value": network_data["dst"]},
-                                                          "port": {"port_value": network_data["dport"]}}
+            object_properties["source_socket_address"] = {
+                "ip_address": {"category": src_category, "address_value": network_data["src"]},
+                "port": {"port_value": network_data["sport"]},
+            }
+            object_properties["destination_socket_address"] = {
+                "ip_address": {"category": dst_category, "address_value": network_data["dst"]},
+                "port": {"port_value": network_data["dport"]},
+            }
         # Layer 7-specific object properties.
         if layer7_protocol == "DNS":
             answer_resource_records = []
             for answer_record in network_data["answers"]:
-                answer_resource_records.append({"entity_type": answer_record["type"],
-                                                "record_data": answer_record["data"]})
-            object_properties["layer7_connections"] = {"dns_queries": [{"question": {"qname": {"value": network_data["request"]},
-                                                                                       "qtype": network_data["type"]},
-                                                                         "answer_resource_records": answer_resource_records}]}
+                answer_resource_records.append({"entity_type": answer_record["type"], "record_data": answer_record["data"]})
+            object_properties["layer7_connections"] = {
+                "dns_queries": [
+                    {
+                        "question": {"qname": {"value": network_data["request"]}, "qtype": network_data["type"]},
+                        "answer_resource_records": answer_resource_records,
+                    }
+                ]
+            }
         elif layer7_protocol == "HTTP":
-            object_properties["layer7_connections"] = {"http_session":
-                                                       {"http_request_response": [{"http_client_request": {"http_request_line": {"http_method": {"value" : network_data["method"], "force_datatype": True},
-                                                                                                                                 "value": network_data["path"],
-                                                                                                                                 "version": network_data["version"]},
-                                                                                                             "http_request_header": {"parsed_header": {"user_agent": network_data["user-agent"],
-                                                                                                                                                       "host": {"domain_name": {"value": network_data["host"]},
-                                                                                                                                                       "port": {"port_value": network_data["port"]}}}},
-                                                                                                             "http_message_body": {"message_body": network_data["body"]}}
-                                                                                     }
-                                                                                    ]}
-                                                       }
-        action_dict = {"id": mixbox.idgen.create_id(prefix="action"),
-                       "name": action_name,
-                       "associated_objects": [associated_object]}
+            object_properties["layer7_connections"] = {
+                "http_session": {
+                    "http_request_response": [
+                        {
+                            "http_client_request": {
+                                "http_request_line": {
+                                    "http_method": {"value": network_data["method"], "force_datatype": True},
+                                    "value": network_data["path"],
+                                    "version": network_data["version"],
+                                },
+                                "http_request_header": {
+                                    "parsed_header": {
+                                        "user_agent": network_data["user-agent"],
+                                        "host": {"domain_name": {"value": network_data["host"]}, "port": {"port_value": network_data["port"]}},
+                                    }
+                                },
+                                "http_message_body": {"message_body": network_data["body"]},
+                            }
+                        }
+                    ]
+                }
+            }
+        action_dict = {"id": mixbox.idgen.create_id(prefix="action"), "name": action_name, "associated_objects": [associated_object]}
         # Add the Action to the dynamic analysis bundle.
         self.dynamic_bundle.add_action(MalwareAction.from_dict(action_dict), "Network Actions")
 
     def addProcessTree(self):
         """Creates the ProcessTree corresponding to that observed by Cuckoo."""
-        if self.options["processtree"] and "behavior" in self.results and "processtree" in self.results["behavior"] and self.results["behavior"]["processtree"]:
+        if (
+            self.options["processtree"]
+            and "behavior" in self.results
+            and "processtree" in self.results["behavior"]
+            and self.results["behavior"]["processtree"]
+        ):
             # Process Tree TypedField Fix.
             NS_LIST = cybox.utils.nsparser.NS_LIST + [
-                ("http://maec.mitre.org/language/schema.html#bundle", "maecBundle", "http://maec.mitre.org/language/version4.1/maec_bundle_schema.xsd"),
+                (
+                    "http://maec.mitre.org/language/schema.html#bundle",
+                    "maecBundle",
+                    "http://maec.mitre.org/language/version4.1/maec_bundle_schema.xsd",
+                ),
             ]
             OBJ_LIST = cybox.utils.nsparser.OBJ_LIST + [
-                ("ProcessTreeNodeType", "maec.bundle.process_tree.ProcessTreeNode", "", "http://cybox.mitre.org/objects#ProcessObject-2", ["ProcessObjectType"]),
+                (
+                    "ProcessTreeNodeType",
+                    "maec.bundle.process_tree.ProcessTreeNode",
+                    "",
+                    "http://cybox.mitre.org/objects#ProcessObject-2",
+                    ["ProcessObjectType"],
+                ),
             ]
             cybox.META = cybox.utils.nsparser.Metadata(NS_LIST, OBJ_LIST)
 
             root_node = self.results["behavior"]["processtree"][0]
 
             if root_node:
-                root_node_dict = {"id": mixbox.idgen.create_id(prefix="process_tree_node"),
-                                  "pid": root_node["pid"],
-                                  "name": root_node["name"],
-                                  "initiated_actions": self.pidActionMap[root_node["pid"]],
-                                  "spawned_processes": [self.createProcessTreeNode(child_process) for child_process in root_node["children"]]}
+                root_node_dict = {
+                    "id": mixbox.idgen.create_id(prefix="process_tree_node"),
+                    "pid": root_node["pid"],
+                    "name": root_node["name"],
+                    "initiated_actions": self.pidActionMap[root_node["pid"]],
+                    "spawned_processes": [self.createProcessTreeNode(child_process) for child_process in root_node["children"]],
+                }
 
                 self.dynamic_bundle.set_process_tree(ProcessTree.from_dict({"root_process": root_node_dict}))
 
@@ -1850,11 +2845,13 @@ class MAEC41Report(Report):
         """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
         @param process: process from cuckoo dict.
         """
-        process_node_dict = {"id": mixbox.idgen.create_id(prefix="process_tree_node"),
-                             "pid": process["pid"],
-                             "name": process["name"],
-                             "initiated_actions": self.pidActionMap[process["pid"]],
-                             "spawned_processes": [self.createProcessTreeNode(child_process) for child_process in process["children"]]}
+        process_node_dict = {
+            "id": mixbox.idgen.create_id(prefix="process_tree_node"),
+            "pid": process["pid"],
+            "name": process["name"],
+            "initiated_actions": self.pidActionMap[process["pid"]],
+            "spawned_processes": [self.createProcessTreeNode(child_process) for child_process in process["children"]],
+        }
         return process_node_dict
 
     def apiCallToAction(self, call, pos):
@@ -1868,10 +2865,7 @@ class MAEC41Report(Report):
         # Add the action parameter arguments.
         apos = 1
         for arg in call["arguments"]:
-            parameter_list.append({"ordinal_position": apos,
-                                   "name": arg["name"],
-                                   "value": self._illegal_xml_chars_RE.sub("?", arg["value"])
-                                        })
+            parameter_list.append({"ordinal_position": apos, "name": arg["name"], "value": self._illegal_xml_chars_RE.sub("?", arg["value"])})
             apos = apos + 1
         # Try to add the mapped Action Name.
         if call["api"] in api_call_mappings:
@@ -1894,10 +2888,14 @@ class MAEC41Report(Report):
                     action_dict["name"] = {"value": mapping_dict["action_name"], "xsi:type": None}
                 # Handle any Parameters.
                 if "parameter_associated_arguments" in mapping_dict:
-                    action_dict["action_arguments"]  = self.processActionArguments(mapping_dict["parameter_associated_arguments"], parameter_list)
+                    action_dict["action_arguments"] = self.processActionArguments(
+                        mapping_dict["parameter_associated_arguments"], parameter_list
+                    )
                 # Handle any Associated Objects.
                 if "parameter_associated_objects" in mapping_dict:
-                    action_dict["associated_objects"] = self.processActionAssociatedObjects(mapping_dict["parameter_associated_objects"], parameter_list)
+                    action_dict["associated_objects"] = self.processActionAssociatedObjects(
+                        mapping_dict["parameter_associated_objects"], parameter_list
+                    )
 
         # Only output Implementation in "api" or "full" modes.
         if self.options["mode"].lower() == "api" or self.options["mode"].lower() == "full":
@@ -1917,16 +2915,11 @@ class MAEC41Report(Report):
         """
         # Generate the API Call dictionary.
         if len(parameter_list) > 0:
-            api_call_dict = {"function_name": call["api"],
-                             "return_value": call["return"],
-                             "parameters": parameter_list}
+            api_call_dict = {"function_name": call["api"], "return_value": call["return"], "parameters": parameter_list}
         else:
-            api_call_dict = {"function_name": call["api"],
-                             "return_value": call["return"]}
+            api_call_dict = {"function_name": call["api"], "return_value": call["return"]}
         # Generate the action implementation dictionary.
-        action_implementation_dict = {"id": mixbox.idgen.create_id(prefix="action"),
-                                      "type": "api call",
-                                      "api_call": api_call_dict}
+        action_implementation_dict = {"id": mixbox.idgen.create_id(prefix="action"), "type": "api call", "api_call": api_call_dict}
         return action_implementation_dict
 
     def processActionArguments(self, parameter_mappings_dict, parameter_list):
@@ -1942,16 +2935,24 @@ class MAEC41Report(Report):
             if not argument_value:
                 continue
             if parameter_name in parameter_mappings_dict and "associated_argument_vocab" in parameter_mappings_dict[parameter_name]:
-                arguments_list.append({"argument_value": argument_value,
-                                       "argument_name": {"value": parameter_mappings_dict[parameter_name]["associated_argument_name"],
-                                                         "xsi:type": parameter_mappings_dict[parameter_name]["associated_argument_vocab"]}})
+                arguments_list.append(
+                    {
+                        "argument_value": argument_value,
+                        "argument_name": {
+                            "value": parameter_mappings_dict[parameter_name]["associated_argument_name"],
+                            "xsi:type": parameter_mappings_dict[parameter_name]["associated_argument_vocab"],
+                        },
+                    }
+                )
             elif parameter_name in parameter_mappings_dict and "associated_argument_vocab" not in parameter_mappings_dict[parameter_name]:
-                arguments_list.append({"argument_value": argument_value,
-                                       "argument_name": {"value": parameter_mappings_dict[parameter_name]["associated_argument_name"],
-                                                         "xsi:type": None}})
+                arguments_list.append(
+                    {
+                        "argument_value": argument_value,
+                        "argument_name": {"value": parameter_mappings_dict[parameter_name]["associated_argument_name"], "xsi:type": None},
+                    }
+                )
         if arguments_list:
             return arguments_list
-
 
     def processActionAssociatedObjects(self, associated_objects_dict, parameter_list):
         """Processes a dictionary of parameters that should be mapped to Associated Objects in the Action
@@ -1983,7 +2984,7 @@ class MAEC41Report(Report):
                 parameter_value = self.getParameterValue(parameter_list, parameter_mapping["parameter_name"])
                 # Handle any values that require post-processing (via external functions).
                 if "post_processing" in parameter_mapping:
-                     parameter_value = globals()[parameter_mapping["post_processing"]](parameter_value)
+                    parameter_value = globals()[parameter_mapping["post_processing"]](parameter_value)
                 # Make sure the parameter value is set.
                 if parameter_value and "/" not in parameter_mapping["element_name"]:
                     values_dict[parameter_mapping["element_name"].lower()] = parameter_value
@@ -1999,7 +3000,9 @@ class MAEC41Report(Report):
                 parameter_value = self.getParameterValue(parameter_list, call_parameter["name"])
                 # Make sure the parameter value is set.
                 if parameter_value:
-                    associated_objects_list.append(self.processAssociatedObject(associated_objects_dict[call_parameter["name"]], parameter_value))
+                    associated_objects_list.append(
+                        self.processAssociatedObject(associated_objects_dict[call_parameter["name"]], parameter_value)
+                    )
         if associated_objects_list:
             # Process any RegKeys to account for the Hive == Handle corner case.
             self.processRegKeys(associated_objects_list)
@@ -2119,8 +3122,10 @@ class MAEC41Report(Report):
                             merged_objects = True
                     # Otherwise, add the existing object via a reference.
                     if not merged_objects:
-                        substituted_object = {"idref": mapped_object["id"],
-                                              "association_type": {"value": "input", "xsi:type": "maecVocabs:ActionObjectAssociationTypeVocab-1.0"}}
+                        substituted_object = {
+                            "idref": mapped_object["id"],
+                            "association_type": {"value": "input", "xsi:type": "maecVocabs:ActionObjectAssociationTypeVocab-1.0"},
+                        }
                         associated_objects_list.remove(input_handle)
                         associated_objects_list.append(substituted_object)
         return associated_objects_list
@@ -2134,8 +3139,7 @@ class MAEC41Report(Report):
         if "type" in handle_dict["properties"]:
             handle_type = handle_dict["properties"]["type"]
             handle_id = handle_dict["properties"]["id"]
-            substituted_object = {"idref": object_dict["id"],
-                                  "association_type": object_dict["association_type"]}
+            substituted_object = {"idref": object_dict["id"], "association_type": object_dict["association_type"]}
             if handle_type not in self.handleMap:
                 self.handleMap[handle_type] = {}
             self.handleMap[handle_type][handle_id] = object_dict
@@ -2146,7 +3150,7 @@ class MAEC41Report(Report):
                 handle_reference_dict["relationship"] = {"value": "Related_To", "xsi:type": "cyboxVocabs:ObjectRelationshipVocab-1.0"}
                 handle_reference_dict["idref"] = handle_dict["id"]
                 object_dict["related_objects"] = [handle_reference_dict]
-            # Add the Objects to their corresponding Collections.
+                # Add the Objects to their corresponding Collections.
                 self.dynamic_bundle.add_object(Object.from_dict(handle_dict), "Windows Handles")
             self.dynamic_bundle.add_object(Object.from_dict(object_dict), "Handle-mapped Objects")
             return substituted_object
@@ -2171,7 +3175,7 @@ class MAEC41Report(Report):
             if "key" in handle_mapped_key["properties"]:
                 if "key" not in current_dict["properties"]:
                     current_dict["properties"]["key"] = ""
-                current_dict["properties"]["key"] = (handle_mapped_key["properties"]["key"] + "\\" + current_dict["properties"]["key"])
+                current_dict["properties"]["key"] = handle_mapped_key["properties"]["key"] + "\\" + current_dict["properties"]["key"]
             if "hive" in handle_mapped_key["properties"]:
                 # If we find the "HKEY_" then we assume we're done.
                 if "HKEY_" in handle_mapped_key["properties"]["hive"]:
@@ -2183,7 +3187,7 @@ class MAEC41Report(Report):
         else:
             return current_dict
 
-    def processAssociatedObject(self, parameter_mapping_dict, parameter_value, associated_object_dict = None):
+    def processAssociatedObject(self, parameter_mapping_dict, parameter_value, associated_object_dict=None):
         """Process a single Associated Object mapping.
         @param parameter_mapping_dict: input parameter to Associated Object mapping dictionary.
         @param parameter_value: the input parameter value (from the API call).
@@ -2195,7 +3199,10 @@ class MAEC41Report(Report):
             associated_object_dict["properties"] = {}
         # Set the Association Type if it has not been set already.
         if "association_type" not in associated_object_dict:
-            associated_object_dict["association_type"] = {"value": parameter_mapping_dict["association_type"], "xsi:type": "maecVocabs:ActionObjectAssociationTypeVocab-1.0"}
+            associated_object_dict["association_type"] = {
+                "value": parameter_mapping_dict["association_type"],
+                "xsi:type": "maecVocabs:ActionObjectAssociationTypeVocab-1.0",
+            }
         # Handle any values that require post-processing (via external functions).
         if "post_processing" in parameter_mapping_dict:
             parameter_value = globals()[parameter_mapping_dict["post_processing"]](parameter_value)
@@ -2209,7 +3216,9 @@ class MAEC41Report(Report):
             elif "/" in parameter_mapping_dict["associated_object_element"]:
                 split_elements = parameter_mapping_dict["associated_object_element"].split("/")
                 if "list__" in split_elements[0]:
-                    associated_object_dict["properties"][split_elements[0].lstrip("list__").lower()] = [self.createNestedDict(split_elements[1:], parameter_value)]
+                    associated_object_dict["properties"][split_elements[0].lstrip("list__").lower()] = [
+                        self.createNestedDict(split_elements[1:], parameter_value)
+                    ]
                 else:
                     associated_object_dict["properties"][split_elements[0].lower()] = self.createNestedDict(split_elements[1:], parameter_value)
         # Corner case for some Registry Keys
@@ -2301,27 +3310,29 @@ class MAEC41Report(Report):
         """
 
         # A mapping of Cuckoo resource type names to their name in MAEC
-        resource_type_mappings = {"GIF": "Bitmap",
-                                  "RT_ACCELERATOR": "Accelerators",
-                                  "RT_ANICURSOR": "AniCursor",
-                                  "RT_ANIICON": "AniIcon",
-                                  "RT_BITMAP": "Bitmap",
-                                  "RT_CURSOR": "Cursor",
-                                  "RT_DIALOG": "Dialog",
-                                  "RT_DLGINCLUDE": "DLGInclude",
-                                  "RT_FONT": "Font",
-                                  "RT_FONTDIR": "Fontdir",
-                                  "RT_GROUP_CURSOR": "GroupCursor",
-                                  "RT_GROUP_ICON": "GroupIcon",
-                                  "RT_HTML": "HTML",
-                                  "RT_ICON": "Icon",
-                                  "RT_MANIFEST": "Manifest",
-                                  "RT_MENU": "Menu",
-                                  "RT_PLUGPLAY": "PlugPlay",
-                                  "RT_RCDATA": "RCData",
-                                  "RT_STRING": "String",
-                                  "RT_VERSION": "VersionInfo",
-                                  "RT_VXD": "Vxd"}
+        resource_type_mappings = {
+            "GIF": "Bitmap",
+            "RT_ACCELERATOR": "Accelerators",
+            "RT_ANICURSOR": "AniCursor",
+            "RT_ANIICON": "AniIcon",
+            "RT_BITMAP": "Bitmap",
+            "RT_CURSOR": "Cursor",
+            "RT_DIALOG": "Dialog",
+            "RT_DLGINCLUDE": "DLGInclude",
+            "RT_FONT": "Font",
+            "RT_FONTDIR": "Fontdir",
+            "RT_GROUP_CURSOR": "GroupCursor",
+            "RT_GROUP_ICON": "GroupIcon",
+            "RT_HTML": "HTML",
+            "RT_ICON": "Icon",
+            "RT_MANIFEST": "Manifest",
+            "RT_MENU": "Menu",
+            "RT_PLUGPLAY": "PlugPlay",
+            "RT_RCDATA": "RCData",
+            "RT_STRING": "String",
+            "RT_VERSION": "VersionInfo",
+            "RT_VXD": "Vxd",
+        }
 
         if len(self.results["static"]) > 0:
             exports = None
@@ -2334,11 +3345,7 @@ class MAEC41Report(Report):
                 exports = {}
                 exported_function_list = []
                 for x in self.results["static"]["pe_exports"]:
-                    exported_function_dict = {
-                                                "function_name": x["name"],
-                                                "ordinal": x["ordinal"],
-                                                "entry_point": x["address"]
-                                                }
+                    exported_function_dict = {"function_name": x["name"], "ordinal": x["ordinal"], "entry_point": x["address"]}
                     exported_function_list.append(exported_function_dict)
                 exports["exported_functions"] = exported_function_list
             # PE Imports.
@@ -2346,13 +3353,11 @@ class MAEC41Report(Report):
                 imports = []
                 for x in self.results["static"]["pe_imports"]:
                     imported_functions = []
-                    import_dict = { "file_name": x["dll"],
-                                    "imported_functions": imported_functions}
+                    import_dict = {"file_name": x["dll"], "imported_functions": imported_functions}
 
                     # Imported functions.
                     for i in x["imports"]:
-                        imported_function_dict = {"function_name": i["name"],
-                                                    "virtual_address": i["address"]}
+                        imported_function_dict = {"function_name": i["name"], "virtual_address": i["address"]}
                         imported_functions.append(imported_function_dict)
                     imports.append(import_dict)
             # Resources.
@@ -2366,14 +3371,15 @@ class MAEC41Report(Report):
             if "pe_sections" in self.results["static"] and len(self.results["static"]["pe_sections"]) > 0:
                 sections = []
                 for s in self.results["static"]["pe_sections"]:
-                    section_dict = {"section_header":
-                                    {"virtual_size": int(s["virtual_size"], 16),
-                                        "virtual_address": s["virtual_address"],
-                                        "name": s["name"],
-                                        "size_of_raw_data": s["size_of_data"]
-                                        },
-                                    "entropy": {"value": s["entropy"]}
-                                    }
+                    section_dict = {
+                        "section_header": {
+                            "virtual_size": int(s["virtual_size"], 16),
+                            "virtual_address": s["virtual_address"],
+                            "name": s["name"],
+                            "size_of_raw_data": s["size_of_data"],
+                        },
+                        "entropy": {"value": s["entropy"]},
+                    }
                     sections.append(section_dict)
             # Version info.
             if "pe_versioninfo" in self.results["static"] and len(self.results["static"]["pe_versioninfo"]) > 0:
@@ -2414,14 +3420,16 @@ class MAEC41Report(Report):
                     if k["name"].lower() == "specialbuild":
                         version_info["specialbuild"] = k["value"]
                 resources.append(version_info)
-            object_dict = {"id": mixbox.idgen.create_id(prefix="object"),
-                           "properties": {"xsi:type":"WindowsExecutableFileObjectType",
-                                            "imports": imports,
-                                            "exports": exports,
-                                            "sections": sections,
-                                            "resources": resources
-                                            }
-                            }
+            object_dict = {
+                "id": mixbox.idgen.create_id(prefix="object"),
+                "properties": {
+                    "xsi:type": "WindowsExecutableFileObjectType",
+                    "imports": imports,
+                    "exports": exports,
+                    "sections": sections,
+                    "resources": resources,
+                },
+            }
         win_exec_file_obj = Object.from_dict(object_dict)
         return win_exec_file_obj
 
@@ -2431,11 +3439,10 @@ class MAEC41Report(Report):
         for extracted_string in self.results["strings"]:
             extracted_string_list.append({"string_value": self._illegal_xml_chars_RE.sub("?", extracted_string)})
         extracted_features = {"strings": extracted_string_list}
-        object_dict = {"id": mixbox.idgen.create_id(prefix="object"),
-                        "properties": {"xsi:type":"FileObjectType",
-                                        "extracted_features": extracted_features
-                                        }
-                        }
+        object_dict = {
+            "id": mixbox.idgen.create_id(prefix="object"),
+            "properties": {"xsi:type": "FileObjectType", "extracted_features": extracted_features},
+        }
         strings_file_obj = Object.from_dict(object_dict)
         return strings_file_obj
 
@@ -2445,24 +3452,31 @@ class MAEC41Report(Report):
         @requires: file object.
         """
         if "ssdeep" in file and file["ssdeep"] is not None:
-            hashes_list = [{"type": "MD5", "simple_hash_value": file["md5"]},
-                      {"type": "SHA1", "simple_hash_value": file["sha1"]},
-                      {"type": "SHA256", "simple_hash_value": file["sha256"]},
-                      {"type": "SHA512", "simple_hash_value": file["sha512"]},
-                      {"type": "SSDEEP", "fuzzy_hash_value": file["ssdeep"]}]
+            hashes_list = [
+                {"type": "MD5", "simple_hash_value": file["md5"]},
+                {"type": "SHA1", "simple_hash_value": file["sha1"]},
+                {"type": "SHA256", "simple_hash_value": file["sha256"]},
+                {"type": "SHA512", "simple_hash_value": file["sha512"]},
+                {"type": "SSDEEP", "fuzzy_hash_value": file["ssdeep"]},
+            ]
         else:
-            hashes_list = [{"type": "MD5", "simple_hash_value": file["md5"]},
-                      {"type": "SHA1", "simple_hash_value": file["sha1"]},
-                      {"type": "SHA256", "simple_hash_value": file["sha256"]},
-                      {"type": "SHA512", "simple_hash_value": file["sha512"]}]
-        object_dict = {"id": mixbox.idgen.create_id(prefix="object"),
-                        "properties": {"xsi:type":"FileObjectType",
-                                        "file_name": file["name"],
-                                        "file_path": {"value": file["path"]},
-                                        "file_format": file["type"],
-                                        "size_in_bytes": file["size"],
-                                        "hashes": hashes_list}
-                        }
+            hashes_list = [
+                {"type": "MD5", "simple_hash_value": file["md5"]},
+                {"type": "SHA1", "simple_hash_value": file["sha1"]},
+                {"type": "SHA256", "simple_hash_value": file["sha256"]},
+                {"type": "SHA512", "simple_hash_value": file["sha512"]},
+            ]
+        object_dict = {
+            "id": mixbox.idgen.create_id(prefix="object"),
+            "properties": {
+                "xsi:type": "FileObjectType",
+                "file_name": file["name"],
+                "file_path": {"value": file["path"]},
+                "file_format": file["type"],
+                "size_in_bytes": file["size"],
+                "hashes": hashes_list,
+            },
+        }
         file_obj = Object.from_dict(object_dict)
         return file_obj
 
@@ -2473,72 +3487,121 @@ class MAEC41Report(Report):
             self.subject.set_malware_instance_object_attributes(self.createFileObj(self.results["target"]["file"]))
         # URL Object.
         elif self.results["target"]["category"] == "url":
-            url_object_dict = {"id": mixbox.idgen.create_id(prefix="object"), "properties":  {"xsi:type": "URIObjectType", "value": self.results["target"]["url"]}}
+            url_object_dict = {
+                "id": mixbox.idgen.create_id(prefix="object"),
+                "properties": {"xsi:type": "URIObjectType", "value": self.results["target"]["url"]},
+            }
             self.subject.set_malware_instance_object_attributes(Object.from_dict(url_object_dict))
 
     def addAnalyses(self):
         """Adds analysis header."""
         # Add the dynamic analysis.
-        dynamic_analysis = Analysis(mixbox.idgen.create_id(prefix="analysis"), "dynamic", "triage", [BundleReference.from_dict({'bundle_idref': self.dynamic_bundle.id_})])
+        dynamic_analysis = Analysis(
+            mixbox.idgen.create_id(prefix="analysis"),
+            "dynamic",
+            "triage",
+            [BundleReference.from_dict({"bundle_idref": self.dynamic_bundle.id_})],
+        )
         dynamic_analysis.start_datetime = datetime_to_iso(self.results["info"]["started"])
         dynamic_analysis.complete_datetime = datetime_to_iso(self.results["info"]["ended"])
         dynamic_analysis.summary = StructuredText("Cuckoo Sandbox dynamic analysis of the malware instance object.")
-        dynamic_analysis.add_tool(ToolInformation.from_dict({"id": mixbox.idgen.create_id(prefix="tool"),
-                                                             "name": "Cuckoo Sandbox",
-                                                             "version": self.results["info"]["version"],
-                                                             "vendor": "http://www.cuckoosandbox.org"}))
+        dynamic_analysis.add_tool(
+            ToolInformation.from_dict(
+                {
+                    "id": mixbox.idgen.create_id(prefix="tool"),
+                    "name": "Cuckoo Sandbox",
+                    "version": self.results["info"]["version"],
+                    "vendor": "http://www.cuckoosandbox.org",
+                }
+            )
+        )
         self.subject.add_analysis(dynamic_analysis)
 
         # Add the static analysis.
         if "static" in self.options and self.options["static"] and "static" in self.results and self.results["static"]:
-            static_analysis = Analysis(mixbox.idgen.create_id(prefix="analysis"), "static", "triage", [BundleReference.from_dict({"bundle_idref": self.static_bundle.id_})])
+            static_analysis = Analysis(
+                mixbox.idgen.create_id(prefix="analysis"),
+                "static",
+                "triage",
+                [BundleReference.from_dict({"bundle_idref": self.static_bundle.id_})],
+            )
             static_analysis.start_datetime = datetime_to_iso(self.results["info"]["started"])
             static_analysis.complete_datetime = datetime_to_iso(self.results["info"]["ended"])
             static_analysis.summary = StructuredText("Cuckoo Sandbox static (PE) analysis of the malware instance object.")
-            static_analysis.add_tool(ToolInformation.from_dict({"id": mixbox.idgen.create_id(prefix="tool"),
-                                                                "name": "Cuckoo Sandbox Static Analysis",
-                                                                "version": self.results["info"]["version"],
-                                                                "vendor": "http://www.cuckoosandbox.org"}))
+            static_analysis.add_tool(
+                ToolInformation.from_dict(
+                    {
+                        "id": mixbox.idgen.create_id(prefix="tool"),
+                        "name": "Cuckoo Sandbox Static Analysis",
+                        "version": self.results["info"]["version"],
+                        "vendor": "http://www.cuckoosandbox.org",
+                    }
+                )
+            )
             self.subject.add_analysis(static_analysis)
             # Add the static file results.
             self.static_bundle.add_object(self.createWinExecFileObj())
         # Add the strings analysis.
         if "strings" in self.options and self.options["strings"] and "strings" in self.results and self.results["strings"]:
-            strings_analysis = Analysis(mixbox.idgen.create_id(prefix="analysis"), "static", "triage", [BundleReference.from_dict({"bundle_idref": self.strings_bundle.id_})])
+            strings_analysis = Analysis(
+                mixbox.idgen.create_id(prefix="analysis"),
+                "static",
+                "triage",
+                [BundleReference.from_dict({"bundle_idref": self.strings_bundle.id_})],
+            )
             strings_analysis.start_datetime = datetime_to_iso(self.results["info"]["started"])
             strings_analysis.complete_datetime = datetime_to_iso(self.results["info"]["ended"])
             strings_analysis.summary = StructuredText("Cuckoo Sandbox strings analysis of the malware instance object.")
-            strings_analysis.add_tool(ToolInformation.from_dict({"id": mixbox.idgen.create_id(prefix="tool"),
-                                                                    "name": "Cuckoo Sandbox Strings",
-                                                                    "version": self.results["info"]["version"],
-                                                                    "vendor": "http://www.cuckoosandbox.org"}))
+            strings_analysis.add_tool(
+                ToolInformation.from_dict(
+                    {
+                        "id": mixbox.idgen.create_id(prefix="tool"),
+                        "name": "Cuckoo Sandbox Strings",
+                        "version": self.results["info"]["version"],
+                        "vendor": "http://www.cuckoosandbox.org",
+                    }
+                )
+            )
             self.subject.add_analysis(strings_analysis)
             # Add the strings results.
             self.strings_bundle.add_object(self.createFileStringsObj())
         # Add the VirusTotal analysis.
         if self.options["virustotal"] and "virustotal" in self.results and self.results["virustotal"]:
-            virustotal_analysis = Analysis(mixbox.idgen.create_id(prefix="analysis"), "static", "triage", [BundleReference.from_dict({"bundle_idref": self.virustotal_bundle.id_})])
+            virustotal_analysis = Analysis(
+                mixbox.idgen.create_id(prefix="analysis"),
+                "static",
+                "triage",
+                [BundleReference.from_dict({"bundle_idref": self.virustotal_bundle.id_})],
+            )
             virustotal_analysis.start_datetime = datetime_to_iso(self.results["info"]["started"])
             virustotal_analysis.complete_datetime = datetime_to_iso(self.results["info"]["ended"])
             virustotal_analysis.summary = StructuredText("Virustotal results for the malware instance object.")
-            virustotal_analysis.add_tool(ToolInformation.from_dict({"id": mixbox.idgen.create_id(prefix="tool"),
-                                                                    "name": "VirusTotal",
-                                                                    "vendor": "https://www.virustotal.com/"}))
+            virustotal_analysis.add_tool(
+                ToolInformation.from_dict(
+                    {"id": mixbox.idgen.create_id(prefix="tool"), "name": "VirusTotal", "vendor": "https://www.virustotal.com/"}
+                )
+            )
             self.subject.add_analysis(virustotal_analysis)
             # Add the VirusTotal results.
             if "scans" in self.results["virustotal"]:
                 for engine, signature in self.results["virustotal"]["scans"].items():
                     if signature["detected"]:
-                        self.virustotal_bundle.add_av_classification(AVClassification.from_dict({"vendor": engine,
-                                                                                                    "engine_version": signature["version"],
-                                                                                                    "definition_version": signature["update"],
-                                                                                                    "classification_name": signature["result"]}))
+                        self.virustotal_bundle.add_av_classification(
+                            AVClassification.from_dict(
+                                {
+                                    "vendor": engine,
+                                    "engine_version": signature["version"],
+                                    "definition_version": signature["update"],
+                                    "classification_name": signature["result"],
+                                }
+                            )
+                        )
 
     def addDroppedFiles(self):
         """Adds Dropped files as Objects."""
         objs = self.results["dropped"]
         # don't add the target file to the dropped files listing
-        #if self.results["target"]["category"] == "file":
+        # if self.results["target"]["category"] == "file":
         #    objs.append(self.results["target"]["file"])
         # Add the named object collection.
         self.dynamic_bundle.add_named_object_collection("Dropped Files", mixbox.idgen.create_id(prefix="object"))
@@ -2547,13 +3610,13 @@ class MAEC41Report(Report):
 
     def output(self):
         """Writes report to disk."""
-        outfile = open(os.path.join(self.reports_path, "report.maec-4.1.xml"), 'w')
+        outfile = open(os.path.join(self.reports_path, "report.maec-4.1.xml"), "w")
         outfile.write("<?xml version='1.0' encoding='UTF-8'?>\n")
         outfile.write("<!DOCTYPE doc [<!ENTITY comma '&#44;'>]>\n")
         outfile.write("<!--\n")
         outfile.write("Cuckoo Sandbox MAEC 4.1 malware analysis report\n")
         outfile.write("http://www.cuckoosandbox.org\n")
         outfile.write("-->\n")
-        outfile.write(self.package.to_xml(True, namespace_dict={"http://www.cuckoosandbox.org":"Cuckoosandbox"}))
+        outfile.write(self.package.to_xml(True, namespace_dict={"http://www.cuckoosandbox.org": "Cuckoosandbox"}))
         outfile.flush()
         outfile.close()

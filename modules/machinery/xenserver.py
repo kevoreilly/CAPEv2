@@ -16,6 +16,7 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError
 
 try:
     import XenAPI
+
     HAVE_XENAPI = True
 except ImportError:
     HAVE_XENAPI = False
@@ -46,16 +47,13 @@ class XenServerMachinery(Machinery):
             raise CuckooDependencyError("Unable to import XenAPI")
 
         if not self.options.xenserver.user:
-            raise CuckooMachineError("XenServer username missing, please add "
-                                     "it to xenserver.conf.")
+            raise CuckooMachineError("XenServer username missing, please add " "it to xenserver.conf.")
 
         if not self.options.xenserver.password:
-            raise CuckooMachineError("XenServer password missing, please add "
-                                     "it to xenserver.conf")
+            raise CuckooMachineError("XenServer password missing, please add " "it to xenserver.conf")
 
         if not self.options.xenserver.url:
-            raise CuckooMachineError("XenServer url missing, please add it to "
-                                     "xenserver.conf")
+            raise CuckooMachineError("XenServer url missing, please add it to " "xenserver.conf")
 
         self._make_xenapi_session()
 
@@ -83,19 +81,19 @@ class XenServerMachinery(Machinery):
         try:
             sess = XenAPI.Session(self.options.xenserver.url)
         except:
-            raise CuckooMachineError("Could not connect to XenServer: invalid "
-                                     "or incorrect url, please ensure the url "
-                                     "is correct in xenserver.conf")
+            raise CuckooMachineError(
+                "Could not connect to XenServer: invalid " "or incorrect url, please ensure the url " "is correct in xenserver.conf"
+            )
 
         try:
-            sess.xenapi.login_with_password(
-                self.options.xenserver.user, self.options.xenserver.password
-            )
+            sess.xenapi.login_with_password(self.options.xenserver.user, self.options.xenserver.password)
         except:
-            raise CuckooMachineError("Could not connect to XenServer: "
-                                     "incorrect credentials, please ensure "
-                                     "the user and password are correct in "
-                                     "xenserver.conf")
+            raise CuckooMachineError(
+                "Could not connect to XenServer: "
+                "incorrect credentials, please ensure "
+                "the user and password are correct in "
+                "xenserver.conf"
+            )
         self._sessions[tid] = sess
         return sess
 
@@ -129,8 +127,7 @@ class XenServerMachinery(Machinery):
             ref = self._get_vm_ref(uuid)
             vm = self._get_vm_record(ref)
         except XenAPI.Failure as e:
-            raise CuckooMachineError("Vm not found: %s: %s"
-                                     % (uuid, e.details[0]))
+            raise CuckooMachineError("Vm not found: %s: %s" % (uuid, e.details[0]))
 
         if vm["is_a_snapshot"]:
             raise CuckooMachineError("Vm is a snapshot: %s" % uuid)
@@ -166,8 +163,7 @@ class XenServerMachinery(Machinery):
 
         parent_uuid = parent["uuid"]
         if parent_uuid != vm_uuid:
-            raise CuckooMachineError("Snapshot does not belong to specified "
-                                     "vm: %s" % snapshot_uuid)
+            raise CuckooMachineError("Snapshot does not belong to specified " "vm: %s" % snapshot_uuid)
 
     def _check_disks_reset(self, vm):
         """Check whether each attached disk is set to reset on boot.
@@ -186,15 +182,14 @@ class XenServerMachinery(Machinery):
                 try:
                     vdi = self.session.xenapi.VDI.get_record(vdi_ref)
                 except:
-                    log.warning("Invalid VDI for vm %s: %s", vm["uuid"],
-                                vdi_ref)
+                    log.warning("Invalid VDI for vm %s: %s", vm["uuid"], vdi_ref)
                     continue
 
                 if vdi["on_boot"] != "reset" and vdi["read_only"] is False:
                     raise CuckooMachineError(
                         "Vm %s contains invalid VDI %s: disk is not reset on "
-                        "boot. Please set the on-boot parameter to 'reset'."
-                        % (vm["uuid"], vdi["uuid"]))
+                        "boot. Please set the on-boot parameter to 'reset'." % (vm["uuid"], vdi["uuid"])
+                    )
 
     def _snapshot_from_vm_uuid(self, uuid):
         """Get the snapshot uuid from a virtual machine.
@@ -230,22 +225,19 @@ class XenServerMachinery(Machinery):
                 self.session.xenapi.VM.revert(snapshot_ref)
                 log.debug("Revert completed for vm %s", label)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to revert vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError("Unable to revert vm %s: %s" % (label, e.details[0]))
 
             try:
                 log.debug("Resuming reverted vm %s", label)
                 self.session.xenapi.VM.resume(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to resume vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError("Unable to resume vm %s: %s" % (label, e.details[0]))
         else:
             log.debug("No snapshot found for vm, booting: %s", label)
             try:
                 self.session.xenapi.VM.start(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to start vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError("Unable to start vm %s: %s" % (label, e.details[0]))
 
         log.debug("Started vm: %s", label)
 
@@ -262,8 +254,7 @@ class XenServerMachinery(Machinery):
             try:
                 self.session.xenapi.VM.hard_shutdown(ref)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Error shutting down virtual machine:"
-                                         " %s: %s" % (label, e.details[0]))
+                raise CuckooMachineError("Error shutting down virtual machine:" " %s: %s" % (label, e.details[0]))
 
     def _list(self):
         """List available virtual machines.
@@ -274,7 +265,7 @@ class XenServerMachinery(Machinery):
             vm_list = []
             for ref in self.session.xenapi.VM.get_all():
                 vm = self._get_vm_record(ref)
-                vm_list.append(vm['uuid'])
+                vm_list.append(vm["uuid"])
         except:
             raise CuckooMachineError("Cannot list domains")
         else:

@@ -10,6 +10,7 @@ from lib.common.abstracts import Package
 
 class XLS2207(Package):
     """Excel analysis package."""
+
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
@@ -26,4 +27,4 @@ class XLS2207(Package):
             path = new_path
 
         excel = self.get_path_glob("Microsoft Office Excel")
-        return self.execute(excel, "\"%s\" /dde" % path, path)
+        return self.execute(excel, '"%s" /dde' % path, path)

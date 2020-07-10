@@ -7,8 +7,10 @@ import tempfile
 
 from lib.common.abstracts import Package
 
+
 class Applet(Package):
     """Java Applet analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Mozilla Firefox", "firefox.exe"),
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
@@ -22,7 +24,10 @@ class Applet(Package):
                 </applet>
             </body>
         </html>
-        """ % (path, class_name)
+        """ % (
+            path,
+            class_name,
+        )
 
         _, file_path = tempfile.mkstemp(suffix=".html")
         with open(file_path, "w") as file_handle:
@@ -34,4 +39,4 @@ class Applet(Package):
         browser = self.get_path("browser")
         class_name = self.options.get("class")
         html_path = self.make_html(path, class_name)
-        return self.execute(browser, "\"%s\"" % html_path, html_path)
+        return self.execute(browser, '"%s"' % html_path, html_path)

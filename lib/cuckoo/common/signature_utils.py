@@ -13,6 +13,7 @@ from six.moves import zip
 
 log = logging.getLogger(__name__)
 
+
 class DridexDecode_v1(object):
     """ (4/10/2015)
     Decoder class for Dridex payloads. This exchange happens after the first
@@ -20,6 +21,7 @@ class DridexDecode_v1(object):
     should be captured by suricata. The Dridex signature will pass that data
     to this class to be decoded.
     """
+
     def __init__(self):
         self.NODES = re.compile(r"<nodes>(.+?)</nodes>")
         self.data = None
@@ -53,21 +55,18 @@ class DridexDecode_v1(object):
             gzfile.close()
 
         except IOError:
-            log.warning("DridexDecode_v1: Unable to decode <nodes> element: "
-                        "data is not gzip")
+            log.warning("DridexDecode_v1: Unable to decode <nodes> element: " "data is not gzip")
             return None
 
         if not self.is_printable(decoded):
-            log.warning("DridexDecode_v1: Unable to decode <nodes> element: "
-                        "data is not valid")
+            log.warning("DridexDecode_v1: Unable to decode <nodes> element: " "data is not valid")
             return None
 
         tmp = self.NODES.search(decoded)
         if tmp:
             return self.NODES.search(decoded).group(1)
         else:
-            log.warning("DridexDecode_v1: Unable to decode <nodes> element: "
-                        "<nodes> not found")
+            log.warning("DridexDecode_v1: Unable to decode <nodes> element: " "<nodes> not found")
             return None
 
     def extract_config(self):

@@ -3,9 +3,11 @@ from lib.cuckoo.common.utils import convert_to_printable
 from django.template.defaultfilters import register
 from collections import deque
 
+
 @register.filter("endswith")
 def endswith(value, thestr):
     return value.endswith(thestr)
+
 
 @register.filter("proctreetolist")
 def proctreetolist(tree):
@@ -26,9 +28,9 @@ def proctreetolist(tree):
             newnode["module_path"] = node["module_path"]
             if "environ" in node and "CommandLine" in node["environ"]:
                 cmdline = node["environ"]["CommandLine"]
-                if cmdline.startswith("\""):
-                    splitcmdline = cmdline[cmdline[1:].index("\"")+2:].split()
-                    argv0 = cmdline[:cmdline[1:].index("\"")+1].lower()
+                if cmdline.startswith('"'):
+                    splitcmdline = cmdline[cmdline[1:].index('"') + 2 :].split()
+                    argv0 = cmdline[: cmdline[1:].index('"') + 1].lower()
                     if node["module_path"].lower() in argv0:
                         cmdline = " ".join(splitcmdline).strip()
                     else:

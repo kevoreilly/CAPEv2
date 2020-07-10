@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule RCSession
 {
     meta:
@@ -31,25 +31,28 @@ rule RCSession
         (any of ($a*))
 }
 
-'''
+"""
 
-MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
-UINT_MAX = 0xffffffff
+MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
+UINT_MAX = 0xFFFFFFFF
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'RCSession':
+        if match.rule == "RCSession":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
 
+
 def unicode_string_from_offset(buffer, offset, max):
-    string = buffer[offset:offset+max].decode('utf-16')
+    string = buffer[offset : offset + max].decode("utf-16")
     return string
+
 
 def decode(ciphertext, size, key):
 
@@ -70,59 +73,60 @@ def decode(ciphertext, size, key):
             key = (key - v6) & UINT_MAX
         else:
             key = (key * 9) & UINT_MAX
-        decoded_chars[v4] = struct.unpack('B', ciphertext[v4:v4+1])[0] ^ (key & 0xff)
+        decoded_chars[v4] = struct.unpack("B", ciphertext[v4 : v4 + 1])[0] ^ (key & 0xFF)
         v4 = v4 + 1
 
     return decoded_chars
 
+
 class RCSession(Parser):
 
-    DESCRIPTION = 'RCSession configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "RCSession configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        decrypt_config = yara_scan(filebuf, '$a2')
+        decrypt_config = yara_scan(filebuf, "$a2")
 
         if decrypt_config:
-            yara_offset = int(decrypt_config['$a2'])
+            yara_offset = int(decrypt_config["$a2"])
         else:
             return
 
-        config_rva = struct.unpack('i', filebuf[yara_offset+8:yara_offset+12])[0] - image_base
+        config_rva = struct.unpack("i", filebuf[yara_offset + 8 : yara_offset + 12])[0] - image_base
         config_offset = pe.get_offset_from_rva(config_rva)
-        size = struct.unpack('i', filebuf[yara_offset+88:yara_offset+92])[0]
-        key = struct.unpack('i', filebuf[config_offset+128:config_offset+132])[0]
+        size = struct.unpack("i", filebuf[yara_offset + 88 : yara_offset + 92])[0]
+        key = struct.unpack("i", filebuf[config_offset + 128 : config_offset + 132])[0]
 
-        config = decode(filebuf[config_offset:config_offset+size], size, key)
+        config = decode(filebuf[config_offset : config_offset + size], size, key)
 
-        c2_address = str(config[156:156+MAX_IP_STRING_SIZE])
+        c2_address = str(config[156 : 156 + MAX_IP_STRING_SIZE])
         if c2_address != "":
-            self.reporter.add_metadata('c2_address', c2_address)
+            self.reporter.add_metadata("c2_address", c2_address)
 
-        c2_address = str(config[224:224+MAX_IP_STRING_SIZE])
+        c2_address = str(config[224 : 224 + MAX_IP_STRING_SIZE])
         if c2_address != "":
-            self.reporter.add_metadata('c2_address', c2_address)
+            self.reporter.add_metadata("c2_address", c2_address)
 
-        installdir = unicode_string_from_offset(bytes(config), 0x2a8, 128)
+        installdir = unicode_string_from_offset(bytes(config), 0x2A8, 128)
         if installdir != "":
-            self.reporter.add_metadata('directory', installdir)
+            self.reporter.add_metadata("directory", installdir)
 
-        executable = unicode_string_from_offset(config, 0x4b0, 128)
+        executable = unicode_string_from_offset(config, 0x4B0, 128)
         if executable != "":
-            self.reporter.add_metadata('filename', executable)
+            self.reporter.add_metadata("filename", executable)
 
         servicename = unicode_string_from_offset(config, 0x530, 128)
         if servicename != "":
-            self.reporter.add_metadata('servicename', servicename)
+            self.reporter.add_metadata("servicename", servicename)
 
         displayname = unicode_string_from_offset(config, 0x738, 128)
         if displayname != "":
-            self.reporter.add_metadata('servicedisplayname', displayname)
+            self.reporter.add_metadata("servicedisplayname", displayname)
 
         description = unicode_string_from_offset(config, 0x940, 512)
         if description != "":
-            self.reporter.add_metadata('servicedescription', description)
+            self.reporter.add_metadata("servicedescription", description)

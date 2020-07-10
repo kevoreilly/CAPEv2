@@ -11,11 +11,13 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class PlugXPayload(Package):
     """DLL analysis package."""
-    #PATHS = [
+
+    # PATHS = [
     #    ("SystemRoot", "system32"),
-    #]
+    # ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
@@ -23,23 +25,23 @@ class PlugXPayload(Package):
         self.options = options
         self.pids = []
         self.options["dll"] = "PlugX.dll"
-        
+
         log.info("Timeout: " + str(self.config.timeout))
-        
+
     def start(self, path):
         self.options["dll"] = "PlugX.dll"
         loaderpath = "bin\\loader.exe"
-        #arguments = path
+        # arguments = path
         arguments = "plugx " + path
-        
+
         # we need to move out of the analyzer directory
         # due to a check in monitor dll
         basepath = os.path.dirname(path)
         newpath = os.path.join(basepath, os.path.basename(loaderpath))
         shutil.copy(loaderpath, newpath)
-               
-        log.info("[-] newpath : "+newpath)
-        log.info("[-] arguments : "+arguments)
-        #log.info("[-] Path: "+path)
+
+        log.info("[-] newpath : " + newpath)
+        log.info("[-] arguments : " + arguments)
+        # log.info("[-] Path: "+path)
 
         return self.execute(newpath, arguments, newpath)

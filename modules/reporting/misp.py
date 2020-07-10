@@ -25,21 +25,22 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 try:
     from pymisp import MISPEvent, PyMISP, MISPObject
+
     HAVE_PYMISP = True
 except ImportError:
     HAVE_PYMISP = True
     print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
-logging.getLogger('pymisp').setLevel(logging.WARNING)
+logging.getLogger("pymisp").setLevel(logging.WARNING)
 
 ttps_json = {}
-mitre_json_path = os.path.join(CUCKOO_ROOT, 'data', 'mitre_attack.json')
+mitre_json_path = os.path.join(CUCKOO_ROOT, "data", "mitre_attack.json")
 if os.path.exists(mitre_json_path):
     ttps_json = json.load(open(mitre_json_path))
-malpedia_json_path = os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')
+malpedia_json_path = os.path.join(CUCKOO_ROOT, "data", "malpedia.json")
 if os.path.exists(malpedia_json_path):
-    malpedia_json = json.load(open(os.path.join(CUCKOO_ROOT, 'data', 'malpedia.json')))
+    malpedia_json = json.load(open(os.path.join(CUCKOO_ROOT, "data", "malpedia.json")))
 else:
     malpedia_json = False
 
@@ -51,10 +52,11 @@ if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
         whitelist = [ioc.strip() for ioc in whitelist.split(",")]
 
 name_update_shema = {
-    "Agenttesla":"Agent Tesla",
-    "AgentTeslaV2":"Agent Tesla",
-    "WarzoneRAT":"Ave Maria",
+    "Agenttesla": "Agent Tesla",
+    "AgentTeslaV2": "Agent Tesla",
+    "WarzoneRAT": "Ave Maria",
 }
+
 
 class MISP(Report):
     """MISP Analyzer."""
@@ -79,13 +81,13 @@ class MISP(Report):
     def sample_hashes(self, results, event):
         if results.get("target", {}).get("file", {}):
             f = results["target"]["file"]
-            misp_object = MISPObject('file')
+            misp_object = MISPObject("file")
             misp_object.comment = "File submitted to CAPEv2"
-            misp_object.add_attribute('filename', value=f["name"], category='Payload delivery')
-            misp_object.add_attribute('md5', value=f["md5"], category='Payload delivery')
-            misp_object.add_attribute('sha1', value=f["sha1"], category='Payload delivery')
-            misp_object.add_attribute('sha256', value=f["sha256"], category='Payload delivery')
-            misp_object.add_attribute('ssdeep', value=f["ssdeep"], category='Payload delivery')
+            misp_object.add_attribute("filename", value=f["name"], category="Payload delivery")
+            misp_object.add_attribute("md5", value=f["md5"], category="Payload delivery")
+            misp_object.add_attribute("sha1", value=f["sha1"], category="Payload delivery")
+            misp_object.add_attribute("sha256", value=f["sha256"], category="Payload delivery")
+            misp_object.add_attribute("ssdeep", value=f["ssdeep"], category="Payload delivery")
             self.misp.add_object(event, misp_object)
 
     def all_network(self, results, event):
@@ -97,7 +99,7 @@ class MISP(Report):
                 if "uri" in req and req["uri"] not in whitelist:
                     urls.add(req["uri"])
                 if "user-agent" in req:
-                    event.add_attribute('user-agent', req["user-agent"])
+                    event.add_attribute("user-agent", req["user-agent"])
 
             domains, ips = {}, set()
             for domain in results.get("network", {}).get("domains", []):
@@ -127,14 +129,14 @@ class MISP(Report):
                     print(e)
 
             for url in sorted(list(urls)):
-                event.add_attribute('url', url)
+                event.add_attribute("url", url)
             for ip in sorted(list(ips)):
-                event.add_attribute('ip-dst', ip)
+                event.add_attribute("ip-dst", ip)
             for domain, ips in domains.items():
-                obj = MISPObject('domain-ip')
-                obj.add_attribute('domain', domain)
+                obj = MISPObject("domain-ip")
+                obj.add_attribute("domain", domain)
                 for ip in ips:
-                    obj.add_attribute('ip', ip)
+                    obj.add_attribute("ip", ip)
                 event.add_object(obj)
             self.misp.update_event(event)
 
@@ -153,8 +155,8 @@ class MISP(Report):
         # Upload all the dropped files at once
         # TODO: Use expanded
         for r in results.get("dropped", []) or []:
-            with open(r.get("path"), 'rb') as f:
-                event.add_attribute('malware-sample', value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand='binary')
+            with open(r.get("path"), "rb") as f:
+                event.add_attribute("malware-sample", value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand="binary")
         event.run_expansions()
         self.misp.update_event(event)
         """
@@ -229,14 +231,14 @@ class MISP(Report):
                     event.distribution = distribution
                     event.threat_level_id = threat_level_id
                     event.analysis = analysis
-                    event.info = "{} {} - {}".format(info, malfamily, results.get('info', {}).get('id'))
+                    event.info = "{} {} - {}".format(info, malfamily, results.get("info", {}).get("id"))
                     event = self.misp.add_event(event, pythonify=True)
 
                 # Add a specific tag to flag Cuckoo's event
                 if tag:
                     self.misp.tag(event, tag)
 
-                #malpedia galaxy
+                # malpedia galaxy
                 if malpedia_json:
                     self.malpedia(results, event, malfamily)
 
@@ -251,11 +253,17 @@ class MISP(Report):
                     target = results.get("target", {})
                     f = target.get("file", {})
                     if target.get("category") == "file" and f:
-                        with open(f["path"], 'rb') as f:
-                            event.add_attribute('malware-sample', value=os.path.basename(f["path"]), data=BytesIO(f.read()), expand='binary', comment="Sample run")
+                        with open(f["path"], "rb") as f:
+                            event.add_attribute(
+                                "malware-sample",
+                                value=os.path.basename(f["path"]),
+                                data=BytesIO(f.read()),
+                                expand="binary",
+                                comment="Sample run",
+                            )
 
                 if results.get("target", {}).get("url", "") and results["target"]["url"] not in whitelist:
-                    event.add_attribute('url', results["target"]["url"])
+                    event.add_attribute("url", results["target"]["url"])
 
                 # ToDo migth be outdated!
                 # if self.options.get("ids_files", False) and "suricata" in results.keys():
@@ -269,12 +277,12 @@ class MISP(Report):
                     if "mutexes" in results.get("behavior", {}).get("summary", {}):
                         for mutex in results["behavior"]["summary"]["mutexes"]:
                             if mutex not in whitelist:
-                                event.add_attribute('mutex', mutex)
+                                event.add_attribute("mutex", mutex)
 
                 if self.options.get("registry", False) and "behavior" in results and "summary" in results["behavior"]:
                     if "read_keys" in results["behavior"].get("summary", {}):
                         for regkey in results["behavior"]["summary"]["read_keys"]:
-                            event.add_attribute('regkey', regkey)
+                            event.add_attribute("regkey", regkey)
 
                 event.run_expansions()
                 self.misp.update_event(event)

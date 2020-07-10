@@ -8,11 +8,13 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class UPX(Package):
     """CAPE UPX analysis package."""
-    #PATHS = [
+
+    # PATHS = [
     #    ("SystemRoot", "system32"),
-    #]
+    # ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
@@ -33,9 +35,9 @@ class UPX(Package):
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware
-            basepath = os.getenv('APPDATA')
+            basepath = os.getenv("APPDATA")
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath
-        
+
         return self.execute(path, arguments, path)

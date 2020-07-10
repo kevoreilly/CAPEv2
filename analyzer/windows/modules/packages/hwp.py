@@ -4,15 +4,12 @@
 
 from lib.common.abstracts import Package
 
+
 class HWP(Package):
     """Hangul (Korean) Word Processor File 5.x analysis package."""
-    PATHS = [
-        ("ProgramFiles", "Hnc", "Hwp80", "Hwp.exe"),
-        ("ProgramFiles", "Hnc", "Office 2020", "HOffice110", "Bin", "Hword.exe")
-    ]
+
+    PATHS = [("ProgramFiles", "Hnc", "Hwp80", "Hwp.exe"), ("ProgramFiles", "Hnc", "Office 2020", "HOffice110", "Bin", "Hword.exe")]
 
     def start(self, path):
         word = self.get_path("Hangul (Korean) Word Processor File 5.x")
-        return self.execute(
-            word, args=[path], mode="office", trigger="file:%s" % path
-        )
+        return self.execute(word, args=[path], mode="office", trigger="file:%s" % path)

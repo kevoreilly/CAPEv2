@@ -15,7 +15,7 @@
 from mwcp.parser import Parser
 import yara
 
-rule_source = '''
+rule_source = """
 rule ChChes
 {
     meta:
@@ -31,57 +31,60 @@ rule ChChes
         $payload1 or $payload2 or $payload3 or $payload4
 }
 
-'''
+"""
 
 MAX_STRING_SIZE = 128
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'ChChes':
+        if match.rule == "ChChes":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
 
+
 def string_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
+
 
 class ChChes(Parser):
 
-    DESCRIPTION = 'ChChes configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "ChChes configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
 
-        type1 = yara_scan(filebuf, '$payload1')
-        type2 = yara_scan(filebuf, '$payload2')
-        type3 = yara_scan(filebuf, '$payload3')
-        type4 = yara_scan(filebuf, '$payload4')
+        type1 = yara_scan(filebuf, "$payload1")
+        type2 = yara_scan(filebuf, "$payload2")
+        type3 = yara_scan(filebuf, "$payload3")
+        type4 = yara_scan(filebuf, "$payload4")
 
         if type1:
             c2_offset = 0xE455
 
             c2_url = string_from_offset(filebuf, c2_offset)
             if c2_url:
-                self.reporter.add_metadata('c2_url', c2_url)
+                self.reporter.add_metadata("c2_url", c2_url)
 
         if type2:
             c2_offset = 0xED55
 
             c2_url = string_from_offset(filebuf, c2_offset)
             if c2_url:
-                self.reporter.add_metadata('c2_url', c2_url)
+                self.reporter.add_metadata("c2_url", c2_url)
 
         if type3:
             c2_offset = 0xE2B9
 
             c2_url = string_from_offset(filebuf, c2_offset)
             if c2_url:
-                self.reporter.add_metadata('c2_url', c2_url)
+                self.reporter.add_metadata("c2_url", c2_url)
 
         # no c2 for type4

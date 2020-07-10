@@ -16,29 +16,26 @@ def _fileinfo(target):
     raw = check_output(["file", target])
     # The utility has the following output format: "%filename%: %description%",
     # so we just skip everything before the actual description
-    return raw[raw.index(":")+2:]
+    return raw[raw.index(":") + 2 :]
+
 
 class Wget(Package):
     """ Mach-O executable analysys package. """
 
     def prepare(self):
         # todo use random tempfile
-        #ToDo random name
-        ret = system("wget \"%s\" -O /tmp/file_malwr --no-check-certificate" % self.target)
+        # ToDo random name
+        ret = system('wget "%s" -O /tmp/file_malwr --no-check-certificate' % self.target)
         log.info(ret)
-        #py3 permission
+        # py3 permission
         chmod("/tmp/file_malwr", 0o755)
         self.target = "/tmp/file_malwr"
-        #self.args = [self.target] + self.args
-        #self.target = "sh -c"
+        # self.args = [self.target] + self.args
+        # self.target = "sh -c"
         file_info = _fileinfo(self.target)
         pkg_class = choose_package_class(file_info)
-        kwargs = {
-            "options" : self.options,
-            "timeout" : self.timeout
-        }
+        kwargs = {"options": self.options, "timeout": self.timeout}
         self.real_package = pkg_class(self.target, **kwargs)
-
 
     def start(self):
         # We have nothing to do here; let the proper package do it's job

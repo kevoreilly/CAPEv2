@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Regsvr(Package):
     """DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]

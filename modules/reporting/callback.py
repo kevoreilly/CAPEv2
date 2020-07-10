@@ -11,6 +11,7 @@ from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED
 try:
     from pymongo import MongoClient
     from pymongo.errors import ConnectionFailure
+
     HAVE_MONGO = True
 except ImportError:
     HAVE_MONGO = False
@@ -20,23 +21,25 @@ log = logging.getLogger(__name__)
 main_db = Database()
 reporting_conf = Config("reporting")
 
+
 class CALLBACKHOME(Report):
     "Notify us about analysis is done"
 
-    order = 10000 #used in the reporting module and required here.
-    
+    order = 10000  # used in the reporting module and required here.
+
     def run(self, results):
         urls = reporting_conf.callback.url.split(",")
-        task_id = int(results.get('info', {}).get('id'))
-        '''Handles a possible race condition where the status is not updated before the callback is consumed.'''
+        task_id = int(results.get("info", {}).get("id"))
+        """Handles a possible race condition where the status is not updated before the callback is consumed."""
         if HAVE_MONGO:
             try:
-                conn = pymongo.MongoClient( reporting_conf.mongodb.host,
-                                port=reporting_conf.mongodb.port,
-                                username=reporting_conf.mongodb.get("username", None),
-                                password=reporting_conf.mongodb.get("password", None),
-                                authSource=reporting_conf.mongodb.db
-                                )
+                conn = pymongo.MongoClient(
+                    reporting_conf.mongodb.host,
+                    port=reporting_conf.mongodb.port,
+                    username=reporting_conf.mongodb.get("username", None),
+                    password=reporting_conf.mongodb.get("password", None),
+                    authSource=reporting_conf.mongodb.db,
+                )
                 mongo_db = conn[reporting_conf.mongodb.db]
                 # set completed_on time
                 main_db.set_status(task_id, TASK_COMPLETED)

@@ -4,9 +4,11 @@
 
 from __future__ import absolute_import
 import os.path
+
 HAVE_RE2 = False
 try:
     import re2 as re
+
     HAVE_RE2 = True
 except ImportError:
     import re
@@ -14,6 +16,7 @@ except ImportError:
 from lib.cuckoo.common.utils import bytes2str
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+
 
 class Strings(Processing):
     """Extract strings from analyzed file."""
@@ -27,7 +30,7 @@ class Strings(Processing):
 
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
+                raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
 
             try:
                 data = open(self.file_path, "rb").read()
@@ -53,4 +56,3 @@ class Strings(Processing):
                 strings.append(str(ws.decode("utf-16le")))
 
         return strings
-

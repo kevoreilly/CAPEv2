@@ -5,12 +5,14 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
+
 class CPL(Package):
     """Control Panel Applet analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "control.exe"),
     ]
 
     def start(self, path):
         control = self.get_path("control.exe")
-        return self.execute(control, "\"%s\"" % path, path)
+        return self.execute(control, '"%s"' % path, path)

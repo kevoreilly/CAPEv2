@@ -6,11 +6,13 @@ from __future__ import absolute_import
 import sys
 import string
 from struct import unpack
+
 try:
-	import pefile
+    import pefile
 except:
-   pass
+    pass
 from binascii import unhexlify
+
 
 def rc4crypt(data, key):
     x = 0
@@ -26,15 +28,31 @@ def rc4crypt(data, key):
         y = (y + box[x]) % 256
         box[x], box[y] = box[y], box[x]
         out.append(chr(ord(char) ^ box[(box[x] + box[y]) % 256]))
-    
-    return ''.join(out)
+
+    return "".join(out)
+
 
 def v51_data(data, enckey):
-    config = {"FWB": "", "GENCODE": "", "MUTEX": "", "NETDATA": "", "OFFLINEK": "", "SID": "", "FTPUPLOADK": "", "FTPHOST": "", "FTPUSER": "", "FTPPASS": "", "FTPPORT": "", "FTPSIZE": "", "FTPROOT": "", "PWD": ""}
+    config = {
+        "FWB": "",
+        "GENCODE": "",
+        "MUTEX": "",
+        "NETDATA": "",
+        "OFFLINEK": "",
+        "SID": "",
+        "FTPUPLOADK": "",
+        "FTPHOST": "",
+        "FTPUSER": "",
+        "FTPPASS": "",
+        "FTPPORT": "",
+        "FTPSIZE": "",
+        "FTPROOT": "",
+        "PWD": "",
+    }
     dec = rc4crypt(unhexlify(data), enckey)
-    dec_list = dec.split('\n')
+    dec_list = dec.split("\n")
     for entries in dec_list[1:-1]:
-        key, value = entries.split('=')
+        key, value = entries.split("=")
         key = key.strip()
         value = value.rstrip()[1:-1]
         clean_value = [x for x in value if x in string.printable]
@@ -42,13 +60,30 @@ def v51_data(data, enckey):
         config["Version"] = enckey[:-4]
     return config
 
+
 def v3_data(data, key):
-    config = {"FWB": "", "GENCODE": "", "MUTEX": "", "NETDATA": "", "OFFLINEK": "", "SID": "", "FTPUPLOADK": "", "FTPHOST": "", "FTPUSER": "", "FTPPASS": "", "FTPPORT": "", "FTPSIZE": "", "FTPROOT": "", "PWD": ""}
+    config = {
+        "FWB": "",
+        "GENCODE": "",
+        "MUTEX": "",
+        "NETDATA": "",
+        "OFFLINEK": "",
+        "SID": "",
+        "FTPUPLOADK": "",
+        "FTPHOST": "",
+        "FTPUSER": "",
+        "FTPPASS": "",
+        "FTPPORT": "",
+        "FTPSIZE": "",
+        "FTPROOT": "",
+        "PWD": "",
+    }
     dec = rc4crypt(unhexlify(data), key)
     config[str(entry.name)] = dec
     config["Version"] = enckey[:-4]
 
     return config
+
 
 def versionCheck(rawData):
     if "#KCMDDC2#" in rawData:
@@ -58,7 +93,7 @@ def versionCheck(rawData):
     elif "#KCMDDC42#" in rawData:
         return "#KCMDDC42#-890"
     elif "#KCMDDC42F#" in rawData:
-        return "#KCMDDC42F#-890"	
+        return "#KCMDDC42F#-890"
     elif "#KCMDDC5#" in rawData:
         return "#KCMDDC5#-890"
     elif "#KCMDDC51#" in rawData:
@@ -66,21 +101,37 @@ def versionCheck(rawData):
     else:
         return None
 
-def configExtract(pe, key):			
-    config = {"FWB": "", "GENCODE": "", "MUTEX": "", "NETDATA": "", "OFFLINEK": "", "SID": "", "FTPUPLOADK": "", "FTPHOST": "", "FTPUSER": "", "FTPPASS": "", "FTPPORT": "", "FTPSIZE": "", "FTPROOT": "", "PWD": ""}
 
-    rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_RCDATA'])
+def configExtract(pe, key):
+    config = {
+        "FWB": "",
+        "GENCODE": "",
+        "MUTEX": "",
+        "NETDATA": "",
+        "OFFLINEK": "",
+        "SID": "",
+        "FTPUPLOADK": "",
+        "FTPHOST": "",
+        "FTPUSER": "",
+        "FTPPASS": "",
+        "FTPPORT": "",
+        "FTPSIZE": "",
+        "FTPROOT": "",
+        "PWD": "",
+    }
+
+    rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_RCDATA"])
     rt_string_directory = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_string_idx]
     for entry in rt_string_directory.directory.entries:
         if str(entry.name) == "DCDATA":
             data_rva = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            data = pe.get_memory_mapped_image()[data_rva:data_rva+size]
+            data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
             config = v51_data(data, key)
         elif str(entry.name) in list(config.keys()):
             data_rva = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            data = pe.get_memory_mapped_image()[data_rva:data_rva+size]
+            data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
             dec = rc4crypt(unhexlify(data), key)
             config[str(entry.name)] = [x for x in dec if x in string.printable]
             config["Version"] = key[:-4]
@@ -108,6 +159,7 @@ def configClean(config):
         return newConf
     except:
         return config
+
 
 def extract_config(file_path, pe):
     data = open(file_path, "rb").read()

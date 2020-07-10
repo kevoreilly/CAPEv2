@@ -7,6 +7,7 @@ import xml.etree.ElementTree
 
 from lib.cuckoo.common.abstracts import Processing
 
+
 class ProcmonLog(list):
     """Yield each API call event to the parent handler."""
 
@@ -28,6 +29,7 @@ class ProcmonLog(list):
     def __nonzero__(self):
         # For documentation on this please refer to MonitorProcessLog.
         return True
+
 
 class Procmon(Processing):
     """Extract events from procmon.exe output."""

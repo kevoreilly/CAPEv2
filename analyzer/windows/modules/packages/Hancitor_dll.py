@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Hancitor_Dll(Package):
     """DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "rundll32.exe"),
     ]
@@ -31,7 +33,7 @@ class Hancitor_Dll(Package):
             os.rename(path, new_path)
             path = new_path
 
-        args = "\"{0}\",{1}".format(path, function)
+        args = '"{0}",{1}'.format(path, function)
         if arguments:
             args += " {0}".format(arguments)
 

@@ -18,29 +18,29 @@ MAX_STRING_SIZE = 16
 def get_C2(d):
 
     try:
-        a = array.array('b')
+        a = array.array("b")
         a.extend(d)
-        d_str = a.tobytes().decode('utf8')
+        d_str = a.tobytes().decode("utf8")
         fields = d_str.split("|")
         C2 = []
         for field in fields:
-            if bool(re.search('.*:.*(:.*)*', field)):
+            if bool(re.search(".*:.*(:.*)*", field)):
                 C2.append(field)
     except Exception as e:
         C2 = None
 
-    return(C2)
+    return C2
 
 
 def get_mutex(d):
 
     try:
-        a = array.array('b')
+        a = array.array("b")
         a.extend(d)
-        d_str = a.tobytes().decode('utf8')
+        d_str = a.tobytes().decode("utf8")
 
         offset = 98
-        mutex = d_str[offset:offset+MAX_STRING_SIZE].split("\x1e")[0]
+        mutex = d_str[offset : offset + MAX_STRING_SIZE].split("\x1e")[0]
     except:
         mutex = None
 
@@ -105,7 +105,7 @@ def check_version(filedata):
     slist = []
     # find strings in binary file
     for c in filedata:
-        if len(s) > 4 and c == 0: # no strings <= 4
+        if len(s) > 4 and c == 0:  # no strings <= 4
             slist.append(s)
             s = ""
             continue
@@ -115,30 +115,31 @@ def check_version(filedata):
 
     # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
     for s in slist:
-        if bool(re.search('^[12]\.\d+\d{0,1}.*[FLP].*', s)):
+        if bool(re.search("^[12]\.\d+\d{0,1}.*[FLP].*", s)):
             return s
     return
 
+
 class Remcos(Parser):
-    DESCRIPTION = 'Remcos configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "Remcos configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filedata = self.file_object.file_data
 
         version = check_version(filedata)
         if version:
-            self.reporter.add_metadata('other', {'Version': version})
+            self.reporter.add_metadata("other", {"Version": version})
 
         # Get data from the PE resource section
         ResourceData = get_named_resource_from_PE(filedata, "SETTINGS")
 
         # Extract the key from the PE resource section data
         keylen = ResourceData[0]
-        key = list(ResourceData[1:keylen+1])
+        key = list(ResourceData[1 : keylen + 1])
 
         # Convert encrypted data from the resource section into an list
-        encrypted = list(ResourceData[keylen+1:])
+        encrypted = list(ResourceData[keylen + 1 :])
 
         # Generate S
         S = RC4_build_S_array(key, keylen)
@@ -149,10 +150,10 @@ class Remcos(Parser):
         C2 = get_C2(clear_text)
         if C2:
             for C2_server in C2:
-                host, port, password = C2_server.split(':')
-                self.reporter.add_metadata('address', host + ':' + port)
-                self.reporter.add_metadata('password', password)
+                host, port, password = C2_server.split(":")
+                self.reporter.add_metadata("address", host + ":" + port)
+                self.reporter.add_metadata("password", password)
 
         mutex = get_mutex(clear_text)
         if mutex:
-            self.reporter.add_metadata('mutex', mutex)
+            self.reporter.add_metadata("mutex", mutex)

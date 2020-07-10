@@ -7,6 +7,7 @@ import os
 import re
 from lib.common.decode_vbe_jse import DecodeVBEJSE
 
+
 def choose_package(file_type, file_name, exports, target):
     """Choose analysis package due to file type and file extension.
     @param file_type: file type.
@@ -37,20 +38,25 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith(".pub"):
         return "pub"
     elif file_name.endswith(".msi") or "MSI Installer" in file_type:
-        return "msi"   
-    elif "Rich Text Format" in file_type or \
-            "Microsoft Word" in file_type or \
-            "Microsoft Office Word" in file_type or \
-            "Microsoft OOXML" in file_type or \
-            "MIME entity" in file_type or \
-            file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso")):
+        return "msi"
+    elif (
+        "Rich Text Format" in file_type
+        or "Microsoft Word" in file_type
+        or "Microsoft Office Word" in file_type
+        or "Microsoft OOXML" in file_type
+        or "MIME entity" in file_type
+        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso"))
+    ):
         return "doc"
-    elif "Microsoft Office Excel" in file_type or \
-            "Microsoft Excel" in file_type or \
-            file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk")):
+    elif (
+        "Microsoft Office Excel" in file_type
+        or "Microsoft Excel" in file_type
+        or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk"))
+    ):
         return "xls"
-    elif "Microsoft PowerPoint" in file_type or \
-            file_name.endswith((".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")):
+    elif "Microsoft PowerPoint" in file_type or file_name.endswith(
+        (".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
+    ):
         return "ppt"
     elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
         return "jar"
@@ -82,13 +88,13 @@ def choose_package(file_type, file_name, exports, target):
         return "html"
     elif file_name.endswith(".mht"):
         return "mht"
-    elif b'mso-application' in file_content and b'Word.Document' in file_content:
+    elif b"mso-application" in file_content and b"Word.Document" in file_content:
         return "doc"
     elif file_name.endswith(".lnk") or "MS Windows shortcut" in file_type:
         return "lnk"
     elif file_name.endswith(".chm") or "MS Windows HtmlHelp Data" in file_type:
         return "chm"
-    elif file_name.endswith((".hwp",".hwpx",".hwt",".hml")) or "Hangul (Korean) Word Processor File" in file_type:
+    elif file_name.endswith((".hwp", ".hwpx", ".hwt", ".hml")) or "Hangul (Korean) Word Processor File" in file_type:
         return "hwp"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"

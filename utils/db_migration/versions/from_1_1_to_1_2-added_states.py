@@ -13,6 +13,7 @@ Create Date: 2015-02-28 19:08:29.284111
 # Revision identifiers, used by Alembic.
 from __future__ import absolute_import
 from __future__ import print_function
+
 revision = "495d5a6edef3"
 down_revision = "18eee46c6f81"
 
@@ -24,7 +25,7 @@ from datetime import datetime
 try:
     from dateutil.parser import parse
 except ImportError:
-    print("Unable to import dateutil.parser", end=' ')
+    print("Unable to import dateutil.parser", end=" ")
     print("(install with `pip3 install python-dateutil`)")
     sys.exit()
 
@@ -39,6 +40,7 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 
 import lib.cuckoo.core.database as db
 
+
 def _perform(upgrade):
     conn = op.get_bind()
 
@@ -48,7 +50,7 @@ def _perform(upgrade):
         # Altering status ENUM.
         # This shit of raw SQL is here because alembic doesn't deal well with alter_colum of ENUM type.
         # Commit because SQLAlchemy doesn't support ALTER TYPE in a transaction.
-        op.execute('COMMIT')
+        op.execute("COMMIT")
         if upgrade:
             conn.execute("ALTER TYPE status_type ADD VALUE 'failed_reporting'")
         else:
@@ -56,7 +58,9 @@ def _perform(upgrade):
     else:
         # Read data.
         tasks_data = []
-        old_tasks = conn.execute("select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, clock, added_on, started_on, completed_on, status, sample_id from tasks").fetchall()
+        old_tasks = conn.execute(
+            "select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, clock, added_on, started_on, completed_on, status, sample_id from tasks"
+        ).fetchall()
         for item in old_tasks:
             d = {}
             d["id"] = item[0]
@@ -106,7 +110,7 @@ def _perform(upgrade):
             tasks_data.append(d)
         if conn.engine.driver == "mysqldb":
             # Disable foreign key checking to migrate table avoiding checks.
-            op.execute('SET foreign_key_checks = 0')
+            op.execute("SET foreign_key_checks = 0")
 
             # Drop old table.
             op.drop_table("tasks")
@@ -133,9 +137,24 @@ def _perform(upgrade):
                     sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                     sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                     sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                    sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", "failed_reporting", name="status_type"), server_default="pending", nullable=False),
+                    sa.Column(
+                        "status",
+                        sa.Enum(
+                            "pending",
+                            "running",
+                            "completed",
+                            "reported",
+                            "recovered",
+                            "failed_analysis",
+                            "failed_processing",
+                            "failed_reporting",
+                            name="status_type",
+                        ),
+                        server_default="pending",
+                        nullable=False,
+                    ),
                     sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                    sa.PrimaryKeyConstraint("id")
+                    sa.PrimaryKeyConstraint("id"),
                 )
             else:
                 op.create_table(
@@ -156,16 +175,30 @@ def _perform(upgrade):
                     sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                     sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                     sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                    sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", name="status_type"), server_default="pending", nullable=False),
+                    sa.Column(
+                        "status",
+                        sa.Enum(
+                            "pending",
+                            "running",
+                            "completed",
+                            "reported",
+                            "recovered",
+                            "failed_analysis",
+                            "failed_processing",
+                            name="status_type",
+                        ),
+                        server_default="pending",
+                        nullable=False,
+                    ),
                     sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                    sa.PrimaryKeyConstraint("id")
+                    sa.PrimaryKeyConstraint("id"),
                 )
-            op.execute('COMMIT')
+            op.execute("COMMIT")
 
             # Insert data.
             op.bulk_insert(db.Task.__table__, tasks_data)
             # Enable foreign key.
-            op.execute('SET foreign_key_checks = 1')
+            op.execute("SET foreign_key_checks = 1")
 
         else:
             op.drop_table("tasks")
@@ -190,9 +223,24 @@ def _perform(upgrade):
                     sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                     sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                     sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                    sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", "failed_reporting", name="status_type"), server_default="pending", nullable=False),
+                    sa.Column(
+                        "status",
+                        sa.Enum(
+                            "pending",
+                            "running",
+                            "completed",
+                            "reported",
+                            "recovered",
+                            "failed_analysis",
+                            "failed_processing",
+                            "failed_reporting",
+                            name="status_type",
+                        ),
+                        server_default="pending",
+                        nullable=False,
+                    ),
                     sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                    sa.PrimaryKeyConstraint("id")
+                    sa.PrimaryKeyConstraint("id"),
                 )
             else:
                 op.create_table(
@@ -213,16 +261,32 @@ def _perform(upgrade):
                     sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                     sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                     sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                    sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", name="status_type"), server_default="pending", nullable=False),
+                    sa.Column(
+                        "status",
+                        sa.Enum(
+                            "pending",
+                            "running",
+                            "completed",
+                            "reported",
+                            "recovered",
+                            "failed_analysis",
+                            "failed_processing",
+                            name="status_type",
+                        ),
+                        server_default="pending",
+                        nullable=False,
+                    ),
                     sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                    sa.PrimaryKeyConstraint("id")
+                    sa.PrimaryKeyConstraint("id"),
                 )
 
             # Insert data.
             op.bulk_insert(db.Task.__table__, tasks_data)
 
+
 def upgrade():
     _perform(upgrade=True)
+
 
 def downgrade():
     _perform(upgrade=False)

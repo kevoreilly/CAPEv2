@@ -22,8 +22,11 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
+
+
 class Suricata(Processing):
     """Suricata processing."""
+
     def cmd_wrapper(self, cmd):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = p.communicate()
@@ -42,7 +45,6 @@ class Suricata(Processing):
             item["timestamp"] = datetime.datetime.strftime(item["timestamp"], "%Y-%m-%d %H:%M:%S.%f")[:-3]
 
         return tmp
-
 
     def run(self):
         """Run Suricata.
@@ -104,12 +106,11 @@ class Suricata(Processing):
             ("tls_log_full_path", SURICATA_TLS_LOG_FULL_PATH),
             ("http_log_full_path", SURICATA_HTTP_LOG_FULL_PATH),
             ("ssh_log_full_path", SURICATA_SSH_LOG_FULL_PATH),
-            ("dns_log_full_path", SURICATA_DNS_LOG_FULL_PATH)
+            ("dns_log_full_path", SURICATA_DNS_LOG_FULL_PATH),
         ]
 
         # handle reprocessing
-        all_log_paths = [x[1] for x in separate_log_paths] + \
-            [SURICATA_EVE_LOG_FULL_PATH, SURICATA_FILE_LOG_FULL_PATH]
+        all_log_paths = [x[1] for x in separate_log_paths] + [SURICATA_EVE_LOG_FULL_PATH, SURICATA_FILE_LOG_FULL_PATH]
         for log_path in all_log_paths:
             if os.path.exists(log_path):
                 try:
@@ -145,7 +146,7 @@ class Suricata(Processing):
 
         if SURICATA_RUNMODE == "socket":
             try:
-                #from suricatasc import SuricataSC
+                # from suricatasc import SuricataSC
                 from lib.cuckoo.common.suricatasc import SuricataSC
             except Exception as e:
                 log.warning("Failed to import suricatasc lib {}".format(e))
@@ -162,7 +163,7 @@ class Suricata(Processing):
             suris = SuricataSC(SURICATA_SOCKET_PATH)
             try:
                 suris.connect()
-                suris.send_command("pcap-file",args)
+                suris.send_command("pcap-file", args)
             except Exception as e:
                 log.warning("Failed to connect to socket and send command {}: {}".format(SURICATA_SOCKET_PATH, e))
                 return suricata
@@ -172,8 +173,7 @@ class Suricata(Processing):
                     current_pcap = suris.send_command("pcap-current")
                     log.debug("pcapfile list: {} current pcap: {}".format(pcap_flist, current_pcap))
 
-                    if self.pcap_path not in pcap_flist["message"]["files"] and \
-                            current_pcap["message"] != self.pcap_path:
+                    if self.pcap_path not in pcap_flist["message"]["files"] and current_pcap["message"] != self.pcap_path:
                         log.debug("Pcap not in list and not current pcap lets assume it's processed")
                         break
                     else:
@@ -226,21 +226,21 @@ class Suricata(Processing):
                     log.warning("Suricata: Failed to parse line {} as json".format(line))
                     continue
 
-                if 'event_type' in parsed:
+                if "event_type" in parsed:
                     if parsed["event_type"] == "alert":
-                        if (parsed["alert"]["signature_id"] not in sid_blacklist
-                            and not parsed["alert"]["signature"].startswith(
-                                "SURICATA STREAM")):
+                        if parsed["alert"]["signature_id"] not in sid_blacklist and not parsed["alert"]["signature"].startswith(
+                            "SURICATA STREAM"
+                        ):
                             alog = dict()
-                            if parsed["alert"]["gid"] == '':
+                            if parsed["alert"]["gid"] == "":
                                 alog["gid"] = "None"
                             else:
                                 alog["gid"] = parsed["alert"]["gid"]
-                            if parsed["alert"]["rev"] == '':
+                            if parsed["alert"]["rev"] == "":
                                 alog["rev"] = "None"
                             else:
                                 alog["rev"] = parsed["alert"]["rev"]
-                            if parsed["alert"]["severity"] == '':
+                            if parsed["alert"]["severity"] == "":
                                 alog["severity"] = "None"
                             else:
                                 alog["severity"] = parsed["alert"]["severity"]
@@ -257,7 +257,7 @@ class Suricata(Processing):
                             alog["dstip"] = parsed["dest_ip"]
                             alog["protocol"] = parsed["proto"]
                             alog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                            if parsed["alert"]["category"] == '':
+                            if parsed["alert"]["category"] == "":
                                 alog["category"] = "None"
                             else:
                                 alog["category"] = parsed["alert"]["category"]
@@ -271,10 +271,17 @@ class Suricata(Processing):
                         hlog["dstport"] = parsed["dest_port"]
                         hlog["dstip"] = parsed["dest_ip"]
                         hlog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua",
-                                   "referrer")
-                        keyword_suri = ("url", "length", "hostname", "status", "http_method", "http_content_type",
-                                        "http_user_agent", "http_refer")
+                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua", "referrer")
+                        keyword_suri = (
+                            "url",
+                            "length",
+                            "hostname",
+                            "status",
+                            "http_method",
+                            "http_content_type",
+                            "http_user_agent",
+                            "http_refer",
+                        )
                         for key, key_s in zip(keyword, keyword_suri):
                             try:
                                 hlog[key] = parsed["http"].get(key_s, "None")
@@ -333,8 +340,7 @@ class Suricata(Processing):
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
-                                file_info["data"] = convert_to_printable(
-                                    filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
+                                file_info["data"] = convert_to_printable(filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
                             else:
                                 file_info["data"] = convert_to_printable(filedata)
                         except UnicodeDecodeError as e:
@@ -346,15 +352,17 @@ class Suricata(Processing):
                 drop_log.write(json.dumps(suricata["files"], indent=4))
 
             # Cleanup file subdirectories left behind by messy Suricata
-            for d in [dirpath for (dirpath, dirnames, filenames) in os.walk(SURICATA_FILES_DIR_FULL_PATH)
-                      if len(dirnames) == 0 and len(filenames) == 0]:
+            for d in [
+                dirpath
+                for (dirpath, dirnames, filenames) in os.walk(SURICATA_FILES_DIR_FULL_PATH)
+                if len(dirnames) == 0 and len(filenames) == 0
+            ]:
                 try:
                     shutil.rmtree(d)
                 except OSError as e:
                     log.warning("Unable to delete suricata file subdirectories: {}".format(e))
 
-        if SURICATA_FILES_DIR_FULL_PATH and os.path.exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH \
-                and os.path.exists(Z7_PATH):
+        if SURICATA_FILES_DIR_FULL_PATH and os.path.exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH and os.path.exists(Z7_PATH):
             # /usr/bin/7z a -pinfected -y files.zip files-json.log files
             cmdstr = "cd {} && {} a -p{} -y files.zip {} {}"
             cmd = cmdstr.format(self.logs_path, Z7_PATH, FILES_ZIP_PASS, SURICATA_FILE_LOG, SURICATA_FILES_DIR)

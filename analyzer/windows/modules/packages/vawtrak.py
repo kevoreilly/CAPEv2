@@ -6,8 +6,10 @@ import shutil
 from subprocess import call
 from lib.common.abstracts import Package
 
+
 class IE(Package):
     """Internet Explorer analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
@@ -15,7 +17,7 @@ class IE(Package):
     def start(self, path):
         iexplore = self.get_path("Internet Explorer")
         # pass the URL instead of a filename in this case
-        self.execute(iexplore, "\"%s\"" % "about:blank", "about:blank")
+        self.execute(iexplore, '"%s"' % "about:blank", "about:blank")
 
         args = self.options.get("arguments")
         appdata = self.options.get("appdata")
@@ -32,7 +34,7 @@ class IE(Package):
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware
-            basepath = os.getenv('APPDATA')
+            basepath = os.getenv("APPDATA")
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath

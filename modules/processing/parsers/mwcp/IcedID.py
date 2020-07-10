@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule IcedID
 {
     meta:
@@ -32,18 +32,20 @@ rule IcedID
     condition:
         any of them
 }
-'''
+"""
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'IcedID':
+        if match.rule == "IcedID":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
                     return addresses
+
 
 def rol(a, i):
     a &= 0xFFFFFFFF
@@ -51,32 +53,36 @@ def rol(a, i):
     x = (((a << i) & 0xFFFFFFFF) | (a >> (32 - i))) & 0xFFFFFFFF
     return x
 
+
 def ror(a, i):
     i &= 0x1F
     a &= 0xFFFFFFFF
-    return ( ((a >> i) & 0xFFFFFFFF) | (a << ( (32 - i)))) & 0xFFFFFFFF
+    return (((a >> i) & 0xFFFFFFFF) | (a << ((32 - i)))) & 0xFFFFFFFF
+
 
 def key_shift(key):
     key = ror(key, 1)
-    key =~ key
+    key = ~key
     key = ror(key, 1)
     key -= 0x120
     key = rol(key, 1)
-    key =~ key
+    key = ~key
     key -= 0x9101
     return key
+
 
 def iced_decode(data, key, l):
     output = ""
     for i in range(l):
         key = key_shift(key)
-        output += chr(struct.unpack('B', data[i:i+1])[0] ^ (key & 0xff))
+        output += chr(struct.unpack("B", data[i : i + 1])[0] ^ (key & 0xFF))
     return output
+
 
 class IcedID(Parser):
 
-    DESCRIPTION = 'IcedID configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "IcedID configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
@@ -84,26 +90,25 @@ class IcedID(Parser):
         try:
             pe = pefile.PE(data=filebuf, fast_load=False)
             for section in pe.sections:
-                if section.Name.startswith('bss'):
+                if section.Name.startswith("bss"):
                     enc_data = section.get_data()
         except:
             pass
 
         if enc_data:
-            key = struct.unpack('I', enc_data[848:852])[0]
+            key = struct.unpack("I", enc_data[848:852])[0]
             config = iced_decode(enc_data[852:1108], key, 0x100)
 
-            self.reporter.add_metadata('other', {'Bot ID': hex(struct.unpack('I', config[:4])[0])})
-            self.reporter.add_metadata('other', {'Minor Version': str(struct.unpack('I', config[4:8])[0])})
+            self.reporter.add_metadata("other", {"Bot ID": hex(struct.unpack("I", config[:4])[0])})
+            self.reporter.add_metadata("other", {"Minor Version": str(struct.unpack("I", config[4:8])[0])})
             c2_offset = 9
-            length = struct.unpack('B', config[c2_offset-1])[0]
+            length = struct.unpack("B", config[c2_offset - 1])[0]
             while length:
-                self.reporter.add_metadata('address', config[c2_offset:c2_offset+length])
-                c2_offset += length+1
-                length = struct.unpack('B', config[c2_offset-1])[0]
+                self.reporter.add_metadata("address", config[c2_offset : c2_offset + length])
+                c2_offset += length + 1
+                length = struct.unpack("B", config[c2_offset - 1])[0]
 
-        major_version = yara_scan(filebuf, '$major_ver')
+        major_version = yara_scan(filebuf, "$major_ver")
         if major_version:
-            version_offset = int(major_version['$major_ver'])
-            self.reporter.add_metadata('other', {'Major Version': str(struct.unpack('B', filebuf[version_offset+8])[0])})
-
+            version_offset = int(major_version["$major_ver"])
+            self.reporter.add_metadata("other", {"Major Version": str(struct.unpack("B", filebuf[version_offset + 8])[0])})

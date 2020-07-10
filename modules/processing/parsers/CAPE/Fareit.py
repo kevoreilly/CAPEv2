@@ -18,6 +18,7 @@ rule pony {
 }
 """
 
+
 def config(memdump_path, read=False):
     res = False
     try:
@@ -39,24 +40,24 @@ def config(memdump_path, read=False):
 
         start = F.find("YUIPWDFILE0YUIPKDFILE0YUICRYPTED0YUI1.0")
         if start:
-            F = F[start-600:start+500]
+            F = F[start - 600 : start + 500]
 
         gate_url = re.compile(".*\.php$")
         exe_url = re.compile(".*\.exe$")
         dll_url = re.compile(".*\.dll$")
-        output = re.findall("(https?:\/\/.[A-Za-z0-9-\.\_\~\:\/\?\#\[\]\@\!\$\&\'\(\)\*\+\,\;\\=]+(?:\.php|\.exe|\.dll))", F)
+        output = re.findall("(https?:\/\/.[A-Za-z0-9-\.\_\~\:\/\?\#\[\]\@\!\$\&'\(\)\*\+\,\;\\=]+(?:\.php|\.exe|\.dll))", F)
         for url in output:
             try:
-                if '\x00' not in url:
-                    #url = self._check_valid_url(url)
+                if "\x00" not in url:
+                    # url = self._check_valid_url(url)
                     if url is None:
                         continue
                     if gate_url.match(url):
-                        artifacts_raw['controllers'].append(url.lower())
+                        artifacts_raw["controllers"].append(url.lower())
                     elif exe_url.match(url):
-                        artifacts_raw['downloads'].append(url.lower())
+                        artifacts_raw["downloads"].append(url.lower())
                     elif dll_url.match(url):
-                            artifacts_raw['downloads'].append(url.lower())
+                        artifacts_raw["downloads"].append(url.lower())
             except Exception as e:
                 print(e, sys.exc_info())
         artifacts_raw["controllers"] = list(set(artifacts_raw["controllers"]))
@@ -67,6 +68,7 @@ def config(memdump_path, read=False):
         print(e, sys.exc_info())
 
     return res
+
 
 if __name__ == "__main__":
     res = config(sys.argv[1])

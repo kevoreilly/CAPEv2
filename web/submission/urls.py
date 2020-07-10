@@ -7,7 +7,7 @@ from django.conf.urls import url
 from submission import views
 
 urlpatterns = [
-    url(r"^$", views.index, name='submission'),
-    url(r"^resubmit/(?P<resubmit_hash>[\w\d]{64})/$", views.index, name='submission'),
-    url(r"status/(?P<task_id>\d+)/$", views.status, name='submission_status'),
+    url(r"^$", views.index, name="submission"),
+    url(r"^resubmit/(?P<resubmit_hash>[\w\d]{64})/$", views.index, name="submission"),
+    url(r"status/(?P<task_id>\d+)/$", views.status, name="submission_status"),
 ]

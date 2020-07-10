@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
@@ -72,12 +73,13 @@ import sys
 from os.path import join, dirname, abspath
 
 # Add / and /web (relative to cuckoo-modified install location) to our path
-webdir = abspath(join(dirname(abspath(__file__)), '..'))
-sys.path.append(abspath(join(webdir, '..')))
+webdir = abspath(join(dirname(abspath(__file__)), ".."))
+sys.path.append(abspath(join(webdir, "..")))
 sys.path.append(webdir)
 
 # Have WSGI run out of the WebDir
 from os import chdir, environ
+
 chdir(webdir)
 
 # Set django settings
@@ -87,5 +89,5 @@ environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
 # file. This includes Django's development server, if the WSGI_APPLICATION
 # setting points here.
 from django.core.wsgi import get_wsgi_application
-application = get_wsgi_application()
 
+application = get_wsgi_application()

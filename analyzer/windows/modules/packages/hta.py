@@ -10,8 +10,10 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class HTA(Package):
     """HTA file analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "mshta.exe"),
     ]
@@ -23,4 +25,4 @@ class HTA(Package):
             os.rename(path, path + ".hta")
             path += ".hta"
 
-        return self.execute(mshta, "\"%s\"" % path, path)
+        return self.execute(mshta, '"%s"' % path, path)

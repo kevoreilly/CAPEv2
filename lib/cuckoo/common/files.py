@@ -18,28 +18,29 @@ cuckoo_conf = Config()
 
 log = logging.getLogger()
 
+
 def temppath():
     """Return the true temporary directory."""
     tmppath = cuckoo_conf.cuckoo.tmppath
 
     # Backwards compatibility with older configuration.
     if not tmppath or tmppath == "/tmp":
-        return os.path.join(
-            tempfile.gettempdir(), "cuckoo-tmp-%s" % getuser()
-        )
+        return os.path.join(tempfile.gettempdir(), "cuckoo-tmp-%s" % getuser())
 
     return tmppath
 
-def open_exclusive(path, mode='xb', bufsize=-1):
+
+def open_exclusive(path, mode="xb", bufsize=-1):
     """Open a file with O_EXCL, failing if it already exists
     [In Python 3, use open with x]"""
-    fd = os.open(path, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0o644)
+    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
     try:
         return os.fdopen(fd, mode, bufsize)
     except OSError as e:
         log.error(e, "You migth need to add whitelist folder in resultserver.py")
         os.close(fd)
         raise
+
 
 class Storage(object):
     @staticmethod
@@ -50,6 +51,7 @@ class Storage(object):
         """
         dirpath, filename = ntpath.split(path)
         return filename if filename else ntpath.basename(dirpath)
+
 
 class Folders(Storage):
     @staticmethod
@@ -66,7 +68,7 @@ class Folders(Storage):
         if folders is None:
             folders = [""]
         elif isinstance(folders, str):
-            folders = folders,
+            folders = (folders,)
 
         for folder in folders:
             folder_path = os.path.join(root, folder)
@@ -77,9 +79,7 @@ class Folders(Storage):
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
                         continue
-                    raise CuckooOperationalError(
-                        "Unable to create folder: %s" % folder_path
-                    )
+                    raise CuckooOperationalError("Unable to create folder: %s" % folder_path)
 
     @staticmethod
     def copy(src, dest):
@@ -102,9 +102,8 @@ class Folders(Storage):
             try:
                 shutil.rmtree(folder)
             except OSError:
-                raise CuckooOperationalError(
-                    "Unable to delete folder: %s" % folder
-                )
+                raise CuckooOperationalError("Unable to delete folder: %s" % folder)
+
 
 class Files(Storage):
     @staticmethod
@@ -113,9 +112,7 @@ class Files(Storage):
         @param content: the content of this file
         @param path: directory path to store the file
         """
-        fd, filepath = tempfile.mkstemp(
-            prefix="upload_", dir=path or temppath()
-        )
+        fd, filepath = tempfile.mkstemp(prefix="upload_", dir=path or temppath())
 
         if hasattr(content, "read"):
             chunk = content.read(1024)

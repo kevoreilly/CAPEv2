@@ -13,7 +13,13 @@ class MITRE_TTPS(Report):
             if technique.id in ttps:
                 for tactic in technique.tactics:
                     attck.setdefault(tactic.name, list())
-                    attck[tactic.name].append({"t_id": technique.id, "ttp_name": technique.name,
-                                               "description": technique.description, "signature": results["ttps"][technique.id]})
+                    attck[tactic.name].append(
+                        {
+                            "t_id": technique.id,
+                            "ttp_name": technique.name,
+                            "description": technique.description,
+                            "signature": results["ttps"][technique.id],
+                        }
+                    )
         if attck:
             results["mitre_attck"] = attck

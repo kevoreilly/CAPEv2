@@ -9,17 +9,19 @@ import tempfile
 
 from lib.cuckoo.common.email_utils import find_attachments_in_email
 
+
 class TestEmailUtils:
     def test_find_attachments(self):
         atts = find_attachments_in_email(SAMPLE_EMAIL, False)
         assert_equal(len(atts), 1)
-        assert_false(any(t[1] == u'\u60e1\u610f\u8edf\u9ad4.doc' for t in atts))
-        assert_true(any(t[1] == u'<unknown>.doc' for t in atts))
+        assert_false(any(t[1] == u"\u60e1\u610f\u8edf\u9ad4.doc" for t in atts))
+        assert_true(any(t[1] == u"<unknown>.doc" for t in atts))
 
     def test_find_attachments_expand(self):
         atts = find_attachments_in_email(SAMPLE_EMAIL, True)
         assert_equal(len(atts), 3)
-        assert_true(any(t[1] == u'\u60e1\u610f\u8edf\u9ad4.doc' for t in atts))
+        assert_true(any(t[1] == u"\u60e1\u610f\u8edf\u9ad4.doc" for t in atts))
+
 
 SAMPLE_EMAIL = """
 

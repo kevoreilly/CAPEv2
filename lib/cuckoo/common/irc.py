@@ -23,14 +23,55 @@ class ircMessage(object):
     """IRC Protocol Request."""
 
     # Client commands
-    __methods_client = dict.fromkeys(( "PASS", "JOIN", "USER", "OPER", "MODE", "SERVICE", "QUIT", "SQUIT",
-        "PART", "TOPIC", "NAMES", "LIST", "INVITE",
-        "KICK", "PRIVMSG", "NOTICE", "MOTD", "LUSERS", "VERSION", "STATS", "LINKS", "TIME", "CONNECT",
-        "TRACE", "ADMIN", "INFO", "SERVLIST",
-        "SQUERY", "WHO", "WHOIS", "WHOWAS", "KILL", "PING", "PONG", "ERROR", "AWAY", "REHASH", "DIE", "RESTART",
-        "SUMMON", "USERS", "WALLOPS",
-        "USERHOST", "NICK", "ISON"
-    ))
+    __methods_client = dict.fromkeys(
+        (
+            "PASS",
+            "JOIN",
+            "USER",
+            "OPER",
+            "MODE",
+            "SERVICE",
+            "QUIT",
+            "SQUIT",
+            "PART",
+            "TOPIC",
+            "NAMES",
+            "LIST",
+            "INVITE",
+            "KICK",
+            "PRIVMSG",
+            "NOTICE",
+            "MOTD",
+            "LUSERS",
+            "VERSION",
+            "STATS",
+            "LINKS",
+            "TIME",
+            "CONNECT",
+            "TRACE",
+            "ADMIN",
+            "INFO",
+            "SERVLIST",
+            "SQUERY",
+            "WHO",
+            "WHOIS",
+            "WHOWAS",
+            "KILL",
+            "PING",
+            "PONG",
+            "ERROR",
+            "AWAY",
+            "REHASH",
+            "DIE",
+            "RESTART",
+            "SUMMON",
+            "USERS",
+            "WALLOPS",
+            "USERHOST",
+            "NICK",
+            "ISON",
+        )
+    )
 
     def __init__(self):
         self._messages = []
@@ -55,7 +96,7 @@ class ircMessage(object):
             if not re.match("^:", element) is None:
                 command = "([a-zA-Z]+|[0-9]{3})"
                 params = "(\x20.+)"
-                irc_server_msg = re.findall("(^:[\w+.{}!@|()]+\x20)"+command+params,element)
+                irc_server_msg = re.findall("(^:[\w+.{}!@|()]+\x20)" + command + params, element)
                 if irc_server_msg:
                     self._sc["prefix"] = convert_to_printable(irc_server_msg[0][0].strip())
                     self._sc["command"] = convert_to_printable(irc_server_msg[0][1].strip())
@@ -64,7 +105,7 @@ class ircMessage(object):
                     if logirc:
                         self._messages.append(dict(self._sc))
             else:
-                irc_client_msg = re.findall("([a-zA-Z]+\x20)(.+[\x0a\0x0d])",element)
+                irc_client_msg = re.findall("([a-zA-Z]+\x20)(.+[\x0a\0x0d])", element)
                 if irc_client_msg and irc_client_msg[0][0].strip() in self.__methods_client:
                     self._cc["command"] = convert_to_printable(irc_client_msg[0][0].strip())
                     if self._cc["command"] in ["NICK", "USER"]:

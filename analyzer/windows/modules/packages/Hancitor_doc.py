@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import os
 from lib.common.abstracts import Package
 
+
 class Hancitor_doc(Package):
     """Word analysis package."""
 
@@ -29,4 +30,4 @@ class Hancitor_doc(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q" % path, path)
+        return self.execute(word, '"%s" /q' % path, path)

@@ -8,6 +8,7 @@ import os.path
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 
+
 class TargetInfo(Processing):
     """General information about a file."""
 

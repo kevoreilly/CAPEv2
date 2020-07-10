@@ -7,6 +7,7 @@ import shutil
 from subprocess import call
 from lib.common.abstracts import Package
 
+
 class TrickBot(Package):
     """TrickBot package (derived from Dump-on-API)"""
 
@@ -34,7 +35,7 @@ class TrickBot(Package):
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware
-            basepath = os.getenv('APPDATA')
+            basepath = os.getenv("APPDATA")
             newpath = os.path.join(basepath, os.path.basename(path))
             shutil.copy(path, newpath)
             path = newpath

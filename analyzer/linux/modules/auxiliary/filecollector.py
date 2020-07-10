@@ -9,13 +9,15 @@ from lib.common.hashing import hash_file
 
 try:
     import pyinotify
+
     HAVE_PYINOTIFY = True
 except ImportError:
     HAVE_PYINOTIFY = False
 
 log = logging.getLogger(__name__)
 DELAY = 1
-BUFSIZE = 1024*1024
+BUFSIZE = 1024 * 1024
+
 
 class FileCollector(Auxiliary, Thread):
     """Gets files."""
@@ -27,7 +29,7 @@ class FileCollector(Auxiliary, Thread):
     def stop(self):
         """Stop monitoring."""
         log.info("FileCollector requested stop")
-        time.sleep(2) # wait a while to process stuff in the queue
+        time.sleep(2)  # wait a while to process stuff in the queue
         self.do_run = False
         self.thread.join()
         log.info("FileCollector stopped")
@@ -38,7 +40,7 @@ class FileCollector(Auxiliary, Thread):
             self.do_run = True
 
         self.initComplete = False
-        self.thread = Thread(target = self.run)
+        self.thread = Thread(target=self.run)
         self.thread.start()
         while self.initComplete == False:
             self.thread.join(0.5)
@@ -62,33 +64,34 @@ class FileCollector(Auxiliary, Thread):
         watch_this = os.path.abspath("/")
         self.watch_manager.add_watch(watch_this, flags, auto_add=True)
 
-        ignore= ["proc",
-                 "sys",
-                 "usr", # just too many dirs here
-                 "dev",
-                 "var", # we don't want to collect log files
-                 "lib",
-                 "lib64",
-#                 "sbin",
-#                 "etc",
-                 "run", # lots of spurious files
-#                 "bin",
-#                 "boot",
-#                 "media",
-#                 "srv"
-                 ]
+        ignore = [
+            "proc",
+            "sys",
+            "usr",  # just too many dirs here
+            "dev",
+            "var",  # we don't want to collect log files
+            "lib",
+            "lib64",
+            #                 "sbin",
+            #                 "etc",
+            "run",  # lots of spurious files
+            #                 "bin",
+            #                 "boot",
+            #                 "media",
+            #                 "srv"
+        ]
 
         for filename in os.listdir("/"):
-            if os.path.isdir("/"+filename) and filename not in ignore:
+            if os.path.isdir("/" + filename) and filename not in ignore:
                 log.info("FileCollector trying to watch dir %s" % (filename))
-                watch_this = os.path.abspath("/"+filename)
+                watch_this = os.path.abspath("/" + filename)
                 self.watch_manager.add_watch(watch_this, flags, rec=True, auto_add=True)
 
         log.info("FileCollector setup complete")
         self.initComplete = True
 
         try:
-            while self.do_run:  #loop in case more events appear while we are processing
+            while self.do_run:  # loop in case more events appear while we are processing
                 self.event_notifier.process_events()
                 if self.event_notifier.check_events():
                     self.event_notifier.read_events()
@@ -99,22 +102,22 @@ class FileCollector(Auxiliary, Thread):
 
         return True
 
-    def process_generator(self,cls, method):
-        #log.info("Generating message %s", method)
+    def process_generator(self, cls, method):
+        # log.info("Generating message %s", method)
         def _method_name(self, event):
             try:
-                #log.info("Got file %s %s", event.pathname, method)
+                # log.info("Got file %s %s", event.pathname, method)
 
                 if not self.do_collect:
-                    #log.info("Not currently set to collect %s", event.pathname)
+                    # log.info("Not currently set to collect %s", event.pathname)
                     return
 
-                if event.pathname.startswith('/tmp/#'):
-                    #log.info("skipping wierd file %s", event.pathname)
+                if event.pathname.startswith("/tmp/#"):
+                    # log.info("skipping wierd file %s", event.pathname)
                     return
 
                 if not os.path.isfile(event.pathname):
-                    #log.info("Path is a directory or does not exist, ignoring: %s", event.pathname)
+                    # log.info("Path is a directory or does not exist, ignoring: %s", event.pathname)
                     return
 
                 if os.path.basename(event.pathname) == "stap.log":
@@ -122,20 +125,20 @@ class FileCollector(Auxiliary, Thread):
 
                 for x in range(0, 1):
                     try:
-                        #log.info("trying to collect file %s", event.pathname)
+                        # log.info("trying to collect file %s", event.pathname)
                         sha256 = hash_file(hashlib.sha256, event.pathname)
                         filename = "%s_%s" % (sha256[:16], os.path.basename(event.pathname))
                         if filename in self.uploadedHashes:
-                            #log.info("already collected file %s", event.pathname)
+                            # log.info("already collected file %s", event.pathname)
                             return
                         upload_path = os.path.join("files", filename)
                         upload_to_host(event.pathname, upload_path)
                         self.uploadedHashes.append(filename)
                         return
                     except Exception as e:
-                        log.info("Error dumping file from path \"%s\": %s", event.pathname, e)
+                        log.info('Error dumping file from path "%s": %s', event.pathname, e)
 
-                    #log.info("retrying %s", event.pathname)
+                    # log.info("retrying %s", event.pathname)
                     time.sleep(1)
 
             except Exception as e:
@@ -143,6 +146,7 @@ class FileCollector(Auxiliary, Thread):
 
         _method_name.__name__ = "process_{}".format(method)
         setattr(cls, _method_name.__name__, _method_name)
+
 
 class EventProcessor(pyinotify.ProcessEvent):
     _methods = [
@@ -161,6 +165,6 @@ class EventProcessor(pyinotify.ProcessEvent):
         "IN_MOVED_TO",
         "IN_Q_OVERFLOW",
         "IN_UNMOUNT",
-        "default"
+        "default",
     ]
     uploadedHashes = []

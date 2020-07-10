@@ -12,6 +12,7 @@ from lib.cuckoo.common.exceptions import CuckooReportError
 
 try:
     from weasyprint import HTML
+
     HAVE_WEASYPRINT = True
 except ImportError:
     HAVE_WEASYPRINT = False
@@ -19,22 +20,34 @@ except ImportError:
 
 class ReportPDF(Report):
     """Stores report in PDF format."""
+
     # ensure we run after the summary HTML report
     order = 10
 
     def run(self, results):
         if not os.path.isfile(os.path.join(self.reports_path, "summary-report.html")):
-            raise CuckooReportError("Unable to open summary HTML report to convert to PDF: "
-                                    "Ensure reporthtmlsummary is enabled in reporting.conf")
+            raise CuckooReportError(
+                "Unable to open summary HTML report to convert to PDF: " "Ensure reporthtmlsummary is enabled in reporting.conf"
+            )
 
         if os.path.exists("/usr/bin/xvfb-run") and os.path.exists("/usr/bin/wkhtmltopdf"):
-            call(["/usr/bin/xvfb-run", "--auto-servernum", "--server-num", "1", "/usr/bin/wkhtmltopdf", "-q", os.path.join(self.reports_path, "summary-report.html"), os.path.join(self.reports_path, "report.pdf")])
+            call(
+                [
+                    "/usr/bin/xvfb-run",
+                    "--auto-servernum",
+                    "--server-num",
+                    "1",
+                    "/usr/bin/wkhtmltopdf",
+                    "-q",
+                    os.path.join(self.reports_path, "summary-report.html"),
+                    os.path.join(self.reports_path, "report.pdf"),
+                ]
+            )
             return True
 
         if not HAVE_WEASYPRINT:
-            raise CuckooReportError("Failed to generate PDF report: "
-                                    "Neither wkhtmltopdf nor Weasyprint Python library are installed")
-        
+            raise CuckooReportError("Failed to generate PDF report: " "Neither wkhtmltopdf nor Weasyprint Python library are installed")
+
         logger = logging.getLogger("weasyprint")
         logger.handlers = []
         logger.setLevel(logging.ERROR)

@@ -9,7 +9,8 @@ import logging
 import re
 
 try:
-    from rarfile import RarFile,BadRarFile
+    from rarfile import RarFile, BadRarFile
+
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False
@@ -18,6 +19,7 @@ from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
 
 log = logging.getLogger(__name__)
+
 
 class Rar(Package):
     """Rar analysis package."""
@@ -50,8 +52,7 @@ class Rar(Package):
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as e:
-                    raise CuckooPackageError("Unable to extract Rar file: "
-                                             "{0}".format(e))
+                    raise CuckooPackageError("Unable to extract Rar file: " "{0}".format(e))
             finally:
                 # Extract nested archives.
                 for name in archive.namelist():
@@ -98,7 +99,7 @@ class Rar(Package):
 
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile('(\.exe|\.scr|\.msi|\.bat|\.lnk)$',flags=re.IGNORECASE)
+        exe_regex = re.compile("(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
 
         rarinfos = self.get_infos(path)
         self.extract_rar(path, root, password)
@@ -122,7 +123,7 @@ class Rar(Package):
         file_path = os.path.join(root, file_name)
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = "/c start /wait \"\" \"{0}\"".format(file_path)
+            cmd_args = '/c start /wait "" "{0}"'.format(file_path)
             return self.execute(cmd_path, cmd_args, file_path)
         else:
             return self.execute(file_path, self.options.get("arguments"), file_path)

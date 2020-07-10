@@ -21,7 +21,7 @@ class TestCreateFolders:
         utils.create_folders(self.tmp_dir, ["foo"])
         assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
- 
+
     def test_multiple_folders(self):
         """Tests multiple folders creation."""
         utils.create_folders(self.tmp_dir, ["foo", "bar"])
@@ -29,6 +29,7 @@ class TestCreateFolders:
         assert os.path.exists(os.path.join(self.tmp_dir, "bar"))
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
         os.rmdir(os.path.join(self.tmp_dir, "bar"))
+
 
 class TestCreateFolder:
     def setUp(self):
@@ -40,6 +41,7 @@ class TestCreateFolder:
         assert os.path.exists(os.path.join(self.tmp_dir, "foo"))
         utils.create_folder(self.tmp_dir, "foo")
         os.rmdir(os.path.join(self.tmp_dir, "foo"))
+
 
 class TestConvertChar:
     def test_utf(self):
@@ -56,6 +58,7 @@ class TestConvertChar:
 
     def test_whitespace(self):
         assert_equal(" ", utils.convert_char(" "))
+
 
 class TestConvertToPrintable:
     def test_utf(self):
@@ -76,9 +79,11 @@ class TestConvertToPrintable:
     def test_non_printable(self):
         assert_equal(r"\x0b", utils.convert_to_printable(chr(11)))
 
+
 class TestDatetimeToIso:
     def test_convert_date(self):
         assert_equal("2000-01-01T11:43:35", utils.datetime_to_iso("2000-01-01 11:43:35"))
+
 
 class TestFile:
     def setUp(self):
@@ -107,11 +112,15 @@ class TestFile:
         assert_equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", self.file.get_sha256())
 
     def test_get_sha512(self):
-        assert_equal("cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e", self.file.get_sha512())
+        assert_equal(
+            "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+            self.file.get_sha512(),
+        )
 
     def test_get_ssdeep(self):
         try:
             import pydeep
+
             assert_not_equal(None, self.file.get_ssdeep())
         except ImportError:
             assert_equal(None, self.file.get_ssdeep())

@@ -15,7 +15,7 @@
 from mwcp.parser import Parser
 import yara
 
-rule_source = '''
+rule_source = """
 rule Enfal
 {
     meta:
@@ -29,82 +29,86 @@ rule Enfal
         $config
 }
 
-'''
+"""
 
 MAX_STRING_SIZE = 128
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'Enfal':
+        if match.rule == "Enfal":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
 
+
 def string_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
+
 def list_from_offset(data, offset):
-    string = data[offset:offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
     list = string.split(b",")
     return list
 
+
 class enfal(Parser):
 
-    DESCRIPTION = 'Enfal configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "Enfal configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
 
-        config = yara_scan(filebuf, '$config')
+        config = yara_scan(filebuf, "$config")
 
         if config:
-            yara_offset = int(config['$config'])
+            yara_offset = int(config["$config"])
 
-            c2_address = string_from_offset(filebuf, yara_offset+0x2e8)
+            c2_address = string_from_offset(filebuf, yara_offset + 0x2E8)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            c2_url = string_from_offset(filebuf, yara_offset+0xe8)
+            c2_url = string_from_offset(filebuf, yara_offset + 0xE8)
             if c2_url:
-                self.reporter.add_metadata('c2_url', c2_url)
+                self.reporter.add_metadata("c2_url", c2_url)
 
-            if filebuf[yara_offset+0x13b0:yara_offset+0x13b1] == "S":
-                registrypath = string_from_offset(filebuf, yara_offset+0x13b0)
-            elif filebuf[yara_offset+0x13c0:yara_offset+0x13c1] == "S":
-                registrypath = string_from_offset(filebuf, yara_offset+0x13c0)
-            elif filebuf[yara_offset+0x13d0:yara_offset+0x13d1] == "S":
-                registrypath = string_from_offset(filebuf, yara_offset+0x13d0)
+            if filebuf[yara_offset + 0x13B0 : yara_offset + 0x13B1] == "S":
+                registrypath = string_from_offset(filebuf, yara_offset + 0x13B0)
+            elif filebuf[yara_offset + 0x13C0 : yara_offset + 0x13C1] == "S":
+                registrypath = string_from_offset(filebuf, yara_offset + 0x13C0)
+            elif filebuf[yara_offset + 0x13D0 : yara_offset + 0x13D1] == "S":
+                registrypath = string_from_offset(filebuf, yara_offset + 0x13D0)
             else:
                 registrypath = ""
 
             if registrypath:
-                self.reporter.add_metadata('registrypath', registrypath)
+                self.reporter.add_metadata("registrypath", registrypath)
 
-            if filebuf[yara_offset+0x14a2:yara_offset+0x14a3] == "C":
-                filepaths = list_from_offset(filebuf, yara_offset+0x14a2)
+            if filebuf[yara_offset + 0x14A2 : yara_offset + 0x14A3] == "C":
+                filepaths = list_from_offset(filebuf, yara_offset + 0x14A2)
                 filepaths[0] = filepaths[0].split(b" ")[0]
                 servicename = ""
-            elif filebuf[yara_offset+0x14b0:yara_offset+0x14b1] != "\0":
-                servicename = string_from_offset(filebuf, yara_offset+0x14b0)
-                filepaths = list_from_offset(filebuf, yara_offset+0x14c0)
-            elif filebuf[yara_offset+0x14c0:yara_offset+0x14c1] != "\0":
-                servicename = string_from_offset(filebuf, yara_offset+0x14c0)
-                filepaths = list_from_offset(filebuf, yara_offset+0x14d0)
-            elif filebuf[yara_offset+0x14d0:yara_offset+0x14d1] != "\0":
-                servicename = string_from_offset(filebuf, yara_offset+0x14d0)
-                filepaths = list_from_offset(filebuf, yara_offset+0x14e0)
+            elif filebuf[yara_offset + 0x14B0 : yara_offset + 0x14B1] != "\0":
+                servicename = string_from_offset(filebuf, yara_offset + 0x14B0)
+                filepaths = list_from_offset(filebuf, yara_offset + 0x14C0)
+            elif filebuf[yara_offset + 0x14C0 : yara_offset + 0x14C1] != "\0":
+                servicename = string_from_offset(filebuf, yara_offset + 0x14C0)
+                filepaths = list_from_offset(filebuf, yara_offset + 0x14D0)
+            elif filebuf[yara_offset + 0x14D0 : yara_offset + 0x14D1] != "\0":
+                servicename = string_from_offset(filebuf, yara_offset + 0x14D0)
+                filepaths = list_from_offset(filebuf, yara_offset + 0x14E0)
             else:
                 servicename = ""
                 filepaths = []
 
             if servicename:
-                self.reporter.add_metadata('servicename', servicename)
+                self.reporter.add_metadata("servicename", servicename)
             if filepaths:
                 for path in filepaths:
-                    self.reporter.add_metadata('filepath', path)
+                    self.reporter.add_metadata("filepath", path)

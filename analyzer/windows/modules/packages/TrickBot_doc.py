@@ -6,8 +6,10 @@ from __future__ import absolute_import
 import os
 from lib.common.abstracts import Package
 
+
 class TrickBot_doc(Package):
     """TrickBot package (derived from Dump-on-API)"""
+
     """Word analysis package."""
 
     PATHS = [
@@ -32,4 +34,4 @@ class TrickBot_doc(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q" % path, path)
+        return self.execute(word, '"%s" /q' % path, path)

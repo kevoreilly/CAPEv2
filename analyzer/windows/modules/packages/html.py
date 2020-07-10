@@ -10,8 +10,10 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class HTML(Package):
     """HTML file analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
@@ -30,4 +32,4 @@ class HTML(Package):
             path += ".html"
             log.info("Submitted file is missing extension, adding .html")
 
-        return self.execute(iexplore, "\"%s\"" % path, path)
+        return self.execute(iexplore, '"%s"' % path, path)

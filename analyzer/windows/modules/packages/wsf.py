@@ -10,8 +10,10 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class WSF(Package):
     """Windows Scripting File analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
@@ -24,4 +26,4 @@ class WSF(Package):
             os.rename(path, path + ".wsf")
             path += ".wsf"
 
-        return self.execute(wscript, "\"%s\"" % path, path)
+        return self.execute(wscript, '"%s"' % path, path)

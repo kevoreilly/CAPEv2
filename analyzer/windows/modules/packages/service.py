@@ -20,7 +20,14 @@ SC_MANAGER_ENUMERATE_SERVICE = 0x0004
 SC_MANAGER_LOCK = 0x0008
 SC_MANAGER_QUERY_LOCK_STATUS = 0x0010
 SC_MANAGER_MODIFY_BOOT_CONFIG = 0x0020
-SC_MANAGER_ALL_ACCESS = SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE | SC_MANAGER_ENUMERATE_SERVICE | SC_MANAGER_LOCK | SC_MANAGER_QUERY_LOCK_STATUS | SC_MANAGER_MODIFY_BOOT_CONFIG
+SC_MANAGER_ALL_ACCESS = (
+    SC_MANAGER_CONNECT
+    | SC_MANAGER_CREATE_SERVICE
+    | SC_MANAGER_ENUMERATE_SERVICE
+    | SC_MANAGER_LOCK
+    | SC_MANAGER_QUERY_LOCK_STATUS
+    | SC_MANAGER_MODIFY_BOOT_CONFIG
+)
 SERVICE_QUERY_CONFIG = 0x0001
 SERVICE_CHANGE_CONFIG = 0x0002
 SERVICE_QUERY_STATUS = 0x0004
@@ -30,7 +37,17 @@ SERVICE_STOP = 0x0020
 SERVICE_PAUSE_CONTINUE = 0x0040
 SERVICE_INTERROGATE = 0x0080
 SERVICE_USER_DEFINED_CONTROL = 0x0100
-SERVICE_ALL_ACCESS = SERVICE_QUERY_CONFIG | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS | SERVICE_START | SERVICE_STOP | SERVICE_PAUSE_CONTINUE | SERVICE_INTERROGATE | SERVICE_USER_DEFINED_CONTROL
+SERVICE_ALL_ACCESS = (
+    SERVICE_QUERY_CONFIG
+    | SERVICE_CHANGE_CONFIG
+    | SERVICE_QUERY_STATUS
+    | SERVICE_ENUMERATE_DEPENDENTS
+    | SERVICE_START
+    | SERVICE_STOP
+    | SERVICE_PAUSE_CONTINUE
+    | SERVICE_INTERROGATE
+    | SERVICE_USER_DEFINED_CONTROL
+)
 SERVICE_WIN32_OWN_PROCESS = 0x0010
 SERVICE_INTERACTIVE_PROCESS = 0x0100
 SERVICE_DEMAND_START = 0x0003
@@ -40,6 +57,7 @@ log = logging.getLogger(__name__)
 
 class Service(Package):
     """Service analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "sc.exe"),
     ]
@@ -54,7 +72,7 @@ class Service(Package):
                 new_path = path + ".exe"
                 os.rename(path, new_path)
                 path = new_path
-            binPath = "\"{0}\"".format(path)
+            binPath = '"{0}"'.format(path)
             if arguments:
                 binPath += " {0}".format(arguments)
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
@@ -70,7 +88,13 @@ class Service(Package):
                 SERVICE_WIN32_OWN_PROCESS,
                 SERVICE_DEMAND_START,
                 SERVICE_ERROR_IGNORE,
-                binPath, None, None, None, None, None)
+                binPath,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
             if service_handle == 0:
                 log.info("Failed to create service")
                 log.info(ctypes.FormatError())

@@ -6,6 +6,7 @@ import datetime
 
 from lib.cuckoo.processing.platform.linux import StapParser
 
+
 def test_staplog():
     with open("tests/files/stap.log") as fd:
         assert list(StapParser(fd)) == [
@@ -21,13 +22,13 @@ def test_staplog():
                         "PATH=/usr/bin:/bin",
                         "LANG=en_US.UTF-8",
                         "SHELL=/bin/sh",
-                        "PWD=/root"
+                        "PWD=/root",
                     ],
                 },
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",
-                "raw": "Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve(\"/usr/bin/sh\", [\"sh\", \"-c\", \"/tmp/helloworld.sh\"], [\"LANGUAGE=en_US:en\", \"HOME=/root\", \"LOGNAME=root\", \"PATH=/usr/bin:/bin\", \"LANG=en_US.UTF-8\", \"SHELL=/bin/sh\", \"PWD=/root\"]) = -2 (ENOENT)\n",
+                "raw": 'Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve("/usr/bin/sh", ["sh", "-c", "/tmp/helloworld.sh"], ["LANGUAGE=en_US:en", "HOME=/root", "LOGNAME=root", "PATH=/usr/bin:/bin", "LANG=en_US.UTF-8", "SHELL=/bin/sh", "PWD=/root"]) = -2 (ENOENT)\n',
                 "return_value": "-2",
                 "status": "ENOENT",
                 "time": datetime.datetime(2017, 6, 19, 16, 58, 31, 445170),
@@ -35,9 +36,7 @@ def test_staplog():
             },
             {
                 "api": "brk",
-                "arguments": {
-                    "p0": "0x0"
-                },
+                "arguments": {"p0": "0x0"},
                 "instruction_pointer": "b77825f7",
                 "pid": 680,
                 "process_name": "sh",
@@ -49,14 +48,11 @@ def test_staplog():
             },
             {
                 "api": "access",
-                "arguments": {
-                    "p0": "/etc/ld.so.nohwcap",
-                    "p1": "F_OK"
-                },
+                "arguments": {"p0": "/etc/ld.so.nohwcap", "p1": "F_OK"},
                 "instruction_pointer": "b77838c1",
                 "pid": 680,
                 "process_name": "sh",
-                "raw": "Mon Jun 19 16:58:31 2017.521264 sh@b77838c1[680] access(\"/etc/ld.so.nohwcap\", F_OK) = -2 (ENOENT)\n",
+                "raw": 'Mon Jun 19 16:58:31 2017.521264 sh@b77838c1[680] access("/etc/ld.so.nohwcap", F_OK) = -2 (ENOENT)\n',
                 "return_value": "-2",
                 "status": "ENOENT",
                 "time": datetime.datetime(2017, 6, 19, 16, 58, 31, 521264),
@@ -83,15 +79,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {
-                    "p0": "1",
-                    "p1": "h3ll0 w0rld!\n",
-                    "p2": "13",
-                },
+                "arguments": {"p0": "1", "p1": "h3ll0 w0rld!\n", "p2": "13",},
                 "instruction_pointer": "b7768cf9",
                 "pid": 681,
                 "process_name": "helloworld.sh",
-                "raw": "Mon Jun 19 16:58:32 2017.036988 helloworld.sh@b7768cf9[681] write(1, \"h3ll0 w0rld!\\n\", 13) = 13\n",
+                "raw": 'Mon Jun 19 16:58:32 2017.036988 helloworld.sh@b7768cf9[681] write(1, "h3ll0 w0rld!\\n", 13) = 13\n',
                 "return_value": "13",
                 "status": "",
                 "time": datetime.datetime(2017, 6, 19, 16, 58, 32, 36988),
@@ -99,11 +91,7 @@ def test_staplog():
             },
             {
                 "api": "read",
-                "arguments": {
-                    "p0": "10",
-                    "p1": "0x800665c0",
-                    "p2": "8192",
-                },
+                "arguments": {"p0": "10", "p1": "0x800665c0", "p2": "8192",},
                 "instruction_pointer": "b7768cf9",
                 "pid": 681,
                 "process_name": "helloworld.sh",
@@ -115,9 +103,7 @@ def test_staplog():
             },
             {
                 "api": "exit_group",
-                "arguments": {
-                    "p0": "0"
-                },
+                "arguments": {"p0": "0"},
                 "instruction_pointer": "b7768cf9",
                 "pid": 681,
                 "process_name": "helloworld.sh",
@@ -129,12 +115,7 @@ def test_staplog():
             },
             {
                 "api": "wait4",
-                "arguments": {
-                    "p0": "-1",
-                    "p1": "0xbfd4a134",
-                    "p2": "0x0",
-                    "p3": "0x0",
-                },
+                "arguments": {"p0": "-1", "p1": "0xbfd4a134", "p2": "0x0", "p3": "0x0",},
                 "instruction_pointer": "b7769cf9",
                 "pid": 680,
                 "process_name": "sh",
@@ -158,9 +139,7 @@ def test_staplog():
             },
             {
                 "api": "exit_group",
-                "arguments": {
-                    "p0": "0"
-                },
+                "arguments": {"p0": "0"},
                 "instruction_pointer": "b7769cf9",
                 "pid": 680,
                 "process_name": "sh",
@@ -172,15 +151,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {
-                    "p0": "2",
-                    "p1": "BusyBox v1.16.0 (2010-02-06 04:51:36 CST)",
-                    "p2": "41",
-                },
+                "arguments": {"p0": "2", "p1": "BusyBox v1.16.0 (2010-02-06 04:51:36 CST)", "p2": "41",},
                 "instruction_pointer": "80dbdde",
                 "pid": 704,
                 "process_name": "busybox-i686",
-                "raw": "Tue Jun 20 15:39:30 2017.141870 busybox-i686@80dbdde[704] write(2, \"BusyBox v1.16.0 \\x282010-02-06 04:51:36 CST\\x29\", 41) = 41\n",
+                "raw": 'Tue Jun 20 15:39:30 2017.141870 busybox-i686@80dbdde[704] write(2, "BusyBox v1.16.0 \\x282010-02-06 04:51:36 CST\\x29", 41) = 41\n',
                 "return_value": "41",
                 "status": "",
                 "time": datetime.datetime(2017, 6, 20, 15, 39, 30, 141870),
@@ -188,15 +163,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {
-                    "p0": "2",
-                    "p1": "Copyright (C) 1998-2009 Erik Andersen, Rob La",
-                    "p2": "480",
-                },
+                "arguments": {"p0": "2", "p1": "Copyright (C) 1998-2009 Erik Andersen, Rob La", "p2": "480",},
                 "instruction_pointer": "80dbdde",
                 "pid": 668,
                 "process_name": "busybox-i686",
-                "raw": "Thu Jun 22 10:22:06 2017.766807 busybox-i686@80dbdde[668] write(2, \"Copyright \\x28C\\x29 1998-2009 Erik Andersen\\x2c Rob La\", 480) = 480\n",
+                "raw": 'Thu Jun 22 10:22:06 2017.766807 busybox-i686@80dbdde[668] write(2, "Copyright \\x28C\\x29 1998-2009 Erik Andersen\\x2c Rob La", 480) = 480\n',
                 "return_value": "480",
                 "status": "",
                 "time": datetime.datetime(2017, 6, 22, 10, 22, 6, 766807),
@@ -204,15 +175,11 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {
-                    "p0": "/usr/bin/sh",
-                    "p1": ["sh", "-c", "/tmp/comma,sh"],
-                    "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],
-                },
+                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/comma,sh"], "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],},
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",
-                "raw": "Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve(\"/usr/bin/sh\", [\"sh\", \"-c\", \"/tmp/comma\\x2csh\"], [\"COMMA_IN_ARRAY=it\\x2cworks\", \"HOME=/root\"]) = -2 (ENOENT)\n",
+                "raw": 'Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve("/usr/bin/sh", ["sh", "-c", "/tmp/comma\\x2csh"], ["COMMA_IN_ARRAY=it\\x2cworks", "HOME=/root"]) = -2 (ENOENT)\n',
                 "return_value": "-2",
                 "status": "ENOENT",
                 "time": datetime.datetime(2017, 6, 19, 16, 58, 31, 445170),
@@ -220,15 +187,11 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {
-                    "p0": "/usr/bin/sh",
-                    "p1": ["sh", "-c", "/tmp/bracket]sh"],
-                    "p2": ["LANGUAGE=en_US:en", "HOME=/root"],
-                },
+                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/bracket]sh"], "p2": ["LANGUAGE=en_US:en", "HOME=/root"],},
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",
-                "raw": "Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve(\"/usr/bin/sh\", [\"sh\", \"-c\", \"/tmp/bracket\\x5dsh\"], [\"LANGUAGE=en_US:en\", \"HOME=/root\"]) = -2 (ENOENT)\n",
+                "raw": 'Mon Jun 19 16:58:31 2017.445170 python@b774dcf9[680] execve("/usr/bin/sh", ["sh", "-c", "/tmp/bracket\\x5dsh"], ["LANGUAGE=en_US:en", "HOME=/root"]) = -2 (ENOENT)\n',
                 "return_value": "-2",
                 "status": "ENOENT",
                 "time": datetime.datetime(2017, 6, 19, 16, 58, 31, 445170),

@@ -14,8 +14,10 @@ from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
+
 class STAP(Auxiliary):
     """System-wide syscall trace with stap."""
+
     priority = -10  # low prio to wrap tightly around the analysis
 
     def __init__(self, options={}, analyzer=None):
@@ -26,7 +28,8 @@ class STAP(Auxiliary):
         # helper function locating the stap module
         def has_stap(p):
             only_stap = [fn for fn in os.listdir(p) if fn.startswith("stap_") and fn.endswith(".ko")]
-            if only_stap: return os.path.join(p, only_stap[0])
+            if only_stap:
+                return os.path.join(p, only_stap[0])
             return False
 
         path_cfg = self.config.get("analyzer_stap_path", None)
@@ -39,14 +42,9 @@ class STAP(Auxiliary):
             return False
 
         stap_start = time.time()
-        self.proc = subprocess.Popen([
-            "staprun", "-vv",
-            "-x", str(os.getpid()),
-            "-o", "stap.log",
-            path,
-        ], stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(["staprun", "-vv", "-x", str(os.getpid()), "-o", "stap.log", path,], stderr=subprocess.PIPE)
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode('utf8'):
+        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode("utf8"):
             pass
 
         stap_stop = time.time()

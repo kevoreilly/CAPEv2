@@ -7,6 +7,7 @@ from __future__ import absolute_import
 import logging
 import time
 import sys
+
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
@@ -23,8 +24,10 @@ logging.getLogger("proxmoxer").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 cfg = Config()
 
+
 class Proxmox(Machinery):
     """Manage Proxmox sandboxes."""
+
     def __init__(self):
         super(Proxmox, self).__init__()
         self.timeout = int(cfg.timeouts.vm_state)
@@ -34,10 +37,7 @@ class Proxmox(Machinery):
         @raise CuckooCriticalError: if no credentials were provided
         """
         if not self.options.proxmox.username or not self.options.proxmox.password:
-            raise CuckooCriticalError(
-                "Proxmox credentials are missing, please add them to "
-                "the Proxmox machinery configuration file."
-            )
+            raise CuckooCriticalError("Proxmox credentials are missing, please add them to " "the Proxmox machinery configuration file.")
         if not self.options.proxmox.hostname:
             raise CuckooCriticalError("Proxmox hostname not set")
 
@@ -50,10 +50,9 @@ class Proxmox(Machinery):
         @param label: the label of the VM to be compared to the VM's name in
                       Proxmox.
         @raise CuckooMachineError: if the VM cannot be found."""
-        proxmox = ProxmoxAPI(self.options.proxmox.hostname,
-                             user=self.options.proxmox.username,
-                             password=self.options.proxmox.password,
-                             verify_ssl=False)
+        proxmox = ProxmoxAPI(
+            self.options.proxmox.hostname, user=self.options.proxmox.username, password=self.options.proxmox.password, verify_ssl=False
+        )
 
         # /cluster/resources[type=vm] will give us all VMs no matter which node
         # they reside on
@@ -86,8 +85,7 @@ class Proxmox(Machinery):
             try:
                 task = node.tasks(taskid).status.get()
             except ResourceException as e:
-                raise CuckooMachineError("Error getting status of task "
-                                         "%s: %s" % (taskid, e))
+                raise CuckooMachineError("Error getting status of task " "%s: %s" % (taskid, e))
 
             # extract operation name from task status for display
             operation = task["type"]
@@ -95,8 +93,7 @@ class Proxmox(Machinery):
                 operation = operation[2:]
 
             if task["status"] != "stopped":
-                log.debug("%s: Waiting for operation %s (%s) to finish",
-                          label, operation, taskid)
+                log.debug("%s: Waiting for operation %s (%s) to finish", label, operation, taskid)
                 time.sleep(1)
                 elapsed += 1
                 continue
@@ -113,8 +110,7 @@ class Proxmox(Machinery):
             if "lock" in status:
                 log.debug("%s: Task finished but VM still locked", label)
                 if status["lock"] != operation:
-                    log.warning("%s: Task finished but VM locked by different "
-                                "operation: %s", label, operation)
+                    log.warning("%s: Task finished but VM locked by different " "operation: %s", label, operation)
                 time.sleep(1)
                 elapsed += 1
                 continue
@@ -138,8 +134,7 @@ class Proxmox(Machinery):
 
         # heuristically determine the most recent snapshot if no snapshot name
         # is explicitly configured.
-        log.debug("%s: No snapshot configured, determining most recent one",
-                  label)
+        log.debug("%s: No snapshot configured, determining most recent one", label)
         try:
             snapshots = vm.snapshot.get()
         except ResourceException as e:
@@ -175,16 +170,13 @@ class Proxmox(Machinery):
             log.debug("%s: Reverting to snapshot %s", label, snapshot)
             taskid = vm.snapshot(snapshot).rollback.post()
         except ResourceException as e:
-            raise CuckooMachineError("Couldn't trigger rollback to "
-                                     "snapshot %s: %s" % (snapshot, e))
+            raise CuckooMachineError("Couldn't trigger rollback to " "snapshot %s: %s" % (snapshot, e))
 
         task = self.wait_for_task(taskid, label, vm, node)
         if not task:
-            raise CuckooMachineError("Timeout expired while rolling back to "
-                                     "snapshot %s" % snapshot)
+            raise CuckooMachineError("Timeout expired while rolling back to " "snapshot %s" % snapshot)
         if task["exitstatus"] != "OK":
-            raise CuckooMachineError("Rollback to snapshot %s failed: %s"
-                                     % (snapshot, task["exitstatus"]))
+            raise CuckooMachineError("Rollback to snapshot %s failed: %s" % (snapshot, task["exitstatus"]))
 
     def start(self, label):
         """Roll back VM to known-pristine snapshot and optionally start it if
@@ -205,8 +197,7 @@ class Proxmox(Machinery):
             raise CuckooMachineError("Couldn't get status: %s" % e)
 
         if status["status"] == "running":
-            log.debug("%s: Already running after rollback, no need to start "
-                      "it", label)
+            log.debug("%s: Already running after rollback, no need to start " "it", label)
             return
 
         try:

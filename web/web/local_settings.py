@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 LOCAL_SETTINGS = True
 from .settings import *
 

@@ -14,6 +14,7 @@ from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)
 
+
 class Zip(Package):
 
     real_package = None
@@ -48,12 +49,9 @@ class Zip(Package):
         if not pkg_class:
             raise Exception("Unable to detect analysis package for the file %s" % target_name)
         else:
-            log.info("Analysing file \"%s\" using package \"%s\"", target_name, str(pkg_class))
+            log.info('Analysing file "%s" using package "%s"', target_name, str(pkg_class))
 
-        kwargs = {
-            "options" : self.options,
-            "timeout" : self.timeout
-        }
+        kwargs = {"options": self.options, "timeout": self.timeout}
         # We'll forward start() method invocation to the proper package later
         self.real_package = pkg_class(self.target, **kwargs)
 
@@ -108,8 +106,10 @@ def _prepare_archive_at_path(filename):
         return None
     # Test if zip file contains a file named as itself
     if _is_overwritten(filename):
-        log.debug("ZIP file contains a file with the same name, original is \
-        going to be overwrite")
+        log.debug(
+            "ZIP file contains a file with the same name, original is \
+        going to be overwrite"
+        )
         # In this case we just change the file name
         new_zip_path = filename + _random_extension()
         move(filename, new_zip_path)
@@ -127,11 +127,11 @@ def _is_overwritten(zip_path):
 
 
 def _random_extension(length=5):
-    return '.' + ''.join(SystemRandom().choice(ascii_letters) for _ in range(length))
+    return "." + "".join(SystemRandom().choice(ascii_letters) for _ in range(length))
 
 
 def _fileinfo(target):
     raw = check_output(["file", target])
     # The utility has the following output format: "%filename%: %description%",
     # so we just skip everything before the actual description
-    return raw[raw.index(":")+2:]
+    return raw[raw.index(":") + 2 :]

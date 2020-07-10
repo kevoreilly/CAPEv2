@@ -14,10 +14,9 @@ from lib.cuckoo.common.abstracts import Processing, Signature
 class ProcessingMock(Processing):
     def run(self):
         self.key = "foo"
-        foo = {
-            "bar" : "taz"
-        }
+        foo = {"bar": "taz"}
         return foo
+
 
 class SignatureMock(Signature):
     name = "mock"
@@ -30,14 +29,16 @@ class SignatureMock(Signature):
         else:
             return False
 
+
 class SignatureAlterMock(SignatureMock):
     def run(self, results):
         results = None
 
+
 class SignatureDisabledMock(SignatureMock):
     enabled = False
+
 
 class SignatureWrongVersionMock(SignatureMock):
     minimum = "0.0..-abc"
     maximum = "0.0..-abc"
-

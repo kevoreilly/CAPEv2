@@ -95,7 +95,7 @@ QEMU_ARGS = {
         "cmdline": [
             "qemu-system-aarch64",
             "-display", "none",
-            "-M", "virt, "-m", "{memory}",
+            "-M", "virt", "-m", "{memory}",
             "-kernel", "{kernel}", "-initrd", "{initrd}",
             "-hda", "{snapshot_path}",
             "-append", "root=/dev/sda1",

@@ -10,6 +10,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.core.database import Database
 
+
 class Debug(Processing):
     """Analysis debug information."""
 
@@ -24,11 +25,9 @@ class Debug(Processing):
             try:
                 debug["log"] = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError("Error decoding %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error decoding %s: %s" % (self.log_path, e))
             except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error opening %s: %s" % (self.log_path, e))
 
         for error in Database().view_errors(int(self.task["id"])):
             debug["errors"].append(error.message)

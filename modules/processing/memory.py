@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 # Based on work of Xabier Ugarte-Pedrero
-# https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
+#  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
@@ -30,7 +30,8 @@ try:
     from typing import Any, Dict, List, Optional, Tuple, Union, Type
     from volatility.framework import interfaces, constants
     from volatility.framework.configuration import requirements
-    #from volatility.plugins.windows import pslist
+
+    # from volatility.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except Exception as e:
     HAVE_VOLATILITY = False
@@ -38,21 +39,20 @@ except Exception as e:
 log = logging.getLogger()
 
 # Log everything:
-#log.setLevel(1)
+# log.setLevel(1)
 
 # Log only Warnings
-#log.setLevel(logging.WARNING)
+# log.setLevel(logging.WARNING)
 
 # Trim the console down by default
-#console = logging.StreamHandler()
-#console.setLevel(logging.WARNING)
-#formatter = logging.Formatter('%(levelname)-8s %(name)-12s: %(message)s')
-#console.setFormatter(formatter)
-#log.addHandler(console)
+# console = logging.StreamHandler()
+# console.setLevel(logging.WARNING)
+# formatter = logging.Formatter('%(levelname)-8s %(name)-12s: %(message)s')
+# console.setFormatter(formatter)
+# log.addHandler(console)
 
 
 class VolatilityAPI(object):
-
     def __init__(self, memdump):
         self.context = None
         self.automagics = None
@@ -60,7 +60,7 @@ class VolatilityAPI(object):
         # Instance of the plugin
         self.volatility_interface = None
         if not memdump.startswith("file:///") and os.path.exists(memdump):
-            self.memdump = "file:///"+memdump
+            self.memdump = "file:///" + memdump
         else:
             self.memdump = memdump
 
@@ -74,8 +74,8 @@ class VolatilityAPI(object):
 
         volatility.framework.require_interface_version(1, 0, 0)
         # Set the PARALLELISM
-        #constants.PARALLELISM = constants.Parallelism.Multiprocessing
-        #constants.PARALLELISM = constants.Parallelism.Threading
+        # constants.PARALLELISM = constants.Parallelism.Multiprocessing
+        # constants.PARALLELISM = constants.Parallelism.Threading
         constants.PARALLELISM = constants.Parallelism.Off
 
         # Do the initialization
@@ -87,13 +87,13 @@ class VolatilityAPI(object):
         # Initialize the list of plugins in case the plugin needs it
         plugin_list = framework.list_plugins()
 
-        self.context.config['automagic.LayerStacker.single_location'] = self.memdump
+        self.context.config["automagic.LayerStacker.single_location"] = self.memdump
 
         self.automagics = automagic.choose_automagic(self.automagics, plugin_class)
-        volatility_interface = plugins.construct_plugin(
-            self.context, self.automagics, plugin_class, self.base_config_path, None, None)
+        volatility_interface = plugins.construct_plugin(self.context, self.automagics, plugin_class, self.base_config_path, None, None)
 
         return volatility_interface
+
 
 '''
 try:
@@ -1206,6 +1206,7 @@ class VolatilityManager(object):
             f.close()
 '''
 
+
 class VolatilityManager(object):
     """Handle several volatility results."""
 
@@ -1273,12 +1274,11 @@ class VolatilityManager(object):
         """Delete the memory dump (if configured to do so)."""
 
         if self.voptions.basic.delete_memdump:
-            for memfile in (self.memfile, self.memfile+".zip"):
+            for memfile in (self.memfile, self.memfile + ".zip"):
                 try:
                     os.remove(memfile)
                 except OSError:
-                    log.error("Unable to delete memory dump file at path \"%s\" ", memfile)
-
+                    log.error('Unable to delete memory dump file at path "%s" ', memfile)
 
 
 class Memory(Processing):
@@ -1312,7 +1312,7 @@ class Memory(Processing):
                         try:
                             os.remove(self.memory_path)
                         except OSError:
-                            log.error("Unable to delete memory dump file at path \"%s\" ", self.memory_path)
+                            log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
             else:
                 log.error("Memory dump not found: to run volatility you have to enable memory_dump")
         else:

@@ -16,9 +16,11 @@ from lib.cuckoo.core.database import TASK_COMPLETED, TASK_RECOVERED
 from lib.cuckoo.core.database import TASK_REPORTED, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING
 
+
 def timestamp(dt):
     """Returns the timestamp of a datetime object."""
     return time.mktime(dt.timetuple())
+
 
 def main():
     db = Database()
@@ -27,9 +29,14 @@ def main():
     print(("%d tasks in db" % db.count_tasks()))
 
     states = (
-        TASK_PENDING, TASK_RUNNING,
-        TASK_COMPLETED, TASK_RECOVERED, TASK_REPORTED,
-        TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING
+        TASK_PENDING,
+        TASK_RUNNING,
+        TASK_COMPLETED,
+        TASK_RECOVERED,
+        TASK_REPORTED,
+        TASK_FAILED_ANALYSIS,
+        TASK_FAILED_PROCESSING,
+        TASK_FAILED_REPORTING,
     )
 
     for state in states:
@@ -70,6 +77,7 @@ def main():
 
         print(("roughly %d tasks an hour" % int(hourly)))
         print(("roughly %d tasks a day" % int(24 * hourly)))
+
 
 if __name__ == "__main__":
     main()

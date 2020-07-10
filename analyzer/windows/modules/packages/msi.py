@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
+
 class Msi(Package):
     """MSI analysis package."""
 
@@ -14,5 +15,5 @@ class Msi(Package):
 
     def start(self, path):
         msi_path = self.get_path("msiexec.exe")
-        msi_args = "/I \"{0}\"".format(path)
+        msi_args = '/I "{0}"'.format(path)
         return self.execute(msi_path, msi_args, path)

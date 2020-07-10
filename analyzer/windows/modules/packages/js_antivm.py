@@ -7,8 +7,10 @@ import os
 
 from lib.common.abstracts import Package
 
+
 class JS_ANTIVM(Package):
     """JavaScript analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
@@ -19,21 +21,21 @@ class JS_ANTIVM(Package):
         self.options["free"] = 1
         # fuck antivm
         for _ in range(50):
-                #calc
-                calc = os.path.join("c:\\windows", "system32", "calc.exe")
-                #cl = Process()
-                self.execute(calc, "", path)
+            # calc
+            calc = os.path.join("c:\\windows", "system32", "calc.exe")
+            # cl = Process()
+            self.execute(calc, "", path)
         if free is False:
             self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
-        args = "\"%s\"" % path
+        args = '"%s"' % path
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
             if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
-                os.rename(path,path + ".jse")
+                os.rename(path, path + ".jse")
                 path = path + ".jse"
             else:
-                os.rename(path,path + ".js")
+                os.rename(path, path + ".js")
                 path = path + ".js"
-        args = "\"%s\"" % path
+        args = '"%s"' % path
         return self.execute(wscript, args, path)

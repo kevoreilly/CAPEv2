@@ -6,16 +6,18 @@ from __future__ import absolute_import
 import os
 from six.moves import zip
 
-HAVE_PYGAL=False
+HAVE_PYGAL = False
 try:
     import pygal
-    HAVE_PYGAL=True
+
+    HAVE_PYGAL = True
 except ImportError:
     pass
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+
 
 class Usage(Processing):
     """Converts collected usage data to image for web display
@@ -46,10 +48,10 @@ class Usage(Processing):
 
         usage["log"] = usage_log
 
-        line_chart = pygal.Line(fill=True, height=150, range=[0,100], y_labels_major_every=1, show_dots=False, y_labels=[0, 25, 50, 75, 100])
+        line_chart = pygal.Line(fill=True, height=150, range=[0, 100], y_labels_major_every=1, show_dots=False, y_labels=[0, 25, 50, 75, 100])
         line_chart.add("CPU", cpu_points)
         line_chart.add("MEM", mem_points)
-        
+
         data = line_chart.render()
 
         usage_svg = os.path.join(aux_path, "usage.svg")

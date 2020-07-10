@@ -5,8 +5,10 @@
 import os
 from lib.common.abstracts import Package
 
+
 class Emotet_doc(Package):
     """Word analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
@@ -29,4 +31,4 @@ class Emotet_doc(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q" % path, path)
+        return self.execute(word, '"%s" /q' % path, path)

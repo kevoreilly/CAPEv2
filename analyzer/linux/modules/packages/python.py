@@ -5,6 +5,7 @@
 
 from lib.core.packages import Package
 
+
 class Python(Package):
     """ Python script analysis package. """
 

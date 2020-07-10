@@ -34,10 +34,11 @@ log = logging.getLogger(__name__)
 
 db = Database()
 
+
 class ReSubmitExtractedEXE(Report):
     def run(self, results):
         self.noinject = self.options.get("noinject", False)
-        self.resublimit = int(self.options.get("resublimit",5))
+        self.resublimit = int(self.options.get("resublimit", 5))
         filesdict = {}
         self.task_options_stack = []
         self.task_options = None
@@ -48,8 +49,7 @@ class ReSubmitExtractedEXE(Report):
         meta = dict()
         report = dict(results)
 
-        if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and \
-                report["info"]["options"]["resubmitjob"]:
+        if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]:
             return
 
         # copy all the options from current
@@ -70,7 +70,7 @@ class ReSubmitExtractedEXE(Report):
             self.task_options_stack.append("free=true")
 
         if self.task_options_stack:
-            self.task_options=','.join(self.task_options_stack)
+            self.task_options = ",".join(self.task_options_stack)
 
         report = dict(results)
         if report.get("dropped"):
@@ -87,11 +87,16 @@ class ReSubmitExtractedEXE(Report):
             if self.resubcnt >= self.resublimit:
                 break
             if os.path.isfile(dropped["path"]):
-                if ("PE32" in dropped["type"] or "MS-DOS" in dropped["type"]) and "DLL" not in dropped["type"] \
-                        and "native" not in dropped["type"]:
-                    if dropped['sha256'] not in filesdict:
-                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'])
-                        linkdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped['sha256'] + "_link")
+                if (
+                    ("PE32" in dropped["type"] or "MS-DOS" in dropped["type"])
+                    and "DLL" not in dropped["type"]
+                    and "native" not in dropped["type"]
+                ):
+                    if dropped["sha256"] not in filesdict:
+                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"])
+                        linkdir = os.path.join(
+                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"] + "_link"
+                        )
 
                         metastrings = meta[dropped["path"]].get("metadata", "").split(";?")
                         if len(metastrings) < 2:
@@ -104,13 +109,13 @@ class ReSubmitExtractedEXE(Report):
                         try:
                             if not os.path.exists(linkpath):
                                 os.symlink(srcpath, linkpath)
-                            filesdict[dropped['sha256']] = linkpath
+                            filesdict[dropped["sha256"]] = linkpath
                             self.resubcnt += 1
                         except:
-                            filesdict[dropped['sha256']] = dropped['path']
+                            filesdict[dropped["sha256"]] = dropped["path"]
                             self.resubcnt += 1
 
-        #ToDo i think this is outdated
+        # ToDo i think this is outdated
         if "suricata" in report and report["suricata"]:
             if "files" in report["suricata"] and report["suricata"]["files"]:
                 for suricata_file_e in results["suricata"]["files"]:
@@ -125,8 +130,7 @@ class ReSubmitExtractedEXE(Report):
                             ftype = suricata_file_e["file_info"]["type"]
                             if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:
                                 if suricata_file_e["file_info"]["sha256"] not in filesdict:
-                                    filesdict[suricata_file_e["file_info"]["sha256"]] = \
-                                        suricata_file_e["file_info"]["path"]
+                                    filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"]["path"]
                                     self.resubcnt = self.resubcnt + 1
 
         for e in filesdict:
@@ -138,22 +142,24 @@ class ReSubmitExtractedEXE(Report):
             self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
             if "custom" in report["info"] and report["info"]["custom"]:
                 self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
-            task_id = db.add_path(file_path=filesdict[e],
-                                  package='exe',
-                                  timeout=200,
-                                  options=self.task_options,
-                                  priority=1,
-                                  machine=self.machine or "",
-                                  platform=None,
-                                  custom=self.task_custom,
-                                  memory=False,
-                                  enforce_timeout=False,
-                                  clock=None,
-                                  tags=None,
-                                  parent_id=int(report["info"]["id"]),
-                                  tlp=self.tlp)
+            task_id = db.add_path(
+                file_path=filesdict[e],
+                package="exe",
+                timeout=200,
+                options=self.task_options,
+                priority=1,
+                machine=self.machine or "",
+                platform=None,
+                custom=self.task_custom,
+                memory=False,
+                enforce_timeout=False,
+                clock=None,
+                tags=None,
+                parent_id=int(report["info"]["id"]),
+                tlp=self.tlp,
+            )
 
             if task_id:
-                log.info(u"Resubmitexe file \"{0}\" added as task with ID {1}".format(filesdict[e], task_id))
+                log.info(u'Resubmitexe file "{0}" added as task with ID {1}'.format(filesdict[e], task_id))
             else:
                 log.warn("Error adding resubmitexe task to database")

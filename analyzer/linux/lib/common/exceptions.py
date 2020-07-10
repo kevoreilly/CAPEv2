@@ -4,8 +4,10 @@
 
 from __future__ import absolute_import
 
+
 class CuckooError(Exception):
     pass
+
 
 class CuckooPackageError(Exception):
     pass

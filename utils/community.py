@@ -18,6 +18,7 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
@@ -29,7 +30,7 @@ def install(enabled, force, rewrite, filepath):
         print("Downloading modules from {0}".format(URL))
         try:
             http = urllib3.PoolManager()
-            data = http.request('GET', URL).data
+            data = http.request("GET", URL).data
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
@@ -39,8 +40,8 @@ def install(enabled, force, rewrite, filepath):
         "feeds": "modules/feeds",
         "signatures": "modules/signatures",
         "processing": "modules/processing",
-        "reporting":  "modules/reporting",
-        "machinery":  "modules/machinery",
+        "reporting": "modules/reporting",
+        "machinery": "modules/machinery",
         "analyzer": "analyzer",
         "data": "data",
     }
@@ -61,7 +62,7 @@ def install(enabled, force, rewrite, filepath):
             if not member.name.startswith(name_start) or name_start == member.name:
                 continue
 
-            filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start)+1:])
+            filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start) + 1 :])
             if member.name.endswith(".gitignore"):
                 continue
 
@@ -72,14 +73,14 @@ def install(enabled, force, rewrite, filepath):
 
             if not rewrite:
                 if os.path.exists(filepath):
-                    print("File \"{}\" already exists, {}". format(filepath, colors.yellow("skipped")))
+                    print('File "{}" already exists, {}'.format(filepath, colors.yellow("skipped")))
                     continue
 
             install = False
             dest_file = os.path.basename(filepath)
             if not force:
                 while 1:
-                    choice = input("Do you want to install file \"{}\"? [yes/no] ".format(dest_file))
+                    choice = input('Do you want to install file "{}"? [yes/no] '.format(dest_file))
                     if choice.lower() == "yes":
                         install = True
                         break
@@ -94,7 +95,7 @@ def install(enabled, force, rewrite, filepath):
                 if not os.path.exists(os.path.dirname(filepath)):
                     os.makedirs(os.path.dirname(filepath))
 
-                print("File \"{}\" {}".format(filepath, colors.green("installed")))
+                print('File "{}" {}'.format(filepath, colors.green("installed")))
                 open(filepath, "wb").write(t.extractfile(member).read())
 
 
@@ -108,16 +109,12 @@ def main():
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers", action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
-    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc",
-                        action="store_true", required=False)
+    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
     parser.add_argument("-data", "--data", help="Download data items", action="store_true", required=False)
-    parser.add_argument("-f", "--force", help="Install files without confirmation",
-                        action="store_true", default=False, required=False)
+    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
-    parser.add_argument("-b", "--branch", help="Specify a different branch",
-                        action="store", default="master", required=False)
-    parser.add_argument("--file", help="Specify a local copy of a community .zip file",
-                        action="store", default=False, required=False)
+    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
+    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)

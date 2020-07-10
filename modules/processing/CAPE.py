@@ -17,6 +17,7 @@ import os
 import shutil
 import json
 import logging
+
 try:
     import re2 as re
 except ImportError:
@@ -33,6 +34,7 @@ from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, 
 
 try:
     import pydeep
+
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
@@ -42,33 +44,33 @@ ssdeep_threshold = 90
 # CAPE output types
 # To correlate with cape\cape.h in monitor
 
-PROCDUMP             = 0
-COMPRESSION          = 1
-INJECTION_PE         = 3
-INJECTION_SHELLCODE  = 4
-INJECTION_SECTION    = 5
-UNPACKED_PE        = 8
+PROCDUMP = 0
+COMPRESSION = 1
+INJECTION_PE = 3
+INJECTION_SHELLCODE = 4
+INJECTION_SECTION = 5
+UNPACKED_PE = 8
 UNPACKED_SHELLCODE = 9
-PLUGX_PAYLOAD        = 0x10
-PLUGX_CONFIG         = 0x11
-EVILGRAB_PAYLOAD     = 0x14
-EVILGRAB_DATA        = 0x15
-SEDRECO_DATA         = 0x20
-URSNIF_CONFIG        = 0x24
-URSNIF_PAYLOAD       = 0x25
-CERBER_CONFIG        = 0x30
-CERBER_PAYLOAD       = 0x31
-HANCITOR_CONFIG      = 0x34
-HANCITOR_PAYLOAD     = 0x35
-QAKBOT_CONFIG        = 0x38
-QAKBOT_PAYLOAD       = 0x39
-ICEDID_LOADER        = 0x40
-ICEDID_BOT           = 0x41
-SCRIPT_DUMP          = 0x65
-DATADUMP             = 0x66
-MOREEGGSJS_PAYLOAD   = 0x68
-MOREEGGSBIN_PAYLOAD  = 0x69
-UPX                  = 0x1000
+PLUGX_PAYLOAD = 0x10
+PLUGX_CONFIG = 0x11
+EVILGRAB_PAYLOAD = 0x14
+EVILGRAB_DATA = 0x15
+SEDRECO_DATA = 0x20
+URSNIF_CONFIG = 0x24
+URSNIF_PAYLOAD = 0x25
+CERBER_CONFIG = 0x30
+CERBER_PAYLOAD = 0x31
+HANCITOR_CONFIG = 0x34
+HANCITOR_PAYLOAD = 0x35
+QAKBOT_CONFIG = 0x38
+QAKBOT_PAYLOAD = 0x39
+ICEDID_LOADER = 0x40
+ICEDID_BOT = 0x41
+SCRIPT_DUMP = 0x65
+DATADUMP = 0x66
+MOREEGGSJS_PAYLOAD = 0x68
+MOREEGGSBIN_PAYLOAD = 0x69
+UPX = 0x1000
 
 log = logging.getLogger(__name__)
 
@@ -108,11 +110,7 @@ sedreco_map = {
     "0x9": "C&C3",
 }
 
-qakbot_map = {
-    "10": "Botnet name",
-    "11": "Number of C2 servers",
-    "47": "Bot ID"
-}
+qakbot_map = {"10": "Botnet name", "11": "Number of C2 servers", "47": "Bot ID"}
 
 qakbot_id_map = {
     b"22": "#1",
@@ -121,6 +119,7 @@ qakbot_id_map = {
     b"25": "#4",
     b"26": "#5",
 }
+
 
 class CAPE(Processing):
     """CAPE output file processing."""
@@ -131,7 +130,7 @@ class CAPE(Processing):
         unpacked_file = upx_harness(file_data)
         if unpacked_file and os.path.exists(unpacked_file):
             for unpacked_hit in File(unpacked_file).get_yara(category="CAPE"):
-                if unpacked_hit["name"] == 'UPX':
+                if unpacked_hit["name"] == "UPX":
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
                     os.unlink(unpacked_file)
@@ -291,7 +290,7 @@ class CAPE(Processing):
                 cape_name = "Cerber"
                 if not "cape_config" in cape_config:
                     cape_config["cape_config"] = {}
-                parsed = json.loads(file_data.rstrip(b'\0'))
+                parsed = json.loads(file_data.rstrip(b"\0"))
                 cape_config["cape_config"].update({"JSON Data": [json.dumps(parsed, indent=4, sort_keys=True)]})
                 append_file = True
             # Ursnif
@@ -306,7 +305,7 @@ class CAPE(Processing):
                 malwareconfig_loaded = False
                 try:
                     malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-                    file, pathname, description = imp.find_module(cape_name,[malwareconfig_parsers])
+                    file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
                     log.info("CAPE: Imported malwareconfig.com parser %s", cape_name)
@@ -337,13 +336,13 @@ class CAPE(Processing):
                 file_info["cape_type"] = "Hancitor Config"
                 if not "cape_config" in cape_config:
                     cape_config["cape_config"] = {}
-                ConfigStrings = file_data.split(b'\0')
+                ConfigStrings = file_data.split(b"\0")
                 ConfigStrings = [_f for _f in ConfigStrings if _f]
                 ConfigItem = "Campaign Code"
                 cape_config["cape_config"].update({ConfigItem: [ConfigStrings[0]]})
-                GateURLs = ConfigStrings[1].split(b'|')
+                GateURLs = ConfigStrings[1].split(b"|")
                 for index, value in enumerate(GateURLs):
-                    ConfigItem = "Gate URL " + str(index+1)
+                    ConfigItem = "Gate URL " + str(index + 1)
                     cape_config["cape_config"].update({ConfigItem: [value]})
                 append_file = False
             # QakBot
@@ -381,14 +380,14 @@ class CAPE(Processing):
                                 outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
                                 with open(filepath + "_info.txt", "w") as infofd:
                                     infofd.write(outstr)
-                                with open(filepath, 'w') as cfile:
+                                with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
                                 outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
                                 with open(filepath + "_info.txt", "w") as infofd:
                                     infofd.write(outstr)
-                                with open(filepath, 'wb') as cfile:
+                                with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
                             if os.path.exists(filepath):
                                 self.script_dump_files.append(filepath)
@@ -413,16 +412,12 @@ class CAPE(Processing):
                 self.upx_unpack(file_data, CAPE_output)
 
             # Check for a payload or config hit
-            extraction_types = [
-                "payload",
-                "config",
-                "loader"
-            ]
+            extraction_types = ["payload", "config", "loader"]
             try:
                 for type in extraction_types:
                     if type in hit["meta"].get("cape_type", "").lower():
                         file_info["cape_type"] = hit["meta"]["cape_type"]
-                        cape_name = hit["name"].replace('_', ' ')
+                        cape_name = hit["name"].replace("_", " ")
             except Exception as e:
                 print("Cape type error: {}".format(e))
             type_strings = file_info["type"].split()
@@ -452,14 +447,16 @@ class CAPE(Processing):
         for cape_file in CAPE_output:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
-                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"),
-                                                  cape_file["ssdeep"].encode("utf-8"))
+                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if file_info.get("entrypoint") and file_info["entrypoint"] == cape_file["entrypoint"] \
-                            and file_info["cape_type_code"] == cape_file["cape_type_code"] \
-                            and file_info["ep_bytes"] == cape_file["ep_bytes"]:
+                    if (
+                        file_info.get("entrypoint")
+                        and file_info["entrypoint"] == cape_file["entrypoint"]
+                        and file_info["cape_type_code"] == cape_file["cape_type_code"]
+                        and file_info["ep_bytes"] == cape_file["ep_bytes"]
+                    ):
                         log.info("CAPE duplicate output file skipped")
                         append_file = False
 
@@ -509,7 +506,7 @@ class CAPE(Processing):
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError("Sample file doesn't exist: \"%s\"" % self.file_path)
+                raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
 
         self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
         if cape_config.get("cape_config", []):

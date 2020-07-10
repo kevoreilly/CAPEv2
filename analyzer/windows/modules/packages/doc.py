@@ -7,8 +7,10 @@ import os
 
 from lib.common.abstracts import Package
 
+
 class DOC(Package):
     """Word analysis package."""
+
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
@@ -28,4 +30,4 @@ class DOC(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q /dde /n" % path, path)
+        return self.execute(word, '"%s" /q /dde /n' % path, path)

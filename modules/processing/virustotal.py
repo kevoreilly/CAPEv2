@@ -21,10 +21,12 @@ from lib.cuckoo.common.objects import File
 VIRUSTOTAL_FILE_URL = "https://www.virustotal.com/vtapi/v2/file/report"
 VIRUSTOTAL_URL_URL = "https://www.virustotal.com/vtapi/v2/url/report"
 
+
 class VirusTotal(Processing):
     """Gets antivirus signatures from VirusTotal.com"""
-    def getbool(self,s):
-        if isinstance(s,bool):
+
+    def getbool(self, s):
+        if isinstance(s, bool):
             rtn = s
         else:
             try:
@@ -65,14 +67,14 @@ class VirusTotal(Processing):
                 except Exception as e:
                     raise CuckooProcessingError("Failed to compile urlscrub regex" % (e))
                 try:
-                   resource = re.sub(urlscrub_compiled_re,"",resource)
+                    resource = re.sub(urlscrub_compiled_re, "", resource)
                 except Exception as e:
                     raise CuckooProcessingError("Failed to scrub url" % (e))
 
             # normalize the URL the way VT appears to
             if not resource.lower().startswith("http://") and not resource.lower().startswith("https://"):
                 resource = "http://" + resource
-            slashsplit = resource.split('/')
+            slashsplit = resource.split("/")
             slashsplit[0] = slashsplit[0].lower()
             slashsplit[2] = slashsplit[2].lower()
             if len(slashsplit) == 3:
@@ -110,9 +112,7 @@ class VirusTotal(Processing):
 
         if "scans" in virustotal:
             items = list(virustotal["scans"].items())
-            virustotal["scans"] = dict((engine.replace(".", "_"), signature)
-                                       for engine, signature in items)
+            virustotal["scans"] = dict((engine.replace(".", "_"), signature) for engine, signature in items)
             virustotal["resource"] = resource
-            virustotal["results"]=list(({"vendor":engine.replace(".", "_"),"sig": signature["result"]})
-                                            for engine, signature in items)
+            virustotal["results"] = list(({"vendor": engine.replace(".", "_"), "sig": signature["result"]}) for engine, signature in items)
         return virustotal

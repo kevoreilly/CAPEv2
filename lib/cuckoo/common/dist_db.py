@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from datetime import datetime
+
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, Index, DateTime, or_, and_, desc
 from sqlalchemy.ext.declarative import declarative_base
@@ -10,8 +11,10 @@ from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 
+
 class Node(Base):
     """Cuckoo node database model."""
+
     __tablename__ = "node"
     id = Column(Integer, primary_key=True)
     name = Column(Text, nullable=False)
@@ -25,15 +28,19 @@ class Node(Base):
 
 class StringList(TypeDecorator):
     """List of comma-separated strings as field."""
+
     impl = Text
+
     def process_bind_param(self, value, dialect):
         return ", ".join(value)
+
     def process_result_value(self, value, dialect):
         return value.split(", ")
 
 
 class Machine(Base):
     """Machine database model related to a Cuckoo node."""
+
     __tablename__ = "machine"
     id = Column(Integer, primary_key=True)
     name = Column(Text, nullable=False)
@@ -44,6 +51,7 @@ class Machine(Base):
 
 class Task(Base):
     """Analysis task database model."""
+
     __tablename__ = "task"
     id = Column(Integer, primary_key=True)
     path = Column(Text)
@@ -57,9 +65,7 @@ class Task(Base):
     tags = Column(Text)
     custom = Column(Text)
     memory = Column(Text)
-    clock = Column(DateTime(timezone=False),
-                   default=datetime.now(),
-                   nullable=False)
+    clock = Column(DateTime(timezone=False), default=datetime.now(), nullable=False)
     enforce_timeout = Column(Text)
     # Cuckoo node and Task ID this has been submitted to.
     node_id = Column(Integer, ForeignKey("node.id"))
@@ -69,10 +75,30 @@ class Task(Base):
     retrieved = Column(Boolean, nullable=False, default=False)
     notificated = Column(Boolean, nullable=True, default=False)
     deleted = Column(Boolean, nullable=False, default=False)
-    __table_args__ = Index("node_id_index", "node_id"), Index("task_id_index", "task_id"), Index("main_task_id_index", "main_task_id", unique=False)
+    __table_args__ = (
+        Index("node_id_index", "node_id"),
+        Index("task_id_index", "task_id"),
+        Index("main_task_id_index", "main_task_id", unique=False),
+    )
 
-    def __init__(self, path, category, package, timeout, priority, options, machine,
-                 platform, tags, custom, memory, clock, enforce_timeout, main_task_id=None, retrieved=False):
+    def __init__(
+        self,
+        path,
+        category,
+        package,
+        timeout,
+        priority,
+        options,
+        machine,
+        platform,
+        tags,
+        custom,
+        memory,
+        clock,
+        enforce_timeout,
+        main_task_id=None,
+        retrieved=False,
+    ):
         self.path = path
         self.category = category
         self.package = package
@@ -91,6 +117,7 @@ class Task(Base):
         self.main_task_id = main_task_id
         self.finished = False
         self.retrieved = False
+
 
 def create_session(db_connectionn, echo=False):
     engine = create_engine(db_connectionn, pool_size=40, max_overflow=0, echo=echo)

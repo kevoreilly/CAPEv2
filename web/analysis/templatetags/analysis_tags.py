@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import six
+
 try:
     import re2 as re
 except ImportError:
@@ -7,6 +8,7 @@ except ImportError:
 
 from django.template.defaultfilters import register
 from collections import OrderedDict
+
 
 @register.filter("mongo_id")
 def mongo_id(value):
@@ -20,26 +22,31 @@ def mongo_id(value):
     # Return value
     return six.text_type(value)
 
+
 @register.filter("is_dict")
 def is_dict(value):
     """Checks if value is an instance of dict"""
     return isinstance(value, dict)
 
+
 @register.filter
 def get_item(dictionary, key):
     return dictionary.get(key, "")
+
 
 @register.filter(name="dehex")
 def dehex(value):
     return re.sub(r"\\x[0-9a-f]{2}", "", value)
 
+
 @register.filter(name="stats_total")
 def stats_total(value):
     total = float()
     for item in value:
-       total += item["time"]
+        total += item["time"]
 
     return total
+
 
 @register.filter(name="sort")
 def sort(value):
@@ -51,10 +58,11 @@ def sort(value):
         return sorteddict
     return value
 
+
 @register.filter(name="format_cli")
 def format_cli(cli, length):
-    if cli.startswith("\""):
-        ret = " ".join(cli[cli[1:].index("\"")+2:].split()).strip()
+    if cli.startswith('"'):
+        ret = " ".join(cli[cli[1:].index('"') + 2 :].split()).strip()
     else:
         ret = " ".join(cli.split()[1:]).strip()
     if len(ret) >= length + 15:

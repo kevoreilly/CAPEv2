@@ -11,11 +11,13 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class Shellcode_x64(Package):
     """DLL analysis package."""
-    #PATHS = [
+
+    # PATHS = [
     #    ("SystemRoot", "system32"),
-    #]
+    # ]
 
     def start(self, path):
         loaderpath = "bin\\loader_x64.exe"
@@ -27,7 +29,7 @@ class Shellcode_x64(Package):
         newpath = os.path.join(basepath, os.path.basename(loaderpath))
         shutil.copy(loaderpath, newpath)
 
-        log.info("[-] newpath : "+newpath)
-        log.info("[-] arguments : "+arguments)
+        log.info("[-] newpath : " + newpath)
+        log.info("[-] arguments : " + arguments)
 
         return self.execute(newpath, arguments, newpath)

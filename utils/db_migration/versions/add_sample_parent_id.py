@@ -2,7 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-#https://www.pythoncentral.io/migrate-sqlalchemy-databases-alembic/
+# https://www.pythoncentral.io/migrate-sqlalchemy-databases-alembic/
 
 """add_sample_parent
 
@@ -15,8 +15,9 @@ Create Date: 2019-05-03 08:14:52.075368
 # revision identifiers, used by Alembic.
 from __future__ import absolute_import
 from __future__ import print_function
-revision = '36926b59dfbb'
-down_revision = '3c8bf4133b44'
+
+revision = "36926b59dfbb"
+down_revision = "3c8bf4133b44"
 
 from alembic import op
 import sqlalchemy as sa
@@ -29,7 +30,7 @@ from datetime import datetime
 try:
     from dateutil.parser import parse
 except ImportError:
-    print("Unable to import dateutil.parser", end=' ')
+    print("Unable to import dateutil.parser", end=" ")
     print("(install with `pip3 install python-dateutil`)")
     sys.exit()
 
@@ -44,8 +45,10 @@ sys.path.append(os.path.join(curdir, "..", "..", ".."))
 
 import lib.cuckoo.core.database as db
 
+
 def upgrade():
-    op.add_column('samples', sa.Column("parent", sa.Integer, nullable=True))
+    op.add_column("samples", sa.Column("parent", sa.Integer, nullable=True))
+
 
 def downgrade():
-    op.drop_column('samples', "parent")
+    op.drop_column("samples", "parent")

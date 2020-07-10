@@ -11,6 +11,7 @@ import logging
 
 try:
     import yara
+
     HAVE_YARA = True
 except ImportError:
     HAVE_YARA = False
@@ -42,7 +43,7 @@ def init_yara():
 
     # We divide yara rules in three categories.
     # CAPE adds a fourth
-    categories = ["binaries", "memory", "CAPE"] #"urls"
+    categories = ["binaries", "memory", "CAPE"]  # "urls"
     generated = []
     # Loop through all categories.
     for category in categories:
@@ -71,7 +72,7 @@ def init_yara():
         # Create index file and populate it.
         with open(index_path, "w") as index_handle:
             for signature in signatures:
-                index_handle.write("include \"{0}\"\n".format(signature))
+                index_handle.write('include "{0}"\n'.format(signature))
 
         generated.append(index_name)
 
@@ -80,6 +81,7 @@ def init_yara():
             print(("\t `-- {}", entry))
         else:
             print(("\t |-- {}", entry))
+
 
 def compile_yara(rulepath=""):
     """Compile Yara signatures.
@@ -91,8 +93,7 @@ def compile_yara(rulepath=""):
         return
 
     if not os.path.exists(rulepath):
-        print(("The specified rule file at {} doesn't exist, skip",
-                    rulepath))
+        print(("The specified rule file at {} doesn't exist, skip", rulepath))
         return
 
     try:
@@ -100,12 +101,13 @@ def compile_yara(rulepath=""):
     except:
         print("Unexpected error:", sys.exc_info()[0])
         raise
-        if 'duplicated identifier' in e.args[0]:
+        if "duplicated identifier" in e.args[0]:
             print("Duplicate rule in {}, rulepath")
             print(e.args[0])
         else:
             print("ERROR: SyntaxError in rules: {}".format(e.args))
             return
+
 
 def test_yara():
     print("About to attempt to compile yara rules...")
@@ -131,6 +133,7 @@ def test_yara():
         print(("Compiling {}", format(index_path)))
         compile_yara(index_path)
 
+
 def main():
     os.chdir(CUCKOO_ROOT)
 
@@ -138,6 +141,7 @@ def main():
     test_yara()
 
     print("Complete")
+
 
 if __name__ == "__main__":
     cfg = Config()

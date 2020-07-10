@@ -16,6 +16,7 @@ from lib.common.results import NetlogFile
 log = logging.getLogger(__name__)
 util = Utils()
 
+
 class DigiSig(Auxiliary):
     """Runs signtool.exe and parses the output.
 
@@ -31,18 +32,12 @@ class DigiSig(Auxiliary):
     good work around for this. Ideally make it an option so we don't force
     log unnecessary update network traffic.
     """
+
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
         self.cert_build = list()
         self.time_build = list()
-        self.json_data = {
-            "sha1": None,
-            "signers": list(),
-            "timestamp": None,
-            "valid": False,
-            "error": None,
-            "error_desc": None
-        }
+        self.json_data = {"sha1": None, "signers": list(), "timestamp": None, "valid": False, "error": None, "error_desc": None}
         self.enabled = True
 
     def build_output(self, outputType, line):
@@ -115,19 +110,16 @@ class DigiSig(Auxiliary):
 
         try:
             if self.config.category != "file":
-                log.debug("Skipping authenticode validation, analysis is not "
-                          "a file.")
+                log.debug("Skipping authenticode validation, analysis is not " "a file.")
                 return True
 
             sign_path = os.path.join(os.getcwd(), "bin", "signtool.exe")
             if not os.path.exists(sign_path):
-                log.info("Skipping authenticode validation, signtool.exe was "
-                         "not found in bin/")
+                log.info("Skipping authenticode validation, signtool.exe was " "not found in bin/")
                 return True
 
             log.debug("Checking for a digital signature.")
-            file_path = os.path.join(os.environ["TEMP"] + os.sep,
-                                     str(self.config.file_name))
+            file_path = os.path.join(os.environ["TEMP"] + os.sep, str(self.config.file_name))
             cmd = '{0} verify /pa /v "{1}"'.format(sign_path, file_path)
             ret, out, err = util.cmd_wrapper(cmd)
             out = out.decode(locale.getpreferredencoding(), errors="ignore")
@@ -155,8 +147,7 @@ class DigiSig(Auxiliary):
                     log.debug("File is not signed.")
 
             if self.json_data:
-                log.info("Uploading signature results to aux/{0}.json".format(
-                    self.__class__.__name__))
+                log.info("Uploading signature results to aux/{0}.json".format(self.__class__.__name__))
                 upload = BytesIO()
                 upload.write(json.dumps(self.json_data, ensure_ascii=False).encode("utf-8"))
                 upload.seek(0)
@@ -169,6 +160,7 @@ class DigiSig(Auxiliary):
         except Exception as e:
             print(e)
             import traceback
+
             log.exception(traceback.format_exc())
 
         return True

@@ -6,9 +6,22 @@ from __future__ import absolute_import
 import os
 from lib.common.abstracts import Package
 
-from winreg import (OpenKey, CreateKeyEx, SetValueEx, CloseKey, QueryInfoKey, EnumKey,
-        EnumValue, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER, KEY_SET_VALUE, KEY_READ,
-        REG_SZ, REG_DWORD)
+from winreg import (
+    OpenKey,
+    CreateKeyEx,
+    SetValueEx,
+    CloseKey,
+    QueryInfoKey,
+    EnumKey,
+    EnumValue,
+    HKEY_LOCAL_MACHINE,
+    HKEY_CURRENT_USER,
+    KEY_SET_VALUE,
+    KEY_READ,
+    REG_SZ,
+    REG_DWORD,
+)
+
 
 class PUB2007(Package):
     def __init__(self, options={}, config=None):
@@ -40,13 +53,11 @@ class PUB2007(Package):
                         installedVersions.append(officeVersion)
             CloseKey(officeKey)
         except WindowsError:
-                # Office isn't installed at all
-                return
+            # Office isn't installed at all
+            return
 
         for oVersion in installedVersions:
-            key = CreateKeyEx(HKEY_CURRENT_USER,
-                      r"{0}\{1}\Publisher\Security".format(baseOfficeKeyPath, oVersion),
-                      0, KEY_SET_VALUE)
+            key = CreateKeyEx(HKEY_CURRENT_USER, r"{0}\{1}\Publisher\Security".format(baseOfficeKeyPath, oVersion), 0, KEY_SET_VALUE)
 
             SetValueEx(key, "VBAWarnings", 0, REG_DWORD, 1)
             SetValueEx(key, "AccessVBOM", 0, REG_DWORD, 1)
@@ -54,9 +65,9 @@ class PUB2007(Package):
             CloseKey(key)
 
     def start(self, path):
-         self.set_keys()
-         publisher = self.get_path_glob("Microsoft Office Publisher")
-         if not path.endswith(".pub"):
-             os.rename(path, path + ".pub")
-             path += ".pub"
-         return self.execute(publisher, "\"%s\"" % path, path)
+        self.set_keys()
+        publisher = self.get_path_glob("Microsoft Office Publisher")
+        if not path.endswith(".pub"):
+            os.rename(path, path + ".pub")
+            path += ".pub"
+        return self.execute(publisher, '"%s"' % path, path)

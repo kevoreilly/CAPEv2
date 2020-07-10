@@ -9,8 +9,10 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 class Process:
     """Linux process."""
+
     first_process = True
     first_process_pid = None
 
@@ -20,10 +22,13 @@ class Process:
         self.pid = pid
 
     def is_alive(self):
-        if not os.path.exists("/proc/%u" % self.pid): return False
+        if not os.path.exists("/proc/%u" % self.pid):
+            return False
         status = self.get_proc_status()
-        if not status: return False
-        if "zombie" in status.get("State:", ""): return False
+        if not status:
+            return False
+        if "zombie" in status.get("State:", ""):
+            return False
         return True
 
     def get_parent_pid(self):
@@ -39,7 +44,7 @@ class Process:
         return {}
 
     def execute(self, cmd):
-        self.proc = proc = subprocess.Popen(cmd, env={"XAUTHORITY":"/root/.Xauthority", "DISPLAY":":0"})
+        self.proc = proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"})
         self.pid = proc.pid
         return True
 

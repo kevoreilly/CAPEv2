@@ -17,23 +17,77 @@ try:
     from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
+
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n"
-          "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
-          "pip3 install -U sflock")
+    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U sflock")
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
-tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode('utf8')
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode("utf8")
 
 demux_extensions_list = [
-    "", b".exe", b".dll", b".com", b".jar", b".pdf", b".msi", b".bin", b".scr", b".zip", b".tar", b".gz", b".tgz", b".rar", b".htm",
-    b".html", b".hta", b".doc", b".dot", b".docx", b".dotx", b".docm", b".dotm", b".docb", b".mht", b".mso", b".js", b".jse",
-    b".vbs", b".vbe", b".xls", b".xlt", b".xlm", b".xlsx", b".xltx", b".xlsm", b".xltm", b".xlsb", b".xla", b".xlam", b".xll",
-    b".xlw", b".ppt", b".pot", b".pps", b".pptx", b".pptm", b".potx", b".potm", b".ppam", b".ppsx", b".ppsm", b".sldx", b".sldm",
-    b".wsf", b".bat", b".ps1", b".sh", b".pl", b".lnk"
+    "",
+    b".exe",
+    b".dll",
+    b".com",
+    b".jar",
+    b".pdf",
+    b".msi",
+    b".bin",
+    b".scr",
+    b".zip",
+    b".tar",
+    b".gz",
+    b".tgz",
+    b".rar",
+    b".htm",
+    b".html",
+    b".hta",
+    b".doc",
+    b".dot",
+    b".docx",
+    b".dotx",
+    b".docm",
+    b".dotm",
+    b".docb",
+    b".mht",
+    b".mso",
+    b".js",
+    b".jse",
+    b".vbs",
+    b".vbe",
+    b".xls",
+    b".xlt",
+    b".xlm",
+    b".xlsx",
+    b".xltx",
+    b".xlsm",
+    b".xltm",
+    b".xlsb",
+    b".xla",
+    b".xlam",
+    b".xll",
+    b".xlw",
+    b".ppt",
+    b".pot",
+    b".pps",
+    b".pptx",
+    b".pptm",
+    b".potx",
+    b".potm",
+    b".ppam",
+    b".ppsx",
+    b".ppsm",
+    b".sldx",
+    b".sldm",
+    b".wsf",
+    b".bat",
+    b".ps1",
+    b".sh",
+    b".pl",
+    b".lnk",
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
@@ -55,7 +109,7 @@ def options2passwd(options):
                 if key == "password":
                     # sflock requires password to be bytes object for Py3
                     if isinstance(value, str):
-                        value = value.encode('utf8')
+                        value = value.encode("utf8")
                     password = value
                     break
             except:
@@ -152,7 +206,6 @@ def demux_sflock(filename, options, package):
     return list(filter(None, retlist))
 
 
-
 def demux_sample(filename, package, options):
     """
     If file is a ZIP, extract its included files and return their file paths
@@ -160,7 +213,7 @@ def demux_sample(filename, package, options):
     """
     # sflock requires filename to be bytes object for Py3
     if isinstance(filename, str):
-        filename = filename.encode('utf8')
+        filename = filename.encode("utf8")
     # if a package was specified, then don't do anything special
     if package:
         return [filename]

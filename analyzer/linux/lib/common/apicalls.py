@@ -22,13 +22,16 @@ def apicalls(target, **kwargs):
     cmd = _stap_command_line(target, **kwargs)
     return cmd
 
+
 def _stap_command_line(target, **kwargs):
     config = Config(cfg="analysis.conf")
+
     def has_stap(p):
         only_stap = [fn for fn in os.listdir(p) if fn.startswith("stap_") and fn.endswith(".ko")]
         if only_stap:
             return os.path.join(p, only_stap[0])
         return False
+
     path_cfg = config.get("analyzer_stap_path", None)
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
@@ -59,9 +62,9 @@ def _stap_command_line(target, **kwargs):
 
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
-    #if not run_as_root:
+    # if not run_as_root:
     #    target_cmd = '"sudo -u %s %s"' % (getuser(), target_cmd)
     #    cmd += "-DSUDO=1"
-    #cmd += ["-c", target_cmd]
+    # cmd += ["-c", target_cmd]
     cmd += " -c " + target_cmd
     return cmd

@@ -13,9 +13,11 @@ from Crypto.Cipher import ARC4
 
 header_ptrn = b"Content-Type: application/x-www-form-urlencoded"
 
+
 def RC4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
+
 
 def extract_config(data):
     config_data = dict()
@@ -27,17 +29,17 @@ def extract_config(data):
             cfg_start = data.find(header_ptrn)
             if cfg_start and cfg_start != -1:
                 start_offset = cfg_start + len(header_ptrn) + 1
-                rc4_seed = bytes(bytearray(unpack_from('>8B', data, offset=start_offset)))
-                config_data['RC4Seed'] = hexlify(rc4_seed)
+                rc4_seed = bytes(bytearray(unpack_from(">8B", data, offset=start_offset)))
+                config_data["RC4Seed"] = hexlify(rc4_seed)
                 key = md5(rc4_seed).digest()[:5]
-                config_data['EncryptionKey'] = hexlify(key)
-                enc_data = bytes(bytearray(unpack_from('>8192B', data, offset=start_offset+8)))
+                config_data["EncryptionKey"] = hexlify(key)
+                enc_data = bytes(bytearray(unpack_from(">8192B", data, offset=start_offset + 8)))
                 dec_data = RC4(key, enc_data)
-                config_data['Build'] = dec_data[:16].strip('\x00')
+                config_data["Build"] = dec_data[:16].strip("\x00")
                 for url in dec_data[16:].split("|"):
-                    urls.append(url.strip('\x00'))
-                config_data['URLs'] = urls
-                config_data['Version'] = unpack_from('>5s', data, offset=start_offset+16+8192)[0]
+                    urls.append(url.strip("\x00"))
+                config_data["URLs"] = urls
+                config_data["Version"] = unpack_from(">5s", data, offset=start_offset + 16 + 8192)[0]
                 print("")
             else:
                 return None

@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Unpacker_dll(Package):
     """CAPE Unpacker DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "rundll32.exe"),
     ]
@@ -47,4 +49,3 @@ class Unpacker_dll(Package):
             rundll32 = newname
 
         return self.execute(rundll32, args, path)
-        

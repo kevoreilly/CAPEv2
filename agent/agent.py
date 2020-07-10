@@ -17,7 +17,7 @@ import platform
 import tempfile
 import argparse
 import subprocess
-from io import BytesIO,StringIO
+from io import BytesIO, StringIO
 from zipfile import ZipFile
 
 import http.server
@@ -26,13 +26,17 @@ import socketserver
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
-#You must run x86 version not x64
-if sys.maxsize > 2**32:
+# You must run x86 version not x64
+if sys.maxsize > 2 ** 32:
     sys.exit("You should install python3 x86! not x64")
 
 AGENT_VERSION = "0.11"
 AGENT_FEATURES = [
-    "execpy", "pinning", "logs", "largefile", "unicodepath",
+    "execpy",
+    "pinning",
+    "logs",
+    "largefile",
+    "unicodepath",
 ]
 
 STATUS_INIT = 0x0001
@@ -44,9 +48,10 @@ ANALYZER_FOLDER = ""
 state = dict()
 state["status"] = STATUS_INIT
 
-#To send output to stdin comment out this 2 lines
+# To send output to stdin comment out this 2 lines
 sys.stdout = StringIO()
 sys.stderr = StringIO()
+
 
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
@@ -65,9 +70,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             "CONTENT_TYPE": self.headers.get("Content-Type"),
         }
 
-        form = cgi.FieldStorage(fp=self.rfile,
-                                headers=self.headers,
-                                environ=environ)
+        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
 
         request.client_ip, request.client_port = self.client_address
         request.form = {}
@@ -82,6 +85,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 else:
                     request.form[key] = value.value
         self.httpd.handle(self)
+
 
 class MiniHTTPServer(object):
     def __init__(self):
@@ -105,6 +109,7 @@ class MiniHTTPServer(object):
             for method in methods:
                 self.routes[method].append((re.compile(path + "$"), fn))
             return fn
+
         return register
 
     def handle(self, obj):
@@ -136,8 +141,10 @@ class MiniHTTPServer(object):
         # that from the same thread as that will deadlock the whole thing.
         self.s._BaseServer__shutdown_request = True
 
+
 class jsonify(object):
     """Wrapper that represents Flask.jsonify functionality."""
+
     def __init__(self, **kwargs):
         self.status_code = 200
         self.values = kwargs
@@ -151,8 +158,10 @@ class jsonify(object):
     def headers(self, obj):
         pass
 
+
 class send_file(object):
     """Wrapper that represents Flask.send_file functionality."""
+
     def __init__(self, path):
         self.path = path
         self.status_code = 200
@@ -179,6 +188,7 @@ class send_file(object):
     def headers(self, obj):
         obj.send_header("Content-Length", self.length)
 
+
 class request(object):
     form = {}
     files = {}
@@ -189,33 +199,35 @@ class request(object):
         "werkzeug.server.shutdown": lambda: app.shutdown(),
     }
 
+
 app = MiniHTTPServer()
+
 
 def json_error(error_code, message):
     r = jsonify(message=message, error_code=error_code)
     r.status_code = error_code
     return r
 
+
 def json_exception(message):
-    r = jsonify(message=message, error_code=500,
-                traceback=traceback.format_exc())
+    r = jsonify(message=message, error_code=500, traceback=traceback.format_exc())
     r.status_code = 500
     return r
+
 
 def json_success(message, **kwargs):
     return jsonify(message=message, **kwargs)
 
+
 @app.route("/")
 def get_index():
-    return json_success(
-        "CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES
-    )
+    return json_success("CAPE Agent!", version=AGENT_VERSION, features=AGENT_FEATURES)
+
 
 @app.route("/status")
 def get_status():
-    return json_success("Analysis status",
-                        status=state.get("status"),
-                        description=state.get("description"))
+    return json_success("Analysis status", status=state.get("status"), description=state.get("description"))
+
 
 @app.route("/status", methods=["POST"])
 def put_status():
@@ -226,25 +238,26 @@ def put_status():
     state["description"] = request.form.get("description")
     return json_success("Analysis status updated")
 
+
 @app.route("/logs")
 def get_logs():
-    return json_success(
-        "Agent logs",
-        stdout=sys.stdout.getvalue(),
-        stderr=sys.stderr.getvalue()
-    )
+    return json_success("Agent logs", stdout=sys.stdout.getvalue(), stderr=sys.stderr.getvalue())
+
 
 @app.route("/system")
 def get_system():
     return json_success("System", system=platform.system())
 
+
 @app.route("/environ")
 def get_environ():
     return json_success("Environment variables", environ=dict(os.environ))
 
+
 @app.route("/path")
 def get_path():
     return json_success("Agent path", filepath=os.path.abspath(__file__))
+
 
 @app.route("/mkdir", methods=["POST"])
 def do_mkdir():
@@ -260,6 +273,7 @@ def do_mkdir():
 
     return json_success("Successfully created directory")
 
+
 @app.route("/mktemp", methods=["GET", "POST"])
 def do_mktemp():
     suffix = request.form.get("suffix", "")
@@ -273,8 +287,8 @@ def do_mktemp():
 
     os.close(fd)
 
-    return json_success("Successfully created temporary file",
-                        filepath=filepath)
+    return json_success("Successfully created temporary file", filepath=filepath)
+
 
 @app.route("/mkdtemp", methods=["GET", "POST"])
 def do_mkdtemp():
@@ -287,8 +301,8 @@ def do_mkdtemp():
     except:
         return json_exception("Error creating temporary directory")
 
-    return json_success("Successfully created temporary directory",
-                        dirpath=dirpath)
+    return json_success("Successfully created temporary directory", dirpath=dirpath)
+
 
 @app.route("/store", methods=["POST"])
 def do_store():
@@ -300,11 +314,12 @@ def do_store():
 
     try:
         with open(request.form["filepath"], "wb") as f:
-            shutil.copyfileobj(request.files["file"], f, 10*1024*1024)
+            shutil.copyfileobj(request.files["file"], f, 10 * 1024 * 1024)
     except:
         return json_exception("Error storing file")
 
     return json_success("Successfully stored file")
+
 
 @app.route("/retrieve", methods=["POST"])
 def do_retrieve():
@@ -312,6 +327,7 @@ def do_retrieve():
         return json_error(400, "No filepath has been provided")
 
     return send_file(request.form["filepath"])
+
 
 @app.route("/extract", methods=["POST"])
 def do_extract():
@@ -328,6 +344,7 @@ def do_extract():
         return json_exception("Error extracting zip file")
 
     return json_success("Successfully extracted zip file")
+
 
 @app.route("/remove", methods=["POST"])
 def do_remove():
@@ -354,6 +371,7 @@ def do_remove():
 
     return json_success(message)
 
+
 @app.route("/execute", methods=["POST"])
 def do_execute():
     if "command" not in request.form:
@@ -370,10 +388,7 @@ def do_execute():
         if async_exec:
             subprocess.Popen(request.form["command"], shell=shell, cwd=cwd)
         else:
-            p = subprocess.Popen(
-                request.form["command"], shell=shell, cwd=cwd,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            p = subprocess.Popen(request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except:
         state["status"] = STATUS_FAILED
@@ -381,8 +396,8 @@ def do_execute():
         return json_exception("Error executing command")
 
     state["status"] = STATUS_RUNNING
-    return json_success("Successfully executed command",
-                        stdout=stdout, stderr=stderr)
+    return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
+
 
 @app.route("/execpy", methods=["POST"])
 def do_execpy():
@@ -404,9 +419,7 @@ def do_execpy():
         if async_exec:
             subprocess.Popen(args, cwd=cwd)
         else:
-            p = subprocess.Popen(args, cwd=cwd,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            p = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except:
         state["status"] = STATUS_FAILED
@@ -414,8 +427,8 @@ def do_execpy():
         return json_exception("Error executing command")
 
     state["status"] = STATUS_RUNNING
-    return json_success("Successfully executed command",
-                        stdout=stdout, stderr=stderr)
+    return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
+
 
 @app.route("/pinning")
 def do_pinning():
@@ -423,8 +436,8 @@ def do_pinning():
         return json_error(500, "Agent has already been pinned to an IP!")
 
     state["client_ip"] = request.client_ip
-    return json_success("Successfully pinned Agent",
-                        client_ip=request.client_ip)
+    return json_success("Successfully pinned Agent", client_ip=request.client_ip)
+
 
 @app.route("/kill")
 def do_kill():
@@ -440,6 +453,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
     parser.add_argument("port", nargs="?", default="8000")
-    #ToDo redir to stdout
+    # ToDo redir to stdout
     args = parser.parse_args()
     app.run(host=args.host, port=int(args.port))

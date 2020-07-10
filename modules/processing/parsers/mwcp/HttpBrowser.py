@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule HttpBrowser
 {
     meta:
@@ -38,20 +38,22 @@ rule HttpBrowser
         $connect_1 or $connect_2 or $connect_3 or $connect_4
 }
 
-'''
+"""
 
 MAX_STRING_SIZE = 67
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'HttpBrowser':
+        if match.rule == "HttpBrowser":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
+
 
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -59,83 +61,86 @@ def pe_data(pe, va, size):
     data = pe.get_data(rva, size)
     return data
 
+
 def ascii_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack('i', pe.__data__[offset:offset+4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset:string_offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
+
 
 def unicode_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack('i', pe.__data__[offset:offset+4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset:string_offset+MAX_STRING_SIZE].split(b"\x00\x00")[0]
+    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\x00\x00")[0]
     return string
+
 
 class evilgrab(Parser):
 
-    DESCRIPTION = 'HttpBrowser configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "HttpBrowser configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        type1 = yara_scan(filebuf, '$connect_1')
-        type2 = yara_scan(filebuf, '$connect_2')
-        type3 = yara_scan(filebuf, '$connect_3')
-        type4 = yara_scan(filebuf, '$connect_4')
+        type1 = yara_scan(filebuf, "$connect_1")
+        type2 = yara_scan(filebuf, "$connect_2")
+        type3 = yara_scan(filebuf, "$connect_3")
+        type4 = yara_scan(filebuf, "$connect_4")
 
         if type1:
-            yara_offset = int(type1['$connect_1'])
+            yara_offset = int(type1["$connect_1"])
 
-            port = ascii_from_va(pe, yara_offset+39)
+            port = ascii_from_va(pe, yara_offset + 39)
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            c2_address = unicode_from_va(pe, yara_offset+49)
+            c2_address = unicode_from_va(pe, yara_offset + 49)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
         if type2:
-            yara_offset = int(type2['$connect_2'])
+            yara_offset = int(type2["$connect_2"])
 
-            port = ascii_from_va(pe, yara_offset+35)
+            port = ascii_from_va(pe, yara_offset + 35)
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            c2_address = unicode_from_va(pe, yara_offset+45)
+            c2_address = unicode_from_va(pe, yara_offset + 45)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
         if type3:
-            yara_offset = int(type3['$connect_3'])
+            yara_offset = int(type3["$connect_3"])
 
-            port = ascii_from_va(pe, yara_offset+18)
+            port = ascii_from_va(pe, yara_offset + 18)
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            c2_address = unicode_from_va(pe, yara_offset+28)
+            c2_address = unicode_from_va(pe, yara_offset + 28)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            c2_address = unicode_from_va(pe, yara_offset+66)
+            c2_address = unicode_from_va(pe, yara_offset + 66)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
         if type4:
-            yara_offset = int(type4['$connect_4'])
+            yara_offset = int(type4["$connect_4"])
 
-            c2_address = unicode_from_va(pe, yara_offset+35)
+            c2_address = unicode_from_va(pe, yara_offset + 35)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            filepath = unicode_from_va(pe, yara_offset+90)
+            filepath = unicode_from_va(pe, yara_offset + 90)
             if filepath:
-                self.reporter.add_metadata('filepath', filepath)
+                self.reporter.add_metadata("filepath", filepath)
 
-            injectionprocess = unicode_from_va(pe, yara_offset-13)
+            injectionprocess = unicode_from_va(pe, yara_offset - 13)
             if injectionprocess:
-                self.reporter.add_metadata('injectionprocess', injectionprocess)
+                self.reporter.add_metadata("injectionprocess", injectionprocess)

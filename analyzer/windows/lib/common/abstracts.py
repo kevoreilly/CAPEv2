@@ -8,17 +8,20 @@ import os
 import logging
 
 INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC       = 1
+INJECT_QUEUEUSERAPC = 1
 
 log = logging.getLogger(__name__)
 log.info("Started imports")
 from lib.api.process import Process
 from lib.api.utils import Utils
 from lib.common.exceptions import CuckooPackageError
+
 log.info("End imports")
+
 
 class Package(object):
     """Base abstract analysis package."""
+
     PATHS = []
 
     def __init__(self, options={}, config=None):
@@ -58,8 +61,7 @@ class Package(object):
                     yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
             elif basedir == "ProgramFiles":
                 if os.getenv("ProgramFiles(x86)"):
-                    yield os.path.join(os.getenv("ProgramFiles(x86)"),
-                                       *path[1:])
+                    yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])
                 yield os.path.join(os.getenv("ProgramFiles").replace(" (x86)", ""), *path[1:])
             elif basedir == "HomeDrive":
                 # os.path.join() does not work well when giving just C:
@@ -78,8 +80,7 @@ class Package(object):
             if os.path.isfile(path):
                 return path
 
-        raise CuckooPackageError("Unable to find any %s executable." %
-                                 application)
+        raise CuckooPackageError("Unable to find any %s executable." % application)
 
     def get_path_glob(self, application):
         """Search for the application in all available paths with glob support.
@@ -91,8 +92,7 @@ class Package(object):
                 if os.path.isfile(path):
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." %
-                                 application)
+        raise CuckooPackageError("Unable to find any %s executable." % application)
 
     def get_path_app_in_path(self, application):
         """Search for the application in all available paths.
@@ -106,8 +106,7 @@ class Package(object):
                 else:
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." %
-                                 application)
+        raise CuckooPackageError("Unable to find any %s executable." % application)
 
     def execute(self, path, args, interest):
         """Starts an executable for analysis.
@@ -124,8 +123,7 @@ class Package(object):
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
-            raise CuckooPackageError("Unable to execute the initial process, "
-                                     "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
 
         if free:
             return None
@@ -150,8 +148,7 @@ class Package(object):
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
-            raise CuckooPackageError("Unable to execute the initial process, "
-                                     "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
 
         is_64bit = p.is_64bit()
 
@@ -179,7 +176,7 @@ class Package(object):
         if self.options.get("procmemdump"):
             for pid in self.pids:
                 p = Process(pid=pid)
-                #p.upload_memdump()
+                # p.upload_memdump()
                 p.dump_memory()
 
         return True
@@ -197,6 +194,7 @@ class Package(object):
         outpath = os.path.join(self.curdir, os.path.basename(filepath))
         os.rename(filepath, outpath)
         return outpath
+
 
 class Auxiliary(object):
     def __init__(self, options={}, config=None):

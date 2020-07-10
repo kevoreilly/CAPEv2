@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 import configparser
 
+
 class Config:
     def __init__(self, cfg):
         """@param cfg: configuration file."""

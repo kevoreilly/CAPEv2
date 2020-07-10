@@ -19,6 +19,7 @@ class TestProcessing:
     def test_not_implemented_run(self):
         self.p.run()
 
+
 class TestSignature(object):
     def setUp(self):
         self.s = abstracts.Signature()
@@ -32,10 +33,11 @@ class TestSignature(object):
         self.s.results = {"network": {}}
         assert_equals(None, self.s.check_domain("*"))
 
+
 class TestReport:
     def setUp(self):
         self.r = abstracts.Report()
-    
+
     def test_set_path(self):
         dir = tempfile.mkdtemp()
         rep_dir = os.path.join(dir, "reports")

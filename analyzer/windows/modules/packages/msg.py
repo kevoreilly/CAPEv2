@@ -5,8 +5,10 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
+
 class MSG(Package):
     """Outlook MSG analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "OUTLOOK.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "OUTLOOK.EXE"),
@@ -15,4 +17,4 @@ class MSG(Package):
 
     def start(self, path):
         outlook = self.get_path_glob("Microsoft Office Outlook")
-        return self.execute(outlook, "/f \"%s\"" % path, path)
+        return self.execute(outlook, '/f "%s"' % path, path)

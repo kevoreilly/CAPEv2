@@ -18,6 +18,7 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 try:
     import requests
+
     HAVE_REQUEST = True
 except ImportError:
     HAVE_REQUEST = False
@@ -27,6 +28,7 @@ log = logging.getLogger(__name__)
 report_cfg = Config("reporting")
 
 db = Database()
+
 
 class AnalysisInfo(Processing):
     """General information about analysis session."""
@@ -38,11 +40,9 @@ class AnalysisInfo(Processing):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError("Error decoding %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error decoding %s: %s" % (self.log_path, e))
             except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error opening %s: %s" % (self.log_path, e))
             else:
                 if "INFO: Analysis timeout hit, terminating analysis" in analysis_log:
                     return True
@@ -56,15 +56,13 @@ class AnalysisInfo(Processing):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError("Error decoding %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error decoding %s: %s" % (self.log_path, e))
             except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening %s: %s" %
-                                            (self.log_path, e))
+                raise CuckooProcessingError("Error opening %s: %s" % (self.log_path, e))
             else:
                 try:
-                    idx = analysis_log.index("INFO: Automatically selected analysis package \"")
-                    package = analysis_log[idx+47:].split("\"", 1)[0]
+                    idx = analysis_log.index('INFO: Automatically selected analysis package "')
+                    package = analysis_log[idx + 47 :].split('"', 1)[0]
                 except:
                     pass
         return package
@@ -93,14 +91,13 @@ class AnalysisInfo(Processing):
             # Get machine description ad json.
             machine = task.guest.to_dict()
             # Remove useless task_id.
-            del(machine["task_id"])
+            del machine["task_id"]
             # Save.
             self.task["machine"] = machine
         distributed = dict()
         if HAVE_REQUEST and report_cfg.distributed.enabled:
             try:
-                res = requests.get(
-                    "http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=3, verify=False)
+                res = requests.get("http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=3, verify=False)
                 if res and res.ok:
                     if "name" in res.json():
                         distributed["name"] = res.json()["name"]
@@ -131,5 +128,5 @@ class AnalysisInfo(Processing):
             parent_sample=parent_sample_details,
             distributed=distributed,
             options=get_options(self.task["options"]),
-            source_url = source_url,
+            source_url=source_url,
         )

@@ -9,6 +9,7 @@ import datetime
 
 try:
     import bson
+
     HAVE_BSON = True
 except ImportError:
     HAVE_BSON = False
@@ -38,40 +39,42 @@ log = logging.getLogger(__name__)
 # thus we can reuse report generation / signatures for other API trace sources.
 ###############################################################################
 
-TYPECONVERTERS = {
-    "h": lambda v: "0x%08x" % default_converter(v),
-    "p": lambda v: "0x%.08x" % default_converter(v)
-}
+TYPECONVERTERS = {"h": lambda v: "0x%08x" % default_converter(v), "p": lambda v: "0x%.08x" % default_converter(v)}
 
 # 20 Mb max message length.
 MAX_MESSAGE_LENGTH = 20 * 1024 * 1024
 
+
 def pointer_converter_32bit(v):
-    return "0x%08x" % (v % 2**32)
+    return "0x%08x" % (v % 2 ** 32)
+
 
 def pointer_converter_64bit(v):
-    return "0x%016x" % (v % 2**64)
+    return "0x%016x" % (v % 2 ** 64)
+
 
 def default_converter_32bit(v):
     if isinstance(v, int) and v < 0:
-        return v % 2**32
+        return v % 2 ** 32
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
     if isinstance(v, str):
         return v.decode("latin-1")
     return v
+
 
 def default_converter_64bit(v):
     # Don't convert signed 64-bit integers into unsigned 64-bit integers as
     # MongoDB doesn't support 64-bit unsigned integers (and ElasticSearch
     # probably doesn't either).
     # if isinstance(v, (int, long)) and v < 0:
-        # return v % 2**64
+    # return v % 2**64
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
     if isinstance(v, str):
         return v.decode("latin-1")
     return v
+
 
 def check_names_for_typeinfo(arginfo):
     argnames = [i[0] if type(i) in (list, tuple) else i for i in arginfo]
@@ -81,8 +84,7 @@ def check_names_for_typeinfo(arginfo):
         if type(i) in (list, tuple):
             r = TYPECONVERTERS.get(i[1], None)
             if not r:
-                log.debug("Analyzer sent unknown format "
-                          "specifier '{0}'".format(i[1]))
+                log.debug("Analyzer sent unknown format " "specifier '{0}'".format(i[1]))
                 r = default_converter
             converters.append(r)
         else:
@@ -99,6 +101,7 @@ class BsonParser(object):
     Other message types typically get passed through after renaming the
     keys slightly.
     """
+
     converters_32bit = {
         None: default_converter_32bit,
         "p": pointer_converter_32bit,
@@ -181,7 +184,7 @@ class BsonParser(object):
         return argnames, converters
 
     def read_next_message(self):
-        #self.fd.seek(0)
+        # self.fd.seek(0)
         while True:
             data = self.fd.read(4)
             if not data:
@@ -193,8 +196,7 @@ class BsonParser(object):
 
             blen = struct.unpack("I", data)[0]
             if blen > MAX_MESSAGE_LENGTH:
-                log.critical("BSON message larger than MAX_MESSAGE_LENGTH, "
-                             "stopping handler.")
+                log.critical("BSON message larger than MAX_MESSAGE_LENGTH, " "stopping handler.")
                 return False
 
             data += self.fd.read(blen - 4)
@@ -206,8 +208,7 @@ class BsonParser(object):
             try:
                 dec = bson_decode(data)
             except Exception as e:
-                log.warning("BsonParser decoding problem {0} on "
-                            "data[:50] {1}".format(e, repr(data[:50])))
+                log.warning("BsonParser decoding problem {0} on " "data[:50] {1}".format(e, repr(data[:50])))
                 return False
 
             mtype = dec.get("type", "none")
@@ -236,7 +237,7 @@ class BsonParser(object):
                     # the default string "unknown."
                     category = category[0][1] if category else "unknown"
 
-                argnames, converters = check_names_for_typeinfo(arginfo) #self.determine_unserializers(arginfo)
+                argnames, converters = check_names_for_typeinfo(arginfo)  # self.determine_unserializers(arginfo)
                 self.infomap[index] = name, arginfo, argnames, converters, category
 
                 if dec.get("flags_value"):
@@ -251,8 +252,7 @@ class BsonParser(object):
                     continue
 
             elif mtype == "debug":
-                log.info("Debug message from monitor: "
-                         "{0}".format(dec.get("msg", "")))
+                log.info("Debug message from monitor: " "{0}".format(dec.get("msg", "")))
 
             elif mtype == "new_process":
                 # new_process message from VMI monitor.
@@ -266,28 +266,24 @@ class BsonParser(object):
             else:
                 # Regular api call.
                 if index not in self.infomap:
-                    log.warning("Got API with unknown index - monitor needs "
-                                "to explain first: {0}".format(dec))
+                    log.warning("Got API with unknown index - monitor needs " "to explain first: {0}".format(dec))
                     return True
 
                 apiname, arginfo, argnames, converters, category = self.infomap[index]
                 args = dec.get("args", [])
 
                 if len(args) != len(argnames):
-                    log.warning("Inconsistent arg count (compared to arg names) "
-                        "on %s: %s names %s", dec, argnames, apiname
-                    )
+                    log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](args[i]))
-                               for i in range(len(args)))
+                argdict = dict((argnames[i], converters[i](args[i])) for i in range(len(args)))
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.
                     timelow = argdict["TimeLow"] & 0xFFFFFFFF
                     timehigh = argdict["TimeHigh"] & 0xFFFFFFFF
                     # FILETIME is 100-nanoseconds from 1601 :/
-                    vmtimeunix = (timelow + (timehigh << 32))
+                    vmtimeunix = timelow + (timehigh << 32)
                     vmtimeunix = vmtimeunix / 10000000.0 - 11644473600
                     vmtime = datetime.datetime.fromtimestamp(vmtimeunix)
 
@@ -296,8 +292,7 @@ class BsonParser(object):
                     modulepath = argdict["ModulePath"]
                     procname = get_filename_from_path(modulepath)
 
-                    self.fd.log_process(context, vmtime, pid, ppid,
-                                             modulepath, procname)
+                    self.fd.log_process(context, vmtime, pid, ppid, modulepath, procname)
                     return True
 
                 elif apiname == "__thread__":
@@ -309,11 +304,11 @@ class BsonParser(object):
                     return True
 
                 # elif apiname == "__anomaly__":
-                    # tid = argdict["ThreadIdentifier"]
-                    # subcategory = argdict["Subcategory"]
-                    # msg = argdict["Message"]
-                    # self.fd.log_anomaly(subcategory, tid, msg)
-                    # return True
+                # tid = argdict["ThreadIdentifier"]
+                # subcategory = argdict["Subcategory"]
+                # msg = argdict["Message"]
+                # self.fd.log_anomaly(subcategory, tid, msg)
+                # return True
 
                 context[2] = argdict.pop("is_success", 1)
                 context[3] = argdict.pop("retval", 0)
@@ -323,4 +318,3 @@ class BsonParser(object):
                 self.fd.log_call(context, apiname, category, arguments)
 
             return True
-

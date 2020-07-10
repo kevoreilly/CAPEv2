@@ -11,6 +11,7 @@ import logging
 import tempfile
 import random
 import datetime
+
 try:
     import re2 as re
 except ImportError:
@@ -50,11 +51,13 @@ if repconf.distributed.enabled:
     try:
         # Tags
         from lib.cuckoo.common.dist_db import Machine, create_session
+
         HAVE_DIST = True
     except Exception as e:
         print(e)
 
 from urllib3 import disable_warnings
+
 disable_warnings()
 
 logger = logging.getLogger(__name__)
@@ -62,17 +65,19 @@ logger = logging.getLogger(__name__)
 
 if repconf.mongodb.enabled:
     import pymongo
+
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.db
-        )[repconf.mongodb.db]
+        authSource=repconf.mongodb.db,
+    )[repconf.mongodb.db]
     FULL_DB = True
 
 if HAVE_DIST:
     session = create_session(repconf.distributed.db)
+
 
 def load_vms_tags():
     all_tags = list()
@@ -116,7 +121,7 @@ def get_form_data(platform):
             label = "{}".format(machine.label)
 
         if web_conf.linux.enabled:
-            label = machine.platform+":"+label
+            label = machine.platform + ":" + label
 
         machines.append((machine.label, label))
 
@@ -133,10 +138,12 @@ class conditional_login_required(object):
     def __init__(self, dec, condition):
         self.decorator = dec
         self.condition = condition
+
     def __call__(self, func):
         if not self.condition:
             return func
         return self.decorator(func)
+
 
 def force_int(value):
     try:
@@ -176,14 +183,14 @@ def index(request, resubmit_hash=False):
         static = bool(request.POST.get("static", False))
         all_tags = load_vms_tags()
         if tags and not all([tag.strip() in all_tags for tag in tags.split(",")]):
-            return render(request, "error.html",
-                {"error": "Check Tags help, you have introduced incorrect tag(s)"})
+            return render(request, "error.html", {"error": "Check Tags help, you have introduced incorrect tag(s)"})
 
         if lin_options:
             options = lin_options
         # This is done to remove spaces in options but not breaks custom paths
-        options = ','.join('='.join(value.strip() for value in option.split("=", 1)) for option in options.split(",")
-                           if option and '=' in option)
+        options = ",".join(
+            "=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option
+        )
         opt_filename = get_user_filename(options, custom)
 
         if priority and web_conf.public.enabled and web_conf.public.priority:
@@ -247,7 +254,7 @@ def index(request, resubmit_hash=False):
         failed_hashes = list()
         task_ids_tmp = list()
 
-        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
+        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
             resubmission_hash = request.POST.get("hash").strip()
             paths = db.sample_path_by_hash(resubmission_hash)
             if paths:
@@ -257,8 +264,9 @@ def index(request, resubmit_hash=False):
                     if tasks:
                         for task in tasks or []:
                             # grab task id and replace in path if needed aka distributed hack
-                            path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses",
-                                                str(task["info"]["id"]), "files", resubmission_hash)
+                            path = os.path.join(
+                                settings.CUCKOO_PATH, "storage", "analyses", str(task["info"]["id"]), "files", resubmission_hash
+                            )
                             if os.path.exists(path):
                                 paths = [path]
                                 break
@@ -267,22 +275,44 @@ def index(request, resubmit_hash=False):
                 content = False
                 content = get_file_content(paths)
                 if not content:
-                    return render(request, "error.html",
-                                  {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
-                base_dir = tempfile.mkdtemp(prefix='resubmit_', dir=settings.TEMP_PATH)
+                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
+                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=settings.TEMP_PATH)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
                     filename = base_dir + "/" + sanitize_filename(resubmission_hash)
                 path = store_temp_file(content, filename)
                 headers = {}
-                url = 'local'
+                url = "local"
                 params = {}
 
-                status, task_ids = download_file(False, content, request, db, task_ids, url, params, headers, "Local",
-                                                 path, package, timeout, options, priority, machine, clock, custom,
-                                                 memory, enforce_timeout, referrer, tags, orig_options, "", static,
-                                                 tlp)
+                status, task_ids = download_file(
+                    False,
+                    content,
+                    request,
+                    db,
+                    task_ids,
+                    url,
+                    params,
+                    headers,
+                    "Local",
+                    path,
+                    package,
+                    timeout,
+                    options,
+                    priority,
+                    machine,
+                    clock,
+                    custom,
+                    memory,
+                    enforce_timeout,
+                    referrer,
+                    tags,
+                    orig_options,
+                    "",
+                    static,
+                    tlp,
+                )
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
@@ -297,10 +327,14 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request,
-                                  "error.html",
-                                  {"error": "You uploaded a file that exceeds the maximum allowed upload size "
-                                            "specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a file that exceeds the maximum allowed upload size "
+                            "specified in web/web/local_settings.py."
+                        },
+                    )
 
                 if opt_filename:
                     filename = opt_filename
@@ -311,8 +345,7 @@ def index(request, resubmit_hash=False):
                 path = store_temp_file(sample.read(), filename)
 
                 if unique and db.check_file_uniq(File(path).get_sha256()):
-                    return render(request, "error.html",
-                                  {"error": "Duplicated file, disable unique option to force submission"})
+                    return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
                 magic_type = get_magic_type(path)
                 if disable_x64 is True:
@@ -332,9 +365,11 @@ def index(request, resubmit_hash=False):
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        return render(request, "error.html",
-                                      {"error": "Wrong platform, {} VM selected for {} sample".format(
-                                          machine_details.platform, platform)})
+                        return render(
+                            request,
+                            "error.html",
+                            {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
+                        )
                     else:
                         task_machines = [machine]
 
@@ -345,11 +380,22 @@ def index(request, resubmit_hash=False):
                     if entry == "first":
                         entry = None
                     try:
-                        task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
-                                                                     options=options, priority=priority, machine=entry,
-                                                                     custom=custom, memory=memory, platform=platform,
-                                                                     enforce_timeout=enforce_timeout, tags=tags,
-                                                                     clock=clock, static=static, tlp=tlp)
+                        task_ids_new = db.demux_sample_and_add_to_db(
+                            file_path=path,
+                            package=package,
+                            timeout=timeout,
+                            options=options,
+                            priority=priority,
+                            machine=entry,
+                            custom=custom,
+                            memory=memory,
+                            platform=platform,
+                            enforce_timeout=enforce_timeout,
+                            tags=tags,
+                            clock=clock,
+                            static=static,
+                            tlp=tlp,
+                        )
                         task_ids.extend(task_ids_new)
                     except CuckooDemuxError as err:
                         return render(request, "error.html", {"error": err})
@@ -365,9 +411,14 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty quarantine file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html",
-                                  {"error": "You uploaded a quarantine file that exceeds the maximum \
-                                  allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a quarantine file that exceeds the maximum \
+                                  allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -387,9 +438,9 @@ def index(request, resubmit_hash=False):
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if not machine_details.platform == "windows":
-                        return render(request, "error.html",
-                                      {"error": "Wrong platform, linux VM selected for {} sample".format(
-                                          machine_details.platform)})
+                        return render(
+                            request, "error.html", {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)}
+                        )
                     else:
                         task_machines = [machine]
 
@@ -399,10 +450,20 @@ def index(request, resubmit_hash=False):
                 for entry in task_machines:
                     if entry == "first":
                         entry = None
-                    task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
-                                                                 options=options, priority=priority, machine=entry,
-                                                                 custom=custom, memory=memory, tags=tags,
-                                                                 enforce_timeout=enforce_timeout, clock=clock, tlp=tlp)
+                    task_ids_new = db.demux_sample_and_add_to_db(
+                        file_path=path,
+                        package=package,
+                        timeout=timeout,
+                        options=options,
+                        priority=priority,
+                        machine=entry,
+                        custom=custom,
+                        memory=memory,
+                        tags=tags,
+                        enforce_timeout=enforce_timeout,
+                        clock=clock,
+                        tlp=tlp,
+                    )
                     if task_ids_new:
                         task_ids.extend(task_ids_new)
 
@@ -415,8 +476,14 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html", {"error": "You uploaded a file that exceeds the maximum \
-                    allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a file that exceeds the maximum \
+                    allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -436,13 +503,18 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty PCAP file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html", {"error": "You uploaded a PCAP file that exceeds the maximum \
-                     allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a PCAP file that exceeds the maximum \
+                     allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
-                path = store_temp_file(sample.read(),
-                                       sample.name)
+                path = store_temp_file(sample.read(), sample.name)
 
                 if sample.name.lower().endswith(".saz"):
                     saz = saz_to_pcap(path)
@@ -471,9 +543,9 @@ def index(request, resubmit_hash=False):
             elif machine:
                 machine_details = db.view_machine(machine)
                 if hasattr(machine_details, "platform") and not machine_details.platform == "windows":
-                    return render(request, "error.html",
-                                  {"error": "Wrong platform, linux VM selected for {} sample".format(
-                                      machine_details.platform)})
+                    return render(
+                        request, "error.html", {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)}
+                    )
                 else:
                     task_machines = [machine]
 
@@ -483,9 +555,20 @@ def index(request, resubmit_hash=False):
             for entry in task_machines:
                 if entry == "first":
                     entry = None
-                task_ids_new = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
-                                          machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
-                                          tags=tags, clock=clock, tlp=tlp)
+                task_ids_new = db.add_url(
+                    url=url,
+                    package=package,
+                    timeout=timeout,
+                    options=options,
+                    priority=priority,
+                    machine=entry,
+                    custom=custom,
+                    memory=memory,
+                    enforce_timeout=enforce_timeout,
+                    tags=tags,
+                    clock=clock,
+                    tlp=tlp,
+                )
                 if task_ids_new:
                     task_ids.append(task_ids_new)
 
@@ -497,7 +580,7 @@ def index(request, resubmit_hash=False):
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
             response = _download_file(request.POST.get("route", None), url, options)
             if not response:
-                 return render(request, "error.html", {"error": "Was impossible to retrieve url"})
+                return render(request, "error.html", {"error": "Was impossible to retrieve url"})
 
             name = os.path.basename(url)
             if not "." in name:
@@ -512,7 +595,11 @@ def index(request, resubmit_hash=False):
             elif machine:
                 machine_details = db.view_machine(machine[0])
                 if not machine_details.platform == platform:
-                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)})
+                    return render(
+                        request,
+                        "error.html",
+                        {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
+                    )
                 else:
                     task_machines = [machine]
             else:
@@ -521,21 +608,36 @@ def index(request, resubmit_hash=False):
             for entry in task_machines:
                 if entry == "first":
                     entry = None
-                task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
-                                                             options=options, priority=priority, machine=entry,
-                                                             custom=custom, memory=memory,
-                                                             enforce_timeout=enforce_timeout, tags=tags,
-                                                             platform=platform, clock=clock, tlp=tlp, source_url=url)
+                task_ids_new = db.demux_sample_and_add_to_db(
+                    file_path=path,
+                    package=package,
+                    timeout=timeout,
+                    options=options,
+                    priority=priority,
+                    machine=entry,
+                    custom=custom,
+                    memory=memory,
+                    enforce_timeout=enforce_timeout,
+                    tags=tags,
+                    platform=platform,
+                    clock=clock,
+                    tlp=tlp,
+                    source_url=url,
+                )
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
 
-        elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) \
-                and request.POST.get("vtdl")[0] != '':
+        elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) and request.POST.get("vtdl")[0] != "":
             vtdl = request.POST.get("vtdl").strip()
             if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH:
-                    return render(request, "error.html",
-                                  {"error": "You specified VirusTotal but must edit the file and specify your "
-                                            "VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH base directory"})
+                return render(
+                    request,
+                    "error.html",
+                    {
+                        "error": "You specified VirusTotal but must edit the file and specify your "
+                        "VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH base directory"
+                    },
+                )
             else:
                 hashlist = []
                 if "," in vtdl:
@@ -544,7 +646,7 @@ def index(request, resubmit_hash=False):
                     hashlist.append(vtdl)
 
                 for h in hashlist:
-                    base_dir = tempfile.mkdtemp(prefix='cuckoovtdl', dir=settings.VTDL_PATH)
+                    base_dir = tempfile.mkdtemp(prefix="cuckoovtdl", dir=settings.VTDL_PATH)
                     task_ids_tmp = list()
                     if opt_filename:
                         filename = base_dir + "/" + opt_filename
@@ -556,23 +658,70 @@ def index(request, resubmit_hash=False):
                     if paths:
                         content = get_file_content(paths)
                     if settings.VTDL_PRIV_KEY:
-                        headers = {'x-apikey': settings.VTDL_PRIV_KEY}
+                        headers = {"x-apikey": settings.VTDL_PRIV_KEY}
                     elif settings.VTDL_INTEL_KEY:
-                        headers = {'x-apikey': settings.VTDL_INTEL_KEY}
-                    url = "https://www.virustotal.com/api/v3/files/{id}/download".format(id = h)
+                        headers = {"x-apikey": settings.VTDL_INTEL_KEY}
+                    url = "https://www.virustotal.com/api/v3/files/{id}/download".format(id=h)
                     params = {}
 
                     if not content:
-                        status, task_ids_tmp = download_file(False, content, request, db, task_ids, url, params,
-                                                             headers, "VirusTotal", filename, package, timeout,
-                                                             options, priority, machine, clock, custom, memory,
-                                                             enforce_timeout, referrer, tags, orig_options, "",
-                                                             static, tlp, h)
+                        status, task_ids_tmp = download_file(
+                            False,
+                            content,
+                            request,
+                            db,
+                            task_ids,
+                            url,
+                            params,
+                            headers,
+                            "VirusTotal",
+                            filename,
+                            package,
+                            timeout,
+                            options,
+                            priority,
+                            machine,
+                            clock,
+                            custom,
+                            memory,
+                            enforce_timeout,
+                            referrer,
+                            tags,
+                            orig_options,
+                            "",
+                            static,
+                            tlp,
+                            h,
+                        )
                     else:
-                        status, task_ids_tmp = download_file(False, content, request, db, task_ids, url, params,
-                                                             headers, "Local", filename, package, timeout, options,
-                                                             priority, machine, clock, custom, memory, enforce_timeout,
-                                                             referrer, tags, orig_options, "", static, tlp, h)
+                        status, task_ids_tmp = download_file(
+                            False,
+                            content,
+                            request,
+                            db,
+                            task_ids,
+                            url,
+                            params,
+                            headers,
+                            "Local",
+                            filename,
+                            package,
+                            timeout,
+                            options,
+                            priority,
+                            machine,
+                            clock,
+                            custom,
+                            memory,
+                            enforce_timeout,
+                            referrer,
+                            tags,
+                            orig_options,
+                            "",
+                            static,
+                            tlp,
+                            h,
+                        )
                     if status is "ok":
                         task_ids = task_ids_tmp
                     else:
@@ -616,7 +765,7 @@ def index(request, resubmit_hash=False):
             enabledconf["tags"] = True
 
         if not enabledconf["tags"]:
-            # load multi machinery tags:
+            #  load multi machinery tags:
             # Get enabled machinery
             machinery = cfg.cuckoo.get("machinery")
             if machinery == "multi":
@@ -639,19 +788,24 @@ def index(request, resubmit_hash=False):
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)
 
-        return render(request, "submission/index.html",
-                      {"packages": sorted(packages),
-                       "machines": machines,
-                       "vpns": list(vpns.values()),
-                       "socks5s": list(socks5s.values()),
-                       "socks5s_random": socks5s_random,
-                       "route": routing.routing.route,
-                       "internet": routing.routing.internet,
-                       "inetsim": routing.inetsim.enabled,
-                       "tor": routing.tor.enabled,
-                       "config": enabledconf,
-                       "resubmit": resubmit_hash,
-                       "tags": sorted(list(set(all_tags)))})
+        return render(
+            request,
+            "submission/index.html",
+            {
+                "packages": sorted(packages),
+                "machines": machines,
+                "vpns": list(vpns.values()),
+                "socks5s": list(socks5s.values()),
+                "socks5s_random": socks5s_random,
+                "route": routing.routing.route,
+                "internet": routing.routing.internet,
+                "inetsim": routing.inetsim.enabled,
+                "tor": routing.tor.enabled,
+                "config": enabledconf,
+                "resubmit": resubmit_hash,
+                "tags": sorted(list(set(all_tags))),
+            },
+        )
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -662,10 +816,10 @@ def status(request, task_id):
 
     completed = False
     if task.status == "reported":
-        return redirect('report', task_id=task_id)
+        return redirect("report", task_id=task_id)
 
     status = task.status
     if status == "completed":
         status = "processing"
 
-    return render(request, "submission/status.html", {"completed" : completed, "status" : status, "task_id" : task_id})
+    return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})

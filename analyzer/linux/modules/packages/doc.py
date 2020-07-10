@@ -6,10 +6,11 @@
 from os import system
 from lib.core.packages import Package
 
+
 class Doc(Package):
     """ LibreOffice document. """
 
     def prepare(self):
-        system("/bin/chmod +x \"%s\"" % self.target)
+        system('/bin/chmod +x "%s"' % self.target)
         self.args = [self.target] + self.args
         self.target = "/usr/bin/libreoffice --writer"

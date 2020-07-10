@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule SmokeLoader
 {
     meta:
@@ -34,29 +34,32 @@ rule SmokeLoader
     condition:
         (any of ($decrypt*)) and (any of ($ref*))
 }
-'''
+"""
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'SmokeLoader':
+        if match.rule == "SmokeLoader":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def xor_decode(buffer, key):
-    byte_key = 0xff
+    byte_key = 0xFF
     for i in range(0, 4):
-        byte_key = byte_key^(key >> (i * 8) & 0xff)
-    return ''.join(chr(ord(x)^byte_key) for x in buffer)
+        byte_key = byte_key ^ (key >> (i * 8) & 0xFF)
+    return "".join(chr(ord(x) ^ byte_key) for x in buffer)
+
 
 class SmokeLoader(Parser):
 
-    DESCRIPTION = 'SmokeLoader configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "SmokeLoader configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
@@ -67,17 +70,17 @@ class SmokeLoader(Parser):
         except:
             image_base = 0
 
-        table_ref = yara_scan(filebuf, '$ref64_1')
+        table_ref = yara_scan(filebuf, "$ref64_1")
         if table_ref:
-            table_ref_offset = int(table_ref['$ref64_1'])
-            table_delta = struct.unpack('i', filebuf[table_ref_offset+62:table_ref_offset+66])[0]
+            table_ref_offset = int(table_ref["$ref64_1"])
+            table_delta = struct.unpack("i", filebuf[table_ref_offset + 62 : table_ref_offset + 66])[0]
             table_offset = table_ref_offset + table_delta + 66
 
             table_loop = True
             while table_loop:
                 c2_offset = 0
                 if image_base:
-                    c2_rva = struct.unpack('Q', filebuf[table_offset:table_offset+8])[0]
+                    c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0]
                     if not c2_rva:
                         table_loop = False
                     else:
@@ -87,14 +90,14 @@ class SmokeLoader(Parser):
                     else:
                         table_loop = False
                 else:
-                    c2_offset = struct.unpack('I', filebuf[table_offset:table_offset+4])[0] & 0xffff
+                    c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
                 if c2_offset and c2_offset < 0x8000:
                     try:
-                        c2_size = struct.unpack('B', filebuf[c2_offset:c2_offset+1])[0]
-                        c2_key = struct.unpack('I', filebuf[c2_offset+c2_size+1:c2_offset+c2_size+5])[0]
-                        c2_url = xor_decode(filebuf[c2_offset+1:c2_offset+c2_size+1], c2_key).decode('ascii')
+                        c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+                        c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
+                        c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                         if c2_url:
-                            self.reporter.add_metadata('address', c2_url)
+                            self.reporter.add_metadata("address", c2_url)
                     except:
                         table_loop = False
                 else:
@@ -102,40 +105,40 @@ class SmokeLoader(Parser):
                 table_offset = table_offset + 8
             return
         else:
-            table_ref = yara_scan(filebuf, '$ref64_2')
+            table_ref = yara_scan(filebuf, "$ref64_2")
         if table_ref:
-            table_ref_offset = int(table_ref['$ref64_2'])
-            table_delta = struct.unpack('i', filebuf[table_ref_offset+26:table_ref_offset+30])[0]
+            table_ref_offset = int(table_ref["$ref64_2"])
+            table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
             table_offset = table_ref_offset + table_delta + 30
 
             for index in range(0, 2):
                 if image_base:
-                    c2_rva = struct.unpack('Q', filebuf[table_offset:table_offset+8])[0] - image_base
+                    c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0] - image_base
                     c2_offset = pe.get_offset_from_rva(c2_rva)
                 else:
-                    c2_offset = struct.unpack('I', filebuf[table_offset:table_offset+4])[0] & 0xffff
-                c2_size = struct.unpack('B', filebuf[c2_offset:c2_offset+1])[0]
-                c2_key = struct.unpack('I', filebuf[c2_offset+c2_size+1:c2_offset+c2_size+5])[0]
+                    c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
+                c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+                c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
                 try:
-                    c2_url = xor_decode(filebuf[c2_offset+1:c2_offset+c2_size+1], c2_key).decode('ascii')
+                    c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
-                        self.reporter.add_metadata('address', c2_url)
+                        self.reporter.add_metadata("address", c2_url)
                 except:
                     pass
                 table_offset = table_offset + 8
             return
         else:
-            table_ref = yara_scan(filebuf, '$ref32_1')
+            table_ref = yara_scan(filebuf, "$ref32_1")
         if table_ref:
-            table_ref_offset = int(table_ref['$ref32_1'])
-            table_rva = struct.unpack('i', filebuf[table_ref_offset+55:table_ref_offset+59])[0] - image_base
+            table_ref_offset = int(table_ref["$ref32_1"])
+            table_rva = struct.unpack("i", filebuf[table_ref_offset + 55 : table_ref_offset + 59])[0] - image_base
             table_offset = pe.get_offset_from_rva(table_rva)
 
             table_loop = True
             while table_loop:
                 c2_offset = 0
                 if image_base:
-                    c2_rva = struct.unpack('I', filebuf[table_offset:table_offset+4])[0]
+                    c2_rva = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0]
                     if not c2_rva:
                         table_loop = False
                     else:
@@ -145,14 +148,14 @@ class SmokeLoader(Parser):
                     else:
                         table_loop = False
                 else:
-                    c2_offset = struct.unpack('I', filebuf[table_offset:table_offset+4])[0] & 0xffff
+                    c2_offset = struct.unpack("I", filebuf[table_offset : table_offset + 4])[0] & 0xFFFF
                 if c2_offset and c2_offset < 0x8000:
                     try:
-                        c2_size = struct.unpack('B', filebuf[c2_offset:c2_offset+1])[0]
-                        c2_key = struct.unpack('I', filebuf[c2_offset+c2_size+1:c2_offset+c2_size+5])[0]
-                        c2_url = xor_decode(filebuf[c2_offset+1:c2_offset+c2_size+1], c2_key).decode('ascii')
+                        c2_size = struct.unpack("B", filebuf[c2_offset : c2_offset + 1])[0]
+                        c2_key = struct.unpack("I", filebuf[c2_offset + c2_size + 1 : c2_offset + c2_size + 5])[0]
+                        c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                         if c2_url:
-                            self.reporter.add_metadata('address', c2_url)
+                            self.reporter.add_metadata("address", c2_url)
                     except:
                         table_loop = False
                 else:

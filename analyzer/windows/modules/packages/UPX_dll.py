@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class UPX_dll(Package):
     """CAPE UPX DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "rundll32.exe"),
     ]
@@ -46,4 +48,3 @@ class UPX_dll(Package):
             rundll32 = newname
 
         return self.execute(rundll32, args, path)
-

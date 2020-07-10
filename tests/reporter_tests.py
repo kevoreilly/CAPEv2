@@ -15,8 +15,10 @@ class ReportMock(Report):
     def run(self, data):
         return
 
+
 class ReportAlterMock(Report):
     """Corrupts results dict."""
+
     def run(self, data):
-        data['foo'] = 'notbar'
+        data["foo"] = "notbar"
         return

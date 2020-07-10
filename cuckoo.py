@@ -34,6 +34,7 @@ except (CuckooDependencyError, ImportError) as e:
 
 log = logging.getLogger()
 
+
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
@@ -45,6 +46,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
     if artwork:
         import time
+
         try:
             while True:
                 time.sleep(1)
@@ -74,6 +76,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     ResultServer()
     os.chdir(cur_path)
 
+
 def cuckoo_main(max_analysis_count=0):
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
@@ -85,6 +88,7 @@ def cuckoo_main(max_analysis_count=0):
         sched.stop()
 
     os.chdir(cur_path)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -108,4 +112,3 @@ if __name__ == "__main__":
             sys.stderr.write("{0}\n".format(message))
 
         sys.exit(1)
-

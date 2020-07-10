@@ -11,14 +11,16 @@ Create Date: 2020-06-24 08:41:33.661473
 """
 
 # revision identifiers, used by Alembic.
-revision = '2996ec5ea15c'
-down_revision = '7331c4d994fd'
+revision = "2996ec5ea15c"
+down_revision = "7331c4d994fd"
 
 from alembic import op
 import sqlalchemy as sa
 
+
 def upgrade():
-    op.add_column('samples', sa.Column("source_url", sa.String(length=2000), nullable=True))
+    op.add_column("samples", sa.Column("source_url", sa.String(length=2000), nullable=True))
+
 
 def downgrade():
-    op.drop_column('samples', "source_url")
+    op.drop_column("samples", "source_url")

@@ -13,6 +13,7 @@ from lib.common.abstracts import Auxiliary
 
 log = logging.getLogger(__name__)
 
+
 class Browser(Auxiliary, Thread):
     """Launch a browser 30 seconds into the analysis"""
 
@@ -37,5 +38,5 @@ class Browser(Auxiliary, Thread):
                 ie = Process()
                 if not url:
                     url = "https://www.yahoo.com/"
-                ie.execute(path=iexplore, args="\"" + url + "\"", suspended=False)
+                ie.execute(path=iexplore, args='"' + url + '"', suspended=False)
                 ie.close()

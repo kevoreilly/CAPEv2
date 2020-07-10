@@ -10,8 +10,10 @@ from lib.common.abstracts import Package
 # Originally proposed by kidrek:
 # https://github.com/cuckoobox/cuckoo/pull/136
 
+
 class VBS(Package):
     """VBS analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
@@ -25,10 +27,10 @@ class VBS(Package):
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".vbs" and ext != ".vbe":
             if os.path.isfile(path) and b"#@~^" in open(path, "rb").read(100):
-                os.rename(path,path + ".vbe")
+                os.rename(path, path + ".vbe")
                 path = path + ".vbe"
             else:
-                os.rename(path,path + ".vbs")
+                os.rename(path, path + ".vbs")
                 path = path + ".vbs"
 
-        return self.execute(wscript, "\"%s\"" % path, path)
+        return self.execute(wscript, '"%s"' % path, path)

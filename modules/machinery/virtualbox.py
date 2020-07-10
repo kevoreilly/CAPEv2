@@ -22,6 +22,7 @@ from lib.cuckoo.common.config import Config
 log = logging.getLogger(__name__)
 cfg = Config()
 
+
 class VirtualBox(Machinery):
     """Virtualization layer for VirtualBox."""
 
@@ -38,12 +39,9 @@ class VirtualBox(Machinery):
         """
         # VirtualBox specific checks.
         if not self.options.virtualbox.path:
-            raise CuckooCriticalError("VirtualBox VBoxManage path missing, "
-                                      "please add it to the config file")
+            raise CuckooCriticalError("VirtualBox VBoxManage path missing, " "please add it to the config file")
         if not os.path.exists(self.options.virtualbox.path):
-            raise CuckooCriticalError("VirtualBox VBoxManage not found at "
-                                      "specified path \"%s\"" %
-                                      self.options.virtualbox.path)
+            raise CuckooCriticalError("VirtualBox VBoxManage not found at " 'specified path "%s"' % self.options.virtualbox.path)
 
         # Base checks.
         super(VirtualBox, self)._initialize_check()
@@ -56,51 +54,38 @@ class VirtualBox(Machinery):
         log.debug("Starting vm %s" % label)
 
         if self._status(label) == self.RUNNING:
-            raise CuckooMachineError("Trying to start an already "
-                                     "started vm %s" % label)
+            raise CuckooMachineError("Trying to start an already " "started vm %s" % label)
 
         vm_info = self.db.view_machine_by_label(label)
         virtualbox_args = [self.options.virtualbox.path, "snapshot", label]
         if vm_info.snapshot:
-            log.debug("Using snapshot {0} for virtual machine "
-                      "{1}".format(vm_info.snapshot, label))
+            log.debug("Using snapshot {0} for virtual machine " "{1}".format(vm_info.snapshot, label))
             virtualbox_args.extend(["restore", vm_info.snapshot])
         else:
-            log.debug("Using current snapshot for virtual machine "
-                      "{0}".format(label))
+            log.debug("Using current snapshot for virtual machine " "{0}".format(label))
             virtualbox_args.extend(["restorecurrent"])
 
         try:
-            if subprocess.call(virtualbox_args,
-                               universal_newlines=True,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE,
-                               close_fds=True):
-                raise CuckooMachineError("VBoxManage exited with error "
-                                         "restoring the machine's snapshot")
+            if subprocess.call(virtualbox_args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True):
+                raise CuckooMachineError("VBoxManage exited with error " "restoring the machine's snapshot")
         except OSError as e:
-            raise CuckooMachineError("VBoxManage failed restoring the "
-                                     "machine: %s" % e)
+            raise CuckooMachineError("VBoxManage failed restoring the " "machine: %s" % e)
 
         self._wait_status(label, self.SAVED)
 
         try:
-            proc = subprocess.Popen([self.options.virtualbox.path,
-                                     "startvm",
-                                     label,
-                                     "--type",
-                                     self.options.virtualbox.mode],
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    close_fds=True)
+            proc = subprocess.Popen(
+                [self.options.virtualbox.path, "startvm", label, "--type", self.options.virtualbox.mode],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+            )
             output, err = proc.communicate()
             if err:
                 raise OSError(err)
         except OSError as e:
-            raise CuckooMachineError("VBoxManage failed starting the machine "
-                                     "in %s mode: %s" %
-                                     (self.options.virtualbox.mode.upper(), e))
+            raise CuckooMachineError("VBoxManage failed starting the machine " "in %s mode: %s" % (self.options.virtualbox.mode.upper(), e))
         self._wait_status(label, self.RUNNING)
 
     def stop(self, label):
@@ -111,16 +96,16 @@ class VirtualBox(Machinery):
         log.debug("Stopping vm %s" % label)
 
         if self._status(label) in [self.POWEROFF, self.ABORTED]:
-            raise CuckooMachineError("Trying to stop an already stopped "
-                                     "vm %s" % label)
+            raise CuckooMachineError("Trying to stop an already stopped " "vm %s" % label)
 
         try:
-            proc = subprocess.Popen([self.options.virtualbox.path,
-                                     "controlvm", label, "poweroff"],
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    close_fds=True)
+            proc = subprocess.Popen(
+                [self.options.virtualbox.path, "controlvm", label, "poweroff"],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+            )
             # Sometimes VBoxManage stucks when stopping vm so we needed
             # to add a timeout and kill it after that.
             stop_me = 0
@@ -132,13 +117,10 @@ class VirtualBox(Machinery):
                     log.debug("Stopping vm %s timeouted. Killing" % label)
                     proc.terminate()
 
-            if proc.returncode != 0 and \
-                    stop_me < int(cfg.timeouts.vm_state):
-                log.debug("VBoxManage exited with error "
-                          "powering off the machine")
+            if proc.returncode != 0 and stop_me < int(cfg.timeouts.vm_state):
+                log.debug("VBoxManage exited with error " "powering off the machine")
         except OSError as e:
-            raise CuckooMachineError("VBoxManage failed powering off the "
-                                     "machine: %s" % e)
+            raise CuckooMachineError("VBoxManage failed powering off the " "machine: %s" % e)
         self._wait_status(label, [self.POWEROFF, self.ABORTED, self.SAVED])
 
     def _list(self):
@@ -146,25 +128,23 @@ class VirtualBox(Machinery):
         @return: virtual machine names list.
         """
         try:
-            proc = subprocess.Popen([
-                self.options.virtualbox.path, "list", "vms"],
+            proc = subprocess.Popen(
+                [self.options.virtualbox.path, "list", "vms"],
                 universal_newlines=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                close_fds=True
+                close_fds=True,
             )
             output, _ = proc.communicate()
         except OSError as e:
-            raise CuckooMachineError("VBoxManage error listing "
-                                     "installed machines: %s" % e)
+            raise CuckooMachineError("VBoxManage error listing " "installed machines: %s" % e)
 
         machines = []
         for line in output.split("\n"):
             try:
                 label = line.split('"')[1]
                 if label == "<inaccessible>":
-                    log.warning("Found an inaccessible virtual machine, "
-                                "please check its state.")
+                    log.warning("Found an inaccessible virtual machine, " "please check its state.")
                 else:
                     machines.append(label)
             except IndexError:
@@ -180,30 +160,27 @@ class VirtualBox(Machinery):
         log.debug("Getting status for %s" % label)
         status = None
         try:
-            proc = subprocess.Popen([self.options.virtualbox.path,
-                                     "showvminfo",
-                                     label,
-                                     "--machinereadable"],
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    close_fds=True)
+            proc = subprocess.Popen(
+                [self.options.virtualbox.path, "showvminfo", label, "--machinereadable"],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+            )
             output, err = proc.communicate()
 
             if proc.returncode != 0:
                 # It's quite common for virtualbox crap utility to exit with:
                 # VBoxManage: error: Details: code E_ACCESSDENIED (0x80070005)
                 # So we just log to debug this.
-                log.debug("VBoxManage returns error checking status for "
-                          "machine %s: %s", label, err)
+                log.debug("VBoxManage returns error checking status for " "machine %s: %s", label, err)
                 status = self.ERROR
         except OSError as e:
-            log.warning("VBoxManage failed to check status for machine %s: %s",
-                        label, e)
+            log.warning("VBoxManage failed to check status for machine %s: %s", label, e)
             status = self.ERROR
         if not status:
             for line in output.split("\n"):
-                state = re.match(r"VMState=\"(\w+)\"", line, re.M|re.I)
+                state = re.match(r"VMState=\"(\w+)\"", line, re.M | re.I)
                 if state:
                     status = state.group(1)
                     log.debug("Machine %s status %s" % (label, status))
@@ -221,19 +198,16 @@ class VirtualBox(Machinery):
         """
 
         try:
-            proc = subprocess.Popen([self.options.virtualbox.path, "-v"],
-                                    universal_newlines=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    close_fds=True)
+            proc = subprocess.Popen(
+                [self.options.virtualbox.path, "-v"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True
+            )
             output, err = proc.communicate()
 
             if proc.returncode != 0:
                 # It's quite common for virtualbox crap utility to exit with:
                 # VBoxManage: error: Details: code E_ACCESSDENIED (0x80070005)
                 # So we just log to debug this.
-                log.debug("VBoxManage returns error checking status for "
-                          "machine %s: %s", label, err)
+                log.debug("VBoxManage returns error checking status for " "machine %s: %s", label, err)
         except OSError as e:
             raise CuckooMachineError("VBoxManage failed return it's version: %s" % (e))
 
@@ -245,15 +219,13 @@ class VirtualBox(Machinery):
             dumpcmd = "dumpguestcore"
 
         try:
-            subprocess.call([self.options.virtualbox.path, "debugvm",
-                             label, dumpcmd, "--filename", path],
-                            universal_newlines=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            close_fds=True)
-            log.info("Successfully generated memory dump for virtual machine "
-                     "with label %s to path %s", label, path)
+            subprocess.call(
+                [self.options.virtualbox.path, "debugvm", label, dumpcmd, "--filename", path],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+            )
+            log.info("Successfully generated memory dump for virtual machine " "with label %s to path %s", label, path)
         except OSError as e:
-            raise CuckooMachineError("VBoxManage failed to take a memory "
-                                     "dump of the machine with label %s: %s" %
-                                     (label, e))
+            raise CuckooMachineError("VBoxManage failed to take a memory " "dump of the machine with label %s: %s" % (label, e))

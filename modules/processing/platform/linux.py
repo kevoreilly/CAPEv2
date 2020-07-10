@@ -30,6 +30,7 @@ class FilteredProcessLog(list):
     def __nonzero__(self):
         return True
 
+
 class LinuxSystemTap(BehaviorHandler):
     """Parses systemtap generated plaintext logs (see
     stuff/systemtap/strace.stp)."""
@@ -52,7 +53,7 @@ class LinuxSystemTap(BehaviorHandler):
             lines = open(path_lkm).readlines()
 
             forks = [re.findall("task (\d+)@0x[0-9a-f]+ forked to (\d+)@0x[0-9a-f]+", line) for line in lines]
-            self.forkmap = dict((j, i) for i, j in reduce(lambda x, y: x+y, forks, []))
+            self.forkmap = dict((j, i) for i, j in reduce(lambda x, y: x + y, forks, []))
 
             # self.results["source"].append("probelkm")
 
@@ -94,6 +95,7 @@ class LinuxSystemTap(BehaviorHandler):
         self.processes.sort(key=lambda process: process["first_seen"])
         return self.processes
 
+
 class LinuxStrace(BehaviorHandler):
     """Parses strace generated plaintext logs"""
 
@@ -116,11 +118,11 @@ class LinuxStrace(BehaviorHandler):
                     path_straced = os.path.join(self.analysis.logs_path, path)
                     if os.path.exists(path_straced):
                         lines = open(path_straced).readlines()
-                        #get pid from filename and add fork one
+                        # get pid from filename and add fork one
                         forks = [re.findall("fork\(\)\s+= (\d+)", line) for line in lines]
                         if forks:
-                            #strace is multiple files not only one as systemtap
-                            self.forkmap.update(dict((i, current_pid) for i in reduce(lambda x, y: x+y, forks, [])))
+                            # strace is multiple files not only one as systemtap
+                            self.forkmap.update(dict((i, current_pid) for i in reduce(lambda x, y: x + y, forks, [])))
 
     def handles_path(self, path):
         path = os.path.basename(path)
@@ -160,8 +162,10 @@ class LinuxStrace(BehaviorHandler):
         self.processes.sort(key=lambda process: process["first_seen"])
         return self.processes
 
+
 class StraceParser(object):
     """Handle strace logs from the Linux analyzer."""
+
     def __init__(self, path):
         self.fd = open(path)
         self.path = path
@@ -172,7 +176,7 @@ class StraceParser(object):
         for line in self.fd:
             parts = re.match("^(\w+)\((.*)\)[ ]{1,}=? ([-]?\d)", line)
             if not parts:
-                #log.warning("Could not parse syscall trace line: %s", line.strip())
+                # log.warning("Could not parse syscall trace line: %s", line.strip())
                 continue
 
             fn, arguments, retval = parts.groups()
@@ -194,13 +198,20 @@ class StraceParser(object):
                     argsplit[pos] = argsplit[pos][:-1]
                 tmp_argslist.append(argsplit[pos])
             arguments = dict(("p%u" % pos, tmp_argslist[pos]) for pos in range(len(tmp_argslist)))
-            #print {"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line}
+            # print {"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line}
             yield {
-                "time": datetime.datetime.now(), "process_name": "", "pid": int(pid),
-                "instruction_pointer": None, "api": fn, "arguments": arguments,
-                "return_value": retval, "status": None,
-                "type": "apicall", "raw": line
+                "time": datetime.datetime.now(),
+                "process_name": "",
+                "pid": int(pid),
+                "instruction_pointer": None,
+                "api": fn,
+                "arguments": arguments,
+                "return_value": retval,
+                "status": None,
+                "type": "apicall",
+                "raw": line,
             }
+
 
 class StapParser(object):
     """Handle .stap logs from the Linux analyzer."""
@@ -231,10 +242,16 @@ class StapParser(object):
             pid = int(pid) if pid.isdigit() else -1
 
             yield {
-                "time": dt, "process_name": pname, "pid": pid,
-                "instruction_pointer": ip, "api": fn, "arguments": arguments,
-                "return_value": retval, "status": ecode,
-                "type": "apicall", "raw": line,
+                "time": dt,
+                "process_name": pname,
+                "pid": pid,
+                "instruction_pointer": ip,
+                "api": fn,
+                "arguments": arguments,
+                "return_value": retval,
+                "status": ecode,
+                "type": "apicall",
+                "raw": line,
             }
 
     def parse_args(self, args):
@@ -264,10 +281,10 @@ class StapParser(object):
         return [self.parse_arg(a) for a in argstr.lstrip("[").split(", ")]
 
     def parse_string(self, argstr):
-        return argstr.strip("\"").decode("string_escape")
+        return argstr.strip('"').decode("string_escape")
 
     def is_array(self, arg):
         return arg.startswith("[") and not arg.startswith("[/*")
 
     def is_string(self, arg):
-        return arg.startswith("\"") and arg.endswith("\"")
+        return arg.startswith('"') and arg.endswith('"')

@@ -8,11 +8,13 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Unpacker(Package):
     """CAPE Unpacker analysis package."""
-    #PATHS = [
+
+    # PATHS = [
     #    ("SystemRoot", "system32"),
-    #]
+    # ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
@@ -25,7 +27,7 @@ class Unpacker(Package):
 
     def start(self, path):
         arguments = self.options.get("arguments")
-        
+
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does
@@ -34,5 +36,5 @@ class Unpacker(Package):
             new_path = path + ".exe"
             os.rename(path, new_path)
             path = new_path
-        
+
         return self.execute(path, arguments, path)

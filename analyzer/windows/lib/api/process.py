@@ -34,7 +34,7 @@ from lib.core.config import Config
 from lib.core.log import LogServer
 
 INJECT_CREATEREMOTETHREAD = 0
-INJECT_QUEUEUSERAPC       = 1
+INJECT_QUEUEUSERAPC = 1
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
@@ -46,8 +46,10 @@ ATTEMPTED_THREAD_INJECTS = dict()
 
 log = logging.getLogger(__name__)
 
+
 def is_os_64bit():
-    return platform.machine().endswith('64')
+    return platform.machine().endswith("64")
+
 
 def get_referrer_url(interest):
     """Get a Google referrer URL
@@ -57,16 +59,20 @@ def get_referrer_url(interest):
     if "://" not in interest:
         return ""
 
-    escapedurl = urllib.parse.quote(interest, '')
+    escapedurl = urllib.parse.quote(interest, "")
     itemidx = random.randint(1, 30)
     vedstr = b"0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3).encode("utf-8"))
     eistr = base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
     usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
-    referrer = "http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={0}&ved={1}&url={2}&ei={3}&usg={4}".format(itemidx, vedstr, escapedurl, eistr, usgstr)
+    referrer = "http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={0}&ved={1}&url={2}&ei={3}&usg={4}".format(
+        itemidx, vedstr, escapedurl, eistr, usgstr
+    )
     return referrer
+
 
 class Process:
     """Windows process."""
+
     process_num = 0
     # This adds 1 up to 30 times of 20 minutes to the startup
     # time of the process, therefore bypassing anti-vm checks
@@ -109,15 +115,11 @@ class Process:
             if self.pid == os.getpid():
                 self.h_process = KERNEL32.GetCurrentProcess()
             else:
-                self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS,
-                                                      False,
-                                                      self.pid)
+                self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
             ret = True
 
         if self.thread_id and not self.h_thread:
-            self.h_thread = KERNEL32.OpenThread(THREAD_ALL_ACCESS,
-                                                False,
-                                                self.thread_id)
+            self.h_thread = KERNEL32.OpenThread(THREAD_ALL_ACCESS, False, self.thread_id)
             ret = True
         return ret
 
@@ -165,17 +167,13 @@ class Process:
         # Set return value to signed 32bit integer.
         NTDLL.NtQueryInformationProcess.restype = c_int
 
-        ret = NTDLL.NtQueryInformationProcess(self.h_process,
-                                              27,
-                                              byref(pbi),
-                                              sizeof(pbi),
-                                              byref(size))
+        ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
 
         if NT_SUCCESS(ret) and size.value > 8:
             try:
                 fbuf = pbi.raw[8:]
-                fbuf = fbuf[:fbuf.find(b'\0\0')+1]
-                return fbuf.decode('utf16', errors="ignore")
+                fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
+                return fbuf.decode("utf16", errors="ignore")
             except Exception as e:
                 log.info(e)
                 return ""
@@ -187,7 +185,7 @@ class Process:
         @return: process status.
         """
         # ToDo: Fix this, it's broken
-        #return self.exit_code() == STILL_ACTIVE
+        # return self.exit_code() == STILL_ACTIVE
         return True
 
     def is_critical(self):
@@ -219,11 +217,7 @@ class Process:
         # Set return value to signed 32bit integer.
         NTDLL.NtQueryInformationProcess.restype = c_int
 
-        ret = NTDLL.NtQueryInformationProcess(self.h_process,
-                                              0,
-                                              byref(pbi),
-                                              sizeof(pbi),
-                                              byref(size))
+        ret = NTDLL.NtQueryInformationProcess(self.h_process, 0, byref(pbi), sizeof(pbi), byref(size))
 
         if NT_SUCCESS(ret) and size.value == sizeof(pbi):
             return pbi[5]
@@ -241,76 +235,75 @@ class Process:
             sys_file = os.path.join(os.getcwd(), "dll", "zer0m0n.sys")
         exe_file = os.path.join(os.getcwd(), "dll", "logs_dispatcher.exe")
         if not sys_file or not exe_file or not os.path.exists(sys_file) or not os.path.exists(exe_file):
-                log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
-                return False
+            log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
+            return False
 
         exe_name = service_name = driver_name = random_string(6)
 
-        inf_data = ('[Version]\r\n'
-                        'Signature = "$Windows NT$"\r\n'
-                        'Class = "ActivityMonitor"\r\n'
-                        'ClassGuid = {{b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}}\r\n'
-                        'Provider = %Prov%\r\n'
-                        'DriverVer = 22/01/2014,1.0.0.0\r\n'
-                        'CatalogFile = %DriverName%.cat\r\n'
-                    '[DestinationDirs]\r\n'
-                        'DefaultDestDir = 12\r\n'
-                        'MiniFilter.DriverFiles = 12\r\n'
-                    '[DefaultInstall]\r\n'
-                        'OptionDesc = %ServiceDescription%\r\n'
-                        'CopyFiles = MiniFilter.DriverFiles\r\n'
-                    '[DefaultInstall.Services]\r\n' \
-                        'AddService = %ServiceName%,,MiniFilter.Service\r\n'
-                    '[DefaultUninstall]\r\n'
-                        'DelFiles = MiniFilter.DriverFiles\r\n'
-                    '[DefaultUninstall.Services]\r\n'
-                        'DelService = %ServiceName%,0x200\r\n'
-                    '[MiniFilter.Service]\r\n'
-                        'DisplayName = %ServiceName%\r\n'
-                        'Description = %ServiceDescription%\r\n'
-                        'ServiceBinary = %12%\\%DriverName%.sys\r\n'
-                        'Dependencies = "FltMgr"\r\n'
-                        'ServiceType = 2\r\n'
-                        'StartType = 3\r\n'
-                        'ErrorControl = 1\r\n'
-                        'LoadOrderGroup = "FSFilter Activity Monitor"\r\n'
-                        'AddReg = MiniFilter.AddRegistry\r\n'
-                    '[MiniFilter.AddRegistry]\r\n'
-                        'HKR,,"DebugFlags",0x00010001 ,0x0\r\n'
-                        'HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\n'
-                        'HKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\n'
-                        'HKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n'
-                    '[MiniFilter.DriverFiles]\r\n'
-                        '%DriverName%.sys\r\n'
-                    '[SourceDisksFiles]\r\n'
-                        '{driver_name}.sys = 1,,\r\n'
-                    '[SourceDisksNames]\r\n'
-                        '1 = %DiskId1%,,,\r\n'
-                    '[Strings]\r\n'
-                        'Prov = "{random_string8}"\r\n'
-                        'ServiceDescription = "{random_string12}"\r\n'
-                        'ServiceName = "{service_name}"\r\n'
-                        'DriverName = "{driver_name}"\r\n'
-                        'DiskId1 = "{service_name} Device Installation Disk"\r\n'
-                        'DefaultInstance = "{service_name} Instance"\r\n'
-                        'Instance1.Name = "{service_name} Instance"\r\n'
-                        'Instance1.Altitude = "370050"\r\n'
-                        'Instance1.Flags = 0x0'
-                    ).format(
-                        service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12)
-                    )
+        inf_data = (
+            "[Version]\r\n"
+            'Signature = "$Windows NT$"\r\n'
+            'Class = "ActivityMonitor"\r\n'
+            "ClassGuid = {{b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}}\r\n"
+            "Provider = %Prov%\r\n"
+            "DriverVer = 22/01/2014,1.0.0.0\r\n"
+            "CatalogFile = %DriverName%.cat\r\n"
+            "[DestinationDirs]\r\n"
+            "DefaultDestDir = 12\r\n"
+            "MiniFilter.DriverFiles = 12\r\n"
+            "[DefaultInstall]\r\n"
+            "OptionDesc = %ServiceDescription%\r\n"
+            "CopyFiles = MiniFilter.DriverFiles\r\n"
+            "[DefaultInstall.Services]\r\n"
+            "AddService = %ServiceName%,,MiniFilter.Service\r\n"
+            "[DefaultUninstall]\r\n"
+            "DelFiles = MiniFilter.DriverFiles\r\n"
+            "[DefaultUninstall.Services]\r\n"
+            "DelService = %ServiceName%,0x200\r\n"
+            "[MiniFilter.Service]\r\n"
+            "DisplayName = %ServiceName%\r\n"
+            "Description = %ServiceDescription%\r\n"
+            "ServiceBinary = %12%\\%DriverName%.sys\r\n"
+            'Dependencies = "FltMgr"\r\n'
+            "ServiceType = 2\r\n"
+            "StartType = 3\r\n"
+            "ErrorControl = 1\r\n"
+            'LoadOrderGroup = "FSFilter Activity Monitor"\r\n'
+            "AddReg = MiniFilter.AddRegistry\r\n"
+            "[MiniFilter.AddRegistry]\r\n"
+            'HKR,,"DebugFlags",0x00010001 ,0x0\r\n'
+            'HKR,"Instances","DefaultInstance",0x00000000,%DefaultInstance%\r\n'
+            'HKR,"Instances\\"%Instance1.Name%,"Altitude",0x00000000,%Instance1.Altitude%\r\n'
+            'HKR,"Instances\\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%\r\n'
+            "[MiniFilter.DriverFiles]\r\n"
+            "%DriverName%.sys\r\n"
+            "[SourceDisksFiles]\r\n"
+            "{driver_name}.sys = 1,,\r\n"
+            "[SourceDisksNames]\r\n"
+            "1 = %DiskId1%,,,\r\n"
+            "[Strings]\r\n"
+            'Prov = "{random_string8}"\r\n'
+            'ServiceDescription = "{random_string12}"\r\n'
+            'ServiceName = "{service_name}"\r\n'
+            'DriverName = "{driver_name}"\r\n'
+            'DiskId1 = "{service_name} Device Installation Disk"\r\n'
+            'DefaultInstance = "{service_name} Instance"\r\n'
+            'Instance1.Name = "{service_name} Instance"\r\n'
+            'Instance1.Altitude = "370050"\r\n'
+            "Instance1.Flags = 0x0"
+        ).format(service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12))
 
         new_inf = os.path.join(os.getcwd(), "dll", "{0}.inf".format(service_name))
         new_sys = os.path.join(os.getcwd(), "dll", "{0}.sys".format(driver_name))
         copy(sys_file, new_sys)
         new_exe = os.path.join(os.getcwd(), "dll", "{0}.exe".format(exe_name))
         copy(exe_file, new_exe)
-        log.info("[-] Driver name : "+new_sys)
-        log.info("[-] Inf name : "+new_inf)
-        log.info("[-] Application name : "+new_exe)
-        log.info("[-] Service : "+service_name)
+        log.info("[-] Driver name : " + new_sys)
+        log.info("[-] Inf name : " + new_inf)
+        log.info("[-] Application name : " + new_exe)
+        log.info("[-] Service : " + service_name)
 
-        fh = open(new_inf,"w")
+        fh = open(new_inf, "w")
         fh.write(inf_data)
         fh.close()
 
@@ -319,8 +312,8 @@ class Process:
             wow64 = c_ulong(0)
             KERNEL32.Wow64DisableWow64FsRedirection(byref(wow64))
 
-        os.system('cmd /c "rundll32 setupapi.dll, InstallHinfSection DefaultInstall 132 '+new_inf+'"')
-        os.system("net start "+service_name)
+        os.system('cmd /c "rundll32 setupapi.dll, InstallHinfSection DefaultInstall 132 ' + new_inf + '"')
+        os.system("net start " + service_name)
 
         si = STARTUPINFO()
         si.cb = sizeof(si)
@@ -331,7 +324,7 @@ class Process:
         if not ldp:
             if os_is_64bit:
                 KERNEL32.Wow64RevertWow64FsRedirection(wow64)
-            log.error("Failed starting "+exe_name+".exe.")
+            log.error("Failed starting " + exe_name + ".exe.")
             return False
 
         config_path = os.path.join(os.getenv("TEMP"), "%s.ini" % self.pid)
@@ -343,8 +336,7 @@ class Process:
             config.write("pipe={0}\n".format(PIPE))
 
         log.info("Sending startup information")
-        hFile = KERNEL32.CreateFileW(PATH_KERNEL_DRIVER, GENERIC_READ|GENERIC_WRITE,
-                                    0, None, OPEN_EXISTING, 0, None)
+        hFile = KERNEL32.CreateFileW(PATH_KERNEL_DRIVER, GENERIC_READ | GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, None)
         if os_is_64bit:
             KERNEL32.Wow64RevertWow64FsRedirection(wow64)
         if hFile:
@@ -370,10 +362,23 @@ class Process:
                     flag = 0
                 flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
             bytes_returned = c_ulong(0)
-            msg = str(self.pid)+"_"+str(ppid)+"_"+str(os.getpid())+"_"+str(pi.dwProcessId)+"_"+str(pid_vboxservice)+"_"+str(pid_vboxtray)+'\0'
+            msg = (
+                str(self.pid)
+                + "_"
+                + str(ppid)
+                + "_"
+                + str(os.getpid())
+                + "_"
+                + str(pi.dwProcessId)
+                + "_"
+                + str(pid_vboxservice)
+                + "_"
+                + str(pid_vboxtray)
+                + "\0"
+            )
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
-            msg = os.getcwd()+'\0'
-            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, str(msg, 'utf-8'), len(str(msg, 'utf-8')), None, 0, byref(bytes_returned), None)
+            msg = os.getcwd() + "\0"
+            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, str(msg, "utf-8"), len(str(msg, "utf-8")), None, 0, byref(bytes_returned), None)
         else:
             log.warning("Failed to access kernel driver")
 
@@ -387,8 +392,7 @@ class Process:
         @return: operation status.
         """
         if not os.access(path, os.X_OK):
-            log.error("Unable to access file at path \"%s\", "
-                      "execution aborted", path)
+            log.error('Unable to access file at path "%s", ' "execution aborted", path)
             return False
 
         startup_info = STARTUPINFO()
@@ -399,7 +403,7 @@ class Process:
         startup_info.wShowWindow = 1
         process_info = PROCESS_INFORMATION()
 
-        arguments = "\"" + path + "\" "
+        arguments = '"' + path + '" '
         if args:
             arguments += args
 
@@ -408,31 +412,26 @@ class Process:
             self.suspended = True
             creation_flags += CREATE_SUSPENDED
 
-        created = KERNEL32.CreateProcessW(path,
-                                          arguments,
-                                          None,
-                                          None,
-                                          None,
-                                          creation_flags,
-                                          None,
-                                          os.getenv("TEMP"),
-                                          byref(startup_info),
-                                          byref(process_info))
+        created = KERNEL32.CreateProcessW(
+            path, arguments, None, None, None, creation_flags, None, os.getenv("TEMP"), byref(startup_info), byref(process_info)
+        )
 
         if created:
             self.pid = process_info.dwProcessId
             self.h_process = process_info.hProcess
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
-            log.info("Successfully executed process from path \"%s\" with "
-                     "arguments \"%s\" with pid %d", path, args or "", self.pid)
+            log.info('Successfully executed process from path "%s" with ' 'arguments "%s" with pid %d', path, args or "", self.pid)
             if kernel_analysis:
                 return self.kernel_analyze()
             return True
         else:
-            log.error("Failed to execute process from path \"%s\" with "
-                      "arguments \"%s\" (Error: %s)", path, args,
-                      get_error_string(KERNEL32.GetLastError()))
+            log.error(
+                'Failed to execute process from path "%s" with ' 'arguments "%s" (Error: %s)',
+                path,
+                args,
+                get_error_string(KERNEL32.GetLastError()),
+            )
             return False
 
     def resume(self):
@@ -440,8 +439,7 @@ class Process:
         @return: operation status.
         """
         if not self.suspended:
-            log.warning("The process with pid %d was not suspended at creation"
-                        % self.pid)
+            log.warning("The process with pid %d was not suspended at creation" % self.pid)
             return False
 
         if not self.h_thread:
@@ -521,9 +519,9 @@ class Process:
             return False
 
         if self.thread_id or self.suspended:
-            if (self.pid,self.thread_id) in ATTEMPTED_APC_INJECTS:
+            if (self.pid, self.thread_id) in ATTEMPTED_APC_INJECTS:
                 return False
-            ATTEMPTED_APC_INJECTS[(self.pid,self.thread_id)] = True
+            ATTEMPTED_APC_INJECTS[(self.pid, self.thread_id)] = True
         else:
             if self.pid in ATTEMPTED_THREAD_INJECTS:
                 return False
@@ -558,7 +556,13 @@ class Process:
             config.write("shutdown-mutex={0}\n".format(SHUTDOWN_MUTEX))
             config.write("terminate-event={0}{1}\n".format(TERMINATE_EVENT, self.pid))
 
-            if nosleepskip or ("force-sleepskip" not in self.options and len(interest) > 2 and interest[1] != ':' and interest[0] != '\\' and Process.process_num <= 2):
+            if nosleepskip or (
+                "force-sleepskip" not in self.options
+                and len(interest) > 2
+                and interest[1] != ":"
+                and interest[0] != "\\"
+                and Process.process_num <= 2
+            ):
                 config.write("force-sleepskip=0\n")
 
             if "norefer" not in self.options and "referrer" not in self.options:
@@ -598,8 +602,7 @@ class Process:
             thread_id = self.thread_id
 
         if not self.is_alive():
-            log.warning("The process with pid %s is not alive, "
-                        "injection aborted", self.pid)
+            log.warning("The process with pid %s is not alive, " "injection aborted", self.pid)
             return False
 
         if self.is_64bit():
@@ -615,15 +618,12 @@ class Process:
         dll = os.path.join(os.getcwd(), dll)
 
         if not os.path.exists(bin_name):
-            log.warning("Invalid loader path %s for injecting DLL in process "
-                        "with pid %d, injection aborted.", bin_name, self.pid)
-            log.error("Please ensure the %s loader is in analyzer/windows/bin "
-                      "in order to analyze %s binaries.", bit_str, bit_str)
+            log.warning("Invalid loader path %s for injecting DLL in process " "with pid %d, injection aborted.", bin_name, self.pid)
+            log.error("Please ensure the %s loader is in analyzer/windows/bin " "in order to analyze %s binaries.", bit_str, bit_str)
             return False
 
         if not os.path.exists(dll):
-            log.warning("Invalid path %s for monitor DLL to be injected in process "
-                        "with pid %d, injection aborted.", dll, self.pid)
+            log.warning("Invalid path %s for monitor DLL to be injected in process " "with pid %d, injection aborted.", dll, self.pid)
             return False
 
         self.write_monitor_config(interest, nosleepskip)
@@ -673,14 +673,13 @@ class Process:
             return False
 
         if not self.is_alive():
-            log.warning("The process with pid %d is not alive, memory "
-                        "dump aborted", self.pid)
+            log.warning("The process with pid %d is not alive, memory " "dump aborted", self.pid)
             return False
 
         bin_name = ""
         bit_str = ""
-        #file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
-        file_path = (os.path.join(PATHS["memory"], str(self.pid) + ".dmp"))
+        # file_path = os.path.join(PATHS["memory"], "{0}.dmp".format(self.pid))
+        file_path = os.path.join(PATHS["memory"], str(self.pid) + ".dmp")
         if self.is_64bit():
             orig_bin_name = LOADER64_NAME
             bit_str = "64-bit"
@@ -698,12 +697,16 @@ class Process:
                 log.error("Unable to dump %s process with pid %d, error: %d", bit_str, self.pid, ret)
                 return False
         else:
-            log.error("Please place the %s binary from cuckoomon into analyzer/windows/bin in order to analyze %s binaries.", os.path.basename(bin_name), bit_str)
+            log.error(
+                "Please place the %s binary from cuckoomon into analyzer/windows/bin in order to analyze %s binaries.",
+                os.path.basename(bin_name),
+                bit_str,
+            )
             return False
 
         try:
-            file_path = os.path.join(PATHS["memory"], str(self.pid)+".dmp")
-            upload_to_host(file_path, os.path.join("memory", str(self.pid)+".dmp"))
+            file_path = os.path.join(PATHS["memory"], str(self.pid) + ".dmp")
+            upload_to_host(file_path, os.path.join("memory", str(self.pid) + ".dmp"))
         except Exception as e:
             print(e)
             log.error(e, exc_info=True)

@@ -17,7 +17,7 @@ import struct
 import pefile
 import yara
 
-rule_source = '''
+rule_source = """
 rule EvilGrab
 {
     meta:
@@ -38,20 +38,22 @@ rule EvilGrab
         $configure1 or $configure2 or $configure3
 }
 
-'''
+"""
 
 MAX_STRING_SIZE = 65
+
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == 'EvilGrab':
+        if match.rule == "EvilGrab":
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
     return addresses
+
 
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -59,100 +61,102 @@ def pe_data(pe, va, size):
     data = pe.get_data(rva, size)
     return data
 
+
 def string_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
-    string_rva = struct.unpack('i', pe.__data__[offset:offset+4])[0] - image_base
+    string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset:string_offset+MAX_STRING_SIZE].split(b"\0")[0]
+    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
+
 
 class evilgrab(Parser):
 
-    DESCRIPTION = 'EvilGrab configuration parser.'
-    AUTHOR = 'kevoreilly'
+    DESCRIPTION = "EvilGrab configuration parser."
+    AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        type1 = yara_scan(filebuf, '$configure1')
-        type2 = yara_scan(filebuf, '$configure2')
-        type3 = yara_scan(filebuf, '$configure3')
+        type1 = yara_scan(filebuf, "$configure1")
+        type2 = yara_scan(filebuf, "$configure2")
+        type3 = yara_scan(filebuf, "$configure3")
 
         if type1:
-            yara_offset = int(type1['$configure1'])
+            yara_offset = int(type1["$configure1"])
 
-            c2_address = string_from_va(pe, yara_offset+24)
+            c2_address = string_from_va(pe, yara_offset + 24)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            port = str(struct.unpack('h', filebuf[yara_offset+71:yara_offset+73])[0])
+            port = str(struct.unpack("h", filebuf[yara_offset + 71 : yara_offset + 73])[0])
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            missionid = string_from_va(pe, yara_offset+60)
+            missionid = string_from_va(pe, yara_offset + 60)
             if missionid:
-                self.reporter.add_metadata('missionid', missionid)
+                self.reporter.add_metadata("missionid", missionid)
 
-            version = string_from_va(pe, yara_offset+90)
+            version = string_from_va(pe, yara_offset + 90)
             if version:
-                self.reporter.add_metadata('version', version)
+                self.reporter.add_metadata("version", version)
 
-            injectionprocess = string_from_va(pe, yara_offset+132)
+            injectionprocess = string_from_va(pe, yara_offset + 132)
             if injectionprocess:
-                self.reporter.add_metadata('injectionprocess', injectionprocess)
+                self.reporter.add_metadata("injectionprocess", injectionprocess)
 
-            mutex = string_from_va(pe, yara_offset-186)
+            mutex = string_from_va(pe, yara_offset - 186)
             if mutex:
-                self.reporter.add_metadata('mutex', mutex)
+                self.reporter.add_metadata("mutex", mutex)
 
         if type2:
-            yara_offset = int(type2['$configure2'])
+            yara_offset = int(type2["$configure2"])
 
-            c2_address = string_from_va(pe, yara_offset+24)
+            c2_address = string_from_va(pe, yara_offset + 24)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            port = str(struct.unpack('h', filebuf[yara_offset+78:yara_offset+80])[0])
+            port = str(struct.unpack("h", filebuf[yara_offset + 78 : yara_offset + 80])[0])
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            missionid = string_from_va(pe, yara_offset+67)
+            missionid = string_from_va(pe, yara_offset + 67)
             if missionid:
-                self.reporter.add_metadata('missionid', missionid)
+                self.reporter.add_metadata("missionid", missionid)
 
-            version = string_from_va(pe, yara_offset+91)
+            version = string_from_va(pe, yara_offset + 91)
             if version:
-                self.reporter.add_metadata('version', version)
+                self.reporter.add_metadata("version", version)
 
-            injectionprocess = string_from_va(pe, yara_offset+133)
+            injectionprocess = string_from_va(pe, yara_offset + 133)
             if injectionprocess:
-                self.reporter.add_metadata('injectionprocess', injectionprocess)
+                self.reporter.add_metadata("injectionprocess", injectionprocess)
 
-            mutex = string_from_va(pe, yara_offset-188)
+            mutex = string_from_va(pe, yara_offset - 188)
             if mutex:
-                self.reporter.add_metadata('mutex', mutex)
+                self.reporter.add_metadata("mutex", mutex)
 
         if type3:
-            yara_offset = int(type3['$configure3'])
+            yara_offset = int(type3["$configure3"])
 
-            c2_address = string_from_va(pe, yara_offset+38)
+            c2_address = string_from_va(pe, yara_offset + 38)
             if c2_address:
-                self.reporter.add_metadata('c2_address', c2_address)
+                self.reporter.add_metadata("c2_address", c2_address)
 
-            port = str(struct.unpack('h', filebuf[yara_offset+99:yara_offset+101])[0])
+            port = str(struct.unpack("h", filebuf[yara_offset + 99 : yara_offset + 101])[0])
             if port:
-                self.reporter.add_metadata('port', [port, "tcp"])
+                self.reporter.add_metadata("port", [port, "tcp"])
 
-            missionid = string_from_va(pe, yara_offset+132)
+            missionid = string_from_va(pe, yara_offset + 132)
             if missionid:
-                self.reporter.add_metadata('missionid', missionid)
+                self.reporter.add_metadata("missionid", missionid)
 
-            version = string_from_va(pe, yara_offset+167)
+            version = string_from_va(pe, yara_offset + 167)
             if version:
-                self.reporter.add_metadata('version', version)
+                self.reporter.add_metadata("version", version)
 
-            injectionprocess = string_from_va(pe, yara_offset+195)
+            injectionprocess = string_from_va(pe, yara_offset + 195)
             if injectionprocess:
-                self.reporter.add_metadata('injectionprocess', injectionprocess)
+                self.reporter.add_metadata("injectionprocess", injectionprocess)

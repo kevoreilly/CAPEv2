@@ -5,6 +5,7 @@
 
 from lib.core.packages import Package
 
+
 class Jar(Package):
     """Java analysis package."""
 

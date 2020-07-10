@@ -9,6 +9,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 
+
 class ProcDump(Processing):
     """ProcDump files analysis."""
 

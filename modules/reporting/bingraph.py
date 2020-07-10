@@ -11,6 +11,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 try:
     from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+
     HAVE_BINGRAPH = True
 except ImportError:
     HAVE_BINGRAPH = False
@@ -19,32 +20,29 @@ log = logging.getLogger(__name__)
 reporting_conf = Config("reporting")
 
 bingraph_args_dict = {
-  'recurse': False,
-  '__dummy': False,
-  'prefix': None,
-  'json': False,
-  'graphtitle': None,
-  'showplt': False,
-  'format': 'svg',
-  'figsize': (12, 4),
-  'dpi': 100,
-  'blob': False,
-  'verbose': False,
-  'graphtype': 'ent',
-  'chunks': 750,
-  'ibytes': [{
-    'name': '0s',
-    'bytes': [0],
-    'colour': (0.0, 1.0, 0.0, 1.0)
-  }],
-  'entcolour': '#ff00ff'
+    "recurse": False,
+    "__dummy": False,
+    "prefix": None,
+    "json": False,
+    "graphtitle": None,
+    "showplt": False,
+    "format": "svg",
+    "figsize": (12, 4),
+    "dpi": 100,
+    "blob": False,
+    "verbose": False,
+    "graphtype": "ent",
+    "chunks": 750,
+    "ibytes": [{"name": "0s", "bytes": [0], "colour": (0.0, 1.0, 0.0, 1.0)}],
+    "entcolour": "#ff00ff",
 }
 
 
 excluded_filetypes = (
-  "HTML document, ASCII text, with CRLF line terminators",
-  "ASCII text, with CRLF line terminators",
+    "HTML document, ASCII text, with CRLF line terminators",
+    "ASCII text, with CRLF line terminators",
 )
+
 
 class BinGraph(Report):
     "Generate bingraphs"
@@ -56,11 +54,9 @@ class BinGraph(Report):
                 os.makedirs(bingraph_path)
             try:
                 if not os.listdir(bingraph_path) and results.get("target", {}).get("file", False):
-                    bingraph_args_dict.update({
-                        "prefix": results["target"]["file"]["sha256"],
-                        "files": [self.file_path],
-                        "save_dir": bingraph_path,
-                    })
+                    bingraph_args_dict.update(
+                        {"prefix": results["target"]["file"]["sha256"], "files": [self.file_path], "save_dir": bingraph_path,}
+                    )
                     try:
                         bingraph_gen(bingraph_args_dict)
                     except Exception as e:
@@ -70,8 +66,11 @@ class BinGraph(Report):
 
             for key in ("dropped", "procdump", "CAPE"):
                 for block in results.get(key, []) or []:
-                    if block.get("size", 0) != 0 and block.get("type", "") not in excluded_filetypes and \
-                            not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"]))):
+                    if (
+                        block.get("size", 0) != 0
+                        and block.get("type", "") not in excluded_filetypes
+                        and not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"])))
+                    ):
                         path = ""
                         if block.get("file", False):
                             path = block["file"]
@@ -79,11 +78,9 @@ class BinGraph(Report):
                             path = block["path"]
                         if not path:
                             continue
-                        bingraph_args_dict.update({
-                            "prefix": block["sha256"],
-                            "files": [path],
-                            "save_dir": bingraph_path,
-                        })
+                        bingraph_args_dict.update(
+                            {"prefix": block["sha256"], "files": [path], "save_dir": bingraph_path,}
+                        )
                         try:
                             bingraph_gen(bingraph_args_dict)
                         except Exception as e:

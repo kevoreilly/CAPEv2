@@ -5,8 +5,10 @@ from __future__ import absolute_import
 
 from lib.common.abstracts import Package
 
+
 class SCT(Package):
     """SCT analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]

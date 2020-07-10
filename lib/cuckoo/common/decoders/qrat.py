@@ -18,6 +18,7 @@ except ImportError:
 # Basic Java Random implementation based on http://docs.oracle.com/javase/7/docs/api/java/util/Random.html
 # so we don't need to add another dependency just for this config extractor
 
+
 class JavaRandom(object):
     def __init__(self, seed):
         self.seed = (seed ^ 0x5DEECE66D) & ((1 << 48) - 1)
@@ -26,22 +27,23 @@ class JavaRandom(object):
         self.seed = (self.seed * 0x5DEECE66D + 0xB) & ((1 << 48) - 1)
         return (self.seed >> (48 - 31)) % n
 
+
 def extract_config(file_path, decomp_jar):
     enckey = coded_jar = False
 
     if not decomp_jar:
         return None
 
-    ret = { }
+    ret = {}
 
     try:
-        with ZipFile(file_path, 'r') as zip:
+        with ZipFile(file_path, "r") as zip:
             for name in zip.namelist():
-                if name == 'e-data':
+                if name == "e-data":
                     coded_data = zip.read(name)
                     seed = coded_data[:8]
-                    enckey = unpack('>Q', seed)[0]
-        
+                    enckey = unpack(">Q", seed)[0]
+
         if enckey and coded_data:
             java_rand = JavaRandom(enckey)
             coded_data = coded_data[8:]
@@ -60,19 +62,19 @@ def extract_config(file_path, decomp_jar):
 
             match = re.search("Utils\.serverHost = new String\[\] \{(?P<stringlist>[^};\r\n]*)\};", decompiled_data)
             if match:
-                hostlist = match.group('stringlist').split(',')
-                serverhosts = [x.strip(" \"") for x in hostlist]
+                hostlist = match.group("stringlist").split(",")
+                serverhosts = [x.strip(' "') for x in hostlist]
                 for i in range(len(serverhosts)):
                     ret["ServerHost" + str(i)] = serverhosts[i]
             match = re.search("Utils\.serverPort = (?P<portnum>\d+);", decompiled_data)
             if match:
-                ret["ServerPort"] = int(match.group('portnum'))
+                ret["ServerPort"] = int(match.group("portnum"))
             match = re.search("Utils\.instanceControlPortAgent = (?P<portnum>\d+);", decompiled_data)
             if match:
-                ret["InstanceControlPortAgent"] = int(match.group('portnum'))
+                ret["InstanceControlPortAgent"] = int(match.group("portnum"))
             match = re.search("Utils\.instanceControlPortClient = (?P<portnum>\d+);", decompiled_data)
             if match:
-                ret["InstanceControlPortClient"] = int(match.group('portnum'))
+                ret["InstanceControlPortClient"] = int(match.group("portnum"))
 
             try:
                 os.unlink(decoded_path)

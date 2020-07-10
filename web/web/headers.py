@@ -16,6 +16,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 
+
 class CuckooHeaders(MiddlewareMixin):
     """Set Cuckoo custom response headers."""
 

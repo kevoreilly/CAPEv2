@@ -14,6 +14,7 @@ from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)
 
+
 class Usage(Auxiliary, Thread):
     """Collect CPU/memory usage info from monitored processes"""
 

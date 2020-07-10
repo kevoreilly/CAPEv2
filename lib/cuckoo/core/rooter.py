@@ -22,6 +22,7 @@ lock = threading.Lock()
 vpns = dict()
 socks5s = dict()
 
+
 def _load_socks5_operational():
 
     socks5s = dict()
@@ -32,11 +33,10 @@ def _load_socks5_operational():
     try:
         from socks5man.manager import Manager
         from socks5man.exceptions import Socks5manDatabaseError
+
         HAVE_SOCKS5MANAGER = True
     except (ImportError, OSError) as e:
         HAVE_SOCKS5MANAGER = False
-
-
 
     if not HAVE_SOCKS5MANAGER:
         return socks5s
@@ -56,10 +56,10 @@ def _load_socks5_operational():
 
     return socks5s
 
+
 def rooter(command, *args, **kwargs):
     if not os.path.exists(cfg.cuckoo.rooter):
-        log.critical("Unable to passthrough root command (%s) as the rooter "
-                     "unix socket doesn't exist.", command)
+        log.critical("Unable to passthrough root command (%s) as the rooter " "unix socket doesn't exist.", command)
         return
 
     lock.acquire()
@@ -74,16 +74,11 @@ def rooter(command, *args, **kwargs):
     try:
         s.connect(cfg.cuckoo.rooter)
     except socket.error as e:
-        log.critical("Unable to passthrough root command as we're unable to "
-                     "connect to the rooter unix socket: %s.", e)
+        log.critical("Unable to passthrough root command as we're unable to " "connect to the rooter unix socket: %s.", e)
         lock.release()
         return
 
-    s.send(json.dumps({
-        "command": command,
-        "args": args,
-        "kwargs": kwargs,
-    }).encode("utf-8"))
+    s.send(json.dumps({"command": command, "args": args, "kwargs": kwargs,}).encode("utf-8"))
 
     try:
         ret = json.loads(s.recv(0x10000))

@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import shutil
+
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(".")), "..")
 sys.path.append(CUCKOO_ROOT)
 
@@ -12,6 +13,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 import modules.processing.network as network
+
 repconf = Config("reporting")
 
 # this required for Iocs API
@@ -19,14 +21,15 @@ FULL_DB = False
 if repconf.mongodb.enabled:
     import pymongo
     from bson.objectid import ObjectId
-    results_db = pymongo.MongoClient( repconf.mongodb.host,
-                                port=repconf.mongodb.port,
-                                username=repconf.mongodb.get("username", None),
-                                password=repconf.mongodb.get("password", None),
-                                authSource=repconf.mongodb.db
-                                )[repconf.mongodb.db]
-    FULL_DB = True
 
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource=repconf.mongodb.db,
+    )[repconf.mongodb.db]
+    FULL_DB = True
 
 
 # Used for displaying enabled config options in Django UI
@@ -41,11 +44,11 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
             else:
                 enabledconf[item] = False
 
+
 def remove(task_id):
 
     if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id)}, {
-                                            "_id": 1, "behavior.processes": 1})
+        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
         # Checks if more analysis found with the same ID, like if process.py was run manually.
         if analyses.count() > 1:
             message = "Multiple tasks with this ID deleted."

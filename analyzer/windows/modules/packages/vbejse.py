@@ -7,8 +7,10 @@ import os
 from shutil import copyfile
 from lib.common.abstracts import Package
 
+
 class VBSJSE(Package):
     """VBS/JSE analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "wscript.exe"),
     ]
@@ -16,7 +18,7 @@ class VBSJSE(Package):
     def start(self, path):
         wscript = self.get_path("WScript")
         # We are here bcz of no extension
-        copyfile(path, path+".vbe")
-        copyfile(path, path+".jse")
-        self.execute(wscript, "\"%s.vbe\"" % path, path+".vbe")
-        return self.execute(wscript, "\"%s.jse\"" % path, path+".jse")
+        copyfile(path, path + ".vbe")
+        copyfile(path, path + ".jse")
+        self.execute(wscript, '"%s.vbe"' % path, path + ".vbe")
+        return self.execute(wscript, '"%s.jse"' % path, path + ".jse")

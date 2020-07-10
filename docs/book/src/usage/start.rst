@@ -38,3 +38,12 @@ Now CAPE is ready to run and it's waiting for submissions.
                                 Maximum number of analyses
 
 Most importantly ``--debug`` and ``--quiet`` respectively increase and decrease the logging verbosity.
+
+===============
+Starting processing data generated virtual machine::
+===============
+
+See `-h` for all options, for better customization
+
+    $ python3 utils/process.py -h
+    $ python3 utils/process.py -p7 auto

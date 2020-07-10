@@ -19,24 +19,28 @@ from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITE
 
 try:
     import magic
+
     HAVE_MAGIC = True
 except ImportError:
     HAVE_MAGIC = False
 
 try:
     import pydeep
+
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
 
 try:
     import yara
+
     HAVE_YARA = True
 except ImportError:
     HAVE_YARA = False
 
 try:
     import pyclamd
+
     HAVE_CLAMAV = True
 except ImportError:
     HAVE_CLAMAV = False
@@ -48,6 +52,7 @@ except ImportError:
 
 try:
     import pefile
+
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
@@ -110,10 +115,10 @@ yara_error = {
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
 IMAGE_NT_SIGNATURE = 0x00004550
-OPTIONAL_HEADER_MAGIC_PE = 0x10b
-OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20b
+OPTIONAL_HEADER_MAGIC_PE = 0x10B
+OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20B
 IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
-IMAGE_FILE_MACHINE_I386 = 0x014c
+IMAGE_FILE_MACHINE_I386 = 0x014C
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
@@ -135,43 +140,47 @@ def IsPEImage(buf, size=False):
         return False
 
     # Check for sane value in e_lfanew
-    e_lfanew, = struct.unpack("<L", dos_header[60:64])
+    (e_lfanew,) = struct.unpack("<L", dos_header[60:64])
     if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
         offset = 0
-        while offset < PE_HEADER_LIMIT-86:
-            #ToDo
+        while offset < PE_HEADER_LIMIT - 86:
+            # ToDo
             try:
-                machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
+                machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
             except struct.error:
                 machine_probe = ""
             if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
-                nt_headers = buf[offset-4:offset+252]
+                nt_headers = buf[offset - 4 : offset + 252]
                 break
             offset = offset + 2
     else:
-        nt_headers = buf[e_lfanew:e_lfanew+256]
+        nt_headers = buf[e_lfanew : e_lfanew + 256]
 
     if not nt_headers:
         return False
 
-    #if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
+    # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
     if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
         return False
 
-    #if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
+    # if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
     if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
         return False
 
-    #if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
+    # if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
     if struct.unpack("<H", nt_headers[20:22])[0] & 3 != 0:
         return False
 
-    #if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
-    if struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS:
+    # if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
+    if (
+        struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE
+        and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS
+    ):
         return False
 
     # To pass the above tests it should now be safe to assume it's a PE image
     return True
+
 
 class Dictionary(dict):
     """Cuckoo custom dict."""
@@ -182,10 +191,13 @@ class Dictionary(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+
 class PCAP:
     """PCAP base object."""
+
     def __init__(self, file_path):
         self.file_path = file_path
+
 
 class URL:
     """URL base object."""
@@ -194,13 +206,13 @@ class URL:
         """@param url: URL"""
         self.url = url
 
+
 class File(object):
     """Basic file object class with all useful utilities."""
 
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
     yara_rules = {}
-
 
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
@@ -215,12 +227,12 @@ class File(object):
 
         # these will be populated when first accessed
         self._file_data = None
-        self._crc32     = None
-        self._md5       = None
-        self._sha1      = None
-        self._sha256    = None
-        self._sha512    = None
-        self._pefile    = False
+        self._crc32 = None
+        self._md5 = None
+        self._sha1 = None
+        self._sha256 = None
+        self._sha512 = None
+        self._pefile = False
 
     def get_name(self):
         """Get file name.
@@ -232,9 +244,7 @@ class File(object):
         return file_name
 
     def valid(self):
-        return os.path.exists(self.file_path) and \
-            os.path.isfile(self.file_path) and \
-            os.path.getsize(self.file_path) != 0
+        return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
 
     def get_data(self):
         """Read file contents.
@@ -248,14 +258,15 @@ class File(object):
         with open(self.file_path, "rb") as fd:
             while True:
                 chunk = fd.read(FILE_CHUNK_SIZE)
-                if not chunk: break
+                if not chunk:
+                    break
                 yield chunk
 
     def calc_hashes(self):
         """Calculate all possible hashes for this file."""
-        crc    = 0
-        md5    = hashlib.md5()
-        sha1   = hashlib.sha1()
+        crc = 0
+        md5 = hashlib.md5()
+        sha1 = hashlib.sha1()
         sha256 = hashlib.sha256()
         sha512 = hashlib.sha512()
 
@@ -266,15 +277,16 @@ class File(object):
             sha256.update(chunk)
             sha512.update(chunk)
 
-        self._crc32  = "".join("%02X" % ((crc>>i)&0xff) for i in [24, 16, 8, 0])
-        self._md5    = md5.hexdigest()
-        self._sha1   = sha1.hexdigest()
+        self._crc32 = "".join("%02X" % ((crc >> i) & 0xFF) for i in [24, 16, 8, 0])
+        self._md5 = md5.hexdigest()
+        self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
         self._sha512 = sha512.hexdigest()
 
     @property
     def file_data(self):
-        if not self._file_data: self._file_data = open(self.file_path, "rb").read()
+        if not self._file_data:
+            self._file_data = open(self.file_path, "rb").read()
         return self._file_data
 
     def get_size(self):
@@ -290,28 +302,32 @@ class File(object):
         """Get CRC32.
         @return: CRC32.
         """
-        if not self._crc32: self.calc_hashes()
+        if not self._crc32:
+            self.calc_hashes()
         return self._crc32
 
     def get_md5(self):
         """Get MD5.
         @return: MD5.
         """
-        if not self._md5: self.calc_hashes()
+        if not self._md5:
+            self.calc_hashes()
         return self._md5
 
     def get_sha1(self):
         """Get SHA1.
         @return: SHA1.
         """
-        if not self._sha1: self.calc_hashes()
+        if not self._sha1:
+            self.calc_hashes()
         return self._sha1
 
     def get_sha256(self):
         """Get SHA256.
         @return: SHA256.
         """
-        if not self._sha256: self.calc_hashes()
+        if not self._sha256:
+            self.calc_hashes()
         return self._sha256
 
     def get_sha512(self):
@@ -319,7 +335,8 @@ class File(object):
         Get SHA512.
         @return: SHA512.
         """
-        if not self._sha512: self.calc_hashes()
+        if not self._sha512:
+            self.calc_hashes()
         return self._sha512
 
     def get_ssdeep(self):
@@ -395,7 +412,7 @@ class File(object):
         if self.file_path:
             if HAVE_MAGIC:
                 try:
-                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                    ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
                     ms.load()
                     file_type = ms.file(self.file_path)
                 except:
@@ -421,10 +438,10 @@ class File(object):
     def _yara_encode_string(self, s):
         # Beware, spaghetti code ahead.
         try:
-            new = s#.encode("utf-8")
+            new = s  # .encode("utf-8")
         except UnicodeDecodeError:
             s = s.lstrip("uU").encode("hex").upper()
-            s = " ".join(s[i:i+2] for i in range(0, len(s), 2))
+            s = " ".join(s[i : i + 2] for i in range(0, len(s), 2))
             new = "{ %s }" % s
 
         return new
@@ -450,10 +467,7 @@ class File(object):
             # https://github.com/VirusTotal/yara-python/issues/48
             assert len(str(self.file_path)) == len(self.file_path)
         except (UnicodeEncodeError, AssertionError):
-            log.warning(
-                "Can't run Yara rules on %r as Unicode paths are currently "
-                "not supported in combination with Yara!", self.file_path
-            )
+            log.warning("Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!", self.file_path)
             return results
 
         try:
@@ -465,22 +479,17 @@ class File(object):
 
                 addresses = {}
                 for s in match.strings:
-                    addresses[s[1].strip('$')] = s[0]
+                    addresses[s[1].strip("$")] = s[0]
 
-                results.append({
-                    "name": match.rule,
-                    "meta": match.meta,
-                    "strings": list(strings),
-                    "addresses": addresses,
-                })
+                results.append(
+                    {"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,}
+                )
         except Exception as e:
             errcode = e.message.split()[-1]
             if errcode in yara_error:
-                log.exception("Unable to match Yara signatures for %s: %s",
-                              self.file_path, yara_error[errcode])
+                log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
             else:
-                log.exception(
-                    "Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
+                log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
 
         return results
 
@@ -539,20 +548,22 @@ class File(object):
                 log.warning("Unable to import pefile (install with `pip3 install pefile`)")
         else:
             try:
-                #read pefile once and share
+                # read pefile once and share
                 if not IsPEImage(self.file_data):
                     return infos
                 pe = pefile.PE(data=self.file_data, fast_load=True)
                 if pe:
                     infos["entrypoint"] = self.get_entrypoint(pe)
                     infos["ep_bytes"] = self.get_ep_bytes(pe)
-                    infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+                    infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(pe.FILE_HEADER.TimeDateStamp))
             except Exception as e:
                 log.error(e, exc_info=True)
         return infos
 
+
 class Static(File):
     pass
+
 
 class ProcDump(object):
     def __init__(self, dump_file, pretty=False):
@@ -560,14 +571,14 @@ class ProcDump(object):
         self.dumpfile = mmap.mmap(self._dumpfile.fileno(), 0, access=mmap.ACCESS_READ)
         self.address_space = self.parse_dump()
         self.protmap = {
-            PAGE_NOACCESS : "NOACCESS",
-            PAGE_READONLY : "R",
-            PAGE_READWRITE : "RW",
-            PAGE_WRITECOPY : "RWC",
-            PAGE_EXECUTE : "X",
-            PAGE_EXECUTE_READ : "RX",
-            PAGE_EXECUTE_READWRITE : "RWX",
-            PAGE_EXECUTE_WRITECOPY : "RWXC",
+            PAGE_NOACCESS: "NOACCESS",
+            PAGE_READONLY: "R",
+            PAGE_READWRITE: "RW",
+            PAGE_WRITECOPY: "RWC",
+            PAGE_EXECUTE: "X",
+            PAGE_EXECUTE_READ: "RX",
+            PAGE_EXECUTE_READWRITE: "RWX",
+            PAGE_EXECUTE_WRITECOPY: "RWXC",
         }
 
     def __del__(self):
@@ -584,7 +595,7 @@ class ProcDump(object):
     def _prot_to_str(self, prot):
         if prot & PAGE_GUARD:
             return "G"
-        prot &= 0xff
+        prot &= 0xFF
         return self.protmap[prot]
 
     def pretty_print(self):
@@ -612,7 +623,7 @@ class ProcDump(object):
         for chunk in chunklist:
             if chunk["prot"] != prot:
                 prot = None
-        return { "start" : low, "end" : high, "size" : high - low, "prot" : prot, "PE" : PE, "chunks" : chunklist }
+        return {"start": low, "end": high, "size": high - low, "prot": prot, "PE": PE, "chunks": chunklist}
 
     def parse_dump(self):
         f = self.dumpfile
@@ -621,17 +632,17 @@ class ProcDump(object):
         lastend = 0
         while True:
             data = f.read(24)
-            if data == b'':
+            if data == b"":
                 break
             alloc = dict()
-            addr,size,mem_state,mem_type,mem_prot = struct.unpack("QIIII", data)
+            addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
                 address_space.append(self._coalesce_chunks(curchunk))
                 curchunk = []
             lastend = addr + size
             alloc["start"] = addr
-            alloc["end"] = (addr + size)
+            alloc["end"] = addr + size
             alloc["size"] = size
             alloc["prot"] = mem_prot
             alloc["state"] = mem_state
@@ -641,7 +652,7 @@ class ProcDump(object):
             try:
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True
-                f.seek(size-2, 1)
+                f.seek(size - 2, 1)
             except:
                 break
             curchunk.append(alloc)
@@ -696,4 +707,3 @@ class ProcDump(object):
                         result["match"] = match
                         result["chunk"] = chunk
                         return result
-

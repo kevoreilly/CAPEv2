@@ -4,9 +4,12 @@ import time
 import shutil
 from subprocess import call
 from lib.common.abstracts import Package
+
+
 class PROCESSES_simply(Package):
 
     """Word analysis package."""
+
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
@@ -15,14 +18,14 @@ class PROCESSES_simply(Package):
     ]
 
     def start(self, path):
-            
-            for i in range(20):
-                #calc
-                calc = os.path.join("c:\\windows", "system32", "calc.exe")
-                #cl = Process()
-                self.execute(calc, "", path)
-            #cl.close()
-            """
+
+        for i in range(20):
+            # calc
+            calc = os.path.join("c:\\windows", "system32", "calc.exe")
+            # cl = Process()
+            self.execute(calc, "", path)
+        # cl.close()
+        """
             iexplore = os.path.join("c:\\Program Files", "Internet Explorer", "iexplore.exe")
             #ie = Process()
             self.execute(iexplore, "", path)
@@ -116,7 +119,6 @@ class PROCESSES_simply(Package):
             self.execute(paint, "", path)
             #pnt.close()
             """
-            time.sleep(5)
-            word = self.get_path_glob("Microsoft Office Word")
-            return self.execute(word, "\"%s\" /q" % path, path)
-
+        time.sleep(5)
+        word = self.get_path_glob("Microsoft Office Word")
+        return self.execute(word, '"%s" /q' % path, path)

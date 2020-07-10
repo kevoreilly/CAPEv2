@@ -17,14 +17,16 @@ from threading import Event, Thread, Lock
 import gevent.pool
 import gevent.server
 import gevent.socket
-#https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
+
+# https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.files import open_exclusive
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooResultError
-#from lib.cuckoo.common.netlog import BsonParser
+
+# from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import create_folder, Singleton, logtime, sanitize_pathname
 from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.core.log import task_log_start, task_log_stop
@@ -42,26 +44,39 @@ BUFSIZE = 16 * 1024
 # Prevent malicious clients from using potentially dangerous filenames
 # E.g. C API confusion by using null, or using the colon on NTFS (Alternate
 # Data Streams); XXX: just replace illegal chars?
-BANNED_PATH_CHARS = b'\x00:'
+BANNED_PATH_CHARS = b"\x00:"
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'shots',
-                     b'sysmon', b'stap', b'procdump', b'debugger')
+RESULT_UPLOADABLE = (
+    b"CAPE",
+    b"aux",
+    b"buffer",
+    b"curtain",
+    b"extracted",
+    b"files",
+    b"memory",
+    b"shots",
+    b"sysmon",
+    b"stap",
+    b"procdump",
+    b"debugger",
+)
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
+
 
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
     dir_part, name = os.path.split(path)
     if dir_part not in RESULT_DIRECTORIES:
-        raise CuckooOperationalError("Netlog client requested banned path: %r"
-                                     % path)
+        raise CuckooOperationalError("Netlog client requested banned path: %r" % path)
     if any(c in BANNED_PATH_CHARS for c in name):
         for c in BANNED_PATH_CHARS:
             path.replace(bytes([c]), b"X")
 
     return path
+
 
 class Disconnect(Exception):
     pass
@@ -72,6 +87,7 @@ class HandlerContext(object):
     Can safely be cancelled from another thread, though in practice this will
     not occur often -- usually the connection between VM and the ResultServer
     will be reset during shutdown."""
+
     def __init__(self, task_id, storagepath, sock):
         self.task_id = task_id
         self.command = None
@@ -104,8 +120,7 @@ class HandlerContext(object):
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %r", self.task_id,
-                      self)
+            log.debug("Task #%s had connection reset for %r", self.task_id, self)
             return b""
         except Exception as e:
             print(e)
@@ -128,7 +143,7 @@ class HandlerContext(object):
                     raise EOFError
                 self.buf += buf
                 continue
-            line, self.buf = self.buf[:pos], self.buf[pos + 1:]
+            line, self.buf = self.buf[:pos], self.buf[pos + 1 :]
             return line
 
     def copy_to_fd(self, fd, max_size=None):
@@ -157,8 +172,7 @@ class WriteLimiter(object):
             self.remain -= write
         if size and size != write:
             if not self.warned:
-                log.warning("Uploaded file length larger than upload_max_size, "
-                            "stopping upload.")
+                log.warning("Uploaded file length larger than upload_max_size, " "stopping upload.")
                 self.fd.write(b"... (truncated)")
                 self.warned = True
 
@@ -195,29 +209,32 @@ class FileUpload(ProtocolHandler):
             self.fd = open_exclusive(file_path)
         except OSError as e:
             if e.errno == errno.EEXIST:
-                raise CuckooOperationalError("Analyzer for task #%s tried to "
-                                             "overwrite an existing file" %
-                                             self.task_id)
+                raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
             raise
-        #ToDo we need Windows path
+        # ToDo we need Windows path
         # filter screens/curtain/sysmon
         if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
-                print(json.dumps({
-                    "path": dump_path.decode("utf-8", "replace"),
-                    "filepath": filepath.decode("utf-8", "replace") if filepath else "",
-                    "pids": pids,
-                    "metadata": metadata.decode("utf-8", "replace"),
-                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else ""
-                }, ensure_ascii=False), file=f)
+                print(
+                    json.dumps(
+                        {
+                            "path": dump_path.decode("utf-8", "replace"),
+                            "filepath": filepath.decode("utf-8", "replace") if filepath else "",
+                            "pids": pids,
+                            "metadata": metadata.decode("utf-8", "replace"),
+                            "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
+                        },
+                        ensure_ascii=False,
+                    ),
+                    file=f,
+                )
 
         self.handler.sock.settimeout(None)
         try:
             return self.handler.copy_to_fd(self.fd, self.upload_max_size)
         finally:
-            log.debug("Task #%s uploaded file length: %s", self.task_id,
-                      self.fd.tell())
+            log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):
@@ -228,12 +245,10 @@ class LogHandler(ProtocolHandler):
         try:
             self.fd = open_exclusive(self.logpath, bufsize=1)
         except OSError:
-            log.error("Task #%s: attempted to reopen live log analysis.log.",
-                      self.task_id)
+            log.error("Task #%s: attempted to reopen live log analysis.log.", self.task_id)
             return
 
-        log.debug("Task #%s: live log analysis.log initialized.",
-                  self.task_id)
+        log.debug("Task #%s: live log analysis.log initialized.", self.task_id)
 
     def handle(self):
         if self.fd:
@@ -243,13 +258,11 @@ class LogHandler(ProtocolHandler):
 class BsonStore(ProtocolHandler):
     def init(self):
         if self.version is None:
-            log.warning("Agent is sending BSON files without PID parameter, "
-                        "you should probably update it")
+            log.warning("Agent is sending BSON files without PID parameter, " "you should probably update it")
             self.fd = None
             return
 
-        self.fd = open(os.path.join(self.handler.storagepath,
-                                    "logs", "%d.bson" % self.version), "wb")
+        self.fd = open(os.path.join(self.handler.storagepath, "logs", "%d.bson" % self.version), "wb")
 
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
@@ -272,6 +285,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     capable of storing all dropped files in a streamable container format. This
     is one of various steps to start being able to use less fd's in Cuckoo.
     """
+
     commands = {
         b"BSON": BsonStore,
         b"FILE": FileUpload,
@@ -303,31 +317,24 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         have been closed after the analyzer signalled completion."""
         with self.task_mgmt_lock:
             if self.tasks.pop(ipaddr, None) is None:
-                log.warning(
-                    "ResultServer did not have a task with ID %s and IP %s",
-                    task_id, ipaddr
-                )
+                log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug(
-                    "Stopped tracking machine %s for task #%s",
-                    ipaddr, task_id
-                )
+                log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
                 log.debug("Cancel %s for task %r", ctx, task_id)
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon',
-                   'stap', 'procdump', 'debugger')
+        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger")
 
         for folder in folders:
             try:
                 create_folder(self.storagepath, folder=folder)
             except Exception as e:
                 log.error(e, exc_info=True)
-            #ToDo
-            #except CuckooOperationalError as e:
+            # ToDo
+            # except CuckooOperationalError as e:
             #    print(e)
             #    log.error("Unable to create folder %s" % folder)
             #    return False
@@ -340,8 +347,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         with self.task_mgmt_lock:
             task_id = self.tasks.get(ipaddr)
             if not task_id:
-                log.warning("ResultServer did not have a task for IP %s",
-                            ipaddr)
+                log.warning("ResultServer did not have a task for IP %s", ipaddr)
                 return
 
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -365,8 +371,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 # protocol and a different task for that IP address may have
                 # been registered
                 if self.tasks.get(ipaddr) != task_id:
-                    log.warning("Task #%s for IP %s was cancelled during "
-                                "negotiation", task_id, ipaddr)
+                    log.warning("Task #%s for IP %s was cancelled during " "negotiation", task_id, ipaddr)
                     return
                 s = self.handlers.setdefault(task_id, set())
                 s.add(ctx)
@@ -382,9 +387,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning("Task #%s with protocol %s has unprocessed "
-                                "data before getting disconnected",
-                                task_id, protocol)
+                    log.warning("Task #%s with protocol %s has unprocessed " "data before getting disconnected", task_id, protocol)
         finally:
             task_log_stop(task_id)
 
@@ -397,8 +400,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             command, version = header, None
         klass = self.commands.get(command)
         if not klass:
-            log.warning("Task #%s: unknown netlog protocol requested (%r), "
-                        "terminating connection.", task_id, command)
+            log.warning("Task #%s: unknown netlog protocol requested (%r), " "terminating connection.", task_id, command)
             return
         ctx.command = command
         return klass(task_id, ctx, version)
@@ -419,10 +421,7 @@ class ResultServer(metaclass=Singleton):
             sock.bind((ip, port))
         except (OSError, socket.error) as e:
             if e.errno == errno.EADDRINUSE:
-                raise CuckooCriticalError(
-                    "Cannot bind ResultServer on port %d "
-                    "because it was in use, bailing." % port
-                )
+                raise CuckooCriticalError("Cannot bind ResultServer on port %d " "because it was in use, bailing." % port)
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
                     "Unable to bind ResultServer on %s:%s %s. This "
@@ -433,10 +432,7 @@ class ResultServer(metaclass=Singleton):
                     "for more information." % (ip, port, e)
                 )
             else:
-                raise CuckooCriticalError(
-                    "Unable to bind ResultServer on %s:%s: %s" %
-                    (ip, port, e)
-                )
+                raise CuckooCriticalError("Unable to bind ResultServer on %s:%s: %s" % (ip, port, e))
 
         # We allow user to specify port 0 to get a random port, report it back
         # here
@@ -459,7 +455,6 @@ class ResultServer(metaclass=Singleton):
         if pool_size:
             pool = gevent.pool.Pool(pool_size)
         else:
-            pool = 'default'
+            pool = "default"
         self.instance = GeventResultServerWorker(sock, spawn=pool)
         self.instance.do_run()
-

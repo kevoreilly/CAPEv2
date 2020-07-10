@@ -13,6 +13,7 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger()
 
+
 class TrID(Processing):
     """Extract TrID output from file."""
 
@@ -31,8 +32,10 @@ class TrID(Processing):
         definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
         try:
-            output = subprocess.check_output([ trid_binary, "-d:%s" % definitions, self.file_path], stderr=subprocess.STDOUT, universal_newlines=True)
-            strings = output.split('\n')
+            output = subprocess.check_output(
+                [trid_binary, "-d:%s" % definitions, self.file_path], stderr=subprocess.STDOUT, universal_newlines=True
+            )
+            strings = output.split("\n")
             # trim data
             strings = strings[6:-1]
         except subprocess.CalledProcessError:

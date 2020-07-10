@@ -24,13 +24,14 @@ _tasks_lock = threading.Lock()
 
 # Current GMT+x.
 if time.localtime().tm_isdst:
-    tz = time.altzone / -3600.
+    tz = time.altzone / -3600.0
 else:
-    tz = time.timezone / -3600.
+    tz = time.timezone / -3600.0
 
 # The greenlet library (used by Gevent) also creates some state per thread,
 # so we can (ab)use this for both multi-threading and Gevent code
 task_key = gevent.thread.get_ident
+
 
 class DatabaseHandler(logging.Handler):
     """Logging to database handler.
@@ -40,10 +41,8 @@ class DatabaseHandler(logging.Handler):
     def emit(self, record):
         # TODO Should this also attempt to guess the task ID from _tasks?
         if hasattr(record, "task_id"):
-            Database().add_error(
-                self.format(record), int(record.task_id),
-                getattr(record, "error_action", None)
-            )
+            Database().add_error(self.format(record), int(record.task_id), getattr(record, "error_action", None))
+
 
 class TaskHandler(logging.Handler):
     """Per-task logger.
@@ -56,6 +55,7 @@ class TaskHandler(logging.Handler):
             return
 
         task[1].write("%s\n" % self.format(record))
+
 
 class ConsoleHandler(logging.StreamHandler):
     """Logging to console handler."""
@@ -74,6 +74,7 @@ class ConsoleHandler(logging.StreamHandler):
                 colored.msg = record.msg
 
         logging.StreamHandler.emit(self, colored)
+
 
 class JsonFormatter(logging.Formatter):
     """Logging Cuckoo logs to JSON."""
@@ -102,6 +103,7 @@ class JsonFormatter(logging.Formatter):
         status = record.__dict__.get("status")
         return action and status
 
+
 def task_log_start(task_id):
     """Associate a thread with a task."""
     _tasks_lock.acquire()
@@ -122,6 +124,7 @@ def task_log_start(task_id):
     finally:
         _tasks_lock.release()
 
+
 def task_log_stop(task_id):
     """Disassociate a thread from a task."""
     _tasks_lock.acquire()
@@ -138,10 +141,9 @@ def task_log_stop(task_id):
     finally:
         _tasks_lock.release()
 
+
 def init_logger(name, level=None):
-    formatter = logging.Formatter(
-        "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if name == "cuckoo.log":
         l = logging.handlers.WatchedFileHandler(cwd("log", "cuckoo.log"))
@@ -176,16 +178,12 @@ def init_logger(name, level=None):
     _loggers[name] = l
     logging.getLogger().addHandler(l)
 
+
 def logger(message, *args, **kwargs):
     """Log a message to specific logger instance."""
     logfile = kwargs.pop("logfile", None)
-    record = logging.LogRecord(
-        None, logging.INFO, None, None, message, args, None, None
-    )
-    record.asctime = "%s,%03d" % (
-        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created)),
-        record.msecs
-    )
+    record = logging.LogRecord(None, logging.INFO, None, None, message, args, None, None)
+    record.asctime = "%s,%03d" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created)), record.msecs)
     record.message = record.getMessage()
     record.__dict__.update(kwargs)
 
@@ -194,4 +192,3 @@ def logger(message, *args, **kwargs):
             value.handle(record)
         if logfile is None and key.endswith(".json"):
             value.handle(record)
-

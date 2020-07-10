@@ -7,6 +7,7 @@ import os
 
 from lib.common.abstracts import Package
 
+
 class DOC2016(Package):
     """Word analysis package."""
 
@@ -26,4 +27,4 @@ class DOC2016(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, "\"%s\" /q /dde /n" % path, path)
+        return self.execute(word, '"%s" /q /dde /n' % path, path)

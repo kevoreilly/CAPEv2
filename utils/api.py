@@ -44,26 +44,31 @@ repconf = Config("reporting")
 FULL_DB = False
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient( repconf.mongodb.host,
-                                port=repconf.mongodb.port,
-                                username=repconf.mongodb.get("username", None),
-                                password=repconf.mongodb.get("password", None),
-                                authSource=repconf.mongodb.db
-                                )[repconf.mongodb.db]
+
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource=repconf.mongodb.db,
+    )[repconf.mongodb.db]
     FULL_DB = True
 
 # Increase request size limit
 BaseRequest.MEMFILE_MAX = 1024 * 1024 * 4
 
+
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
     @param process: process from cuckoo dict.
     """
-    process_node_dict = {"pid" : process["pid"],
-                         "name" : process["name"],
-                         "spawned_processes" : [createProcessTreeNode(child_process) for child_process in process["children"]]
-                        }
+    process_node_dict = {
+        "pid": process["pid"],
+        "name": process["name"],
+        "spawned_processes": [createProcessTreeNode(child_process) for child_process in process["children"]],
+    }
     return process_node_dict
+
 
 def jsonize(data):
     """Converts data dict to JSON.
@@ -72,6 +77,7 @@ def jsonize(data):
     """
     response.content_type = "application/json; charset=UTF-8"
     return json.dumps(data, sort_keys=False, indent=4)
+
 
 @hook("after_request")
 def custom_headers():
@@ -83,6 +89,7 @@ def custom_headers():
     response.headers["Pragma"] = "no-cache"
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Expires"] = "0"
+
 
 @route("/tasks/create/file", method="POST")
 @route("/v1/tasks/create/file", method="POST")
@@ -99,7 +106,7 @@ def tasks_create_file():
     platform = request.forms.get("platform", "")
     tags = request.forms.get("tags", None)
     custom = request.forms.get("custom", "")
-    memory = request.forms.get("memory", 'False')
+    memory = request.forms.get("memory", "False")
     clock = request.forms.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
     if clock is False or clock is None:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
@@ -111,13 +118,13 @@ def tasks_create_file():
     shrike_refer = request.forms.get("shrike_refer", None)
     static = bool(request.POST.get("static", False))
     unique = bool(request.forms.get("unique", False))
-    if memory.upper() == 'FALSE' or memory == '0':
+    if memory.upper() == "FALSE" or memory == "0":
         memory = False
     else:
         memory = True
 
-    enforce_timeout = request.forms.get("enforce_timeout", 'False')
-    if enforce_timeout.upper() == 'FALSE' or enforce_timeout == '0':
+    enforce_timeout = request.forms.get("enforce_timeout", "False")
+    if enforce_timeout.upper() == "FALSE" or enforce_timeout == "0":
         enforce_timeout = False
     else:
         enforce_timeout = True
@@ -125,8 +132,7 @@ def tasks_create_file():
     temp_file_path = store_temp_file(data.file.read(), data.filename)
 
     if unique and db.check_file_uniq(File(temp_file_path).get_sha256()):
-        resp = {"error": True,
-            "error_value": "Duplicated file, disable unique option to force submission"}
+        resp = {"error": True, "error_value": "Duplicated file, disable unique option to force submission"}
         return jsonize(resp)
 
     if pcap:
@@ -139,8 +145,7 @@ def tasks_create_file():
                 except:
                     pass
             else:
-                resp = {"error": True,
-                        "error_value": "Failed to convert PCAP to SAZ"}
+                resp = {"error": True, "error_value": "Failed to convert PCAP to SAZ"}
                 return jsonize(resp)
         else:
             path = temp_file_path
@@ -149,14 +154,31 @@ def tasks_create_file():
     else:
 
         try:
-            task_ids = db.demux_sample_and_add_to_db(file_path=temp_file_path, package=package, timeout=timeout, options=options, priority=priority,
-                    machine=machine, platform=platform, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock,
-                    shrike_url=shrike_url, shrike_msg=shrike_msg, shrike_sid=shrike_sid, shrike_refer=shrike_refer, static=static)
+            task_ids = db.demux_sample_and_add_to_db(
+                file_path=temp_file_path,
+                package=package,
+                timeout=timeout,
+                options=options,
+                priority=priority,
+                machine=machine,
+                platform=platform,
+                custom=custom,
+                memory=memory,
+                enforce_timeout=enforce_timeout,
+                tags=tags,
+                clock=clock,
+                shrike_url=shrike_url,
+                shrike_msg=shrike_msg,
+                shrike_sid=shrike_sid,
+                shrike_refer=shrike_refer,
+                static=static,
+            )
         except CuckooDemuxError as e:
             return HTTPError(500, e)
 
     response["task_ids"] = task_ids
     return jsonize(response)
+
 
 @route("/tasks/create/url", method="POST")
 @route("/v1/tasks/create/url", method="POST")
@@ -211,11 +233,12 @@ def tasks_create_url():
         shrike_url=shrike_url,
         shrike_msg=shrike_msg,
         shrike_sid=shrike_sid,
-        shrike_refer=shrike_refer
+        shrike_refer=shrike_refer,
     )
 
     response["task_id"] = task_id
     return jsonize(response)
+
 
 @route("/tasks/list", method="GET")
 @route("/v1/tasks/list", method="GET")
@@ -237,9 +260,9 @@ def tasks_list(limit=None, offset=None):
     # optimisation required for dist speedup
     ids = request.GET.get("ids")
 
-    for row in db.list_tasks(limit=limit, details=True, offset=offset,
-                             completed_after=completed_after,
-                             status=status, order_by=Task.completed_on.asc()):
+    for row in db.list_tasks(
+        limit=limit, details=True, offset=offset, completed_after=completed_after, status=status, order_by=Task.completed_on.asc()
+    ):
         task = row.to_dict()
         if ids:
             task = {"id": task["id"], "completed_on": task["completed_on"]}
@@ -261,6 +284,7 @@ def tasks_list(limit=None, offset=None):
         response["tasks"].append(task)
 
     return jsonize(response)
+
 
 @route("/tasks/view/<task_id:int>", method="GET")
 @route("/v1/tasks/view/<task_id:int>", method="GET")
@@ -289,6 +313,7 @@ def tasks_view(task_id):
 
     return jsonize(response)
 
+
 @route("/tasks/reschedule/<task_id:int>", method="GET")
 @route("/v1/tasks/reschedule/<task_id:int>", method="GET")
 def tasks_reschedule(task_id):
@@ -300,10 +325,10 @@ def tasks_reschedule(task_id):
     if db.reschedule(task_id):
         response["status"] = "OK"
     else:
-        return HTTPError(500, "An error occurred while trying to "
-                              "reschedule the task")
+        return HTTPError(500, "An error occurred while trying to " "reschedule the task")
 
     return jsonize(response)
+
 
 @route("/tasks/delete_many", method="POST")
 @route("/v1/tasks/delete_many", method="POST")
@@ -318,8 +343,7 @@ def tasks_delete():
                 response.setdefault(task_id, "running")
                 continue
             if db.delete_task(task_id):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage",
-                                           "analyses", "%d" % task_id))
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             if FULL_DB:
                 task = results_db.analysis.find_one({"info.id": task_id})
                 if task is not None:
@@ -334,6 +358,7 @@ def tasks_delete():
     response["status"] = "OK"
     return jsonize(response)
 
+
 @route("/tasks/delete/<task_id:int>", method="GET")
 @route("/v1/tasks/delete/<task_id:int>", method="GET")
 def tasks_delete(task_id):
@@ -341,12 +366,10 @@ def tasks_delete(task_id):
     task = db.view_task(task_id)
     if task:
         if task.status == TASK_RUNNING:
-            return HTTPError(500, "The task is currently being "
-                                  "processed, cannot delete")
+            return HTTPError(500, "The task is currently being " "processed, cannot delete")
 
         if db.delete_task(task_id):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage",
-                                       "analyses", "%d" % task_id))
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             if FULL_DB:
                 task = results_db.analysis.find_one({"info.id": task_id})
                 if task is not None:
@@ -357,12 +380,12 @@ def tasks_delete(task_id):
 
             response["status"] = "OK"
         else:
-            return HTTPError(500, "An error occurred while trying to "
-                                  "delete the task")
+            return HTTPError(500, "An error occurred while trying to " "delete the task")
     else:
         return HTTPError(404, "Task not found")
 
     return jsonize(response)
+
 
 @route("/tasks/report/<task_id:int>", method="GET")
 @route("/v1/tasks/report/<task_id:int>", method="GET")
@@ -381,7 +404,7 @@ def tasks_report(task_id, report_format="json"):
     bz_formats = {
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
-        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]}
+        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
     }
 
     tar_formats = {
@@ -391,33 +414,30 @@ def tasks_report(task_id, report_format="json"):
     }
 
     if report_format.lower() in formats:
-        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                   "%d" % task_id, "reports",
-                                   formats[report_format.lower()])
+        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id, "reports", formats[report_format.lower()])
     elif report_format.lower() in bz_formats:
-            bzf = bz_formats[report_format.lower()]
-            srcdir = os.path.join(CUCKOO_ROOT, "storage",
-                                  "analyses", "%d" % task_id)
-            s = StringIO()
+        bzf = bz_formats[report_format.lower()]
+        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
+        s = StringIO()
 
-            # By default go for bz2 encoded tar files (for legacy reasons.)
-            tarmode = tar_formats.get(request.GET.get("tar"), "w:bz2")
+        # By default go for bz2 encoded tar files (for legacy reasons.)
+        tarmode = tar_formats.get(request.GET.get("tar"), "w:bz2")
 
-            tar = tarfile.open(fileobj=s, mode=tarmode)
-            if not os.path.exists(srcdir):
-                return HTTPError(400, "Path doesn't exists")
+        tar = tarfile.open(fileobj=s, mode=tarmode)
+        if not os.path.exists(srcdir):
+            return HTTPError(400, "Path doesn't exists")
 
-            for filedir in os.listdir(srcdir):
-                try:
-                    if bzf["type"] == "-" and filedir not in bzf["files"]:
-                        tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-                    if bzf["type"] == "+" and filedir in bzf["files"]:
-                        tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-                except Exception as e:
-                    print(e)
-            tar.close()
-            response.content_type = "application/x-tar; charset=UTF-8"
-            return s.getvalue()
+        for filedir in os.listdir(srcdir):
+            try:
+                if bzf["type"] == "-" and filedir not in bzf["files"]:
+                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
+                if bzf["type"] == "+" and filedir in bzf["files"]:
+                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
+            except Exception as e:
+                print(e)
+        tar.close()
+        response.content_type = "application/x-tar; charset=UTF-8"
+        return s.getvalue()
     else:
         return HTTPError(400, "Invalid report format")
 
@@ -425,6 +445,7 @@ def tasks_report(task_id, report_format="json"):
         return open(report_path, "rb").read()
     else:
         return HTTPError(404, "Report not found")
+
 
 @route("/tasks/iocs/<task_id:int>", method="GET")
 @route("/v1/tasks/iocs/<task_id:int>", method="GET")
@@ -435,8 +456,7 @@ def tasks_iocs(task_id, detail=False):
         buf = results_db.analysis.find_one({"info.id": task_id})
 
     if not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%s" % task_id, "reports", "report.json")
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
 
         if os.path.exists(jfile):
             with open(jfile, "r") as jdata:
@@ -562,21 +582,22 @@ def tasks_iocs(task_id, detail=False):
 
     data["process_tree"] = {}
     if "behavior" in buf and "processtree" in buf["behavior"] and len(buf["behavior"]["processtree"]) > 0:
-        data["process_tree"] = {"pid" : buf["behavior"]["processtree"][0]["pid"],
-                                "name" : buf["behavior"]["processtree"][0]["name"],
-                                "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]]
-                                }
+        data["process_tree"] = {
+            "pid": buf["behavior"]["processtree"][0]["pid"],
+            "name": buf["behavior"]["processtree"][0]["name"],
+            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
+        }
     if "dropped" in buf:
         for entry in buf["dropped"]:
             tmpdict = {}
             if entry["clamav"]:
-                tmpdict['clamav'] = entry["clamav"]
+                tmpdict["clamav"] = entry["clamav"]
             if entry["sha256"]:
-                tmpdict['sha256'] = entry["sha256"]
+                tmpdict["sha256"] = entry["sha256"]
             if entry["md5"]:
-                tmpdict['md5'] = entry["md5"]
+                tmpdict["md5"] = entry["md5"]
             if entry["yara"]:
-                tmpdict['yara'] = entry["yara"]
+                tmpdict["yara"] = entry["yara"]
             if entry["type"]:
                 tmpdict["type"] = entry["type"]
             if entry["guest_paths"]:
@@ -625,6 +646,7 @@ def tasks_iocs(task_id, detail=False):
     resp = {"error": False, "data": data}
     return jsonize(resp)
 
+
 @route("/files/view/md5/<md5>", method="GET")
 @route("/v1/files/view/md5/<md5>", method="GET")
 @route("/files/view/sha1/<md5>", method="GET")
@@ -654,6 +676,7 @@ def files_view(md5=None, sha1=None, sha256=None, sample_id=None):
 
     return jsonize(response)
 
+
 @route("/files/get/<sha256>", method="GET")
 @route("/v1/files/get/<sha256>", method="GET")
 def files_get(sha256):
@@ -664,11 +687,11 @@ def files_get(sha256):
     else:
         return HTTPError(404, "File not found")
 
+
 @route("/pcap/get/<task_id:int>", method="GET")
 @route("/v1/pcap/get/<task_id:int>", method="GET")
 def pcap_get(task_id):
-    file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%d" % task_id, "dump.pcap")
+    file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id, "dump.pcap")
     if os.path.exists(file_path):
         response.content_type = "application/octet-stream; charset=UTF-8"
         try:
@@ -677,6 +700,7 @@ def pcap_get(task_id):
             return HTTPError(500, "An error occurred while reading PCAP")
     else:
         return HTTPError(404, "File not found")
+
 
 @route("/machines/list", method="GET")
 @route("/v1/machines/list", method="GET")
@@ -691,6 +715,7 @@ def machines_list():
 
     return jsonize(response)
 
+
 @route("/machines/delete/<machine_name>", method="GET")
 @route("/v1/machines/delete/<machine_name>", method="GET")
 def machines_delete(machine_name):
@@ -700,8 +725,9 @@ def machines_delete(machine_name):
 
     response["status"] = status
     if status == "success":
-        response["data"]  = "Deleted machine %s" % machine_name
+        response["data"] = "Deleted machine %s" % machine_name
     return jsonize(response)
+
 
 @route("/cuckoo/status", method="GET")
 @route("/v1/cuckoo/status", method="GET")
@@ -709,20 +735,18 @@ def cuckoo_status():
     response = dict(
         version=CUCKOO_VERSION,
         hostname=socket.gethostname(),
-        machines=dict(
-            total=len(db.list_machines()),
-            available=db.count_machines_available()
-        ),
+        machines=dict(total=len(db.list_machines()), available=db.count_machines_available()),
         tasks=dict(
             total=db.count_tasks(),
             pending=db.count_tasks("pending"),
             running=db.count_tasks("running"),
             completed=db.count_tasks("completed"),
-            reported=db.count_tasks("reported")
+            reported=db.count_tasks("reported"),
         ),
     )
 
     return jsonize(response)
+
 
 @route("/machines/view/<name>", method="GET")
 @route("/v1/machines/view/<name>", method="GET")
@@ -736,6 +760,7 @@ def machines_view(name=None):
         return HTTPError(404, "Machine not found")
 
     return jsonize(response)
+
 
 @route("/tasks/screenshots/<task:int>", method="GET")
 @route("/v1/tasks/screenshots/<task:int>", method="GET")
@@ -777,10 +802,9 @@ def tasks_config(task_id, cape_name=False):
 
     buf = dict()
     if repconf.mongodb.get("enabled"):
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, { "CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
     if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                             "%s" % task_id, "reports", "report.json")
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
         with open(jfile, "r") as jdata:
             buf = json.load(jdata)
 
@@ -805,16 +829,13 @@ def tasks_config(task_id, cape_name=False):
             if data:
                 resp = {"error": False, "configs": data}
             else:
-                resp = {
-                    "error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
             return jsonize(resp)
         else:
-            resp = {
-                "error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
+            resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
             return jsonize(resp)
     else:
-        resp = {"error": True,
-                "error_value": "Unable to retrieve results for task {}.".format(task_id)}
+        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
         return jsonize(resp)
 
 

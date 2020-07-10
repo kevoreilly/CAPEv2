@@ -13,8 +13,9 @@ Create Date: 2015-03-05 07:39:21.036983
 # revision identifiers, used by Alembic.
 from __future__ import absolute_import
 from __future__ import print_function
-revision = '4b09c454108c'
-down_revision = '495d5a6edef3'
+
+revision = "4b09c454108c"
+down_revision = "495d5a6edef3"
 
 from alembic import op
 import sqlalchemy as sa
@@ -26,7 +27,7 @@ from datetime import datetime
 try:
     from dateutil.parser import parse
 except ImportError:
-    print("Unable to import dateutil.parser", end=' ')
+    print("Unable to import dateutil.parser", end=" ")
     print("(install with `pip3 install python-dateutil`)")
     sys.exit()
 
@@ -41,12 +42,15 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 
 import lib.cuckoo.core.database as db
 
+
 def _perform(upgrade):
     conn = op.get_bind()
 
     # Read data.
     tasks_data = []
-    old_tasks = conn.execute("select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, clock, added_on, started_on, completed_on, status, sample_id from tasks").fetchall()
+    old_tasks = conn.execute(
+        "select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, clock, added_on, started_on, completed_on, status, sample_id from tasks"
+    ).fetchall()
 
     for item in old_tasks:
         d = {}
@@ -122,7 +126,7 @@ def _perform(upgrade):
 
     if conn.engine.driver == "mysqldb":
         # Disable foreign key checking to migrate table avoiding checks.
-        op.execute('SET foreign_key_checks = 0')
+        op.execute("SET foreign_key_checks = 0")
 
     # Drop old table.
     op.drop_table("tasks")
@@ -147,9 +151,23 @@ def _perform(upgrade):
             sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
             sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
             sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-            sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", "failed_reporting", name="status_type"), server_default="pending", nullable=False),
+            sa.Column(
+                "status",
+                sa.Enum(
+                    "pending",
+                    "running",
+                    "completed",
+                    "reported",
+                    "recovered",
+                    "failed_analysis",
+                    "failed_processing",
+                    "failed_reporting",
+                    name="status_type",
+                ),
+                server_default="pending",
+                nullable=False,
+            ),
             sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-
             sa.Column("dropped_files", sa.Integer(), nullable=True),
             sa.Column("running_processes", sa.Integer(), nullable=True),
             sa.Column("api_calls", sa.Integer(), nullable=True),
@@ -170,8 +188,7 @@ def _perform(upgrade):
             sa.Column("reporting_finished_on", sa.DateTime(timezone=False), nullable=True),
             sa.Column("timedout", sa.Boolean(), nullable=False, default=False),
             sa.Column("machine_id", sa.Integer(), nullable=True),
-
-            sa.PrimaryKeyConstraint("id")
+            sa.PrimaryKeyConstraint("id"),
         )
     else:
         op.create_table(
@@ -192,23 +209,40 @@ def _perform(upgrade):
             sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
             sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
             sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-            sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", "failed_analysis", "failed_processing", "failed_reporting", name="status_type"), server_default="pending", nullable=False),
+            sa.Column(
+                "status",
+                sa.Enum(
+                    "pending",
+                    "running",
+                    "completed",
+                    "reported",
+                    "recovered",
+                    "failed_analysis",
+                    "failed_processing",
+                    "failed_reporting",
+                    name="status_type",
+                ),
+                server_default="pending",
+                nullable=False,
+            ),
             sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-            sa.PrimaryKeyConstraint("id")
+            sa.PrimaryKeyConstraint("id"),
         )
 
     if conn.engine.driver == "mysqldb":
-        op.execute('COMMIT')
+        op.execute("COMMIT")
 
     # Insert data.
     op.bulk_insert(db.Task.__table__, tasks_data)
 
     if conn.engine.driver == "mysqldb":
         # Enable foreign key.
-        op.execute('SET foreign_key_checks = 1')
+        op.execute("SET foreign_key_checks = 1")
+
 
 def upgrade():
     _perform(upgrade=True)
+
 
 def downgrade():
     _perform(upgrade=False)

@@ -21,10 +21,24 @@ __maintainer__ = "Tommy Stallings, Brandon Dixon"
 __email__ = "tommy.stallings@salesforce.com"
 
 
-GREASE_TABLE = {0x0a0a: True, 0x1a1a: True, 0x2a2a: True, 0x3a3a: True,
-                0x4a4a: True, 0x5a5a: True, 0x6a6a: True, 0x7a7a: True,
-                0x8a8a: True, 0x9a9a: True, 0xaaaa: True, 0xbaba: True,
-                0xcaca: True, 0xdada: True, 0xeaea: True, 0xfafa: True}
+GREASE_TABLE = {
+    0x0A0A: True,
+    0x1A1A: True,
+    0x2A2A: True,
+    0x3A3A: True,
+    0x4A4A: True,
+    0x5A5A: True,
+    0x6A6A: True,
+    0x7A7A: True,
+    0x8A8A: True,
+    0x9A9A: True,
+    0xAAAA: True,
+    0xBABA: True,
+    0xCACA: True,
+    0xDADA: True,
+    0xEAEA: True,
+    0xFAFA: True,
+}
 # GREASE_TABLE Ref: https://tools.ietf.org/html/draft-davidben-tls-grease-00
 SSL_PORT = 443
 TLS_HANDSHAKE = 22
@@ -52,12 +66,12 @@ def parse_variable_array(buf, byte_len):
     :type byte_len: int
     :returns: bytes, int
     """
-    _SIZE_FORMATS = ['!B', '!H', '!I', '!I']
+    _SIZE_FORMATS = ["!B", "!H", "!I", "!I"]
     assert byte_len <= 4
     size_format = _SIZE_FORMATS[byte_len - 1]
-    padding = b'\x00' if byte_len == 3 else b''
+    padding = b"\x00" if byte_len == 3 else b""
     size = struct.unpack(size_format, padding + buf[:byte_len])[0]
-    data = buf[byte_len:byte_len + size]
+    data = buf[byte_len : byte_len + size]
 
     return data, size + byte_len
 
@@ -72,11 +86,11 @@ def ntoh(buf):
     if len(buf) == 1:
         return buf[0]
     elif len(buf) == 2:
-        return struct.unpack('!H', buf)[0]
+        return struct.unpack("!H", buf)[0]
     elif len(buf) == 4:
-        return struct.unpack('!I', buf)[0]
+        return struct.unpack("!I", buf)[0]
     else:
-        raise ValueError('Invalid input buffer size for NTOH')
+        raise ValueError("Invalid input buffer size for NTOH")
 
 
 def convert_to_ja3_segment(data, element_width):
@@ -91,12 +105,12 @@ def convert_to_ja3_segment(data, element_width):
     int_vals = list()
     data = bytearray(data)
     if len(data) % element_width:
-        message = '{count} is not a multiple of {width}'
+        message = "{count} is not a multiple of {width}"
         message = message.format(count=len(data), width=element_width)
         raise ValueError(message)
 
     for i in range(0, len(data), element_width):
-        element = ntoh(data[i: i + element_width])
+        element = ntoh(data[i : i + element_width])
         if element not in GREASE_TABLE:
             int_vals.append(element)
 
@@ -120,11 +134,11 @@ def process_extensions(client_handshake):
     for ext_val, ext_data in client_handshake.extensions:
         if not GREASE_TABLE.get(ext_val):
             exts.append(ext_val)
-        if ext_val == 0x0a:
+        if ext_val == 0x0A:
             a, b = parse_variable_array(ext_data, 2)
             # Elliptic curve points (16 bit values)
             elliptic_curve = convert_to_ja3_segment(a, 2)
-        elif ext_val == 0x0b:
+        elif ext_val == 0x0B:
             a, b = parse_variable_array(ext_data, 1)
             # Elliptic curve point formats (8 bit values)
             elliptic_curve_point_format = convert_to_ja3_segment(a, 1)
@@ -213,14 +227,16 @@ def process_pcap(pcap, any_port=False):
             ja3 += process_extensions(client_handshake)
             ja3 = ",".join(ja3)
 
-            record = {"source_ip": convert_ip(ip.src),
-                      "destination_ip": convert_ip(ip.dst),
-                      "source_port": tcp.sport,
-                      "destination_port": tcp.dport,
-                      "ja3": ja3,
-                      "ja3_digest": md5(ja3.encode()).hexdigest(),
-                      "timestamp": timestamp,
-                      "client_hello_pkt": binascii.hexlify(tcp.data)}
+            record = {
+                "source_ip": convert_ip(ip.src),
+                "destination_ip": convert_ip(ip.dst),
+                "source_port": tcp.sport,
+                "destination_port": tcp.dport,
+                "ja3": ja3,
+                "ja3_digest": md5(ja3.encode()).hexdigest(),
+                "timestamp": timestamp,
+                "client_hello_pkt": binascii.hexlify(tcp.data),
+            }
             results.append(record)
 
     return results
@@ -232,20 +248,16 @@ def main():
     parser = argparse.ArgumentParser(description=(desc))
     parser.add_argument("pcap", help="The pcap file to process")
     help_text = "Look for client hellos on any port instead of just 443"
-    parser.add_argument("-a", "--any_port", required=False,
-                        action="store_true", default=False,
-                        help=help_text)
+    parser.add_argument("-a", "--any_port", required=False, action="store_true", default=False, help=help_text)
     help_text = "Print out as JSON records for downstream parsing"
-    parser.add_argument("-j", "--json", required=False, action="store_true",
-                        default=False, help=help_text)
+    parser.add_argument("-j", "--json", required=False, action="store_true", default=False, help=help_text)
     help_text = "Print packet related data for research (json only)"
-    parser.add_argument("-r", "--research", required=False, action="store_true",
-                        default=False, help=help_text)
+    parser.add_argument("-r", "--research", required=False, action="store_true", default=False, help=help_text)
     args = parser.parse_args()
 
     # Use an iterator to process each line of the file
     output = None
-    with open(args.pcap, 'rb') as fp:
+    with open(args.pcap, "rb") as fp:
         try:
             capture = dpkt.pcap.Reader(fp)
         except ValueError as e:
@@ -254,20 +266,19 @@ def main():
 
     if args.json:
         if not args.research:
+
             def remove_items(x):
-                del x['client_hello_pkt']
-            list(map(remove_items,output))
+                del x["client_hello_pkt"]
+
+            list(map(remove_items, output))
         output = json.dumps(output, indent=4, sort_keys=True)
         print(output)
     else:
         for record in output:
-            tmp = '[{dest}:{port}] JA3: {segment} --> {digest}'
-            tmp = tmp.format(dest=record['destination_ip'],
-                             port=record['destination_port'],
-                             segment=record['ja3'],
-                             digest=record['ja3_digest'])
+            tmp = "[{dest}:{port}] JA3: {segment} --> {digest}"
+            tmp = tmp.format(dest=record["destination_ip"], port=record["destination_port"], segment=record["ja3"], digest=record["ja3_digest"])
             print(tmp)
 
 
 if __name__ == "__main__":
-        main()
+    main()

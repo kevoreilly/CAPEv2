@@ -8,8 +8,10 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Unpacker_Regsvr(Package):
     """CAPE Unpacker DLL analysis package."""
+
     PATHS = [
         ("SystemRoot", "system32", "regsvr32.exe"),
     ]

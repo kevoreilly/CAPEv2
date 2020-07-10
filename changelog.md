@@ -1,3 +1,6 @@
+### [11-07-2020]
+* [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+
 ### [24-06-2020]
 * Show url from where file was downloaded when using Download'n'Exec
 * Zip package is depricate as it doesn't support AES etc, to upload with side files use file=X and submit in zip archive, for rest you have [sflock](https://github.com/doomedraven/sflock) <3

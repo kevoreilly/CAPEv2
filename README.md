@@ -107,7 +107,7 @@ git reset HEAD~1
 ```
 # make sure kevoreilly repo has been added as a remote (only needs to be done once)
 git remote add kevoreilly https://github.com/kevoreilly/CAPEv2.git
-# make sure all your changes are commited on the branch which you will be merging 
+# make sure all your changes are commited on the branch which you will be merging
 git commit -a -m '<your commit message goes here>'
 # fetch changes from kevoreilly repo
 git fetch kevoreilly
@@ -120,3 +120,6 @@ git push
 
 #### What doesn't work
 * volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.
+
+### Docs
+* [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)

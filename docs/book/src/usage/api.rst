@@ -2,7 +2,7 @@
 Current REST API
 ================
 
-To see current REST api see /api/ you will find all endpoints and details how to do requests
+To see current REST api see ``/api/`` you will find all endpoints and details how to do requests
 
 
 .. _`capesandbox api example`: https://capesandbox.com/api/

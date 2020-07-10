@@ -73,7 +73,7 @@ def check_webgui_mongo():
             )
             conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning("You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration")
+            log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
             bad = True
         finally:
             conn.close()

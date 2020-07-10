@@ -15,10 +15,6 @@ As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
 API server implemented in `Bottle.py`_, therefore in order to make the service
 work you'll need it installed. Bottle release must be 0.10 or above.
 
-On Debian/Ubuntu::
-
-    $ sudo apt-get install python-bottle
-
 With Pip::
 
     $ pip3 install bottle

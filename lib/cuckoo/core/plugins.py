@@ -89,12 +89,12 @@ def list_plugins(group=None):
         return _modules
 
 
-suricata_whitelist = (
+suricata_passlist = (
     "agenttesla",
     "medusahttp",
 )
 
-suricata_blacklist = (
+suricata_blocklist = (
     "abuse",
     "agent",
     "base64",
@@ -161,13 +161,12 @@ def get_suricata_family(signature):
     """
     # ToDo Trojan-Proxy
     family = False
-    # alert["signature"].startswith(("ET JA3 HASH")):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
     famcheck = words[2]
     if "/" in famcheck:
         famcheck_list = famcheck.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([black in fam_name.lower() for black in suricata_blacklist]):
+            if not any([black in fam_name.lower() for black in suricata_blocklist]):
                 famcheck = fam_name
                 break
     famchecklower = famcheck.lower()
@@ -180,10 +179,10 @@ def get_suricata_family(signature):
     if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any([black in famchecklower for black in suricata_blacklist])
+    isbad = any([black in famchecklower for black in suricata_blocklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-    isgood = any([white in famchecklower for white in suricata_whitelist])
+    isgood = any([white in famchecklower for white in suricata_passlist])
     if isgood and len(famcheck) >= 4:
         family = famcheck.title()
     return family

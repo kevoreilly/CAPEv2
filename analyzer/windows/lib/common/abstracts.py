@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import glob
 import os
 import logging
+import shutil
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
@@ -191,9 +192,9 @@ class Package(object):
             self.curdir = os.path.expandvars(self.options["curdir"])
         else:
             self.curdir = os.getenv("TEMP")
-        outpath = os.path.join(self.curdir, os.path.basename(filepath))
-        os.rename(filepath, outpath)
-        return outpath
+        newpath = os.path.join(self.curdir, os.path.basename(filepath))
+        shutil.move(filepath, newpath)
+        return newpath
 
 
 class Auxiliary(object):

@@ -17,7 +17,7 @@ class PDF(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["api-rate-cap"] = "1"
+        self.options["pdf"] = "1"
 
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")

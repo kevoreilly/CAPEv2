@@ -747,7 +747,7 @@ class Files(object):
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath, metadata="", pids=False, category="files"):
+    def dump_file(self, filepath, metadata="", pids=False, ppids=False, category="files"):
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -783,7 +783,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category)
+            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -1264,9 +1264,9 @@ class CommandPipeHandler(object):
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
         # Syntax -> PATH|PID|Metadata
-        file_path, pid, metadata = data.split(b"|")
+        file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], ppids=[ppid.decode("utf-8")], metadata=metadata, category="CAPE")
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1283,9 +1283,9 @@ class CommandPipeHandler(object):
         # We dump immediately.
         if b"\\CAPE\\" in file_path:
             # Syntax -> PATH|PID|Metadata
-            file_path, pid, metadata = file_path.split(b"|")
+            file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], ppid=ppid.decode("utf-8"), metadata=metadata, category="procdump")
 
         else:
             if os.path.exists(file_path):

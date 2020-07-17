@@ -5,12 +5,15 @@
 from __future__ import absolute_import
 import os
 import shutil
-from subprocess import call
-from lib.common.abstracts import Package
 
+from lib.common.abstracts import Package
 
 class Emotet(Package):
     """Emotet analysis package."""
+
+    # PATHS = [
+    #    ("SystemRoot", "system32"),
+    # ]
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
@@ -22,9 +25,7 @@ class Emotet(Package):
         self.options["exclude-apis"] = "RegOpenKeyExA:SendMessageA:srand:GetSystemTimeAsFileTime"
 
     def start(self, path):
-        args = self.options.get("arguments")
-        appdata = self.options.get("appdata")
-        runasx86 = self.options.get("runasx86")
+        arguments = self.options.get("arguments")
 
         # If the file doesn't have an extension, add .exe
         # See CWinApp::SetCurrentHandles(), it will throw
@@ -35,10 +36,4 @@ class Emotet(Package):
             os.rename(path, new_path)
             path = new_path
 
-        if appdata:
-            # run the executable from the APPDATA directory, required for some malware
-            basepath = os.getenv("APPDATA")
-            newpath = os.path.join(basepath, os.path.basename(path))
-            shutil.copy(path, newpath)
-            path = newpath
-        return self.execute(path, args, path)
+        return self.execute(path, arguments, path)

@@ -21,8 +21,7 @@ class Emotet(Package):
         self.options = options
         self.pids = []
         self.options["unpacker"] = "1"
-        self.options["procdump"] = "1"
-        self.options["exclude-apis"] = "RegOpenKeyExA:SendMessageA:srand:GetSystemTimeAsFileTime"
+        self.options["injection"] = "0"
 
     def start(self, path):
         arguments = self.options.get("arguments")

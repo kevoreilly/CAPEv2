@@ -62,11 +62,11 @@ Packet = namedtuple("Packet", ["raw", "ts"])
 log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
-enabled_whitelist = proc_cfg.network.dnswhitelist
-whitelist_file = proc_cfg.network.dnswhitelist_file
+enabled_passlist = proc_cfg.network.dnswhitelist
+passlist_file = proc_cfg.network.dnswhitelist_file
 
-enabled_ip_whitelist = proc_cfg.network.ipwhitelist
-ip_whitelist_file = proc_cfg.network.ipwhitelist_file
+enabled_ip_passlist = proc_cfg.network.ipwhitelist
+ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
 
 class Pcap:
@@ -108,8 +108,8 @@ class Pcap:
         self.ja3_records = []
         # Dictionary containing all the results of this processing.
         self.results = {}
-        # DNS Whitelist
-        self.domain_whitelist = [
+        # DNS ignore list
+        self.domain_passlist = [
             # Certificate Trust Update domains
             "^ocsp\.usertrust\.com$",
             "\.windows\.com$",
@@ -143,17 +143,18 @@ class Pcap:
             "^ts-ocsp\.ws\.symantec\.com$",
             "^ocsp\.thawte\.com$",
             "^crl\.thawte\.com$",
+            "^crt\.comodoca\.com$",
         ]
 
-        if enabled_whitelist and whitelist_file:
-            with open(os.path.join(CUCKOO_ROOT, whitelist_file), "r") as f:
-                self.domain_whitelist += self.domain_whitelist + f.read().split("\n")
-                self.domain_whitelist = list(set(self.domain_whitelist))
+        if enabled_passlist and passlist_file:
+            with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
+                self.domain_passlist += self.domain_passlist + f.read().split("\n")
+                self.domain_passlist = list(set(self.domain_passlist))
 
-        self.ip_whitelist = set()
-        if enabled_ip_whitelist and ip_whitelist_file:
-            with open(os.path.join(CUCKOO_ROOT, ip_whitelist_file), "r") as f:
-                self.ip_whitelist = set(f.read().split("\n"))
+        self.ip_passlist = set()
+        if enabled_ip_passlist and ip_passlist_file:
+            with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
+                self.ip_passlist = set(f.read().split("\n"))
 
     def _dns_gethostbyname(self, name):
         """Get host by name wrapper.
@@ -224,7 +225,7 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in self.ip_whitelist:
+                    if ip in self.ip_passlist:
                         return False
                     self.hosts.append(ip)
 
@@ -433,8 +434,8 @@ class Pcap:
                 ans["data"] = ""
                 query["answers"].append(ans)
 
-            if enabled_whitelist:
-                for reject in self.domain_whitelist:
+            if enabled_passlist:
+                for reject in self.domain_passlist:
                     if reject.startswith("#") or len(reject.strip()) == 0:
                         continue  # comment or empty line
                     try:
@@ -442,7 +443,7 @@ class Pcap:
                             if query["answers"]:
                                 for addip in query["answers"]:
                                     if addip["type"] == "A" or addip["type"] == "AAAA":
-                                        self.ip_whitelist.add(addip["data"])
+                                        self.ip_passlist.add(addip["data"])
                             return True
                     except re.RegexError as e:
                         log.error(("bad regex", reject, e))
@@ -517,8 +518,8 @@ class Pcap:
             else:
                 entry["host"] = conn["dst"]
 
-            if enabled_whitelist:
-                for reject in self.domain_whitelist:
+            if enabled_passlist:
+                for reject in self.domain_passlist:
                     # comment or empty line
                     if reject.startswith("#") or len(reject.strip()) == 0:
                         continue
@@ -588,10 +589,10 @@ class Pcap:
         @param tcpdata: TCP data in flow
         """
 
-        if enabled_whitelist:
-            if conn["src"] in self.ip_whitelist:
+        if enabled_passlist:
+            if conn["src"] in self.ip_passlist:
                 return False
-            if conn["dst"] in self.ip_whitelist:
+            if conn["dst"] in self.ip_passlist:
                 return False
 
         try:
@@ -791,7 +792,7 @@ class Pcap:
         # Post processors for reconstructed flows.
         self._process_smtp()
 
-        # Remove hosts that have an IP which correlate to a whitelisted domain
+        # Remove hosts that have an IP which correlate to a passlisted domain
 
         # Build results dict.
         self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
@@ -805,16 +806,16 @@ class Pcap:
         self.results["irc"] = self.irc_requests
         self.results["ja3"] = self.ja3_records
 
-        if enabled_whitelist:
+        if enabled_passlist:
 
             for host in self.results["hosts"]:
-                for delip in self.ip_whitelist:
+                for delip in self.ip_passlist:
                     if delip == host["ip"]:
                         self.results["hosts"].remove(host)
 
             for keyword in ("tcp", "udp", "icmp"):
                 for host in self.results[keyword]:
-                    for delip in self.ip_whitelist:
+                    for delip in self.ip_passlist:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
 

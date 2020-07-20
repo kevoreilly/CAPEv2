@@ -478,11 +478,7 @@ def index(request, resubmit_hash=False):
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     return render(
                         request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a file that exceeds the maximum \
-                    allowed upload size specified in web/web/local_settings.py."
-                        },
+                        "error.html", {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."},
                     )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to

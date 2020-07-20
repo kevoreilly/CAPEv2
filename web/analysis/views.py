@@ -900,20 +900,15 @@ def report(request, task_id):
         children = report["CAPE_children"]
 
     try:
-        report["dropped"] = list(
-            results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]
-            )
-        )[0]["dropped_size"]
+        report["dropped"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]))[0]["dropped_size"]
     except:
         report["dropped"] = 0
 
     try:
-        report["CAPE"] = list(
-            results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"}}}]
-            )
-        )[0]["cape_size"]
+        if report.get("info", {}).get("category", "").lower() == "static":
+            report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
+        else:
+            report["CAPE"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.cape_config"}}}]))[0]["cape_size"]
     except:
         report["CAPE"] = 0
 

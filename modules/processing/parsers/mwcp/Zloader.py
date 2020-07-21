@@ -74,16 +74,15 @@ class Zloader(Parser):
         enc_data = filebuf[data_offset:].split(b"\0\0")[0]
         raw = decrypt_rc4(key, enc_data)
         items = list(filter(None, raw.split(b'\x00\x00')))
-        self.reporter.add_metadata("other", {"C2 value": items[0].hex()})
+        self.reporter.add_metadata("other", {"Version": str(ord(items[0]))})
         self.reporter.add_metadata("other", {"Botnet name": items[1]})
         self.reporter.add_metadata("other", {"Campaign ID": items[2]})
         for item in items:
             item = item.lstrip(b'\x00')
             if len(item) == 128:
-                self.reporter.add_metadata("other", {"RC4 key": item.hex()})
+                self.reporter.add_metadata("other", {"RSA key": item.hex()})
             elif item.startswith(b'http'):
                 self.reporter.add_metadata("address", item)
-            else:
-                if len(item) == 32:
-                    self.reporter.add_metadata("other", {"unknown": item})
+            elif len(item) == 16:
+                self.reporter.add_metadata("other", {"RC4 key": item})
         return

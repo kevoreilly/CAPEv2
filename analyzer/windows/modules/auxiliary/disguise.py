@@ -10,12 +10,13 @@ import subprocess
 import logging
 from random import randint
 from winreg import *
+from uuid import uuid4
+import platform
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
 
 log = logging.getLogger(__name__)
-
 
 class Disguise(Auxiliary):
     """Disguise the analysis environment."""
@@ -27,13 +28,13 @@ class Disguise(Auxiliary):
         elif not isinstance(command, list):
             command = [command]
 
-        psexec_path = os.path.join(os.getcwd(), "bin", "psexec.exe")
+        psexec_path = os.path.join(os.getcwd(), 'bin', 'psexec.exe')
         if not os.path.exists(psexec_path):
             log.warning("PsExec executable was not found in bin/")
 
         output = None
         try:
-            output = subprocess.check_output([psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT)
+            output = subprocess.check_output([psexec_path, '-accepteula', '-nobanner', '-s'] + command, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             log.error(e.output)
 
@@ -41,11 +42,14 @@ class Disguise(Auxiliary):
 
     def disable_scs(self):
         """Put here all sc related configuration"""
-        commands = [["sc", "stop", "ClickToRunSvc"], ["sc", "config", "ClickToRunSvc", "start=", "disabled"]]
+        commands = [
+            ["sc", "stop", "ClickToRunSvc"],
+            ["sc", "config", "ClickToRunSvc", "start=", "disabled"]
+        ]
         for command in commands:
             try:
                 output = subprocess.check_output(command, stderr=subprocess.STDOUT)
-                # log.info(output)
+                #log.info(output)
             except subprocess.CalledProcessError as e:
                 log.error(e.output)
 
@@ -54,9 +58,12 @@ class Disguise(Auxiliary):
         The Windows ProductId is occasionally used by malware
         to detect public setups of Cuckoo, e.g., Malwr.com.
         """
-        key = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE)
+        key = OpenKey(HKEY_LOCAL_MACHINE,
+                      "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                      0, KEY_SET_VALUE)
 
-        value = "{0}-{1}-{2}-{3}".format(random_integer(5), random_integer(3), random_integer(7), random_integer(5))
+        value = "{0}-{1}-{2}-{3}".format(random_integer(5), random_integer(3),
+                                         random_integer(7), random_integer(5))
 
         SetValueEx(key, "ProductId", 0, REG_SZ, value)
         CloseKey(key)
@@ -86,11 +93,11 @@ class Disguise(Auxiliary):
 
             CloseKey(officeKey)
         except WindowsError:
-            # Office isn't installed at all
-            return
+                # Office isn't installed at all
+                return
 
         self._office_helper("Software\\Microsoft\\Office\\Common\\Security", "DisableAllActiveX", REG_DWORD, 0)
-        self._office_helper("Software\\Microsoft\\Office\\Common\\Security", "UFIControls", REG_DWORD, 1)
+        self._office_helper("Software\\Microsoft\\Office\\Common\\Security", "UFIControls",REG_DWORD, 1)
         for oVersion in installedVersions:
             for software in ("Word", "Excel", "PowerPoint", "Publisher", "Outlook"):
                 productPath = r"{0}\{1}\{2}".format(baseOfficeKeyPath, oVersion, software)
@@ -102,8 +109,9 @@ class Disguise(Auxiliary):
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableAttachmentsInPV", REG_DWORD, 1)
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableInternetFilesInPV", REG_DWORD, 1)
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableUnsafeLocationsInPV", REG_DWORD, 1)
-                # self._office_helper("HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Office\\{}\\{}\\Security".format(oVersion, software), "MarkInternalAsUnsafe", REG_DWORD, 0)
+                #self._office_helper("HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Office\\{}\\{}\\Security".format(oVersion, software), "MarkInternalAsUnsafe", REG_DWORD, 0)
                 self._office_helper(productPath + "\\Security", "ExtensionHardening", 0)
+
 
     def set_office_mrus(self):
         """Adds randomized MRU's to Office software(s).
@@ -138,8 +146,8 @@ class Disguise(Auxiliary):
 
             CloseKey(officeKey)
         except WindowsError:
-            # Office isn't installed at all
-            return
+                # Office isn't installed at all
+                return
 
         for oVersion in installedVersions:
             for software in extensions:
@@ -178,17 +186,19 @@ class Disguise(Auxiliary):
                         else:
                             baseId = "T01D1D" + rString
                         setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
-                            baseId,
-                            basePaths[randint(0, len(basePaths) - 1)],
-                            random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
-                            extensions[software][randint(0, len(extensions[software]) - 1)],
-                        )
+                            baseId, basePaths[randint(0, len(basePaths)-1)],
+                            random_string(minimum=3, maximum=15,
+                                charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
+                            extensions[software][randint(0, len(extensions[software])-1)])
                         name = "Item {0}".format(i)
                         SetValueEx(mruKey, name, 0, REG_SZ, setVal)
                     CloseKey(mruKey)
 
     def ramnit(self):
-        key = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE)
+        key = OpenKey(HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+            0, KEY_SET_VALUE
+        )
 
         SetValueEx(key, "jfghdug_ooetvtgk", 0, REG_SZ, "TRUE")
         CloseKey(key)
@@ -218,31 +228,50 @@ class Disguise(Auxiliary):
     """
 
     def replace_reg_strings(self, regkey):
-        regcmd = "C:\\Windows\\System32\\reg.exe"
-        filepath = os.path.join("C:\\Windows\\Temp", regkey.rstrip("\\").split("\\")[-1] + ".reg")
+        regcmd = 'C:\\Windows\\System32\\reg.exe'
+        filepath = os.path.join('C:\\Windows\\Temp', regkey.rstrip('\\').split('\\')[-1] + '.reg')
 
-        self.run_as_system([regcmd, "export", regkey, filepath, "/y"])
+        self.run_as_system([regcmd, 'export', regkey, filepath, '/y'])
 
-        with io.open(filepath, "r", encoding="utf-16") as f:
+        with io.open(filepath, 'r', encoding='utf-16') as f:
             data = f.read()
 
         # replace all references to VMs
-        data = re.sub(r"qemu|vbox|vmware|virtual", lambda x: (x.end() - x.start()) * "_", data, flags=re.IGNORECASE)
+        data = re.sub(r'qemu|vbox|vmware|virtual', lambda x: (x.end() - x.start()) * '_', data, flags=re.IGNORECASE)
 
-        with io.open(filepath, "w", encoding="utf-16") as f:
+        with io.open(filepath, 'w', encoding='utf-16') as f:
             f.write(data)
 
-        self.run_as_system([regcmd, "delete", regkey, "/f"])
-        self.run_as_system([regcmd, "import", filepath])
+        self.run_as_system([regcmd, 'delete', regkey, '/f'])
+        self.run_as_system([regcmd, 'import', filepath])
 
         os.remove(filepath)
+
+    def randomizeUUID(self):
+        createdUUID = str(uuid4())
+
+        log.info("Disguising GUID to " + str(createdUUID))
+        keyPath = "SOFTWARE\\Microsoft\\Cryptography"
+
+        # Determing if the machine is 32 or 64 bit and open the registry key
+        if platform.machine().endswith('64'):
+            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
+        else:
+            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)
+
+        # Replace the UUID with the new UUID
+        SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
+        CloseKey(key)
+        
+
 
     def start(self):
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()
-        # self.disable_scs()
-        # self.netbios()
-        # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\IDE')
-        # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\SCSI')
+        self.randomizeUUID()
+        #self.disable_scs()
+        #self.netbios()
+        #self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\IDE')
+        #self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\SCSI')
         return True

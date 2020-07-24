@@ -10,6 +10,8 @@ import subprocess
 import logging
 from random import randint
 from winreg import *
+from uuid import uuid4
+import platform
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
@@ -237,10 +239,27 @@ class Disguise(Auxiliary):
 
         os.remove(filepath)
 
+    def randomizeUUID(self):
+        createdUUID = str(uuid4())
+
+        log.info("Disguising GUID to " + str(createdUUID))
+        keyPath = "SOFTWARE\\Microsoft\\Cryptography"
+
+        # Determing if the machine is 32 or 64 bit and open the registry key
+        if platform.machine().endswith('64'):
+            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
+        else:
+            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)
+
+        # Replace the UUID with the new UUID
+        SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
+        CloseKey(key)
+
     def start(self):
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()
+        self.randomizeUUID()
         # self.disable_scs()
         # self.netbios()
         # self.replace_reg_strings('HKLM\\SYSTEM\\CurrentControlSet\\Enum\\IDE')

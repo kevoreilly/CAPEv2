@@ -1,3 +1,6 @@
+### [23-07-2020]
+* Scan extracted macro with yara from macro/CAPE folder
+
 ### [11-07-2020]
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
 

@@ -181,7 +181,7 @@ def demux_sflock(filename, options, package):
         return [filename]
 
     try:
-        password = b"infected"
+        password = "infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
             password = tmp_pass

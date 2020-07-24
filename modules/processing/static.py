@@ -83,6 +83,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
@@ -1402,6 +1403,7 @@ class Office(object):
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
+            macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
             macrores["Analysis"] = dict()
             macrores["Analysis"]["AutoExec"] = list()
             macrores["Analysis"]["Suspicious"] = list()
@@ -1418,14 +1420,23 @@ class Office(object):
                     macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
                     if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        decrypted_code = self._decode_xlm_macro(vba_code)
-                        if decrypted_code:
-                            vba_code = decrypted_code
+                        if not os.path.exists(macro_folder):
+                            os.makedirs(macro_folder)
+                        decrypted_vba_code = self._decode_xlm_macro(vba_code)
+                        macro_file = os.path.join(macro_folder, outputname)
+                        with open(macro_file, "wb") as f:
+                            f.write(vba_code)
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
+                        if decrypted_vba_code:
                             outputname += "_Decoded"
                             macrores["Code"][outputname] = list()
-                            macrores["Code"][outputname].append(
-                                (convert_to_printable(f"decoded_{vba_filename}"), convert_to_printable(vba_code))
-                            )
+                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"), convert_to_printable(decrypted_vba_code)))
+                            macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                            macrores["info"][outputname]["yara_cape"] = File(macro_file).get_yara(category="CAPE")
+                            with open(os.path.join(macro_folder, outputname), "wb") as f:
+                                f.write(decrypted_vba_code)
+
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
                     try:

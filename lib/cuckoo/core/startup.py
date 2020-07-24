@@ -228,7 +228,7 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = ("binaries", "urls", "memory", "CAPE")
+    categories = ("binaries", "urls", "memory", "CAPE", "macro")
 
     log.debug("Initializing Yara...")
 

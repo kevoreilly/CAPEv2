@@ -793,6 +793,14 @@ class Signature(object):
                                     if re.findall(name, sub_block["name"], re.I):
                                         yield "extracted_pe", pe["path"], sub_block
 
+        macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
+        for macroname in self.results.get("static", {}).get("office", {}).get("info", []) or []:
+            for yara_block in self.results["static"]["office"]["info"].get("macroname", []) or []:
+                for sub_block in self.results["static"]["office"]["info"]["macroname"].get(yara_block, []) or []:
+                    if re.findall(name, sub_block["name"], re.I):
+                        yield "macro", os.path.join(macro_path, macroname), sub_block
+
+
         yield False, False, False
 
     def add_statistic(self, name, field, value):

@@ -763,9 +763,10 @@ class Signature(object):
 
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
-            for block in self.results["target"]["file"].get("yara", list()):
-                if re.findall(name, block["name"], re.I):
-                    yield "sample", self.results["target"]["file"]["path"], block
+            for keyword in ("yara", "cape_yara"):
+                for block in self.results["target"]["file"].get(keyword, list()):
+                    if re.findall(name, block["name"], re.I):
+                        yield "sample", self.results["target"]["file"]["path"], block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped", "CAPE"):
             if keyword in self.results and self.results[keyword] is not None:

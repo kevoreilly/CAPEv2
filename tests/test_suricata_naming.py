@@ -56,3 +56,4 @@ assert "Carbanak" == get_suricata_family("ETPRO TROJAN Carbanak/FIN7 Bateleur SS
 assert False is get_suricata_family("ETPRO TROJAN W97M.Dropper Downloading EXE")
 assert False is get_suricata_family("ET MALWARE ABX Toolbar ActiveX Install")
 assert "Tinba" is get_suricata_family("ET MALWARE [PTsecurity] Tinba Checkin 4")
+assert False is get_suricata_family("ET TROJAN Suspicious User-Agent (WindowsNT) With No Separating Space")

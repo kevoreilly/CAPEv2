@@ -149,6 +149,7 @@ suricata_blocklist = (
     # "http",
     "ptsecurity",
     "request",
+    "suspicious",
 )
 
 

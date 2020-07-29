@@ -1114,6 +1114,18 @@ def tasks_report(request, task_id, report_format="json"):
         resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
         return resp
 
+    elif report_format.lower() in bz_formats:
+        fname = "%s_reports.tar.bz2" % task_id
+        s = BytesIO()
+        tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
+        for rep in os.listdir(srcdir):
+            tar.add(os.path.join(srcdir, rep), arcname=rep)
+        tar.close()
+        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        resp["Content-Length"] = str(len(s.getvalue()))
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
     else:
         resp = {"error": True, "error_value": "Invalid report format specified"}
         return jsonize(resp, response=True)

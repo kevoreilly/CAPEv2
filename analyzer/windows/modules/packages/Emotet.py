@@ -23,6 +23,11 @@ class Emotet(Package):
         self.options["unpacker"] = "1"
         self.options["injection"] = "0"
 
+        # This depends on Emotet trends
+        # so may vary or be removed
+        if self.config.timeout > 10:
+            self.config.timeout = 10
+
     def start(self, path):
         arguments = self.options.get("arguments")
 

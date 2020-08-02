@@ -10,8 +10,8 @@ from .settings import *
 # If you want to customize your cuckoo path set it here.
 # CUCKOO_PATH = "/where/cuckoo/is/placed/"
 
-# Maximum upload size.
-MAX_UPLOAD_SIZE = 26214400
+# Maximum upload size in bytes. Default is 30MB.
+MAX_UPLOAD_SIZE = 30000000
 
 # Override default secret key stored in secret_key.py
 # Make this unique, and don't share it with anybody.

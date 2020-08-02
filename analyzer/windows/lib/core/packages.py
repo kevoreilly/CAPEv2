@@ -33,12 +33,12 @@ def choose_package(file_type, file_name, exports, target):
             return "dll"
     elif "PE32" in file_type or "MS-DOS" in file_type:
         return "exe"
+    elif file_name.endswith(".msi") or "MSI Installer" in file_type:
+        return "msi"    
     elif "PDF" in file_type or file_name.endswith(".pdf"):
         return "pdf"
     elif file_name.endswith(".pub"):
         return "pub"
-    elif file_name.endswith(".msi") or "MSI Installer" in file_type:
-        return "msi"
     elif (
         "Rich Text Format" in file_type
         or "Microsoft Word" in file_type

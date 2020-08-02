@@ -228,7 +228,8 @@ SILENCED_SYSTEM_CHECKS = [
 
 ALLOWED_HOSTS = ["*"]
 
-MAX_UPLOAD_SIZE = 26214400
+# Max size
+MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
 
 # Hack to import local settings.
 try:

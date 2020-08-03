@@ -62,7 +62,7 @@ class enfal(Parser):
     DESCRIPTION = "Enfal configuration parser."
     AUTHOR = "kevoreilly"
 
-    def run(self):
+    def get_config(self):
         filebuf = self.file_object.file_data
 
         config = yara_scan(filebuf, "$config")

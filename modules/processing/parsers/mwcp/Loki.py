@@ -169,7 +169,7 @@ class Loki(Parser):
     DESCRIPTION = "Loki configuration parser."
     AUTHOR = "kevoreilly"
 
-    def run(self):
+    def get_config(self):
         urls = decoder(self.file_object.file_data)
         for url in urls:
             self.reporter.add_metadata("address", url)

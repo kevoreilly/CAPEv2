@@ -124,7 +124,7 @@ class Remcos(Parser):
     DESCRIPTION = "Remcos configuration parser."
     AUTHOR = "kevoreilly"
 
-    def run(self):
+    def get_config(self):
         filedata = self.file_object.file_data
 
         version = check_version(filedata)

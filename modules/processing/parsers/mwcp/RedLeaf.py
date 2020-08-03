@@ -76,7 +76,7 @@ class redleaf(Parser):
     DESCRIPTION = "RedLeaf configuration parser."
     AUTHOR = "kevoreilly"
 
-    def run(self):
+    def get_config(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase

@@ -61,7 +61,7 @@ class SmokeLoader(Parser):
     DESCRIPTION = "SmokeLoader configuration parser."
     AUTHOR = "kevoreilly"
 
-    def get_config(self):
+    def run(self):
         filebuf = self.file_object.file_data
 
         try:

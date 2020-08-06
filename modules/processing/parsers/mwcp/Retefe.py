@@ -71,7 +71,7 @@ class Retefe(Parser):
     DESCRIPTION = "Retefe configuration parser."
     AUTHOR = "kevoreilly"
 
-    def get_config(self):
+    def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
 

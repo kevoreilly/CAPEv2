@@ -74,7 +74,7 @@ class DoppelPaymer(Parser):
     DESCRIPTION = "DoppelPaymer configuration parser."
     AUTHOR = "kevoreilly"
 
-    def get_config(self):
+    def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
 

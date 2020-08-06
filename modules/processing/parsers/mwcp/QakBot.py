@@ -15,7 +15,7 @@ class QakBot(Parser):
     DESCRIPTION = "Qakbot configuration parser."
     AUTHOR = "kevoreilly"
 
-    def get_config(self):
+    def run(self):
         for line in self.file_object.file_data.splitlines():
             if b"=" in line:
                 index = line.split(b"=")[0]

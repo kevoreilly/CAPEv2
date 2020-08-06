@@ -75,7 +75,7 @@ class BitPaymer(Parser):
     DESCRIPTION = "BitPaymer configuration parser."
     AUTHOR = "kevoreilly"
 
-    def get_config(self):
+    def run(self):
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
 
         blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])

@@ -1254,20 +1254,20 @@ class VolatilityManager(object):
                 raise CuckooProcessingError("Error opening file %s" % e)
 
             nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
-            minchars = self.voptions.basic.get("strings_minchars", 5)
+            minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode("utf-8")
 
             if nulltermonly:
-                apat = "([\x20-\x7e]{" + str(minchars) + ",})\x00"
-                upat = "((?:[\x20-\x7e][\x00]){" + str(minchars) + ",})\x00\x00"
+                apat = b"([\x20-\x7e]{" + minchars + b",})\x00"
+                upat = b"((?:[\x20-\x7e][\x00]){" + minchars + b",})\x00\x00"
             else:
-                apat = "[\x20-\x7e]{" + str(minchars) + ",}"
-                upat = "(?:[\x20-\x7e][\x00]){" + str(minchars) + ",}"
+                apat = b"[\x20-\x7e]{" + minchars + b",}"
+                upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
 
             strings = re.findall(apat, data)
             for ws in re.findall(upat, data):
                 strings.append(str(ws.decode("utf-16le")))
-            f = open(self.memfile + ".strings", "w")
-            f.write("\n".join(strings))
+            f = open(self.memfile + ".strings", "wb")
+            f.write(b"\n".join(strings))
             f.close()
 
     def cleanup(self):

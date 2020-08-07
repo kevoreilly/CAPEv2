@@ -1265,7 +1265,7 @@ class VolatilityManager(object):
 
             strings = re.findall(apat, data)
             for ws in re.findall(upat, data):
-                strings.append(str(ws.decode("utf-16le")))
+                strings.append(ws.decode("utf-16le").encode("utf-8"))
             f = open(self.memfile + ".strings", "wb")
             f.write(b"\n".join(strings))
             f.close()

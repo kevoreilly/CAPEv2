@@ -1243,6 +1243,11 @@ class VolatilityManager(object):
 
         self.do_strings()
         self.cleanup()
+        
+        if not self.voptions.basic.delete_memdump:
+            results['memory_path'] = self.memfile
+        if self.voptions.basic.dostrings:
+            results['memory_strings_path'] = self.memfile + ".strings"
 
         return results
 
@@ -1269,6 +1274,8 @@ class VolatilityManager(object):
             f = open(self.memfile + ".strings", "wb")
             f.write(b"\n".join(strings))
             f.close()
+            retrun self.memfile + ".strings"
+        return None
 
     def cleanup(self):
         """Delete the memory dump (if configured to do so)."""
@@ -1303,7 +1310,7 @@ class Memory(Processing):
             if self.memory_path and os.path.exists(self.memory_path):
                 try:
                     vol = VolatilityManager(self.memory_path)
-                    # results returned are empty until vol3 is complete, strings output will be written if configured
+                    # only the memory dump and memory dump string paths are return until vol3 is complete, strings output will be written if configured
                     # memory dump file will be handled as configured
                     results = vol.run(manager=machine_manager, vm=task_machine)
                 except Exception:

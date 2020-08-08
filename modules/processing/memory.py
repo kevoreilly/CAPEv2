@@ -1310,7 +1310,7 @@ class Memory(Processing):
             if self.memory_path and os.path.exists(self.memory_path):
                 try:
                     vol = VolatilityManager(self.memory_path)
-                    # only the memory dump and memory dump string paths are return until vol3 is complete, strings output will be written if configured
+                    # only the memory dump and memory dump string paths are returned until vol3 is complete, strings output will be written if configured
                     # memory dump file will be handled as configured
                     results = vol.run(manager=machine_manager, vm=task_machine)
                 except Exception:

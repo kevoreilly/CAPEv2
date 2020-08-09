@@ -711,7 +711,6 @@ class Database(object, metaclass=Singleton):
                     session.query(Task)
                     .filter_by(status=TASK_PENDING)
                     .order_by(Task.priority.desc(), Task.added_on)
-                    .filter(Task.tags == None)
                     .first()
                 )
             if not row:

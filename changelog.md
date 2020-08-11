@@ -1,3 +1,8 @@
+### [11-08-2020]
+* Update suricata socket path in processing.conf as in cape2.sh from `/var/run/` to `/tmp/`
+* Fix pebble pool restart on timeout
+* Zip package reintroduced but it should be only used with option `file=X` when we need side load files
+
 ### [23-07-2020]
 * Scan extracted macro with yara from macro/CAPE folder
 

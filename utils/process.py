@@ -187,12 +187,6 @@ def processing_finished(future):
     except Exception as error:
         log.error("Exception when processing task %s: %s %s", task_id, error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
-    # except TimeoutError as error:
-    #    log.error("Processing Timeout %s", error)
-    #    Database().set_status(task_id, TASK_FAILED_PROCESSING)
-    # except Exception as error:
-    #    log.error("Exception when processing task %s: %s", task_id, error)
-    #    Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
     del pending_future_map[future]
     del pending_task_id_map[task_id]
@@ -203,7 +197,6 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     count = 0
     db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
-    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
 
     try:
         log.info("Processing analysis data")
@@ -215,46 +208,47 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                 time.sleep(5)
                 continue
 
-            # If we're here, getting parallel tasks should at least
-            # have one we don't know.
-            if failed_processing:
-                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-            else:
-                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-            added = False
-            # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
-            for task in tasks:
-                # Not-so-efficient lock.
-                if pending_task_id_map.get(task.id):
-                    continue
-                log.info("Processing analysis data for Task #%d", task.id)
-                if task.category == "file":
-                    sample = db.view_sample(task.sample_id)
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+            with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+                # If we're here, getting parallel tasks should at least
+                # have one we don't know.
+                if failed_processing:
+                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
                 else:
-                    copy_path = None
-                args = task.target, copy_path
-                kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                added = False
+                # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
+                for task in tasks:
+                    # Not-so-efficient lock.
+                    if pending_task_id_map.get(task.id):
+                        continue
+                    log.info("Processing analysis data for Task #%d", task.id)
+                    if task.category == "file":
+                        sample = db.view_sample(task.sample_id)
+                        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                    else:
+                        copy_path = None
+                    args = task.target, copy_path
+                    kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                # result = pool.apply_async(process, args, kwargs)
-                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                pending_future_map[future] = task.id
-                pending_task_id_map[task.id] = future
-                future.add_done_callback(processing_finished)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    # result = pool.apply_async(process, args, kwargs)
+                    future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                    pending_future_map[future] = task.id
+                    pending_task_id_map[task.id] = future
+                    future.add_done_callback(processing_finished)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                count += 1
-                added = True
-                break
+                    count += 1
+                    added = True
+                    break
 
-            if not added:
-                # don't hog cpu
-                time.sleep(5)
+                if not added:
+                    # don't hog cpu
+                    time.sleep(5)
 
     except KeyboardInterrupt:
         # ToDo verify in finally

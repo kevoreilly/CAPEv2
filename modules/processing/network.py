@@ -451,6 +451,7 @@ class Pcap:
 
             self._add_domain(query["request"])
 
+            # ToDo query["type"] KeyError: 'type'
             reqtuple = query["type"], query["request"]
             if reqtuple not in self.dns_requests:
                 self.dns_requests[reqtuple] = query

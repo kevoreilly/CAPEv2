@@ -1080,6 +1080,19 @@ def init_logging(debug=False):
 
     return log
 
+#ToDo find where is race condition that generates this problem
+
+
+def sync_tasks_reported():
+    db = session()
+    main_db_tasks = main_db.list_tasks(status=TASK_DISTRIBUTED)
+    for t in main_db_tasks:
+        task = db.query(Task).filter_by(main_task_id=t.id, retrieved=True, notificated=True).first()
+        if task is not None:
+            main_db.set_status(t.id, TASK_REPORTED)
+            print("Setting:", t.id, "as reported")
+    db.close()
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -1092,20 +1105,10 @@ if __name__ == "__main__":
     p.add_argument("--disable", action="store_true", help="Disable Node provided in --node")
     p.add_argument("--enable", action="store_true", help="Enable Node provided in --node")
     p.add_argument("--clean-workers", action="store_true", help="Delete reported and notificated tasks from workers")
-    p.add_argument(
-        "-ec",
-        "--enable-clean",
-        action="store_true",
-        help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist",
-    )
-    p.add_argument(
-        "-ef",
-        "--enable-failed-clean",
-        action="store_true",
-        default=False,
-        help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist",
-    )
+    p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist",)
+    p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist",)
     p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
+    p.add_argument("-sr", "--sync-reported", action="store_true", help="Check reported jobs in both databases and set status on main db")
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -1119,6 +1122,10 @@ if __name__ == "__main__":
         main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
         # set reported time
         main_db.set_status(args.force_reported, TASK_REPORTED)
+        sys.exit()
+
+    if args.sync_reported:
+        sync_tasks_reported()
         sys.exit()
 
     failed_clean_enabled = args.enable_failed_clean

@@ -1274,7 +1274,7 @@ class VolatilityManager(object):
             f = open(self.memfile + ".strings", "wb")
             f.write(b"\n".join(strings))
             f.close()
-            retrun self.memfile + ".strings"
+            return self.memfile + ".strings"
         return None
 
     def cleanup(self):

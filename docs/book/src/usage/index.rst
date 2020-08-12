@@ -15,5 +15,5 @@ This chapter explains how to use CAPE.
     packages
     results
     clean
-    utilities
+    utilities - processing generated data by Virtual Machine(s)
     performance

@@ -99,7 +99,7 @@
                                 </tr>
                                 {% if memmap.chunks|length >= 2 %}
                                 {% for chunk in memmap.chunks %}
-                                    <tr class="collapse map_{{memmap.start}}" style="background-color: #f9f9f9;">
+                                    <tr class="collapse map_{{memmap.start}}">
                                         <td>{{chunk.start}}</td>
                                         <td>{{chunk.end}}</td>
                                         <td>{{chunk.size}}</td>

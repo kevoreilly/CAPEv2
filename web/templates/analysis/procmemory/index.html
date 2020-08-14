@@ -29,11 +29,9 @@
                                 {% for match in proc.yara %}
                                     <p>Match: {{match.name}} - {{match.meta.description}}
                                     {% if match.meta.author %}
-                                        - Author: {{math.meta.author}}
+                                        - Author: {{match.meta.author}}
                                     {% endif %}
-                                    <!--{% for string in match.strings %}
-                                        <div>{{string}}</div>
-                                    {% endfor %}-->
+                                    <!--{% for string in match.strings %} <div>{{string}}</div> {% endfor %}-->
                                     </p>
                                 {% endfor %}
                             </td>
@@ -45,6 +43,9 @@
                                 {% for match in proc.cape_yara %}
                                 <p>Match: {{match.name}} - {{match.meta.description}} - Author: {{match.meta.author}}
                                     <!--{% for string in match.strings %} <div>{{string}}</div> {% endfor %}-->
+                                    {% for key, value in match.memblocks.items %}
+                                        <div span style="padding-left: 16px;">'{{key}}' in address space {{value}}</div>
+                                    {% endfor %}
                                 </p>
                                 {% endfor %}
                             </td>

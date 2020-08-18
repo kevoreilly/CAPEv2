@@ -38,7 +38,7 @@ rule Emotet
         $snippet6 = {33 C0 21 05 ?? ?? ?? ?? A3 ?? ?? ?? ?? 39 05 ?? ?? ?? ?? 74 18 40 A3 ?? ?? ?? ?? 83 3C C5 ?? ?? ?? ?? 00 75 F0 51 E8 ?? ?? ?? ?? 59 C3}
         $snippet7 = {8B 48 ?? C7 [5-6] C7 40 ?? ?? ?? ?? ?? C7 ?? ?? 00 00 00 [0-1] 83 3C CD ?? ?? ?? ?? 00 74 0E 41 89 48 ?? 83 3C CD ?? ?? ?? ?? 00 75 F2}
         $snippet8 = {85 C0 74 3? B9 [2] 40 00 33 D2 89 ?8 [0-1] 89 [1-2] 8B [1-2] 89 [1-2] EB 0? 41 89 [1-2] 39 14 CD [2] 40 00 75 F? 8B CE E8 [4] 85 C0 74 05 33 C0 40 5E C3}
-        $ref_rsa = {6A 00 6A 01 FF 76 [0-4] FF [2-3] C0 74 ?? 8D 4D ?? E8 ?? ?? FF FF 8D 45 ?? B9 ?? ?? 40 00 8D 55 ?? 89 45 ?? E8}
+        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 74 ?? 8D 4D ?? E8 ?? ?? FF FF 8D 45 ?? B9 ?? ?? 40 00 8D 55 ?? 89 45 ?? E8}
     condition:
         uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($ref_rsa)
 }
@@ -276,6 +276,10 @@ class Emotet(Parser):
                     zb = struct.unpack("b", filebuf[ref_rsa_offset + 29 : ref_rsa_offset + 30])[0]
                     if not zb:
                         ref_rsa_va = struct.unpack("i", filebuf[ref_rsa_offset + 26 : ref_rsa_offset + 30])[0]
+                    else:
+                        zb = struct.unpack("b", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 29])[0]
+                        if not zb:
+                            ref_rsa_va = struct.unpack("i", filebuf[ref_rsa_offset + 25 : ref_rsa_offset + 29])[0]
                 if not ref_rsa_va:
                     return
                 ref_rsa_rva = ref_rsa_va - image_base

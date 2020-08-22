@@ -29,7 +29,7 @@ from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.utils import convert_to_printable, get_options
 
 log = logging.getLogger(__name__)
 
@@ -468,12 +468,9 @@ class AnalysisManager(threading.Thread):
 
         # Allow overwrite default conf value
         if self.task.options:
-            for option in self.task.options.split(","):
-                if "=" in option:
-                    key, value = option.split("=")
-                    if key == "route":
-                        self.route = value
-                        break
+            options = get_options(self.task.options)
+            if options.get("route"):
+                self.route = options.get("route")
 
         if self.route in ("none", "None", "drop"):
             self.interface = None

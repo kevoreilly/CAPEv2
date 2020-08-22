@@ -5,7 +5,7 @@ Description=suricata-update
 User=root
 Group=root
 Type=oneshot
-ExecStart=suricata-update
+ExecStart=suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/
 
 [Install]
 WantedBy=multi-user.target

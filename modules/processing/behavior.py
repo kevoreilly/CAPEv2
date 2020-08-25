@@ -100,8 +100,8 @@ class ParseProcessLog(list):
 
         @param length: Length in byte to read
         """
-        if not length:
-            return ""
+        if not length or length < 0:
+            return b""
         buf = self.fd.read(length)
         if not buf or len(buf) != length:
             raise EOFError()

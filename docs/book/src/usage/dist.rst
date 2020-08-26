@@ -100,7 +100,7 @@ machines are returned::
 POST /node
 ----------
 
-Register a new Cuckoo node by providing the name and the URL. Optionally the ht_user and ht_pass,
+Register a new CAPE node by providing the name and the URL. Optionally the ht_user and ht_pass,
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=localhost \
@@ -121,7 +121,7 @@ if your Node API is behing htaccess authentication::
 GET /node/<name>
 ----------------
 
-Get basic information about a particular Cuckoo node::
+Get basic information about a particular CAPE node::
 
     $ curl http://localhost:9003/node/localhost
     {
@@ -134,7 +134,7 @@ Get basic information about a particular Cuckoo node::
 PUT /node/<name>
 ----------------
 
-Update basic information of a Cuckoo node::
+Update basic information of a CAPE node::
 
     $ curl -XPUT http://localhost:9003/node/localhost -F name=newhost \
         -F url=http://1.2.3.4:8090/
@@ -154,7 +154,7 @@ Update basic information of a Cuckoo node::
 DELETE /node/<name>
 -------------------
 
-Disable a Cuckoo node, therefore not having it process any new tasks, but
+Disable a CAPE node, therefore not having it process any new tasks, but
 keep its history in the Distributed's database::
 
     $ curl -XDELETE http://localhost:9003/node/localhost
@@ -167,14 +167,14 @@ Quick usage
 
 For practical usage the following few commands will be most interesting.
 
-Register a Cuckoo node - a Cuckoo REST API running on the same machine in this
+Register a CAPE node - a CAPE REST API running on the same machine in this
 case::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8090/
     Master server must be called master, the rest of names we don't care
 
 
-Disable a Cuckoo node::
+Disable a CAPE node::
 
     $ curl -XDELETE http://localhost:9003/node/<name>
 
@@ -195,9 +195,9 @@ Get the report of a task should be requested throw master node integrated /api/ 
 Proposed setup
 ==============
 
-The following description depicts a Distributed Cuckoo setup with two Cuckoo
+The following description depicts a Distributed CAPE setup with two CAPE
 machines, **master** and **worker**. In this setup the first machine,
-master, also hosts the Distributed Cuckoo REST API.
+master, also hosts the Distributed CAPE REST API.
 
 Configuration settings
 ----------------------
@@ -264,16 +264,16 @@ Setup Distributed Cuckoo
 ------------------------
 
 On the first machine start a separate ``screen(1)`` session for the
-Distributed Cuckoo script with all the required parameters (see the rest of
+Distributed CAPE script with all the required parameters (see the rest of
 the documentation on the parameters for this script)::
 
     $ screen -S distributed ./utils/dist.py
 
-Register Cuckoo nodes
+Register CAPE nodes
 ---------------------
 
-As outlined in :ref:`quick-usage` the Cuckoo nodes have to be registered with
-the Distributed Cuckoo script::
+As outlined in :ref:`quick-usage` the CAPE nodes have to be registered with
+the Distributed CAPE script::
 
 without htaccess::
 
@@ -284,7 +284,7 @@ with htaccess::
     $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8090/ \
       -F ht_user=user -F ht_pass=password
 
-Having registered the Cuckoo nodes all that's left to do now is to submit
+Having registered the CAPE nodes all that's left to do now is to submit
 tasks and fetch reports once finished. Documentation on these commands can be
 found in the :ref:`quick-usage` section.
 
@@ -292,14 +292,14 @@ VM Maintenance
 --------------
 
 Ocasionally you might want to perform maintenance on VM's without shutting down your whole node.
-To do this, you need to remove the VM from being used by cuckoo in its execution, preferably without
+To do this, you need to remove the VM from being used by CAPE in its execution, preferably without
 having to restart the ``./cuckoo.py`` daemon.
 
 First get a list of available VM's that are running on the worker::
 
    $ ./dist.py --node NAME
 
-Secondly you can remove VM's from being used by cuckoo with::
+Secondly you can remove VM's from being used by CAPE with::
 
    $ ./dist.py --node NAME --delete-vm VM_NAME
 
@@ -323,16 +323,13 @@ And enable the worker again::
 Good practice for production
 ---------------------
 
-Number of retrieved threads from reporting.conf should be less then general threads in uwsgi/gunicorn for api.py
+Number of retrieved threads from reporting.conf should be less then general threads in uwsgi for api.py
 
-Installation of "uwsgi":
+Installation of "uwsgi"::
     # apt-get install uwsgi uwsgi-plugin-python nginx
     # nginx is only required if you want use basic web auth
 
-Installation of "Gunicorn":
-    # pip3 install gunicorn
-
-Is better if you run "api.py" and "dist.py" as uwsgi/gunicorn application
+Is better if you run "api.py" and "dist.py" as uwsgi application
 
 With "config", for example you have file "/opt/CAPE/utils/api.ini" with this context::
 
@@ -413,11 +410,13 @@ Distributed Mongo setup::
 
 Set one mongo as master and the rest just point to it, in this example cuckoo_dist.fe is our master server.
 Depend of your hardware you may prepend next command before mongod
-        numactl --interleave=all
+
+    $ numactl --interleave=all
 
 This execute on all nodes, master included:
     * Very important, before creation or recreation of cluster, all /data should be removed to avoid problems with metadata
-    mkdir -p /data/{config,}db
+
+    $ mkdir -p /data/{config,}db
 
 This commands should be executed only on master::
 
@@ -474,7 +473,7 @@ Add clients, execute on master mongo server::
         sh.addShard( "rs0/192.168.1.55:27017")
         sh.addShard( "rs0/192.168.1.62:27017")
 
-Where 192.168.1.(2,3,4,5) is our cuckoo workers::
+Where 192.168.1.(2,3,4,5) is our CAPE workers::
 
     mongo
     use cuckoo
@@ -498,7 +497,7 @@ To see stats on master::
     mongos using mongo --host 127.0.0.1 --port 27020
     sh.status()
 
-Modify cuckoo reporting.conf [mongodb] to point all mongos in reporting.conf to
+Modify cape reporting.conf [mongodb] to point all mongos in reporting.conf to
 host = 127.0.0.1
 port = 27020
 
@@ -525,26 +524,27 @@ See any of these files on your system::
     $ /etc/default/uwsgi
 
 
-Administration and some useful commands:
+Administration and some useful commands::
+
     https://docs.mongodb.com/manual/reference/command/nav-sharding/
-    mongo --host 127.0.0.1 --port 27020
-    use admin
-    db.adminCommand( { listShards: 1 } )
+    $ mongo --host 127.0.0.1 --port 27020
+    $ use admin
+    $ db.adminCommand( { listShards: 1 } )
 
-    mongo --host 127.0.0.1 --port 27019
-    db.adminCommand( { movePrimary: "cuckoo", to: "shard0000" } )
-    db.adminCommand( { removeShard : "shard0002" } )
+    $ mongo --host 127.0.0.1 --port 27019
+    $ db.adminCommand( { movePrimary: "cuckoo", to: "shard0000" } )
+    $ db.adminCommand( { removeShard : "shard0002" } )
 
-    # required for post movePrimary
-    db.adminCommand("flushRouterConfig")
-    mongo --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
+    $ # required for post movePrimary
+    $ db.adminCommand("flushRouterConfig")
+    $ mongo --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
 
-    use cuckoo
-    db.analysis.find({"shard" : "shard0002"},{"shard":1,"jumbo":1}).pretty()
-    db.calls.getShardDistribution()
+    $ use cuckoo
+    $ db.analysis.find({"shard" : "shard0002"},{"shard":1,"jumbo":1}).pretty()
+    $ db.calls.getShardDistribution()
 
     To migrate data ensure:
-    sh.setBalancerState(true)
+    $ sh.setBalancerState(true)
 
 Online:
 

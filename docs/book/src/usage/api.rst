@@ -7,8 +7,13 @@ To see current REST api see ``/api/`` you will find all endpoints and details ho
 
 `api example`: https://capesandbox.com/api/
 
-To enable auth on this api you can use _`htppaswd`: https://httpd.apache.org/docs/2.4/programs/htpasswd.html utility
-Once you have enabled it, you can just specify `username` and password as GET/POST parameters, and you will have unlimited api on limited for the rest
+To enable auth on this api you can use htpasswd::
+
+    $ apt install htpasswd
+
+.. _`htpasswd`: https://httpd.apache.org/docs/2.4/programs/htpasswd.html
+
+Once you have enabled it, you can just specify ``username`` and ``password`` as ``GET/POST`` parameters, and you will have unlimited api on limited for the rest
 
 ===============================================================
 REST API depricated, used only by dist.py aka distributed CAPE

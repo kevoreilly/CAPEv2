@@ -332,7 +332,7 @@ def index(request, resubmit_hash=False):
                         "error.html",
                         {
                             "error": "You uploaded a file that exceeds the maximum allowed upload size "
-                            "specified in web/web/local_settings.py."
+                            "specified in conf/web.conf"
                         },
                     )
 

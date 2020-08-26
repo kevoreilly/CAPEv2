@@ -7,9 +7,12 @@ To see current REST api see ``/api/`` you will find all endpoints and details ho
 
 `api example`: https://capesandbox.com/api/
 
-===================
-REST API depricated
-===================
+To enable auth on this api you can use _`htppaswd`: https://httpd.apache.org/docs/2.4/programs/htpasswd.html utility
+Once you have enabled it, you can just specify `username` and password as GET/POST parameters, and you will have unlimited api on limited for the rest
+
+===============================================================
+REST API depricated, used only by dist.py aka distributed CAPE
+==============================================================
 
 As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
 API server implemented in `Bottle.py`_, therefore in order to make the service

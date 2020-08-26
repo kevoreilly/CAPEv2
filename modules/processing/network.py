@@ -145,6 +145,7 @@ class Pcap:
             "^crl\.thawte\.com$",
             "^crt\.comodoca\.com$",
             "^crt\.usertrust\.com$",
+            "^ocsp\.sectigo\.com$",
         ]
 
         if enabled_passlist and passlist_file:

@@ -361,7 +361,6 @@ class Retriever(threading.Thread):
     def failed_cleaner(self):
         db = session()
         while True:
-
             for node in db.query(Node).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
                 for status in ("failed_analysis", "failed_processing"):
@@ -369,9 +368,10 @@ class Retriever(threading.Thread):
                         t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
                             log.info("Cleaning failed_analysis for id:{}, node:{}".format(t.id, t.node_id))
-                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
+                            main_db.set_status(t.main_task_id, TASK_PENDING)
                             t.finished = True
                             t.retrieved = True
+                            t.notificated = True
                             db.commit()
                             lock_retriever.acquire()
                             if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
@@ -585,6 +585,15 @@ class StatusThread(threading.Thread):
         except (OperationalError, SQLAlchemyError) as e:
             log.warning("Got an operational Exception when trying to submit tasks: {}".format(e))
             return False
+
+        # check if we have tasks with no node_id and task_id, but with main_task_id
+        bad_tasks = db.query(Task).filter(Task.node_id==None, Task.task_id==None, Task.main_task_id != None).all()
+        if bad_tasks:
+            for task in bad_tasks:
+                db.delete(task)
+                db.commit()
+                main_db.set_status(task.main_task_id, TASK_PENDING)
+
 
         limit = 0
         if node.name != "master":

@@ -182,7 +182,7 @@ def node_submit_task(task_id, node_id):
             url = os.path.join(node.url, "tasks", "create", "file")
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
-            if not os.path.exist(task.path):
+            if not os.path.exists(task.path):
                 task.finished = True
                 task.retrieved = True
                 main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)

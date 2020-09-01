@@ -709,9 +709,9 @@ def machines_list():
 
     machines = db.list_machines()
 
-    response["machines"] = []
+    response["data"] = []
     for row in machines:
-        response["machines"].append(row.to_dict())
+        response["data"].append(row.to_dict())
 
     return jsonize(response)
 

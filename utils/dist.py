@@ -131,7 +131,7 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
 def node_list_machines(url, ht_user, ht_pass):
     try:
         r = requests.get(os.path.join(url, "machines", "list"), params={"username": ht_user, "password": ht_pass}, verify=False)
-        for machine in r.json()["machines"]:
+        for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
         abort(404, message="Invalid Cuckoo node (%s): %s" % (url, e))

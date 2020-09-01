@@ -339,7 +339,7 @@ class Retriever(threading.Thread):
             tasks = db.query(Task).filter_by(finished=True, retrieved=True, notificated=False).order_by(Task.id.desc()).all()
             if tasks is not None:
                 for task in tasks:
-                    report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(task.main_task_id))
+                    main_db.set_status(task.main_task_id, TASK_REPORTED)
                     log.debug("reporting main_task_id: {}".format(task.main_task_id))
                     for url in urls:
                         try:
@@ -367,7 +367,7 @@ class Retriever(threading.Thread):
                     for task in node_fetch_tasks(status, node.url, node.ht_user, node.ht_pass, action="delete"):
                         t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
-                            log.info("Cleaning failed_analysis for id:{}, node:{}".format(t.id, t.node_id))
+                            log.info("Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
                             main_db.set_status(t.main_task_id, TASK_PENDING)
                             t.finished = True
                             t.retrieved = True
@@ -593,7 +593,6 @@ class StatusThread(threading.Thread):
                 db.delete(task)
                 db.commit()
                 main_db.set_status(task.main_task_id, TASK_PENDING)
-
 
         limit = 0
         if node.name != "master":

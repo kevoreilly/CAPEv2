@@ -23,7 +23,7 @@ from io import BytesIO
 from zipfile import ZipFile
 from datetime import datetime
 from itertools import combinations
-
+import distutils.util
 from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, DateTime, or_, and_, desc
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
@@ -842,7 +842,7 @@ class NodeBaseApi(RestResource):
         self._parser.add_argument("url", type=str)
         self._parser.add_argument("ht_user", type=str, default="")
         self._parser.add_argument("ht_pass", type=str, default="")
-        self._parser.add_argument("enabled", action="store_true")
+        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
 
 
 class NodeRootApi(NodeBaseApi):
@@ -894,7 +894,7 @@ class NodeApi(NodeBaseApi):
             return dict(error=True, error_value="Node doesn't exist")
 
         for k, v in args.items():
-            if v:
+            if v is not None:
                 setattr(node, k, v)
         db.commit()
         return dict(error=False, error_value="Successfully modified node: %s" % node.name)

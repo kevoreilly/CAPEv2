@@ -428,7 +428,7 @@ class RunProcessing(object):
                     self.results["malfamily_tag"] = "ClamAV"
 
         if family:
-            self.results["detetions"] = family
+            self.results["detections"] = family
 
         return self.results
 

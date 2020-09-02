@@ -840,8 +840,8 @@ class NodeBaseApi(RestResource):
         self._parser = reqparse.RequestParser()
         self._parser.add_argument("name", type=str)
         self._parser.add_argument("url", type=str)
-        self._parser.add_argument("ht_user", type=str, default=None)
-        self._parser.add_argument("ht_pass", type=str, default=None)
+        self._parser.add_argument("ht_user", type=str, default="")
+        self._parser.add_argument("ht_pass", type=str, default="")
         self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
 
 

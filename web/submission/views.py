@@ -590,7 +590,7 @@ def index(request, resubmit_hash=False):
                 task_machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine[0])
-                if not machine_details.platform == platform:
+                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                     return render(
                         request,
                         "error.html",

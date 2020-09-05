@@ -58,7 +58,7 @@ def main():
             vpns.append("vpn_{0}".format(index + 1))
 
             file = file.replace(" ", "\ ")
-            paths.append("sudo openvpn --config VyprVPN/{0} --script-security 2 --route-noexec --route-up utils/route.py &".format(file))
+            paths.append("sudo openvpn --config {0} --script-security 2 --route-noexec --route-up utils/route.py &".format(file))
             if write:
                 # updatign config
                 tmp2 = open(path, "wt")

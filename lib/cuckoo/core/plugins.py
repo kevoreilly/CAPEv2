@@ -526,7 +526,7 @@ class RunSignatures(object):
             return
 
         # If the signature is disabled, skip it.
-        if not current.enabled:
+        if not current.enabled or current.name == 'masslogger_files':
             return None
 
         if not self._check_signature_version(current):

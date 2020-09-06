@@ -114,18 +114,18 @@ class GuestManager(object):
         """Simple wrapper around requests.get()."""
         do_raise = kwargs.pop("do_raise", True)
         url = "http://%s:%s%s" % (self.ipaddr, self.port, method)
-        session = requests.Session()
-        session.trust_env = False
-        session.proxies = None
+        with requests.Session() as session:
+            session.trust_env = False
+            session.proxies = None
 
-        try:
-            r = session.get(url, *args, **kwargs)
-        except requests.ConnectionError:
-            raise CuckooGuestError(
-                "CAPE Agent failed without error status, please try "
-                "upgrading to the latest version of agent.py (>= 0.10) and "
-                "notify us if the issue persists."
-            )
+            try:
+                r = session.get(url, *args, **kwargs)
+            except requests.ConnectionError:
+                raise CuckooGuestError(
+                    "CAPE Agent failed without error status, please try "
+                    "upgrading to the latest version of agent.py (>= 0.10) and "
+                    "notify us if the issue persists."
+                )
 
         do_raise and r.raise_for_status()
         return r

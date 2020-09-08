@@ -70,7 +70,6 @@ status_count = dict()
 
 lock_retriever = threading.Lock()
 dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
-remove_lock = threading.BoundedSemaphore(20)
 fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
@@ -88,6 +87,7 @@ except ImportError:
 
 try:
     import requests
+    from requests.auth import HTTPBasicAuth
 except ImportError:
     required("requests")
 
@@ -239,6 +239,7 @@ def node_submit_task(task_id, node_id):
         log.exception(e)
         log.critical("Error submitting task (task #%d, node %s): %s", task.id, node.name, e)
 
+    db.commit()
     db.close()
     return check
 
@@ -268,11 +269,9 @@ class Retriever(threading.Thread):
         # Delete the task and all its associated files.
         # (It will still remain in the nodes' database, though.)
         if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
-            for x in range(20):
-                if remove_lock.acquire(blocking=False):
-                    thread = threading.Thread(target=self.remove_from_worker, args=())
-                    thread.daemon = True
-                    thread.start()
+            thread = threading.Thread(target=self.remove_from_worker, args=())
+            thread.daemon = True
+            thread.start()
 
         if reporting_conf.distributed.failed_cleaner or failed_clean_enabled:
             thread = threading.Thread(target=self.failed_cleaner, args=())
@@ -386,16 +385,6 @@ class Retriever(threading.Thread):
             time.sleep(600)
         db.close()
 
-    """
-    def cleaner(self):
-        '''Method that runs forever '''
-        while True:
-            node, task_id = self.cleaner_queue.get()
-            self.remove_from_worker(node, task_id)
-            if task_id in self.t_is_none.get(node, list()):
-                self.t_is_none[node].remove(task_id)
-    """
-
     def fetcher(self):
         """ Method that runs forever """
         last_checks = dict()
@@ -445,6 +434,7 @@ class Retriever(threading.Thread):
                             # node_data = db.query(Node).filter_by(name=node.name).first()
                             # node_data.enabled = False
                             # db.commit()
+            db.commit()
             time.sleep(5)
         db.close()
 
@@ -550,30 +540,37 @@ class Retriever(threading.Thread):
             except Exception as e:
                 logging.exception(e)
             self.current_queue[node_id].remove(task["id"])
+            db.commit()
         db.close()
 
     def remove_from_worker(self):
         db = session()
         nodes = dict()
-
+        details = dict()
         for node in db.query(Node).all():
             nodes.setdefault(node.id, node)
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
+            details.setdefault(node_id, list())
+            details[node_id].append(str(task_id))
             if task_id in self.t_is_none.get(node_id, list()):
                 self.t_is_none[node_id].remove(task_id)
 
             node = nodes[node_id]
-            if node:
+            if node and details[node_id]:
                 try:
-                    url = os.path.join(node.url, "tasks", "delete", "%d" % task_id)
-                    log.debug("Removing task id: {0} - from node: {1}".format(task_id, node.name))
-                    res = requests.get(url, params={"username": node.ht_user, "password": node.ht_pass}, verify=False)
+                    url = os.path.join(node.url, "tasks", "delete_many")
+                    log.debug("Removing task id(s): {0} - from node: {1}".format(",".join(details[node_id]), node.name))
+                    res = requests.post(url, auth=HTTPBasicAuth(node.ht_user, node.ht_pass), data={"ids": ",".join(details[node_id])}, verify=False)
                     if res and res.status_code != 200:
                         log.info("{} - {}".format(res.status_code, res.content))
+                    details[node_id] = list()
                 except Exception as e:
                     log.critical("Error deleting task (task #%d, node %s): %s", task_id, node.name, e)
+
+            db.commit()
+            time.sleep(20)
         db.close()
 
 
@@ -681,11 +678,13 @@ class StatusThread(threading.Thread):
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
                         limit += 1
                         if limit == pend_tasks_num or limit == len(main_db_tasks):
+                            db.commit()
                             return True
 
                 # Only get tasks that have not been pushed yet.
                 q = db.query(Task).filter(or_(Task.node_id == None, Task.task_id == None), Task.finished == False)
                 if q is None:
+                    db.commit()
                     return True
                 # Order by task priority and task id.
                 q = q.order_by(-Task.priority, Task.main_task_id)
@@ -723,7 +722,9 @@ class StatusThread(threading.Thread):
                         db.commit()
                     limit += 1
                     if limit == pend_tasks_num:
+                        db.commit()
                         return True
+        db.commit()
         return True
 
     def run(self):
@@ -745,6 +746,7 @@ class StatusThread(threading.Thread):
                 master_storage_only = True
         else:
             master_storage_only = True
+        db.close()
 
         # MINIMUMQUEUE but per Node depending of number vms
         for node in db.query(Node).filter_by(enabled=True).all():
@@ -777,7 +779,7 @@ class StatusThread(threading.Thread):
                         if failed_count[node.name] == dead_count:
                             log.info("[-] {} dead".format(node.name))
                             # node.enabled = False
-                            # db.commit()
+                            db.commit()
                             # STATUSES[node.name]["enabled"] = False
                         continue
                     failed_count[node.name] = 0
@@ -819,8 +821,7 @@ class StatusThread(threading.Thread):
                         if not res:
                             continue
             except Exception as e:
-                log.critical("Got an exception when trying to check nodes status and submit tasks: {}.".format(e))
-                log.critical("Retrying in {} seconds.".format(INTERVAL))
+                log.error("Got an exception when trying to check nodes status and submit tasks: {}.".format(e), exc_info=True)
 
             time.sleep(INTERVAL)
 

@@ -346,14 +346,15 @@ class Retriever(threading.Thread):
                             if res and res.ok:
                                 # log.info(res.content)
                                 task.notificated = True
-                                db.commit()
-                                db.refresh(task)
+                                #db.commit()
+                                #db.refresh(task)
                             else:
                                 log.info("failed to report: {} - {}".format(task.main_task_id, res.status_code))
                         except requests.exceptions.ConnectionError:
                             log.info("Can't report to callback")
                         except Exception as e:
                             log.info("failed to report: {} - {}".format(task.main_task_id, e))
+            db.commit()
             time.sleep(20)
         db.close()
 
@@ -371,7 +372,7 @@ class Retriever(threading.Thread):
                             t.finished = True
                             t.retrieved = True
                             t.notificated = True
-                            db.commit()
+                            #db.commit()
                             lock_retriever.acquire()
                             if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
                                 self.cleaner_queue.put((t.node_id, t.task_id))
@@ -382,6 +383,7 @@ class Retriever(threading.Thread):
                             if (node.id, task["id"]) not in self.cleaner_queue.queue:
                                 self.cleaner_queue.put((node.id, task["id"]))
                             lock_retriever.release()
+                    db.commit()
             time.sleep(600)
         db.close()
 
@@ -1016,7 +1018,7 @@ def cron_cleaner():
 
     # Check if we are not runned
     if os.path.exists("/tmp/dist_cleaner.pid"):
-        log.debug("we running")
+        log.info("we running")
         sys.exit()
 
     pid = open("/tmp/dist_cleaner.pid", "wb")
@@ -1025,6 +1027,7 @@ def cron_cleaner():
 
     db = session()
     nodes = dict()
+    details = dict()
 
     for node in db.query(Node).all():
         nodes.setdefault(node.id, node)
@@ -1032,21 +1035,27 @@ def cron_cleaner():
     tasks = db.query(Task).filter_by(notificated=True, deleted=False).order_by(Task.id.desc()).all()
     if tasks is not None:
         for task in tasks:
-            # db.query(Node).filter_by(id = task.node_id).first()
             node = nodes[task.node_id]
             if node:
-                try:
-                    url = os.path.join(node.url, "tasks", "delete", "%d" % task.task_id)
-                    log.info("Removing task id: {0} - from node: {1}".format(task.task_id, node.name))
-                    res = requests.get(url, params={"username": node.ht_user, "password": node.ht_pass}, verify=False)
-                    if res and res.status_code != 200:
-                        log.info("{} - {}".format(res.status_code, res.content))
-                    else:
-                        task.deleted = True
-                        db.commit()
-                        db.expire(task)
-                except Exception as e:
-                    log.critical("Error deleting task (task #%d, node %s): %s", task.task_id, node.name, e)
+                details.setdefault(node.id, list())
+                details[node.id].append(str(task.task_id))
+                task.deleted = True
+
+        for node in details:
+            if node and not details[node]:
+                continue
+            try:
+                url = os.path.join(nodes[node].url, "tasks", "delete_many")
+                log.info("Removing task id(s): {0} - from node: {1}".format(",".join(details[node]), nodes[node].name))
+                res = requests.post(url, auth=HTTPBasicAuth(nodes[node].ht_user, nodes[node].ht_pass), data={"ids": ",".join(details[node])}, verify=False)
+                if res and res.status_code != 200:
+                    log.info("{} - {}".format(res.status_code, res.content))
+                    db.rollback()
+            except Exception as e:
+                log.critical("Error deleting task (tasks #%s, node %s): %s", ",".join(details[node]), nodes[node].name, e)
+                db.rollback()
+
+    db.commit()
     db.close()
     os.remove("/tmp/dist_cleaner.pid")
 

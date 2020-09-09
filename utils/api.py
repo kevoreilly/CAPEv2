@@ -337,6 +337,7 @@ def tasks_delete():
     tasks = request.forms.get("ids", "")
     tasks = tasks.split(",")
     for task_id in tasks:
+        task_id = int(task_id)
         task = db.view_task(task_id)
         if task:
             if task.status == TASK_RUNNING:

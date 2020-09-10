@@ -276,7 +276,7 @@ def index(request, resubmit_hash=False):
                 content = get_file_content(paths)
                 if not content:
                     return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
-                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=settings.TEMP_PATH)
+                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=os.path.join(settings.TEMP_PATH, "cape-resubmit"))
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
@@ -642,7 +642,7 @@ def index(request, resubmit_hash=False):
                     hashlist.append(vtdl)
 
                 for h in hashlist:
-                    base_dir = tempfile.mkdtemp(prefix="cuckoovtdl", dir=settings.VTDL_PATH)
+                    base_dir = tempfile.mkdtemp(prefix="capevtdl", dir=os.path.join(settings.VTDL_PATH, "cape-vt"))
                     task_ids_tmp = list()
                     if opt_filename:
                         filename = base_dir + "/" + opt_filename
@@ -742,7 +742,7 @@ def index(request, resubmit_hash=False):
             return render(request, "submission/complete.html", data)
 
         else:
-            return render(request, "error.html", {"error": "Error adding task to Cuckoo's database."})
+            return render(request, "error.html", {"error": "Error adding task to CAPE's database."})
     else:
         enabledconf = dict()
         enabledconf["vt"] = settings.VTDL_ENABLED

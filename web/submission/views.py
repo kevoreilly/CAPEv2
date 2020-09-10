@@ -642,7 +642,7 @@ def index(request, resubmit_hash=False):
                 if "," in vtdl:
                     hashlist = [_f for _f in vtdl.replace(" ", "").strip().split(",") if _f]
                 else:
-                    hashlist.append(vtdl)
+                    hashlist = vtdl.split()
 
                 folder = os.path.join(settings.VTDL_PATH, "cape-vt")
                 if not os.path.exists(folder):

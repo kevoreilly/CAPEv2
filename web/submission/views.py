@@ -276,7 +276,10 @@ def index(request, resubmit_hash=False):
                 content = get_file_content(paths)
                 if not content:
                     return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
-                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=os.path.join(settings.TEMP_PATH, "cape-resubmit"))
+                folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
@@ -641,8 +644,11 @@ def index(request, resubmit_hash=False):
                 else:
                     hashlist.append(vtdl)
 
+                folder = os.path.join(settings.VTDL_PATH, "cape-vt")
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
                 for h in hashlist:
-                    base_dir = tempfile.mkdtemp(prefix="capevtdl", dir=os.path.join(settings.VTDL_PATH, "cape-vt"))
+                    base_dir = tempfile.mkdtemp(prefix="capevtdl", dir=folder)
                     task_ids_tmp = list()
                     if opt_filename:
                         filename = base_dir + "/" + opt_filename
@@ -761,7 +767,7 @@ def index(request, resubmit_hash=False):
             enabledconf["tags"] = True
 
         if not enabledconf["tags"]:
-            #  load multi machinery tags:
+            # load multi machinery tags:
             # Get enabled machinery
             machinery = cfg.cuckoo.get("machinery")
             if machinery == "multi":

@@ -1849,7 +1849,6 @@ def to_unicode(s):
 
     return result
 
-
 def get_user_filename(options, customs):
     opt_filename = ""
     for block in (options, customs):
@@ -1871,6 +1870,22 @@ def generate_fake_name():
     out = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15)))
     return out
 
+MAX_FILENAME_LEN = 32
+
+def truncate_filename(x):
+    truncated = None
+    parts = x.rsplit('.',1)
+    if len(parts) > 1:
+        # filename has extension
+        extension  = parts[1]
+        name = parts[0][:(MAX_FILENAME_LEN-(len(extension)+1))]
+        truncated = f"{name}.{extension}"
+    elif len(parts) == 1:
+        # no extension
+        truncated = parts[0][:(MAX_FILENAME_LEN)]
+    else:
+        return None
+    return truncated
 
 def sanitize_filename(x):
     """Kind of awful but necessary sanitizing of filenames to
@@ -1885,7 +1900,7 @@ def sanitize_filename(x):
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
     if len(out) >= 32:
-        out = generate_fake_name()
+        out = truncate_filename(out)
 
     return out
 

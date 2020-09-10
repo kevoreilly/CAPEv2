@@ -38,9 +38,10 @@ rule Emotet
         $snippet6 = {33 C0 21 05 ?? ?? ?? ?? A3 ?? ?? ?? ?? 39 05 ?? ?? ?? ?? 74 18 40 A3 ?? ?? ?? ?? 83 3C C5 ?? ?? ?? ?? 00 75 F0 51 E8 ?? ?? ?? ?? 59 C3}
         $snippet7 = {8B 48 ?? C7 [5-6] C7 40 ?? ?? ?? ?? ?? C7 ?? ?? 00 00 00 [0-1] 83 3C CD ?? ?? ?? ?? 00 74 0E 41 89 48 ?? 83 3C CD ?? ?? ?? ?? 00 75 F2}
         $snippet8 = {85 C0 74 3? B9 [2] 40 00 33 D2 89 ?8 [0-1] 89 [1-2] 8B [1-2] 89 [1-2] EB 0? 41 89 [1-2] 39 14 CD [2] 40 00 75 F? 8B CE E8 [4] 85 C0 74 05 33 C0 40 5E C3}
-        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 74 ?? 8D 4D ?? E8 ?? ?? FF FF 8D 45 ?? B9 ?? ?? 40 00 8D 55 ?? 89 45 ?? E8}
+        $snippet9 = {85 C0 74 4B 8B 08 C7 40 0C [4] C7 40 08 [4] C7 40 04 00 00 00 00 83 3C CD [4] 00 74 0D 41 89 08 83 3C CD [4] 00 75 F3 8B CF E8 [4] 85 C0 74 07 B8 01 00 00 00 5F C3}
+        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? 40 00 8D 5? [4-6] E8}
     condition:
-        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($ref_rsa)
+        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($snippet9) or ($ref_rsa)
 }
 
 """
@@ -114,7 +115,7 @@ class Emotet(Parser):
             refc2list = yara_scan(filebuf, "$snippet3")
         if refc2list:
             c2list_va_offset = int(refc2list["$snippet3"])
-            c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
+            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
             if c2_list_va - image_base > 0x20000:
                 c2_list_va = c2_list_va & 0xFFFF
             else:
@@ -143,7 +144,7 @@ class Emotet(Parser):
             refc2list = yara_scan(filebuf, "$snippet4")
             if refc2list:
                 c2list_va_offset = int(refc2list["$snippet4"])
-                c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
+                c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
                 if c2_list_va - image_base > 0x20000:
                     c2_list_rva = c2_list_va & 0xFFFF
                 else:
@@ -170,13 +171,18 @@ class Emotet(Parser):
                     c2_list_offset += 8
             else:
                 snippet = "$snippet5"
+                delta = 5
                 refc2list = yara_scan(filebuf, snippet)
                 if not refc2list:
                     snippet = "$snippet8"
                     refc2list = yara_scan(filebuf, snippet)
+                if not refc2list:
+                    snippet = "$snippet9"
+                    delta = 9
+                    refc2list = yara_scan(filebuf, snippet)
                 if refc2list:
                     c2list_va_offset = int(refc2list[snippet])
-                    c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + 5 : c2list_va_offset + 9])[0]
+                    c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
                     if c2_list_va - image_base > 0x20000:
                         c2_list_rva = c2_list_va & 0xFFFF
                     else:
@@ -184,7 +190,7 @@ class Emotet(Parser):
                     try:
                         c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
                     except pefile.PEFormatError as err:
-                        pass
+                        return
 
                     while 1:
                         try:
@@ -205,7 +211,7 @@ class Emotet(Parser):
                     refc2list = yara_scan(filebuf, "$snippet6")
                     if refc2list:
                         c2list_va_offset = int(refc2list["$snippet6"])
-                        c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + 15 : c2list_va_offset + 19])[0]
+                        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 15 : c2list_va_offset + 19])[0]
                         if c2_list_va - image_base > 0x20000:
                             c2_list_rva = c2_list_va & 0xFFFF
                         else:
@@ -238,7 +244,7 @@ class Emotet(Parser):
                             hb = struct.unpack("b", filebuf[c2list_va_offset + 29 : c2list_va_offset + 30])[0]
                             if hb:
                                 delta += 1
-                            c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
+                            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
                             if c2_list_va - image_base > 0x20000:
                                 c2_list_rva = c2_list_va & 0xFFFF
                             else:
@@ -271,15 +277,19 @@ class Emotet(Parser):
                 ref_rsa_va = 0
                 zb = struct.unpack("b", filebuf[ref_rsa_offset + 31 : ref_rsa_offset + 32])[0]
                 if not zb:
-                    ref_rsa_va = struct.unpack("i", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 32])[0]
+                    ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 32])[0]
                 else:
                     zb = struct.unpack("b", filebuf[ref_rsa_offset + 29 : ref_rsa_offset + 30])[0]
                     if not zb:
-                        ref_rsa_va = struct.unpack("i", filebuf[ref_rsa_offset + 26 : ref_rsa_offset + 30])[0]
+                        ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 26 : ref_rsa_offset + 30])[0]
                     else:
                         zb = struct.unpack("b", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 29])[0]
                         if not zb:
-                            ref_rsa_va = struct.unpack("i", filebuf[ref_rsa_offset + 25 : ref_rsa_offset + 29])[0]
+                            ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 25 : ref_rsa_offset + 29])[0]
+                        else:
+                            zb = struct.unpack("b", filebuf[ref_rsa_offset + 38 : ref_rsa_offset + 39])[0]
+                            if not zb:
+                                ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 35 : ref_rsa_offset + 39])[0]
                 if not ref_rsa_va:
                     return
                 ref_rsa_rva = ref_rsa_va - image_base

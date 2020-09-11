@@ -312,7 +312,7 @@ def LoadDecoders(decoders, verbose):
                     scriptDecoder = os.path.join(scriptPath, decoder)
                     if os.path.exists(scriptDecoder):
                         decoder = scriptDecoder
-            exec open(decoder, "r") in globals(), globals()
+            exec(open(decoder, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading decoder: %s" % decoder)
             if verbose:

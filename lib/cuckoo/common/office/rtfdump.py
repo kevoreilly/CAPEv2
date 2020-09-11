@@ -282,7 +282,7 @@ def LoadPlugins(plugins, verbose):
                     scriptPlugin = os.path.join(scriptPath, plugin)
                     if os.path.exists(scriptPlugin):
                         plugin = scriptPlugin
-            exec open(plugin, "r") in globals(), globals()
+            exec(open(plugin, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading plugin: %s" % plugin)
             if verbose:

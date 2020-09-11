@@ -52,6 +52,8 @@ import string
 import hashlib
 import json
 from io import StringIO
+import collections
+import glob
 
 try:
     import yara

@@ -409,18 +409,18 @@ class MaecReport(Report):
         # address or domain name
         # Assume this is an HTTP URL
         if value.startswith("http://"):
-            split_val = val.replace("http://", "").split("/", 1)
+            split_val = value.replace("http://", "").split("/", 1)
             network_obj["type"] = "domain-name"
             network_obj["value"] = split_val[0]
             http_resource = split_val[1]
         # Assume this is an FTP URL
         elif value.startswith("ftp://"):
-            split_val = val.replace("ftp://", "").split("/", 1)
+            split_val = value.replace("ftp://", "").split("/", 1)
             network_obj["type"] = "domain-name"
             network_obj["value"] = split_val[0]
         # Assume this is an HTTPS URL
         elif value.startswith("https://"):
-            split_val = val.replace("htps://", "").split("/", 1)
+            split_val = value.replace("htps://", "").split("/", 1)
             network_obj["type"] = "domain-name"
             network_obj["value"] = split_val[0]
             http_resource = split_val[1]

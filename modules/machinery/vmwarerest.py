@@ -60,7 +60,7 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             status = s.put(
-                "https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid, data=json.dumps(testjson), auth=(self.username, self.password)
+                "https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid, data=json.dumps({}), auth=(self.username, self.password)
             )
             if "Authentication failed" in status.text:
                 log.info("Authentication failed, please check credentials in vmwarerest.conf")

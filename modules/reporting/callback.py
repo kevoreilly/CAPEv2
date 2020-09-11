@@ -14,6 +14,8 @@ try:
 
     HAVE_MONGO = True
 except ImportError:
+    # flake8 test hack
+    pymongo = False
     HAVE_MONGO = False
     print("missed pymongo")
 

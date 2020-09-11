@@ -79,8 +79,8 @@ def v3_data(data, key):
         "PWD": "",
     }
     dec = rc4crypt(unhexlify(data), key)
-    config[str(entry.name)] = dec
-    config["Version"] = enckey[:-4]
+    #config[str(entry.name)] = dec
+    #config["Version"] = key[:-4]
 
     return config
 

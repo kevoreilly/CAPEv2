@@ -52,6 +52,8 @@ import string
 import hashlib
 import json
 from io import StringIO
+import collections
+import glob
 
 try:
     import yara
@@ -282,7 +284,7 @@ def LoadPlugins(plugins, verbose):
                     scriptPlugin = os.path.join(scriptPath, plugin)
                     if os.path.exists(scriptPlugin):
                         plugin = scriptPlugin
-            exec open(plugin, "r") in globals(), globals()
+            exec(open(plugin, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading plugin: %s" % plugin)
             if verbose:
@@ -312,7 +314,7 @@ def LoadDecoders(decoders, verbose):
                     scriptDecoder = os.path.join(scriptPath, decoder)
                     if os.path.exists(scriptDecoder):
                         decoder = scriptDecoder
-            exec open(decoder, "r") in globals(), globals()
+            exec(open(decoder, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading decoder: %s" % decoder)
             if verbose:

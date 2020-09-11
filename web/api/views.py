@@ -18,10 +18,10 @@ from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from ratelimit.decorators import ratelimit
 from io import BytesIO
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
+from ratelimit.decorators import ratelimit
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
@@ -36,40 +36,15 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
-from lib.cuckoo.common.web_utils import (
-    get_magic_type,
-    download_file,
-    disable_x64,
-    get_file_content,
-    fix_section_permission,
-    recon,
-    jsonize,
-    validate_task,
-)
+from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock
+
 
 log = logging.getLogger(__name__)
 
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
-apiconf = Config("api")
-rateblock = apiconf.api.get("ratelimit", False)
 repconf = Config("reporting")
-
-ht = False
-try:
-    """
-        To enable: sudo apt install apache2-utils
-
-    """
-    from passlib.apache import HtpasswdFile
-
-    HAVE_PASSLIB = True
-    if apiconf.api.get("users_db") and os.path.exists(apiconf.api.get("users_db")):
-        ht = HtpasswdFile(apiconf.api.get("users_db"))
-except ImportError:
-    HAVE_PASSLIB = False
-
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -108,86 +83,6 @@ def force_int(value):
         value = 0
     finally:
         return value
-
-
-apilimiter = {
-    "tasks_create_file": apiconf.filecreate,
-    "tasks_create_url": apiconf.urlcreate,
-    "tasks_create_dlnexec": apiconf.dlnexeccreate,
-    "tasks_vtdl": apiconf.vtdl,
-    "files_view": apiconf.fileview,
-    "tasks_search": apiconf.tasksearch,
-    "ext_tasks_search": apiconf.extendedtasksearch,
-    "tasks_list": apiconf.tasklist,
-    "tasks_view": apiconf.taskview,
-    "tasks_reschedule": apiconf.taskresched,
-    "tasks_delete": apiconf.taskdelete,
-    "tasks_status": apiconf.taskstatus,
-    "tasks_report": apiconf.taskreport,
-    "tasks_iocs": apiconf.taskiocs,
-    "tasks_screenshot": apiconf.taskscreenshot,
-    "tasks_pcap": apiconf.taskpcap,
-    "tasks_dropped": apiconf.taskdropped,
-    "tasks_surifile": apiconf.tasksurifile,
-    "tasks_rollingsuri": apiconf.rollingsuri,
-    "tasks_rollingshrike": apiconf.rollingshrike,
-    "tasks_procmemory": apiconf.taskprocmemory,
-    "tasks_fullmemory": apiconf.taskprocmemory,
-    "get_files": apiconf.sampledl,
-    "machines_list": apiconf.machinelist,
-    "machines_view": apiconf.machineview,
-    "cuckoo_status": apiconf.cuckoostatus,
-    "task_x_hours": apiconf.task_x_hours,
-    "tasks_latest": apiconf.tasks_latest,
-    # "post_processing":
-    "tasks_payloadfiles": apiconf.payloadfiles,
-    "tasks_procdumpfiles": apiconf.procdumpfiles,
-    "tasks_config": apiconf.capeconfig,
-}
-
-# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
-def my_rate_seconds(group, request):
-    username = False
-    password = False
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        else:
-            return apilimiter[group].get("rps")
-
-    return "0/s"
-
-
-# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
-def my_rate_minutes(group, request):
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-        username = False
-        password = False
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        else:
-            return apilimiter[group].get("rpm")
-
-    return "0/m"
 
 
 def createProcessTreeNode(process):

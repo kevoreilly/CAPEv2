@@ -64,6 +64,7 @@ Todo:
   - code review, cleanup
 """
 
+import random
 import optparse
 import os
 import re
@@ -78,7 +79,7 @@ import zipfile
 import collections
 import glob
 import fnmatch
-
+import binascii
 if sys.version_info[0] >= 3:
     import urllib.request as urllib23
 else:
@@ -90,12 +91,329 @@ else:
 
 # Convert 2 Bytes If Python 3
 
+FCH_FILENAME = 0
+FCH_DATA = 1
+FCH_ERROR = 2
+
 
 def C2BIP3(string):
     if sys.version_info[0] > 2:
         return bytes([ord(x) for x in string])
     else:
         return string
+
+
+def Hex2Bytes(hexadecimal):
+    if len(hexadecimal) % 2 == 1:
+        hexadecimal = '0' + hexadecimal
+    try:
+        return binascii.a2b_hex(hexadecimal)
+    except:
+        return None
+
+
+def LoremIpsumSentence(minimum, maximum):
+    words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'etiam', 'tortor', 'metus', 'cursus', 'sed', 'sollicitudin', 'ac', 'sagittis', 'eget', 'massa', 'praesent', 'sem', 'fermentum', 'dignissim', 'in', 'vel', 'augue', 'scelerisque', 'auctor', 'libero', 'nam', 'a', 'gravida', 'odio', 'duis', 'vestibulum', 'vulputate', 'quam', 'nec', 'cras', 'nibh', 'feugiat', 'ut', 'vitae', 'ornare', 'justo', 'orci', 'varius', 'natoque', 'penatibus', 'et', 'magnis', 'dis', 'parturient', 'montes', 'nascetur', 'ridiculus', 'mus', 'curabitur', 'nisl', 'egestas', 'urna', 'iaculis', 'lectus', 'maecenas', 'ultrices', 'velit', 'eu', 'porta', 'hac', 'habitasse', 'platea', 'dictumst', 'integer', 'id', 'commodo', 'mauris', 'interdum', 'malesuada', 'fames', 'ante', 'primis', 'faucibus', 'accumsan', 'pharetra', 'aliquam', 'nunc', 'at', 'est', 'non', 'leo', 'nulla', 'sodales', 'porttitor', 'facilisis', 'aenean',
+             'condimentum', 'rutrum', 'facilisi', 'tincidunt', 'laoreet', 'ultricies', 'neque', 'diam', 'euismod', 'consequat', 'tempor', 'elementum', 'lobortis', 'erat', 'ligula', 'risus', 'donec', 'phasellus', 'quisque', 'vivamus', 'pellentesque', 'tristique', 'venenatis', 'purus', 'mi', 'dictum', 'posuere', 'fringilla', 'quis', 'magna', 'pretium', 'felis', 'pulvinar', 'lacinia', 'proin', 'viverra', 'lacus', 'suscipit', 'aliquet', 'dui', 'molestie', 'dapibus', 'mollis', 'suspendisse', 'sapien', 'blandit', 'morbi', 'tellus', 'enim', 'maximus', 'semper', 'arcu', 'bibendum', 'convallis', 'hendrerit', 'imperdiet', 'finibus', 'fusce', 'congue', 'ullamcorper', 'placerat', 'nullam', 'eros', 'habitant', 'senectus', 'netus', 'turpis', 'luctus', 'volutpat', 'rhoncus', 'mattis', 'nisi', 'ex', 'tempus', 'eleifend', 'vehicula', 'class', 'aptent', 'taciti', 'sociosqu', 'ad', 'litora', 'torquent', 'per', 'conubia', 'nostra', 'inceptos', 'himenaeos']
+    sample = random.sample(words, random.randint(minimum, maximum))
+    sample[0] = sample[0].capitalize()
+    return ' '.join(sample) + '.'
+
+
+def LoremIpsum(sentences):
+    return ' '.join([LoremIpsumSentence(15, 30) for i in range(sentences)])
+
+
+STATE_START = 0
+STATE_IDENTIFIER = 1
+STATE_STRING = 2
+STATE_SPECIAL_CHAR = 3
+STATE_ERROR = 4
+
+FUNCTIONNAME_REPEAT = 'repeat'
+FUNCTIONNAME_RANDOM = 'random'
+FUNCTIONNAME_CHR = 'chr'
+FUNCTIONNAME_LOREMIPSUM = 'loremipsum'
+
+
+def Tokenize(expression):
+    result = []
+    token = ''
+    state = STATE_START
+    while expression != '':
+        char = expression[0]
+        expression = expression[1:]
+        if char == "'":
+            if state == STATE_START:
+                state = STATE_STRING
+            elif state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                state = STATE_STRING
+                token = ''
+            elif state == STATE_STRING:
+                result.append([STATE_STRING, token])
+                state = STATE_START
+                token = ''
+        elif char >= '0' and char <= '9' or char.lower() >= 'a' and char.lower() <= 'z':
+            if state == STATE_START:
+                token = char
+                state = STATE_IDENTIFIER
+            else:
+                token += char
+        elif char == ' ':
+            if state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                token = ''
+                state = STATE_START
+            elif state == STATE_STRING:
+                token += char
+        else:
+            if state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                token = ''
+                state = STATE_START
+                result.append([STATE_SPECIAL_CHAR, char])
+            elif state == STATE_STRING:
+                token += char
+            else:
+                result.append([STATE_SPECIAL_CHAR, char])
+                token = ''
+    if state == STATE_IDENTIFIER:
+        result.append([state, token])
+    elif state == STATE_STRING:
+        result = [[STATE_ERROR, 'Error: string not closed', token]]
+    return result
+
+
+def InterpretBytes(token):
+    if token[0] == STATE_STRING:
+        return token[1]
+    if token[0] != STATE_IDENTIFIER:
+        return None
+    if not token[1].startswith('0x'):
+        return None
+    return Hex2Bytes(token[1][2:])
+
+
+def CheckFunction(functionname, arguments, countarguments, maxcountarguments=None):
+    if maxcountarguments is None:
+        if countarguments == 0 and len(arguments) != 0:
+            print('Error: function %s takes no arguments, %d are given' % (functionname, len(arguments)))
+            return True
+        if countarguments == 1 and len(arguments) != 1:
+            print('Error: function %s takes 1 argument, %d are given' % (functionname, len(arguments)))
+            return True
+        if countarguments != len(arguments):
+            print('Error: function %s takes %d arguments, %d are given' % (functionname, countarguments, len(arguments)))
+            return True
+    else:
+        if len(arguments) < countarguments or len(arguments) > maxcountarguments:
+            print('Error: function %s takes between %d and %d arguments, %d are given' % (functionname, countarguments, maxcountarguments, len(arguments)))
+            return True
+    return False
+
+
+def InterpretInteger(token):
+    if token[0] != STATE_IDENTIFIER:
+        return None
+    try:
+        return int(token[1])
+    except:
+        return None
+
+def C2IIP2(data):
+    if sys.version_info[0] > 2:
+        return data
+    else:
+        return ord(data)
+
+
+def InterpretHexInteger(token):
+    if token[0] != STATE_IDENTIFIER:
+        return None
+    if not token[1].startswith('0x'):
+        return None
+    bytes = Hex2Bytes(token[1][2:])
+    if bytes is None:
+        return None
+    integer = 0
+    for byte in bytes:
+        integer = integer * 0x100 + C2IIP2(byte)
+    return integer
+
+
+def InterpretNumber(token):
+    number = InterpretInteger(token)
+    if number is None:
+        return InterpretHexInteger(token)
+    else:
+        return number
+
+
+def CheckNumber(argument, minimum=None, maximum=None):
+    number = InterpretNumber(argument)
+    if number is None:
+        print('Error: argument should be a number: %s' % argument[1])
+        return None
+    if minimum is not None and number < minimum:
+        print('Error: argument should be minimum %d: %d' % (minimum, number))
+        return None
+    if maximum is not None and number > maximum:
+        print('Error: argument should be maximum %d: %d' % (maximum, number))
+        return None
+    return number
+
+
+def ParseFunction(tokens):
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    if tokens[0][0] == STATE_STRING or tokens[0][0] == STATE_IDENTIFIER and tokens[0][1].startswith('0x'):
+        return [[FUNCTIONNAME_REPEAT, [[STATE_IDENTIFIER, '1'], tokens[0]]], tokens[1:]]
+    if tokens[0][0] != STATE_IDENTIFIER:
+        print('Parsing error')
+        return None, tokens
+    function = tokens[0][1]
+    tokens = tokens[1:]
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    if tokens[0][0] != STATE_SPECIAL_CHAR or tokens[0][1] != '(':
+        print('Parsing error')
+        return None, tokens
+    tokens = tokens[1:]
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    arguments = []
+    while True:
+        if tokens[0][0] != STATE_IDENTIFIER and tokens[0][0] != STATE_STRING:
+            print('Parsing error')
+            return None, tokens
+        arguments.append(tokens[0])
+        tokens = tokens[1:]
+        if len(tokens) == 0:
+            print('Parsing error')
+            return None, tokens
+        if tokens[0][0] != STATE_SPECIAL_CHAR or (tokens[0][1] != ',' and tokens[0][1] != ')'):
+            print('Parsing error')
+            return None, tokens
+        if tokens[0][0] == STATE_SPECIAL_CHAR and tokens[0][1] == ')':
+            tokens = tokens[1:]
+            break
+        tokens = tokens[1:]
+        if len(tokens) == 0:
+            print('Parsing error')
+            return None, tokens
+    return [[function, arguments], tokens]
+
+
+def Parse(expression):
+    tokens = Tokenize(expression)
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None
+    if tokens[0][0] == STATE_ERROR:
+        print(tokens[0][1])
+        print(tokens[0][2])
+        print(expression)
+        return None
+    functioncalls = []
+    while True:
+        functioncall, tokens = ParseFunction(tokens)
+        if functioncall is None:
+            return None
+        functioncalls.append(functioncall)
+        if len(tokens) == 0:
+            return functioncalls
+        if tokens[0][0] != STATE_SPECIAL_CHAR or tokens[0][1] != '+':
+            print('Parsing error')
+            return None
+        tokens = tokens[1:]
+
+
+def Interpret(expression):
+    functioncalls = Parse(expression)
+    if functioncalls is None:
+        return None
+    decoded = ''
+    for functioncall in functioncalls:
+        functionname, arguments = functioncall
+        if functionname == FUNCTIONNAME_REPEAT:
+            if CheckFunction(functionname, arguments, 2):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number is None:
+                return None
+            bytes = InterpretBytes(arguments[1])
+            if bytes is None:
+                print('Error: argument should be a byte sequence: %s' %
+                      arguments[1][1])
+                return None
+            decoded += number * bytes
+        elif functionname == FUNCTIONNAME_RANDOM:
+            if CheckFunction(functionname, arguments, 1):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number is None:
+                return None
+            decoded += ''.join([chr(random.randint(0, 255))
+                                for x in range(number)])
+        elif functionname == FUNCTIONNAME_LOREMIPSUM:
+            if CheckFunction(functionname, arguments, 1):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number is None:
+                return None
+            decoded += LoremIpsum(number)
+        elif functionname == FUNCTIONNAME_CHR:
+            if CheckFunction(functionname, arguments, 1, 2):
+                return None
+            number = CheckNumber(arguments[0], minimum=0, maximum=255)
+            if number is None:
+                return None
+            if len(arguments) == 1:
+                decoded += chr(number)
+            else:
+                number2 = CheckNumber(arguments[1], minimum=0, maximum=255)
+                if number2 is None:
+                    return None
+                if number < number2:
+                    decoded += ''.join([chr(n)
+                                        for n in range(number, number2 + 1)])
+                else:
+                    decoded += ''.join([chr(n)
+                                        for n in range(number, number2 - 1, -1)])
+        else:
+            print('Error: unknown function: %s' % functionname)
+            return None
+    return decoded
+
+
+def FilenameCheckHash(filename, literalfilename):
+    if literalfilename:
+        return FCH_FILENAME, filename
+    elif filename.startswith('#h#'):
+        result = Hex2Bytes(filename[3:])
+        if result is None:
+            return FCH_ERROR, 'hexadecimal'
+        else:
+            return FCH_DATA, result
+    elif filename.startswith('#b#'):
+        try:
+            return FCH_DATA, binascii.a2b_base64(filename[3:])
+        except:
+            return FCH_ERROR, 'base64'
+    elif filename.startswith('#e#'):
+        result = Interpret(filename[3:])
+        if result is None:
+            return FCH_ERROR, 'expression'
+        else:
+            return FCH_DATA, result
+    elif filename.startswith('#'):
+        return FCH_DATA, C2BIP3(filename[1:])
+    else:
+        return FCH_FILENAME, filename
 
 
 class cBinaryFile:
@@ -116,7 +434,8 @@ class cBinaryFile:
         elif file.lower().endswith(".zip"):
             try:
                 self.zipfile = zipfile.ZipFile(file, "r")
-                self.infile = self.zipfile.open(self.zipfile.infolist()[0], "r", C2BIP3("infected"))
+                self.infile = self.zipfile.open(
+                    self.zipfile.infolist()[0], "r", C2BIP3("infected"))
             except:
                 print("Error opening file %s" % file)
                 print(sys.exc_info()[1])
@@ -253,7 +572,8 @@ class cEntropy:
             self.streamBucket[byte] -= 1
 
     def calc(self):
-        self.nonStreamBucket = map(operator.sub, self.allBucket, self.streamBucket)
+        self.nonStreamBucket = map(
+            operator.sub, self.allBucket, self.streamBucket)
         allCount = sum(self.allBucket)
         streamCount = sum(self.streamBucket)
         nonStreamCount = sum(self.nonStreamBucket)
@@ -367,15 +687,16 @@ def UpdateWords(word, wordExact, slash, words, hexcode, allNames, lastName, insi
             if word == "stream":
                 insideStream = True
             if word == "endstream":
-                if insideStream == True and oEntropy != None:
+                if insideStream == True and oEntropy is not None:
                     for char in "endstream":
                         oEntropy.removeInsideStream(ord(char))
                 insideStream = False
-        if fOut != None:
+        if fOut is not None:
             if slash == "/" and "/" + word in ("/JS", "/JavaScript", "/AA", "/OpenAction", "/JBIG2Decode", "/RichMedia", "/Launch"):
                 wordExactSwapped = HexcodeName2String(SwapName(wordExact))
                 fOut.write(C2BIP3(wordExactSwapped))
-                print("/%s -> /%s" % (HexcodeName2String(wordExact), wordExactSwapped))
+                print("/%s -> /%s" %
+                      (HexcodeName2String(wordExact), wordExactSwapped))
             else:
                 fOut.write(C2BIP3(HexcodeName2String(wordExact)))
     return ("", [], False, lastName, insideStream)
@@ -394,7 +715,7 @@ class cCVE_2009_3459:
 def XMLAddAttribute(xmlDoc, name, value=None):
     att = xmlDoc.createAttribute(name)
     xmlDoc.documentElement.setAttributeNode(att)
-    if value != None:
+    if value is not None:
         att.nodeValue = value
     return att
 
@@ -504,14 +825,14 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
                 fOut.write(C2BIP3(chr(byteHeader)))
         else:
             fOut = None
-        if oEntropy != None:
+        if oEntropy is not None:
             for byteHeader in bytesHeader:
                 oEntropy.add(byteHeader, insideStream)
-        if pdfHeader == None and not force:
+        if pdfHeader is None and not force:
             attIsPDF.nodeValue = "False"
             return xmlDoc
         else:
-            if pdfHeader == None:
+            if pdfHeader is None:
                 attIsPDF.nodeValue = "False"
                 pdfHeader = ""
             else:
@@ -520,7 +841,7 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
             att.nodeValue = repr(pdfHeader[0:10]).strip("'")
             xmlDoc.documentElement.setAttributeNode(att)
         byte = oBinaryFile.byte()
-        while byte != None:
+        while byte is not None:
             char = chr(byte)
             charUpper = char.upper()
             if charUpper >= "A" and charUpper <= "Z" or charUpper >= "0" and charUpper <= "9":
@@ -528,20 +849,20 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
                 wordExact.append(char)
             elif slash == "/" and char == "#":
                 d1 = oBinaryFile.byte()
-                if d1 != None:
+                if d1 is not None:
                     d2 = oBinaryFile.byte()
                     if (
-                        d2 != None
+                        d2 is not None
                         and (chr(d1) >= "0" and chr(d1) <= "9" or chr(d1).upper() >= "A" and chr(d1).upper() <= "F")
                         and (chr(d2) >= "0" and chr(d2) <= "9" or chr(d2).upper() >= "A" and chr(d2).upper() <= "F")
                     ):
                         word += chr(int(chr(d1) + chr(d2), 16))
                         wordExact.append(int(chr(d1) + chr(d2), 16))
                         hexcode = True
-                        if oEntropy != None:
+                        if oEntropy is not None:
                             oEntropy.add(d1, insideStream)
                             oEntropy.add(d2, insideStream)
-                        if oPDFEOF != None:
+                        if oPDFEOF is not None:
                             oPDFEOF.parse(d1)
                             oPDFEOF.parse(d2)
                     else:
@@ -572,13 +893,13 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
                 if disarm:
                     fOut.write(C2BIP3(char))
 
-            if oPDFDate != None and oPDFDate.parse(char) != None:
+            if oPDFDate is not None and oPDFDate.parse(char) is not None:
                 dates.append([oPDFDate.date, lastName])
 
-            if oEntropy != None:
+            if oEntropy is not None:
                 oEntropy.add(byte, insideStream)
 
-            if oPDFEOF != None:
+            if oPDFEOF is not None:
                 oPDFEOF.parse(char)
 
             byte = oBinaryFile.byte()
@@ -588,7 +909,7 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
 
         # check to see if file ended with %%EOF.  If so, we can reset charsAfterLastEOF and add one to EOF count.  This is never performed in
         # the parse function because it never gets called due to hitting the end of file.
-        if byte == None and oPDFEOF != None:
+        if byte is None and oPDFEOF is not None:
             if oPDFEOF.token == "%%EOF":
                 oPDFEOF.cntEOFs += 1
                 oPDFEOF.cntCharsAfterLastEOF = 0
@@ -615,11 +936,12 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
     xmlDoc.documentElement.setAttributeNode(attEntropyNonStream)
     attCountNonStream = xmlDoc.createAttribute("NonStreamCount")
     xmlDoc.documentElement.setAttributeNode(attCountNonStream)
-    if oEntropy != None:
-        (countAll, entropyAll, countStream, entropyStream, countNonStream, entropyNonStream) = oEntropy.calc()
+    if oEntropy is not None:
+        (countAll, entropyAll, countStream, entropyStream,
+         countNonStream, entropyNonStream) = oEntropy.calc()
         attEntropyAll.nodeValue = "%f" % entropyAll
         attCountAll.nodeValue = "%d" % countAll
-        if entropyStream == None:
+        if entropyStream is None:
             attEntropyStream.nodeValue = "N/A     "
         else:
             attEntropyStream.nodeValue = "%f" % entropyStream
@@ -635,9 +957,10 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
         attCountNonStream.nodeValue = ""
     attCountEOF = xmlDoc.createAttribute("CountEOF")
     xmlDoc.documentElement.setAttributeNode(attCountEOF)
-    attCountCharsAfterLastEOF = xmlDoc.createAttribute("CountCharsAfterLastEOF")
+    attCountCharsAfterLastEOF = xmlDoc.createAttribute(
+        "CountCharsAfterLastEOF")
     xmlDoc.documentElement.setAttributeNode(attCountCharsAfterLastEOF)
-    if oPDFEOF != None:
+    if oPDFEOF is not None:
         attCountEOF.nodeValue = "%d" % oPDFEOF.cntEOFs
         if oPDFEOF.cntEOFs > 0:
             attCountCharsAfterLastEOF.nodeValue = "%d" % oPDFEOF.cntCharsAfterLastEOF
@@ -703,24 +1026,30 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
 
 
 def PDFiD2String(xmlDoc, nozero, force):
-    result = "PDFiD %s %s\n" % (xmlDoc.documentElement.getAttribute("Version"), xmlDoc.documentElement.getAttribute("Filename"))
+    result = "PDFiD %s %s\n" % (xmlDoc.documentElement.getAttribute(
+        "Version"), xmlDoc.documentElement.getAttribute("Filename"))
     if xmlDoc.documentElement.getAttribute("ErrorOccured") == "True":
         return result + "***Error occured***\n%s\n" % xmlDoc.documentElement.getAttribute("ErrorMessage")
     if not force and xmlDoc.documentElement.getAttribute("IsPDF") == "False":
         return result + " Not a PDF document\n"
-    result += " PDF Header: %s\n" % xmlDoc.documentElement.getAttribute("Header")
+    result += " PDF Header: %s\n" % xmlDoc.documentElement.getAttribute(
+        "Header")
     for node in xmlDoc.documentElement.getElementsByTagName("Keywords")[0].childNodes:
         if not nozero or nozero and int(node.getAttribute("Count")) > 0:
-            result += " %-16s %7d" % (node.getAttribute("Name"), int(node.getAttribute("Count")))
+            result += " %-16s %7d" % (node.getAttribute("Name"),
+                                      int(node.getAttribute("Count")))
             if int(node.getAttribute("HexcodeCount")) > 0:
                 result += "(%d)" % int(node.getAttribute("HexcodeCount"))
             result += "\n"
     if xmlDoc.documentElement.getAttribute("CountEOF") != "":
-        result += " %-16s %7d\n" % ("%%EOF", int(xmlDoc.documentElement.getAttribute("CountEOF")))
+        result += " %-16s %7d\n" % ("%%EOF",
+                                    int(xmlDoc.documentElement.getAttribute("CountEOF")))
     if xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF") != "":
-        result += " %-16s %7d\n" % ("After last %%EOF", int(xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF")))
+        result += " %-16s %7d\n" % ("After last %%EOF", int(
+            xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF")))
     for node in xmlDoc.documentElement.getElementsByTagName("Dates")[0].childNodes:
-        result += " %-23s %s\n" % (node.getAttribute("Value"), node.getAttribute("Name"))
+        result += " %-23s %s\n" % (node.getAttribute("Value"),
+                                   node.getAttribute("Name"))
     if xmlDoc.documentElement.getAttribute("TotalEntropy") != "":
         result += " Total entropy:           %s (%10s bytes)\n" % (
             xmlDoc.documentElement.getAttribute("TotalEntropy"),
@@ -749,7 +1078,8 @@ class cPDFiD:
     def __init__(self, xmlDoc, force):
         self.version = xmlDoc.documentElement.getAttribute("Version")
         self.filename = xmlDoc.documentElement.getAttribute("Filename")
-        self.errorOccured = xmlDoc.documentElement.getAttribute("ErrorOccured") == "True"
+        self.errorOccured = xmlDoc.documentElement.getAttribute(
+            "ErrorOccured") == "True"
         self.errorMessage = xmlDoc.documentElement.getAttribute("ErrorMessage")
         self.isPDF = None
         if self.errorOccured:
@@ -760,7 +1090,8 @@ class cPDFiD:
         self.header = xmlDoc.documentElement.getAttribute("Header")
         self.keywords = {}
         for node in xmlDoc.documentElement.getElementsByTagName("Keywords")[0].childNodes:
-            self.keywords[node.getAttribute("Name")] = cCount(int(node.getAttribute("Count")), int(node.getAttribute("HexcodeCount")))
+            self.keywords[node.getAttribute("Name")] = cCount(
+                int(node.getAttribute("Count")), int(node.getAttribute("HexcodeCount")))
         self.obj = self.keywords["obj"]
         self.endobj = self.keywords["endobj"]
         self.stream = self.keywords["stream"]
@@ -811,7 +1142,8 @@ def MakeCSVLine(fields, separator=";", quote='"'):
 
 
 def ProcessFile(filename, options, plugins):
-    xmlDoc = PDFiD(filename, options.all, options.extra, options.disarm, options.force)
+    xmlDoc = PDFiD(filename, options.all, options.extra,
+                   options.disarm, options.force)
     if plugins == [] and options.select == "":
         Print(PDFiD2String(xmlDoc, options.nozero, options.force), options)
         return
@@ -823,7 +1155,8 @@ def ProcessFile(filename, options, plugins):
             try:
                 selected = eval(options.select)
             except Exception as e:
-                Print("Error evaluating select expression: %s" % options.select, options)
+                Print("Error evaluating select expression: %s" %
+                      options.select, options)
                 if options.verbose:
                     raise e
                 return
@@ -831,14 +1164,16 @@ def ProcessFile(filename, options, plugins):
                 if options.csv:
                     Print(filename, options)
                 else:
-                    Print(PDFiD2String(xmlDoc, options.nozero, options.force), options)
+                    Print(PDFiD2String(xmlDoc, options.nozero,
+                                       options.force), options)
     else:
         for cPlugin in plugins:
             if not cPlugin.onlyValidPDF or not oPDFiD.errorOccured and oPDFiD.isPDF:
                 try:
                     oPlugin = cPlugin(oPDFiD, options.pluginoptions)
                 except Exception as e:
-                    Print("Error instantiating plugin: %s" % cPlugin.name, options)
+                    Print("Error instantiating plugin: %s" %
+                          cPlugin.name, options)
                     if options.verbose:
                         raise e
                     return
@@ -853,23 +1188,30 @@ def ProcessFile(filename, options, plugins):
 
                 if options.csv:
                     if score >= options.minimumscore:
-                        Print(MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%.02f", score))), options)
+                        Print(MakeCSVLine(
+                            (("%s", filename), ("%s", cPlugin.name), ("%.02f", score))), options)
                 else:
                     if score >= options.minimumscore:
-                        Print(PDFiD2String(xmlDoc, options.nozero, options.force), options)
-                        Print("%s score:        %.02f" % (cPlugin.name, score), options)
+                        Print(PDFiD2String(xmlDoc, options.nozero,
+                                           options.force), options)
+                        Print("%s score:        %.02f" %
+                              (cPlugin.name, score), options)
                         try:
-                            Print("%s instructions: %s" % (cPlugin.name, oPlugin.Instructions(score)), options)
+                            Print("%s instructions: %s" % (cPlugin.name,
+                                                           oPlugin.Instructions(score)), options)
                         except AttributeError:
                             pass
             else:
                 if options.csv:
                     if oPDFiD.errorOccured:
-                        Print(MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%s", "Error occured"))), options)
+                        Print(MakeCSVLine(
+                            (("%s", filename), ("%s", cPlugin.name), ("%s", "Error occured"))), options)
                     if not oPDFiD.isPDF:
-                        Print(MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%s", "Not a PDF document"))), options)
+                        Print(MakeCSVLine(
+                            (("%s", filename), ("%s", cPlugin.name), ("%s", "Not a PDF document"))), options)
                 else:
-                    Print(PDFiD2String(xmlDoc, options.nozero, options.force), options)
+                    Print(PDFiD2String(xmlDoc, options.nozero,
+                                       options.force), options)
 
 
 def Scan(directory, options, plugins):
@@ -902,7 +1244,8 @@ def PDFiD2JSON(xmlDoc, force):
 
     # extra data
     countEof = xmlDoc.documentElement.getAttribute("CountEOF")
-    countChatAfterLastEof = xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF")
+    countChatAfterLastEof = xmlDoc.documentElement.getAttribute(
+        "CountCharsAfterLastEOF")
     totalEntropy = xmlDoc.documentElement.getAttribute("TotalEntropy")
     streamEntropy = xmlDoc.documentElement.getAttribute("StreamEntropy")
     nonStreamEntropy = xmlDoc.documentElement.getAttribute("NonStreamEntropy")
@@ -965,7 +1308,7 @@ def File2Strings(filename):
 def ProcessAt(argument):
     if argument.startswith("@"):
         strings = File2Strings(argument[1:])
-        if strings == None:
+        if strings is None:
             raise Exception("Error reading %s" % argument)
         else:
             return strings
@@ -992,17 +1335,20 @@ class cExpandFilenameArguments:
         if len(filenames) == 0:
             self.filenameexpressions = [["", ""]]
         elif literalfilenames:
-            self.filenameexpressions = [[filename, ""] for filename in filenames]
+            self.filenameexpressions = [[filename, ""]
+                                        for filename in filenames]
         elif recursedir:
             for dirwildcard in filenames:
-                if expressionprefix != None and dirwildcard.startswith(expressionprefix):
-                    expression = dirwildcard[len(expressionprefix) :]
+                if expressionprefix is not None and dirwildcard.startswith(expressionprefix):
+                    expression = dirwildcard[len(expressionprefix):]
                 else:
                     if dirwildcard.startswith("@"):
                         for filename in ProcessAt(dirwildcard):
-                            self.filenameexpressions.append([filename, expression])
+                            self.filenameexpressions.append(
+                                [filename, expression])
                     elif os.path.isfile(dirwildcard):
-                        self.filenameexpressions.append([dirwildcard, expression])
+                        self.filenameexpressions.append(
+                            [dirwildcard, expression])
                     else:
                         if os.path.isdir(dirwildcard):
                             dirname = dirwildcard
@@ -1013,14 +1359,16 @@ class cExpandFilenameArguments:
                                 dirname = "."
                         for path, dirs, files in os.walk(dirname):
                             for filename in fnmatch.filter(files, basename):
-                                self.filenameexpressions.append([os.path.join(path, filename), expression])
+                                self.filenameexpressions.append(
+                                    [os.path.join(path, filename), expression])
         else:
             for filename in list(collections.OrderedDict.fromkeys(sum(map(self.Glob, sum(map(ProcessAt, filenames), [])), []))):
-                if expressionprefix != None and filename.startswith(expressionprefix):
-                    expression = filename[len(expressionprefix) :]
+                if expressionprefix is not None and filename.startswith(expressionprefix):
+                    expression = filename[len(expressionprefix):]
                 else:
                     self.filenameexpressions.append([filename, expression])
-            self.warning = self.containsUnixShellStyleWildcards and len(self.filenameexpressions) == 0
+            self.warning = self.containsUnixShellStyleWildcards and len(
+                self.filenameexpressions) == 0
             if self.warning:
                 self.message = "Your filename argument(s) contain Unix shell-style wildcards, but no files were matched.\nCheck your wildcard patterns or use option literalfilenames if you don't want wildcard pattern matching."
                 return
@@ -1041,10 +1389,14 @@ class cExpandFilenameArguments:
         isnotafile = []
         for filename, expression in self.filenameexpressions:
             hashfile = False
+            # Not declared ROFL
+
             try:
-                hashfile = FilenameCheckHash(filename, self.literalfilenames)[0] == FCH_DATA
-            except:
-                pass
+                hashfile = FilenameCheckHash(filename, self.literalfilenames)[
+                    0] == FCH_DATA
+            except Exception as e:
+                print(e)
+
             if filename == "" or hashfile:
                 valid.append([filename, expression])
             elif not os.path.exists(filename):
@@ -1056,13 +1408,15 @@ class cExpandFilenameArguments:
         self.filenameexpressions = valid
         if len(doesnotexist) > 0:
             self.warning = True
-            self.message += "The following files do not exist and will be skipped: " + " ".join(doesnotexist) + "\n"
+            self.message += "The following files do not exist and will be skipped: " + \
+                " ".join(doesnotexist) + "\n"
         if len(isnotafile) > 0:
             self.warning = True
-            self.message += "The following files are not regular files and will be skipped: " + " ".join(isnotafile) + "\n"
+            self.message += "The following files are not regular files and will be skipped: " + \
+                " ".join(isnotafile) + "\n"
 
     def Filenames(self):
-        if self.expressionprefix == None:
+        if self.expressionprefix is None:
             return [filename for filename, expression in self.filenameexpressions]
         else:
             return self.filenameexpressions
@@ -1099,7 +1453,8 @@ def PDFiDMain(filenames, options):
 
     if options.csv:
         if plugins != []:
-            Print(MakeCSVLine((("%s", "Filename"), ("%s", "Plugin-name"), ("%s", "Score"))), options)
+            Print(MakeCSVLine(
+                (("%s", "Filename"), ("%s", "Plugin-name"), ("%s", "Score"))), options)
         elif options.select != "":
             Print("Filename", options)
 
@@ -1125,21 +1480,36 @@ https://DidierStevens.com"""
     oParser = optparse.OptionParser(
         usage="usage: %prog [options] [pdf-file|zip-file|url|@file] ...\n" + __description__ + moredesc, version="%prog " + __version__
     )
-    oParser.add_option("-s", "--scan", action="store_true", default=False, help="scan the given directory")
-    oParser.add_option("-a", "--all", action="store_true", default=False, help="display all the names")
-    oParser.add_option("-e", "--extra", action="store_true", default=False, help="display extra data, like dates")
-    oParser.add_option("-f", "--force", action="store_true", default=False, help="force the scan of the file, even without proper %PDF header")
-    oParser.add_option("-d", "--disarm", action="store_true", default=False, help="disable JavaScript and auto launch")
-    oParser.add_option("-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)")
-    oParser.add_option("-c", "--csv", action="store_true", default=False, help="output csv data when using plugins")
-    oParser.add_option("-m", "--minimumscore", type=float, default=0.0, help="minimum score for plugin results output")
-    oParser.add_option("-v", "--verbose", action="store_true", default=False, help="verbose (will also raise catched exceptions)")
-    oParser.add_option("-S", "--select", type=str, default="", help="selection expression")
-    oParser.add_option("-n", "--nozero", action="store_true", default=False, help="supress output for counts equal to zero")
-    oParser.add_option("-o", "--output", type=str, default="", help="output to log file")
-    oParser.add_option("--pluginoptions", type=str, default="", help="options for the plugin")
-    oParser.add_option("-l", "--literalfilenames", action="store_true", default=False, help="take filenames literally, no wildcard matching")
-    oParser.add_option("--recursedir", action="store_true", default=False, help="Recurse directories (wildcards and here files (@...) allowed)")
+    oParser.add_option("-s", "--scan", action="store_true",
+                       default=False, help="scan the given directory")
+    oParser.add_option("-a", "--all", action="store_true",
+                       default=False, help="display all the names")
+    oParser.add_option("-e", "--extra", action="store_true",
+                       default=False, help="display extra data, like dates")
+    oParser.add_option("-f", "--force", action="store_true", default=False,
+                       help="force the scan of the file, even without proper %PDF header")
+    oParser.add_option("-d", "--disarm", action="store_true",
+                       default=False, help="disable JavaScript and auto launch")
+    oParser.add_option("-p", "--plugins", type=str, default="",
+                       help="plugins to load (separate plugins with a comma , ; @file supported)")
+    oParser.add_option("-c", "--csv", action="store_true",
+                       default=False, help="output csv data when using plugins")
+    oParser.add_option("-m", "--minimumscore", type=float,
+                       default=0.0, help="minimum score for plugin results output")
+    oParser.add_option("-v", "--verbose", action="store_true", default=False,
+                       help="verbose (will also raise catched exceptions)")
+    oParser.add_option("-S", "--select", type=str,
+                       default="", help="selection expression")
+    oParser.add_option("-n", "--nozero", action="store_true",
+                       default=False, help="supress output for counts equal to zero")
+    oParser.add_option("-o", "--output", type=str,
+                       default="", help="output to log file")
+    oParser.add_option("--pluginoptions", type=str,
+                       default="", help="options for the plugin")
+    oParser.add_option("-l", "--literalfilenames", action="store_true",
+                       default=False, help="take filenames literally, no wildcard matching")
+    oParser.add_option("--recursedir", action="store_true", default=False,
+                       help="Recurse directories (wildcards and here files (@...) allowed)")
     (options, args) = oParser.parse_args()
 
     if len(args) == 0:
@@ -1152,7 +1522,8 @@ https://DidierStevens.com"""
         filenames = [""]
     else:
         try:
-            oExpandFilenameArguments = cExpandFilenameArguments(args, options.literalfilenames, options.recursedir, False)
+            oExpandFilenameArguments = cExpandFilenameArguments(
+                args, options.literalfilenames, options.recursedir, False)
             filenames = oExpandFilenameArguments.Filenames()
             if oExpandFilenameArguments.warning:
                 print(oExpandFilenameArguments.message)

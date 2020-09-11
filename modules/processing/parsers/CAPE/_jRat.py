@@ -136,7 +136,7 @@ def new_aes(conf, enckey):
 
 # process versions < 3.2.2
 def old_des(conf, enckey):
-    decoded_config = decrypt_des(data, enckey)
+    decoded_config = decrypt_des(conf, enckey)
     clean_config = string_print(decoded_config)
     raw_config = clean_config.split("SPLIT")
     return raw_config

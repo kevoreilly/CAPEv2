@@ -130,6 +130,25 @@ except ImportError:
     print("Missed dependey XLMMacroDeobfuscator: pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
     HAVE_XLM_DEOBF = False
 
+try:
+    from elftools.common.exceptions import ELFError
+    from elftools.elf.constants import E_FLAGS
+    from elftools.elf.descriptions import (
+        describe_ei_class, describe_ei_data, describe_ei_version,
+        describe_ei_osabi, describe_e_type, describe_e_machine,
+        describe_e_version_numeric, describe_p_type, describe_p_flags,
+        describe_sh_type, describe_dyn_tag, describe_symbol_type,
+        describe_symbol_bind, describe_note, describe_reloc_type
+    )
+    from elftools.elf.dynamic import DynamicSection
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.enums import ENUM_D_TAG
+    from elftools.elf.relocation import RelocationSection
+    from elftools.elf.sections import SymbolTableSection
+    from elftools.elf.segments import NoteSegment
+except ImportError:
+    ELFFile = False
+
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 

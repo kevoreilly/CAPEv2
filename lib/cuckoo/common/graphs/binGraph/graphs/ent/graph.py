@@ -122,7 +122,7 @@ def args_validation(args):
             ibyte = {}
 
             if not type(ib) == dict:
-                raise ArgValidationEx('Error validating --ibytes - "{}" value is not a dict: "{}"'.format(name, bytelist))
+                raise ArgValidationEx('Error validating --ibytes - value is not a dict: "{}"'.format(ibytes_list))
             elif type(ib) == dict:
                 if not ("name" in list(ib.keys()) and "bytes" in list(ib.keys())):
                     raise ArgValidationEx("Error validating --ibytes - name or bytes field not present: {}".format(ib))
@@ -135,7 +135,7 @@ def args_validation(args):
 
                 for b in ib["bytes"]:
                     if not type(b) == int:
-                        raise ArgValidationEx('Error validating --ibytes - "{}" is not an int: "{}"'.format(name, b))
+                        raise ArgValidationEx('Error validating --ibytes is not an int: "{}"'.format(b))
                     else:
                         ibyte["bytes"].append(b)
 
@@ -198,7 +198,7 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
 
     # # Create the figure
     fig, host = plt.subplots()
-
+    parsedbin = ""
     log.debug("Plotting shannon samples")
     host.plot(np.array(shannon_samples), label="Entropy", c=kwargs["entcolour"], zorder=1001, linewidth=1.2)
 
@@ -482,6 +482,7 @@ def hash_colour(text):
 def shannon_ent(labels, base=256):
     value, counts = np.unique(labels, return_counts=True)
     norm_counts = counts / counts.sum()
+    e = 0
     base = e if base is None else base
     return -(norm_counts * np.log(norm_counts) / np.log(base)).sum()
 

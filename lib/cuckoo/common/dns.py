@@ -113,7 +113,7 @@ def resolve_cares(name):
 class Resultholder:
     pass
 
-
+"""
 # gevent based resolver with timeout
 def resolve_gevent(name):
     result = resolve_gevent_real(name)
@@ -134,14 +134,14 @@ def resolve_gevent_real(name):
             pass
 
     return result
-
+"""
 
 # choose resolver automatically
 def resolve(name):
     if HAVE_CARES:
         return resolve_cares(name)
-    elif HAVE_GEVENT:
-        return resolve_gevent(name)
+    #elif HAVE_GEVENT:
+    #    return resolve_gevent(name)
     else:
         return resolve_thread(name)
 

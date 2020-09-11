@@ -29,6 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from urllib.parse import quote
+from ratelimit.decorators import ratelimit
 
 sys.path.append(settings.CUCKOO_PATH)
 

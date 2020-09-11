@@ -78,7 +78,7 @@ import zipfile
 import collections
 import glob
 import fnmatch
-
+import binascii
 if sys.version_info[0] >= 3:
     import urllib.request as urllib23
 else:
@@ -90,12 +90,248 @@ else:
 
 # Convert 2 Bytes If Python 3
 
+FCH_FILENAME = 0
+FCH_DATA = 1
+FCH_ERROR = 2
 
 def C2BIP3(string):
     if sys.version_info[0] > 2:
         return bytes([ord(x) for x in string])
     else:
         return string
+
+
+def Hex2Bytes(hexadecimal):
+    if len(hexadecimal) % 2 == 1:
+        hexadecimal = '0' + hexadecimal
+    try:
+        return binascii.a2b_hex(hexadecimal)
+    except:
+        return None
+
+
+def LoremIpsumSentence(minimum, maximum):
+    words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'etiam', 'tortor', 'metus', 'cursus', 'sed', 'sollicitudin', 'ac', 'sagittis', 'eget', 'massa', 'praesent', 'sem', 'fermentum', 'dignissim', 'in', 'vel', 'augue', 'scelerisque', 'auctor', 'libero', 'nam', 'a', 'gravida', 'odio', 'duis', 'vestibulum', 'vulputate', 'quam', 'nec', 'cras', 'nibh', 'feugiat', 'ut', 'vitae', 'ornare', 'justo', 'orci', 'varius', 'natoque', 'penatibus', 'et', 'magnis', 'dis', 'parturient', 'montes', 'nascetur', 'ridiculus', 'mus', 'curabitur', 'nisl', 'egestas', 'urna', 'iaculis', 'lectus', 'maecenas', 'ultrices', 'velit', 'eu', 'porta', 'hac', 'habitasse', 'platea', 'dictumst', 'integer', 'id', 'commodo', 'mauris', 'interdum', 'malesuada', 'fames', 'ante', 'primis', 'faucibus', 'accumsan', 'pharetra', 'aliquam', 'nunc', 'at', 'est', 'non', 'leo', 'nulla', 'sodales', 'porttitor', 'facilisis', 'aenean',
+             'condimentum', 'rutrum', 'facilisi', 'tincidunt', 'laoreet', 'ultricies', 'neque', 'diam', 'euismod', 'consequat', 'tempor', 'elementum', 'lobortis', 'erat', 'ligula', 'risus', 'donec', 'phasellus', 'quisque', 'vivamus', 'pellentesque', 'tristique', 'venenatis', 'purus', 'mi', 'dictum', 'posuere', 'fringilla', 'quis', 'magna', 'pretium', 'felis', 'pulvinar', 'lacinia', 'proin', 'viverra', 'lacus', 'suscipit', 'aliquet', 'dui', 'molestie', 'dapibus', 'mollis', 'suspendisse', 'sapien', 'blandit', 'morbi', 'tellus', 'enim', 'maximus', 'semper', 'arcu', 'bibendum', 'convallis', 'hendrerit', 'imperdiet', 'finibus', 'fusce', 'congue', 'ullamcorper', 'placerat', 'nullam', 'eros', 'habitant', 'senectus', 'netus', 'turpis', 'luctus', 'volutpat', 'rhoncus', 'mattis', 'nisi', 'ex', 'tempus', 'eleifend', 'vehicula', 'class', 'aptent', 'taciti', 'sociosqu', 'ad', 'litora', 'torquent', 'per', 'conubia', 'nostra', 'inceptos', 'himenaeos']
+    sample = random.sample(words, random.randint(minimum, maximum))
+    sample[0] = sample[0].capitalize()
+    return ' '.join(sample) + '.'
+
+
+def LoremIpsum(sentences):
+    return ' '.join([LoremIpsumSentence(15, 30) for i in range(sentences)])
+
+
+STATE_START = 0
+STATE_IDENTIFIER = 1
+STATE_STRING = 2
+STATE_SPECIAL_CHAR = 3
+STATE_ERROR = 4
+
+FUNCTIONNAME_REPEAT = 'repeat'
+FUNCTIONNAME_RANDOM = 'random'
+FUNCTIONNAME_CHR = 'chr'
+FUNCTIONNAME_LOREMIPSUM = 'loremipsum'
+
+
+def Tokenize(expression):
+    result = []
+    token = ''
+    state = STATE_START
+    while expression != '':
+        char = expression[0]
+        expression = expression[1:]
+        if char == "'":
+            if state == STATE_START:
+                state = STATE_STRING
+            elif state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                state = STATE_STRING
+                token = ''
+            elif state == STATE_STRING:
+                result.append([STATE_STRING, token])
+                state = STATE_START
+                token = ''
+        elif char >= '0' and char <= '9' or char.lower() >= 'a' and char.lower() <= 'z':
+            if state == STATE_START:
+                token = char
+                state = STATE_IDENTIFIER
+            else:
+                token += char
+        elif char == ' ':
+            if state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                token = ''
+                state = STATE_START
+            elif state == STATE_STRING:
+                token += char
+        else:
+            if state == STATE_IDENTIFIER:
+                result.append([STATE_IDENTIFIER, token])
+                token = ''
+                state = STATE_START
+                result.append([STATE_SPECIAL_CHAR, char])
+            elif state == STATE_STRING:
+                token += char
+            else:
+                result.append([STATE_SPECIAL_CHAR, char])
+                token = ''
+    if state == STATE_IDENTIFIER:
+        result.append([state, token])
+    elif state == STATE_STRING:
+        result = [[STATE_ERROR, 'Error: string not closed', token]]
+    return result
+
+
+def ParseFunction(tokens):
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    if tokens[0][0] == STATE_STRING or tokens[0][0] == STATE_IDENTIFIER and tokens[0][1].startswith('0x'):
+        return [[FUNCTIONNAME_REPEAT, [[STATE_IDENTIFIER, '1'], tokens[0]]], tokens[1:]]
+    if tokens[0][0] != STATE_IDENTIFIER:
+        print('Parsing error')
+        return None, tokens
+    function = tokens[0][1]
+    tokens = tokens[1:]
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    if tokens[0][0] != STATE_SPECIAL_CHAR or tokens[0][1] != '(':
+        print('Parsing error')
+        return None, tokens
+    tokens = tokens[1:]
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None, tokens
+    arguments = []
+    while True:
+        if tokens[0][0] != STATE_IDENTIFIER and tokens[0][0] != STATE_STRING:
+            print('Parsing error')
+            return None, tokens
+        arguments.append(tokens[0])
+        tokens = tokens[1:]
+        if len(tokens) == 0:
+            print('Parsing error')
+            return None, tokens
+        if tokens[0][0] != STATE_SPECIAL_CHAR or (tokens[0][1] != ',' and tokens[0][1] != ')'):
+            print('Parsing error')
+            return None, tokens
+        if tokens[0][0] == STATE_SPECIAL_CHAR and tokens[0][1] == ')':
+            tokens = tokens[1:]
+            break
+        tokens = tokens[1:]
+        if len(tokens) == 0:
+            print('Parsing error')
+            return None, tokens
+    return [[function, arguments], tokens]
+
+def Parse(expression):
+    tokens = Tokenize(expression)
+    if len(tokens) == 0:
+        print('Parsing error')
+        return None
+    if tokens[0][0] == STATE_ERROR:
+        print(tokens[0][1])
+        print(tokens[0][2])
+        print(expression)
+        return None
+    functioncalls = []
+    while True:
+        functioncall, tokens = ParseFunction(tokens)
+        if functioncall == None:
+            return None
+        functioncalls.append(functioncall)
+        if len(tokens) == 0:
+            return functioncalls
+        if tokens[0][0] != STATE_SPECIAL_CHAR or tokens[0][1] != '+':
+            print('Parsing error')
+            return None
+        tokens = tokens[1:]
+
+
+
+def Interpret(expression):
+    functioncalls = Parse(expression)
+    if functioncalls == None:
+        return None
+    decoded = ''
+    for functioncall in functioncalls:
+        functionname, arguments = functioncall
+        if functionname == FUNCTIONNAME_REPEAT:
+            if CheckFunction(functionname, arguments, 2):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number == None:
+                return None
+            bytes = InterpretBytes(arguments[1])
+            if bytes == None:
+                print('Error: argument should be a byte sequence: %s' %
+                      arguments[1][1])
+                return None
+            decoded += number * bytes
+        elif functionname == FUNCTIONNAME_RANDOM:
+            if CheckFunction(functionname, arguments, 1):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number == None:
+                return None
+            decoded += ''.join([chr(random.randint(0, 255))
+                                for x in range(number)])
+        elif functionname == FUNCTIONNAME_LOREMIPSUM:
+            if CheckFunction(functionname, arguments, 1):
+                return None
+            number = CheckNumber(arguments[0], minimum=1)
+            if number == None:
+                return None
+            decoded += LoremIpsum(number)
+        elif functionname == FUNCTIONNAME_CHR:
+            if CheckFunction(functionname, arguments, 1, 2):
+                return None
+            number = CheckNumber(arguments[0], minimum=0, maximum=255)
+            if number == None:
+                return None
+            if len(arguments) == 1:
+                decoded += chr(number)
+            else:
+                number2 = CheckNumber(arguments[1], minimum=0, maximum=255)
+                if number2 == None:
+                    return None
+                if number < number2:
+                    decoded += ''.join([chr(n)
+                                        for n in range(number, number2 + 1)])
+                else:
+                    decoded += ''.join([chr(n)
+                                        for n in range(number, number2 - 1, -1)])
+        else:
+            print('Error: unknown function: %s' % functionname)
+            return None
+    return decoded
+
+def FilenameCheckHash(filename, literalfilename):
+    if literalfilename:
+        return FCH_FILENAME, filename
+    elif filename.startswith('#h#'):
+        result = Hex2Bytes(filename[3:])
+        if result == None:
+            return FCH_ERROR, 'hexadecimal'
+        else:
+            return FCH_DATA, result
+    elif filename.startswith('#b#'):
+        try:
+            return FCH_DATA, binascii.a2b_base64(filename[3:])
+        except:
+            return FCH_ERROR, 'base64'
+    elif filename.startswith('#e#'):
+        result = Interpret(filename[3:])
+        if result == None:
+            return FCH_ERROR, 'expression'
+        else:
+            return FCH_DATA, result
+    elif filename.startswith('#'):
+        return FCH_DATA, C2BIP3(filename[1:])
+    else:
+        return FCH_FILENAME, filename
 
 
 class cBinaryFile:
@@ -1041,10 +1277,13 @@ class cExpandFilenameArguments:
         isnotafile = []
         for filename, expression in self.filenameexpressions:
             hashfile = False
+            # Not declared ROFL
+
             try:
                 hashfile = FilenameCheckHash(filename, self.literalfilenames)[0] == FCH_DATA
-            except:
-                pass
+            except Exception as e:
+                print(e)
+
             if filename == "" or hashfile:
                 valid.append([filename, expression])
             elif not os.path.exists(filename):

@@ -724,7 +724,7 @@ def index(request, resubmit_hash=False):
                             tlp,
                             h,
                         )
-                    if status is "ok":
+                    if status == "ok":
                         task_ids = task_ids_tmp
                     else:
                         failed_hashes.append(h)

@@ -63,8 +63,9 @@ def parse_config(config_list):
 
 
 def decrypt_XOR(enckey, data):
-    cipher = XOR.new(enckey)  # set the cipher
-    return cipher.decrypt(data)  # decrpyt the data
+    # ToDo fix it yourself, XOR not defined
+    #cipher = XOR.new(enckey)  # set the cipher
+    #return cipher.decrypt(data)  # decrpyt the data
 
 
 def snortRule(md5, config_dict):

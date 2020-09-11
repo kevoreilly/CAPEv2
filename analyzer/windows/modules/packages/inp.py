@@ -19,7 +19,7 @@ from lib.common.abstracts import Package
 class INP(Package):
     """Inpage (Urdu/Arabic) Word Processor analysis package."""
 
-    PATHS = [("ProgramFiles", "InPage Urdu Professional", "Inpage.exe"), ("ProgramFiles", ,"Concept Software Pvt. Ltd", "InPage Urdu Professional", "Inpage.exe")]
+    PATHS = [("ProgramFiles", "InPage Urdu Professional", "Inpage.exe"), ("ProgramFiles", "Concept Software Pvt. Ltd", "InPage Urdu Professional", "Inpage.exe")]
 
     def start(self, path):
         inp = self.get_path("Inpage.exe")

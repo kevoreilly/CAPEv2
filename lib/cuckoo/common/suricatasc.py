@@ -240,10 +240,7 @@ class SuricataSC:
             readline.set_completer_delims(";")
             readline.parse_and_bind("tab: complete")
             while True:
-                if sys.version < "3":
-                    command = raw_input(">>> ").strip()
-                else:
-                    command = input(">>> ").strip()
+                command = input(">>> ").strip()
                 if command == "quit":
                     break
                 try:

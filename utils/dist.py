@@ -25,6 +25,7 @@ from datetime import datetime
 from itertools import combinations
 import distutils.util
 from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, DateTime, or_, and_, desc
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)

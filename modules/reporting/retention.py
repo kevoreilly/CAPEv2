@@ -61,11 +61,11 @@ def delete_mongo_data(curtask, tid):
             results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
         log.debug("Task #{0} deleting MongoDB data for Task #{1}".format(curtask, tid))
 
-
+"""
 def delete_elastic_data(curtask, tid):
     # TODO: Class-ify this or make it a function in utils, some code reuse
     # between this/process.py/django view
-    analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "{0}"'.format(task_id))["hits"]["hits"]
+    analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "{0}"'.format(tid))["hits"]["hits"]
     if len(analyses) > 0:
         for analysis in analyses:
             esidx = analysis["_index"]
@@ -80,7 +80,7 @@ def delete_elastic_data(curtask, tid):
                 index=esidx, doc_type="analysis", id=esid,
             )
         log.debug("Task #{0} deleting ElasticSearch data for Task #{1}".format(curtask, tid))
-
+"""
 
 def delete_files(curtask, delfiles, target_id):
     delfiles_list = delfiles
@@ -191,9 +191,11 @@ class Retention(Report):
                         elif item == "mongo":
                             if cfg.mongodb and cfg.mongodb.enabled:
                                 delete_mongo_data(curtask, lastTask)
+                        """
                         elif item == "elastic":
                             if cfg.elasticsearchdb and cfg.elasticsearchdb.enabled and not cfg.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)
+                        """
                     saveTaskLogged[item] = int(lastTask)
                 else:
                     saveTaskLogged[item] = 0

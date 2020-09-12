@@ -514,7 +514,7 @@ $(document).ready( function() {
                             {% endif %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="import_reconstruction" /> Enable process dump import reconstruction <span class="text-muted"><small>(slow)</small>
+                                    <input type="checkbox" name="import_reconstruction" /> Enable import reconstruction in process dumps
                                 </label>
                             </div>
                             {% if config.memory %}
@@ -531,12 +531,12 @@ $(document).ready( function() {
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="free" /> No Injection <span class="text-muted"><small>(disable behavioral analysis)</small></span>
+                                    <input type="checkbox" name="free" /> Run without monitoring <span class="text-muted"><small>(disables many caabilities)</small></span>
                                 </label>
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="disable_cape" /> No CAPE submissions <span class="text-muted"><small>(disable automatic job submission)</small></span>
+                                    <input type="checkbox" name="disable_cape" /> Disable automatic job submission </small></span>
                                 </label>
                             </div>
                             <div class="checkbox">

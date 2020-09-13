@@ -1,3 +1,7 @@
+### [13-09-2020]
+* Enable ratelimit on download any file, to avoid scrapping, to change limits, edit: `api.conf` -> `download_file`
+* Fixed a lot of bugs/typos, thanks Flake8 + GitHub Actions :)
+
 ### [11-08-2020]
 * Update suricata socket path in processing.conf as in cape2.sh from `/var/run/` to `/tmp/`
 * Fix pebble pool restart on timeout

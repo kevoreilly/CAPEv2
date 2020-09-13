@@ -232,7 +232,7 @@ ALLOWED_HOSTS = ["*"]
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
 
 # Don't forget to give some love to @doomedraven ;)
-RATELIMIT_ERROR_MSG = "You are blocked, Too many request without api access! We are researcher friendly, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;)"
+RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;)"
 
 # Hack to import local settings.
 try:

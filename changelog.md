@@ -1,5 +1,6 @@
 ### [13-09-2020]
 * Enable ratelimit on download any file, to avoid scrapping, to change limits, edit: `api.conf` -> `download_file`
+* Error message for ratelimit can be configured in `web/web/settings.py`
 * Fixed a lot of bugs/typos, thanks Flake8 + GitHub Actions :)
 
 ### [11-08-2020]

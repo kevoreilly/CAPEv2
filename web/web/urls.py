@@ -16,6 +16,8 @@ from compare import urls as compare
 from submission import urls as submission
 from api import urls as api
 
+handler403 = 'web.views.handler403'
+
 urlpatterns = [
     url(r"^$", dashboard_views.index, name="dashboard"),
     url(r"^admin/", admin.site.urls),

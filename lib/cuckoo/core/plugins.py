@@ -386,49 +386,50 @@ class RunProcessing(object):
 
         family = ""
         self.results["malfamily_tag"] = ""
-        if self.results.get("detections", False):
-            family = self.results["detections"]
-            self.results["malfamily_tag"] = "Yara"
-        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
-            for alert in self.results["suricata"]["alerts"]:
-                if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
-                    family = get_suricata_family(alert["signature"])
-                    if family:
-                        self.results["malfamily_tag"] = "Suricata"
-                        self.results["detections"] = family
+        if self.cfg.detections.enabled:
+            if self.results.get("detections", False) and self.cfg.detections.yara:
+                family = self.results["detections"]
+                self.results["malfamily_tag"] = "Yara"
+            elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+                for alert in self.results["suricata"]["alerts"]:
+                    if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
+                        family = get_suricata_family(alert["signature"])
+                        if family:
+                            self.results["malfamily_tag"] = "Suricata"
+                            self.results["detections"] = family
 
-        elif (
-            not family
-            and self.results["info"]["category"] == "file"
-            and "virustotal" in self.results
-            and "results" in self.results["virustotal"]
-            and self.results["virustotal"]["results"]
-        ):
-            detectnames = []
-            for res in self.results["virustotal"]["results"]:
-                if res["sig"] and "Trojan.Heur." not in res["sig"]:
-                    # weight Microsoft's detection, they seem to be more accurate than the rest
-                    if res["vendor"] == "Microsoft":
+            elif (
+                self.cfg.detections.virustotal and not family
+                and self.results["info"]["category"] == "file"
+                and "virustotal" in self.results
+                and "results" in self.results["virustotal"]
+                and self.results["virustotal"]["results"]
+            ):
+                detectnames = []
+                for res in self.results["virustotal"]["results"]:
+                    if res["sig"] and "Trojan.Heur." not in res["sig"]:
+                        # weight Microsoft's detection, they seem to be more accurate than the rest
+                        if res["vendor"] == "Microsoft":
+                            detectnames.append(res["sig"])
                         detectnames.append(res["sig"])
-                    detectnames.append(res["sig"])
-            family = get_vt_consensus(detectnames)
-            self.results["malfamily_tag"] = "VirusTotal"
+                family = get_vt_consensus(detectnames)
+                self.results["malfamily_tag"] = "VirusTotal"
 
-        # fall back to ClamAV detection
-        elif (
-            not family
-            and self.results["info"]["category"] == "file"
-            and "clamav" in self.results.get("target", {}).get("file", {})
-            and self.results["target"]["file"]["clamav"]
-        ):
-            for detection in self.results["target"]["file"]["clamav"]:
-                if detection.startswith("Win.Trojan."):
-                    words = re.findall(r"[A-Za-z0-9]+", detection)
-                    family = words[2]
-                    self.results["malfamily_tag"] = "ClamAV"
+            # fall back to ClamAV detection
+            elif (
+                self.cfg.detections.clamav and not family
+                and self.results["info"]["category"] == "file"
+                and "clamav" in self.results.get("target", {}).get("file", {})
+                and self.results["target"]["file"]["clamav"]
+            ):
+                for detection in self.results["target"]["file"]["clamav"]:
+                    if detection.startswith("Win.Trojan."):
+                        words = re.findall(r"[A-Za-z0-9]+", detection)
+                        family = words[2]
+                        self.results["malfamily_tag"] = "ClamAV"
 
-        if family:
-            self.results["detections"] = family
+            if family:
+                self.results["detections"] = family
 
         return self.results
 

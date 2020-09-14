@@ -3,7 +3,7 @@ License
 =======
 
 Cuckoo/CAPE Sandbox license is shipped with Cuckoo/CAPE and contained in the "LICENSE"
-file inside the "docs" folder.
+file under the base project directory.
 
 ==========
 Disclaimer

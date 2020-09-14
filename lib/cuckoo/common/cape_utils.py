@@ -121,6 +121,8 @@ def upx_harness(raw_data):
         return newname
     elif ret == 127:
         log.error("CAPE: Error - UPX not installed.")
+    elif ret == 1:
+        log.error("CAPE: Error - UPX CantUnpackException")
     elif ret == 2:
         log.error("CAPE: Error - UPX 'not packed' exception.")
     else:

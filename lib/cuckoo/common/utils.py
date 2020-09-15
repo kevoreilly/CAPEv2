@@ -1605,7 +1605,7 @@ def store_temp_file(filedata, filename, path=None):
 
 
 def get_vt_consensus(namelist):
-    blacklist = [
+    banlist = [
         "other",
         "troj",
         "trojan",
@@ -1657,6 +1657,7 @@ def get_vt_consensus(namelist):
         "crypt",
         "rootkit",
         "malwares",
+        "malicious",
         "suspicious",
         "riskware",
         "risk",
@@ -1722,7 +1723,7 @@ def get_vt_consensus(namelist):
         if len(numlist) > 2 or len(tok) < 4:
             accepted = False
         if accepted:
-            for black in blacklist:
+            for black in banlist:
                 if black == lowertok:
                     accepted = False
                     break

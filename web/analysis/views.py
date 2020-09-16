@@ -4,22 +4,18 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
-import sys
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
-import datetime
 import os
+import sys
+import zlib
 import shutil
 import json
 import zipfile
 import tempfile
-import zlib
-
+import datetime
 import subprocess
+from urllib.parse import quote
+
 from django.conf import settings
 from wsgiref.util import FileWrapper
 from django.http import HttpResponse, StreamingHttpResponse, JsonResponse
@@ -28,7 +24,6 @@ from django.views.decorators.http import require_safe
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from urllib.parse import quote
 from ratelimit.decorators import ratelimit
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -40,8 +35,13 @@ from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search,
 import modules.processing.network as network
 
 try:
-    import requests
+    import re2 as re
+except ImportError:
+    import re
 
+
+try:
+    import requests
     HAVE_REQUEST = True
 except ImportError:
     HAVE_REQUEST = False
@@ -1025,7 +1025,6 @@ def report(request, task_id):
         },
     )
 
-
 @require_safe
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -1125,14 +1124,18 @@ def file(request, category, task_id, dlfile):
 
     if not cd:
         cd = "application/octet-stream"
-
     try:
-        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
+        #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
+        resp = HttpResponse(open(path, "rb").read(), content_type=cd)
     except:
+        if path.endswith(".zip"):
+            os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 
     resp["Content-Length"] = os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name
+    if path.endswith(".zip"):
+        os.remove(path)
     return resp
 
 

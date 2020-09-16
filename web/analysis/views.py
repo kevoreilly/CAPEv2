@@ -1029,6 +1029,7 @@ def file_nl(request, category, task_id, dlfile):
     if category == "screenshot":
         file_name = dlfile + ".jpg"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+        cd = "image/jpeg"
 
     elif category == "bingraph":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name + "-ent.svg")
@@ -1038,7 +1039,7 @@ def file_nl(request, category, task_id, dlfile):
         return render(request, "error.html", {"error": "Category not defined"})
 
     try:
-        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type="image/jpeg")
+        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
     except:
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 

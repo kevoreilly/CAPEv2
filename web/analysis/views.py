@@ -1026,8 +1026,9 @@ def report(request, task_id):
     )
 
 def file_nl(request, category, task_id, dlfile):
+    file_name = dlfile
     if category == "screenshot":
-        file_name = dlfile + ".jpg"
+        file_name = file_name + ".jpg"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
         cd = "image/jpeg"
 

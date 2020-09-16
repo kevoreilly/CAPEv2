@@ -1376,6 +1376,11 @@ if __name__ == "__main__":
             "status": "complete",
             "description": success,
         }
+
+    # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
+    except CuckooError:
+        log.info("You probably submitted the job with wrong package")
+        analyzer.complete()
     # This is not likely to happen.
     except KeyboardInterrupt:
         error = "Keyboard Interrupt"

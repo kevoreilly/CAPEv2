@@ -1025,6 +1025,19 @@ def report(request, task_id):
         },
     )
 
+def screenshot(request, task_id, dlfile):
+    file_name = dlfile + ".jpg"
+    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+
+    try:
+        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
+    except:
+        return render(request, "error.html", {"error": "File {} not found".format(path)})
+
+    resp["Content-Length"] = os.path.getsize(path)
+    resp["Content-Disposition"] = "attachment; filename=" + file_name
+    return resp
+
 @require_safe
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)

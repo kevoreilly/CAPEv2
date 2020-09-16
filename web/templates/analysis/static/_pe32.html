@@ -1,7 +1,7 @@
 <section id="static_analysis">
     {% load key_tags %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>BinGraph <a href="{% url "file" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
+        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
         {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
     {% endif %}
     {% if analysis.static and analysis.static.pe %}

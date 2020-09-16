@@ -1025,9 +1025,17 @@ def report(request, task_id):
         },
     )
 
-def screenshot(request, task_id, dlfile):
-    file_name = dlfile + ".jpg"
-    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+def file_nl(request, category, task_id, dlfile):
+    if category == "screenshot":
+        file_name = dlfile + ".jpg"
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+
+    elif category == "bingraph":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name + "-ent.svg")
+        file_name = file_name + "-ent.svg"
+        cd = "image/svg+xml"
+    else:
+        return render(request, "error.html", {"error": "Category not defined"})
 
     try:
         resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type="image/jpeg")
@@ -1053,10 +1061,6 @@ def file(request, category, task_id, dlfile):
 
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-    elif category == "bingraph":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name + "-ent.svg")
-        file_name = file_name + "-ent.svg"
-        cd = "image/svg+xml"
     elif category in ("samplezip", "dropped", "droppedzip", "CAPE", "CAPEZIP", "procdump", "procdumpzip", "memdumpzip"):
         # ability to download password protected zip archives
         path = ""
@@ -1093,10 +1097,6 @@ def file(request, category, task_id, dlfile):
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
-    elif category == "screenshot":
-        file_name += ".jpg"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
-        cd = "image/jpeg"
     elif category == "usage":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "usage.svg")
         file_name = "usage.svg"

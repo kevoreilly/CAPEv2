@@ -1030,7 +1030,7 @@ def screenshot(request, task_id, dlfile):
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
 
     try:
-        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
+        resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type="image/jpeg")
     except:
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 

@@ -138,6 +138,7 @@ apilimiter = {
     "tasks_procdumpfiles": apiconf.procdumpfiles,
     "tasks_config": apiconf.capeconfig,
     "file": apiconf.download_file,
+    "filereport": apiconf.filereport,
 }
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables

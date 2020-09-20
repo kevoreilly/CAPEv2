@@ -1215,6 +1215,8 @@ def procdump(request, task_id, process_id, start, end):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def filereport(request, task_id, category):
     formats = {
         "json": "report.json",

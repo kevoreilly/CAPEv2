@@ -35,7 +35,7 @@ class CompressResults(Report):
         for keyword in ("CAPE", "procdump"):
             if keyword in results:
                 try:
-                    cape_json = json.dumps(results[keyword]).encode("utf8")
+                    cape_json = json.dumps(results[keyword], encoding='latin-1', ensure_ascii=False).encode('utf8')
                     compressed_data = zlib.compress(cape_json)
                     results[keyword] = Binary(compressed_data)
                 except UnicodeDecodeError as e:

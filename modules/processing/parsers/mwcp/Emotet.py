@@ -70,14 +70,34 @@ def xor_data(data, key):
 # This function is originally by Jason Reaves (@sysopfb),
 # suggested as an addition by @pollo290987.
 # A big thank you to both.
-def extract_emotet_rsakey(filedata):
-    pub_matches = re.findall(b"""\x30[\x00-\xff]{100}\x02\x03\x01\x00\x01\x00\x00""", filedata)
+def extract_emotet_rsakey(pe):
+    for section in pe.sections:
+        if section.Name.replace(b'\x00',b'') == b'.data':
+            data_section = section.get_data()
+    pub_matches = re.findall(b"""\x00{4,12}(?=([\x01-\xff][\x00-\xff]{120}))""", data_section)    
     if pub_matches:
-        pub_key = pub_matches[0][0:106]
+        res_list = []
+        for match in pub_matches:
+            xor_key = int.from_bytes(match[:4], byteorder='little')
+            encoded_size = int.from_bytes(match[4:8], byteorder='little')
+            decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
+            if decoded_size == 0x6c:
+                offset = 8
+                res = b''
+                for count in range(int(0x6c/4)):
+                    off_from = offset+count*4
+                    off_to = off_from+4
+                    encoded_dw = int.from_bytes(match[off_from:off_to], byteorder='little')
+                    decoded = xor_key ^ encoded_dw
+                    res = res + decoded.to_bytes(4, byteorder='little')
+                res_list.append(res)
+
+        res_list = list(set(res_list))
+        pub_key = res_list[0][0:106]
         seq = asn1.DerSequence()
         seq.decode(pub_key)
         return RSA.construct((seq[0], seq[1]))
-
+        
 
 class Emotet(Parser):
     # def __init__(self, reporter=None):
@@ -90,10 +110,9 @@ class Emotet(Parser):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
-
-        pem_key = extract_emotet_rsakey(filebuf)
+        pem_key = extract_emotet_rsakey(pe)
         if pem_key:
-            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey()})
+            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
 
         c2list = yara_scan(filebuf, "$c2list")
         if c2list:

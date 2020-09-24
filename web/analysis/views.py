@@ -1084,12 +1084,12 @@ def file(request, category, task_id, dlfile):
             file_name += ".dmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             try:
-                cmd = ["7z", "a", "-y", "-pinfected", os.path.join(tempfile.gettempdir(), "remove_me", file_name + ".zip"), path]
+                cmd = ["7z", "a", "-y", "-pinfected", os.path.join(tempfile.gettempdir(), file_name + ".zip"), path]
                 _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 return render(request, "error.html", {"error": "7zip error: {}".format(e)})
             file_name += ".zip"
-            path = os.path.join(tempfile.gettempdir(), "remove_me", file_name)
+            path = os.path.join(tempfile.gettempdir(), file_name)
             cd = "application/zip"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")

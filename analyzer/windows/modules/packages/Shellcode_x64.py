@@ -11,13 +11,14 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
-
 class Shellcode_x64(Package):
-    """DLL analysis package."""
+    """64-bit Shellcode analysis package."""
 
-    # PATHS = [
-    #    ("SystemRoot", "system32"),
-    # ]
+    def __init__(self, options={}, config=None):
+        """@param options: options dict."""
+        self.options = options
+        self.options["procdump"] = "0"
+        self.options["dump-caller-regions"] = "0"
 
     def start(self, path):
         loaderpath = "bin\\loader_x64.exe"

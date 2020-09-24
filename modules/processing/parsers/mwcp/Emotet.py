@@ -39,7 +39,7 @@ rule Emotet
         $snippet7 = {8B 48 ?? C7 [5-6] C7 40 ?? ?? ?? ?? ?? C7 ?? ?? 00 00 00 [0-1] 83 3C CD ?? ?? ?? ?? 00 74 0E 41 89 48 ?? 83 3C CD ?? ?? ?? ?? 00 75 F2}
         $snippet8 = {85 C0 74 3? B9 [2] 40 00 33 D2 89 ?8 [0-1] 89 [1-2] 8B [1-2] 89 [1-2] EB 0? 41 89 [1-2] 39 14 CD [2] 40 00 75 F? 8B CE E8 [4] 85 C0 74 05 33 C0 40 5E C3}
         $snippet9 = {85 C0 74 4? 8B ?8 [0-1] C7 40 [5] C7 [5-6] C7 40 ?? 00 00 00 00 83 3C CD [4] 00 74 0? 41 89 [2-3] 3C CD [4] 00 75 F? 8B CF E8 [4] 85 C0 74 07 B8 01 00 00 00 5F C3}
-        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? 40 00 8D 5? [4-6] E8}
+        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? ?? 00 8D 5? [4-6] E8}
     condition:
         uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($snippet9) or ($ref_rsa)
 }
@@ -47,7 +47,6 @@ rule Emotet
 """
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
-
 
 def yara_scan(raw_data, rule_name):
     addresses = {}
@@ -60,21 +59,19 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
-
 def xor_data(data, key):
     key = [q for q in key]
     data = [q for q in data]
     return bytes([c ^ k for c, k in zip(data, cycle(key))])
 
-
 # This function is originally by Jason Reaves (@sysopfb),
-# suggested as an addition by @pollo290987.
-# A big thank you to both.
+# suggested as an addition by @pollo290987, updated by
+# phate1. A big thank you to all.
 def extract_emotet_rsakey(pe):
     for section in pe.sections:
         if section.Name.replace(b'\x00',b'') == b'.data':
             data_section = section.get_data()
-    pub_matches = re.findall(b"""\x00{4,12}(?=([\x01-\xff][\x00-\xff]{120}))""", data_section)    
+    pub_matches = re.findall(b"""\x00{4,12}(?=([\x01-\xff][\x00-\xff]{120}))""", data_section)
     if pub_matches:
         res_list = []
         for match in pub_matches:
@@ -97,7 +94,6 @@ def extract_emotet_rsakey(pe):
         seq = asn1.DerSequence()
         seq.decode(pub_key)
         return RSA.construct((seq[0], seq[1]))
-        
 
 class Emotet(Parser):
     # def __init__(self, reporter=None):

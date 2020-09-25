@@ -16,9 +16,9 @@ class Shellcode(Package):
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
+        self.config = config
         self.options = options
         self.options["procdump"] = "0"
-        self.options["dump-caller-regions"] = "0"
 
     def start(self, path):
         loaderpath = "bin\\loader.exe"
@@ -29,8 +29,5 @@ class Shellcode(Package):
         basepath = os.path.dirname(path)
         newpath = os.path.join(basepath, os.path.basename(loaderpath))
         shutil.copy(loaderpath, newpath)
-
-        log.info("[-] newpath : " + newpath)
-        log.info("[-] arguments : " + arguments)
 
         return self.execute(newpath, arguments, newpath)

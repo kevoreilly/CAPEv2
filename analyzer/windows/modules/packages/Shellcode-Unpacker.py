@@ -16,6 +16,7 @@ class Shellcode_Unpacker(Package):
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
+        self.config = config
         self.options = options
         self.options["unpacker"] = "1"
         self.options["procdump"] = "0"

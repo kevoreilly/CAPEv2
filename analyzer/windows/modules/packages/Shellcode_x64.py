@@ -16,6 +16,7 @@ class Shellcode_x64(Package):
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
+        self.config = config
         self.options = options
         self.options["procdump"] = "0"
         self.options["dump-caller-regions"] = "0"

@@ -40,3 +40,23 @@ class CAPEExtractedContent(Signature):
                     self.data.append({process: yara[0].get("name")})
 
         return ret
+
+class CAPEExtractedConfig(Signature):
+    name = "cape_extracted_config"
+    description = "CAPE has extracted a malware configuration"
+    severity = 3
+    categories = ["malware"]
+    authors = ["Kevin Ross"]
+    minimum = "1.3"
+    evented = True
+
+    def run(self):
+        ret = False
+        for cape in self.results.get("CAPE", []) or []:
+            capeconfig = cape.get("cape_config", "")
+            malwarename = cape.get("cape_name", "")
+            if capeconfig and malwarename:
+                self.data.append({"extracted_config": malwarename})
+                ret = True
+
+        return ret

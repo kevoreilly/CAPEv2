@@ -1848,11 +1848,9 @@ def get_files(request, stype, value):
         file_hash = value
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
-        mime = "application/octet-stream"
-        fname = "%s.bin" % file_hash
-        resp = StreamingHttpResponse(FileWrapper(open(sample), 8096), content_type=mime)
+        resp = resp = HttpResponse(open(sample, "rb").read(), content_type="application/octet-stream")
         resp["Content-Length"] = os.path.getsize(sample)
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        resp["Content-Disposition"] = "attachment; filename=" + "%s.bin" % file_hash
         return resp
 
     else:

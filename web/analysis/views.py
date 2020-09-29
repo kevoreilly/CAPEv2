@@ -909,8 +909,14 @@ def report(request, task_id):
         if report.get("info", {}).get("category", "").lower() == "static":
             report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
         else:
-            report["CAPE"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"}}}]))[0]["cape_size"]
-    except:
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"}, "cape_conf_size": {"$size": "$CAPE.cape_config"}}}]))
+            if tmp_data[0]["cape_size"]:
+                report["CAPE"] = tmp_data[0]["cape_size"]
+            elif tmp_data[0]["cape_conf_size"]:
+                report["CAPE"] = tmp_data[0]["cape_conf_size"]
+            else:
+                report["CAPE"] = 0
+    except Exception as e:
         report["CAPE"] = 0
 
     reports_exist = False

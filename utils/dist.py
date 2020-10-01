@@ -369,11 +369,10 @@ class Retriever(threading.Thread):
                         t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
                             log.info("Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
-                            main_db.set_status(t.main_task_id, TASK_PENDING)
+                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
                             t.finished = True
                             t.retrieved = True
                             t.notificated = True
-                            #db.commit()
                             lock_retriever.acquire()
                             if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
                                 self.cleaner_queue.put((t.node_id, t.task_id))
@@ -1127,7 +1126,6 @@ if __name__ == "__main__":
     p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist",)
     p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist",)
     p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
-    p.add_argument("-sr", "--sync-reported", action="store_true", help="Check reported jobs in both databases and set status on main db")
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -1141,10 +1139,6 @@ if __name__ == "__main__":
         main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
         # set reported time
         main_db.set_status(args.force_reported, TASK_REPORTED)
-        sys.exit()
-
-    if args.sync_reported:
-        sync_tasks_reported()
         sys.exit()
 
     failed_clean_enabled = args.enable_failed_clean

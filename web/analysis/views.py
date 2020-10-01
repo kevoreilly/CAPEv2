@@ -1096,7 +1096,7 @@ def file(request, category, task_id, dlfile):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(b"intected")
+                    zf.setpassword(b"infected")
                     zf.writestr('test.txt', "What ever you do, don't tell anyone!")
             else:
                 try:

@@ -882,21 +882,9 @@ class PortableExecutable(object):
         if type(signatures) is bytearray:
             signatures = bytes(signatures)
 
-        bio = backend._bytes_to_bio(signatures)
+        certs = backend.load_der_pkcs7_certificates(signatures)
 
-        if not bio:
-            return []
-
-        pkcs7_obj = backend._lib.d2i_PKCS7_bio(bio.bio, backend._ffi.NULL)
-        if not pkcs7_obj:
-            return []
-
-        signers = backend._lib.PKCS7_get0_signers(pkcs7_obj, backend._ffi.NULL, 0)
-
-        for i in range(backend._lib.sk_X509_num(signers)):
-            x509_ptr = backend._lib.sk_X509_value(signers, i)
-            cert = x509._Certificate(backend, x509_ptr)
-
+        for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()
             sha1 = binascii.hexlify(cert.fingerprint(hashes.SHA1())).decode()
             sha256 = binascii.hexlify(cert.fingerprint(hashes.SHA256())).decode()

@@ -8,7 +8,7 @@ import socket
 import threading
 import errno
 
-from ctypes import create_string_buffer, c_uint, byref, sizeof
+from ctypes import create_string_buffer, c_uint, byref, sizeof, addressof
 
 from lib.common.defines import KERNEL32, PIPE_ACCESS_INBOUND, ERROR_MORE_DATA
 from lib.common.defines import PIPE_TYPE_BYTE, PIPE_WAIT, ERROR_PIPE_CONNECTED
@@ -16,7 +16,7 @@ from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
 from lib.common.defines import FILE_FLAG_WRITE_THROUGH, PIPE_READMODE_BYTE
 from lib.common.defines import ERROR_BROKEN_PIPE, PIPE_TYPE_MESSAGE
 from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_READMODE_MESSAGE
-
+from lib.common.defines import SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, ADVAPI32
 log = logging.getLogger(__name__)
 
 BUFSIZE = 0x10000
@@ -24,8 +24,7 @@ open_handles = set()
 
 
 class PipeForwarder(threading.Thread):
-    """Forward all data received from a local pipe to the Cuckoo
-    server through a socket."""
+    """Forward all data received from a local pipe to the CAPE server through a socket."""
 
     sockets = {}
     active = {}
@@ -49,7 +48,7 @@ class PipeForwarder(threading.Thread):
         success = KERNEL32.ReadFile(self.pipe_handle, byref(pid), sizeof(pid), byref(bytes_read), None)
 
         if not success or bytes_read.value != sizeof(pid):
-            log.warning("Unable to read the process identifier of this " "log pipe instance.")
+            log.warning("Unable to read the process identifier of this log pipe instance.")
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
@@ -71,7 +70,8 @@ class PipeForwarder(threading.Thread):
         open_handles.add(sock)
 
         while self.do_run:
-            success = KERNEL32.ReadFile(self.pipe_handle, byref(buf), sizeof(buf), byref(bytes_read), None)
+            success = KERNEL32.ReadFile(self.pipe_handle, byref(
+                buf), sizeof(buf), byref(bytes_read), None)
 
             if success or KERNEL32.GetLastError() == ERROR_MORE_DATA:
                 try:
@@ -89,7 +89,8 @@ class PipeForwarder(threading.Thread):
             elif KERNEL32.GetLastError() == ERROR_BROKEN_PIPE:
                 break
             else:
-                log.warning("The log pipe handler has failed, last error %d.", KERNEL32.GetLastError())
+                log.warning(
+                    "The log pipe handler has failed, last error %d.", KERNEL32.GetLastError())
                 break
 
         if pid.value:
@@ -147,14 +148,12 @@ class PipeDispatcher(threading.Thread):
 
 
 class PipeServer(threading.Thread):
-    """Accept incoming pipe handlers and initialize them in
-    a new thread."""
+    """Accept incoming pipe handlers and initialize them in a new thread."""
 
     def __init__(self, pipe_handler, pipe_name, message=False, **kwargs):
         threading.Thread.__init__(self)
         self.pipe_handler = pipe_handler
         self.pipe_name = pipe_name
-        print(self.pipe_name)
         self.message = message
         self.kwargs = kwargs
         self.do_run = True
@@ -162,28 +161,37 @@ class PipeServer(threading.Thread):
 
     def run(self):
         while self.do_run:
-            flags = FILE_FLAG_WRITE_THROUGH
+            # Create the Named Pipe.
+            sd = SECURITY_DESCRIPTOR()
+            sa = SECURITY_ATTRIBUTES()
+            ADVAPI32.InitializeSecurityDescriptor(byref(sd), 1)
+            ADVAPI32.SetSecurityDescriptorDacl(byref(sd), True, None, False)
+            sa.nLength = sizeof(SECURITY_ATTRIBUTES)
+            sa.bInheritHandle = False
+            sa.lpSecurityDescriptor = addressof(sd)
+            # flags = FILE_FLAG_WRITE_THROUGH
+
             if self.message:
                 pipe_handle = KERNEL32.CreateNamedPipeW(
                     self.pipe_name,
-                    PIPE_ACCESS_DUPLEX | flags,
+                    PIPE_ACCESS_DUPLEX,  # | flags,
                     PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
                     PIPE_UNLIMITED_INSTANCES,
                     BUFSIZE,
                     BUFSIZE,
                     0,
-                    None,
+                    byref(sa),  # None,
                 )
             else:
                 pipe_handle = KERNEL32.CreateNamedPipeW(
                     self.pipe_name,
-                    PIPE_ACCESS_INBOUND | flags,
+                    PIPE_ACCESS_INBOUND,  # | flags,
                     PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
                     PIPE_UNLIMITED_INSTANCES,
                     0,
                     BUFSIZE,
                     0,
-                    None,
+                    byref(sa),  # None,
                 )
 
             if pipe_handle == INVALID_HANDLE_VALUE:

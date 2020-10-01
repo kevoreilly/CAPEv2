@@ -1,3 +1,11 @@
+### [01-10-2020] HacktoberFest edition
+* Create zip files in memory (requires pyzipper) instead of using 7z and write them to temp folder
+* Simplified parsing of arguments between submission/api views
+* Created [docs](https://capev2.readthedocs.io/en/latest/development/current_module_improvement.html) on how to test `Curtain` and `Suricata`
+* Static extraction api added
+* Curtain module updated
+* Code clenup
+
 ### [14-09-2020]
 * Added ability to enable/disable some of 3rd part services for malware detection, like: VirusTotal, ClamAV, Suricata
 

@@ -1919,7 +1919,10 @@ class Java(object):
             jar_file = store_temp_file(data, "decompile.jar")
 
             try:
-                p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
+                if self.decomp_jar.endswith(".jar"):
+                    p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
+                else:
+                    p = Popen([self.decomp_jar, jar_file], stdout=PIPE)
                 results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
             except Exception as e:
                 log.error(e, exc_info=True)

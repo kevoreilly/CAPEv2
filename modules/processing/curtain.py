@@ -500,7 +500,7 @@ def deobfuscate(MESSAGE):
 
     # strip - ('ls11, ')+('tls'))
     #import code;code.interact(local=dict(locals(), **globals()))
-    if re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+\')\)", ALTMSG) or re.findall("\('[\w\d\s,\/\-\/\*\.:]+", inputString) or re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", inputString):
+    if re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+\')\)", ALTMSG) or re.findall("\('[\w\d\s,\/\-\/\*\.:]+", ALTMSG) or re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", ALTMSG):
         ALTMSG, MODFLAG = removeParenthesis(ALTMSG, MODFLAG)
 
     while re.search("[\x20]{2,}", ALTMSG):

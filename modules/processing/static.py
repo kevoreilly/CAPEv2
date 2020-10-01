@@ -77,7 +77,7 @@ except ImportError:
     HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
-from lib.cuckoo.common.utils import store_temp_file, bytes2str
+from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -1215,9 +1215,10 @@ class Office(object):
         - Rich Text Format (.rtf)
     """
 
-    def __init__(self, file_path, results):
+    def __init__(self, file_path, results, options):
         self.file_path = file_path
         self.results = results
+        self.options = get_options(options)
 
     def _get_meta(self, meta):
         ret = dict()
@@ -1502,6 +1503,7 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
+            password = self.options.get("xlm_password", "")
             xlm_kwargs = {
                 "file": filepath,
                 "noninteractive": True,
@@ -1509,8 +1511,9 @@ class Office(object):
                 "start_with_shell": False,
                 "return_deobfuscated": True,
                 "no_indent": False,
-                "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
                 "day": -1,
+                "password": password,
             }
 
             try:
@@ -2647,7 +2650,7 @@ class Static(Processing):
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
@@ -2660,7 +2663,7 @@ class Static(Processing):
             # oleid to fail us out silently, yeilding no static analysis
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":

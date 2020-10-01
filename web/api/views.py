@@ -30,12 +30,12 @@ from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.web_utils import _download_file
+from lib.cuckoo.common.web_utils import _download_file, parse_request_arguments
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
-from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
+from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock
 
 
@@ -74,16 +74,6 @@ class conditional_login_required(object):
         if not self.condition:
             return func
         return self.decorator(func)
-
-
-def force_int(value):
-    try:
-        value = int(value)
-    except:
-        value = 0
-    finally:
-        return value
-
 
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
@@ -136,6 +126,57 @@ def index(request):
 
     return render(request, "api/index.html", {"config": parsed})
 
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+@csrf_exempt
+def tasks_create_static(request):
+    resp = {}
+    if request.method != "POST":
+        return jsonize({"error": True, "error_value": "Method not allowed"}, response=True)
+    # Check if this API function is enabled
+    if not apiconf.staticextraction.get("enabled"):
+        return jsonize({"error": True, "error_value": "File Create API is Disabled"}, response=True)
+    # Check if files are actually provided
+    if request.FILES.getlist("file") == []:
+        return jsonize({"error": True, "error_value": "No file was submitted"}, response=True)
+
+
+    static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+
+    resp["error"] = False
+    files = request.FILES.getlist("file")
+
+    task_ids = list()
+    for sample in files:
+        tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+        try:
+            task_ids.extend(db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True))
+        except CuckooDemuxError as e:
+            resp = {"error": True, "error_value": e}
+            return jsonize(resp, response=True)
+
+    resp["data"] = {}
+    resp["data"]["task_ids"] = task_ids
+    callback = apiconf.filecreate.get("status")
+    if len(task_ids) == 1:
+        resp["data"]["message"] = "Task ID {0} has been submitted".format(
+            str(task_ids[0]))
+        if callback:
+            resp["url"] = [ "{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
+    else:
+        resp["data"] = {}
+        resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
+        if callback:
+            resp["url"] = list()
+            for tid in task_ids:
+                resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
+        else:
+            resp = {"error": True, "error_value": "Error adding task to database"}
+
+
+    return jsonize(resp, response=True)
+
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -155,27 +196,9 @@ def tasks_create_file(request):
         # Parse potential POST options (see submission/views.py)
         quarantine = request.POST.get("quarantine", "")
         pcap = request.POST.get("pcap", "")
-        static = request.POST.get("static", "")
-        package = request.POST.get("package", "")
-        timeout = force_int(request.POST.get("timeout"))
-        priority = force_int(request.POST.get("priority"))
-        options = request.POST.get("options", "")
-        machine = request.POST.get("machine", "")
-        platform = request.POST.get("platform", "")
-        tags = request.POST.get("tags", None)
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
-        if not clock:
-            clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        if "1970" in clock:
-            clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        shrike_url = request.POST.get("shrike_url", None)
-        shrike_msg = request.POST.get("shrike_msg", None)
-        shrike_sid = request.POST.get("shrike_sid", None)
-        shrike_refer = request.POST.get("shrike_refer", None)
-        unique = bool(request.POST.get("unique", False))
+
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
 
         if request.POST.get("process_dump"):
             if options:
@@ -209,152 +232,68 @@ def tasks_create_file(request):
         else:
             max_file_size = int(max_file_size) * 1048576
 
+        files = list()
         # Check if we are allowing multiple file submissions
         multifile = apiconf.filecreate.get("multifile")
         if multifile:
-            # Handle all files
-            for sample in request.FILES.getlist("file"):
-                if sample.size == 0:
-                    resp = {"error": True, "error_value": "You submitted an empty file"}
-                    return jsonize(resp, response=True)
-                if sample.size > max_file_size:
-                    resp = {"error": True, "error_value": "File size exceeds API limit"}
-                    return jsonize(resp, response=True)
-
-                tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-                if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
-                    # Todo handle as for VTDL submitted and omitted
-                    continue
-
-                if pcap:
-                    if sample.name.lower().endswith(".saz"):
-                        saz = saz_to_pcap(tmp_path)
-                        if saz:
-                            try:
-                                os.remove(tmp_path)
-                            except:
-                                pass
-                            path = saz
-                        else:
-                            resp = {"error": True, "error_value": "Failed to convert SAZ to PCAP"}
-                            return jsonize(resp, response=True)
-                    else:
-                        path = tmp_path
-                    task_id = db.add_pcap(file_path=path)
-                    task_ids.append(task_id)
-                    continue
-
-                if static:
-                    task_id = db.add_static(file_path=tmp_path, priority=priority)
-                    task_ids.append(task_id)
-                    continue
-
-                if quarantine:
-                    path = unquarantine(tmp_path)
-                    try:
-                        os.remove(tmp_path)
-                    except:
-                        pass
-
-                    try:
-                        File(path).get_type()
-                    except TypeError:
-                        resp = {"error": True, "error_value": "Error submitting file - bad file type"}
-                        return jsonize(resp, response=True)
-
-                else:
-                    path = tmp_path
-                if disable_x64 is True:
-                    magic_type = get_magic_type(path)
-                    if "x86-64" in magic_type or "PE32+" in magic_type:
-                        if len(request.FILES.getlist("file")) == 1:
-                            return jsonize({"error": True, "error_value": "Sorry no x64 support yet"}, response=True)
-                        else:
-                            continue
-                for entry in task_machines:
-                    try:
-                        task_ids_new = db.demux_sample_and_add_to_db(
-                            file_path=path,
-                            package=package,
-                            timeout=timeout,
-                            priority=priority,
-                            options=options,
-                            machine=entry,
-                            platform=platform,
-                            tags=tags,
-                            custom=custom,
-                            memory=memory,
-                            enforce_timeout=enforce_timeout,
-                            clock=clock,
-                            shrike_url=shrike_url,
-                            shrike_msg=shrike_msg,
-                            shrike_sid=shrike_sid,
-                            shrike_refer=shrike_refer,
-                        )
-                    except CuckooDemuxError as e:
-                        resp = {"error": True, "error_value": e}
-                        return jsonize(resp, response=True)
-
-                    if task_ids_new:
-                        task_ids.extend(task_ids_new)
+            files = request.FILES.getlist("file")
         else:
-            # Grab the first file
-            sample = request.FILES.getlist("file")[0]
-            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-            if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
-                resp = {"error": True, "error_value": "Duplicated file, disable unique option to force submission"}
-                return jsonize(resp, response=True)
+            files = [request.FILES.getlist("file")[0]]
+        # Handle all files
+        for sample in files:
             if sample.size == 0:
                 resp = {"error": True, "error_value": "You submitted an empty file"}
                 return jsonize(resp, response=True)
             if sample.size > max_file_size:
                 resp = {"error": True, "error_value": "File size exceeds API limit"}
                 return jsonize(resp, response=True)
-            if len(request.FILES.getlist("file")) > 1:
-                resp["warning"] = "Multi-file API submissions disabled - " "Accepting first file"
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
+                # Todo handle as for VTDL submitted and omitted
+                continue
             if pcap:
                 if sample.name.lower().endswith(".saz"):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
-                        path = saz
                         try:
                             os.remove(tmp_path)
-                        except:
-                            pass
+                        except Exception as e:
+                            print(e, "removing pcap")
+                        path = saz
                     else:
-                        resp = {"error": True, "error_value": "Failed to convert PCAP to SAZ"}
+                        resp = {"error": True, "error_value": "Failed to convert SAZ to PCAP"}
                         return jsonize(resp, response=True)
                 else:
                     path = tmp_path
                 task_id = db.add_pcap(file_path=path)
                 task_ids.append(task_id)
-
+                continue
+            if static:
+                task_id = db.add_static(file_path=tmp_path, priority=priority)
+                task_ids.append(task_id)
+                continue
             if quarantine:
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)
-                except:
-                    pass
-
+                except Exception as e:
+                    print(e, "removing quarantine")
                 try:
                     File(path).get_type()
                 except TypeError:
                     resp = {"error": True, "error_value": "Error submitting file - bad file type"}
                     return jsonize(resp, response=True)
-
             else:
                 path = tmp_path
-
             if disable_x64 is True:
                 magic_type = get_magic_type(path)
                 if "x86-64" in magic_type or "PE32+" in magic_type:
                     if len(request.FILES.getlist("file")) == 1:
                         return jsonize({"error": True, "error_value": "Sorry no x64 support yet"}, response=True)
-
-            options, timeout, enforce_timeout = recon(path, options, timeout, enforce_timeout)
-
+                    else:
+                        continue
             for entry in task_machines:
-                if not pcap:
+                try:
                     task_ids_new = db.demux_sample_and_add_to_db(
                         file_path=path,
                         package=package,
@@ -372,11 +311,12 @@ def tasks_create_file(request):
                         shrike_msg=shrike_msg,
                         shrike_sid=shrike_sid,
                         shrike_refer=shrike_refer,
-                        static=static,
                     )
-                    if task_ids_new:
-                        task_ids.extend(task_ids_new)
-
+                except CuckooDemuxError as e:
+                    resp = {"error": True, "error_value": e}
+                    return jsonize(resp, response=True)
+                if task_ids_new:
+                    task_ids.extend(task_ids_new)
         if len(task_ids) > 0:
             resp["data"] = {}
             resp["data"]["task_ids"] = task_ids
@@ -412,23 +352,10 @@ def tasks_create_url(request):
             return jsonize(resp, response=True)
 
         resp["error"] = False
+
         url = request.POST.get("url", None)
-        package = request.POST.get("package", "")
-        timeout = force_int(request.POST.get("timeout"))
-        priority = force_int(request.POST.get("priority"))
-        options = request.POST.get("options", "")
-        machine = request.POST.get("machine", "")
-        platform = request.POST.get("platform", "")
-        tags = request.POST.get("tags", None)
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        clock = request.POST.get("clock", None)
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        referrer = validate_referrer(request.POST.get("referrer", None))
-        shrike_url = request.POST.get("shrike_url", None)
-        shrike_msg = request.POST.get("shrike_msg", None)
-        shrike_sid = request.POST.get("shrike_sid", None)
-        shrike_refer = request.POST.get("shrike_refer", None)
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
 
         task_ids = []
         task_machines = []
@@ -459,8 +386,6 @@ def tasks_create_url(request):
             if options:
                 options += ","
             options += "referrer=%s" % (referrer)
-
-        orig_options = options
 
         for entry in task_machines:
             task_id = db.add_url(
@@ -510,22 +435,10 @@ def tasks_create_dlnexec(request):
 
         resp["error"] = False
         url = request.POST.get("dlnexec", None)
-        package = request.POST.get("package", "")
-        timeout = force_int(request.POST.get("timeout"))
-        priority = force_int(request.POST.get("priority"))
-        options = request.POST.get("options", "")
-        machine = request.POST.get("machine", "")
-        platform = request.POST.get("platform", "")
-        tags = request.POST.get("tags", None)
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        clock = request.POST.get("clock", None)
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        referrer = validate_referrer(request.POST.get("referrer", None))
-        shrike_url = request.POST.get("shrike_url", None)
-        shrike_msg = request.POST.get("shrike_msg", None)
-        shrike_sid = request.POST.get("shrike_sid", None)
-        shrike_refer = request.POST.get("shrike_refer", None)
+
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+
 
         task_ids = []
         task_machines = []
@@ -556,8 +469,6 @@ def tasks_create_dlnexec(request):
             if options:
                 options += ","
             options += "referrer=%s" % (referrer)
-
-        orig_options = options
 
         url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
         response = _download_file(request.POST.get("route", None), url, options)
@@ -620,18 +531,10 @@ def tasks_vtdl(request):
 
         vtdl = request.POST.get("vtdl".strip(), None)
         resp["error"] = False
-        # Parse potential POST options (see submission/views.py)
-        package = request.POST.get("package", "")
-        timeout = force_int(request.POST.get("timeout"))
-        priority = force_int(request.POST.get("priority"))
-        options = request.POST.get("options", "")
-        machine = request.POST.get("machine", "")
-        platform = request.POST.get("platform", "")
-        tags = request.POST.get("tags", None)
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        clock = request.POST.get("clock", None)
-        static = bool(request.POST.get("static", False))
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(
+                request)
+
         opt_filename = get_user_filename(options, custom)
 
         task_machines = []
@@ -701,61 +604,9 @@ def tasks_vtdl(request):
                         headers = {"x-apikey": settings.VTDL_PRIV_KEY}
                     elif settings.VTDL_INTEL_KEY:
                         headers = {"x-apikey": settings.VTDL_INTEL_KEY}
-                    status, task_ids = download_file(
-                        True,
-                        content,
-                        request,
-                        db,
-                        task_ids,
-                        url,
-                        params,
-                        headers,
-                        "VirusTotal",
-                        filename,
-                        package,
-                        timeout,
-                        options,
-                        priority,
-                        machine,
-                        clock,
-                        custom,
-                        memory,
-                        enforce_timeout,
-                        referrer,
-                        tags,
-                        orig_options,
-                        task_machines=task_machines,
-                        static=static,
-                        fhash=False,
-                    )
+                    status, task_ids = download_file(True,content,request,db,task_ids,url,params,headers,"VirusTotal",filename,package,timeout,options,priority,machine,clock,custom,memory,enforce_timeout,referrer,tags,orig_options,task_machines=task_machines,static=static,fhash=False,)
                 else:
-                    status, task_ids = download_file(
-                        True,
-                        content,
-                        request,
-                        db,
-                        task_ids,
-                        url,
-                        params,
-                        headers,
-                        "Local",
-                        filename,
-                        package,
-                        timeout,
-                        options,
-                        priority,
-                        machine,
-                        clock,
-                        custom,
-                        memory,
-                        enforce_timeout,
-                        referrer,
-                        tags,
-                        orig_options,
-                        task_machines=task_machines,
-                        static=static,
-                        fhash=False,
-                    )
+                    status, task_ids = download_file(True, content, request, db, task_ids, url, params, headers, "Local", filename, package, timeout, options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options, task_machines=task_machines, static=static, fhash=False,)
         if status == "error":
             # error
             return task_ids
@@ -1837,18 +1688,20 @@ def get_files(request, stype, value):
         file_hash = db.find_sample(md5=value).to_dict()["sha256"]
     elif stype == "sha1":
         file_hash = db.find_sample(sha1=value).to_dict()["sha256"]
+    elif stype == "sha256":
+        file_hash = value
     elif stype == "task":
         check = validate_task(value)
         if check["error"]:
             return jsonize(check, response=True)
-
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
-    elif stype == "sha256":
-        file_hash = value
+
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
-        resp = resp = HttpResponse(open(sample, "rb").read(), content_type="application/octet-stream")
+        # ToDo failing but need to stream
+        # resp = StreamingHttpResponse(FileWrapper(open(sample), 8096), content_type="application/octet-stream")
+        resp = HttpResponse(open(sample, "rb").read(), content_type="application/octet-stream")
         resp["Content-Length"] = os.path.getsize(sample)
         resp["Content-Disposition"] = "attachment; filename=" + "%s.bin" % file_hash
         return resp
@@ -2108,8 +1961,6 @@ def tasks_config(request, task_id, cape_name=False):
                 resp = {"error": False, "configs": data}
             else:
                 resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            print(data)
-            print(resp)
             return jsonize(resp, response=True)
         else:
             resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}

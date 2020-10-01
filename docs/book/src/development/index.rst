@@ -9,3 +9,4 @@ This chapter explains how to write CAPE's code and how to contribute.
 
     development_notes
     code_style
+    current_module_improvement

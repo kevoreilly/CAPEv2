@@ -36,6 +36,7 @@
                                 {% endfor %}
                             </td>
                         </tr>
+                        {% endif %}
                         {% if proc.cape_yara %}
                         <tr>
                             <th>CAPE Yara</th>
@@ -50,7 +51,6 @@
                                 {% endfor %}
                             </td>
                         </tr>
-                        {% endif %}
                         {% endif %}
                         {% if proc.file %}
                             <tr>

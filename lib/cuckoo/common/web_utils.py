@@ -7,7 +7,7 @@ import magic
 import logging
 import hashlib
 import requests
-
+from datetime import datetime
 from random import choice
 from ratelimit.decorators import ratelimit
 
@@ -20,8 +20,8 @@ from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
-from lib.cuckoo.common.utils import get_ip_address, bytes2str
 from lib.cuckoo.core.database import Database, TASK_REPORTED
+from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer
 
 cfg = Config("cuckoo")
 repconf = Config("reporting")
@@ -107,6 +107,7 @@ except Exception as e:
 apilimiter = {
     "tasks_create_file": apiconf.filecreate,
     "tasks_create_url": apiconf.urlcreate,
+    "tasks_create_static": apiconf.staticextraction,
     "tasks_create_dlnexec": apiconf.dlnexeccreate,
     "tasks_vtdl": apiconf.vtdl,
     "files_view": apiconf.fileview,
@@ -309,22 +310,9 @@ def download_file(
             content = r.content
         elif r.status_code == 403:
             if api:
-                return (
-                    "error",
-                    jsonize(
-                        {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},
-                        response=True,
-                    ),
-                )
+                return ("error", jsonize({"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)}, response=True,),)
             else:
-                return (
-                    "error",
-                    render(
-                        request,
-                        "error.html",
-                        {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},
-                    ),
-                )
+                return ("error", render(request, "error.html", {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},),)
         else:
             if api:
                 return "error", jsonize({"error": "Was impossible to download from {0}".format(service)}, response=True)
@@ -342,21 +330,9 @@ def download_file(
             retrieved_hash = hashes[len(fhash)](content).hexdigest()
             if retrieved_hash != fhash.lower():
                 if api:
-                    return (
-                        "error",
-                        jsonize(
-                            {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)}, response=True
-                        ),
-                    )
+                    return ("error", jsonize({"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)}, response=True),)
                 else:
-                    return (
-                        "error",
-                        render(
-                            request,
-                            "error.html",
-                            {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)},
-                        ),
-                    )
+                    return ("error", render(request, "error.html", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)},),)
 
         f = open(filename, "wb")
         f.write(content)
@@ -387,19 +363,9 @@ def download_file(
                 machine_details = db.view_machine(machine)
                 if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                     if api:
-                        return (
-                            "error",
-                            jsonize(
-                                {"error": "Wrong platform, {} VM select for {} sample".format(machine_details.platform, platform)},
-                                response=True,
-                            ),
-                        )
+                        return ("error", jsonize({"error": "Wrong platform, {} VM select for {} sample".format(machine_details.platform, platform)},response=True,),)
                     else:
-                        return render(
-                            request,
-                            "error.html",
-                            {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
-                        )
+                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},)
                 else:
                     task_machines = [machine]
             else:
@@ -599,3 +565,45 @@ def perform_search(term, value):
         return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])
     if es_as_db:
         return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]
+
+
+def force_int(value):
+    try:
+        value = int(value)
+    except:
+        value = 0
+    finally:
+        return value
+
+
+def parse_request_arguments(request):
+    static = request.POST.get("static", "")
+    referrer = validate_referrer(request.POST.get("referrer", None))
+    package = request.POST.get("package", "")
+    timeout = force_int(request.POST.get("timeout"))
+    priority = force_int(request.POST.get("priority"))
+    options = request.POST.get("options", "")
+    machine = request.POST.get("machine", "")
+    platform = request.POST.get("platform", "")
+    tags = request.POST.get("tags", None)
+    custom = request.POST.get("custom", "")
+    memory = bool(request.POST.get("memory", False))
+    clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+    if not clock:
+        clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+    if "1970" in clock:
+        clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+    enforce_timeout = bool(request.POST.get("enforce_timeout", False))
+    shrike_url = request.POST.get("shrike_url", None)
+    shrike_msg = request.POST.get("shrike_msg", None)
+    shrike_sid = request.POST.get("shrike_sid", None)
+    shrike_refer = request.POST.get("shrike_refer", None)
+    unique = bool(request.POST.get("unique", False))
+    tlp = request.POST.get("tlp", None)
+    lin_options = request.POST.get("lin_options", "")
+    # Linux options
+    if lin_options:
+        options = lin_options
+
+    return static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
+        shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp

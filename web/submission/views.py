@@ -30,7 +30,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, recon, _download_file
+from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, recon, _download_file, parse_request_arguments
 from lib.cuckoo.common.objects import File
 
 # this required for hash searches
@@ -164,33 +164,17 @@ def get_platform(magic):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, resubmit_hash=False):
     if request.method == "POST":
-        package = request.POST.get("package", "")
-        timeout = min(force_int(request.POST.get("timeout")), 60 * 60 * 24)
-        options = request.POST.get("options", "")
-        lin_options = request.POST.get("lin_options", "")
-        priority = force_int(request.POST.get("priority"))
-        machine = request.POST.get("machine", "")
-        clock = request.POST.get("clock", datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
-        if not clock:
-            clock = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        if "1970" in clock:
-            clock = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        referrer = validate_referrer(request.POST.get("referrer", None))
-        tags = request.POST.get("tags", None)
-        static = bool(request.POST.get("static", False))
+
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
+            clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
+            tlp = parse_request_arguments(request)
+
         all_tags = load_vms_tags()
         if tags and not all([tag.strip() in all_tags for tag in tags.split(",")]):
             return render(request, "error.html", {"error": "Check Tags help, you have introduced incorrect tag(s)"})
 
-        if lin_options:
-            options = lin_options
         # This is done to remove spaces in options but not breaks custom paths
-        options = ",".join(
-            "=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option
-        )
+        options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
         opt_filename = get_user_filename(options, custom)
 
         if priority and web_conf.public.enabled and web_conf.public.priority:
@@ -243,9 +227,6 @@ def index(request, resubmit_hash=False):
 
         options = options[:-1]
 
-        unique = request.POST.get("unique", False)
-
-        tlp = request.POST.get("tlp", None)
         orig_options = options
         task_ids = []
         task_machines = []

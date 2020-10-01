@@ -1308,6 +1308,7 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        only_extraction=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1342,7 +1343,7 @@ class Database(object, metaclass=Singleton):
                 config = static_extraction(file)
                 if config:
                     task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
-            if not config:
+            if not config and not only_extraction:
                 task_id = self.add_path(
                     file_path=file.decode(),
                     timeout=timeout,

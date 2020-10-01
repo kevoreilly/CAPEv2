@@ -92,6 +92,7 @@ def list_plugins(group=None):
 suricata_passlist = (
     "agenttesla",
     "medusahttp",
+    "vjworm",
 )
 
 suricata_blocklist = (
@@ -152,6 +153,12 @@ suricata_blocklist = (
     "suspicious",
 )
 
+et_categories = ("ET TROJAN",
+                 "ETPRO TROJAN",
+                 "ET MALWARE",
+                 "ETPRO MALWARE",
+                 "ET CNC",
+                 "ETPRO CNC")
 
 def get_suricata_family(signature):
     """
@@ -167,7 +174,7 @@ def get_suricata_family(signature):
     if "/" in famcheck:
         famcheck_list = famcheck.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([black in fam_name.lower() for black in suricata_blocklist]):
+            if not any([block in fam_name.lower() for block in suricata_blocklist]):
                 famcheck = fam_name
                 break
     famchecklower = famcheck.lower()
@@ -180,10 +187,10 @@ def get_suricata_family(signature):
     if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any([black in famchecklower for black in suricata_blocklist])
+    isbad = any([block in famchecklower for block in suricata_blocklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-    isgood = any([white in famchecklower for white in suricata_passlist])
+    isgood = any([allow in famchecklower for allow in suricata_passlist])
     if isgood and len(famcheck) >= 4:
         family = famcheck.title()
     return family
@@ -392,7 +399,7 @@ class RunProcessing(object):
                 self.results["malfamily_tag"] = "Yara"
             elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
                 for alert in self.results["suricata"]["alerts"]:
-                    if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
+                    if alert.get("signature", "") and alert["signature"].startswith((et_categories)):
                         family = get_suricata_family(alert["signature"])
                         if family:
                             self.results["malfamily_tag"] = "Suricata"

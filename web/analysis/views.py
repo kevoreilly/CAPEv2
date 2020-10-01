@@ -1165,13 +1165,13 @@ def file(request, category, task_id, dlfile):
         #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
         resp = HttpResponse(data, content_type=cd)
     except:
-        if path.endswith(".zip"):
+        if path.endswith(".zip") and os.path.exists(path):
             os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 
     resp["Content-Length"] = size # os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name
-    if path.endswith(".zip"):
+    if path.endswith(".zip") and os.path.exists(path):
         os.remove(path)
     return resp
 

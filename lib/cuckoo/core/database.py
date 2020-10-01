@@ -1343,7 +1343,7 @@ class Database(object, metaclass=Singleton):
                 config = static_extraction(file)
                 if config:
                     task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
-            if not config and not only_extraction:
+            if not config and only_extraction is False:
                 task_id = self.add_path(
                     file_path=file.decode(),
                     timeout=timeout,

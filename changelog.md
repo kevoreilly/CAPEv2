@@ -5,6 +5,7 @@
 * Static extraction api added
 * Curtain module updated
 * Code clenup
+* Massive useless IO improved, read config once instead of on each file submit
 
 ### [14-09-2020]
 * Added ability to enable/disable some of 3rd part services for malware detection, like: VirusTotal, ClamAV, Suricata

@@ -1579,12 +1579,11 @@ def store_temp_file(filedata, filename, path=None):
     # Reduce length (100 is arbitrary).
     filename = filename[:100]
 
-    options = Config()
     # Create temporary directory path.
     if path:
         target_path = path
     else:
-        tmp_path = options.cuckoo.get("tmppath", b"/tmp")
+        tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
     if not os.path.exists(target_path):
         os.mkdir(target_path)

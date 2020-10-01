@@ -311,23 +311,14 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(
-                        request,
-                        "error.html",
-                        {
-                            "error": "You uploaded a file that exceeds the maximum allowed upload size "
-                            "specified in conf/web.conf"
-                        },
-                    )
+                    return render( request, "error.html", { "error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf"},)
 
                 if opt_filename:
                     filename = opt_filename
                 else:
                     filename = sanitize_filename(sample.name)
-                # Moving sample from django temporary file to Cuckoo temporary storage to
-                # let it persist between reboot (if user like to configure it in that way).
+                # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
-
                 if unique and db.check_file_uniq(File(path).get_sha256()):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
@@ -340,7 +331,8 @@ def index(request, resubmit_hash=False):
                             continue
 
                     orig_options, timeout, enforce_timeout = recon(path, orig_options, timeout, enforce_timeout)
-                    if timeout and web_conf.public.enabled and web_conf.public.timeout:
+
+                    if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                         timeout = web_conf.public.timeout
 
                 platform = get_platform(magic_type)
@@ -349,11 +341,7 @@ def index(request, resubmit_hash=False):
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        return render(
-                            request,
-                            "error.html",
-                            {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
-                        )
+                        return render( request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                     else:
                         task_machines = [machine]
 

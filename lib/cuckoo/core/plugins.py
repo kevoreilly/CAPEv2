@@ -441,6 +441,7 @@ class RunSignatures(object):
         self.task = task
         self.results = results
         self.ttps = dict()
+        self.cfg_processing = Config("processing")
 
     def _load_overlay(self):
         """Loads overlay data from a json file.
@@ -696,7 +697,6 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "Yara":
             for match in matched:
                 if "families" in match and match["families"]:
                     self.results["detections"] = match["families"][0].title()

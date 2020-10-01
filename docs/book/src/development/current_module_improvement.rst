@@ -1,13 +1,9 @@
-===========================================================================
-Here are some examples about how to test your extensions of current modules
-===========================================================================
+====================
+Development examples
+====================
 
 Curtain
 =======
-
-Curtain is powershell logging/processing and deobfuscating module
-
-To test your improvement of deobfuscation::
 
 .. code-block:: python
 

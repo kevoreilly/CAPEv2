@@ -2548,7 +2548,10 @@ class EncodedScriptFile(object):
 
     def run(self):
         results = {}
-        source = open(self.filepath, "r").read()
+        try:
+            source = open(self.filepath, "r").read()
+        except UnicodeDecodeError as e:
+            return results
         source = self.decode(source)
         if not source:
             return results

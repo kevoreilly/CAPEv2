@@ -182,7 +182,7 @@
                 </div>
                 <hr />
                 {% endif %}
-                {% if analysis.static.office.Macro.Code %}
+                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator%}
                 <div>
                     <div id="macro">
                     <h4>Extracted Macros</h4>
@@ -272,10 +272,10 @@
         </table>
         <div id="XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
             <pre>
-            {% for line in analysis.static.office.XLMMacroDeobfuscator %}
-            {{line}}
-            {% endfor %}
-        </pre>
+                {% for line in analysis.static.office.XLMMacroDeobfuscator.Code%}
+                    {{line}}
+                {% endfor %}
+            </pre>
         </div>
         </div>
         <hr />

@@ -1235,30 +1235,6 @@ class Office(object):
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
 
-    def _decode_xlm_macro(self, macro):
-        lines = macro.split("\n")
-        numre = re.compile("ptgInt (\d+) ")
-        strdict = dict()
-        dstrs = ""
-        for line in lines:
-            if "CHAR" not in line:
-                continue
-            res = re.findall(".*R\d+C(\d+)\s", line)
-            if not res:
-                continue
-
-            col = "C{}".format(res[0])
-            if not strdict.get(col, False):
-                strdict[col] = ""
-            found = numre.findall(line)
-            if found:
-                for n in found:
-                    strdict[col] += chr(int(n))
-        for col in strdict:
-            dstrs += f"{strdict[col]}\n"
-
-        return dstrs
-
     def _parse_rtf(self, data):
         results = dict()
         rtfp = RtfObjParser(data)
@@ -1386,6 +1362,7 @@ class Office(object):
             log.error(e, exc_info=True)
 
         metares = officeresults["Metadata"] = dict()
+        macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
@@ -1403,18 +1380,17 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
+            macrores["info"] = dict()
             decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
             macrores["Analysis"] = dict()
             macrores["Analysis"]["AutoExec"] = list()
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            macrores["Analysis"]["DecodedStrings"] = list()
             for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != "":
@@ -1424,23 +1400,14 @@ class Office(object):
                     macrores["Code"][outputname] = list()
                     macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
-                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        if not os.path.exists(macro_folder):
-                            os.makedirs(macro_folder)
-                        decrypted_vba_code = self._decode_xlm_macro(vba_code)
-                        macro_file = os.path.join(macro_folder, outputname)
-                        with open(macro_file, "wb") as f:
-                            f.write(vba_code)
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
-                        if decrypted_vba_code:
-                            outputname += "_Decoded"
-                            macrores["Code"][outputname] = list()
-                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"), convert_to_printable(decrypted_vba_code)))
-                            macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                            macrores["info"][outputname]["yara_cape"] = File(macro_file).get_yara(category="CAPE")
-                            with open(os.path.join(macro_folder, outputname), "wb") as f:
-                                f.write(decrypted_vba_code)
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, outputname)
+                    with open(macro_file, "w") as f:
+                        f.write(convert_to_printable(vba_code))
+                    macrores["info"][outputname] = dict()
+                    macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
@@ -1461,10 +1428,7 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-                    if decoded_strs:
-                        for dstr in decoded_strs.split("\n"):
-                            if dstr:
-                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
+
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1475,8 +1439,6 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
-            if macrores["Analysis"]["DecodedStrings"] == []:
-                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
@@ -1509,14 +1471,23 @@ class Office(object):
                 "start_with_shell": False,
                 "return_deobfuscated": True,
                 "no_indent": False,
-                "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
                 "day": -1,
             }
 
             try:
                 deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
                 if deofuscated_xlm:
-                    results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
+                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = dict()
+                    xlmmacro["Code"]= deofuscated_xlm
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, "xlm_macro")
+                    with open(macro_file, "w") as f:
+                        f.write("\n".join(deofuscated_xlm))
+                    xlmmacro["info"] = dict()
+                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except Exception as e:
                 log.error(e, exc_info=True)
 

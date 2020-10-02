@@ -168,7 +168,6 @@ def get_analysis_info(db, id=-1, task=None):
             "mlist_cnt",
             "f_mlist_cnt",
             "malscore",
-            "detections",
         ):
             if keyword in rtmp:
                 new[keyword] = rtmp[keyword]

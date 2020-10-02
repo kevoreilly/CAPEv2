@@ -127,7 +127,6 @@ def get_analysis_info(db, id=-1, task=None):
             {
                 "info": 1,
                 "virustotal_summary": 1,
-                "detections": 1,
                 "info.custom": 1,
                 "info.shrike_msg": 1,
                 "malscore": 1,

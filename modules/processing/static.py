@@ -1382,7 +1382,6 @@ class Office(object):
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
             macrores["info"] = dict()
-            decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple

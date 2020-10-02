@@ -22,7 +22,8 @@ Once you have enabled it, you can just specify ``username`` and ``password`` as 
     requests.get(URL, params={"username":"<your_username>", "password": "<your apikey>"})
     requests.get(URL, data={"username":"<your_username>", "password": "<your apikey>"})
 
-===============================================================
+
+==============================================================
 REST API depricated, used only by dist.py aka distributed CAPE
 ==============================================================
 

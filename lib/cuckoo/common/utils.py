@@ -1870,7 +1870,7 @@ def generate_fake_name():
     out = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15)))
     return out
 
-MAX_FILENAME_LEN = 32
+MAX_FILENAME_LEN = 24
 
 def truncate_filename(x):
     truncated = None

@@ -1166,7 +1166,7 @@ def file(request, category, task_id, dlfile):
     except:
         if path.endswith(".zip") and os.path.exists(path):
             os.remove(path)
-        return render(request, "error.html", {"error": "File {} not found".format(path)})
+        return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
 
     resp["Content-Length"] = size # os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name

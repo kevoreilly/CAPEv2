@@ -16,7 +16,7 @@ from lib.cuckoo.common.config import Config
 cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
-unixpath = tempfile.mktemp()
+unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
 lock = threading.Lock()
 
 vpns = dict()
@@ -66,15 +66,15 @@ def rooter(command, *args, **kwargs):
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 
-    if os.path.exists(unixpath):
-        os.remove(unixpath)
+    if os.path.exists(unixpath.name):
+        os.remove(unixpath.name)
 
-    s.bind(unixpath)
+    s.bind(unixpath.name)
 
     try:
         s.connect(cfg.cuckoo.rooter)
     except socket.error as e:
-        log.critical("Unable to passthrough root command as we're unable to " "connect to the rooter unix socket: %s.", e)
+        log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s.", e)
         lock.release()
         return
 

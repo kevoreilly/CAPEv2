@@ -13,7 +13,6 @@ import json
 import zipfile
 import tempfile
 import datetime
-import subprocess
 from io import BytesIO
 from urllib.parse import quote
 
@@ -1098,11 +1097,7 @@ def file(request, category, task_id, dlfile):
                     with open(path, "r") as f:
                         zf.writestr(os.path.basename(path), f.read())
             else:
-                try:
-                    cmd = ["7z", "a", "-y", "-pinfected", os.path.join(tempfile.gettempdir(), file_name + ".zip"), path]
-                    _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-                except subprocess.CalledProcessError as e:
-                    return render(request, "error.html", {"error": "7zip error: {}".format(e)})
+                return render(request, "error.html", {"error": "Missed pyzipper library"})
             file_name += ".zip"
             path = os.path.join(tempfile.gettempdir(), file_name)
             cd = "application/zip"

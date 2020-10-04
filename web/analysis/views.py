@@ -1158,12 +1158,13 @@ def file(request, category, task_id, dlfile):
         if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if mem_zip:
                 data = mem_zip.getvalue()
-            else:
-                data = open(path, "rb").read()
+        else:
+            data = open(path, "rb").read()
         size = len(data)
         #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
         resp = HttpResponse(data, content_type=cd)
-    except:
+    except Exception as e:
+        print(e)
         if path.endswith(".zip") and os.path.exists(path):
             os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})

@@ -678,8 +678,8 @@ def files_view(md5=None, sha1=None, sha256=None, sample_id=None):
     return jsonize(response)
 
 
-@route("/files/get/<sha256>", method="GET")
-@route("/v1/files/get/<sha256>", method="GET")
+@route("/files/get/<sha256:re:[\w\d]{64}>", method="GET")
+@route("/v1/files/get/<sha256:re:[\w\d]{64}>", method="GET")
 def files_get(sha256):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
     if os.path.exists(file_path):

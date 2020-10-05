@@ -1089,7 +1089,9 @@ def file(request, category, task_id, dlfile):
         elif category.startswith("memdumpzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
             file_name += ".dmp"
-        if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
+        if path and not os.path.exists(path):
+            return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
+        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:

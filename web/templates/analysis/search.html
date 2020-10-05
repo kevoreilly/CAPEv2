@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p>
+<center><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p></center>
 <div class="row">
     <div class="col-md-6 col-md-offset-3 center">
         <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}

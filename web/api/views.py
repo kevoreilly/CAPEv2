@@ -1682,7 +1682,7 @@ def tasks_fullmemory(request, task_id):
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def get_files(request, stype, value):
+def file(request, stype, value):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)

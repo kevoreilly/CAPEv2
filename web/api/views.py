@@ -233,7 +233,7 @@ def tasks_create_file(request):
                 resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
         # Parse a max file size to be uploaded
-        max_file_size = apiconf.filecreate.get("upload_limit")
+        max_file_size = settings.MAX_UPLOAD_SIZE
         if not max_file_size or int(max_file_size) == 0:
             max_file_size = 5 * 1048576
         else:

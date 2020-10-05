@@ -153,22 +153,25 @@ def tasks_create_static(request):
 
     resp["error"] = False
     files = request.FILES.getlist("file")
-
+    extra_details = {}
     task_ids = list()
     for sample in files:
+
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_ids.extend(db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True))
+            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True)
+            task_ids.extend(task_id)
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
             return jsonize(resp, response=True)
 
     resp["data"] = {}
     resp["data"]["task_ids"] = task_ids
+    if extra_details and "config" in extra_details:
+        resp["data"]["config"] = extra_details["config"]
     callback = apiconf.filecreate.get("status")
     if len(task_ids) == 1:
-        resp["data"]["message"] = "Task ID {0} has been submitted".format(
-            str(task_ids[0]))
+        resp["data"]["message"] = "Task ID(s) {0} has been submitted".format(task_ids[0])
         if callback:
             resp["url"] = [ "{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
     else:
@@ -301,7 +304,7 @@ def tasks_create_file(request):
                         continue
             for entry in task_machines:
                 try:
-                    task_ids_new = db.demux_sample_and_add_to_db(
+                    task_ids_new, extra_details = db.demux_sample_and_add_to_db(
                         file_path=path,
                         package=package,
                         timeout=timeout,
@@ -489,7 +492,7 @@ def tasks_create_dlnexec(request):
         path = store_temp_file(response, name)
 
         for entry in task_machines:
-            task_ids = db.demux_sample_and_add_to_db(
+            task_ids, extra_details = db.demux_sample_and_add_to_db(
                 file_path=path,
                 package=package,
                 timeout=timeout,

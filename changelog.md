@@ -1,3 +1,7 @@
+### [05-10-2020]
+* Static extraction fix, thanks for testing it @nikhilh-20
+* Static endpoint now will return config apart of the task id
+
 ### [01-10-2020] HacktoberFest edition
 * Create zip files in memory (requires pyzipper) instead of using 7z and write them to temp folder
 * Simplified parsing of arguments between submission/api views

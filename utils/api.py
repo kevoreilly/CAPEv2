@@ -154,7 +154,7 @@ def tasks_create_file():
     else:
 
         try:
-            task_ids = db.demux_sample_and_add_to_db(
+            task_ids, extra_details = db.demux_sample_and_add_to_db(
                 file_path=temp_file_path,
                 package=package,
                 timeout=timeout,

@@ -16,6 +16,8 @@ import subprocess
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
 from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
+#from lib.cuckoo.core.startup import init_yara
+from lib.cuckoo.common.exceptions import CuckooStartupError
 
 try:
     import magic
@@ -122,7 +124,6 @@ IMAGE_FILE_MACHINE_I386 = 0x014C
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
-
 
 def IsPEImage(buf, size=False):
     if not buf:
@@ -455,7 +456,6 @@ class File(object):
         @return: matched Yara signatures.
         """
         results = []
-
         if not HAVE_YARA:
             if not File.notified_yara:
                 File.notified_yara = True
@@ -464,19 +464,20 @@ class File(object):
 
         if not os.path.getsize(self.file_path):
             return results
-
+        """
         try:
             # TODO Once Yara obtains proper Unicode filepath support we can
             # remove this check. See also the following Github issue:
             # https://github.com/VirusTotal/yara-python/issues/48
             assert len(str(self.file_path)) == len(self.file_path)
         except (UnicodeEncodeError, AssertionError):
-            log.warning("Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!", self.file_path)
+            log.warning("Can't run Yara rules on %r as Unicode paths are currently not supported in combination with Yara!", self.file_path)
             return results
+        """
 
         try:
             results, rule = [], File.yara_rules[category]
-            for match in rule.match(self.file_path, externals=externals):
+            for match in rule.match(self.file_path.decode("utf-8"), externals=externals):
                 strings = set()
                 for s in match.strings:
                     strings.add(self._yara_encode_string(s[2]))
@@ -485,9 +486,7 @@ class File(object):
                 for s in match.strings:
                     addresses[s[1].strip("$")] = s[0]
 
-                results.append(
-                    {"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,}
-                )
+                results.append({"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,})
         except Exception as e:
             errcode = e.message.split()[-1]
             if errcode in yara_error:
@@ -711,3 +710,76 @@ class ProcDump(object):
                         result["match"] = match
                         result["chunk"] = chunk
                         return result
+
+
+# ToDo remove/unify required for static extraction
+
+def init_yara():
+    """Generates index for yara signatures."""
+
+    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+
+    log.debug("Initializing Yara...")
+
+    # Generate root directory for yara rules.
+    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
+
+    # We divide yara rules in three categories.
+    # CAPE adds a fourth
+
+    # Loop through all categories.
+    for category in categories:
+        # Check if there is a directory for the given category.
+        category_root = os.path.join(yara_root, category)
+        if not os.path.exists(category_root):
+            log.warning("Missing Yara directory: %s?", category_root)
+            continue
+
+        rules, indexed = {}, []
+        for category_root, _, filenames in os.walk(category_root, followlinks=True):
+            for filename in filenames:
+                if not filename.endswith((".yar", ".yara")):
+                    continue
+
+                filepath = os.path.join(category_root, filename)
+
+                try:
+                    # TODO Once Yara obtains proper Unicode filepath support we
+                    # can remove this check. See also this Github issue:
+                    # https://github.com/VirusTotal/yara-python/issues/48
+                    assert len(str(filepath)) == len(filepath)
+                except (UnicodeEncodeError, AssertionError):
+                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
+                    continue
+
+                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                indexed.append(filename)
+
+            # Need to define each external variable that will be used in the
+        # future. Otherwise Yara will complain.
+        externals = {
+            "filename": "",
+        }
+
+        try:
+            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+        except yara.Error as e:
+            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+
+        # ToDo for Volatility3 yarascan
+        # The memory.py processing module requires a yara file with all of its
+        # rules embedded in it, so create this file to remain compatible.
+        # if category == "memory":
+        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
+        #    for filename in sorted(indexed):
+        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+
+        indexed = sorted(indexed)
+        for entry in indexed:
+            if (category, entry) == indexed[-1]:
+                log.debug("\t `-- %s %s", category, entry)
+            else:
+                log.debug("\t |-- %s %s", category, entry)
+
+
+init_yara()

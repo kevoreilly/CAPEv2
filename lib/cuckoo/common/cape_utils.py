@@ -224,11 +224,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 for (key, value) in malwareconfig_config.items():
                     cape_config["cape_config"].update({key: [value]})
         except Exception as e:
-            log.warning(
-                "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
-                cape_name,
-                e,
-            )
+            log.warning("malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e,)
 
         if "cape_config" in cape_config:
             if cape_config["cape_config"] == {}:
@@ -241,6 +237,7 @@ def static_extraction(path):
     cape_config = dict()
     try:
         hits = File(path).get_yara(category="CAPE")
+        print("hits", "here", hits)
         if not hits:
             return False
         # Get the file data

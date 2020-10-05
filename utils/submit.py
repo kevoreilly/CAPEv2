@@ -289,7 +289,7 @@ def main():
                     continue
 
                 try:
-                    task_ids = db.demux_sample_and_add_to_db(
+                    task_ids, extra_details = db.demux_sample_and_add_to_db(
                         file_path=file_path.encode("utf-8"),
                         package=args.package,
                         timeout=sane_timeout,

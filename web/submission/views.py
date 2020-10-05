@@ -352,7 +352,7 @@ def index(request, resubmit_hash=False):
                     if entry == "first":
                         entry = None
                     try:
-                        task_ids_new = db.demux_sample_and_add_to_db(
+                        task_ids_new, extra_details = db.demux_sample_and_add_to_db(
                             file_path=path,
                             package=package,
                             timeout=timeout,
@@ -422,7 +422,7 @@ def index(request, resubmit_hash=False):
                 for entry in task_machines:
                     if entry == "first":
                         entry = None
-                    task_ids_new = db.demux_sample_and_add_to_db(
+                    task_ids_new, extra_details = db.demux_sample_and_add_to_db(
                         file_path=path,
                         package=package,
                         timeout=timeout,
@@ -576,7 +576,7 @@ def index(request, resubmit_hash=False):
             for entry in task_machines:
                 if entry == "first":
                     entry = None
-                task_ids_new = db.demux_sample_and_add_to_db(
+                task_ids_new, extra_details = db.demux_sample_and_add_to_db(
                     file_path=path,
                     package=package,
                     timeout=timeout,

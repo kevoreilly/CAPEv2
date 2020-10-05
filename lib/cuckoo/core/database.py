@@ -1366,8 +1366,8 @@ class Database(object, metaclass=Singleton):
                     tlp=tlp,
                     source_url=source_url,
                 )
-            if task_id:
-                task_ids.append(task_id)
+                if task_id:
+                    task_ids.append(task_id)
 
         return task_ids
 

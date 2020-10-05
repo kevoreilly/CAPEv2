@@ -144,6 +144,11 @@ apilimiter = {
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
+
+    # RateLimits not enabled
+    if rateblock is False:
+        return "99999999999999/s"
+
     username = False
     password = False
     group = group.split(".")[-1]
@@ -164,6 +169,11 @@ def my_rate_seconds(group, request):
     return "0/s"
 
 def my_rate_minutes(group, request):
+
+    # RateLimits not enabled
+    if rateblock is False:
+        return "99999999999999/m"
+
     group = group.split(".")[-1]
     if group in apilimiter and apilimiter[group].get("enabled"):
         username = False

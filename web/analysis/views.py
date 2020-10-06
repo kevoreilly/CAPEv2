@@ -924,7 +924,6 @@ def report(request, task_id):
         if report.get("info", {}).get("category", "").lower() == "static":
             report["behavior"] = 0
         else:
-            print(results_db.analysis.find_one({"info.id": int(task_id), "behavior": {"$exist": True}}, {"$project": {"_id": 1}}), bool(results_db.analysis.find_one({"info.id": int(task_id), "behavior": {"$exist": True}}, {"$project": {"_id": 1}})))
             report["behavior"] = results_db.analysis.find_one({"info.id": int(task_id), "behavior": {"$exist": True}}, {"$project": {"_id": 1}})
     except Exception as e:
         report["behavior"] = 0

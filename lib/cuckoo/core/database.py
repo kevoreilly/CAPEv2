@@ -1316,7 +1316,7 @@ class Database(object, metaclass=Singleton):
         """
         task_id = False
         task_ids = []
-        config = False
+        config = {}
         sample_parent_id = None
         # force auto package for linux files
         if platform == "linux":

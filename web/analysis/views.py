@@ -919,6 +919,16 @@ def report(request, task_id):
     except Exception as e:
         report["CAPE"] = 0
 
+
+    try:
+        if report.get("info", {}).get("category", "").lower() == "static":
+            report["behavior"] = 0
+        else:
+            report["behavior"] = bool(results_db.analysis.find_one({"info.id": int(task_id), "behavior": {"$exist": True}}, {"$project": {"_id": 1}})) or 0
+    except Exception as e:
+        report["behavior"] = 0
+
+
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
     if os.path.exists(reporting_path) and os.listdir(reporting_path):

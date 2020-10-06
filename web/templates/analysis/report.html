@@ -79,7 +79,7 @@ $(function() {
 <ul class="nav nav-tabs">
     <li class="active"><a href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.static or config.virustotal and analysis.virustotal %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
-    <li><a href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
+    {% if analysis.behavior %}<li><a href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>{% endif %}
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" %}
         {% if analysis.dropped %}<li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}

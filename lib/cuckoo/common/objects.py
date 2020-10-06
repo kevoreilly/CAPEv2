@@ -477,7 +477,11 @@ class File(object):
 
         try:
             results, rule = [], File.yara_rules[category]
-            for match in rule.match(self.file_path.decode("utf-8"), externals=externals):
+            if isinstance(self.file_path, bytes):
+                path = self.file_path.decode("utf-8")
+            else:
+                path = self.file_path
+            for match in rule.match(path, externals=externals):
                 strings = set()
                 for s in match.strings:
                     strings.add(self._yara_encode_string(s[2]))

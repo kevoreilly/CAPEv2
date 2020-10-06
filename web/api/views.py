@@ -170,20 +170,20 @@ def tasks_create_static(request):
     if extra_details and "config" in extra_details:
         resp["data"]["config"] = extra_details["config"]
     callback = apiconf.filecreate.get("status")
-    if len(task_ids) == 1:
-        resp["data"]["message"] = "Task ID(s) {0} has been submitted".format(task_ids[0])
-        if callback:
-            resp["url"] = [ "{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
-    else:
-        resp["data"] = {}
-        resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
-        if callback:
-            resp["url"] = list()
-            for tid in task_ids:
-                resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
+    if task_ids:
+        if len(task_ids) == 1:
+            resp["data"]["message"] = "Task ID(s) {0} has been submitted".format(task_ids[0])
+            if callback:
+                resp["url"] = [ "{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
         else:
-            resp = {"error": True, "error_value": "Error adding task to database"}
-
+            resp["data"] = {}
+            resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
+            if callback:
+                resp["url"] = list()
+                for tid in task_ids:
+                    resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
+            else:
+                resp = {"error": True, "error_value": "Error adding task to database"}
 
     return jsonize(resp, response=True)
 

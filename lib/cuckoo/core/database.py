@@ -1370,8 +1370,11 @@ class Database(object, metaclass=Singleton):
             if task_id:
                 task_ids.append(task_id)
 
+        details = {}
+        if config:
+            details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs
-        return task_ids, {"config": config.get("cape_config", {})}
+        return task_ids, details
 
     @classlock
     def add_pcap(

@@ -387,7 +387,7 @@ def download_file(
             if isinstance(filename, str):
                 filename = filename.encode("utf-8")
 
-            task_ids_new = db.demux_sample_and_add_to_db(
+            task_ids_new, details = db.demux_sample_and_add_to_db(
                 file_path=filename,
                 package=package,
                 timeout=timeout,

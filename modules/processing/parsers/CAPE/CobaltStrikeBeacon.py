@@ -18,6 +18,8 @@ from netstruct import unpack as netunpack
 import json
 from base64 import b64encode
 import argparse
+import io
+import re
 
 COLUMN_WIDTH = 35
 SUPPORTED_VERSIONS = (3, 4)
@@ -37,10 +39,20 @@ class confConsts:
     TYPE_INT = 2
     TYPE_STR = 3
 
-    START_PATTERNS = {3: b"\x69\x68\x69\x68\x69\x6b", 4: b"\x2e\x2f\x2e\x2f\x2e\x2c"}
-    START_PATTERN_DECODED = b"\x00\x01\x00\x01\x00\x02"
+    START_PATTERNS = {
+        3: b"\x69\x68\x69\x68\x69\x6b..\x69\x6b\x69\x68\x69\x6b..\x69\x6a",
+        4: b"\x2e\x2f\x2e\x2f\x2e\x2c..\x2e\x2c\x2e\x2f\x2e\x2c..\x2e",
+    }
+    START_PATTERN_DECODED = b"\x00\x01\x00\x01\x00\x02..\x00\x02\x00\x01\x00\x02..\x00"
     CONFIG_SIZE = 4096
     XORBYTES = {3: 0x69, 4: 0x2E}
+
+
+def read_dword_be(fh):
+    data = fh.read(4)
+    if not data or len(data) != 4:
+        return None
+    return unpack(">I", data)[0]
 
 
 class packedSetting:
@@ -56,6 +68,7 @@ class packedSetting:
         isDate=False,
         boolFalseValue=0,
         isProcInjectTransform=False,
+        isMalleableStream=False,
         enum=None,
         mask=None,
     ):
@@ -66,6 +79,7 @@ class packedSetting:
         self.is_ipaddress = isIpAddress
         self.is_bool = isBool
         self.is_date = isDate
+        self.is_malleable_stream = isMalleableStream
         self.bool_false_value = boolFalseValue
         self.is_transform = isProcInjectTransform
         self.enum = enum
@@ -86,12 +100,7 @@ class packedSetting:
         self_repr = bytearray(6)
         self_repr[1] = self.pos
         self_repr[3] = self.datatype
-        # Stupid hack
-        if self.length == 128:
-            self_repr[4:6] = b"\x00\xc2"
-            self_repr.extend(b"\x80")
-        else:
-            self_repr[4:6] = self.length.to_bytes(2, "big")
+        self_repr[4:6] = self.length.to_bytes(2, "big")
         return self_repr
 
     def pretty_repr(self, full_config_data):
@@ -166,6 +175,32 @@ class packedSetting:
                 ret_arr.append(append if append_length < 256 and append != bytes(append_length) else "Empty")
                 return ret_arr
 
+            if self.is_malleable_stream:
+                prog = []
+                fh = io.BytesIO(conf_data)
+                while True:
+                    op = read_dword_be(fh)
+                    if not op:
+                        break
+                    if op == 1:
+                        l = read_dword_be(fh)
+                        prog.append("Remove %d bytes from the end" % l)
+                    elif op == 2:
+                        l = read_dword_be(fh)
+                        prog.append("Remove %d bytes from the beginning" % l)
+                    elif op == 3:
+                        prog.append("Base64 decode")
+                    elif op == 8:
+                        prog.append("NetBIOS decode 'a'")
+                    elif op == 11:
+                        prog.append("NetBIOS decode 'A'")
+                    elif op == 13:
+                        prog.append("Base64 URL-safe decode")
+                    elif op == 15:
+                        prog.append("XOR mask w/ random key")
+
+                conf_data = prog
+
             return conf_data
 
         if self.is_headers:
@@ -190,8 +225,7 @@ class BeaconSettings:
         0x7: None,
         0x8: "NtQueueApcThread-s",
     }
-    # TRANSFORMSTEP = {1: "append", 2: "prepend", 3: "base64", 4: "print", 5: "parameter", 6: "header", 7: "build",
-    #                 8: "netbios", 9: "_parameter", 10: "_header",
+    # TRANSFORMSTEP = {1: "append", 2: "prepend", 3: "base64", 4: "print", 5: "parameter", 6: "header", 7: "build", 8: "netbios", 9: "_parameter", 10: "_header",
     #                11: "netbiosu", 12: "uri_append",  13: "base64_url", 14: "strrep", 15: "mask"}
     ALLOCATION_FUNCTIONS = {0: "VirtualAllocEx", 1: "NtMapViewOfSection"}
 
@@ -209,13 +243,14 @@ class BeaconSettings:
         self.settings["MaxGetSize"] = packedSetting(4, confConsts.TYPE_INT)
         self.settings["Jitter"] = packedSetting(5, confConsts.TYPE_SHORT)
         self.settings["MaxDNS"] = packedSetting(6, confConsts.TYPE_SHORT)
-        # Maybe should be silenced but i leave it for now
-        self.settings["PublicKey"] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
+        # Silencing for now
+        self.settings['PublicKey'] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
         self.settings["C2Server"] = packedSetting(8, confConsts.TYPE_STR, 256)
         self.settings["UserAgent"] = packedSetting(9, confConsts.TYPE_STR, 128)
         self.settings["HttpPostUri"] = packedSetting(10, confConsts.TYPE_STR, 64)
-        # Unknown data, silencing for now
-        # self.settings['binary.http-get.server.output'] = packedSetting(11, confConsts.TYPE_STR, 256, isBlob=True)
+
+        # ref: https://www.cobaltstrike.com/help-malleable-c2 | https://usualsuspect.re/article/cobalt-strikes-malleable-c2-under-the-hood
+        self.settings["Malleable_C2_Instructions"] = packedSetting(11, confConsts.TYPE_STR, 256, isBlob=True, isMalleableStream=True)
         self.settings["HttpGet_Metadata"] = packedSetting(12, confConsts.TYPE_STR, 256, isHeaders=True)
         self.settings["HttpPost_Metadata"] = packedSetting(13, confConsts.TYPE_STR, 256, isHeaders=True)
         self.settings["SpawnTo"] = packedSetting(14, confConsts.TYPE_STR, 16, isBlob=True)
@@ -239,7 +274,7 @@ class BeaconSettings:
         self.settings["Proxy_Config"] = packedSetting(32, confConsts.TYPE_STR, 128)
         self.settings["Proxy_User"] = packedSetting(33, confConsts.TYPE_STR, 64)
         self.settings["Proxy_Password"] = packedSetting(34, confConsts.TYPE_STR, 64)
-        self.settings["bProxy_Behavior"] = packedSetting(35, confConsts.TYPE_SHORT, enum=self.ACCESS_TYPE)
+        self.settings["Proxy_Behavior"] = packedSetting(35, confConsts.TYPE_SHORT, enum=self.ACCESS_TYPE)
         # Option 36 is deprecated
         self.settings["Watermark"] = packedSetting(37, confConsts.TYPE_INT)
         self.settings["bStageCleanup"] = packedSetting(38, confConsts.TYPE_SHORT, isBool=True)
@@ -273,16 +308,19 @@ class cobaltstrikeConfig:
 
     @staticmethod
     def decode_config(cfg_blob, version):
-        return "".join(chr(cfg_offset ^ confConsts.XORBYTES[version]) for cfg_offset in cfg_blob).encode("utf-8")
+        return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
         parsed_config = dict()
-        encoded_config_offset = self.data.find(confConsts.START_PATTERNS[version])
-        decoded_config_offset = self.data.find(confConsts.START_PATTERN_DECODED)
-        if encoded_config_offset < 0 and decoded_config_offset < 0:
-            return parsed_config
+        re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
+        re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
 
-        if encoded_config_offset > 0:
+        if not re_start_match and not re_start_decoded_match:
+            return False
+        encoded_config_offset = re_start_match.start() if re_start_match else -1
+        decoded_config_offset = re_start_decoded_match.start() if re_start_decoded_match else -1
+
+        if encoded_config_offset >= 0:
             full_config_data = cobaltstrikeConfig.decode_config(
                 self.data[encoded_config_offset : encoded_config_offset + confConsts.CONFIG_SIZE], version=version
             )
@@ -323,12 +361,15 @@ class cobaltstrikeConfig:
 
         if not version:
             for ver in SUPPORTED_VERSIONS:
-                return self._parse_config(version=ver, quiet=quiet, as_json=as_json)
+                conf = self._parse_config(version=ver, quiet=quiet, as_json=as_json)
+                if conf:
+                    return conf
         else:
             if self._parse_config(version=version, quiet=quiet, as_json=as_json):
                 return True
 
-        # print("Configuration not found. Are you sure this is a beacon?")
+        if __name__ == "__main__":
+            print("Configuration not found. Are you sure this is a beacon?")
         return False
 
 
@@ -349,4 +390,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.path, "rb") as f:
         data = f.read()
-    cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
+    parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
+    if args.json:
+        print(json.dumps(parsed_config, cls=Base64Encoder))

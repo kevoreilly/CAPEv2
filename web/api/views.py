@@ -972,18 +972,18 @@ def tasks_delete(request, task_id):
             continue
 
         # ToDo missed mongo?
-        if db.delete_task(task_id):
+        if db.delete_task(task):
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
             s_deleted.append(task)
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id))
         else:
             f_deleted.append(task)
 
-    if f_deleted:
-        resp["error"] = True
-        resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(s_deleted))
-
     if s_deleted:
         resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))
+
+    if f_deleted:
+        resp["error"] = True
+        resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(f_deleted))
 
     return jsonize(resp, response=True)
 

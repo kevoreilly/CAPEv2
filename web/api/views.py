@@ -27,6 +27,7 @@ from ratelimit.decorators import ratelimit
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
+from utils.cleaners import delete_mongo_data
 from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
@@ -974,6 +975,8 @@ def tasks_delete(request, task_id):
         # ToDo missed mongo?
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+            delete_mongo_data(task)
+
             s_deleted.append(task)
         else:
             f_deleted.append(task)

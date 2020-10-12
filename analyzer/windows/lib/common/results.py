@@ -16,7 +16,9 @@ BUFSIZE = 1024 * 1024
 
 
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
-    nc = infd = None
+    nc = None
+    infd = None
+    we_open = False
     if not os.path.exists(file_path):
         log.warning("File {} doesn't exist anymore".format(file_path))
         return
@@ -24,7 +26,9 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
         nc = NetlogFile()
         # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
         nc.init(dump_path, file_path, pids, metadata, category)
-        infd = open(file_path, "rb")  # rb
+        if not infd and file_path:
+            infd = open(file_path, "rb")  # rb
+            we_open = True
         buf = infd.read(BUFSIZE)
         while buf:
             nc.send(buf, retry=True)
@@ -32,7 +36,7 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     except Exception as e:
         log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
     finally:
-        if infd:
+        if infd and we_open:
             infd.close()
         if nc:
             nc.close()

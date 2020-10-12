@@ -307,3 +307,6 @@ class PDH_FMT_COUNTERVALUE(Structure):
         ("CStatus", DWORD),
         ("doubleValue", DOUBLE),
     ]
+
+EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))

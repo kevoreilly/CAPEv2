@@ -1,8 +1,8 @@
 [Unit]
 Description=CAPE WSGI app
 Documentation=https://github.com/kevoreilly/CAPEv2
-Wants=cape.service cape-rooter.service
-After=cape.service cape-rooter.service
+Wants=cape-rooter.service
+After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/web

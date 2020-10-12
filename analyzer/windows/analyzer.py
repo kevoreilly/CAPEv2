@@ -361,9 +361,9 @@ class Analyzer:
         package_name = "modules.packages.%s" % package
         # Try to import the analysis package.
         try:
-            log.debug('Trying to import analysis package "%s"...', package)
+            log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
-            log.debug('Imported analysis package "%s".', package)
+            #log.debug('Imported analysis package "%s".', package)
         # If it fails, we need to abort the analysis.
         except ImportError:
             raise CuckooError('Unable to import package "{0}", does ' "not exist.".format(package_name))
@@ -380,9 +380,9 @@ class Analyzer:
             log.exception(e)
 
         # Initialize the analysis package.
-        log.debug('Trying to initialize analysis package "%s"...', package)
+        log.debug('Initializing analysis package "%s"...', package)
         self.package = package_class(self.options, self.config)
-        log.debug('Initialized analysis package "%s".', package)
+        #log.debug('Initialized analysis package "%s".', package)
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.
@@ -404,9 +404,9 @@ class Analyzer:
             #    continue
             # Import the auxiliary module.
             try:
-                log.debug('Trying to import auxiliary module "%s"...', name)
+                log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
-                log.debug('Imported auxiliary module "%s".', name)
+                #log.debug('Imported auxiliary module "%s".', name)
             except ImportError as e:
                 log.warning("Unable to import the auxiliary module " '"%s": %s', name, e)
         # Walk through the available auxiliary modules.
@@ -417,11 +417,11 @@ class Analyzer:
             # if module.__name__ == "Screenshots" and disable_screens:
             #    continue
             try:
-                log.debug('Trying to initialize auxiliary module "%s"...', module.__name__)
+                log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                log.debug('Initialized auxiliary module "%s".', module.__name__)
+                #log.debug('Initialized auxiliary module "%s".', module.__name__)
                 aux_avail.append(aux)
-                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                #log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
             except (NotImplementedError, AttributeError):
                 log.warning("Auxiliary module %s was not implemented", module.__name__)
@@ -1179,9 +1179,9 @@ class CommandPipeHandler(object):
 
             # If we have both pid and tid, then we can use APC to inject.
             if process_id and thread_id:
-                proc.inject(dll, apc=True, mode="%s" % mode)
+                proc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             else:
-                proc.inject(dll, apc=False, mode="%s" % mode)
+                proc.inject(injectmode=INJECT_CREATEREMOTETHREAD, interest=filepath, nosleepskip=True)
 
             log.info("Injected into process with pid %s and name %r", proc.pid, filename)
 
@@ -1258,7 +1258,7 @@ class CommandPipeHandler(object):
     def _handle_file_new(self, file_path):
         """Notification of a new dropped file."""
         if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode("utf-8"))
+            self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""

@@ -32,13 +32,13 @@ from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.web_utils import _download_file, parse_request_arguments
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
-from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock
+from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content
+from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
     import pyzipper
@@ -149,15 +149,14 @@ def tasks_create_static(request):
         return jsonize({"error": True, "error_value": "No file was submitted"}, response=True)
 
 
-    static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+    options = request.POST.get("options", "")
+    priority = force_int(request.POST.get("priority"))
 
     resp["error"] = False
     files = request.FILES.getlist("file")
     extra_details = {}
     task_ids = list()
     for sample in files:
-
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
             task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True)
@@ -208,17 +207,21 @@ def tasks_create_file(request):
         quarantine = request.POST.get("quarantine", "")
         pcap = request.POST.get("pcap", "")
 
-        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+        unique = bool(request.POST.get("unique", False))
+        static = request.POST.get("static", "")
+        priority = force_int(request.POST.get("priority"))
+        options = request.POST.get("options", "")
+        machine = request.POST.get("machine", "")
 
         if request.POST.get("process_dump"):
             if options:
                 options += ","
             options += "procmemdump=1,procdump=1"
 
-        task_ids = []
+        task_ids_tmp = []
         task_machines = []
         vm_list = []
+        details = {}
         for vm in db.list_machines():
             vm_list.append(vm.label)
 
@@ -260,7 +263,7 @@ def tasks_create_file(request):
                 return jsonize(resp, response=True)
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
-                # Todo handle as for VTDL submitted and omitted
+                details["errors"].append({sample.name: "Not unique, as unique option set"})
                 continue
             if pcap:
                 if sample.name.lower().endswith(".saz"):
@@ -270,87 +273,78 @@ def tasks_create_file(request):
                             os.remove(tmp_path)
                         except Exception as e:
                             print(e, "removing pcap")
-                        path = saz
+                        tmp_path = saz
                     else:
                         resp = {"error": True, "error_value": "Failed to convert SAZ to PCAP"}
                         return jsonize(resp, response=True)
-                else:
-                    path = tmp_path
-                task_id = db.add_pcap(file_path=path)
-                task_ids.append(task_id)
+                task_id = db.add_pcap(file_path=tmp_path)
+                details["task_ids"].append(task_id)
                 continue
             if static:
                 task_id = db.add_static(file_path=tmp_path, priority=priority)
-                task_ids.append(task_id)
+                details["task_ids"].append(task_id)
                 continue
             if quarantine:
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)
+                    tmp_path = path
                 except Exception as e:
                     print(e, "removing quarantine")
                 try:
                     File(path).get_type()
                 except TypeError:
-                    resp = {"error": True, "error_value": "Error submitting file - bad file type"}
-                    return jsonize(resp, response=True)
+                    details["errors"].append({os.path.basename(tmp_path):"Error submitting file - bad file type"})
+                    continue
             else:
-                path = tmp_path
-            if disable_x64 is True:
-                magic_type = get_magic_type(path)
-                if "x86-64" in magic_type or "PE32+" in magic_type:
-                    if len(request.FILES.getlist("file")) == 1:
-                        return jsonize({"error": True, "error_value": "Sorry no x64 support yet"}, response=True)
-                    else:
-                        continue
-            for entry in task_machines:
-                try:
-                    task_ids_new, extra_details = db.demux_sample_and_add_to_db(
-                        file_path=path,
-                        package=package,
-                        timeout=timeout,
-                        priority=priority,
-                        options=options,
-                        machine=entry,
-                        platform=platform,
-                        tags=tags,
-                        custom=custom,
-                        memory=memory,
-                        enforce_timeout=enforce_timeout,
-                        clock=clock,
-                        shrike_url=shrike_url,
-                        shrike_msg=shrike_msg,
-                        shrike_sid=shrike_sid,
-                        shrike_refer=shrike_refer,
-                    )
-                except CuckooDemuxError as e:
-                    resp = {"error": True, "error_value": e}
-                    return jsonize(resp, response=True)
-                if task_ids_new:
-                    task_ids.extend(task_ids_new)
-        if len(task_ids) > 0:
+                content = get_file_content(tmp_path)
+                details = {
+                    "errors": [],
+                    "content": content,
+                    "request": request,
+                    "task_id": [],
+                    "url": False,
+                    "params": {},
+                    "headers": {},
+                    "service": "tasks_create_file_API",
+                    "path": tmp_path,
+                    "fhash": False,
+                    "options": options,
+                    "only_extraction": False,
+                    "task_machines": task_machines,
+                }
+
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({os.path.basename(tmp_path): task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
+
+        if details.get("task_ids"):
+            tasks_count = len(details["task_ids"])
+        else:
+            tasks_count = 0
+        if tasks_count > 0:
             resp["data"] = {}
-            resp["data"]["task_ids"] = task_ids
+            resp["errors"] = details["errors"]
+            resp["data"]["task_ids"] = details.get("task_ids", [])
             callback = apiconf.filecreate.get("status")
-            if len(task_ids) == 1:
-                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(task_ids[0]))
+            if len(details["task_ids"]) == 1:
+                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
                 if callback:
-                    resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
+                    resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
             else:
-                resp["data"] = {}
-                resp["data"]["task_ids"] = task_ids
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
                 if callback:
                     resp["url"] = list()
-                    for tid in task_ids:
+                    for tid in details.get("task_ids", []):
                         resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
         else:
-            resp = {"error": True, "error_value": "Error adding task to database"}
+            resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
 
     return jsonize(resp, response=True)
-
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -446,23 +440,23 @@ def tasks_create_dlnexec(request):
 
         resp["error"] = False
         url = request.POST.get("dlnexec", None)
+        if not url:
+            resp = {"error": True, "error_value": "URL value is empty"}
+            return jsonize(resp, response=True)
 
-        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+        options = request.POST.get("options", "")
+        custom = request.POST.get("custom", "")
+        machine = request.POST.get("machine", "")
+        referrer = validate_referrer(request.POST.get("referrer", None))
 
-
-        task_ids = []
+        details = {}
         task_machines = []
         vm_list = []
         for vm in db.list_machines():
             vm_list.append(vm.label)
 
-        if not url:
-            resp = {"error": True, "error_value": "URL value is empty"}
-            return jsonize(resp, response=True)
-
         if machine.lower() == "all":
-            if not apiconf.filecreate.get("allmachines"):
+            if not apiconf.dlnexeccreate.get("allmachines"):
                 resp = {"error": True, "error_value": "Machine=all is disabled using the API"}
                 return jsonize(resp, response=True)
             for entry in vm_list:
@@ -473,7 +467,7 @@ def tasks_create_dlnexec(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
 
         if referrer:
@@ -492,35 +486,43 @@ def tasks_create_dlnexec(request):
 
         path = store_temp_file(response, name)
 
-        for entry in task_machines:
-            task_ids, extra_details = db.demux_sample_and_add_to_db(
-                file_path=path,
-                package=package,
-                timeout=timeout,
-                priority=priority,
-                options=options,
-                machine=entry,
-                platform=platform,
-                tags=tags,
-                custom=custom,
-                memory=memory,
-                enforce_timeout=enforce_timeout,
-                clock=clock,
-                shrike_url=shrike_url,
-                shrike_msg=shrike_msg,
-                shrike_sid=shrike_sid,
-                shrike_refer=shrike_refer,
-                source_url=url,
-            )
+        content = get_file_content(path)
+        details = {
+            "errors": [],
+            "content": content,
+            "request": request,
+            "task_id": [],
+            "url": False,
+            "params": {},
+            "headers": {},
+            "service": "tasks_create_dlnexec_API",
+            "path": path,
+            "fhash": False,
+            "options": options,
+            "only_extraction": False,
+            "task_machines": task_machines,
+        }
 
-        if len(task_ids):
-            resp["data"] = {}
-            resp["data"]["task_ids"] = task_ids
-            resp["data"]["message"] = "Task ID {0} has been submitted".format(str(task_ids[0]))
-            if apiconf.urlcreate.get("status"):
-                resp["url"] = ["{0}/submit/status/{1}".format(apiconf.api.get("url"), task_ids[0])]
+        status, task_ids_tmp = download_file(**details)
+        if status == "error":
+            details["errors"].append({os.path.basename(path): task_ids_tmp})
         else:
-            resp = {"error": True, "error_value": "Error adding task to database"}
+            details["task_ids"] = task_ids_tmp
+
+        if details.get("task_ids"):
+            tasks_count = len(details["task_ids"])
+        else:
+            tasks_count = 0
+        if tasks_count > 0:
+            resp["data"] = {}
+            resp["errors"] = details["errors"]
+            resp["data"]["task_ids"] = details.get("task_ids")
+            if len(details.get("task_ids")) == 1:
+                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
+            else:
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
+        else:
+            resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
 
@@ -532,7 +534,6 @@ def tasks_create_dlnexec(request):
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_vtdl(request):
-    status = "ok"
     resp = {}
     if request.method == "POST":
         # Check if this API function is enabled
@@ -540,21 +541,31 @@ def tasks_vtdl(request):
             resp = {"error": True, "error_value": "VTDL Create API is Disabled"}
             return jsonize(resp, response=True)
 
-        vtdl = request.POST.get("vtdl".strip(), None)
+        hashes = request.POST.get("vtdl".strip(),None)
+        if not hashes:
+            hashes = request.POST.get("hashes".strip(), None)
+
+        if not hashes:
+            resp = {"error": True, "error_value": "vtdl (hash list) value is empty"}
+            return jsonize(resp, response=True)
+
         resp["error"] = False
-        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(
-                request)
+        options = request.POST.get("options", "")
+        custom = request.POST.get("custom", "")
+        machine = request.POST.get("machine", "")
 
         opt_filename = get_user_filename(options, custom)
 
         task_machines = []
         vm_list = []
-        task_ids = []
         opt_apikey = False
         opts = get_options(options)
         if opts:
             opt_apikey = opts.get("apikey", False)
+
+        if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH or not opt_apikey:
+            resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
+            return jsonize(resp, response=True)
 
         for vm in db.list_machines():
             vm_list.append(vm.label)
@@ -573,72 +584,41 @@ def tasks_vtdl(request):
             else:
                 resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        referrer = False
-        orig_options = options
 
-        if not vtdl:
-            resp = {"error": True, "error_value": "vtdl (hash list) value is empty"}
-            return jsonize(resp, response=True)
 
-        if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH or not opt_apikey:
-            resp = {
-                "error": True,
-                "error_value": "You specified VirusTotal but must edit the file and specify your "
-                "VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH "
-                "base directory",
-            }
-            return jsonize(resp, response=True)
+        details = {
+            "apikey": opt_apikey,
+            "errors": [],
+            "content": False,
+            "request": request,
+            "task_id": [],
+            "url": False,
+            "params": {},
+            "headers": {},
+            "service": "VirusTotal",
+            "path": "",
+            "fhash": False,
+            "options": options,
+            "only_extraction": False,
+            "task_machines": task_machines,
+        }
+
+        details = download_from_vt(hashes, details, opt_filename, settings)
+
+        if details.get("task_ids"):
+            tasks_count = len(details["task_ids"])
         else:
-            hashlist = []
-            if "," in vtdl:
-                hashlist = vtdl.replace(" ", "").strip().split(",")
-            else:
-                hashlist.append(vtdl)
-            params = {}
-            headers = {}
-            for h in hashlist:
-                base_dir = tempfile.mkdtemp(prefix="cuckoovtdl", dir=settings.VTDL_PATH)
-                if opt_filename:
-                    filename = base_dir + "/" + opt_filename
-                else:
-                    filename = base_dir + "/" + sanitize_filename(h)
-                url = "https://www.virustotal.com/api/v3/files/{id}/download".format(id=h)
-                paths = db.sample_path_by_hash(h)
-                content = False
-                if paths:
-                    content = get_file_content(paths)
-                if not content:
-                    if opt_apikey:
-                        headers = {"x-apikey": opt_apikey}
-                    elif settings.VTDL_PRIV_KEY:
-                        headers = {"x-apikey": settings.VTDL_PRIV_KEY}
-                    elif settings.VTDL_INTEL_KEY:
-                        headers = {"x-apikey": settings.VTDL_INTEL_KEY}
-                    status, task_ids = download_file(True,content,request,db,task_ids,url,params,headers,"VirusTotal",filename,package,timeout,options,priority,machine,clock,custom,memory,enforce_timeout,referrer,tags,orig_options,task_machines=task_machines,static=static,fhash=False,)
-                else:
-                    status, task_ids = download_file(True, content, request, db, task_ids, url, params, headers, "Local", filename, package, timeout, options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options, task_machines=task_machines, static=static, fhash=False,)
-        if status == "error":
-            # error
-            return task_ids
-        if len(task_ids) > 0:
+            tasks_count = 0
+        if tasks_count > 0:
             resp["data"] = {}
-            resp["data"]["task_ids"] = task_ids
-            callback = apiconf.filecreate.get("status")
-            if len(task_ids) == 1:
-                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(task_ids[0]))
-                if callback:
-                    resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
+            resp["errors"] = details["errors"]
+            resp["data"]["task_ids"] = details["task_ids"]
+            if len(details["task_ids"]) == 1:
+                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details["task_ids"][0]))
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
-                if callback:
-                    resp["url"] = list()
-                    for tid in task_ids:
-                        resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
-            resp["data"]["task_ids"] = task_ids
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details["task_ids"]))
         else:
-            resp = {"error": True, "error_value": "Error adding task to database"}
-
+            resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
 

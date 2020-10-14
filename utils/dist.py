@@ -642,6 +642,11 @@ class StatusThread(threading.Thread):
                     # Append a comma, to make LIKE searches more precise
                     if tags:
                         tags += ","
+
+                    #sanity check
+                    if "x86" in tags and "x64" in tags:
+                        tags = tags.replace("x86,", "")
+
                     if "msoffice-crypt-tmp" in t.target and "password=" in t.options:
                         t.options = t.options.replace("password=", "pwd=")
                     args = dict(

@@ -3,10 +3,13 @@ from __future__ import print_function
 import os
 import sys
 import json
+import time
 import magic
 import logging
 import hashlib
 import requests
+import hashlib
+import tempfile
 from datetime import datetime
 from random import choice
 from ratelimit.decorators import ratelimit
@@ -16,12 +19,12 @@ CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
 
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.core.database import Database, TASK_REPORTED
-from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer
+from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, get_user_filename, sanitize_filename
+from lib.cuckoo.core.database import Database
 
 cfg = Config("cuckoo")
 repconf = Config("reporting")
@@ -31,6 +34,20 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
 rateblock = apiconf.api.get("ratelimit", False)
+
+db = Database()
+
+HAVE_DIST = False
+# Distributed CAPE
+if repconf.distributed.enabled:
+    try:
+        # Tags
+        from lib.cuckoo.common.dist_db import Machine, create_session
+        HAVE_DIST = True
+        session = create_session(repconf.distributed.db)
+    except Exception as e:
+        print(e)
+
 
 ht = False
 try:
@@ -194,6 +211,26 @@ def my_rate_minutes(group, request):
 
     return "0/m"
 
+def load_vms_tags():
+    all_tags = list()
+    if HAVE_DIST and repconf.distributed.enabled:
+        try:
+            db = session()
+            for vm in db.query(Machine).all():
+                all_tags += vm.tags
+            all_tags = sorted(filter(None, all_tags))
+            db.close()
+        except Exception as e:
+            print(e)
+
+    for machine in Database().list_machines():
+        for tag in machine.tags:
+            all_tags.append(tag.name)
+
+    return all_tags
+
+all_vms_tags = load_vms_tags()
+
 # Same jsonize function from api.py except we can now return Django
 # HttpResponse objects as well. (Shortcut to return errors)
 def jsonize(data, response=False):
@@ -210,6 +247,8 @@ def jsonize(data, response=False):
 
 def get_file_content(paths):
     content = False
+    if not isinstance(paths, list):
+        paths = [paths]
     for path in paths:
         if os.path.exists(path):
             with open(path, "rb") as f:
@@ -271,153 +310,101 @@ def get_platform(magic):
     else:
         return "windows"
 
+def download_file(**kwargs):
 
-# Func to download from services
-def download_file(
-    api,
-    content,
-    request,
-    db,
-    task_ids,
-    url,
-    params,
-    headers,
-    service,
-    filename,
-    package,
-    timeout,
-    options,
-    priority,
-    machine,
-    clock,
-    custom,
-    memory,
-    enforce_timeout,
-    referrer,
-    tags,
-    orig_options,
-    task_machines,
-    static,
-    tlp,
-    fhash=False,
-):
+    static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
+            clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
+            tlp = parse_request_arguments(kwargs["request"])
+
     onesuccess = False
-    if not content:
+    if tags:
+        if not all([tag.strip() in all_vms_tags for tag in kwargs["tags"].split(",")]):
+            return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
+        elif all([tag in tags for tag in ("x64", "x86")]):
+            return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}
+
+    if not kwargs.get("content", False) and kwargs.get("url", False):
         try:
-            r = requests.get(url, params=params, headers=headers, verify=False)
+            r = requests.get(kwargs["url"], params=kwargs.get("params", {}), headers=kwargs.get("headers", {}), verify=False)
         except requests.exceptions.RequestException as e:
             logging.error(e)
-            if api:
-                return "error", jsonize({"error": "Provided hash not found on {}".format(service)}, response=True)
-            else:
-                return "error", render(request, "error.html", {"error": "Provided hash not found on {}".format(service)})
+            return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
 
-        if (
-            r.status_code == 200
-            and r.content != b"Hash Not Present"
-            and b"The request requires higher privileges than provided by the access token" not in r.content
-        ):
-            content = r.content
+        if r.status_code == 200 and r.content != "Hash Not Present" and "The request requires higher privileges than provided by the access token" not in r.content:
+            kwargs["content"] = r.content
         elif r.status_code == 403:
-            if api:
-                return ("error", jsonize({"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)}, response=True,),)
-            else:
-                return ("error", render(request, "error.html", {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},),)
-        else:
-            if api:
-                return "error", jsonize({"error": "Was impossible to download from {0}".format(service)}, response=True)
-            else:
-                return "error", render(request, "error.html", {"error": "Was impossible to download from {0}".format(service)})
+            return "error", {"error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(kwargs["service"])}
 
-    if not content:
-        if api:
-            return "error", jsonize({"error": "Error downloading file from {}".format(service)}, response=True)
+        elif r.status_code == 404:
+            return "error", {"error": "Server returns 404 from {}".format(kwargs["service"])}
         else:
-            return "error", render(request, "error.html", {"error": "Error downloading file from {}".format(service)})
+            return "error", {"error": "Was impossible to download from {0}".format(kwargs["service"])}
 
+
+    if not kwargs["content"]:
+        return "error", {"error": "Error downloading file from {}".format(kwargs["service"])}
     try:
-        if fhash:
-            retrieved_hash = hashes[len(fhash)](content).hexdigest()
-            if retrieved_hash != fhash.lower():
-                if api:
-                    return ("error", jsonize({"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)}, response=True),)
-                else:
-                    return ("error", render(request, "error.html", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)},),)
+        if kwargs.get("fhash", False):
+            retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
+            if retrieved_hash != kwargs["fhash"].lower():
+                return "error", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)}
+        if not os.path.exists(kwargs.get("path")):
+            f = open(kwargs["path"], 'wb')
+            f.write(kwargs["content"])
+            f. close()
 
-        f = open(filename, "wb")
-        f.write(content)
-        f.close()
-    except:
-        if api:
-            return "error", jsonize({"error": "Error writing {} download file to temporary path".format(service)}, response=True)
-        else:
-            return "error", render(request, "error.html", {"error": "Error writing {} download file to temporary path".format(service)})
+    except Exception as e:
+        print(e)
+        return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
 
     onesuccess = True
-    if filename:
-        magic_type = get_magic_type(filename)
-        if disable_x64 is True:
-            if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
-                if len(request.FILES) == 1:
-                    return "error", render(request, "error.html", {"error": "Sorry no x64 support yet"})
+    file_type = get_magic_type(kwargs["path"])
+    if disable_x64 is True and kwargs["path"] and file_type and ("x86-64" in file_type or "PE32+" in file_type):
+        if len(kwargs["request"].FILES) == 1:
+            return "error", {"error": "Sorry no x64 support yet"}
 
-        orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
+    kwargs["orig_options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs.get("orig_options", ""), timeout, enforce_timeout)
+    if "pony" in kwargs["path"]:
+        fix_section_permission(kwargs["path"])
 
-        platform = get_platform(magic_type)
+    if not kwargs.get("task_machines", []):
+        kwargs["task_machines"] = [None]
 
-        # check if task_machines is passed in from api and handle (maybe replace or verify)
-        if not task_machines:
-            if machine.lower() == "all":
-                task_machines = [vm.name for vm in db.list_machines(platform=platform)]
-            elif machine:
-                machine_details = db.view_machine(machine)
-                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    if api:
-                        return ("error", jsonize({"error": "Wrong platform, {} VM select for {} sample".format(machine_details.platform, platform)},response=True,),)
-                    else:
-                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},)
-                else:
-                    task_machines = [machine]
-            else:
-                task_machines = ["first"]
+    for machine in kwargs.get("task_machines", []):
 
-        for entry in task_machines:
-            if entry == "first":
-                entry = None
-            if isinstance(filename, str):
-                filename = filename.encode("utf-8")
-
-            task_ids_new, details = db.demux_sample_and_add_to_db(
-                file_path=filename,
-                package=package,
-                timeout=timeout,
-                options=options,
-                priority=priority,
-                machine=entry,
-                custom=custom,
-                memory=memory,
-                enforce_timeout=enforce_timeout,
-                tags=tags,
-                clock=clock,
-                static=static,
-                platform=platform,
-                tlp=tlp,
-            )
-            if task_ids_new:
-                if isinstance(task_ids, list):
-                    task_ids.extend(task_ids_new)
-    else:
-        if api:
-            return "error", jsonize({"error": "File {} not found on {}".format(filename, service)}, response=True)
+        # Keep this as demux_sample_and_add_to_db in DB
+        task_ids_new, extra_details = db.demux_sample_and_add_to_db(
+            file_path=kwargs["path"],
+            package=package,
+            timeout=timeout,
+            options=options,
+            priority=priority,
+            machine=machine,
+            custom=custom,
+            platform=platform,
+            tags=tags,
+            memory=memory,
+            enforce_timeout=enforce_timeout,
+            clock=clock,
+            static=static,
+            shrike_url=shrike_url,
+            shrike_msg=shrike_msg,
+            shrike_sid=shrike_sid,
+            shrike_refer=shrike_refer,
+            tlp=tlp,
+            #parent_id=kwargs.get("parent_id", None),
+            #sample_parent_id=kwargs.get("sample_parent_id", None)
+        )
+        if isinstance(kwargs.get("task_ids", False), list):
+            kwargs["task_ids"].extend(task_ids_new)
         else:
-            return "error", render(request, "error.html", {"error": "File {} not found on {}".format(filename, service)})
+            kwargs["task_ids"] = list()
+            kwargs["task_ids"].extend(task_ids_new)
 
     if not onesuccess:
-        if api:
-            return "error", jsonize({"error": "Provided hash not found on {}".format(service)}, response=True)
-        else:
-            return "error", render(request, "error.html", {"error": "Provided hash not found on {}".format(service)})
-    return "ok", task_ids
+        return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
+
+    return "ok", kwargs["task_ids"]
 
 
 def _download_file(route, url, options):
@@ -617,3 +604,49 @@ def parse_request_arguments(request):
 
     return static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
         shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp
+
+def get_hash_list(hashes):
+    hashlist = []
+    if "," in hashes:
+        hashlist = filter(None, hashes.replace(" ", "").strip().split(","))
+    else:
+        hashlist = hashes.split()
+
+    return hashlist
+
+def download_from_vt(vtdl, details, opt_filename, settings):
+    for h in get_hash_list(vtdl):
+        folder = os.path.join(settings.VTDL_PATH, "cape-vt")
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        base_dir = tempfile.mkdtemp(prefix='vtdl', dir=folder)
+        if opt_filename:
+            filename = base_dir + "/" + opt_filename
+        else:
+            filename = base_dir + "/" + sanitize_filename(h)
+        paths = db.sample_path_by_hash(h)
+
+        if paths:
+            details["content"] = get_file_content(paths)
+        if settings.VTDL_KEY:
+            details["headers"] = {'x-apikey': settings.VTDL_KEY}
+        elif details.get("apikey", False):
+            details["headers"] = {'x-apikey': details["apikey"]}
+        else:
+            details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
+            return details
+        details["url"] = "https://www.virustotal.com/api/v3/files/{id}/download".format(id = h.lower())
+        details["fhash"] = h
+        details["path"] = filename
+        details["service"] = "VirusTotal"
+        if not details.get("content", False):
+            status, task_ids_tmp = download_file(**details)
+        else:
+            details["service"] = "Local"
+            status, task_ids_tmp = download_file(**details)
+        if status == "error":
+            details["errors"].append({h: task_ids_tmp})
+        else:
+            details["task_ids"] = task_ids_tmp
+
+    return details

@@ -8,11 +8,12 @@ The following tasks were added successfully:
 {% endfor %}.
 Click on the links to monitor the status of the submission.
 </div>
-{% if failed_hashes %}
+{% if errors %}
     <div class="alert alert-danger"><h4>Submission Failed!</h4>
-    The following tasks failed:
-    {% for ftask in failed_hashes %}
-        <p>{{ftask}}</p>
+    {% for block in errors %}
+        {% for k, v in block.iteritems %}
+            <p>{{k}} - {{v.error}}</p>
+        {% endfor %}
     {% endfor %}
     </div>
 {% endif %}

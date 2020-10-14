@@ -439,6 +439,7 @@ def tasks_create_dlnexec(request):
             return jsonize(resp, response=True)
 
         resp["error"] = False
+        url = request.POST.get("dlnexec", None)
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
             return jsonize(resp, response=True)

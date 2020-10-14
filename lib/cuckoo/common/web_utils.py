@@ -413,7 +413,6 @@ def _download_file(route, url, options):
     response = False
     headers = {"User-Agent": choice(user_agents)}
 
-    print(socks5s)
     if route:
         if route == "tor":
             proxies = {

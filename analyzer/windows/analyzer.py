@@ -1167,7 +1167,8 @@ class CommandPipeHandler(object):
         # Open the process and inject the DLL. Hope it enjoys it.
         proc = Process(pid=process_id, tid=thread_id)
 
-        filename = os.path.basename(proc.get_filepath())
+        filepath = proc.get_filepath()
+        filename = os.path.basename(filepath)
 
         if not self.analyzer.files.is_protected_filename(filename):
             # Add the new process ID to the list of monitored processes.
@@ -1291,7 +1292,7 @@ class CommandPipeHandler(object):
                 if b"\\memory\\" in file_path:
                     self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
                 else:
-                    self.analyzer.files.add_file(file_path.decode("utf-8"))
+                    self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
             else:
                 log.info("File doesn't exist, %s", file_path)
 

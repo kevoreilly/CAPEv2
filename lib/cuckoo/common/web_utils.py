@@ -318,7 +318,7 @@ def download_file(**kwargs):
 
     onesuccess = False
     if tags:
-        if not all([tag.strip() in all_vms_tags for tag in kwargs["tags"].split(",")]):
+        if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}

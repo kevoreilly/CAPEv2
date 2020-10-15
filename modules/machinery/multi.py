@@ -19,7 +19,7 @@ from lib.cuckoo.common.exceptions import CuckooCriticalError
 
 def import_plugin(name):
     try:
-        module = __import__(name, globals(), locals(), ["dummy"], -1)
+        module = __import__(name, globals(), locals(), ["dummy"], 0)
     except ImportError as e:
         raise CuckooCriticalError("Unable to import plugin " '"{0}": {1}'.format(name, e))
 
@@ -39,7 +39,7 @@ class MultiMachinery(Machinery):
     def set_options(self, options):
         if getattr(self, "options", None) is None:
             # First time being called, gather the configs of our sub-machineries
-            for machinery_name in options.get("multi").get("machinery").split(b","):
+            for machinery_name in options.get("multi").get("machinery").split(","):
                 machinery = {"config": Config(machinery_name), "module": import_plugin("modules.machinery." + machinery_name)()}
                 machinery_label = machinery["module"].LABEL
                 machinery["module"].set_options(machinery["config"])
@@ -58,7 +58,7 @@ class MultiMachinery(Machinery):
 
                 machinery["module"].machines = types.MethodType(list_machines, machinery["module"])
 
-                for machine_name in [machine.strip() for machine in machinery_machines.split(b",")]:
+                for machine_name in [machine.strip() for machine in machinery_machines.split(",")]:
                     machine = machinery["config"].get(machine_name)
                     machine["machinery"] = machinery_name
 

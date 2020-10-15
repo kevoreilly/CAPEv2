@@ -1,3 +1,8 @@
+### [15-10-2020]
+* Huge code unification and cleanup between `submission/views.py` and `api/views.py`
+* Improve error messages on bulk submission, for failed samples/hashes
+* Physical machinery updated by @hariomenkel, you can [read details in his writeup](https://mariohenkel.medium.com/using-cape-sandbox-and-fog-to-analyze-malware-on-physical-machines-4dda328d4e2c)
+
 ### [05-10-2020]
 * Static extraction fix, thanks for testing it @nikhilh-20
 * Static endpoint now will return config apart of the task id

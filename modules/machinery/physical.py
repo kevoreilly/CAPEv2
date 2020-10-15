@@ -5,6 +5,7 @@
 
 import sys
 import bs4
+import struct
 import logging
 import re
 import requests

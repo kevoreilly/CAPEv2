@@ -364,13 +364,12 @@ def download_file(**kwargs):
             return "error", {"error": "Sorry no x64 support yet"}
 
     kwargs["orig_options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs.get("orig_options", ""), timeout, enforce_timeout)
-    if "pony" in kwargs["path"]:
-        fix_section_permission(kwargs["path"])
-
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
     for machine in kwargs.get("task_machines", []):
+        if machine == "first":
+            machine = None
 
         # Keep this as demux_sample_and_add_to_db in DB
         task_ids_new, extra_details = db.demux_sample_and_add_to_db(

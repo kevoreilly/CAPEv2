@@ -268,19 +268,18 @@ def index(request, resubmit_hash=False):
                 magic_type = get_magic_type(path)
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
-                    task_machines = [vm.name for vm in db.list_machines(platform=platform)]
+                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                         return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                     else:
-                        task_machines = [machine]
+                        details["task_machines"] = [machine]
 
                 else:
-                    task_machines = ["first"]
-
-                content = get_file_content(path)
-
+                    details["task_machines"] = ["first"]
+                details["path"] = path
+                details["content"] = get_file_content(path)
                 status, task_ids = download_file(**details)
 
         elif "quarantine" in request.FILES:

@@ -262,17 +262,10 @@ def index(request, resubmit_hash=False):
                 if unique and db.check_file_uniq(File(path).get_sha256()):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
-                magic_type = get_magic_type(path)
-                if disable_x64 is True:
-                    if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
-                        if len(samples) == 1:
-                            return render(request, "error.html", {"error": "Sorry no x64 support yet"})
-                        else:
-                            continue
-
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
+                magic_type = get_magic_type(path)
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
                     task_machines = [vm.name for vm in db.list_machines(platform=platform)]

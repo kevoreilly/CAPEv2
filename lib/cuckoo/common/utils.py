@@ -1961,12 +1961,10 @@ def get_options(optstring):
     #
     # Here we parse such options and provide a dictionary that will be made
     # accessible to the analysis package.
-    options = {}
-    if optstring and isinstance(optstring, str):
-        options = dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+    if not optstring:
+        return {}
 
-    return options
-
+    return dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
 
 # get iface ip
 def get_ip_address(ifname):

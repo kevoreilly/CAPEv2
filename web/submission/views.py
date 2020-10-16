@@ -280,7 +280,11 @@ def index(request, resubmit_hash=False):
                     details["task_machines"] = ["first"]
                 details["path"] = path
                 details["content"] = get_file_content(path)
-                status, task_ids = download_file(**details)
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({os.path.basename(path): task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:
             samples = request.FILES.getlist("quarantine")
@@ -343,7 +347,7 @@ def index(request, resubmit_hash=False):
                 task_id = db.add_static(file_path=path, priority=priority, tlp=tlp)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
-                task_ids.append(task_id)
+                details["task_ids"].append(task_id)
 
         elif "pcap" in request.FILES:
             samples = request.FILES.getlist("pcap")
@@ -373,7 +377,7 @@ def index(request, resubmit_hash=False):
 
                 task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp)
                 if task_id:
-                    task_ids.append(task_id)
+                    details["task_ids"].append(task_id)
 
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()

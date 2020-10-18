@@ -61,7 +61,7 @@ class CAPE_RegBinary(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
-    ttp = ["T1112", "]
+    ttp = ["T1112"]
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 

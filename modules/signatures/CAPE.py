@@ -34,6 +34,7 @@ class CAPE_Compression(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
+    ttp = ["T1027"]
 
     filter_apinames = set(["RtlDecompressBuffer"])
 
@@ -60,6 +61,7 @@ class CAPE_RegBinary(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
+    ttp = ["T1112"]
 
     filter_apinames = set(["RegSetValueExA", "RegSetValueExW", "RegCreateKeyExA", "RegCreateKeyExW"])
 
@@ -87,6 +89,7 @@ class CAPE_Decryption(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
+    ttp = ["T1027"]
 
     filter_apinames = set(["CryptDecrypt"])
 
@@ -113,6 +116,7 @@ class CAPE_Unpacker(Signature):
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True
+    ttp = ["T1027"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)

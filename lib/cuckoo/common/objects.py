@@ -493,7 +493,7 @@ class File(object):
 
                 results.append({"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,})
         except Exception as e:
-            errcode = e.message.split()[-1]
+            errcode = str(e).split()[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
             else:

@@ -184,6 +184,7 @@ def IsPEImage(buf, size=False):
         return False
 
     # To pass the above tests it should now be safe to assume it's a PE image
+
     return True
 
 
@@ -556,9 +557,13 @@ class File(object):
         else:
             try:
                 # read pefile once and share
-                if not IsPEImage(self.file_data):
+                if IsPEImage(self.file_data) is False:
                     return infos
-                pe = pefile.PE(data=self.file_data, fast_load=True)
+                try:
+                    pe = pefile.PE(data=self.file_data, fast_load=True)
+                except pefile.PEFormatError:
+                    log.error('DOS Header magic not found.')
+                    return infos
                 if pe:
                     infos["entrypoint"] = self.get_entrypoint(pe)
                     infos["ep_bytes"] = self.get_ep_bytes(pe)

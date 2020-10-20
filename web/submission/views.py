@@ -387,19 +387,34 @@ def index(request, resubmit_hash=False):
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
             if machine.lower() == "all":
-                details["task_machines"] = [vm.name for vm in db.list_machines(platform="windows")]
+                machines = [vm.name for vm in db.list_machines(platform="windows")]
             elif machine:
                 machine_details = db.view_machine(machine)
                 if hasattr(machine_details, "platform") and not machine_details.platform == "windows":
                     details["errors"].append({os.path.basename(url): "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)})
                 else:
-                    details["task_machines"] = [machine]
+                    machines = [machine]
 
-            status, task_ids_tmp = download_file(**details)
-            if status == "error":
-                details["errors"].append({os.path.basename(url): task_ids_tmp})
-            else:
-                details["task_ids"] = task_ids_tmp
+            for entry in machines:
+                task_id = db.add_url(
+                    url=url,
+                    package=package,
+                    timeout=timeout,
+                    priority=priority,
+                    options=options,
+                    machine=entry,
+                    platform=platform,
+                    tags=tags,
+                    custom=custom,
+                    memory=memory,
+                    enforce_timeout=enforce_timeout,
+                    clock=clock,
+                    shrike_url=shrike_url,
+                    shrike_msg=shrike_msg,
+                    shrike_sid=shrike_sid,
+                    shrike_refer=shrike_refer,
+                )
+                details["task_ids"].append(task_id)
 
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             url = request.POST.get("dlnexec").strip()

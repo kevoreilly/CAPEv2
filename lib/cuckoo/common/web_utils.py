@@ -161,7 +161,6 @@ apilimiter = {
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
-
     # RateLimits not enabled
     if rateblock is False:
         return "99999999999999/s"
@@ -186,7 +185,6 @@ def my_rate_seconds(group, request):
     return "0/s"
 
 def my_rate_minutes(group, request):
-
     # RateLimits not enabled
     if rateblock is False:
         return "99999999999999/m"
@@ -311,11 +309,9 @@ def get_platform(magic):
         return "windows"
 
 def download_file(**kwargs):
-
     static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
-
     onesuccess = False
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
@@ -376,7 +372,7 @@ def download_file(**kwargs):
             file_path=kwargs["path"],
             package=package,
             timeout=timeout,
-            options=options,
+            options=kwargs["options"],
             priority=priority,
             machine=machine,
             custom=custom,

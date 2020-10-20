@@ -19,9 +19,15 @@ log = logging.getLogger(__name__)
 malware_parsers = dict()
 cape_malware_parsers = dict()
 
+# Config variables
+repconf = Config("reporting")
+
+if repconf.mongodb.enabled:
+    import pymongo
+    results_db = pymongo.MongoClient(repconf.mongo.host, port=repconf.mongodb.port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=repconf.mongodb.db)[repconf.mongodb.db]
+
 try:
     import pefile
-
     HAVE_PEFILE = True
 except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
@@ -232,6 +238,13 @@ def static_config_parsers(yara_hit, file_data, cape_config):
 
     return cape_config
 
+def static_config_lookup(file_path, sha256=False):
+    if not sha256:
+        sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
+    cape_tasks = results_db.analysis.find({"target.file.sha256": sha256}, {"CAPE.cape_config":1, "info.id": 1, "_id":0})
+    for task in cape_tasks or []:
+        if task.get("cape_config") and task["cape_config"]:
+            return task
 
 def static_extraction(path):
     cape_config = dict()

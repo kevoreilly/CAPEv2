@@ -18,8 +18,7 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File, URL, PCAP, Static
 from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLock, get_options
 from lib.cuckoo.common.demux import demux_sample
-from lib.cuckoo.common.cape_utils import static_extraction
-from lib.cuckoo.common.web_utils import static_config_lookup
+from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 
 try:
     from sqlalchemy import create_engine, Column, event

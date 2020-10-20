@@ -387,13 +387,16 @@ def index(request, resubmit_hash=False):
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
             if machine.lower() == "all":
-                machines = [vm.name for vm in db.list_machines(platform="windows")]
+                machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine)
-                if hasattr(machine_details, "platform") and not machine_details.platform == "windows":
-                    details["errors"].append({os.path.basename(url): "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)})
+                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                 else:
                     machines = [machine]
+
+            else:
+                machines = [None]
 
             for entry in machines:
                 task_id = db.add_url(

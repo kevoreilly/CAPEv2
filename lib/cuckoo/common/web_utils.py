@@ -312,9 +312,6 @@ def download_file(**kwargs):
     static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
-    if options:
-        options += ","
-    options += kwargs["options"]
     onesuccess = False
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
@@ -375,7 +372,7 @@ def download_file(**kwargs):
             file_path=kwargs["path"],
             package=package,
             timeout=timeout,
-            options=options,
+            options=kwargs["options"],
             priority=priority,
             machine=machine,
             custom=custom,

@@ -395,11 +395,9 @@ def index(request, resubmit_hash=False):
                 else:
                     details["task_machines"] = [machine]
 
-            details["path"] = path
-            details["content"] = get_file_content(path)
             status, task_ids_tmp = download_file(**details)
             if status == "error":
-                details["errors"].append({sample.name: task_ids_tmp})
+                details["errors"].append({os.path.basename(url): task_ids_tmp})
             else:
                 details["task_ids"] = task_ids_tmp
 

@@ -121,6 +121,14 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
+def static_config_lookup(file_path, sha256=False):
+    if not sha256:
+        sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
+    cape_tasks = results_db.analysis.find({"target.file.sha256": sha256}, {"CAPE.cape_config":1, "info.id": 1, "_id":0})
+    for task in cape_tasks or []:
+        if task.get("cape_config") and task["cape_config"]:
+            return task
+
 apilimiter = {
     "tasks_create_file": apiconf.filecreate,
     "tasks_create_url": apiconf.urlcreate,

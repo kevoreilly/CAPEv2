@@ -19,6 +19,7 @@ from lib.cuckoo.common.objects import File, URL, PCAP, Static
 from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLock, get_options
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.cape_utils import static_extraction
+from lib.cuckoo.common.web_utils import static_config_lookup
 
 try:
     from sqlalchemy import create_engine, Column, event
@@ -30,7 +31,7 @@ try:
 
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy " "(install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -1343,9 +1344,14 @@ class Database(object, metaclass=Singleton):
         # create tasks for each file in the archive
         for file in extracted_files:
             if static:
-                config = static_extraction(file)
-                if config:
-                    task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
+                # we don't need to process extra file if we already have it and config
+                config = static_config_lookup(file)
+                if not config:
+                    config = static_extraction(file)
+                    if config:
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
+                else:
+                    task_ids.append(config["id"])
             if not config and only_extraction is False:
                 task_id = self.add_path(
                     file_path=file.decode(),

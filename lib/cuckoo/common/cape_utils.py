@@ -237,7 +237,6 @@ def static_extraction(path):
     cape_config = dict()
     try:
         hits = File(path).get_yara(category="CAPE")
-        print("hits", "here", hits)
         if not hits:
             return False
         # Get the file data

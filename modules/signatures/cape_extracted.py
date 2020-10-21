@@ -27,7 +27,7 @@ class CAPEExtractedContent(Signature):
 
     def run(self):
         ret = False
-        for cape in self.results.get("CAPE", []) or []:
+        for cape in self.results.get("CAPE", {}).get("payloads", []) or []:
             capetype = cape.get("cape_type", "")
             if not capetype:
                 capetype = cape.get("description", "")
@@ -52,11 +52,8 @@ class CAPEExtractedConfig(Signature):
 
     def run(self):
         ret = False
-        for cape in self.results.get("CAPE", []) or []:
-            capeconfig = cape.get("cape_config", "")
-            malwarename = cape.get("cape_name", "")
-            if capeconfig and malwarename:
-                self.data.append({"extracted_config": malwarename})
-                ret = True
+        for malwarename in self.results.get("CAPE", []).get("cape_config", {}).keys() or []:
+            self.data.append({"extracted_config": malwarename})
+            ret = True
 
         return ret

@@ -122,11 +122,9 @@ qakbot_id_map = {
 
 
 class CAPE(Processing):
+
     """CAPE output file processing."""
-
-    cape_config = {}
-
-    def upx_unpack(self, file_data, CAPE_output):
+    def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
         if unpacked_file and os.path.exists(unpacked_file):
             for unpacked_hit in File(unpacked_file).get_yara(category="CAPE"):
@@ -141,7 +139,7 @@ class CAPE(Processing):
             shutil.move(unpacked_file, newname)
 
             # Recursive process of unpacked file
-            upx_extract = self.process_file(newname, CAPE_output, True, {})
+            upx_extract = self.process_file(newname, True, {})
             if upx_extract["type"]:
                 upx_extract["cape_type"] = "UPX-extracted "
                 type_strings = upx_extract["type"].split()
@@ -152,12 +150,13 @@ class CAPE(Processing):
                     else:
                         upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, CAPE_output, append_file, metadata={}):
+    def process_file(self, file_path, append_file, metadata={}, cape={}):
         """Process file.
         @return: file_info
         """
-        global cape_config
+
         cape_name = ""
+        config = {}
 
         if not os.path.exists(file_path):
             return
@@ -229,13 +228,13 @@ class CAPE(Processing):
                 file_info["cape_type"] = "PlugX Config"
                 if plugx_parser:
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                    if not "cape_config" in cape_config and plugx_config:
-                        cape_config["cape_config"] = {}
-                        for key, value in plugx_config.items():
-                            cape_config["cape_config"].update({key: [value]})
-                        cape_name = "PlugX"
-                    else:
-                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                    cape_name = "PlugX"
+                    if plugx_config:
+                        config[cape_name] = dict()
+                    for key, value in plugx_config.items():
+                        config[cape_name].update({key: [value]})
+                else:
+                    log.error("CAPE: PlugX config parsing failure - size many not be handled.")
                     append_file = False
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
@@ -258,20 +257,17 @@ class CAPE(Processing):
             if file_info["cape_type_code"] == EVILGRAB_DATA:
                 cape_name = "EvilGrab"
                 file_info["cape_type"] = "EvilGrab Data"
-                if not "cape_config" in cape_config:
-                    cape_config["cape_config"] = {}
+                config[cape_name] = dict()
                 if file_info["size"] == 256 or file_info["size"] == 260:
-                    cape_config["cape_config"].update({"filepath": [format(file_data)]})
+                    config[cape_name].update({"filepath": [format(file_data)]})
                 if file_info["size"] > 0x1000:
                     append_file = True
                 else:
                     append_file = False
-            # Sedreco
             if file_info["cape_type_code"] == SEDRECO_DATA:
                 cape_name = "Sedreco"
-                cape_config["cape_type"] = "Sedreco Config"
-                if not "cape_config" in cape_config:
-                    cape_config["cape_config"] = {}
+                config[cape_name] = dict()
+                config[cape_name]["cape_type"] = "Sedreco Config"
                 if len(metastrings) > 4:
                     SedrecoConfigIndex = metastrings[4]
                     if SedrecoConfigIndex in sedreco_map:
@@ -281,26 +277,25 @@ class CAPE(Processing):
 
                 ConfigData = format(file_data)
                 if ConfigData:
-                    cape_config["cape_config"].update({ConfigItem: [ConfigData]})
+                    config[cape_name].update({ConfigItem: [ConfigData]})
                 append_file = False
             # Cerber
             if file_info["cape_type_code"] == CERBER_CONFIG:
                 file_info["cape_type"] = "Cerber Config"
-                cape_config["cape_type"] = "Cerber Config"
                 cape_name = "Cerber"
-                if not "cape_config" in cape_config:
-                    cape_config["cape_config"] = {}
+                config[cape_name] = dict()
+                config["cape_type"] = "Cerber Config"
                 parsed = json.loads(file_data.rstrip(b"\0"))
-                cape_config["cape_config"].update({"JSON Data": [json.dumps(parsed, indent=4, sort_keys=True)]})
+                config[cape_name].update({"JSON Data": [json.dumps(parsed, indent=4, sort_keys=True)]})
                 append_file = True
             # Ursnif
             if file_info["cape_type_code"] == URSNIF_PAYLOAD:
                 cape_name = "Ursnif"
-                cape_config["cape_type"] = "Ursnif Payload"
+                config[cape_name] = dict()
+                config[cape_name]["cape_type"] = "Ursnif Payload"
                 file_info["cape_type"] = "Ursnif Payload"
             if file_info["cape_type_code"] == URSNIF_CONFIG:
                 file_info["cape_type"] = "Ursnif Config"
-                cape_config["cape_type"] = "Ursnif Config"
                 cape_name = "Ursnif"
                 malwareconfig_loaded = False
                 try:
@@ -308,49 +303,53 @@ class CAPE(Processing):
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
-                    log.info("CAPE: Imported malwareconfig.com parser %s", cape_name)
+                    log.debug("CAPE: Imported malwareconfig.com parser %s", cape_name)
                 except ImportError:
-                    log.info("CAPE: malwareconfig.com parser: No module named %s", cape_name)
+                    log.debug("CAPE: malwareconfig.com parser: No module named %s", cape_name)
                 if malwareconfig_loaded:
                     try:
-                        if not "cape_config" in cape_config:
-                            cape_config["cape_config"] = {}
                         malwareconfig_config = module.config(file_data)
+                        if malwareconfig_config:
+                            config[cape_name] = dict()
+                            config[cape_name]["cape_type"] = "Ursnif Config"
                         if isinstance(malwareconfig_config, list):
                             for (key, value) in malwareconfig_config[0].items():
-                                cape_config["cape_config"].update({key: [value]})
+                                config[cape_name].update({key: [value]})
                         elif isinstance(malwareconfig_config, dict):
                             for (key, value) in malwareconfig_config.items():
-                                cape_config["cape_config"].update({key: [value]})
+                                config[cape_name].update({key: [value]})
                     except Exception as e:
                         log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
                 append_file = False
             # Hancitor
             if file_info["cape_type_code"] == HANCITOR_PAYLOAD:
                 cape_name = "Hancitor"
-                cape_config["cape_type"] = "Hancitor Payload"
+                config[cape_name] = dict()
+                config[cape_name]["cape_type"] = "Hancitor Payload"
                 file_info["cape_type"] = "Hancitor Payload"
             if file_info["cape_type_code"] == HANCITOR_CONFIG:
                 cape_name = "Hancitor"
-                cape_config["cape_type"] = "Hancitor Config"
                 file_info["cape_type"] = "Hancitor Config"
-                if not "cape_config" in cape_config:
-                    cape_config["cape_config"] = {}
                 ConfigStrings = file_data.split(b"\0")
                 ConfigStrings = [_f for _f in ConfigStrings if _f]
                 ConfigItem = "Campaign Code"
-                cape_config["cape_config"].update({ConfigItem: [ConfigStrings[0]]})
+                config[cape_name] = dict()
+                config[cape_name]["cape_type"] = "Hancitor Config"
+                config[cape_name].update({ConfigItem: [ConfigStrings[0]]})
                 GateURLs = ConfigStrings[1].split(b"|")
                 for index, value in enumerate(GateURLs):
                     ConfigItem = "Gate URL " + str(index + 1)
-                    cape_config["cape_config"].update({ConfigItem: [value]})
+                    config[cape_name].update({ConfigItem: [value]})
                 append_file = False
             # QakBot
             if file_info["cape_type_code"] == QAKBOT_CONFIG:
                 file_info["cape_type"] = "QakBot Config"
-                cape_config["cape_type"] = "QakBot Config"
                 cape_name = "QakBot"
-                cape_config = static_config_parsers(cape_name, file_data, cape_config)
+                config[cape_name] = dict()
+                config[cape_name]["cape_type"] = "QakBot Config"
+                config_tmp = static_config_parsers(cape_name, file_data)
+                if config_tmp:
+                    config.update(config_tmp)
                 append_file = False
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:
@@ -362,9 +361,9 @@ class CAPE(Processing):
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
-                    log.info("CAPE: Imported malwareconfig.com parser %s", cape_name)
+                    log.debug("CAPE: Imported malwareconfig.com parser %s", cape_name)
                 except ImportError:
-                    log.info("CAPE: malwareconfig.com parser: No module named %s", cape_name)
+                    log.debug("CAPE: malwareconfig.com parser: No module named %s", cape_name)
                 if malwareconfig_loaded:
                     try:
                         script_data = module.config(self, data)
@@ -409,7 +408,7 @@ class CAPE(Processing):
             # Check to see if file is packed with UPX
             if hit["name"] == "UPX":
                 log.info("CAPE: Found UPX Packed sample - attempting to unpack")
-                self.upx_unpack(file_data, CAPE_output)
+                self.upx_unpack(file_data)
 
             # Check for a payload or config hit
             extraction_types = ["payload", "config", "loader"]
@@ -434,45 +433,50 @@ class CAPE(Processing):
             if hit["name"] in suppress_parsing_list:
                 continue
 
-            cape_config = static_config_parsers(hit["name"], file_data, cape_config)
+            tmp_config = static_config_parsers(hit["name"].replace("_", " "), file_data)
+            if tmp_config:
+                config.update(tmp_config)
 
         if cape_name:
-            if "cape_config" in cape_config and "cape_name" not in cape_config:
-                cape_config["cape_name"] = format(cape_name)
             if not "detections" in self.results:
                 if cape_name != "UPX":
+                    #ToDo list of keys
                     self.results["detections"] = cape_name
 
         # Remove duplicate payloads from web ui
-        for cape_file in CAPE_output:
+        for cape_file in cape["payloads"] or []:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
                     ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if (
-                        file_info.get("entrypoint")
+                    if (file_info.get("entrypoint")
                         and file_info["entrypoint"] == cape_file["entrypoint"]
                         and file_info["cape_type_code"] == cape_file["cape_type_code"]
                         and file_info["ep_bytes"] == cape_file["ep_bytes"]
                     ):
-                        log.info("CAPE duplicate output file skipped")
+                        log.debug("CAPE duplicate output file skipped")
                         append_file = False
 
         if append_file is True:
-            CAPE_output.append(file_info)
-        return file_info
+            cape["payloads"].append(file_info)
+        if config:
+            cape["cape_configs"].update(config)
+
+        return cape
 
     def run(self):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
-        global cape_config
-        cape_config = {}
+
         self.key = "CAPE"
-        CAPE_output = []
         self.script_dump_files = []
+        cape = dict()
+        cape["payloads"] = list()
+        cape["cape_configs"] = dict()
+
         meta = dict()
         if os.path.exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
@@ -488,28 +492,26 @@ class CAPE(Processing):
             if hasattr(self, folder):
                 # Process dynamically dumped CAPE/procdumps files/dropped might
                 # be detected as payloads and trigger config parsing
-                for dir_name, dir_names, file_names in os.walk(getattr(self, folder)):
+                for dir_name, _, file_names in os.walk(getattr(self, folder)):
                     for file_name in file_names:
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
+                            cape = self.process_file(file_path, True, meta.get(file_path, {}), cape)
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            self.process_file(file_path, CAPE_output, False)
+                            cape = self.process_file(file_path, False, cape)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    self.process_file(file_path, CAPE_output, False, meta.get(file_path, {}))
+                    cape = self.process_file(file_path, False, meta.get(file_path, {}), cape)
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
 
-        self.process_file(self.file_path, CAPE_output, False, meta.get(self.file_path, {}))
-        if cape_config.get("cape_config", []):
-            CAPE_output.append(cape_config)
+        cape = self.process_file(self.file_path, False, meta.get(self.file_path, {}), cape)
 
-        return CAPE_output
+        return cape

@@ -1,45 +1,45 @@
 {% load key_tags %}
 {% if CAPE %}
-    {% if CAPE.cape_configs %}
-        {% for name, config in CAPE.cape_configs.items %}
-            <div class="panel panel-default">
-                <table class="table table-striped" style="table-layout: fixed;">
+    {% for file in CAPE %}
+        {% if file.cape_config %}
+        <div class="panel panel-default">
+            <table class="table table-striped" style="table-layout: fixed;">
+                <tr>
+                    <th style="border-top: 0; width: 15%;">Type</th>
+                    <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_name}} Config</b></td>
+                </tr>
+                {% for key, value in file.cape_config.items %}
                     <tr>
-                        <th style="border-top: 0; width: 15%;">Type</th>
-                        <td style="border-top: 0; word-wrap: break-word;"><b>{{name}} Config</b></td>
-                    </tr>
-                    {% for key, value in config.items %}
-                        <tr>
-                            <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                            <td style="border-top: 0; word-wrap: break-word;">
-                            {% for subvalue in value %}
-                                {% if subvalue|length > 1 %}
-                                    {% for subsubvalue in subvalue %}
-                                        {% if subsubvalue|length > 1 %}
-                                            <div>{{subsubvalue}}</div>
-                                        {% else %}
-                                            {% if forloop.first %}
-                                                <div>{{subvalue}}</div>
-                                            {% endif %}
+                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                        <td style="border-top: 0; word-wrap: break-word;">
+                        {% for subvalue in value %}
+                            {% if subvalue|length > 1 %}
+                                {% for subsubvalue in subvalue %}
+                                    {% if subsubvalue|length > 1 %}
+                                        <div>{{subsubvalue}}</div>
+                                    {% else %}
+                                        {% if forloop.first %}
+                                            <div>{{subvalue}}</div>
                                         {% endif %}
-                                    {% endfor %}
-                                {% else %}
-                                    <div>{{subvalue}}</div>
-                                {% endif %}
-                            {% endfor %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </table>
-            </div>
-            </tr>
-            {% if file.related_tasks %}
-                <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-    {% if CAPE.payloads %}
-        {% for file in CAPE.payloads|dictsortreversed:"size" %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div>{{subvalue}}</div>
+                            {% endif %}
+                        {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+        </tr>
+        {% endif %}
+        {% if file.related_tasks %}
+            <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
+        {% endif %}
+    {% endfor %}
+    {% for file in CAPE %}
+        {% if not file.cape_config %}
         <div class="panel panel-default">
             <table class="table table-striped" style="table-layout: fixed;">
                 <tr>
@@ -196,8 +196,8 @@
                 {{ bingraph.content|getkey:file.sha256|safe }}
             {% endif %}
         </div>
-        {% endfor %}
-    {% endif %}
+        {% endif %}
+    {% endfor %}
 {% else %}
-    <div class="alert alert-info"><b>Sorry!</b> No CAPE files.</div>
+    <div class="alert alert-info"><b>Sorry!</b> No CAPE old files.</div>
 {% endif %}

@@ -1,6 +1,5 @@
 {% load key_tags %}
 {% if CAPE %}
-    {% if CAPE.cape_configs %}
         {% for name, config in CAPE.cape_configs.items %}
             <div class="panel panel-default">
                 <table class="table table-striped" style="table-layout: fixed;">
@@ -197,7 +196,6 @@
             {% endif %}
         </div>
         {% endfor %}
-    {% endif %}
 {% else %}
     <div class="alert alert-info"><b>Sorry!</b> No CAPE files.</div>
 {% endif %}

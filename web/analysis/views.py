@@ -345,6 +345,7 @@ def pending(request):
 
 ajax_mongo_schema = {
     "CAPE": "CAPE",
+    "CAPE_old": "CAPE",
     "dropped": "dropped",
     "debugger": "debugger",
     "behavior": "behavior",
@@ -357,7 +358,9 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger"):
+    print(ajax_mongo_schema[category], category)
+    #ToDo remove in CAPEv3
+    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
@@ -381,8 +384,7 @@ def load_files(request, task_id, category):
                             with open(tmp_file, "r") as f:
                                 bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-            if ajax_mongo_schema.get(category, "") == "CAPE":
-                print(data, "CAPE")
+            if ajax_mongo_schema.get(category, "").startswith("CAPE"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
                     #import code;code.interact(local=dict(locals(), **globals()))
@@ -392,7 +394,6 @@ def load_files(request, task_id, category):
                     else:
                         cape_files = data.get(category, []) or []
                     for block in cape_files:
-                        print(block)
                         if not block.get("sha256"):
                             continue
                         tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
@@ -412,9 +413,14 @@ def load_files(request, task_id, category):
                             debugger_logs[int(log.strip(".log"))] = f.read()
 
         # ES isn't supported
-        return render(
-            request,
-            "analysis/{}/index.html".format(category),
+        #ToDo remove in CAPEv3
+        if category == "CAPE_old":
+            page = "analysis/CAPE/index_old.html"
+            category = "CAPE"
+        else:
+            page = "analysis/{}/index.html".format(category)
+
+        return render(request, page,
             {
                 ajax_mongo_schema[category]: data.get(category, {}),
                 "tlp": data.get("info").get("tlp", ""),

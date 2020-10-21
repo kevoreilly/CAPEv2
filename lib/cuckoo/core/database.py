@@ -1925,10 +1925,16 @@ class Database(object, metaclass=Singleton):
         }
 
         sizes_mongo = {
-            32: "dropped.md5",
-            40: "dropped.sha1",
-            64: "dropped.sha256",
-            128: "dropped.sha512",
+            32: "md5",
+            40: "sha1",
+            64: "sha256",
+            128: "sha512",
+        }
+
+        folders = {
+            "dropped": "files",
+            "CAPE": "CAPE",
+            "procdump": "procdump",
         }
 
         query_filter = sizes.get(len(sample_hash), "")
@@ -1945,13 +1951,19 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find({sizes_mongo.get(len(sample_hash), ""): sample_hash})
-                    if tasks:
-                        for task in tasks:
-                            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash)
-                            if os.path.exists(path):
-                                sample = [path]
-                                break
+                    for category in ("dropped", "CAPE", "procdump"):
+                        # we can't filter more if query isn't sha256
+                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash}, {category: 1, "_id": 0, "info.id":1 })
+                        if tasks:
+                            for task in tasks:
+                                for block in task.get(category, []) or []:
+                                    if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
+                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category), block["sha256"])
+                                        if os.path.exists(path):
+                                            sample = [path]
+                                            break
+                                if sample:
+                                    break
 
                 if sample is None:
                     # search in temp folder if not found in binaries
@@ -1969,7 +1981,6 @@ class Database(object, metaclass=Singleton):
                 pass
             except SQLAlchemyError as e:
                 log.debug("Database error viewing task: {0}".format(e))
-                pass
             finally:
                 session.close()
 

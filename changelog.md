@@ -1,5 +1,6 @@
 ### [20-10-2020]
 * static config extraction lookup in database before scan file with yara and extract
+* resubmit added to CAPE/procdump tabs
 
 ### [15-10-2020]
 * Huge code unification and cleanup between `submission/views.py` and `api/views.py`

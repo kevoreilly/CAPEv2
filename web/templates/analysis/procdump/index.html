@@ -115,6 +115,7 @@
                     <td>
                         <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download</a>
                         <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download Zip</a>
+                        <a class="btn btn-default btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Submit file</a>
                     </td>
                 </tr>
                 {% endif %}

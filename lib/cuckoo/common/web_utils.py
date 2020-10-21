@@ -267,12 +267,9 @@ def fix_section_permission(path):
             return
         for id in range(len(pe.sections)):
             if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
-                log.info("section found")
                 pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
-                log.info(pe.sections[id].Characteristics)
                 pe.write(filename=path)
         pe.close()
-        log.info("close")
     except Exception as e:
         log.info(e)
 
@@ -309,7 +306,26 @@ def get_platform(magic):
         return "windows"
 
 def download_file(**kwargs):
-    static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
+
+    """ Example of kwargs
+    {
+        "errors": [],
+        "content": content,
+        "request": request,
+        "task_id": [],
+        "url": False,
+        "params": {},
+        "headers": {},
+        "service": "tasks_create_file_API",
+        "path": tmp_path,
+        "fhash": False,
+        "options": options,
+        "only_extraction": False,
+        "task_machines": task_machines,
+    }
+    """
+
+    static, package, timeout, priority, _, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
     onesuccess = False
@@ -359,7 +375,7 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    options, timeout, enforce_timeout = recon(kwargs["path"], options, timeout, enforce_timeout)
+    kwargs["options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs["options"], timeout, enforce_timeout)
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 

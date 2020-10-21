@@ -33,12 +33,7 @@ def _load_socks5_operational():
     try:
         from socks5man.manager import Manager
         from socks5man.exceptions import Socks5manDatabaseError
-
-        HAVE_SOCKS5MANAGER = True
     except (ImportError, OSError) as e:
-        HAVE_SOCKS5MANAGER = False
-
-    if not HAVE_SOCKS5MANAGER:
         return socks5s
 
     try:

@@ -416,26 +416,16 @@ class File(object):
                 log.error(e, exc_info=True)
             if self.file_type is None and HAVE_MAGIC:
                 try:
-                    ms = magic.open(magic.MAGIC_SYMLINK)
-                    ms.load()
-                    self.file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        self.file_type = magic.from_file(self.file_path)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
+                    self.file_type = magic.from_file(self.file_path)
+                except Exception as e:
+                    log.error(e, exc_info=True)
 
             if self.file_type is None:
                 try:
                     p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
                     self.file_type = p.stdout.read().strip()
-                except:
-                    pass
+                except Exception as e:
+                    log.error(e, exc_info=True)
 
         return self.file_type
 

@@ -29,7 +29,7 @@ class Hancitor(Parser):
 
                     self.reporter.add_metadata("other", { "Build ID": build_id })
                     for controller in list(filter(None,  controllers.split(b"|") )):
-                        self.reporter.add_metadata("Controllers", controller)
+                        self.reporter.add_metadata("address", controller)
 
 
         except Exception as e:

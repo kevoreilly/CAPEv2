@@ -380,6 +380,36 @@ class File(object):
         except Exception:
             return None
 
+    def get_content_type(self):
+        """Get MIME content file type (example: image/jpeg).
+        @return: file content type.
+        """
+        file_type = None
+        if HAVE_MAGIC:
+            if hasattr(magic, "from_file"):
+                try:
+                    file_type = magic.from_file(self.file_path)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+            if not file_type and hasattr(magic, "open"):
+                try:
+                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                    ms.load()
+                    file_type = ms.file(self.file_path)
+                    ms.close()
+                except Exception as e:
+                    log.error(e, exc_info=True)
+
+        if file_type is None:
+            try:
+                p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                file_type = p.stdout.read().strip()
+            except Exception as e:
+                log.error(e, exc_info=True)
+
+        return file_type
+
+
     def get_type(self):
         """Get MIME file type.
         @return: file type.
@@ -415,60 +445,10 @@ class File(object):
             except Exception as e:
                 log.error(e, exc_info=True)
 
-            if not self.file_type and HAVE_MAGIC:
-                if hasattr(magic, "from_file"):
-                    try:
-                        self.file_type = magic.from_file(self.file_path)
-                    except Exception as e:
-                        log.error(e, exc_info=True)
-                if not self.file_type and hasattr(magic, "open"):
-                    try:
-                        ms = magic.open(magic.MAGIC_SYMLINK)
-                        ms.load()
-                        self.file_type = ms.file(self.file_path)
-                        ms.close()
-                    except Exception as e:
-                        log.error(e, exc_info=True)
-
             if not self.file_type:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    self.file_type = p.stdout.read().strip()
-                except Exception as e:
-                    log.error(e, exc_info=True)
+                self.file_type = self.get_content_type()
 
         return self.file_type
-
-    def get_content_type(self):
-        """Get MIME content file type (example: image/jpeg).
-        @return: file content type.
-        """
-        file_type = None
-        if self.file_path:
-            if HAVE_MAGIC:
-                try:
-                    ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
-                    ms.load()
-                    file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        file_type = magic.from_file(self.file_path, mime=True)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
-
-            if file_type is None:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    file_type = p.stdout.read().strip()
-                except:
-                    pass
-
-        return file_type
 
     def _yara_encode_string(self, s):
         # Beware, spaghetti code ahead.

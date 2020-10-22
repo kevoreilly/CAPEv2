@@ -1943,12 +1943,12 @@ def tasks_config(request, task_id, cape_name=False):
                 pass
             data = []
 
-            if buf["CAPE"].get("cape_configs"):
+            if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("cape_configs"):
                 if cape_name and buf["CAPE"]["cape_configs"].get("cape_name", "") == cape_name:
                     return jsonize({cape_name.lower(): buf["CAPE"]["cape_configs"][cape_name]}, response=True)
                 data = buf["CAPE"]["cape_configs"]
             # ToDo remove in v3
-            elif buf["CAPE"].get("cape_config"):
+            elif buf["CAPE"]:
                 for cape in buf["CAPE"]:
                     if isinstance(cape, dict) and cape.get("cape_config"):
                         if cape_name and cape.get("cape_name", "") == cape_name:

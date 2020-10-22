@@ -147,7 +147,7 @@ class Pcap:
             "^crt\.usertrust\.com$",
             "^ocsp\.sectigo\.com$",
             "^crl\.globalsign\.net$",
-            "^cacerts\.digicert.\com$"
+            "^cacerts\.digicert\.com$"
         ]
 
         if enabled_passlist and passlist_file:

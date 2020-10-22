@@ -122,8 +122,8 @@ qakbot_id_map = {
 
 
 class CAPE(Processing):
-
     """CAPE output file processing."""
+
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
         if unpacked_file and os.path.exists(unpacked_file):
@@ -150,13 +150,14 @@ class CAPE(Processing):
                     else:
                         upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, append_file, metadata={}, cape={}):
+    def process_file(self, file_path, append_file, metadata={}):
         """Process file.
         @return: file_info
         """
 
-        cape_name = ""
         config = {}
+        cape_name = ""
+
 
         if not os.path.exists(file_path):
             return
@@ -228,13 +229,13 @@ class CAPE(Processing):
                 file_info["cape_type"] = "PlugX Config"
                 if plugx_parser:
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                    cape_name = "PlugX"
                     if plugx_config:
+                        cape_name = "PlugX"
                         config[cape_name] = dict()
-                    for key, value in plugx_config.items():
-                        config[cape_name].update({key: [value]})
-                else:
-                    log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                        for key, value in plugx_config.items():
+                            config[cape_name].update({key: [value]})
+                    else:
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
                     append_file = False
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
@@ -257,7 +258,6 @@ class CAPE(Processing):
             if file_info["cape_type_code"] == EVILGRAB_DATA:
                 cape_name = "EvilGrab"
                 file_info["cape_type"] = "EvilGrab Data"
-                config[cape_name] = dict()
                 if file_info["size"] == 256 or file_info["size"] == 260:
                     config[cape_name].update({"filepath": [format(file_data)]})
                 if file_info["size"] > 0x1000:
@@ -279,20 +279,22 @@ class CAPE(Processing):
                 if ConfigData:
                     config[cape_name].update({ConfigItem: [ConfigData]})
                 append_file = False
-            # Cerber
+
             if file_info["cape_type_code"] == CERBER_CONFIG:
                 file_info["cape_type"] = "Cerber Config"
                 cape_name = "Cerber"
                 config[cape_name] = dict()
                 config["cape_type"] = "Cerber Config"
+
                 parsed = json.loads(file_data.rstrip(b"\0"))
                 config[cape_name].update({"JSON Data": [json.dumps(parsed, indent=4, sort_keys=True)]})
                 append_file = True
-            # Ursnif
+
             if file_info["cape_type_code"] == URSNIF_PAYLOAD:
                 cape_name = "Ursnif"
                 config[cape_name] = dict()
                 config[cape_name]["cape_type"] = "Ursnif Payload"
+
                 file_info["cape_type"] = "Ursnif Payload"
             if file_info["cape_type_code"] == URSNIF_CONFIG:
                 file_info["cape_type"] = "Ursnif Config"
@@ -312,12 +314,12 @@ class CAPE(Processing):
                         if malwareconfig_config:
                             config[cape_name] = dict()
                             config[cape_name]["cape_type"] = "Ursnif Config"
-                        if isinstance(malwareconfig_config, list):
-                            for (key, value) in malwareconfig_config[0].items():
-                                config[cape_name].update({key: [value]})
-                        elif isinstance(malwareconfig_config, dict):
-                            for (key, value) in malwareconfig_config.items():
-                                config[cape_name].update({key: [value]})
+                            if isinstance(malwareconfig_config, list):
+                                for (key, value) in malwareconfig_config[0].items():
+                                    config[cape_name].update({key: [value]})
+                            elif isinstance(malwareconfig_config, dict):
+                                for (key, value) in malwareconfig_config.items():
+                                    config[cape_name].update({key: [value]})
                     except Exception as e:
                         log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
                 append_file = False
@@ -444,7 +446,7 @@ class CAPE(Processing):
                     self.results["detections"] = cape_name
 
         # Remove duplicate payloads from web ui
-        for cape_file in cape["payloads"] or []:
+        for cape_file in self.cape["payloads"] or []:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
                     ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
@@ -460,22 +462,21 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            cape["payloads"].append(file_info)
-        if config:
-            cape["cape_configs"].update(config)
+            self.cape["payloads"].append(file_info)
 
-        return cape
+        if config and config not in self.cape["configs"]:
+            self.cape["configs"].append(config)
 
     def run(self):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
-
         self.key = "CAPE"
         self.script_dump_files = []
-        cape = dict()
-        cape["payloads"] = list()
-        cape["cape_configs"] = dict()
+
+        self.cape = dict()
+        self.cape["payloads"] = list()
+        self.cape["configs"] = list()
 
         meta = dict()
         if os.path.exists(self.files_metadata):
@@ -497,21 +498,21 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            cape = self.process_file(file_path, True, meta.get(file_path, {}), cape)
+                            self.process_file(file_path, True, meta.get(file_path, {}))
                         else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
-                            cape = self.process_file(file_path, False, cape)
+                            self.process_file(file_path, False)
 
                 # Process files that may have been decrypted from ScriptDump
                 for file_path in self.script_dump_files:
-                    cape = self.process_file(file_path, False, meta.get(file_path, {}), cape)
+                    self.process_file(file_path, False, meta.get(file_path, {}))
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
 
-        cape = self.process_file(self.file_path, False, meta.get(self.file_path, {}), cape)
+        self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 
-        return cape
+        return self.cape

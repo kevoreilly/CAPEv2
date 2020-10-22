@@ -560,7 +560,7 @@ def tasks_vtdl(request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH or not opt_apikey:
+        if settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
             resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
             return jsonize(resp, response=True)
 

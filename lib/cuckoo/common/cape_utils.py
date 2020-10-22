@@ -176,12 +176,12 @@ def static_config_parsers(yara_hit, file_data):
 
                 tmp_dict.update(reporter.metadata)
                 cape_config[cape_name] = convert(tmp_dict)
-                log.info("CAPE: DC3-MWCP parser for %s completed", cape_name)
+                log.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
-                        log.info("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
+                        log.debug("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
             reporter._Reporter__cleanup()
             del reporter
         except pefile.PEFormatError:

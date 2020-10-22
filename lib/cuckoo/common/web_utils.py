@@ -342,7 +342,7 @@ def download_file(**kwargs):
             logging.error(e)
             return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
 
-        if r.status_code == 200 and r.content != "Hash Not Present" and "The request requires higher privileges than provided by the access token" not in r.content:
+        if r.status_code == 200 and r.content != b"Hash Not Present" and b"The request requires higher privileges than provided by the access token" not in r.content:
             kwargs["content"] = r.content
         elif r.status_code == 403:
             return "error", {"error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(kwargs["service"])}

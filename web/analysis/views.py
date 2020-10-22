@@ -358,7 +358,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    print(ajax_mongo_schema[category], category)
+    print(ajax_mongo_schema[category], category, "category")
     #ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger"):
         bingraph = False
@@ -938,13 +938,15 @@ def report(request, task_id):
             report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
         else:
 
-            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.cape_configs"}}}]))
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
             report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
             # ToDo remove in CAPEv3 *_old
+
             if not report["CAPE"]:
                 tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
                 report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
     except Exception as e:
+        print(e)
         report["CAPE"] = 0
 
     """

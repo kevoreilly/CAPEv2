@@ -453,7 +453,7 @@ def index(request, resubmit_hash=False):
                 details["task_ids"] = task_ids_tmp
         elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) and request.POST.get("vtdl")[0] != "":
             if not settings.VTDL_KEY or not settings.VTDL_PATH:
-                    return render(request, "error.html", {"error": "You specified VirusTotal but must edit the file and specify your VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH base directory"})
+                    return render(request, "error.html", {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"})
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey

@@ -1,11 +1,12 @@
 {% load key_tags %}
 {% if CAPE %}
-        {% for name, config in CAPE.cape_configs.items %}
+        {% for config_block in CAPE.configs %}
+            {% for family, config in config_block.items %}
             <div class="panel panel-default">
                 <table class="table table-striped" style="table-layout: fixed;">
                     <tr>
                         <th style="border-top: 0; width: 15%;">Type</th>
-                        <td style="border-top: 0; word-wrap: break-word;"><b>{{name}} Config</b></td>
+                        <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
                     </tr>
                     {% for key, value in config.items %}
                         <tr>
@@ -29,6 +30,7 @@
                             </td>
                         </tr>
                     {% endfor %}
+                {% endfor %}
                 </table>
             </div>
             </tr>

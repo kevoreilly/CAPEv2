@@ -414,13 +414,23 @@ class File(object):
                                 self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
             except Exception as e:
                 log.error(e, exc_info=True)
-            if self.file_type is None and HAVE_MAGIC:
-                try:
-                    self.file_type = magic.from_file(self.file_path)
-                except Exception as e:
-                    log.error(e, exc_info=True)
 
-            if self.file_type is None:
+            if not self.file_type and HAVE_MAGIC:
+                if hasattr(magic, "from_file"):
+                    try:
+                        self.file_type = magic.from_file(self.file_path)
+                    except Exception as e:
+                        log.error(e, exc_info=True)
+                if not self.file_type and hasattr(magic, "open"):
+                    try:
+                        ms = magic.open(magic.MAGIC_SYMLINK)
+                        ms.load()
+                        self.file_type = ms.file(self.file_path)
+                        ms.close()
+                    except Exception as e:
+                        log.error(e, exc_info=True)
+
+            if not self.file_type:
                 try:
                     p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
                     self.file_type = p.stdout.read().strip()

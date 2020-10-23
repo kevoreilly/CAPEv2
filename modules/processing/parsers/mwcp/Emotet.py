@@ -106,9 +106,7 @@ class Emotet(Parser):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
-        pem_key = extract_emotet_rsakey(pe)
-        if pem_key:
-            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
+        c2found = False
 
         c2list = yara_scan(filebuf, "$c2list")
         if c2list:
@@ -122,10 +120,10 @@ class Emotet(Parser):
 
                 if c2_address and port:
                     self.reporter.add_metadata("address", c2_address + ":" + port)
+                    c2found = True
 
                 ips_offset += 8
                 ip = struct.unpack("I", filebuf[ips_offset : ips_offset + 4])[0]
-            return
         else:
             refc2list = yara_scan(filebuf, "$snippet3")
         if refc2list:
@@ -152,6 +150,7 @@ class Emotet(Parser):
 
                 if c2_address and port:
                     self.reporter.add_metadata("address", c2_address + ":" + port)
+                    c2found = True
                 else:
                     return
                 c2_list_offset += 8
@@ -181,6 +180,7 @@ class Emotet(Parser):
 
                     if c2_address and port:
                         self.reporter.add_metadata("address", c2_address + ":" + port)
+                        c2found = True
                     else:
                         return
                     c2_list_offset += 8
@@ -211,7 +211,6 @@ class Emotet(Parser):
                         c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
                     except pefile.PEFormatError as err:
                         return
-
                     while 1:
                         try:
                             ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
@@ -224,6 +223,7 @@ class Emotet(Parser):
 
                         if c2_address and port:
                             self.reporter.add_metadata("address", c2_address + ":" + port)
+                            c2found = True
                         else:
                             break
                         c2_list_offset += 8
@@ -240,7 +240,6 @@ class Emotet(Parser):
                             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
                         except pefile.PEFormatError as err:
                             pass
-
                         while 1:
                             try:
                                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
@@ -253,6 +252,7 @@ class Emotet(Parser):
 
                             if c2_address and port:
                                 self.reporter.add_metadata("address", c2_address + ":" + port)
+                                c2found = True
                             else:
                                 break
                             c2_list_offset += 8
@@ -273,7 +273,6 @@ class Emotet(Parser):
                                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
                             except pefile.PEFormatError as err:
                                 pass
-
                             while 1:
                                 try:
                                     ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
@@ -286,11 +285,17 @@ class Emotet(Parser):
 
                                 if c2_address and port:
                                     self.reporter.add_metadata("address", c2_address + ":" + port)
+                                    c2found = True
                                 else:
                                     break
                                 c2_list_offset += 8
 
-        if not pem_key:
+        if not c2found:
+            return
+        pem_key = extract_emotet_rsakey(pe)
+        if pem_key:
+            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
+        else:
             ref_rsa = yara_scan(filebuf, "$ref_rsa")
             if ref_rsa:
                 ref_rsa_offset = int(ref_rsa["$ref_rsa"])

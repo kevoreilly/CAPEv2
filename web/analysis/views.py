@@ -345,6 +345,7 @@ def pending(request):
 
 ajax_mongo_schema = {
     "CAPE": "CAPE",
+    "CAPE_old": "CAPE",
     "dropped": "dropped",
     "debugger": "debugger",
     "behavior": "behavior",
@@ -357,22 +358,22 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger"):
+    print(ajax_mongo_schema[category], category, "category")
+    #ToDo remove in CAPEv3
+    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
-                data = results_db.analysis.find_one(
-                    {"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0}
-                )
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0})
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
-            if ajax_mongo_schema.get(category, "") in ("CAPE", "dropped"):
+            if ajax_mongo_schema.get(category, "") == "dropped":
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
                     for block in data.get(category, []):
@@ -382,8 +383,26 @@ def load_files(request, task_id, category):
                         if os.path.exists(tmp_file):
                             with open(tmp_file, "r") as f:
                                 bingraph_dict_content.setdefault(block["sha256"], f.read())
-                if bingraph_dict_content:
-                    bingraph = True
+
+            if ajax_mongo_schema.get(category, "").startswith("CAPE"):
+                bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+                if os.path.exists(bingraph_path):
+                    #import code;code.interact(local=dict(locals(), **globals()))
+                    if isinstance(data.get(category, {}), dict) and "payloads" in data.get(category, {}):
+                        cape_files = data.get(category, {}).get("payloads", []) or []
+                    #ToDo remove in CAPEv3
+                    else:
+                        cape_files = data.get(category, []) or []
+                    for block in cape_files:
+                        if not block.get("sha256"):
+                            continue
+                        tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                        if os.path.exists(tmp_file):
+                            with open(tmp_file, "r") as f:
+                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+
+            if bingraph_dict_content:
+                bingraph = True
             if category == "debugger":
                 debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
                 if os.path.exists(debugger_log_path):
@@ -394,9 +413,14 @@ def load_files(request, task_id, category):
                             debugger_logs[int(log.strip(".log"))] = f.read()
 
         # ES isn't supported
-        return render(
-            request,
-            "analysis/{}/index.html".format(category),
+        #ToDo remove in CAPEv3
+        if category == "CAPE_old":
+            page = "analysis/CAPE/index_old.html"
+            category = "CAPE"
+        else:
+            page = "analysis/{}/index.html".format(category)
+
+        return render(request, page,
             {
                 ajax_mongo_schema[category]: data.get(category, {}),
                 "tlp": data.get("info").get("tlp", ""),
@@ -877,8 +901,7 @@ def search_behavior(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)]
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)]
         )
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
@@ -914,9 +937,16 @@ def report(request, task_id):
         if report.get("info", {}).get("category", "").lower() == "static":
             report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
         else:
-            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"}, "cape_conf_size": {"$size": "$CAPE.cape_config"}}}]))
+
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
             report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
+            # ToDo remove in CAPEv3 *_old
+
+            if not report["CAPE"]:
+                tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
+                report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
     except Exception as e:
+        print(e)
         report["CAPE"] = 0
 
     """

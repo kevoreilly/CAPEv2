@@ -149,15 +149,14 @@ def convert(data):
         return data
 
 
-def static_config_parsers(yara_hit, file_data, cape_config):
+def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
     cape_name = yara_hit.replace("_", " ")
+    cape_config = dict()
+    cape_config[cape_name] = dict()
     parser_loaded = False
     # Attempt to import a parser for the hit
     # DC3-MWCP
-
-    if "cape_config" not in cape_config:
-        cape_config.setdefault("cape_config", dict())
 
     if cape_name and HAS_MWCP and cape_name in malware_parsers:
         try:
@@ -176,19 +175,13 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                     del reporter.metadata["other"]
 
                 tmp_dict.update(reporter.metadata)
-
-                if "cape_config" not in cape_config:
-                    cape_config.setdefault("cape_config", dict())
-                    # ToDo do we really need to convert it?
-                    cape_config["cape_config"] = convert(tmp_dict)
-                else:
-                    cape_config["cape_config"].update(convert(tmp_dict))
-                log.info("CAPE: DC3-MWCP parser for %s completed", cape_name)
+                cape_config[cape_name] = convert(tmp_dict)
+                log.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
-                        log.info("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
+                        log.debug("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
             reporter._Reporter__cleanup()
             del reporter
         except pefile.PEFormatError:
@@ -205,13 +198,13 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
-                    cape_config["cape_config"].update({key: [value]})
+                    cape_config[cape_name].update({key: [value]})
             elif isinstance(cape_configraw, dict):
                 for (key, value) in cape_configraw.items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
-                    cape_config["cape_config"].update({key: [value]})
+                    cape_config[cape_name].update({key: [value]})
         except Exception as e:
             log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
@@ -225,16 +218,15 @@ def static_config_parsers(yara_hit, file_data, cape_config):
             # ToDo remove
             if isinstance(malwareconfig_config, list):
                 for (key, value) in malwareconfig_config[0].items():
-                    cape_config["cape_config"].update({key: [value]})
+                    cape_config[cape_name].update({key: [value]})
             elif isinstance(malwareconfig_config, dict):
                 for (key, value) in malwareconfig_config.items():
-                    cape_config["cape_config"].update({key: [value]})
+                    cape_config[cape_name].update({key: [value]})
         except Exception as e:
             log.warning("malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e,)
 
-        if "cape_config" in cape_config:
-            if cape_config["cape_config"] == {}:
-                del cape_config["cape_config"]
+        if cape_name in cape_config and cape_config[cape_name] == {}:
+            return {}
 
     return cape_config
 
@@ -247,7 +239,6 @@ def static_config_lookup(file_path, sha256=False):
             return task
 
 def static_extraction(path):
-    cape_config = dict()
     try:
         hits = File(path).get_yara(category="CAPE")
         if not hits:
@@ -256,7 +247,7 @@ def static_extraction(path):
         with open(path, "rb") as file_open:
             file_data = file_open.read()
         for hit in hits:
-            config = static_config_parsers(hit["name"], file_data, cape_config)
+            config = static_config_parsers(hit["name"], file_data)
             if config:
                 return config
         return False

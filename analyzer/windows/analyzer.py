@@ -517,7 +517,7 @@ class Analyzer:
         # where the package isn't enabling any behavioral analysis), we don't
         # enable the process monitor.
         else:
-            log.info("No process IDs returned by the package, running " "for the full timeout.")
+            log.info("No process IDs returned by the package, running for the full timeout.")
             pid_check = False
 
         # Check in the options if the user toggled the timeout enforce. If so,

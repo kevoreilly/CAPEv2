@@ -1,3 +1,6 @@
+### [22-10-2020]
+* cape.py rewrite so it affects `api/tasks/get/config/` so before it was list of configs and it has `cape_name`, now its like `[{malware_family:{config}}]`
+
 ### [20-10-2020]
 * static config extraction lookup in database before scan file with yara and extract
 * resubmit added to CAPE/procdump tabs

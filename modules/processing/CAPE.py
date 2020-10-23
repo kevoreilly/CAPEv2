@@ -437,12 +437,8 @@ class CAPE(Processing):
 
             tmp_config = static_config_parsers(hit["name"].replace("_", " "), file_data)
             if tmp_config:
-            #ToDo temp hash
-                if "emotet" in hit["name"].replace("_", " ").lower():
-                    if "address" in tmp_config[hit["name"].replace("_", " ")]:
-                        config.update(tmp_config)
-                else:
-                    config.update(tmp_config)
+                config.update(tmp_config)
+
         if cape_name:
             if not "detections" in self.results:
                 if cape_name != "UPX":

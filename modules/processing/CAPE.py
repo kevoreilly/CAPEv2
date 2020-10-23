@@ -350,7 +350,7 @@ class CAPE(Processing):
                 config[cape_name] = dict()
                 config[cape_name]["cape_type"] = "QakBot Config"
                 config_tmp = static_config_parsers(cape_name, file_data)
-                if config_tmp and config_tmp[hit["name"].replace("_", " ")]:
+                if config_tmp and config_tmp[cape_name]:
                     config.update(config_tmp)
                 append_file = False
             # Attempt to decrypt script dump

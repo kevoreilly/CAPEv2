@@ -52,8 +52,9 @@ class CAPEExtractedConfig(Signature):
 
     def run(self):
         ret = False
-        for malwarename in self.results.get("CAPE", {}).get("cape_config", {}).keys() or []:
-            self.data.append({"extracted_config": malwarename})
-            ret = True
+        for block in self.results.get("CAPE", {}).get("cape_config", []) or []:
+            for malwarename in block.keys():
+                self.data.append({"extracted_config": malwarename})
+                ret = True
 
         return ret

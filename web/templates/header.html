@@ -30,12 +30,18 @@
         </div>
         <nav class="collapse navbar-collapse bs-navbar-collapse" role="navigation">
             <ul class="nav navbar-nav">
-                <li><a href="{% url "dashboard" %}"><span class="glyphicon glyphicon-dashboard"></span> Dashboard</a></li>
-                <li><a href="{% url "analysis" %}"><span class="glyphicon glyphicon-list"></span> Recent</a></li>
-                <li><a href="{% url "pending" %}"><span class="glyphicon glyphicon-time"></span> Pending</a></li>
-                <li><a href="{% url "search" %}"><span class="glyphicon glyphicon-search"></span> Search</a></li>
-                <li><a href="{% url "api" %}"><span class="glyphicon glyphicon-cog"></span> API</a></li>
-                <li><a href="{% url "submission" %}"><span class="glyphicon glyphicon-upload"></span> Submit</a></li>
+                <li class="nav-item"><a href="{% url "dashboard" %}"><span class="glyphicon glyphicon-dashboard"></span> Dashboard</a></li>
+                <li class="nav-item"><a href="{% url "analysis" %}"><span class="glyphicon glyphicon-list"></span> Recent</a></li>
+                <li class="nav-item"><a href="{% url "pending" %}"><span class="glyphicon glyphicon-time"></span> Pending</a></li>
+                <li class="nav-item"><a href="{% url "search" %}"><span class="glyphicon glyphicon-search"></span> Search</a></li>
+                <li class="nav-item"><a href="{% url "api" %}"><span class="glyphicon glyphicon-cog"></span> API</a></li>
+                <li class="nav-item"><a href="{% url "submission" %}"><span class="glyphicon glyphicon-upload"></span> Submit</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+            <form class="navbar-form" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
+                <input class="form-control mr-sm-2" type="text" class="btn btn-outline" id="form_search" name="search" placeholder="Search term as regex" />
+                <button type="submit" class="btn btn-default">Search</button>
+            </form>
             </ul>
         </nav>
     </nav>

@@ -29,7 +29,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt
+from lib.cuckoo.common.web_utils import download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt
 
 
 # this required for hash searches
@@ -189,7 +189,6 @@ def index(request, resubmit_hash=False):
 
         options = options[:-1]
 
-        task_machines = []
         opt_apikey = False
         opts = get_options(options)
         if opts:
@@ -211,7 +210,6 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
-            "task_machines": task_machines,
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
@@ -265,19 +263,6 @@ def index(request, resubmit_hash=False):
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
-                magic_type = get_magic_type(path)
-                platform = get_platform(magic_type)
-                if machine.lower() == "all":
-                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
-                elif machine:
-                    machine_details = db.view_machine(machine)
-                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
-                    else:
-                        details["task_machines"] = [machine]
-
-                else:
-                    details["task_machines"] = ["first"]
                 details["path"] = path
                 details["content"] = get_file_content(path)
                 status, task_ids_tmp = download_file(**details)
@@ -311,15 +296,6 @@ def index(request, resubmit_hash=False):
 
                 if not path:
                     return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
-
-                if machine.lower() == "all":
-                    task_machines = [vm.name for vm in db.list_machines(platform="windows")]
-                elif machine:
-                    machine_details = db.view_machine(machine)
-                    if not machine_details.platform == "windows":
-                        return render(request, "error.html", {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)})
-                    else:
-                        task_machines = [machine]
 
                 details["path"] = path
                 details["content"] = get_file_content(path)
@@ -432,15 +408,6 @@ def index(request, resubmit_hash=False):
             name = os.path.basename(url)
             if not "." in name:
                 name = get_user_filename(options, custom) or generate_fake_name()
-
-            if machine.lower() == "all":
-                details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
-            elif machine:
-                machine_details = db.view_machine(machine[0])
-                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)})
-                else:
-                    details["task_machines"] = [machine]
 
             path = store_temp_file(response, name)
             details["path"] = path

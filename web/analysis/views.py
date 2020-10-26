@@ -935,7 +935,12 @@ def report(request, task_id):
 
     try:
         if report.get("info", {}).get("category", "").lower() == "static":
-            report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
+            report["CAPE"] =  tmp_data[0]["cape_conf_size"] or 0
+            # ToDo remove in CAPEv3 *_old
+            if not report["CAPE"]:
+                tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
+                report["CAPE_old"] = tmp_data[0]["cape_conf_size_old"] or 0
         else:
 
             tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))

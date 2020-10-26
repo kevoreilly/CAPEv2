@@ -321,7 +321,6 @@ def download_file(**kwargs):
         "fhash": False,
         "options": options,
         "only_extraction": False,
-        "task_machines": task_machines,
     }
     """
 
@@ -370,14 +369,27 @@ def download_file(**kwargs):
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
 
     onesuccess = True
-    file_type = get_magic_type(kwargs["path"])
-    if disable_x64 is True and kwargs["path"] and file_type and ("x86-64" in file_type or "PE32+" in file_type):
+    magic_type = get_magic_type(kwargs["path"])
+    if disable_x64 is True and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
     kwargs["options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs["options"], timeout, enforce_timeout)
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
+
+    platform = get_platform(magic_type)
+    if machine.lower() == "all":
+        kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
+    elif machine:
+        machine_details = db.view_machine(machine)
+        if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+            return "error", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}
+        else:
+            kwargs["task_machines"] = [machine]
+
+    else:
+        kwargs["task_machines"] = ["first"]
 
     for machine in kwargs.get("task_machines", []):
         if machine == "first":

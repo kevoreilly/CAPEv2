@@ -387,12 +387,11 @@ def load_files(request, task_id, category):
             if ajax_mongo_schema.get(category, "").startswith("CAPE"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
-                    #import code;code.interact(local=dict(locals(), **globals()))
-                    if isinstance(data.get(category, {}), dict) and "payloads" in data.get(category, {}):
-                        cape_files = data.get(category, {}).get("payloads", []) or []
+                    if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
+                        cape_files = data.get("CAPE", {}).get("payloads", []) or []
                     #ToDo remove in CAPEv3
                     else:
-                        cape_files = data.get(category, []) or []
+                        cape_files = data.get("CAPE", []) or []
                     for block in cape_files:
                         if not block.get("sha256"):
                             continue
@@ -934,22 +933,12 @@ def report(request, task_id):
         report["dropped"] = 0
 
     try:
-        if report.get("info", {}).get("category", "").lower() == "static":
-            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
-            report["CAPE"] =  tmp_data[0]["cape_conf_size"] or 0
-            # ToDo remove in CAPEv3 *_old
-            if not report["CAPE"]:
-                tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
-                report["CAPE_old"] = tmp_data[0]["cape_conf_size_old"] or 0
-        else:
-
-            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
-            report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
-            # ToDo remove in CAPEv3 *_old
-
-            if not report["CAPE"]:
-                tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
-                report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
+        report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
+        # ToDo remove in CAPEv3 *_old
+        if not report["CAPE"]:
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
+            report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
     except Exception as e:
         print(e)
         report["CAPE"] = 0

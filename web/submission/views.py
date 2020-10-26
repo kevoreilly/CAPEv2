@@ -230,6 +230,19 @@ def index(request, resubmit_hash=False):
                 else:
                     filename = base_dir + "/" + sanitize_filename(resubmission_hash)
                 path = store_temp_file(content, filename)
+                magic_type = get_magic_type(path)
+                platform = get_platform(magic_type)
+                if machine.lower() == "all":
+                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
+                elif machine:
+                    machine_details = db.view_machine(machine)
+                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
+                    else:
+                        details["task_machines"] = [machine]
+
+                else:
+                    details["task_machines"] = ["first"]
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -275,7 +288,6 @@ def index(request, resubmit_hash=False):
                         return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                     else:
                         details["task_machines"] = [machine]
-
                 else:
                     details["task_machines"] = ["first"]
                 details["path"] = path
@@ -457,6 +469,7 @@ def index(request, resubmit_hash=False):
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
+                details["task_machines"] = machine
                 details = download_from_vt(request.POST.get("vtdl").strip(), details, opt_filename, settings)
 
         if details.get("task_ids"):

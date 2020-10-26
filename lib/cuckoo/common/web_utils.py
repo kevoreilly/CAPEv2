@@ -364,7 +364,20 @@ def download_file(**kwargs):
             f = open(kwargs["path"], 'wb')
             f.write(kwargs["content"])
             f. close()
-
+            if kwargs.get("service", "") == "VirusTotal":
+                magic_type = get_magic_type(kwargs["path"])
+                platform = get_platform(magic_type)
+                machine = kwargs.get("task_machines", "")
+                if machine.lower() == "all":
+                    kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
+                elif machine:
+                    machine_details = db.view_machine(machine)
+                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                        return "error", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}
+                    else:
+                        kwargs["task_machines"] = [machine]
+                else:
+                    kwargs["task_machines"] = ["first"]
     except Exception as e:
         print(e)
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}

@@ -308,7 +308,6 @@ def tasks_create_file(request):
                     "fhash": False,
                     "options": options,
                     "only_extraction": False,
-                    "task_machines": task_machines,
                 }
 
                 status, task_ids_tmp = download_file(**details)
@@ -497,7 +496,6 @@ def tasks_create_dlnexec(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
-            "task_machines": task_machines,
         }
 
         status, task_ids_tmp = download_file(**details)
@@ -597,7 +595,6 @@ def tasks_vtdl(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
-            "task_machines": task_machines,
         }
 
         details = download_from_vt(hashes, details, opt_filename, settings)

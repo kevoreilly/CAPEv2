@@ -93,7 +93,7 @@
     {% endif %}
     {% if analysis.info.options %}
         <div id="options" class="collapse">
-            <pre>{% for key, val in analysis.info.options.items %}{{ key }} = {{ val }}<br>{% endfor %}</pre>
+            <pre>{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
         </div>
     {% endif %}
     <div id="info-log" class="collapse">

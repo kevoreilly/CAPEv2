@@ -1,4 +1,6 @@
-.. Box-js integration
+======
+Box-js
+======
 
 * :ref:`instalation`
 * :ref:`preparation`
@@ -7,8 +9,6 @@
 
 .. _instalation:
 
-Box-js
-=============
 * Quick and dirty notes how to integrate box-js to CAPE::
 
     $ sudo apt install docker.io npm git

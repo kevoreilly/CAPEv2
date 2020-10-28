@@ -1,5 +1,12 @@
 .. Box-js integration
 
+* :ref:`instalation`
+* :ref:`preparation`
+* :ref:`starting`
+* :ref:`restapi`
+
+.. _instalation:
+
 Box-js
 =============
 * Quick and dirty notes how to integrate box-js to CAPE::
@@ -9,6 +16,8 @@ Box-js
     $ sudo npm audit fix --force
     $ git clone https://github.com/kirk-sayre-work/box-js /opt/box-js
     $ cd /opt/box-js
+
+.. _preparation:
 
 Preparation
 ===========
@@ -48,11 +57,15 @@ Preparation
     WORKDIR /samples
     CMD box-js /samples --output-dir=/samples --loglevel=debug
 
+.. _starting:
+
 Starting box-js rest-api
 ========================
 * Default port is ``9000`` you can change it inside of api.py
 
     $ node api.js
+
+.. _restapi:
 
 Box-js rest-api endpoints
 =========================

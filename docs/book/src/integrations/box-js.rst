@@ -11,11 +11,12 @@ Box-js
 
 * Quick and dirty notes how to integrate box-js to CAPE::
 
-    $ sudo apt install docker.io npm git
+    $ curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+    $ sudo apt install docker.io nodejs git
     $ sudo npm install -g npm@latest core-util-is hapi rimraf express express-fileupload
-    $ sudo npm audit fix --force
     $ git clone https://github.com/kirk-sayre-work/box-js /opt/box-js
     $ cd /opt/box-js
+    $ sudo npm audit fix --force
 
 .. _preparation:
 

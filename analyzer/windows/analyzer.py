@@ -496,6 +496,20 @@ class Analyzer:
         else:
             copy("bin\\loader_x64.exe", LOADER64_NAME)
 
+        si = subprocess.STARTUPINFO()
+        # STARTF_USESHOWWINDOW
+        si.dwFlags = 1
+        # SW_HIDE
+        si.wShowWindow = 0
+        #log.info("Stopping WMI Service")
+        subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
+        #log.info("Stopped WMI Service")
+        subprocess.call("sc config winmgmt type= own", startupinfo=si)
+
+        log.info("Restarting WMI Service")
+        subprocess.call("net start winmgmt", startupinfo=si)
+        #log.info("Started WMI Service")
+
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
@@ -953,16 +967,6 @@ class CommandPipeHandler(object):
     def _handle_wmi(self, data):
         if not self.analyzer.MONITORED_WMI and ANALYSIS_TIMED_OUT is False:
             self.analyzer.MONITORED_WMI = True
-            si = subprocess.STARTUPINFO()
-            # STARTF_USESHOWWINDOW
-            si.dwFlags = 1
-            # SW_HIDE
-            si.wShowWindow = 0
-            log.info("Stopping WMI Service")
-            subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
-            log.info("Stopped WMI Service")
-            subprocess.call("sc config winmgmt type= own", startupinfo=si)
-
             if not self.analyzer.MONITORED_DCOM:
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
@@ -974,10 +978,6 @@ class CommandPipeHandler(object):
                     self.analyzer.LASTINJECT_TIME = datetime.now()
                     servproc.close()
                     KERNEL32.Sleep(2000)
-
-            log.info("Starting WMI Service")
-            subprocess.call("net start winmgmt", startupinfo=si)
-            log.info("Started WMI Service")
 
             wmi_pid = pid_from_service_name("winmgmt")
             if wmi_pid:

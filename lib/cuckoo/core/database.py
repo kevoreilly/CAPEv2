@@ -1324,7 +1324,9 @@ class Database(object, metaclass=Singleton):
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if extracted_files and file_path.encode("utf-8") not in extracted_files:
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode("utf-8")
+        if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 os.remove(file_path)

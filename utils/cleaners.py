@@ -481,7 +481,7 @@ if __name__ == "__main__":
     parser.add_argument("--files-only-filter", help="only remove files events filter DELETE AFTER ONLY", action="store_true", required=False)
     parser.add_argument("--custom-include-filter", help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
     parser.add_argument("--bson-suri-logs-clean", help="clean bson and suri logs from analysis dirs", required=False, action="store_true")
-    parser.add_argument("--pending-clean", help="Remove all tasks marked as failed", required=False, action="store_true")
+    parser.add_argument("--pending-clean", help="Remove all tasks marked as pending", required=False, action="store_true")
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(

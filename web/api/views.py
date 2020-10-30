@@ -307,8 +307,7 @@ def tasks_create_file(request):
                     details["errors"].append({os.path.basename(tmp_path):"Error submitting file - bad file type"})
                     continue
             else:
-                content = get_file_content(tmp_path)
-                details["content"] = content
+                details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path): task_ids_tmp})

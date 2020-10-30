@@ -203,7 +203,6 @@ def tasks_create_file(request):
         # Parse potential POST options (see submission/views.py)
         quarantine = request.POST.get("quarantine", "")
         pcap = request.POST.get("pcap", "")
-
         unique = bool(request.POST.get("unique", False))
         static = request.POST.get("static", "")
         priority = force_int(request.POST.get("priority"))
@@ -214,6 +213,19 @@ def tasks_create_file(request):
             if options:
                 options += ","
             options += "procmemdump=1,procdump=1"
+
+        details = {
+            "errors": [],
+            "request": request,
+            "task_id": [],
+            "url": False,
+            "params": {},
+            "headers": {},
+            "service": "tasks_create_file_API",
+            "fhash": False,
+            "options": options,
+            "only_extraction": False,
+        }
 
         task_ids_tmp = []
         task_machines = []
@@ -259,6 +271,7 @@ def tasks_create_file(request):
                 resp = {"error": True, "error_value": "File size exceeds API limit"}
                 return jsonize(resp, response=True)
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            details["path"] = tmp_path
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 details["errors"].append({sample.name: "Not unique, as unique option set"})
                 continue
@@ -295,21 +308,7 @@ def tasks_create_file(request):
                     continue
             else:
                 content = get_file_content(tmp_path)
-                details = {
-                    "errors": [],
-                    "content": content,
-                    "request": request,
-                    "task_id": [],
-                    "url": False,
-                    "params": {},
-                    "headers": {},
-                    "service": "tasks_create_file_API",
-                    "path": tmp_path,
-                    "fhash": False,
-                    "options": options,
-                    "only_extraction": False,
-                }
-
+                details["content"] = content
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path): task_ids_tmp})

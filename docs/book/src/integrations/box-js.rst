@@ -13,7 +13,10 @@ Box-js
 
     $ curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
     $ sudo apt install docker.io nodejs git
-    $ sudo npm install -g npm@latest core-util-is hapi rimraf express express-fileupload
+    $ sudo usermod -aG docker cape
+    # newgrp docker
+    $ docker run hello-world
+    $ sudo npm install -g --save npm@latest core-util-is hapi rimraf express express-fileupload
     $ git clone https://github.com/kirk-sayre-work/box-js /opt/box-js
     $ cd /opt/box-js
     $ sudo npm audit fix --force
@@ -72,3 +75,7 @@ Box-js rest-api endpoints
 =========================
 * Check for box-js documentation
     * https://github.com/kirk-sayre-work/box-js/tree/master/integrations#methods
+
+Sandbox configuration
+=====================
+* In ``conf/processing.conf`` enable box-js and set correct url

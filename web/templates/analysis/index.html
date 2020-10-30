@@ -433,7 +433,7 @@
                         {% endif %}
                         {% if config.suricata %}
                         <td>
-                            <span class="mono">
+                            <center><span class="mono">
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}
@@ -457,6 +457,7 @@
                                     {% endif %}
                                 {% endif %}
                             --></span>
+                        </center>
                         </td>
                         {% endif %}
                         {% if config.virustotal %}

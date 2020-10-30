@@ -1,3 +1,7 @@
+### [31-10-2020] Pre Halloween edition
+* [Box-js](https://github.com/kirk-sayre-work/box-js/) integration [docs](https://capev2.readthedocs.io/en/latest/integrations/box-js.html)
+* Fixed support for office in x64 VMs
+
 ### [22-10-2020]
 * cape.py rewrite so it affects `api/tasks/get/config/` so before it was list of configs and it has `cape_name`, now its like `[{malware_family:{config}}]`
 

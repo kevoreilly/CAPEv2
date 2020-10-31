@@ -1838,7 +1838,7 @@ def tasks_payloadfiles(request, task_id):
 
         # ToDo
         #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), ontent_type="application/zip")
+        resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
         resp["Content-Length"] = os.path.getsize(len(mem_zip))
         resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp

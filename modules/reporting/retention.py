@@ -53,7 +53,7 @@ def delete_mongo_data(curtask, tid):
     # TODO: Class-ify this or make it a function in utils, some code reuse
     # between this/process.py/django view
     analyses = results_db.analysis.find({"info.id": int(tid)})
-    if analyses.count > 0:
+    if analyses.count() > 0:
         for analysis in analyses:
             for process in analysis.get("behavior", {}).get("processes", []):
                 for call in process["calls"]:

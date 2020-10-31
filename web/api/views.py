@@ -1822,7 +1822,7 @@ def tasks_payloadfiles(request, task_id):
     try:
         zippwd = settings.ZIP_PWD
     except AttributeError:
-        zippwd = "infected"
+        zippwd = b"infected"
 
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 

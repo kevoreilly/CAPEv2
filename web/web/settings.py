@@ -56,7 +56,7 @@ zip_cfg = aux_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
-ZIP_PWD = zip_cfg.get("zip_pwd", "infected")
+ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
 MOLOCH_BASE = moloch_cfg.get("base", None)
 MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)

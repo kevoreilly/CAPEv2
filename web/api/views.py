@@ -1163,6 +1163,9 @@ def tasks_iocs(request, task_id, detail=None):
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
+            for x in data["target"]["file"]["yara"]:
+                for i in range(0, len(x["strings"])):
+                    x["strings"][i] = x["strings"][i].hex(' 
 
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:

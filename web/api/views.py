@@ -230,7 +230,6 @@ def tasks_create_file(request):
         task_ids_tmp = []
         task_machines = []
         vm_list = []
-        details = {}
         for vm in db.list_machines():
             vm_list.append(vm.label)
 

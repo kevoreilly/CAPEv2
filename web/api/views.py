@@ -1839,7 +1839,7 @@ def tasks_payloadfiles(request, task_id):
         # ToDo
         #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
         resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = os.path.getsize(mem_zip.__sizeof__())
+        resp["Content-Length"] = mem_zip.__sizeof__()
         resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp
     else:
@@ -1884,7 +1884,7 @@ def tasks_procdumpfiles(request, task_id):
         #ToDo
         #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
         resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = os.path.getsize(mem_zip.__sizeof__())
+        resp["Content-Length"] = mem_zip.__sizeof__()
         resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp
     else:

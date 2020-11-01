@@ -1893,10 +1893,10 @@ def tasks_procdumpfiles(request, task_id):
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+        resp["Content-Disposition"] = "attachment; filename=" + f"cape_payloads_{task_id}.zip"
         return resp
     else:
-        resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
+        resp = {"error": True, "error_value": f"No procdump file(s) for task {task_id}."}
         return jsonize(resp, response=True)
 
 

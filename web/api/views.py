@@ -1841,14 +1841,15 @@ def tasks_payloadfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        # ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = mem_zip.__sizeof__()
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = "attachment; filename=" + f"cape_payloads_{task_id}.zip"
         return resp
     else:
-        return jsonize({"error": True, "error_value": "No CAPE file(s) for task {}.".format(task_id)}, response=True)
+        return jsonize({"error": True, "error_value": f"No CAPE file(s) for task {task_id}."}, response=True)
 
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -1888,10 +1889,10 @@ def tasks_procdumpfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        #ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = mem_zip.__sizeof__()
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp
     else:

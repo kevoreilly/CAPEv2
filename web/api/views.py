@@ -1830,6 +1830,8 @@ def tasks_payloadfiles(request, task_id):
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if os.path.exists(capepath):
+        if not HAVE_PYZIPPER:
+            return jsonize({"error": True, "error_value": "Install pyzipper to be able to download files"}, response=True)
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
@@ -1839,15 +1841,15 @@ def tasks_payloadfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        # ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = mem_zip.__sizeof__()
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = "attachment; filename=" + f"cape_payloads_{task_id}.zip"
         return resp
     else:
-        resp = {"error": True, "error_value": "No CAPE file(s) for task {}.".format(task_id)}
-        return jsonize(resp, response=True)
+        return jsonize({"error": True, "error_value": f"No CAPE file(s) for task {task_id}."}, response=True)
 
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -1874,7 +1876,10 @@ def tasks_procdumpfiles(request, task_id):
 
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
 
+    #ToDo check bad rturn
     if os.path.exists(procdumppath):
+        if not HAVE_PYZIPPER:
+            return jsonize({"error": True, "error_value": "Install pyzipper to be able to download files"}, response=True)
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
@@ -1884,14 +1889,14 @@ def tasks_procdumpfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        #ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
-        resp["Content-Length"] = mem_zip.__sizeof__()
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = "attachment; filename=" + f"cape_payloads_{task_id}.zip"
         return resp
     else:
-        resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
+        resp = {"error": True, "error_value": f"No procdump file(s) for task {task_id}."}
         return jsonize(resp, response=True)
 
 

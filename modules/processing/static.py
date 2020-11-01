@@ -705,19 +705,21 @@ class PortableExecutable(object):
             entry = rt_group_icon_dir.directory.entries[0]
             offset = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset : offset + size])
+            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset: offset + size])
             bigwidth = 0
             bigheight = 0
             bigbpp = 0
             bigidx = -1
             iconidx = 0
-            for idx, icon in enumerate(peicon.icons):
-                if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
-                    bigwidth = icon.bWidth
-                    bigheight = icon.bHeight
-                    bigbpp = icon.wBitCount
-                    bigidx = icon.nID
-                    iconidx = idx
+            if hasattr(peicon, "icons") and peicon.icons:
+                # TypeError: 'NoneType' object is not iterable
+                for idx, icon in enumerate(peicon.icons):
+                    if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
+                        bigwidth = icon.bWidth
+                        bigheight = icon.bHeight
+                        bigbpp = icon.wBitCount
+                        bigidx = icon.nID
+                        iconidx = idx
 
             rt_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_ICON"])
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]

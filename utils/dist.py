@@ -108,7 +108,7 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 
 def node_status(url, name, ht_user, ht_pass):
     try:
-        r = requests.get(os.path.join(url, "cuckoo", "status"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
+        r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
         return r.json()["tasks"]
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
@@ -117,7 +117,7 @@ def node_status(url, name, ht_user, ht_pass):
 
 def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
     try:
-        url = os.path.join(url, "tasks", "list")
+        url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True, username=ht_user, password=ht_pass)
         if action == "fetch":
             params["completed_after"] = since
@@ -131,7 +131,7 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
 
 def node_list_machines(url, ht_user, ht_pass):
     try:
-        r = requests.get(os.path.join(url, "machines", "list"), params={"username": ht_user, "password": ht_pass}, verify=False)
+        r = requests.get(os.path.join(url, "machines", "list/"), params={"username": ht_user, "password": ht_pass}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
@@ -140,7 +140,7 @@ def node_list_machines(url, ht_user, ht_pass):
 
 def node_get_report(task_id, fmt, url, ht_user, ht_pass, stream=False):
     try:
-        url = os.path.join(url, "tasks", "get", "report", "%d" % task_id, fmt)
+        url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
         return requests.get(url, stream=stream, params={"username": ht_user, "password": ht_pass}, verify=False, timeout=300)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
@@ -180,7 +180,7 @@ def node_submit_task(task_id, node_id):
                     password=node.ht_pass,
                 )
 
-            url = os.path.join(node.url, "tasks", "create", "file")
+            url = os.path.join(node.url, "tasks", "create", "file/")
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
             if not os.path.exists(task.path):
@@ -196,10 +196,8 @@ def node_submit_task(task_id, node_id):
             files = dict(file=open(task.path, "rb"))
             r = requests.post(url, data=data, files=files, verify=False)
         elif task.category == "url":
-            url = os.path.join(node.url, "tasks", "create", "url")
-            r = requests.post(
-                url, data={"url": task.path, "options": task.options, "username": node.ht_user, "password": node.ht_pass}, verify=False
-            )
+            url = os.path.join(node.url, "tasks", "create", "url/")
+            r = requests.post(url, data={"url": task.path, "options": task.options, "username": node.ht_user, "password": node.ht_pass}, verify=False)
         else:
             log.debug("Target category is: {}".format(task.category))
             db.close()

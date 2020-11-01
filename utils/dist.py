@@ -491,9 +491,7 @@ class Retriever(threading.Thread):
                     continue
 
                 if report.status_code != 200:
-                    log.info(
-                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(report.status_code, t.task_id, node_id)
-                    )
+                    log.info("dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(report.status_code, t.task_id, node_id))
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
                     continue

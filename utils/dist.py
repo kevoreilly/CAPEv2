@@ -122,7 +122,7 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
         if action == "fetch":
             params["completed_after"] = since
         r = requests.get(url, params=params, verify=False)
-        return r.json()["tasks"]
+        return r.json().get("data", [])
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
 

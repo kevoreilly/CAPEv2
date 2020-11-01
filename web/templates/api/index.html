@@ -677,7 +677,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
             <li>RPM: {{ config.payloadfiles.rpm }}</li>
           </ul>
         </td>
-        <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip)</td>
+        <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
             href="#capepayloadfiles">Example</a></td>
       </tr>
@@ -699,7 +699,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
             <li>RPM: {{ config.configfiles.rpm }}</li>
           </ul>
         </td>
-        <td>Download the procdump files associated with a task by ID. Return object will be octet-stream. (.zip)</td>
+        <td>Download the procdump files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
             href="#capeprocdumpfiles">Example</a></td>
       </tr>

@@ -109,7 +109,7 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 def node_status(url, name, ht_user, ht_pass):
     try:
         r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
-        return r.json()["tasks"]
+        return r.json().get("data", {})["tasks"]
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}

@@ -209,7 +209,7 @@ def node_submit_task(task_id, node_id):
 
         # Zip files preprocessed, so only one id
         if r and r.status_code == 200:
-            if "task_ids" in r.json() and len(r.json()["task_ids"]) > 0 and r.json()["task_ids"] is not None:
+            if "task_ids" in r.json().get("data", {}) and len(r.json().get("data", {})["task_ids"]) > 0 and r.json().get("data", {})["task_ids"] is not None:
                 task.task_id = r.json().get("data", {})["task_ids"][0]
                 check = True
             elif "task_id" in r.json() and r.json()["task_id"] > 0 and r.json()["task_id"] is not None:

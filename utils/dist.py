@@ -934,7 +934,7 @@ class TaskInfo(RestResource):
         response = {"status": 0}
         db = session()
         task_db = db.query(Task).filter_by(main_task_id=main_task_id).first()
-        if task_db.node_id:
+        if task_db and task_db.node_id:
             node = db.query(Node).filter_by(id=task_db.node_id).first()
             response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
         else:

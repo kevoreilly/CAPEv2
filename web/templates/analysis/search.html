@@ -1,16 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row">
-    <div class="col-md-6 col-md-offset-3 center">
+<div class="row d-flex justify-content-center">
+    <div class="d-flex justify-content-center">
         <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
-            <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" data-toggle="collapse">help</a>.</p>
-
             <div class="form-group">
                 <label class="sr-only" for="form_search">Search term</label>
                 <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term as regex" />
             </div>
-            <button type="submit" class="btn btn-default">Search</button>
+            <button type="submit" class="btn btn-secondary">Search</button>
         </form>
+    </div>
         <div id="help" class="collapse">
             <p class="text-muted" style="margin-top: 10px;">ElasticSearch queries do not use a prefix. ie: '*windows.*' would match 'time.windows.com'</p>
             <p class="text-muted" style="margin-top: 10px;">For MD5, SHA1, SHA256 and SHA512 no prefix is needed.</p>
@@ -209,16 +208,18 @@
                 </tbody>
             </table>
         </div>
-    </div>
+</div>
+<div class="row d-flex justify-content-center">
+    <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" data-toggle="collapse">help</a>.</p>
 </div>
 {% if term %}
     <h3>Term <span class="text-danger"><i>{{term}}</i></span></h3>
 {% endif %}
 {% if analyses != None %}
     {% if analyses|length > 0 %}
-        <div class="panel panel-primary">
-            <div class="panel-heading">
-                <h3 class="panel-title">Search Results</h3>
+        <div class="card ">
+            <div class="card-header">
+                <h3 class="card-title">Search Results</h3>
             </div>
             <table class="table table-striped" style="table-layout: fixed;">
                 <thead>
@@ -390,11 +391,11 @@
                             {% if analysis.malscore != None %}
                                 <span
                                 {% if analysis.malscore <= 2.0 %}
-                                class="label label-success"
+                                class="badge label-success"
                                 {% elif analysis.malscore <= 6.0 %}
-                                class="label label-warning"
+                                class="badge label-warning"
                                 {% else %}
-                                class="label label-danger"
+                                class="badge label-danger"
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"

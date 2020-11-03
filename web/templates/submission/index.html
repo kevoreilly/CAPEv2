@@ -58,44 +58,44 @@ $(document).ready( function() {
     });
 });
 </script>
-<div class="row">
-    <div class="col-md-6 col-md-offset-3 center">
+<div class="row d-flex justify-content-center">
+    <div class="d-flex justify-content-center">
         <form role="form" action="" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="tabbable">
                 <ul class="nav nav-tabs">
                     {% if resubmit %}
-                        <li class="active"><a href="#resubmit" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File resubmission</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File resubmission</a></li>
                     {% else %}
-                        <li class="active"><a href="#file" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File</a></li>
                         {% if config.vt %}
-                            <li><a href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
                         {% endif %}
-                        <li><a href="#quarantine" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Quarantine File</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#quarantine" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Quarantine File</a></li>
                         {% if config.url_analysis %}
-                            <li><a href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>
                         {% endif %}
                         {% if config.dlnexec %}
-                            <li><a href="#dlurl" data-toggle="tab"><span class="glyphicon glyphicon glyphicon-download-alt"></span> DL&Exec</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="glyphicon glyphicon glyphicon-download-alt"></span> DL&Exec</a></li>
                         {% endif %}
-                        <li><a href="#pcap" data-toggle="tab"><span class="glyphicon glyphicon-transfer"></span> PCAP</a></li>
-                        <li><a href="#static" data-toggle="tab"><span class="glyphicon glyphicon-tasks"></span> Static</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#pcap" data-toggle="tab"><span class="glyphicon glyphicon-transfer"></span> PCAP</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="glyphicon glyphicon-tasks"></span> Static</a></li>
                     {% endif %}
                 </ul>
                 <div class="tab-content">
                     {% if resubmit %}
-                        <div class="tab-pane fade in active" id="resubmit">
+                        <div class="tab-pane fade show active" id="resubmit">
                             <div class="input-group col-md-12">
                                 <label class="sr-only" form="form_resubmission"> File resubmission</label>
                                 <input type="text" class="form-control" id="form_resubmission" name="hash" value="{{resubmit}}" />
                             </div>
                         </div>
                     {% else %}
-                        <div class="tab-pane fade in active" id="file">
+                        <div class="tab-pane fade show active" id="file">
                             <div class="input-group col-md-6">
-                                <span class="input-group-btn">
+                                <span class="input-group-append">
                                     <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-default btn-file">
+                                    <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="sample" multiple="multiple">
                                     </span>
                                 </span>
@@ -111,9 +111,9 @@ $(document).ready( function() {
                         {% endif %}
                         <div class="tab-pane fade" id="quarantine">
                             <div class="input-group col-md-6">
-                                <span class="input-group-btn">
+                                <span class="input-group-append">
                                     <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-default btn-file">
+                                    <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="quarantine" multiple="multiple">
                                     </span>
                                 </span>
@@ -135,9 +135,9 @@ $(document).ready( function() {
                         {% endif %}
                         <div class="tab-pane fade" id="pcap">
                             <div class="input-group col-md-6">
-                                <span class="input-group-btn">
+                                <span class="input-group-append">
                                     <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-default btn-file">
+                                    <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="pcap" multiple="multiple">
                                     </span>
                                 </span>
@@ -145,9 +145,9 @@ $(document).ready( function() {
                         </div>
                         <div class="tab-pane fade" id="static">
                             <div class="input-group col-md-6">
-                                <span class="input-group-btn">
+                                <span class="input-group-append">
                                     <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-default btn-file">
+                                    <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="static" multiple="multiple">
                                     </span>
                                 </span>
@@ -157,12 +157,12 @@ $(document).ready( function() {
                 </div>
             </div>
             <div class="panel" id="accordion" style="margin-top: 20px;">
-                <div class="panel panel-default" style="margin-bottom: 0px;">
-                    <div class="panel-heading">
+                <div class="card " style="margin-bottom: 0px;">
+                    <div class="card-header">
                         <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#options"><i class="icon icon-cog"></i> Advanced Options</a>
                     </div>
-                    <div id="options" class="panel-collapse collapse in" style="text-align: left;">
-                        <div class="panel-body">
+                    <div id="options" class="panel-collapse collapse show" style="text-align: left;">
+                        <div class="card-body">
                             <div id="non-pcap-1">
                                 <div class="form-group">
                                     <label for="form_package">Analysis Package</label>
@@ -503,68 +503,68 @@ $(document).ready( function() {
                                 <label for="form_custom">Custom</label>
                                 <input type="text" class="form-control" id="form_custom" name="custom" />
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="process_dump" /> Disable process dumps
                                 </label>
                             </div>
                             {% if config.procmemory %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="process_memory"/> Full process memory dumps
                                 </label>
                             </div>
                             {% endif %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="import_reconstruction" /> Enable import reconstruction in process dumps
                                 </label>
                             </div>
                             {% if config.memory %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="memory" /> Full Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span>
                                 </label>
                             </div>
                             {% endif %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="enforce_timeout" /> Enforce Timeout
                                 </label>
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="free" /> Run without monitoring <span class="text-muted"><small>(disables many capabilities)</small></span>
                                 </label>
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="disable_cape" /> Disable automatic job submission </small></span>
                                 </label>
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="norefer" /> No Fake Referrer for URL Tasks
                                 </label>
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="nohuman" /> Disable automated interaction
                                 </label>
                             </div>
                             {% if config.kernel %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="kernel_analysis" /> Enable zer0m0n kernel-based behavioral analysis
                                 </label>
                             </div>
                             {% endif %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="static"/> Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
                                 </label>
                             </div>
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="oldloader" /> Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span>
                                 </label>
@@ -574,7 +574,7 @@ $(document).ready( function() {
                 </div>
             </div>
             </div>
-            <div style="margin-top: 20px;"><button type="submit" class="btn btn-default btn-lg">Analyze</button></div>
+            <div style="margin-top: 20px;"><button type="submit" class="btn btn-secondary btn-lg">Analyze</button></div>
         </form>
     </div>
 </div>

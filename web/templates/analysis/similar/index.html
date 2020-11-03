@@ -1,7 +1,7 @@
 {% if similar|length > 0 %}
-    <div class="panel panel-primary">
-        <div class="panel-heading">
-            <h3 class="panel-title">Similar Analyses</h3>
+    <div class="card ">
+        <div class="card-header">
+            <h3 class="card-title">Similar Analyses</h3>
         </div>
         <table class="table table-striped" style="table-layout: fixed;">
             <thead>
@@ -87,11 +87,11 @@
                         {% if analysis.malscore != None %}
                             <span 
                             {% if analysis.malscore <= 2.0 %}
-                            class="label label-success"
+                            class="badge label-success"
                             {% elif analysis.malscore <= 6.0 %}
-                            class="label label-warning"
+                            class="badge label-warning"
                             {% else %}
-                            class="label label-danger"
+                            class="badge label-danger"
                             {% endif %}
                             >{{analysis.malscore|floatformat:1}}</span>
                         {% else %}

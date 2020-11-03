@@ -91,9 +91,9 @@
 
 <div class="tabbable">
     <ul class="nav nav-tabs">
-        <li><a href="#search" data-toggle="tab"><span class="glyphicon glyphicon-search"></span> Search</a></li>
+        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="glyphicon glyphicon-search"></span> Search</a></li>
         {% for process in behavior.processes %}
-        <li {% if forloop.counter == 1 %}class="active" {% endif %}><a href="#process_{{process.process_id}}"
+        <li {% if forloop.counter == 1 %}class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
                 data-toggle="tab"><span class="glyphicon glyphicon-cog"></span> {{process.process_name}}
                 ({{process.process_id}})</a></li>
         {% endfor %}
@@ -115,26 +115,17 @@
                 <div style="text-align: center; position:relative;">
                     <div>
                         <div id="currcategory" value="default"></div>
-                        <a id="badge_default_{{process.process_id}}" class="badge default"
-                            style="color:black;">default</a>
-                        <a id="badge_registry_{{process.process_id}}" class="badge registry"
-                            style="color:black;">registry</a>
-                        <a id="badge_filesystem_{{process.process_id}}" class="badge filesystem"
-                            style="color:black;">filesystem</a>
-                        <a id="badge_network_{{process.process_id}}" class="badge network"
-                            style="color:black;">network</a>
-                        <a id="badge_process_{{process.process_id}}" class="badge process"
-                            style="color:black;">process</a>
-                        <a id="badge_threading_{{process.process_id}}" class="badge threading"
-                            style="color:black;">threading</a>
-                        <a id="badge_services_{{process.process_id}}" class="badge services"
-                            style="color:black;">services</a>
+                        <a id="badge_default_{{process.process_id}}" class="badge badge-primary default" style="color:black;">default</a>
+                        <a id="badge_registry_{{process.process_id}}" class="badge registry" style="color:black;">registry</a>
+                        <a id="badge_filesystem_{{process.process_id}}" class="badge filesystem" style="color:black;">filesystem</a>
+                        <a id="badge_network_{{process.process_id}}" class="badge network" style="color:black;">network</a>
+                        <a id="badge_process_{{process.process_id}}" class="badge process" style="color:black;">process</a>
+                        <a id="badge_threading_{{process.process_id}}" class="badge threading" style="color:black;">threading</a>
+                        <a id="badge_services_{{process.process_id}}" class="badge services" style="color:black;">services</a>
                         <a id="badge_device_{{process.process_id}}" class="badge device" style="color:black;">device</a>
-                        <a id="badge_sync_{{process.process_id}}" class="badge synchronization"
-                            style="color:black;">synchronization</a>
+                        <a id="badge_sync_{{process.process_id}}" class="badge synchronization" style="color:black;">synchronization</a>
                         <a id="badge_crypto_{{process.process_id}}" class="badge crypto" style="color:black;">crypto</a>
-                        <a id="badge_browser_{{process.process_id}}" class="badge browser"
-                            style="color:black;">browser</a>
+                        <a id="badge_browser_{{process.process_id}}" class="badge browser" style="color:black;">browser</a>
                         <a id="badge_all_{{process.process_id}}" class="badge all" style="color:black;">all</a>
                         <div class="form-group" style="display:inline-block; padding-left: 10px">
                             <label class="sr-only" for="form_search">API Filter</label>
@@ -158,7 +149,7 @@
                         <input type="text" class="form-control" id="tidfilter_{{process.process_id}}" name="tidfilter"
                             size=25 placeholder="TID" />
                     </div>
-                    <button id="submit-filter" type="submit" class="btn btn-default">Filter</button>
+                    <button id="submit-filter" type="submit" class="btn btn-secondary">Filter</button>
                 </div>
             </div>
 

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="panel panel-primary">
-  <div class="panel-heading">
-    <h3 class="panel-title">API - <a href=https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api>Authentification example</a></h3>
+<div class="card ">
+  <div class="card-header">
+    <div class="card-title">API - <a href=https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api>Authentification example</a></div>
   </div>
   {% if config %}
   <table class="table table-striped" style="table-layout: fixed;">
@@ -20,9 +20,9 @@
       <tr>
         <td>File Create</td>
         {% if config.filecreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -43,9 +43,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>VirusTotal download and analyze</td>
         {% if config.vtdl.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -65,9 +65,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>URL Create</td>
         {% if config.urlcreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -87,9 +87,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>Download file and Create file task aka dl'n'exec</td>
         {% if config.dlnexeccreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -110,9 +110,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>Static extraction</td>
         {% if config.staticextraction.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -132,9 +132,9 @@ Note: machine is optional.</pre>
             <tr>
                 <td>File View</td>
                 {% if config.fileview.enabled %}
-                <td><span class="label label-success">Yes</span></td>
+                <td><span class="badge label-success">Yes</span></td>
                 {% else %}
-                <td><span class="label label-danger">No</span></td>
+                <td><span class="badge label-danger">No</span></td>
                 {% endif %}
                 <td><ul><li>RPS: {{ config.fileview.rps }}</li>
                         <li>RPM: {{ config.fileview.rpm }}</li></ul></td>
@@ -151,9 +151,9 @@ curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
       <tr>
         <td>Basic Task Search</td>
         {% if config.tasksearch.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -176,9 +176,9 @@ curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Extended Task Search</td>
         {% if config.extendedtasksearch.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -233,9 +233,9 @@ TTP: TTP number
       <tr>
         <td>Tasks List</td>
         {% if config.tasklist.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -258,9 +258,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task View</td>
         {% if config.taskview.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -281,9 +281,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Reschedule Task</td>
         {% if config.taskresched.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -303,9 +303,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Delete Task</td>
         {% if config.taskdelete.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -325,9 +325,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task Status</td>
         {% if config.taskstatus.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -347,9 +347,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task Report</td>
         {% if config.taskreport.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -372,9 +372,9 @@ Note: Format can be json/maec/maec5/metadata/all.</pre>
       <tr>
         <td>Task IOCs</td>
         {% if config.taskiocs.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -395,9 +395,9 @@ curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
       <tr>
         <td>Task Screenshots</td>
         {% if config.taskscreenshot.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -419,9 +419,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task PCAP</td>
         {% if config.taskpcap.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -441,9 +441,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task Dropped Files</td>
         {% if config.taskdropped.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -463,9 +463,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task SuriFiles</td>
         {% if config.tasksurifile.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -486,9 +486,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task Process Dump</td>
         {% if config.taskprocmemory.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -510,9 +510,9 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       <tr>
         <td>Task Full Memory Dump</td>
         {% if config.taskfullmemory.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -532,9 +532,9 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       <tr>
         <td>Sample Download</td>
         {% if config.sampledl.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -557,9 +557,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Virtual Machine List</td>
         {% if config.machinelist.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -579,9 +579,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Virtual Machine View</td>
         {% if config.machineview.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -601,9 +601,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Get tasks ids finished in latest X hours</td>
         {% if config.latests.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -623,9 +623,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Status</td>
         {% if config.cuckoostatus.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -645,9 +645,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Extracted Sample Config</td>
         {% if config.capeconfig.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -667,9 +667,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Payload Files</td>
         {% if config.payloadfiles.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -678,8 +678,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#capepayloadfiles">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"  href="#capepayloadfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capepayloadfiles">
         <td colspan="5">
@@ -689,9 +688,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Procdump Files</td>
         {% if config.procdumpfiles.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge label-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge label-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -711,7 +710,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
     </tbody>
   </table>
   {% else %}
-  <div class="panel-body">Problem loading API configuration file.</div>
+  <div class="card-body">Problem loading API configuration file.</div>
   {% endif %}
 </div>
 {% endblock %}

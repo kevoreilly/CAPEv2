@@ -1,7 +1,7 @@
 <section id="static_analysis">
     {% load key_tags %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
+        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
         {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
     {% endif %}
     {% if analysis.static and analysis.static.pe %}
@@ -209,10 +209,10 @@
                         <td>{{analysis.static.pe.guest_signers.aux_sha1}}</td>
                         <td>{{analysis.static.pe.guest_signers.aux_timestamp}}</td>
                         {% if analysis.static.pe.guest_signers.aux_valid %}
-                        <td><center><span class="label label-success">Yes</span></center></td>
+                        <td><center><span class="badge label-success">Yes</span></center></td>
                         <td>None</td>
                         {% else %}
-                        <td><center><span class="label label-danger">No</span></center></td>
+                        <td><center><span class="badge label-danger">No</span></center></td>
                         <td>{{analysis.static.pe.guest_signers.aux_error_desc}}</td>
                         {% endif %}
                     </tr>
@@ -341,7 +341,7 @@
             <h4>Imports</h4>
             <div class="panel" id="pe_imports" style="margin-top: 20px;">
                 {% for library in analysis.static.pe.imports %}
-                    <div class="panel-heading">
+                    <div class="card-header">
                         <a class="accordion-toggle" data-parent="#pe_imports" data-toggle="collapse" href="#{{library.dll}}" aria-expanded="false"><i class="icon icon-cog"></i> <strong>Library {{library.dll}}</strong>:</a>
                     </div>
                     <div id="{{library.dll}}" class="panel-collapse collapse in" style="text-align: left;">

@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="panel panel-primary">
-    <div class="panel-heading">
-        <h3 class="panel-title">Pending Tasks</h3>
-    </div>
+<div class="card ">
+    <div class="card-header">Pending Tasks</div>
     {% if tasks %}
     <table class="table table-striped" style="table-layout: fixed;">
         <thead>
@@ -45,7 +43,7 @@
         </tbody>
     </table>
     {% else %}
-    <div class="panel-body">No pending tasks.</div>
+    <div class="card-body">No pending tasks.</div>
     {% endif %}
         </div>
 {% endblock %}

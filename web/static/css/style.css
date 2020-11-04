@@ -201,3 +201,8 @@ pre {
     display: inline-block;
     cursor: pointer;
 }
+
+.form-control {
+    background-color: darkgray;
+    color:black;
+}

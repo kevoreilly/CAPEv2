@@ -12,19 +12,19 @@
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
            {% if paging.show_file_prev == "show" %}
-               <li class="page-item"><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+               <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
            {% if paging.files_page_range %}
                {% for page in paging.files_page_range %}
                    {% if page == paging.current_page %}
-                   <li class="page-item"><a class="page-link">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
-                   <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                    {% endif %}
                {% endfor %}
            {% endif %}
            {% if paging.show_file_next == "show" %}
-               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+               <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>
@@ -285,19 +285,19 @@
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
            {% if paging.show_file_prev == "show" %}
-               <li class="page-item"><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+               <li class="page-item" ><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
            {% if paging.files_page_range %}
                {% for page in paging.files_page_range %}
                    {% if page == paging.current_page %}
-                   <li class="page-item"><a class="page-link">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link"  style="background-color: #444;">{{page}}</a></li>
                    {% else %}
-                   <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link"  style="background-color: #444;" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                    {% endif %}
                {% endfor %}
            {% endif %}
            {% if paging.show_file_next == "show" %}
-               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+               <li class="page-item"><a class="page-link"  style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>
@@ -562,19 +562,19 @@
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
            {% if paging.show_file_prev == "show" %}
-               <li class="page-item"><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
            {% if paging.files_page_range %}
                {% for page in paging.files_page_range %}
                    {% if page == paging.current_page %}
-                   <li class="page-item"><a class="page-link">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
-                   <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                    {% endif %}
                {% endfor %}
            {% endif %}
            {% if paging.show_file_next == "show" %}
-               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+               <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>
@@ -587,19 +587,19 @@
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
            {% if paging.show_file_prev == "show" %}
-               <li class="page-item"><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
            {% if paging.files_page_range %}
                {% for page in paging.files_page_range %}
                    {% if page == paging.current_page %}
-                   <li class="page-item"><a class="page-link">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
-                   <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                    {% endif %}
                {% endfor %}
            {% endif %}
            {% if paging.show_file_next == "show" %}
-               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+               <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>
@@ -807,19 +807,19 @@
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
            {% if paging.show_file_prev == "show" %}
-               <li class="page-item"><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
            {% if paging.files_page_range %}
                {% for page in paging.files_page_range %}
                    {% if page == paging.current_page %}
-                   <li class="page-item"><a class="page-link">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
-                   <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                   <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                    {% endif %}
                {% endfor %}
            {% endif %}
            {% if paging.show_file_next == "show" %}
-               <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+               <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>

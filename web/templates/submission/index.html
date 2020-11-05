@@ -486,20 +486,8 @@ $(document).ready( function() {
                             <div id="non-pcap-2">
                             <div class="form-group">
                                 <label for="form_custom">Clock</label>
-                                <div class='input-group date' id='datetimepicker1'>
-                                    <input type='text' class="form-control" name="clock" />
-                                    <span class="input-group-addon">
-                                        <span class="fa fa-calendar"></span>
-                                    </span>
-                                </div>
+                                <input type="text" class="form-control" id="text" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
                             </div>
-                            <script type="text/javascript">
-                                $(function () {
-                                    $('#datetimepicker1').datetimepicker({
-                                        format: 'MM-DD-YYYY HH:mm:00'
-                                    });
-                                });
-                            </script>
                             <div class="form-group">
                                 <label for="form_custom">Custom</label>
                                 <input type="text" class="form-control" id="form_custom" name="custom" />

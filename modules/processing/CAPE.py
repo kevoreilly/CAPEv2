@@ -140,7 +140,7 @@ class CAPE(Processing):
 
             # Recursive process of unpacked file
             upx_extract = self.process_file(newname, True, {})
-            if upx_extract["type"]:
+            if upx_extract and upx_extract["type"]:
                 upx_extract["cape_type"] = "UPX-extracted "
                 type_strings = upx_extract["type"].split()
                 if type_strings[0] in ("PE32+", "PE32"):

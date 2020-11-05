@@ -558,14 +558,14 @@
             <div class="card-body">No URLS to display on this page.</div>
             {% endif %}
         </div>
-        {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
+        {% if paging.show_url_next == "show" or paging.show_url_prev == "show" %}
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
-           {% if paging.show_file_prev == "show" %}
+           {% if paging.show_url_prev == "show" %}
                <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
-           {% if paging.files_page_range %}
-               {% for page in paging.files_page_range %}
+           {% if paging.urls_page_range %}
+               {% for page in paging.urls_page_range %}
                    {% if page == paging.current_page %}
                    <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
@@ -573,7 +573,7 @@
                    {% endif %}
                {% endfor %}
            {% endif %}
-           {% if paging.show_file_next == "show" %}
+           {% if paging.show_url_next == "show" %}
                <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
@@ -583,14 +583,13 @@
 
 <div class="tab-pane fade" id="pcaps">
     {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
-    {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
-           {% if paging.show_file_prev == "show" %}
+           {% if paging.show_pcap_prev == "show" %}
                <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
-           {% if paging.files_page_range %}
-               {% for page in paging.files_page_range %}
+           {% if paging.pcaps_page_range %}
+               {% for page in paging.pcap_page_range %}
                    {% if page == paging.current_page %}
                    <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
@@ -598,12 +597,11 @@
                    {% endif %}
                {% endfor %}
            {% endif %}
-           {% if paging.show_file_next == "show" %}
+           {% if paging.show_pcap_next == "show" %}
                <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>
         </nav>
-    {% endif %}
     {% endif %}
     <div class="card ">
         <div class="card-header">Recent PCAPs</div>
@@ -803,14 +801,14 @@
         <div class="card-body">No PCAPs to display on this page.</div>
         {% endif %}
     </div>
-    {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
+    {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
         <nav aria-label="Page navigation">
            <ul class="pagination justify-content-center">
-           {% if paging.show_file_prev == "show" %}
+           {% if paging.show_pcap_prev == "show" %}
                <li class="page-item"><a class="page-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
-           {% if paging.files_page_range %}
-               {% for page in paging.files_page_range %}
+           {% if paging.pcap_page_range %}
+               {% for page in paging.pcap_page_range %}
                    {% if page == paging.current_page %}
                    <li class="page-item"><a class="page-link" style="background-color: #444;">{{page}}</a></li>
                    {% else %}
@@ -818,7 +816,7 @@
                    {% endif %}
                {% endfor %}
            {% endif %}
-           {% if paging.show_file_next == "show" %}
+           {% if paging.show_pcap_next == "show" %}
                <li class="page-item"><a class="page-link" style="background-color: #444;" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
            </ul>

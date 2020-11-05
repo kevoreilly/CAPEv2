@@ -65,21 +65,21 @@ $(document).ready( function() {
             <div class="tabbable">
                 <ul class="nav nav-tabs">
                     {% if resubmit %}
-                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File resubmission</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> File resubmission</a></li>
                     {% else %}
-                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File</a></li>
                         {% if config.vt %}
-                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span>VirusTotal</a></li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="#quarantine" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Quarantine File</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#quarantine" data-toggle="tab"><span class="fa fa-fire"></span> Quarantine File</a></li>
                         {% if config.url_analysis %}
-                            <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
                         {% endif %}
                         {% if config.dlnexec %}
-                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="glyphicon glyphicon glyphicon-download-alt"></span> DL&Exec</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="fa fa-download"></span> DL&Exec</a></li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="#pcap" data-toggle="tab"><span class="glyphicon glyphicon-transfer"></span> PCAP</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="glyphicon glyphicon-tasks"></span> Static</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#pcap" data-toggle="tab"><span class="fa fa-network-wired"></span> PCAP</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="fa fa-tasks"></span> Static</a></li>
                     {% endif %}
                 </ul>
                 <div class="tab-content">
@@ -489,7 +489,7 @@ $(document).ready( function() {
                                 <div class='input-group date' id='datetimepicker1'>
                                     <input type='text' class="form-control" name="clock" />
                                     <span class="input-group-addon">
-                                        <span class="glyphicon glyphicon-calendar"></span>
+                                        <span class="fa fa-calendar"></span>
                                     </span>
                                 </div>
                             </div>

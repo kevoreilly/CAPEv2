@@ -36,6 +36,7 @@
     <!--dark theme https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.5.3/-->
     <link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
+    <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
 
     </head>
     <body>
@@ -44,12 +45,12 @@
             <div class="collapse navbar-collapse" id="navbarColor02">
               <a class="nav-link " href="{% url "analysis" %}"><img src="{{ STATIC_URL }}graphic/cape.png"></a>
               <ul class="navbar-nav mr-auto">
-                <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"> Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"> Recent</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"> Pending</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "search" %}"> Search</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "api" %}"> API</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"> Submit</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> Recent</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> Pending</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><span class="fas fa-search"></span> Search</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "api" %}"><span class="fas fa-cog"></span> API</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> Submit</a></li>
               </ul>
               <form class="form-inline ml-auto">
                 <input class="form-control ml-auto" type="text" placeholder="Search">

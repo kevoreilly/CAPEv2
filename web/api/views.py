@@ -1071,7 +1071,7 @@ def tasks_report(request, task_id, report_format="json"):
 
     elif report_format.lower() in bz_formats:
         bzf = bz_formats[report_format.lower()]
-        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
+        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         s = BytesWarning()
 
         # By default go for bz2 encoded tar files (for legacy reasons.)

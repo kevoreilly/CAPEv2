@@ -17,6 +17,23 @@ body {
         padding-bottom: 0px;
     }
 }
+
+a {
+    color: red
+}
+
+a:hover {
+    color: darkred
+}
+
+.btn-link {
+    color: red
+}
+
+.btn-link:hover {
+    color: darkred
+}
+
 footer {
     background: #292727;
     margin: 40px 0 0;

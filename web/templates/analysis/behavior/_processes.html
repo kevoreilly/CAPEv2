@@ -4,23 +4,23 @@
         if (pages === 0) return "";
 
         function alert_current_page(i, page) {
-            if (i == page) return " class=\"active\"";
+            if (i == page) return " class=\" nav-item active\"";
             return "";
         }
 
         var out = "";
-        out += "<li" + alert_current_page(1, page) + "><a href=\"#\">1</a></li>";
+        out += "<li class=\"nav-item\"" + alert_current_page(1, page) + "><a class=\"nav-link\" href=\"#\">1</a></li>";
 
         if (page - 5 > 5) out += "<li><span>...</span></li>";
 
         for (i = Math.max(2, page - 5); i <= Math.min(pages - 1, page + 5); i++) {
-            out += "<li" + alert_current_page(i, page) + "><a href=\"#\">" + i + "</a></li>";
+            out += "<li li class=\"nav-item\"" + alert_current_page(i, page) + "><a class=\"nav-link\" href=\"#\">" + i + "</a></li>";
         }
 
-        if (page + 5 < pages - 1) out += "<li><span>...</span></li>";
+        if (page + 5 < pages - 1) out += "<li class=\"nav-item\"><span>...</span></li>";
 
         if (pages > 1)
-            out += "<li" + alert_current_page(pages, page) + "><a href=\"#\">" + pages + "</a></li>";
+            out += "<li class=\"nav-item\"" + alert_current_page(pages, page) + "><a class=\"nav-link\" href=\"#\">" + pages + "</a></li>";
         return out;
     }
     function load_chunk(pid, pagenum, callback) {
@@ -91,10 +91,10 @@
 
 <div class="tabbable">
     <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="glyphicon glyphicon-search"></span> Search</a></li>
+        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
         {% for process in behavior.processes %}
         <li {% if forloop.counter == 1 %}class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
-                data-toggle="tab"><span class="glyphicon glyphicon-cog"></span> {{process.process_name}}
+                data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}}
                 ({{process.process_id}})</a></li>
         {% endfor %}
     </ul>

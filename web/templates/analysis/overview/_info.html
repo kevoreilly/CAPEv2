@@ -68,12 +68,12 @@
                     <td>{{analysis.info.ended}}</td>
                     <td>{{analysis.info.duration}} seconds</td>
                     {% if analysis.info.options %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#options">Show Options</a></td>
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#options">Show Options</a></td>
                     {% endif %}
                     {% if analysis.info.distributed %}
                         <td>{{analysis.info.distributed.name}} - {{analysis.info.distributed.task_id}}</td>
                     {% endif %}
-                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#info-log">Show Log</a></td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Log</a></td>
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}

@@ -34,6 +34,14 @@ a:hover {
     color: darkred
 }
 
+.page-link {
+    background-color: #444
+}
+
+.page-link-active {
+    background-color: darkred;
+}
+
 footer {
     background: #292727;
     margin: 40px 0 0;

@@ -6,8 +6,14 @@
             <div class="panel-heading">
                 <h4 class="panel-title" style="text-align: center;">Detections</h4>
             </div>
-            <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
-            <h4 style="text-align:center; font-size: 16px%;font-weight-bold";><span class="label label-danger">{{analysis.detections}}</span></h4>
+            <table class="table table-dark table-stripped">
+                <thead>
+                    <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
+                </thead>
+                <tbody>
+                    <h4 style="text-align:center; font-size: 16px%;font-weight-bold";><span class="label label-danger">{{analysis.detections}}</span></h4>
+                </tbody>
+            </table>
         </div>
     </div>
     {% endif %}
@@ -128,6 +134,6 @@
                     </tr>
                 </tbody>
             </table>
-            </div
+        </div>
     </section>
 {% endif %}

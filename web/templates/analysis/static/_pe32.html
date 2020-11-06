@@ -8,7 +8,7 @@
             <div>
                 <h4>PE Information</h4>
                 <div id="pe_information">
-                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                    <table class="table table-striped table-bordered table-sm" style="table-layout: fixed;">
                         {% if analysis.static.pe.imagebase %} <th style="width: 15%;">Image Base</th> {% endif %}
                         {% if analysis.static.pe.entrypoint %} <th style="width: 15%;">Entry Point</th> {% endif %}
                         {% if analysis.static.pe.reported_checksum %} <th style="width: 15%;">Reported Checksum</th> {% endif %}
@@ -68,7 +68,7 @@
             <div>
                 <h4>Version Infos</h4>
                 <div id="pe_versioninfo">
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered table-sm">
                         <colgroup>
                             <col width="150" />
                             <col width="*" />
@@ -90,7 +90,7 @@
         <div>
             <h4>PEiD Signatures</h4>
             <div id="peid_signatures">
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                 {% for sig in analysis.static.pe.peid_signatures %}
                     <tr><td>{{sig}}</td></tr>
                 {% endfor %}
@@ -104,7 +104,7 @@
             <h4>Digital Signers</h4>
             <div id="digital_signers">
                 {% for cert in analysis.static.pe.digital_signers %}
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                     <colgroup>
                         <col width="250" />
                         <col width="*" />
@@ -198,7 +198,7 @@
         <div>
             <h4>Microsoft Certificate Validation (Sign Tool)</h4>
             <div id="digital_signers_validation">
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                     <tr>
                         <th width="20%">SHA1</th>
                         <th width="20%">Timestamp</th>
@@ -218,7 +218,7 @@
                     </tr>
                 </table>
                 {% for signer in analysis.static.pe.guest_signers.aux_signers %}
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                     <colgroup>
                         <col style="width:15%">
                         <col style="width:85%">
@@ -255,7 +255,7 @@
             <div>
                 <h4>Sections</h4>
                 <div id="pe_sections">
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered table-sm">
                         <tr>
                             <th>Name</th>
                             <th>RAW Address</th>
@@ -286,7 +286,7 @@
         <div>
             <h4>Overlay</h4>
             <div id="pe_overlay">
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                     <colgroup>
                         <col width="150" />
                         <col width="*" />
@@ -309,7 +309,7 @@
         <div>
             <h4>Resources</h4>
             <div id="pe_resources">
-                <table class="table table-striped table-bordered">
+                <table class="table table-striped table-bordered table-sm">
                     <tr>
                         <th>Name</th>
                         <th>Offset</th>
@@ -341,11 +341,11 @@
             <h4>Imports</h4>
             <div class="panel" id="pe_imports" style="margin-top: 20px;">
                 {% for library in analysis.static.pe.imports %}
-                    <div class="card-header">
-                        <a class="accordion-toggle" data-parent="#pe_imports" data-toggle="collapse" href="#{{library.dll}}" aria-expanded="false"><i class="icon icon-cog"></i> <strong>Library {{library.dll}}</strong>:</a>
+                    <div class="panel-header">
+                        <a class="accordion-toggle" data-parent="#pe_imports" data-toggle="collapse" href="#{{library.dll}}" aria-expanded="false" aria-controls="#{{library.dll}}"><i class="icon icon-cog"></i> <strong>Library {{library.dll}}</strong>:</a>
                     </div>
-                    <div id="{{library.dll}}" class="panel-collapse collapse in" style="text-align: left;">
-                        <div class="well" style="font-family: monospace;">
+                    <div id="{{library.dll}}" class="collapse" style="text-align: left;">
+                        <div class="panel" style="font-family: monospace;">
                         {% for function in library.imports %}
                             <div>&bull; <span class="mono">{{function.address}} <a href="http://social.msdn.microsoft.com/Search/en-US/windows/desktop?query={{function.name}}">{{function.name}}</a></span></div>
                         {% endfor %}
@@ -361,7 +361,7 @@
             <div>
                 <h4>Exports</h4>
                 <div id="pe_exports">
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered table-sm">
                         <tr>
                             <th>Ordinal</th>
                             <th>Address</th>

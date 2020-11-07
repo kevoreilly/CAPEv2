@@ -501,6 +501,7 @@ perform_search_filters = {
 
 search_term_map = {
     "id": "info.id",
+    "ids": "info.id",
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
@@ -568,19 +569,27 @@ def perform_search(term, value):
 
     if term in ("md5", "sha1", "sha256", "sha512"):
         query_val = value
-    else:
-        query_val = {"$regex": value, "$options": "-i"}
-
-    if term in ("surisid", "id"):
+    elif term in ("surisid", "id"):
         try:
             query_val = int(value)
         except:
             pass
+    elif term == "ids":
+        try:
+            if all([v.strip().isdigit() for v in value.split(",")])
+                ids = [int(v.strip()) for v in filter(None, value.split(","))]
+                query_val = f"$in: {ids}"
+        except Exception as e:
+            print(term, value, e)
+    else:
+        query_val = {"$regex": value, "$options": "-i"}
+
+
 
     if term not in search_term_map:
         return None
 
-    if repconf.mongodb.enabled:
+    if repconf.mongodb.enabled and query_val:
         return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])
     if es_as_db:
         return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]

@@ -584,8 +584,6 @@ def perform_search(term, value):
     else:
         query_val = {"$regex": value, "$options": "-i"}
 
-
-
     if term not in search_term_map:
         return None
 

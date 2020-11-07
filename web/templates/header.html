@@ -1,45 +1,45 @@
 
 <body>
-<header>
-    <!DOCTYPE html>
-    <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
-    <head>
-    <meta charset="utf-8">
-    <title>CAPEv2 Sandbox</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="CAPE Sandbox">
-    <meta name="author" content="CAPE Sandbox">
-    <link rel="icon" type="image/png" href="{{ STATIC_URL }}img/cape.png" />
-    <link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
-    <script src="{{ STATIC_URL }}js/jquery.js"></script>
+  <header>
+      <!DOCTYPE html>
+      <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+      <head>
+      <meta charset="utf-8">
+      <title>CAPEv2 Sandbox</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="description" content="CAPE Sandbox">
+      <meta name="author" content="CAPE Sandbox">
+      <link rel="icon" type="image/png" href="{{ STATIC_URL }}img/cape.png" />
+      <link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
+      <script src="{{ STATIC_URL }}js/jquery.js"></script>
 
 
-    <!--dark theme https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.5.3/-->
-    <link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
-    <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
+      <!--dark theme https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.5.3/-->
+      <link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
+      <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
+      <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
 
-    </head>
-    <body>
-    <header>
-          <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top py-0">
-            <div class="collapse navbar-collapse" id="navbarColor02">
-              <a class="nav-link " href="{% url "analysis" %}"><img src="{{ STATIC_URL }}graphic/cape.png"></a>
-              <ul class="navbar-nav mr-auto">
-                <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> Recent</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> Pending</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><span class="fas fa-search"></span> Search</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "api" %}"><span class="fas fa-cog"></span> API</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> Submit</a></li>
-              </ul>
-              <form class="form-inline" style="margin:0px;">
-                <input class="form-control" type="text" placeholder="Search">
-                <button class="btn btn-secondary" type="submit">Search</button>
-              </form>
+      </head>
+      <body>
+      <header>
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top py-0">
+              <div class="collapse navbar-collapse" id="navbarColor02">
+                <a class="nav-link" style="padding-right:0px;padding-left:0px" href="{% url "analysis" %}"><img src="{{ STATIC_URL }}graphic/cape.png"></a>
+                <ul class="navbar-nav mr-auto">
+                  <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> Dashboard</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> Recent</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> Pending</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><span class="fas fa-search"></span> Search</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url "api" %}"><span class="fas fa-cog"></span> API</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> Submit</a></li>
+                </ul>
+                <form class="form-inline" style="margin:0px;">
+                  <input class="form-control" type="text" placeholder="Search">
+                  <button class="btn btn-secondary" type="submit">Search</button>
+                </form>
+              </div>
             </div>
-          </div>
-          </nav>
+            </nav>
 
-    </header>
-</header>
+      </header>
+  </header>

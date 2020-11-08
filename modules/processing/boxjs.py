@@ -39,7 +39,7 @@ class BoxJS(Processing):
             # log.debug("FLAGS %s" % flags)
             files = {"sample": kwargs.get("sample")}
             r = requests.post(url, timeout=self.timeout, data=flags, files=files)
-            return r.text if r.status_code == 200 else {}
+            return r.json()["analysisID"] if r.status_code == 200 else None
         except (requests.ConnectionError, ValueError) as e:
             raise CuckooOperationalError("Unable to POST to the API server: %r" % e.message)
 

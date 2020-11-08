@@ -69,7 +69,7 @@ class BoxJS(Processing):
         base_url = "{}/sample/{}".format(self.url, str(analysis_id))
 
         flags = ""
-
+        results = {}
         # Wait for the analysis to be completed.
         done = False
         while not done:
@@ -98,7 +98,9 @@ class BoxJS(Processing):
                 flags += "--no-shell-error "
                 retry = True
             else:
-                raise CuckooOperationalError("Unknown error code: %s" % code)
+                done = True
+                log.info("BOXJS: {}".format(str(result)))
+                return results
 
             if retry:
                 postUrl = urljoin(self.url, "/sample")

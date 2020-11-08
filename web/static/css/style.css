@@ -42,6 +42,10 @@ a:hover {
     background-color: darkred;
 }
 
+.text-sucess, .text-sucess:hover {
+    color: #62c462
+}
+
 footer {
     background: #292727;
     margin: 40px 0 0;

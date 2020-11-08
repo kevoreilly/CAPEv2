@@ -120,7 +120,7 @@ class Task(Base):
 
 
 def create_session(db_connectionn, echo=False):
-    engine = create_engine(db_connectionn, pool_size=40, max_overflow=0, echo=echo)
+    engine = create_engine(db_connectionn, echo=echo) # pool_size=40, max_overflow=0,
     Base.metadata.create_all(engine)
     session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
     return session

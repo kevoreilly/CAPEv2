@@ -90,7 +90,11 @@
                         {% endif %}
                         </td>
                         <td>
-                        {{analysis.machine}}
+                        {% if analysis.machine %}
+                            {{analysis.machine}}
+                        {% else %}
+                            -
+                        {% endif %}
                         </td>
                         <td>
                         {{analysis.package}}
@@ -120,7 +124,7 @@
                             {% if analysis.package %}
                                   <span class="mono">{{analysis.package}}</span>
                             {% else %}
-                                  <span class="mono">None</span>
+                                  <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -129,7 +133,7 @@
                             {% if analysis.moloch_url %}
                                 <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                  <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -177,7 +181,7 @@
                             {% if analysis.virustotal_summary %}
                                 <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                  <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -197,7 +201,7 @@
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                                <span class="mono">None</span>
+                                <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -207,7 +211,7 @@
                                 {% if analysis.detections %}
                                 {{analysis.detections}}
                                 {% else %}
-                                None
+                                -
                                 {% endif %}
                             </span>
                         </td>
@@ -216,7 +220,7 @@
                             {% if analysis.pcap_sha256 %}
                             <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
                             {% else %}
-                            None
+                            -
                             {% endif %}
                             </span>
                         </td>
@@ -225,7 +229,7 @@
                             {% if analysis.clamav %}
                                 {{analysis.clamav}}
                             {% else %}
-                                None
+                                -
                             {% endif %}
                             </span>
                         </td>
@@ -234,7 +238,7 @@
                             {% if analysis.custom %}
                                 {{analysis.custom}}
                             {% else %}
-                                None
+                                -
                             {% endif %}
                             </span>
                         </td>
@@ -248,7 +252,7 @@
                                      <span class="mono">{{analysis.shrike_msg}}</span>
                                  {% endif %}
                             {% else %}
-                                 <span class="mono">None</span>
+                                 <span class="mono">-</span>
                             {% endif %}
                         </td>
                        {% endif %}
@@ -412,7 +416,7 @@
                             {% if analysis.moloch_url %}
                                 <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                  <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -422,7 +426,7 @@
                             {% if analysis.mlist_cnt %}
                             {{analysis.mlist_cnt}}
                             {% else %}
-                            None
+                            -
                             {% endif %}
                             </span>
                         </td>
@@ -461,7 +465,7 @@
                             {% if analysis.virustotal_summary %}
                                 <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                  <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -481,7 +485,7 @@
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                                <span class="mono">None</span>
+                                <span class="mono">-</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -500,7 +504,7 @@
                             {% if analysis.pcap_sha256 %}
                             <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
                             {% else %}
-                            None
+                            -
                             {% endif %}
                             </span>
                         </td>
@@ -509,7 +513,7 @@
                             {% if analysis.clamav %}
                                 {{analysis.clamav}}
                             {% else %}
-                                None
+                                -
                             {% endif %}
                             </span>
                         </td>
@@ -518,7 +522,7 @@
                             {% if analysis.custom %}
                                 {{analysis.custom}}
                             {% else %}
-                                None
+                                -
                             {% endif %}
                             </span>
                         </td>
@@ -532,7 +536,7 @@
                                      <span class="mono">{{analysis.shrike_msg}}</span>
                                  {% endif %}
                             {% else %}
-                                 <span class="mono">None</span>
+                                 <span class="mono">-</span>
                             {% endif %}
                         </td>
                        {% endif %}
@@ -681,7 +685,7 @@
                         {% if analysis.moloch_url %}
                         <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                         {% else %}
-                        <span class="mono">None</span>
+                        <span class="mono">-</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -727,7 +731,7 @@
                         {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}
                             >{{analysis.malscore|floatformat:1}}</span>
                         {% else %}
-                        <span class="mono">None</span>
+                        <span class="mono">-</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -737,7 +741,7 @@
                             {% if analysis.detections %}
                                 {{analysis.detections}}
                             {% else %}
-                                None
+                                -
                             {% endif %}
                         </span>
                     </td>
@@ -746,7 +750,7 @@
                             {% if analysis.pcap_sha256 %}
                             <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
                             {% else %}
-                            None
+                            -
                             {% endif %}
                         </span>
                     </td>
@@ -755,7 +759,7 @@
                             {% if analysis.custom %}
                             {{analysis.custom}}
                             {% else %}
-                            None
+                            -
                             {% endif %}
                         </span>
                     </td>
@@ -769,7 +773,7 @@
                         <span class="mono">{{analysis.shrike_msg}}</span>
                         {% endif %}
                         {% else %}
-                        <span class="mono">None</span>
+                        <span class="mono">-</span>
                         {% endif %}
                     </td>
                     {% endif %}

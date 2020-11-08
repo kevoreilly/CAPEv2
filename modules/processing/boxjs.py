@@ -102,7 +102,7 @@ class BoxJS(Processing):
             else:
                 done = True
                 log.info("BOXJS: {}".format(str(result)))
-                return results
+                return {}
 
             if retry:
                 postUrl = urljoin(self.url, "/sample")

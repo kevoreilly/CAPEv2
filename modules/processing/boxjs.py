@@ -57,7 +57,7 @@ class BoxJS(Processing):
         """ Fall off if we don't deal with files """
        if self.results.get("info", {}).get("category") not in ("file", "static") and \
             (self.results.get("info", {}).get("package", "") in ("js", "jse", "jsevbe", "js_antivm") or \
-                self.results.get("target", {}).get("file", "").get("name", "").endswith(".js", ".jse") :
+                self.results.get("target", {}).get("file", "").get("name", "").endswith(".js", ".jse")):
             log.debug("Box-js supports only file scanning!")
             return {}
 

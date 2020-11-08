@@ -69,17 +69,19 @@ class BoxJS(Processing):
         base_url = "{}/sample/{}".format(self.url, str(analysis_id))
 
         flags = ""
-        results = {}
+
         # Wait for the analysis to be completed.
         done = False
         while not done:
-            time.sleep(1)
+            time.sleep(2)
             result = self.request_json(base_url)
-            code = result["code"]
+            code = result.get("code", None)
             retry = False
 
             # Read the status code, and retry with different flags if necessary
-            if code == 0:  # Success
+            if code is None:
+                continue
+            elif code == 0:  # Success
                 done = True
             elif code == 1:  # Generic error
                 # We don't know how to handle this, so continue

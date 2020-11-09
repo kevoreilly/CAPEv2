@@ -120,10 +120,7 @@ class ReSubmitExtractedEXE(Report):
             if "files" in report["suricata"] and report["suricata"]["files"]:
                 for suricata_file_e in results["suricata"]["files"]:
                     # don't resubmit truncated files or files with invalid fileinfo metadata
-                    if not ("file_info" in suricata_file_e and "size" in suricata_file_e["file_info"] \
-                            and "size" in suricata_file_e):
-                        continue
-                    if suricata_file_e["file_info"]["size"] != suricata_file_e["size"]:
+                    if suricata_file_e.get("file_info", {}).get("size", 1) != suricata_file_e.get("size", 0):
                         continue
                     if self.resubcnt >= self.resublimit:
                         break

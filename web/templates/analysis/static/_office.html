@@ -158,7 +158,7 @@
                         {% for detection in analysis.static.office.Macro.Analysis %}
                         <div>
                             <div class="panel" id="accordion" style="margin-top: 20px;">
-                            <div class="panel-heading">
+                            <div class="card-header">
                                 <a class="accordion-toggle" data-parent="#analysis_sigs" data-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="icon icon-cog"></i>{{detection}}</a>
                             </div>
                             <div id="{{detection}}" class="panel-collapse collapse" style="text-align: left;">
@@ -231,7 +231,7 @@
                             {% for block in value %}
                                 <tr>
                                     {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-default btn-small">{{block.filename}}</a></td>
+                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
                                     {% else %}
                                         <td>{{block.filename}}</td>
                                     {% endif %}

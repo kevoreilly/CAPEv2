@@ -1,24 +1,24 @@
 <div class="alert alert-primary center">
-    <a class="btn btn-default btn-small" href="{% url "full_memory_dump_file" analysis.info.id %}">Download Full Memory Dump</a>
-    <a class="btn btn-default btn-small" href="{% url "full_memory_dump_strings" analysis.info.id %}">Download Full Memory Dump Strings</a>
+    <a class="btn btn-secondary btn-small" href="{% url "full_memory_dump_file" analysis.info.id %}">Download Full Memory Dump</a>
+    <a class="btn btn-secondary btn-small" href="{% url "full_memory_dump_strings" analysis.info.id %}">Download Full Memory Dump Strings</a>
 </div>
 <div class="tabbable tabs">
     <ul class="nav nav-pills" style="margin-bottom: 0;">
-        <li class="active"><a href="#memory_pslist" data-toggle="tab">Process List</a></li>
-        <li><a href="#memory_svcscan" data-toggle="tab">Services</a></li>
-        <li><a href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>
-        <li><a href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>
-        <li><a href="#memory_malfind" data-toggle="tab">Code Injection</a></li>
-        <li><a href="#memory_timers" data-toggle="tab">Timers</a></li>
-        <li><a href="#memory_messagehooks" data-toggle="tab">Messagehooks</a></li>
-        <li><a href="#memory_apihooks" data-toggle="tab">API Hooks</a></li>
-        <li><a href="#memory_callbacks" data-toggle="tab">Callbacks</a></li>
-        <li><a href="#memory_yarascan" data-toggle="tab">Yarascan</a></li>
-        <li><a href="#memory_ssdt" data-toggle="tab">SSDT</a></li>
-        <li><a href="#memory_idt" data-toggle="tab">IDT</a></li>
-        <li><a href="#memory_gdt" data-toggle="tab">GDT</a></li>
+        <li class="nav-item active"><a href="#memory_pslist" data-toggle="tab">Process List</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-toggle="tab">Services</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_malfind" data-toggle="tab">Code Injection</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_timers" data-toggle="tab">Timers</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_messagehooks" data-toggle="tab">Messagehooks</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_apihooks" data-toggle="tab">API Hooks</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_callbacks" data-toggle="tab">Callbacks</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_yarascan" data-toggle="tab">Yarascan</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>
         {% if analysis.memory.sockscan or analysis.memory.netscan %}
-        <li><a href="#memory_sockets" data-toggle="tab">Sockets</a></li>
+        <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
         {% endif %}
     </ul>
     <div class="tab-content">

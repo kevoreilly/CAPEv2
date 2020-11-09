@@ -1,29 +1,28 @@
 {% if analysis.network.pcap_sha256 %}
-<div class="alert alert-primary center"><a class="btn btn-default btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
+<div class="alert alert-primary center"><a class="btn btn-secondary btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
 {% endif %}
-<div class="tabbable tabs">
-    <ul class="nav nav-pills" style="margin-bottom: 0;">
-        <li class="active"><a href="#network_hosts_tab" data-toggle="tab">Hosts ({{ analysis.network.hosts|length }})</a></li>
-        <li><a href="#network_dns_tab" data-toggle="tab">DNS ({{ analysis.network.domains|length }})</a></li>
-        <li><a href="#network_tcp_tab" data-toggle="tab">TCP ({{ analysis.network.tcp|length }})</a></li>
-        <li><a href="#network_udp_tab" data-toggle="tab">UDP ({{ analysis.network.udp|length }})</a></li>
-        <li><a href="#network_http_tab" data-toggle="tab">HTTP ({{ analysis.network.http|length }})</a></li>
-        <li><a href="#network_smtp_tab" data-toggle="tab">SMTP ({{ analysis.network.smtp|length }})</a></li>
-        <li><a href="#network_irc_tab" data-toggle="tab">IRC ({{ analysis.network.irc|length }})</a></li>
-        <li><a href="#network_icmp_tab" data-toggle="tab">ICMP ({{ analysis.network.icmp|length }})</a></li>
+    <ul class="nav nav-pills flex-column flex-sm-row" style="margin-bottom: 0;">
+        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ analysis.network.hosts|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ analysis.network.domains|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ analysis.network.tcp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ analysis.network.udp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-toggle="tab">HTTP ({{ analysis.network.http|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">SMTP ({{ analysis.network.smtp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-toggle="tab">IRC ({{ analysis.network.irc|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-toggle="tab">ICMP ({{ analysis.network.icmp|length }})</a></li>
         {% if config.cif %}
-        <li><a href="#network_cif_tab" data-toggle="tab">CIF Results ({{ analysis.cif|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-toggle="tab">CIF Results ({{ analysis.cif|length }})</a></li>
         {% endif %}
         {% if config.suricata %}
-        <li><a href="#network_suri_alerts_tab" data-toggle="tab">Suricata Alerts ({{ analysis.suricata.alerts|length }})</a></li>
-        <li><a href="#network_suri_tls_tab" data-toggle="tab">Suricata TLS ({{ analysis.suricata.tls|length }})</a></li>
-        <li><a href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ analysis.suricata.http|length }})</a></li>
-        <li><a href="#network_suri_files" data-toggle="tab">Suricata Files ({{ analysis.suricata.files|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-toggle="tab">Suricata Alerts ({{ analysis.suricata.alerts|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-toggle="tab">Suricata TLS ({{ analysis.suricata.tls|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ analysis.suricata.http|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">Suricata Files ({{ analysis.suricata.files|length }})</a></li>
         {% endif %}
-        <li><a href="#network_ja3_tab" data-toggle="tab">JA3 ({{ analysis.network.ja3|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_ja3_tab" data-toggle="tab">JA3 ({{ analysis.network.ja3|length }})</a></li>
     </ul>
     <div class="tab-content">
-        <div class="tab-pane fade in active" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>
+        <div class="tab-pane fade show active" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>
         <div class="tab-pane fade" id="network_tcp_tab">{% include "analysis/network/_tcp.html" %}</div>
         <div class="tab-pane fade" id="network_udp_tab">{% include "analysis/network/_udp.html" %}</div>
         <div class="tab-pane fade" id="network_dns_tab">{% include "analysis/network/_dns.html" %}</div>
@@ -38,4 +37,3 @@
         <div class="tab-pane fade" id="network_suri_files">{% include "analysis/network/_suricata_files.html" %}</div>
         <div class="tab-pane fade" id="network_ja3_tab">{% include "analysis/network/_ja3.html" %}</div>
     </div>
-</div>

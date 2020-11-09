@@ -1,7 +1,7 @@
 <section id="static_analysis">
     {% load key_tags %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-default btn-small">Download graph</a></h4>
+        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
         {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
     {% endif %}
     {% if analysis.static and analysis.static.pe %}
@@ -209,10 +209,10 @@
                         <td>{{analysis.static.pe.guest_signers.aux_sha1}}</td>
                         <td>{{analysis.static.pe.guest_signers.aux_timestamp}}</td>
                         {% if analysis.static.pe.guest_signers.aux_valid %}
-                        <td><center><span class="label label-success">Yes</span></center></td>
+                        <td><center><span class="badge label-success">Yes</span></center></td>
                         <td>None</td>
                         {% else %}
-                        <td><center><span class="label label-danger">No</span></center></td>
+                        <td><center><span class="badge label-danger">No</span></center></td>
                         <td>{{analysis.static.pe.guest_signers.aux_error_desc}}</td>
                         {% endif %}
                     </tr>
@@ -337,31 +337,35 @@
         {% endif %}
 
         {% if analysis.static.pe.imports %}
-        <div>
-            <h4>Imports</h4>
-            <div class="panel" id="pe_imports" style="margin-top: 20px;">
-                {% for library in analysis.static.pe.imports %}
-                    <div class="panel-heading">
-                        <a class="accordion-toggle" data-parent="#pe_imports" data-toggle="collapse" href="#{{library.dll}}" aria-expanded="false"><i class="icon icon-cog"></i> <strong>Library {{library.dll}}</strong>:</a>
-                    </div>
-                    <div id="{{library.dll}}" class="panel-collapse collapse in" style="text-align: left;">
-                        <div class="well" style="font-family: monospace;">
+        <div id="accordion">
+            {% for library in analysis.static.pe.imports %}
+            <div class="card">
+                <div class="card-header" id="h_{{library.dll}}">
+                    <h5 class="mb-0">
+                    <button class="btn btn-link" data-toggle="collapse" href="#{{library.dll}}" data-target="#{{library.dll}}" aria-expanded="false" aria-controls="{{library.dll}}">
+                        <strong>Library {{library.dll}}</strong>:</a>
+                    </button>
+                    </h5>
+                </div>
+
+                <div id="{{library.dll}}" class="collapse show" aria-labelledby="h_{{library.dll}}" data-parent="#accordion">
+                    <div class="card-body">
                         {% for function in library.imports %}
-                            <div>&bull; <span class="mono">{{function.address}} <a href="http://social.msdn.microsoft.com/Search/en-US/windows/desktop?query={{function.name}}">{{function.name}}</a></span></div>
+                        <div>&bull; <span class="mono">{{function.address}} <a href="http://social.msdn.microsoft.com/Search/en-US/windows/desktop?query={{function.name}}">{{function.name}}</a></span></div>
                         {% endfor %}
-                        </div>
                     </div>
-                {% endfor %}
+                </div>
             </div>
+            {% endfor %}
         </div>
-        <hr />
         {% endif %}
+        <hr />
 
         {% if analysis.static.pe.exports %}
             <div>
                 <h4>Exports</h4>
                 <div id="pe_exports">
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered table-dark">
                         <tr>
                             <th>Ordinal</th>
                             <th>Address</th>
@@ -382,3 +386,5 @@
         Nothing to display.
     {% endif %}
 </section>
+
+

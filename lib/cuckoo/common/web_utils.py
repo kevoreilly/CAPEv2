@@ -567,6 +567,7 @@ def perform_search(term, value):
         numhits = es.search(index=fullidx, doc_type="analysis", q="%s" % value, size=0)["hits"]["total"]
         return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
 
+    query_val = False
     if term in ("md5", "sha1", "sha256", "sha512"):
         query_val = value
     elif term in ("surisid", "id"):

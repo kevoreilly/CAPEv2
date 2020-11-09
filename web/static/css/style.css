@@ -43,7 +43,7 @@ a:hover {
 }
 
 .text-success {
-    color: #62c462
+    color: #62c462!important
 }
 
 .text-sucess:hover {

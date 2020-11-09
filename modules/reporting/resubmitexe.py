@@ -114,14 +114,15 @@ class ReSubmitExtractedEXE(Report):
                         except:
                             filesdict[dropped["sha256"]] = dropped["path"]
                             self.resubcnt += 1
-
         # ToDo i think this is outdated
         if "suricata" in report and report["suricata"]:
             if "files" in report["suricata"] and report["suricata"]["files"]:
                 for suricata_file_e in results["suricata"]["files"]:
                     # don't resubmit truncated files or files with invalid fileinfo metadata
-                    if "file_info" not in suricata_file_e or "size" not in suricata_file_e["file_info"] \
-                        or "size" not in suricata_file_e or (suricata_file_e["file_info"]["size"] != suricata_file_e["size"]):
+                    if "file_info" in suricata_file_e and "size" in suricata_file_e["file_info"] \
+                            and "size" in suricata_file_e:
+                        continue
+                    if suricata_file_e["file_info"]["size"] != suricata_file_e["size"]:
                         continue
                     if self.resubcnt >= self.resublimit:
                         break

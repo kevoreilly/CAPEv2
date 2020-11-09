@@ -5,7 +5,7 @@ __version__ = "1.0.1"
 __date__    = "29NOV2017
 -->
 
-<div class="card ">
+<div class="panel panel-default">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-md-12">
@@ -23,51 +23,51 @@ __date__    = "29NOV2017
                         </ul>
                         <div class="tab-content">
                             <div class="tab-pane fade in active" id="curtain_orig_tab">
-                                 {% if analysis.curtain %}
+                                 {% if analysis.curtain %} 
                                     {% for pid,dict in analysis.curtain.items %}
-                                    <div class="card ">
-                                        <div class="card-header">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
                                             PID: {{pid}} - {% for entry in dict.behaviors %}
-                                            <a class="btn btn-secondary">{{ entry }}</a>
+                                            <a class="btn btn-default btn-xs">{{ entry }}</a>
                                             {% endfor %}
                                         </div>
-                                        <div class="card-body">
+                                        <div class="panel-body">
                                             {% for entry in dict.events %} {% for event,message in entry.items %}
                                             <b>Event: {{ event }}</b>
                                             <pre>{{ message.original|linebreaksbr }}</pre> {% endfor %} {% endfor %}
                                         </div>
                                     </div>
-                                    {% endfor %}
+                                    {% endfor %} 
                                 {% endif %}
                             </div>
                             <div class="tab-pane fade" id="curtain_altr_tab">
-                                 {% if analysis.curtain %}
+                                 {% if analysis.curtain %} 
                                     {% for pid,dict in analysis.curtain.items %}
-                                    <div class="card ">
-                                        <div class="card-header">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
                                             PID: {{pid}} - {% for entry in dict.behaviors %}
-                                            <a class="btn btn-secondary">{{ entry }}</a>
+                                            <a class="btn btn-default btn-xs">{{ entry }}</a>
                                             {% endfor %}
                                         </div>
-                                        <div class="card-body">
+                                        <div class="panel-body">
                                             {% for entry in dict.events %} {% for event,message in entry.items %} Event:
                                             <b>{{ event }}</b>
                                             <pre>{{ message.altered|linebreaksbr }}</pre> {% endfor %} {% endfor %}
                                         </div>
                                     </div>
-                                    {% endfor %}
+                                    {% endfor %} 
                                 {% endif %}
                             </div>
                             <div class="tab-pane fade" id="curtain_filt_tab">
                                  {% if analysis.curtain %} {% for pid,dict in analysis.curtain.items %}
-                                <div class="card ">
-                                    <div class="card-header">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
                                         PID: {{pid}} - {% for entry in dict.behaviors %}
-                                        <a class="btn btn-secondary">{{ entry }}</a>
+                                        <a class="btn btn-default btn-xs">{{ entry }}</a>
                                         {% endfor %}
                                     </div>
-                                    <div class="card-body">
-                                        {% for entry in dict.filter %}
+                                    <div class="panel-body">
+                                        {% for entry in dict.filter %} 
                                         {% for event,message in entry.items %}
                                         <b>Event: {{ event }}</b>
                                         <pre>

@@ -2,22 +2,22 @@
 <div class="tabbable tabs">
     <ul class="nav nav-pills" style="margin-bottom: 0;">
         {% if analysis.info.category in "file,static" %}
-        <li class="nav-item active"><a class="nav-link" href="#static_analysis_tab" data-toggle="tab">Static Analysis</a></li>
+        <li class="active"><a href="#static_analysis_tab" data-toggle="tab">Static Analysis</a></li>
         {% if analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
-        <li class="nav-item"><a class="nav-link" href="#static_dotnet_tab" data-toggle="tab">.NET Static Analysis</a></li>
+        <li><a href="#static_dotnet_tab" data-toggle="tab">.NET Static Analysis</a></li>
         {% endif %}
-        <li class="nav-item"><a class="nav-link" href="#static_strings_tab" data-toggle="tab">Strings</a></li>
+        <li><a href="#static_strings_tab" data-toggle="tab">Strings</a></li>
         {% endif %}
         {% if analysis.info.category == "url" %}
-        <li class="nav-item active"><a class="nav-link" href="#static_url_tab" data-toggle="tab">URL Analysis</a></li>
+        <li class="active"><a href="#static_url_tab" data-toggle="tab">URL Analysis</a></li>
         {% endif %}
         {% if config.virustotal %}
-        <li class="nav-item"><a class="nav-link" href="#static_antivirus_tab" data-toggle="tab">VirusTotal</a></li>
+        <li><a href="#static_antivirus_tab" data-toggle="tab">VirusTotal</a></li>
         {% endif %}
     </ul>
     <div class="tab-content">
         {% if analysis.info.category in "file,static" %}
-        <div class="tab-pane fade show active" id="static_analysis_tab">
+        <div class="tab-pane fade in active" id="static_analysis_tab">
             {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
                 {% include "analysis/static/_pe32.html" %}
             {% elif analysis.info.package == "pdf" %}
@@ -38,22 +38,22 @@
         </div>
         {% endif %}
         {% if analysis.info.category in "file,static" and analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
-        <div class="tab-pane fade show" id="static_dotnet_tab">
+        <div class="tab-pane fade" id="static_dotnet_tab">
             {% include "analysis/static/_dotnet.html" %}
         </div>
         {% endif %}
         {% if analysis.info.category in "file,static" %}
-        <div class="tab-pane fade show" id="static_strings_tab">
+        <div class="tab-pane fade" id="static_strings_tab">
             {% include "analysis/static/_strings.html" %}
         </div>
         {% endif %}
         {% if analysis.info.category == "url" %}
-        <div class="tab-pane fade show active" id="static_url_tab">
+        <div class="tab-pane fade in active" id="static_url_tab">
             {% include "analysis/static/_url.html" %}
         </div>
         {% endif %}
         {% if config.virustotal %}
-        <div class="tab-pane fade show" id="static_antivirus_tab">
+        <div class="tab-pane fade" id="static_antivirus_tab">
             {% include "analysis/static/_antivirus.html" %}
         </div>
         {% endif %}

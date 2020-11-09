@@ -3,7 +3,7 @@ html {
 }
 body {
     padding-top: 60px;
-    background: #ffffff url('/static/graphic/background.png') repeat-x;
+    background: #1c1c1c repeat-x;
 }
 
 @page {
@@ -93,42 +93,55 @@ a.tag-label {
 
 .filesystem {
     background-color: #ffe3c5;
+    color: black;
 }
 .registry {
     background-color: #ffc5c5;
+    color: black;
 }
 .process {
     background-color: #c5e0ff;
+    color: black;
 }
 .threading {
     background-color: #d3e0ff;
+    color: black;
 }
 .services {
     background-color: #ccc5ff;
+    color: black;
 }
 .device {
     background-color: #d3c5cc;
+    color: black;
 }
 .network {
     background-color: #d3ffc5;
+    color: black;
 }
 .socket {
     background-color: #d3ffc5;
+    color: black;
 }
 .synchronization {
     background-color: #f9c5ff;
+    color: black;
 }
 .browser {
     background-color: #dfffdf;
+    color: black;
 }
 .crypto {
     background-color: #f0f2c5;
+    color: black;
 }
 .system {
     background-color: #fffcc5;
+    color: black;
 }
 .windows {
     background-color: #ffc5ee;
+    color: black;
 }
 .page-header {
     margin-bottom: 10px;
@@ -151,7 +164,7 @@ td {
 }
 
 .row-active {
-    background-color: #d9edf7;
+    background-color:darkred;
 }
 
 pre {

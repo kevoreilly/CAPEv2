@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-secondary"><h4>Submission complete!</h4>
+<div class="alert alert-info"><h4>Submission complete!</h4>
 The following tasks were added successfully:
 {% for task in tasks %}
     <a href="{% url "submission_status" task %}">{{task}}</a>

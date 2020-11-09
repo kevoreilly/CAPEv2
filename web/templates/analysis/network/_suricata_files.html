@@ -1,7 +1,7 @@
 {% if analysis.suricata.files|length > 0 %}
-    <div class="alert alert-info center"><a class="btn btn-secondary btn-small" href="{% url "file" "zip" analysis.info.id "files" %}">Download Suri Extracted</a></div>
+    <div class="alert alert-info center"><a class="btn btn-default btn-small" href="{% url "file" "zip" analysis.info.id "files" %}">Download Suri Extracted</a></div>
     {% for file in analysis.suricata.files %}
-        <div class="card ">
+        <div class="panel panel-default">
             <table class="table table-striped">
                 <tr>
                     <th style="border-top: 0;" width="15%">File name</th>
@@ -114,9 +114,9 @@
                 {% endif %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "suricata" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download</a>
+                    <td><a href="{% url "file" "suricata" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download</a>
                     {% if file.file_info.data %}
-                    &emsp;<a class="btn btn-secondary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                    &emsp;<a class="btn btn-default btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                     {% endif %}
                     </td>
                 </tr>

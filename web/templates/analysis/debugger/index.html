@@ -8,8 +8,8 @@
     </ul>
     {% else %}
     {% if process.pid in debugger_logs %}
-    <li class="nav-item">
-        <strong><a class="nav-link" href="javascript:show_tab('{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
+    <li>
+        <strong><a href="javascript:show_tab('{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
         {% if process.commandline %}
         <i>{{ process.commandline }}</i>
         {% endif %}
@@ -23,7 +23,7 @@
         {% for process in debugger.processes %}
         {% for key, value in debugger_logs.items %}
         {% if key == process.process_id %}
-        <li {% if forloop.parentloop.counter == 1 %}class="nav-item active" {% endif %}><a class="nav-link" href="#{{key}}"
+        <li {% if forloop.parentloop.counter == 1 %}class="active" {% endif %}><a href="#{{key}}"
                 data-toggle="tab">{{process.process_name}} ({{key}})</a></li>
         {% endif %}
         {% endfor %}
@@ -34,8 +34,10 @@
     {% for process in debugger.processes %}
     {% for key, value in debugger_logs.items %}
     {% if key == process.process_id %}
-    <div class="tab-pane{% if forloop.parentloop.counter == 1 %} fade in active{% else %} fade{% endif %}" id="{{key}}" data-pid="{{key}}">
-        <div class="alert alert-danger center"><a class="btn btn-secondary btn-small" href="{% url "file" "debugger_log" id key %}">Download Log</a></div>
+    <div class="tab-pane{% if forloop.parentloop.counter == 1 %} fade in active{% else %} fade{% endif %}" id="{{key}}"
+        data-pid="{{key}}">
+        <div class="alert alert-danger center"><a class="btn btn-default btn-small"
+                href="{% url "file" "debugger_log" id key %}">Download Log</a></div>
         <pre>{{value}}</pre>
     </div>
     {% endif %}

@@ -114,6 +114,7 @@ class ReSubmitExtractedEXE(Report):
                         except:
                             filesdict[dropped["sha256"]] = dropped["path"]
                             self.resubcnt += 1
+
         # ToDo i think this is outdated
         if "suricata" in report and report["suricata"]:
             if "files" in report["suricata"] and report["suricata"]["files"]:

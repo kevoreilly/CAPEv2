@@ -115,7 +115,7 @@
                             {% if analysis.detections %}
                                 <form action="{% url "search" %}" method="post">
                                     <input type="hidden" id="search" type="text" name="search" value="detections:{{analysis.detections}}">
-                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary" type="submit" value="{{analysis.detections}}">
+                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary btn-sm" type="submit" value="{{analysis.detections}}">
                                 </form>
                             {% endif %}
                         </td>

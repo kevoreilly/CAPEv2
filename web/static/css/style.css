@@ -23,7 +23,7 @@ a {
 }
 
 a:hover {
-    color: darkred
+    color: #EE1B2F
 }
 
 .btn-link {
@@ -31,7 +31,7 @@ a:hover {
 }
 
 .btn-link:hover {
-    color: darkred
+    color: #EE1B2F
 }
 
 .page-link {
@@ -39,12 +39,17 @@ a:hover {
 }
 
 .page-link-active {
-    background-color: darkred;
+    background-color: #EE1B2F;
 }
 
-.text-sucess, .text-sucess:hover {
+.text-sucess {
     color: #62c462
 }
+
+.text-sucess:hover {
+    color: #62c462
+}
+
 
 footer {
     background: #292727;

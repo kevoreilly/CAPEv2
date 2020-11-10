@@ -10,7 +10,7 @@ import hashlib
 import requests
 import hashlib
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import choice
 from ratelimit.decorators import ratelimit
 
@@ -22,7 +22,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
-from lib.cuckoo.core.database import Database, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, get_user_filename, sanitize_filename
 from lib.cuckoo.core.database import Database
 
@@ -157,6 +157,7 @@ apilimiter = {
     "tasks_config": apiconf.capeconfig,
     "file": apiconf.download_file,
     "filereport": apiconf.filereport,
+    "statistics": apiconf.statistics,
 }
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
@@ -228,6 +229,58 @@ def load_vms_tags():
     return all_tags
 
 all_vms_tags = load_vms_tags()
+
+
+def statistics(days: int) -> dict:
+    date_since = datetime.now()-timedelta(days=days)
+    date_till = datetime.now()
+
+    details = {
+        "signatures": {},
+        "processing": {},
+        "reporting": {},
+    }
+
+    tmp_data = dict()
+    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
+    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
+    for analysis in data or []:
+        for type_entry in analysis.get("statistics", []) or []:
+            if type_entry not in tmp_data:
+                tmp_data.setdefault(type_entry, dict())
+            for entry in analysis["statistics"][type_entry]:
+                if entry["name"] not in tmp_data[type_entry]:
+                    tmp_data[type_entry].setdefault(entry["name"], dict())
+                    tmp_data[type_entry][entry["name"]] = entry["time"]
+                else:
+                    tmp_data[type_entry][entry["name"]] += entry["time"]
+
+    for module_name in [u'signatures', u'processing', u'reporting']:
+        s = sorted(tmp_data[module_name], key=tmp_data[module_name].get, reverse=True)[:30]
+        for entry in s:
+            times_in_mins = tmp_data[module_name][entry]/60
+            details[module_name].setdefault(entry, float("{:.2f}".format(round(times_in_mins, 2))))
+
+    session = db.Session()
+    tasks = session.query(Task).filter(Task.added_on.between(date_since, date_till)).all()
+    details["total"] = len(tasks)
+    details["average_x_day"] = "{:.2f}".format(round(details["total"]/days, 2))
+    details["tasks_x_day"] = dict()
+    details["failed_x_day"] = dict()
+    details["reported_x_day"] = dict()
+    for task in tasks:
+        day = task.added_on.strftime("%Y-%m-%d")
+        details["tasks_x_day"].setdefault(day, 0)
+        details["failed_x_day"].setdefault(day, 0)
+        details["reported_x_day"].setdefault(day, 0)
+        details["tasks_x_day"][day] += 1
+        if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
+            details["failed_x_day"][day] += 1
+        elif task.status == "reported":
+            details["reported_x_day"][day] += 1
+
+    session.close()
+    return details
 
 # Same jsonize function from api.py except we can now return Django
 # HttpResponse objects as well. (Shortcut to return errors)

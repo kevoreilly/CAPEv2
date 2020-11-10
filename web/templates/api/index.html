@@ -700,6 +700,27 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           <pre>curl {{ config.api.url }}/api/tasks/get/procdumpfiles/[task_id]/</pre>
         </td>
       </tr>
+      <tr>
+        <td>Statistics</td>
+        {% if config.statistics.enabled %}
+        <td><span class="badge badge-success">Yes</span></td>
+        {% else %}
+        <td><span class="badge badge-danger">No</span></td>
+        {% endif %}
+        <td>
+          <ul>
+            <li>RPS: {{ config.statistics.rps }}</li>
+            <li>RPM: {{ config.statistics.rpm }}</li>
+          </ul>
+        </td>
+        <td>Details about tasks and time spend on different modules(TOP 30)</td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#statistircs" aria-expanded="false" aria-controls="#statistircs">Example</a></td>
+      </tr>
+      <tr class="collapse" id="statistircs">
+        <td colspan="5">
+          <pre>curl {{ config.api.url }}/api/tasks/[days]/</pre>
+        </td>
+      </tr>
     </tbody>
   </table>
   {% else %}

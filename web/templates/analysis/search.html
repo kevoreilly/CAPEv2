@@ -265,7 +265,7 @@
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
-                    <th width="6%" style="text-align: right;">Status</th>
+                    <th width="7%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -309,8 +309,11 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.detections != None %}
-                                <span style="color:#EE1B2F;" class="text-primary"><b>{{analysis.detections}}</b></span>
+                            {% if analysis.detections %}
+                                <form action="{% url "search" %}" method="post">
+                                    <input type="hidden" id="search" type="text" name="search" value="malfamily:{{analysis.detections}}">
+                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary btn-sm" type="submit" value="{{analysis.detections}}">
+                                </form>
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}

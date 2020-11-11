@@ -259,7 +259,8 @@ def statistics(days: int) -> dict:
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get, reverse=True)[:30]
         for entry in s:
             times_in_mins = tmp_data[module_name][entry]/60
-            details[module_name].setdefault(entry, float("{:.2f}".format(round(times_in_mins, 2))))
+            if times_in_mins:
+                details[module_name].setdefault(entry, float("{:.2f}".format(round(times_in_mins, 2))))
 
     session = db.Session()
     tasks = session.query(Task).filter(Task.added_on.between(date_since, date_till)).all()

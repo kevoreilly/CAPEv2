@@ -12,6 +12,7 @@ import hashlib
 import tempfile
 from datetime import datetime, timedelta
 from random import choice
+from collections import OrderedDict
 from ratelimit.decorators import ratelimit
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
@@ -231,8 +232,8 @@ def load_vms_tags():
 all_vms_tags = load_vms_tags()
 
 
-def statistics(days: int) -> dict:
-    date_since = datetime.now()-timedelta(days=days)
+def statistics(s_days: int) -> dict:
+    date_since = datetime.now()-timedelta(days=s_days)
     date_till = datetime.now()
 
     details = {
@@ -251,34 +252,42 @@ def statistics(days: int) -> dict:
             for entry in analysis["statistics"][type_entry]:
                 if entry["name"] not in tmp_data[type_entry]:
                     tmp_data[type_entry].setdefault(entry["name"], dict())
-                    tmp_data[type_entry][entry["name"]] = entry["time"]
+                    tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
+                    tmp_data[type_entry][entry["name"]]["runs"] = 1
                 else:
-                    tmp_data[type_entry][entry["name"]] += entry["time"]
+                    tmp_data[type_entry][entry["name"]]["time"] += entry["time"]
+                    tmp_data[type_entry][entry["name"]]["runs"] += 1
 
     for module_name in [u'signatures', u'processing', u'reporting']:
-        s = sorted(tmp_data[module_name], key=tmp_data[module_name].get, reverse=True)[:30]
+        s = sorted(tmp_data[module_name], key=tmp_data[module_name].get, reverse=True)[:15]
         for entry in s:
-            times_in_mins = tmp_data[module_name][entry]/60
-            if times_in_mins:
-                details[module_name].setdefault(entry, float("{:.2f}".format(round(times_in_mins, 2))))
+            times_in_mins = tmp_data[module_name][entry]["time"]/60
+            if not times_in_mins:
+                continue
+            details[module_name].setdefault(entry, dict())
+            details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
+            details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
+            details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
+
+        details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1], reverse=True))
 
     session = db.Session()
     tasks = session.query(Task).filter(Task.added_on.between(date_since, date_till)).all()
     details["total"] = len(tasks)
-    details["average_x_day"] = "{:.2f}".format(round(details["total"]/days, 2))
-    details["tasks_x_day"] = dict()
-    details["failed_x_day"] = dict()
-    details["reported_x_day"] = dict()
+    details["average"] = "{:.2f}".format(round(details["total"]/s_days, 2))
+    details["tasks"] = dict()
     for task in tasks:
         day = task.added_on.strftime("%Y-%m-%d")
-        details["tasks_x_day"].setdefault(day, 0)
-        details["failed_x_day"].setdefault(day, 0)
-        details["reported_x_day"].setdefault(day, 0)
-        details["tasks_x_day"][day] += 1
+        if day not in details:
+            details["tasks"].setdefault(day, {})
+            details["tasks"][day].setdefault("failed", 0)
+            details["tasks"][day].setdefault("reported", 0)
+            details["tasks"][day].setdefault("added", 0)
+        details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
-            details["failed_x_day"][day] += 1
+            details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
-            details["reported_x_day"][day] += 1
+            details["tasks"][day]["reported"] += 1
 
     session.close()
     return details

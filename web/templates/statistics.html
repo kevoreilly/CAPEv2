@@ -24,36 +24,76 @@
     </tbody>
   </table>
 
-    <div class="row">
-    <div class="well well-small col-md-6">
-      <h4>Processing</h4>
-        <ul class="list-group">
-            {% for name, time in statistics.processing.items %}
-                <li class="list-group-item"> {{name}} - {{time}} min</li>
-            {% endfor %}
-        </ul>
-    </div>
-    </div>
-    <div class="row">
-    <div class="well well-small col-md-6">
-        <h4>Signatures</h4>
-        <ul class="list-group">
-            {% for name, time in statistics.signatures.items %}
-                <li class="list-group-item"> {{name}} - {{time}} min</li>
-            {% endfor %}
-        </ul>
-    </div>
-    </div>
-    <div class="row">
-    <div class="well well-small col-md-6">
-        <h4>Reporting</h4>
-        <ul class="list-group">
-            {% for name, time in statistics.reporting.items %}
-            <li class="list-group-item"> {{name}} - {{time}} min</li>
-            {% endfor %}
-        </ul>
-    </div>
-    </div>
+
+
+  <h4>Processing</h4>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Total time in minutes</th>
+        <th scope="col">Runs</th>
+        <th scope="col">Average time in minutes(Total/runs)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for name, time in statistics.processing.items %}
+        <tr>
+            <td>{{name}}</td>
+            <td>{{time.total}}</td>
+            <td>{{time.runs}}</td>
+            <td>{{time.average}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+
+  <h4>Signatures</h4>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Total time in minutes</th>
+        <th scope="col">Runs</th>
+        <th scope="col">Average time in minutes(Total/runs)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for name, time in statistics.signatures.items %}
+        <tr>
+            <td>{{name}}</td>
+            <td>{{time.total}}</td>
+            <td>{{time.runs}}</td>
+            <td>{{time.average}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+
+  <h4>Reporting</h4>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Total time in minutes</th>
+        <th scope="col">Runs</th>
+        <th scope="col">Average time in minutes(Total/runs)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for name, time in statistics.reporting.items %}
+        <tr>
+            <td>{{name}}</td>
+            <td>{{time.total}}</td>
+            <td>{{time.runs}}</td>
+            <td>{{time.average}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
 {% else %}
     <div class="alert alert-primary">No statistics found.</div>
 {% endif %}

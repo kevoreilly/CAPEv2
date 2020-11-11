@@ -31,7 +31,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
 
 try:
@@ -1614,3 +1614,11 @@ def vtupload(request, category, task_id, filename, dlfile):
             return render(request, "error.html", {"error": err})
     else:
         return
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def statistics_data(request, days=7):
+    if days.isdigit():
+        details = statistics(int(days))
+        return render(request, "statistics.html", {"statistics": details, "days": days})
+    else:
+        return render(request, "error.html", {"error": "Provide days as number"})

@@ -191,7 +191,7 @@ def get_office_window(hwnd, lparam):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)  # create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any([value in text.value for value in (b"- Microsoft", b"- Word", b"- Excel", b"- PowerPoint")]):
+        if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             # send ALT+F4 equivalent
             log.info("Closing Office window.")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
@@ -263,7 +263,7 @@ class Human(Auxiliary, Thread):
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
 
             while self.do_run:
-                if officedoc and (seconds % 30) == 0 and not CLOSED_OFFICE:
+                if officedoc and not (seconds % 60 and CLOSED_OFFICE):
                     USER32.EnumWindows(EnumWindowsProc(get_office_window), 0)
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system

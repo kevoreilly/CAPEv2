@@ -360,26 +360,32 @@ class Pcap:
                 return False
 
             query["request"] = q_name
+
+            # See https://dpkt.readthedocs.io/en/latest/_modules/dpkt/dns.html
             if q_type == dpkt.dns.DNS_A:
                 query["type"] = "A"
-            if q_type == dpkt.dns.DNS_AAAA:
-                query["type"] = "AAAA"
-            elif q_type == dpkt.dns.DNS_CNAME:
-                query["type"] = "CNAME"
-            elif q_type == dpkt.dns.DNS_MX:
-                query["type"] = "MX"
-            elif q_type == dpkt.dns.DNS_PTR:
-                query["type"] = "PTR"
             elif q_type == dpkt.dns.DNS_NS:
                 query["type"] = "NS"
+            elif q_type == dpkt.dns.DNS_CNAME:
+                query["type"] = "CNAME"
             elif q_type == dpkt.dns.DNS_SOA:
                 query["type"] = "SOA"
+            elif q_type == dpkt.dns.DNS_NULL:
+                query["type"] = "NULL"
+            elif q_type == dpkt.dns.DNS_PTR:
+                query["type"] = "PTR"
             elif q_type == dpkt.dns.DNS_HINFO:
                 query["type"] = "HINFO"
+            elif q_type == dpkt.dns.DNS_MX:
+                query["type"] = "MX"
             elif q_type == dpkt.dns.DNS_TXT:
                 query["type"] = "TXT"
+            elif q_type == dpkt.dns.DNS_AAAA:
+                query["type"] = "AAAA"
             elif q_type == dpkt.dns.DNS_SRV:
                 query["type"] = "SRV"
+            elif q_type == dpkt.dns.DNS_OPT:
+                query["type"] = "OPT"
 
             # DNS answer.
             query["answers"] = []
@@ -454,7 +460,6 @@ class Pcap:
 
             self._add_domain(query["request"])
 
-            # ToDo query["type"] KeyError: 'type'
             reqtuple = query["type"], query["request"]
             if reqtuple not in self.dns_requests:
                 self.dns_requests[reqtuple] = query

@@ -1,4 +1,3 @@
-
 import time
 import logging
 from urllib.parse import urljoin
@@ -39,7 +38,7 @@ class BoxJS(Processing):
             # log.debug("FLAGS %s" % flags)
             files = {"sample": kwargs.get("sample")}
             r = requests.post(url, timeout=self.timeout, data=flags, files=files)
-            return r.text if r.status_code == 200 else {}
+            return r.json()["analysisID"] if r.status_code == 200 else None
         except (requests.ConnectionError, ValueError) as e:
             raise CuckooOperationalError("Unable to POST to the API server: %r" % e.message)
 
@@ -55,7 +54,9 @@ class BoxJS(Processing):
         self.key = "boxjs"
 
         """ Fall off if we don't deal with files """
-        if self.results.get("info", {}).get("category") != "file":
+        if self.results.get("info", {}).get("category") not in ("file", "static") and \
+            (self.results.get("info", {}).get("package", "") in ("js", "jse", "jsevbe", "js_antivm") or \
+                self.results.get("target", {}).get("file", "").get("name", "").endswith(".js", ".jse")):
             log.debug("Box-js supports only file scanning!")
             return {}
 
@@ -73,13 +74,15 @@ class BoxJS(Processing):
         # Wait for the analysis to be completed.
         done = False
         while not done:
-            time.sleep(1)
+            time.sleep(2)
             result = self.request_json(base_url)
-            code = result["code"]
+            code = result.get("code", None)
             retry = False
 
             # Read the status code, and retry with different flags if necessary
-            if code == 0:  # Success
+            if code is None:
+                continue
+            elif code == 0:  # Success
                 done = True
             elif code == 1:  # Generic error
                 # We don't know how to handle this, so continue
@@ -98,7 +101,9 @@ class BoxJS(Processing):
                 flags += "--no-shell-error "
                 retry = True
             else:
-                raise CuckooOperationalError("Unknown error code: %s" % code)
+                done = True
+                log.info("BOXJS: {}".format(str(result)))
+                return {}
 
             if retry:
                 postUrl = urljoin(self.url, "/sample")

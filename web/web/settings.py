@@ -36,8 +36,7 @@ if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
 if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
     raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
-# Enable Django authentication for website
-WEB_AUTHENTICATION = False
+WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")

@@ -1,10 +1,10 @@
 <h4>Comments</h4><br />
-<form role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
+<form class="form-horizontal" role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
 <div class="row">
   <div class="form group col-lg-10">
       <textarea class="form-control" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
       <div style="margin-top: 5px;">
-        <button class="btn btn-secondary float-right" type="submit">Submit</button>
+        <button class="btn btn-default pull-right" type="submit">Submit</button>
       </div>
   </div>
 </div>

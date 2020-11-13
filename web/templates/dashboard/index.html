@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-primary" style="text-align: center;font-size: 22px; color: white;">
+<div class="alert alert-primary" style="text-align: center;font-size: 22px;">
     Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
 </div>
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-xs-6">
         <div class="jumbotron" style="text-align: center;">
             <h1>{{report.total_tasks}}</h1>
             Total tasks
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-xs-6">
         <div class="jumbotron" style="text-align: center;">
             <h1>{{report.total_samples}}</h1>
             Total samples

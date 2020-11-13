@@ -1071,8 +1071,8 @@ def tasks_report(request, task_id, report_format="json"):
 
     elif report_format.lower() in bz_formats:
         bzf = bz_formats[report_format.lower()]
-        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
-        s = BytesWarning()
+        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
+        s = BytesIO()
 
         # By default go for bz2 encoded tar files (for legacy reasons.)
         # tarmode = tar_formats.get("tar", "w:bz2")
@@ -1944,11 +1944,10 @@ def tasks_config(request, task_id, cape_name=False):
                 # In case compress results processing module is not enabled
                 pass
             data = []
-
-            if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("cape_configs"):
-                if cape_name and buf["CAPE"]["cape_configs"].get("cape_name", "") == cape_name:
-                    return jsonize({cape_name.lower(): buf["CAPE"]["cape_configs"][cape_name]}, response=True)
-                data = buf["CAPE"]["cape_configs"]
+            if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("configs"):
+                if cape_name and buf["CAPE"]["configs"].get("cape_name", "") == cape_name:
+                    return jsonize({cape_name.lower(): buf["CAPE"]["configs"][cape_name]}, response=True)
+                data = buf["CAPE"]["configs"]
             # ToDo remove in v3
             elif buf["CAPE"]:
                 for cape in buf["CAPE"]:

@@ -334,9 +334,9 @@
                         {% elif key == 'parsed_config' %}
                             <td width=115px>{{ key }}</td>
                             <td>
-                                <a href="{% url "analysis.views.file" "dropped" analysis.info.id value.sha256 %}" class="btn btn-secondary btn-small">Download</a>
+                                <a href="{% url "analysis.views.file" "dropped" analysis.info.id value.sha256 %}" class="btn btn-default btn-small">Download</a>
                                 {% if value.data %}
-                                &emsp;<a class="btn btn-secondary btn-small" data-toggle="collapse" data-target="#{{value.sha256}}">Display Text</a>
+                                &emsp;<a class="btn btn-default btn-small" data-toggle="collapse" data-target="#{{value.sha256}}">Display Text</a>
                                 {% endif %}
                             </td>
                             {% if value.data %}

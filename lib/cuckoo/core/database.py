@@ -1862,6 +1862,19 @@ class Database(object, metaclass=Singleton):
             session.close()
         return True
 
+    #classlock
+    def delete_tasks(self, ids):
+        session = self.Session()
+        try:
+            search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
+        except SQLAlchemyError as e:
+            log.debug("Database error deleting task: {0}".format(e))
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return True
+
     @classlock
     def view_sample(self, sample_id):
         """Retrieve information on a sample given a sample id.

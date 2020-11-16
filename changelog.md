@@ -1,3 +1,6 @@
+### 16-11-2020
+* `utils/cleaners.py` option `--delete-older-than-days` moved to bulk remove 10 in 10, to improve performance and decrease IO
+
 ### [31-10-2020] Pre Halloween edition
 * [Box-js](https://github.com/kirk-sayre-work/box-js/) integration [docs](https://capev2.readthedocs.io/en/latest/integrations/box-js.html)
 * Fixed support for office in x64 VMs

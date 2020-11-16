@@ -107,11 +107,20 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             except Exception as e:
                 log.info(e)
 
-        if db.delete_tasks(ids_tmp):
+            if db.delete_tasks(ids_tmp):
+                for id in ids_tmp:
+                    try:
+                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
+                        if os.path.isdir(path):
+                            delete_folder(path)
+                    except Exception as e:
+                        log.error(e)
+        else:
+            # If we don't remove from mongo we should keep in db to be able to show task in webgui
             for id in ids_tmp:
                 try:
                     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
-                    if os.path.exists(path):
+                    if os.path.isdir(path):
                         delete_folder(path)
                 except Exception as e:
                     log.error(e)

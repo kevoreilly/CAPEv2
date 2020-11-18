@@ -43,9 +43,9 @@ HAVE_DIST = False
 if repconf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, create_session
+        from lib.cuckoo.common.dist_db import Machine, create_session, Task as DTask, Node
         HAVE_DIST = True
-        session = create_session(repconf.distributed.db)
+        dist_session = create_session(repconf.distributed.db)
     except Exception as e:
         print(e)
 
@@ -215,7 +215,7 @@ def load_vms_tags():
     all_tags = list()
     if HAVE_DIST and repconf.distributed.enabled:
         try:
-            db = session()
+            db = dist_session()
             for vm in db.query(Machine).all():
                 all_tags += vm.tags
             all_tags = sorted(filter(None, all_tags))
@@ -278,7 +278,7 @@ def statistics(s_days: int) -> dict:
     details["tasks"] = dict()
     for task in tasks:
         day = task.added_on.strftime("%Y-%m-%d")
-        if day not in details:
+        if day not in details["tasks"]:
             details["tasks"].setdefault(day, {})
             details["tasks"][day].setdefault("failed", 0)
             details["tasks"][day].setdefault("reported", 0)
@@ -288,6 +288,26 @@ def statistics(s_days: int) -> dict:
             details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
+
+    if HAVE_DIST and repconf.distributed.enabled:
+        details["distributed_tasks"] = dict()
+        dist_db = dist_session()
+        dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
+        id2name = dict()
+        #load node names
+        for node in dist_db.query(Node).all() or []:
+            id2name.setdefault(node.id, node.name)
+
+        for task in dist_tasks or []:
+            day = task.clock.strftime("%Y-%m-%d")
+            if day not in details["distributed_tasks"]:
+                details["distributed_tasks"].setdefault(day, {})
+            if id2name[task.node_id] not in details["distributed_tasks"][day]:
+                details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
+            details["distributed_tasks"][day][id2name[task.node_id]] += 1
+        dist_db.close()
+
+        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[1], reverse=True))
 
     session.close()
     return details

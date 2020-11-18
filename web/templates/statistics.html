@@ -25,6 +25,30 @@
   </table>
 
 
+{% if statistics.distributed_tasks %}
+<h4>Cluster details</h4>
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th scope="col">Day</th>
+      <th scope="col">Node - Tasks</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for day, block in statistics.distributed_tasks.items %}
+      <tr>
+          <th scope="row">{{day}}</th>
+          <td>
+            {% for name, tasks in block.items %}
+              <li>Node: {{name}} - Tasks {{tasks}}</li>
+            {% endfor %}
+          </td>
+      </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
 
   <h4>Processing</h4>
   <table class="table table-striped table-hover">

@@ -85,7 +85,7 @@ def memory(percentage=0.8):
         return wrapper
     return decorator
 
-@memory(percentage=0.8)
+#@memory(percentage=0.8)
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -225,7 +225,7 @@ def processing_finished(future):
     del pending_future_map[future]
     del pending_task_id_map[task_id]
 
-@memory(percentage=0.8)
+#@memory(percentage=0.8)
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0

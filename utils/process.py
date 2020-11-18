@@ -12,6 +12,8 @@ import logging
 import argparse
 import signal
 import multiprocessing
+import platform
+import resource
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -51,7 +53,39 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 pending_future_map = {}
 pending_task_id_map = {}
 
+# https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
+def memory_limit(percentage: float):
+    if platform.system() != "Linux":
+        print('Only works on linux!')
+        return
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    resource.setrlimit(resource.RLIMIT_AS, (get_memory() * 1024 * percentage, hard))
 
+def get_memory():
+    with open('/proc/meminfo', 'r') as mem:
+        free_memory = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) == 'MemAvailable:':
+                free_memory = int(sline[1])
+                break
+    return free_memory
+
+def memory(percentage=0.8):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            memory_limit(percentage)
+            try:
+                function(*args, **kwargs)
+            except MemoryError:
+                mem = get_memory() / 1024 /1024
+                print('Remain: %.2f GB' % mem)
+                sys.stderr.write('\n\nERROR: Memory Exception\n')
+                sys.exit(1)
+        return wrapper
+    return decorator
+
+@memory(percentage=0.8)
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -191,7 +225,7 @@ def processing_finished(future):
     del pending_future_map[future]
     del pending_task_id_map[task_id]
 
-
+@memory(percentage=0.8)
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0

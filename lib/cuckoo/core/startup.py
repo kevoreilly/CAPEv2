@@ -318,9 +318,7 @@ def init_rooter():
             raise CuckooStartupError(
                 "The rooter is required but it is either not running or it "
                 "has been configured to a different Unix socket path. "
-                "(In order to disable the use of rooter, please set route "
-                "and internet to none in cuckoo.conf and enabled to no in "
-                "routing.conf)."
+                "python3 utils/rooter.py -h or systemctl status cape-rooter"
             )
 
         if e.strerror == "Connection refused":

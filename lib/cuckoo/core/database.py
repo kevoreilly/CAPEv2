@@ -277,11 +277,16 @@ class Task(Base):
     id = Column(Integer(), primary_key=True)
     target = Column(Text(), nullable=False)
     category = Column(String(255), nullable=False)
+    cape = Column(String(2048), nullable=True)
     timeout = Column(Integer(), server_default="0", nullable=False)
     priority = Column(Integer(), server_default="1", nullable=False)
     custom = Column(String(255), nullable=True)
     machine = Column(String(255), nullable=True)
     package = Column(String(255), nullable=True)
+    route = Column(String(128), nullable=True, default=False)
+    # Task tags
+    tags_tasks = Column(String(256), nullable=True)
+    # Virtual machine tags
     tags = relationship("Tag", secondary=tasks_tags, backref="tasks", lazy="subquery")
     options = Column(String(1024), nullable=True)
     platform = Column(String(255), nullable=True)
@@ -1082,6 +1087,7 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1100,6 +1106,9 @@ class Database(object, metaclass=Singleton):
         @param static: try static extraction first
         @param tlp: TLP sharing designation
         @param source_url: url from where it was downloaded
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
         session = self.Session()
@@ -1178,6 +1187,9 @@ class Database(object, metaclass=Singleton):
         task.shrike_refer = shrike_refer
         task.parent_id = parent_id
         task.tlp = tlp
+        task.route = route
+        task.cape = cape
+        task.tags_tasks = tags_tasks
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.replace(" ", "").split(","):
@@ -1233,6 +1245,10 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        route=None,
+        cape=False,
+        tags_tasks=False
+
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1250,6 +1266,9 @@ class Database(object, metaclass=Singleton):
         @param sample_parent_id: sample parent id, if archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1283,6 +1302,7 @@ class Database(object, metaclass=Singleton):
             sample_parent_id,
             tlp,
             source_url=source_url,
+
         )
 
     def demux_sample_and_add_to_db(
@@ -1309,6 +1329,9 @@ class Database(object, metaclass=Singleton):
         static=False,
         source_url=False,
         only_extraction=False,
+        tags_tasks=False,
+        route=None,
+        cape=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1375,6 +1398,9 @@ class Database(object, metaclass=Singleton):
                     sample_parent_id=sample_parent_id,
                     tlp=tlp,
                     source_url=source_url,
+                    route=route,
+                    tags_tasks=tags_tasks,
+                    cape=cape,
                 )
             if task_id:
                 task_ids.append(task_id)
@@ -1693,6 +1719,7 @@ class Database(object, metaclass=Singleton):
         id_before=None,
         id_after=None,
         options_like=False,
+        tags_tasks_like=False,
     ):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -1708,6 +1735,7 @@ class Database(object, metaclass=Singleton):
         @param id_before: filter by tasks which is less than this value
         @param id_after filter by tasks which is greater than this value
         @param options_like: filter tasks by specific option insde of the options
+        @param tags_tasks_like: filter tasks by specific tag
         @return: list of tasks.
         """
         session = self.Session()
@@ -1734,6 +1762,8 @@ class Database(object, metaclass=Singleton):
                 search = search.filter(Task.added_on < added_before)
             if options_like:
                 search = search.filter(Task.options.like("%{}%".format(options_like)))
+            if tags_tasks_like:
+                search = search.filter(Task.tags_tasks.like("%{}%".format(tags_tasks_like)))
             if order_by is not None:
                 search = search.order_by(order_by)
             else:

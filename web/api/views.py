@@ -353,7 +353,7 @@ def tasks_create_url(request):
 
         url = request.POST.get("url", None)
         static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp, tags_tasks, route, cape = parse_request_arguments(request)
 
         task_ids = []
         task_machines = []

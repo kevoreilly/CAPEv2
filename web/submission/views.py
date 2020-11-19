@@ -133,7 +133,7 @@ def index(request, resubmit_hash=False):
 
         static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp = parse_request_arguments(request)
+            tlp, tags_tasks, route, cape = parse_request_arguments(request)
 
         # This is done to remove spaces in options but not breaks custom paths
         options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)

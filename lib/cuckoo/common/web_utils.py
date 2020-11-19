@@ -409,7 +409,7 @@ def download_file(**kwargs):
 
     static, package, timeout, priority, _, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp = parse_request_arguments(kwargs["request"])
+            tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
@@ -498,6 +498,9 @@ def download_file(**kwargs):
             shrike_sid=shrike_sid,
             shrike_refer=shrike_refer,
             tlp=tlp,
+            tags_tasks=tags_tasks,
+            route=route,
+            cape=cape,
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )
@@ -585,6 +588,7 @@ perform_search_filters = {
 search_term_map = {
     "id": "info.id",
     "ids": "info.id",
+    "tags_tasks": "info.id",
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
@@ -658,10 +662,18 @@ def perform_search(term, value):
             query_val = int(value)
         except:
             pass
-    elif term == "ids":
+    elif term in ("ids", "options", "tags_tasks"):
         try:
-            if all([v.strip().isdigit() for v in value.split(",")]):
+            ids = []
+            if term == "ids":
                 ids = [int(v.strip()) for v in filter(None, value.split(","))]
+            elif term == "tags_tasks":
+                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
+            else:
+
+                ids = [int(v.id) for v in db.list_tasks(options_like=value)]
+                print(ids, value, term)
+            if ids:
                 if len(ids) > 1:
                     query_val = {"$in": ids}
                 else:
@@ -699,6 +711,7 @@ def parse_request_arguments(request):
     options = request.POST.get("options", "")
     machine = request.POST.get("machine", "")
     platform = request.POST.get("platform", "")
+    tags_tasks = request.POST.get("tags_tasks", None)
     tags = request.POST.get("tags", None)
     custom = request.POST.get("custom", "")
     memory = bool(request.POST.get("memory", False))
@@ -715,12 +728,14 @@ def parse_request_arguments(request):
     unique = bool(request.POST.get("unique", False))
     tlp = request.POST.get("tlp", None)
     lin_options = request.POST.get("lin_options", "")
+    route = request.POST.get("route", None)
+    cape = request.POST.get("cape", "")
     # Linux options
     if lin_options:
         options = lin_options
 
     return static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-        shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp
+        shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp, tags_tasks, route, cape
 
 def get_hash_list(hashes):
     hashlist = []

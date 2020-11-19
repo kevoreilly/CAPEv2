@@ -1302,7 +1302,9 @@ class Database(object, metaclass=Singleton):
             sample_parent_id,
             tlp,
             source_url=source_url,
-
+            route=route,
+            cape=cape,
+            tags_tasks=tags_tasks,
         )
 
     def demux_sample_and_add_to_db(

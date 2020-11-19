@@ -160,9 +160,6 @@ def index(request, resubmit_hash=False):
         if request.POST.get("tor"):
             options += "tor=yes,"
 
-        if request.POST.get("route", None):
-            options += "route={0},".format(request.POST.get("route", None))
-
         if request.POST.get("process_dump"):
             options += "procdump=0,"
 

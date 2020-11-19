@@ -163,7 +163,10 @@ class CAPE(Processing):
             return
 
         buf = self.options.get("buffer", BUFSIZE)
-        file_info = File(file_path, metadata.get("metadata", "")).get_all()
+        file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+        if pefile_object:
+                self.results.setdefault("pefiles", {})
+                self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
         # Get the file data
         try:

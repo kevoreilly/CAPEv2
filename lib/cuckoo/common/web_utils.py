@@ -269,7 +269,7 @@ def statistics(s_days: int) -> dict:
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
             details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
 
-        details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1], reverse=True))
+        details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     session = db.Session()
     tasks = session.query(Task).filter(Task.added_on.between(date_since, date_till)).all()

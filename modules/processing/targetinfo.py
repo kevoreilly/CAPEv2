@@ -26,7 +26,10 @@ class TargetInfo(Processing):
             # Let's try to get as much information as possible, i.e., the
             # filename if the file is not available anymore.
             if os.path.exists(self.file_path):
-                target_info["file"] = File(self.file_path).get_all()
+                target_info["file"], pefile_object = File(self.file_path).get_all()
+                if pefile_object:
+                    self.results.setdefault("pefiles", {})
+                    self.results["pefiles"].setdefault(target_info["file"]["sha256"], pefile_object)
 
             target_info["file"]["name"] = File(self.task["target"]).get_name()
         elif self.task["category"] == "url":

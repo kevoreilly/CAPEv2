@@ -723,6 +723,10 @@ class RunReporting:
     def __init__(self, task, results, reprocess=False):
         """@param analysis_path: analysis folder path."""
         self.task = task
+
+        if results.get("pefiles"):
+            del results["pefiles"]
+
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
             process["calls"].begin_reporting()

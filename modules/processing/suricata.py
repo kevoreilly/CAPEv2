@@ -335,7 +335,10 @@ class Suricata(Processing):
                         except OSError as e:
                             log.warning("Unable to move suricata file: {}".format(e))
                             break
-                        file_info = File(file_path=dst_file).get_all()
+                        file_info, pefile_object = File(file_path=dst_file).get_all()
+                        if pefile_object:
+                            self.results.setdefault("pefiles", {})
+                            self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                         try:
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)

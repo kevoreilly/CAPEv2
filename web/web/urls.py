@@ -33,4 +33,5 @@ urlpatterns = [
     url(r"^full_memory/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_file, name="full_memory_dump_file"),
     url(r"^full_memory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_strings, name="full_memory_dump_strings"),
     url(r"^dashboard/", include(dashboard)),
+    url(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name='statistics_data')
 ]

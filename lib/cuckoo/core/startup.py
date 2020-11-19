@@ -383,7 +383,7 @@ def init_routing():
             # )
             #    add = 0
             if not rooter("rt_available", entry.rt_table):
-                raise CuckooStartupError("The routing table that has been configured for " "VPN %s is not available." % entry.name)
+                raise CuckooStartupError("The routing table that has been configured for VPN %s is not available." % entry.name)
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -399,20 +399,18 @@ def init_routing():
     # Check whether the default VPN exists if specified.
     if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
         if not routing.vpn.enabled:
-            raise CuckooStartupError(
-                "A VPN has been configured as default routing interface for " "VMs, but VPNs have not been enabled in vpn.conf"
-            )
+            raise CuckooStartupError("A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in vpn.conf")
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
-            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been " "configured in routing.conf.")
+            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field")
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
         if not rooter("nic_available", routing.routing.internet):
-            raise CuckooStartupError("The network interface that has been configured as dirty " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as dirty line is not available.")
 
         if not rooter("rt_available", routing.routing.rt_table):
-            raise CuckooStartupError("The routing table that has been configured for dirty " "line interface is not available.")
+            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

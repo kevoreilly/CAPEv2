@@ -452,7 +452,7 @@ def download_file(**kwargs):
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
 
     onesuccess = True
-    magic_type = get_magic_type(kwargs["path"])
+    magic_type = get_magic_type(kwargs["content"])
     if disable_x64 is True and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}

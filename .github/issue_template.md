@@ -1,5 +1,5 @@
 ## This is opensource and you getting __free__ support so be friendly!
-* Free support from doomedraven ended, no whikey no support. For something he updated the documentation :)
+* Free support from doomedraven ended, no whiskey no support. For something he updated the documentation :)
 
 # Prerequisites
 

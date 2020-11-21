@@ -671,7 +671,6 @@ def perform_search(term, value):
                 ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
             else:
                 ids = [int(v.id) for v in db.list_tasks(options_like=value)]
-                print(ids, value, term)
             if ids:
                 if len(ids) > 1:
                     query_val = {"$in": ids}

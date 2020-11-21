@@ -1087,6 +1087,9 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        route = None,
+        cape = False,
+        tags_tasks = False,
 
     ):
         """Add a task to database.

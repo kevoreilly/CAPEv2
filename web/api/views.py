@@ -741,20 +741,21 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
 
-        if term == "ids":
+        if term in ("ids", "options", "tags_tasks"):
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
-                tmp_value = list()
-                for task in db.list_tasks(task_ids=value) or []:
-                    if task.status == "reported":
-                        tmp_value.append(task.id)
-                    else:
-                        return_data.append({"analysis": {"status": task.status, "id": task.id}})
-
-                value = tmp_value
-                del tmp_value
             else:
                 return jsonize({"error": True, "error_value": "Not all values are integers"}, response=True)
+        if term == "ids":
+            tmp_value = list()
+            for task in db.list_tasks(task_ids=value) or []:
+                if task.status == "reported":
+                    tmp_value.append(task.id)
+                else:
+                    return_data.append({"analysis": {"status": task.status, "id": task.id}}
+            value = tmp_value
+            del tmp_value
+
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)

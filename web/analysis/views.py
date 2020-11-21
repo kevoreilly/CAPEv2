@@ -1395,7 +1395,7 @@ def search(request):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
                 print(value, "value")
             else:
-                return render(request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], {"error": "Not all values are integers"})
+                return render(request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], "error": "Not all values are integers"})
 
         try:
             if term == "malscore":

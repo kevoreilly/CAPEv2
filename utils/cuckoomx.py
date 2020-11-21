@@ -20,7 +20,7 @@ try:
     from sflock.unpack import ZipFile
     from sflock.abstracts import File
 except ImportError:
-    print("Missed deps" "sudo apt-get install p7zip-full rar unace-nonfree" "sudo pip3 install -U sflock")
+    print("Missed deps" "sudo apt-get install p7zip-full rar unace-nonfree" "sudo pip3 install -U git+https://github.com/doomedraven/sflock")
 
 # Cuckoo root
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")

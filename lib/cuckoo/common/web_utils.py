@@ -666,11 +666,10 @@ def perform_search(term, value):
         try:
             ids = []
             if term == "ids":
-                ids = [int(v.strip()) for v in filter(None, value.split(","))]
+                ids = value
             elif term == "tags_tasks":
                 ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value)]
             else:
-
                 ids = [int(v.id) for v in db.list_tasks(options_like=value)]
                 print(ids, value, term)
             if ids:

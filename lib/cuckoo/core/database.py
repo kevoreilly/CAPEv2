@@ -1722,6 +1722,7 @@ class Database(object, metaclass=Singleton):
         id_after=None,
         options_like=False,
         tags_tasks_like=False,
+        task_ids=False,
     ):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -1738,6 +1739,7 @@ class Database(object, metaclass=Singleton):
         @param id_after filter by tasks which is greater than this value
         @param options_like: filter tasks by specific option insde of the options
         @param tags_tasks_like: filter tasks by specific tag
+        @param task_ids: list of task_id
         @return: list of tasks.
         """
         session = self.Session()
@@ -1766,6 +1768,8 @@ class Database(object, metaclass=Singleton):
                 search = search.filter(Task.options.like("%{}%".format(options_like)))
             if tags_tasks_like:
                 search = search.filter(Task.tags_tasks.like("%{}%".format(tags_tasks_like)))
+            if task_ids:
+                search = search.filter(Task.id.in_(task_ids))
             if order_by is not None:
                 search = search.order_by(order_by)
             else:
@@ -1886,6 +1890,19 @@ class Database(object, metaclass=Singleton):
             task = session.query(Task).get(task_id)
             session.delete(task)
             session.commit()
+        except SQLAlchemyError as e:
+            log.debug("Database error deleting task: {0}".format(e))
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return True
+
+    #classlock
+    def delete_tasks(self, ids):
+        session = self.Session()
+        try:
+            search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         except SQLAlchemyError as e:
             log.debug("Database error deleting task: {0}".format(e))
             session.rollback()

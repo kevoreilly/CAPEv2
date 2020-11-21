@@ -600,6 +600,9 @@ class StatusThread(threading.Thread):
             log.warning("Got an operational Exception when trying to submit tasks: {}".format(e))
             return False
 
+        if node.name not in SERVER_TAGS:
+            self.load_vm_tags(db, node.id, node.name)
+
         limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
@@ -742,11 +745,23 @@ class StatusThread(threading.Thread):
         db.commit()
         return True
 
+    def load_vm_tags(self, db, node_id, node_name):
+        global SERVER_TAGS
+        # Get available node tags
+        machines = db.query(Machine).filter_by(node_id=node_id).all()
+
+        # Get available tag combinations
+        ta = set()
+        for m in machines:
+            for i in range(1, len(m.tags) + 1):
+                for tag in combinations(m.tags, i):
+                    ta.add(','.join(tag))
+        SERVER_TAGS[node_name] = list(ta)
+
     def run(self):
         global main_db
         global retrieve
         global STATUSES
-        global SERVER_TAGS
         MINIMUMQUEUE = dict()
 
         # handle another user case,
@@ -767,17 +782,8 @@ class StatusThread(threading.Thread):
         for node in db.query(Node).filter_by(enabled=True).all():
             MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
             ID2NAME[node.id] = node.name
-            # Get available node tags
-            machines = db.query(Machine).filter_by(node_id=node.id).all()
+            self.load_vm_tags(db, node.id, node.name)
 
-            # Get available tag combinations
-            ta = set()
-            for m in machines:
-                for i in range(1, len(m.tags) + 1):
-                    for tag in combinations(m.tags, i):
-                        ta.add(",".join(tag))
-
-            SERVER_TAGS[node.name] = list(ta)
         db.commit()
         statuses = {}
         while True:

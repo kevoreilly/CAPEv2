@@ -58,8 +58,11 @@ class LogServerThread(Thread):
                 bytes_read = c_int(0)
                 buf = create_string_buffer(LOGBUFSIZE)
                 success = KERNEL32.ReadFile(self.h_pipe, buf, sizeof(buf), byref(bytes_read), None)
-
-                data += buf.raw[: bytes_read.value]
+                try:
+                    data += buf.raw[:bytes_read.value]
+                except MemoryError:
+                    log.error("MemoryError just happend")
+                    break
                 if success or KERNEL32.GetLastError() != ERROR_MORE_DATA:
                     break
 

@@ -14,6 +14,7 @@ def main():
     vpns = list()
     template = """
 [vpn_{id}]
+# rename this to something different, you will use thil field to see in webgui or set in routing.conf
 name = {vpn_path}
 description = {description}
 interface = tun{id}

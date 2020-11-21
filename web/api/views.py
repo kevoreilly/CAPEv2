@@ -739,6 +739,11 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
 
+        if term == "ids":
+            if all([v.strip().isdigit() for v in value.split(",")]):
+                value = [int(v.strip()) for v in filter(None, value.split(","))]
+            else:
+                return jsonize("error": True, "error_value": "Not all values are integers")
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)
@@ -755,14 +760,18 @@ def ext_tasks_search(request):
                 resp = {"error": True, "error_value": "No option or argument provided."}
 
         if records:
-
             ids = list()
             for results in records:
                 if repconf.mongodb.enabled:
                     ids.append(results)
                 if es_as_db:
                     ids.append(results["_source"])
-
+            if term == "ids":
+                # ToDo get id status:
+                task_details = {task.id:task.status for task in db.list_tasks(task_ids=value) or []}
+                for block in ids:
+                    if block["info"]["id"] in task_details:
+                        block["status"] = task_details[block["info"]["id"]]
             resp = {"error": False, "data": ids}
         else:
             resp = {"error": True, "error_value": "Unable to retrieve records"}

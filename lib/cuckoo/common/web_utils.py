@@ -577,13 +577,11 @@ def perform_search(term, value):
             pass
     elif term == "ids":
         try:
-            if all([v.strip().isdigit() for v in value.split(",")]):
-                ids = [int(v.strip()) for v in filter(None, value.split(","))]
-                if len(ids) > 1:
-                    query_val = {"$in": ids}
-                else:
-                    term = "id"
-                    query_val = int(value)
+            if len(value) > 1:
+                query_val = {"$in": value}
+            else:
+                term = "id"
+                query_val = int(value)
         except Exception as e:
             print(term, value, e)
     else:

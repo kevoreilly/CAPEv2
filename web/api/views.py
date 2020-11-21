@@ -743,7 +743,7 @@ def ext_tasks_search(request):
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
             else:
-                return jsonize("error": True, "error_value": "Not all values are integers")
+                return jsonize({"error": True, "error_value": "Not all values are integers"}, response=True)
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)

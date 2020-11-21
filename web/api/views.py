@@ -730,8 +730,10 @@ def ext_tasks_search(request):
         resp = {"error": True, "error_value": "Extended Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
+    return_data = list()
     term = request.POST.get("option", "")
     value = request.POST.get("argument", "")
+    task_details = dict()
 
     if term and value:
         records = False
@@ -742,6 +744,15 @@ def ext_tasks_search(request):
         if term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
+                tmp_value = list()
+                for task in db.list_tasks(task_ids=value) or []:
+                    if task.status == "reported":
+                        tmp_value.append(task.id)
+                    else:
+                        return_data.append({"analysis": {"status": task.status, "id": task.id}})
+
+                value = tmp_value
+                del tmp_value
             else:
                 return jsonize({"error": True, "error_value": "Not all values are integers"}, response=True)
         try:
@@ -760,19 +771,13 @@ def ext_tasks_search(request):
                 resp = {"error": True, "error_value": "No option or argument provided."}
 
         if records:
-            ids = list()
             for results in records:
                 if repconf.mongodb.enabled:
-                    ids.append(results)
+                    return_data.append(results)
                 if es_as_db:
-                    ids.append(results["_source"])
-            if term == "ids":
-                # ToDo get id status:
-                task_details = {task.id:task.status for task in db.list_tasks(task_ids=value) or []}
-                for block in ids:
-                    if block["info"]["id"] in task_details:
-                        block["status"] = task_details[block["info"]["id"]]
-            resp = {"error": False, "data": ids}
+                    return_data.append(results["_source"])
+
+            resp = {"error": False, "data": return_data}
         else:
             resp = {"error": True, "error_value": "Unable to retrieve records"}
     else:

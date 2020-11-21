@@ -1405,15 +1405,9 @@ def search(request):
                 records = perform_search(term, value)
         except ValueError:
             if term:
-                return render(
-                    request,
-                    "analysis/search.html",
-                    {"analyses": None, "term": request.POST["search"], "error": "Invalid search term: %s" % term},
-                )
+                return render( request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], "error": "Invalid search term: %s" % term},)
             else:
-                return render(
-                    request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"}
-                )
+                return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"})
 
         analyses = []
         for result in records or []:

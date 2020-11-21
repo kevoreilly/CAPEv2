@@ -64,7 +64,7 @@ try:
     HAVE_MALDUCK = True
 except ImportError:
     HAVE_MALDUCK = False
-    log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/\nDetails: {}".format(e))
+    log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
 
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")

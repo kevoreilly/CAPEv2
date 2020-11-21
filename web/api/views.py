@@ -752,7 +752,7 @@ def ext_tasks_search(request):
                 if task.status == "reported":
                     tmp_value.append(task.id)
                 else:
-                    return_data.append({"analysis": {"status": task.status, "id": task.id}}
+                    return_data.append({"analysis": {"status": task.status, "id": task.id}})
             value = tmp_value
             del tmp_value
 

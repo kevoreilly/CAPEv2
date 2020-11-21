@@ -1,3 +1,11 @@
+### [TBD] CAPE 2.2
+* Malduck integration
+* Bootrstarp 4.5.3 & font awesome 5
+* Statistics
+* Tag_tasks - allows you tag your jobs
+* self.pefiles: introduced to prcessing/signatures modules, you can get PEFILE object by sha256 self.pefiles.get(sha256)
+* More soon ;)
+
 ### [31-10-2020] Pre Halloween edition
 * [Box-js](https://github.com/kirk-sayre-work/box-js/) integration [docs](https://capev2.readthedocs.io/en/latest/integrations/box-js.html)
 * Fixed support for office in x64 VMs

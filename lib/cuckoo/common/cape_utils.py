@@ -56,6 +56,17 @@ except ImportError:
 except Exception as e:
     log.error(e, exc_info=True)
 
+try:
+    # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
+    from malduck import procmem, procmempe
+    from malduck.extractor import ExtractorModules, ExtractManager
+    malduck_modules = ExtractorModules(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
+    HAVE_MALDUCK = True
+except ImportError:
+    HAVE_MALDUCK = False
+    log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/\nDetails: {}".format(e))
+
+
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
 

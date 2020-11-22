@@ -1071,7 +1071,7 @@ def file_nl(request, category, task_id, dlfile):
     path = False
     if category == "screenshot":
         file_name = file_name + ".jpg"
-        path = os.path.join(base_path "shots", file_name)
+        path = os.path.join(base_path, "shots", file_name)
         cd = "image/jpeg"
 
     elif category == "bingraph":

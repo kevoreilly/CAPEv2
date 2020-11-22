@@ -1067,17 +1067,22 @@ def report(request, task_id):
 
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
+    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
+    path = False
     if category == "screenshot":
         file_name = file_name + ".jpg"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+        path = os.path.join(base_path, "shots", file_name)
         cd = "image/jpeg"
 
     elif category == "bingraph":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name + "-ent.svg")
+        path = os.path.join(base_path, str(task_id), "bingraph", file_name + "-ent.svg")
         file_name = file_name + "-ent.svg"
         cd = "image/svg+xml"
     else:
         return render(request, "error.html", {"error": "Category not defined"})
+
+    if path and not os.path.normpath(path).startswith(base_path):
+        return render(request, "error.html", {"error": "File not found"})
 
     try:
         resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)

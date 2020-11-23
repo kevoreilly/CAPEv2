@@ -33,6 +33,20 @@ with your user. You also have script in utils/linux_mktaps.sh**
 Preparing x32/x64 Ubuntu 17.10 Linux guests
 ===========================================
 
+Install support files dependencies::
+
+    $ sudo apt update
+    $ sudo apt install python3-pip
+    $ pip3 install pyinotify
+    $ pip3 install pillow       # optional
+    $ pip3 install pyscreenshot # optional
+
+(For x64 architectures) Install python3 32 bits::
+
+    $ sudo dpkg --add-architecture i386
+    $ sudo apt update
+    $ sudo apt install python3:i386
+	
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 
     $ sudo crontab -e
@@ -96,6 +110,15 @@ Disable NTP inside of the VM::
 
     $ sudo timedatectl set-ntp off
 
+Disable auto-update for noise reduction::
+
+    $ sudo tee /etc/apt/apt.conf.d/20auto-upgrades << EOF
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+    EOF
+	
+If needed, kill the unattended-upgrade process using htop or ps + kill.
+	
 Optional - preinstalled remove software and configurations::
 
     $ sudo apt-get purge update-notifier update-manager update-manager-core ubuntu-release-upgrader-core

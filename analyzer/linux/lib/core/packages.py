@@ -166,7 +166,7 @@ class Package(object):
         log.info(cmd)
         self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline():
+        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
             # log.debug(self.proc.stderr.readline())
             pass
 

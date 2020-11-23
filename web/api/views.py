@@ -779,7 +779,10 @@ def ext_tasks_search(request):
 
             resp = {"error": False, "data": return_data}
         else:
-            resp = {"error": True, "error_value": "Unable to retrieve records"}
+            if not return_data:
+                resp = {"error": True, "error_value": "Unable to retrieve records"}
+            else:
+                resp = {"error": False, "data": return_data}
     else:
         if not term:
             resp = {"error": True, "error_value": "No option provided."}

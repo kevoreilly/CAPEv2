@@ -5,6 +5,7 @@
 * Statistics
 * Tag_tasks - allows you tag your jobs
 * self.pefiles: introduced to prcessing/signatures modules, you can get PEFILE object by sha256 self.pefiles.get(sha256)
+* https traffic decription
 * More soon ;)
 
 ### 16-11-2020

@@ -1,6 +1,6 @@
 {% if analysis.procmemory %}
     <div class="tabbable tabs">
-        <ul class="nav nav-pills" style="margin-bottom: 0;">
+        <ul class="nav nav-tabs" style="margin-bottom: 0;">
             {% for proc in analysis.procmemory %}
                 <li {%if forloop.first %}class="active"{% endif %}><a href="#procmemory_{{proc.pid}}" data-toggle="tab">{{proc.pid}}</a></li>
             {% endfor %}

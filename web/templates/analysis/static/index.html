@@ -1,6 +1,6 @@
 {% load generic_tags %}
 <div class="tabbable tabs">
-    <ul class="nav nav-pills" style="margin-bottom: 0;">
+    <ul class="nav nav-tabs" style="margin-bottom: 0;">
         {% if analysis.info.category in "file,static" %}
         <li class="active"><a href="#static_analysis_tab" data-toggle="tab">Static Analysis</a></li>
         {% if analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}

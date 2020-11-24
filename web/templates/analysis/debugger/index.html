@@ -19,7 +19,7 @@
     {% endfor %}
 </ul>
 <div class="tabbable tabs">
-    <ul class="nav nav-pills" style="margin-bottom: 0;">
+    <ul class="nav nav-tabs" style="margin-bottom: 0;">
         {% for process in debugger.processes %}
         {% for key, value in debugger_logs.items %}
         {% if key == process.process_id %}

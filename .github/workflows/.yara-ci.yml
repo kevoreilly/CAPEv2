@@ -1,4 +1,3 @@
 files:
   accept:
-  - "**.yar"
-  - "**.yara"
+  - "data/yara/**.yar"

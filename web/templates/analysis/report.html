@@ -59,12 +59,6 @@ $(function() {
     font-size: 12;
 }
 </style>
-<div class="row">
-    <div class="col-md-6"></div>
-    {% if analysis.info.category == "file" and analysis.target %}
-        <div class="col-md-6" style="text-align: right;"><a class="btn btn-default" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
-    {% endif %}
-</div>
 {% if analysis.info.tlp %}
     {% if analysis.info.tlp == "Red" %}
     <div class="alert alert-tlp_red">
@@ -117,6 +111,7 @@ $(function() {
     {% if analysis.curtain%}<li> <a href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
     <li><a href="#statistics" data-toggle="tab">Statistics</a></li>
     {% if settings.ADMIN %}<li><a href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
+    {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
 </ul>
 <div class="tab-content">
     <div class="tab-pane fade in active" id="overview">

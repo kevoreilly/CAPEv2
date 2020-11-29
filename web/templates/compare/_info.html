@@ -12,7 +12,7 @@
     <tbody>
         <tr>
             <td>{{record.info.id}}</td>
-            <td>{{record.target.file.name}}</td>
+            <td>{{record.target.file.name|slice:":40" }} {% if record.target.file.name|length > 40 %}...{% endif %}</td>
             <td><a href="{% url "report" record.info.id %}">{{record.target.file.md5}}</a></td>
             <td>{{record.info.machine.name}}</td>
             <td>{{record.info.ended}}</td>

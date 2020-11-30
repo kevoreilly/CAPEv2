@@ -6,6 +6,8 @@
 * Tag_tasks - allows you tag your jobs
 * self.pefiles: introduced to prcessing/signatures modules, you can get PEFILE object by sha256 self.pefiles.get(sha256)
 * https traffic decription
+* Pending page now is much useful and show hashes to easilly spot duplicated
+* Submission of file or resubmission will show all the jobs and detection for that file
 * More soon ;)
 
 ### 16-11-2020

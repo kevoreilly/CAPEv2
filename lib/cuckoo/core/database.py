@@ -44,7 +44,7 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.db,
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "2996ec5ea15c"
+SCHEMA_VERSION = "c554ed5f32a0"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"

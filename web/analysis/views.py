@@ -334,13 +334,14 @@ def index(request, page=1):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
-    tasks = db.list_tasks(status=TASK_PENDING)
+    db = Database()
+    tasks = db.list_tasks(inclide_hashes=True, status=TASK_PENDING)
 
     pending = []
     for task in tasks:
-        pending.append(task.to_dict())
+        pending.append({"target": task.target, "added_on": task.added_on, "category": task.category, "md5": task.sample.md5, "sha256": task.sample.sha256})
 
-    return render(request, "analysis/pending.html", {"tasks": pending})
+    return render(request, "analysis/pending.html",  {"tasks": pending})
 
 
 ajax_mongo_schema = {

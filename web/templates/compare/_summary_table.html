@@ -14,7 +14,7 @@
             <tr>
                 <td>{{record.info.id}}</td>
                 <td>{{record.target.file.name}}</td>
-                <td>{{record.info.machine.name}}</td>
+                <td>{{record.info.machine.label}}</td>
                 <td>{{record.info.ended}}</td>
                 <td>{{record.info.duration}} seconds</td>
                 <td><a class="btn btn-default btn-small" href="{% url "compare_both" left.info.id record.info.id %}">Select</a></td>

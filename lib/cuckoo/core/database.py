@@ -336,7 +336,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref="tasks", lazy="subquery")
+    sample = relationship("Sample", backref="tasks")#, lazy="subquery"
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")
     errors = relationship("Error", backref="tasks", cascade="save-update, delete")
@@ -1750,8 +1750,8 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             search = session.query(Task)
-            if inclide_hashes:
-                search = search.join(Sample, Task.sample_id==Sample.id)
+            #if inclide_hashes:
+            #    search = search.join(Sample, Task.sample_id==Sample.id)
             if status:
                 search = search.filter_by(status=status)
             if not_status:

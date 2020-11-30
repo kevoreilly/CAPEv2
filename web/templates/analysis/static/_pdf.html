@@ -117,7 +117,7 @@
         {% if analysis.static.pdf.Annot_URLs %}
         <div>
             <h4>Link Annotation URLs</h4>
-            <div class="well mono">
+            <div class="card card-body">
                 {% for url in analysis.static.pdf.Annot_URLs %}
                     {{url}}<br />
                 {% endfor %}
@@ -127,7 +127,7 @@
         {% if analysis.static.pdf.JS_URLs %}
         <div>
             <h4>Javascript URLs</h4>
-            <div class="well mono">
+            <div class="card card-body">
                 {% for url in analysis.static.pdf.JS_URLs %}
                     {{url}}<br />
                 {% endfor %}

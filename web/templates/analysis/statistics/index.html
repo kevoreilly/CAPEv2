@@ -7,7 +7,7 @@
             {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
             {% if stat.time %}
             <li class="list-group-item">
-                <span class="badge">{{stat.time}}</span>
+                <span class="badge.badge-pill">{{stat.time}}</span>
                 {{stat.name}}
             </li>
             {% endif %}
@@ -22,7 +22,7 @@
             {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
             {% if stat.time %}
             <li class="list-group-item">
-                <span class="badge">{{stat.time}}</span>
+                <span class="badge.badge-pill">{{stat.time}}</span>
                 {{stat.name}}
             </li>
             {% endif %}
@@ -37,7 +37,7 @@
             {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
             {% if stat.time %}
             <li class="list-group-item">
-                <span class="badge">{{stat.time}}</span>
+                <span class="badge.badge-pill">{{stat.time}}</span>
                 {{stat.name}}
             </li>
             {% endif %}

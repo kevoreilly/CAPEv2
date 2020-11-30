@@ -6,7 +6,7 @@
     <h3 class="panel-title">API - <a href=https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api>Authentification example</a></h3>
   </div>
   {% if config %}
-  <table class="table table-striped" style="table-layout: fixed;">
+  <table class="table table-striped table-hover table-dark" style="table-layout: fixed;">
     <thead>
       <tr>
         <th width="10%">API Node</th>
@@ -20,9 +20,9 @@
       <tr>
         <td>File Create</td>
         {% if config.filecreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -31,21 +31,21 @@
           </ul>
         </td>
         <td>Submit a file task to be analyzed by CAPE. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#filecreate">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#filecreate" aria-expanded="false" aria-controls="#filecreate">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="filecreate">
-        <td colspan="5">
-          <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/file/
-Note: machine is optional.</pre>
-        </td>
+          <td colspan="5">
+            <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/file/
+  Note: machine is optional.</pre>
+          </td>
       </tr>
       <tr>
         <td>VirusTotal download and analyze</td>
         {% if config.vtdl.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -54,7 +54,7 @@ Note: machine is optional.</pre>
           </ul>
         </td>
         <td>Download a file from VT for analysis. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#vtdl">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#vtdl" aria-expanded="false" aria-controls="#vtdl">Example</a></td>
       </tr>
       <tr class="collapse" id="vtdl">
         <td colspan="5">
@@ -65,9 +65,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>URL Create</td>
         {% if config.urlcreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -76,7 +76,7 @@ Note: machine is optional.</pre>
           </ul>
         </td>
         <td>Submit a URL task to be analyzed by CAPE. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#urlcreate">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#urlcreate" aria-expanded="false" aria-controls="#urlcreate">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="urlcreate">
@@ -87,9 +87,9 @@ Note: machine is optional.</pre>
       <tr>
         <td>Download file and Create file task aka dl'n'exec</td>
         {% if config.dlnexeccreate.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -98,8 +98,7 @@ Note: machine is optional.</pre>
           </ul>
         </td>
         <td>Submit a URL it will download and add as file task to be analyzed by CAPE. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#dlnexeccreate">Example</a></td>
+        <td><a cclass="accordion-toggle" data-toggle="collapse" href="#dlnexeccreate" aria-expanded="false" aria-controls="#dlnexeccreate">Example</a></td>
       </tr>
       <tr class="collapse" id="dlnexeccreate">
         <td colspan="5">
@@ -107,12 +106,11 @@ Note: machine is optional.</pre>
         </td>
       </tr>
       <tr>
-      <tr>
         <td>Static extraction</td>
         {% if config.staticextraction.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -122,7 +120,7 @@ Note: machine is optional.</pre>
         </td>
         <td>Submit a file to try static extractors on it, file won't be submited to Virtual Machine. Return object will
           be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#staticextraction">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#staticextraction" aria-expanded="false" aria-controls="#staticextraction">Example</a></td>
       </tr>
       <tr class="collapse" id="staticextraction">
         <td colspan="5">
@@ -132,14 +130,14 @@ Note: machine is optional.</pre>
             <tr>
                 <td>File View</td>
                 {% if config.fileview.enabled %}
-                <td><span class="label label-success">Yes</span></td>
+                <td><span class="badge badge-success">Yes</span></td>
                 {% else %}
-                <td><span class="label label-danger">No</span></td>
+                <td><span class="badge badge-danger">No</span></td>
                 {% endif %}
                 <td><ul><li>RPS: {{ config.fileview.rps }}</li>
                         <li>RPM: {{ config.fileview.rpm }}</li></ul></td>
                 <td>View information about a specific sample that it's CAPE's database. Return object will be JSON.</td>
-                <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#fileview">Example</a></td>
+                <td><a class="accordion-toggle" data-toggle="collapse" href="#fileview" aria-expanded="false" aria-controls="#fileview">Example</a></td>
             </tr>
             <tr class="collapse" id="fileview">
               <td colspan="5"><pre>curl {{ config.api.url }}/api/files/view/md5/[md5 hash]/
@@ -151,9 +149,9 @@ curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
       <tr>
         <td>Basic Task Search</td>
         {% if config.tasksearch.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -163,7 +161,7 @@ curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
         </td>
         <td>View information about a specific Task that's in CAPE's database by Hash or ID. Return object will be JSON.
         </td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#tasksearch">Example</a>
+        <td><a cclass="accordion-toggle" data-toggle="collapse" href="#tasksearch" aria-expanded="false" aria-controls="#tasksearch">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasksearch">
@@ -176,9 +174,9 @@ curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Extended Task Search</td>
         {% if config.extendedtasksearch.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -187,8 +185,7 @@ curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>Search for Task ID's that's in MongoDB by various options. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#extendedtasksearch">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#extendedtasksearch" aria-expanded="false" aria-controls="#extendedtasksearch">Example</a></td>
       </tr>
       <tr class="collapse" id="extendedtasksearch">
         <td colspan="5">
@@ -233,9 +230,9 @@ TTP: TTP number
       <tr>
         <td>Tasks List</td>
         {% if config.tasklist.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -244,7 +241,7 @@ TTP: TTP number
           </ul>
         </td>
         <td>View information about a range of Task ID's. Return object will be JSON</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#tasklist">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#tasklist" aria-expanded="false" aria-controls="#tasklist">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasklist">
@@ -258,9 +255,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task View</td>
         {% if config.taskview.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -270,7 +267,7 @@ Acepts as params status to check for status and/or option to search by option LI
         </td>
         <td>View information about a specific task including VM, sample, and error information. Return object will be
           JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskview">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskview" aria-expanded="false" aria-controls="#taskview">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskview">
@@ -281,9 +278,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Reschedule Task</td>
         {% if config.taskresched.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -292,7 +289,7 @@ Acepts as params status to check for status and/or option to search by option LI
           </ul>
         </td>
         <td>Reschedule an analysis task to run again. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskresched">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskresched" aria-expanded="false" aria-controls="#taskresched">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskresched">
@@ -303,9 +300,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Delete Task</td>
         {% if config.taskdelete.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -314,7 +311,7 @@ Acepts as params status to check for status and/or option to search by option LI
           </ul>
         </td>
         <td>Delete a task from the database. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskdelete">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskdelete" aria-expanded="false" aria-controls="#taskdelete">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskdelete">
@@ -325,9 +322,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task Status</td>
         {% if config.taskstatus.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -336,7 +333,7 @@ Acepts as params status to check for status and/or option to search by option LI
           </ul>
         </td>
         <td>Query the status of a Task by ID. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskstatus">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskstatus" aria-expanded="false" aria-controls="#taskstatus">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskstatus">
@@ -347,9 +344,9 @@ Acepts as params status to check for status and/or option to search by option LI
       <tr>
         <td>Task Report</td>
         {% if config.taskreport.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -359,7 +356,7 @@ Acepts as params status to check for status and/or option to search by option LI
         </td>
         <td>Download a report generated for a specific task. Return object will be JSON, XML, or octet-stream (tar.bz2).
         </td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskreport">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskreport" aria-expanded="false" aria-controls="#taskreport">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskreport">
@@ -372,9 +369,9 @@ Note: Format can be json/maec/maec5/metadata/all.</pre>
       <tr>
         <td>Task IOCs</td>
         {% if config.taskiocs.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -383,7 +380,7 @@ Note: Format can be json/maec/maec5/metadata/all.</pre>
           </ul>
         </td>
         <td>View objects of the task report that may contain potential IOCs. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskiocs">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskiocs" aria-expanded="false" aria-controls="#taskiocs">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskiocs">
@@ -395,9 +392,9 @@ curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
       <tr>
         <td>Task Screenshots</td>
         {% if config.taskscreenshot.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -407,8 +404,7 @@ curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
         </td>
         <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or octet-stream. (.jpg or
           .tar.bz2)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#taskscreenshot">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskscreenshot" aria-expanded="false" aria-controls="#taskscreenshot">Example</a></td>
       </tr>
       <tr class="collapse" id="taskscreenshot">
         <td colspan="5">
@@ -419,9 +415,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task PCAP</td>
         {% if config.taskpcap.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -430,7 +426,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
           </ul>
         </td>
         <td>Download the PCAP dump of a Task by ID. Return object will be application/vnd.tcpdump.pcap. (.pcap)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskpcap">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskpcap" aria-expanded="false" aria-controls="#taskpcap">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskpcap">
@@ -441,9 +437,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task Dropped Files</td>
         {% if config.taskdropped.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -452,7 +448,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
           </ul>
         </td>
         <td>Download the dropped files associated with a Task by ID. Return object will be octet-stream. (.tar.bz2)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#taskdropped">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskdropped" aria-expanded="false" aria-controls="#taskdropped">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskdropped">
@@ -463,9 +459,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task SuriFiles</td>
         {% if config.tasksurifile.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -475,7 +471,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
         </td>
         <td>Download the Suricata captured files associated with a Task by ID. Return object will be octet-stream.
           (.zip)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#tasksurifile">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#tasksurifile" aria-expanded="false" aria-controls="#tasksurifile">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasksurifile">
@@ -486,9 +482,9 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       <tr>
         <td>Task Process Dump</td>
         {% if config.taskprocmemory.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -498,8 +494,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
         </td>
         <td>Download a process memory dump from a Task by ID and PID. Return object will be octet-stream. (.dmp or
           .tar.bz2)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#taskprocmemory">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskprocmemory" aria-expanded="false" aria-controls="#taskprocmemory">Example</a></td>
       </tr>
       <tr class="collapse" id="taskprocmemory">
         <td colspan="5">
@@ -510,9 +505,9 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       <tr>
         <td>Task Full Memory Dump</td>
         {% if config.taskfullmemory.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -521,8 +516,7 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
           </ul>
         </td>
         <td>Download a full memory dump of a Task by ID. Return object will be octet-stream. (.dmp)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#taskfullmemory">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#taskfullmemory" aria-expanded="false" aria-controls="#taskfullmemory">Example</a></td>
       </tr>
       <tr class="collapse" id="taskfullmemory">
         <td colspan="5">
@@ -532,9 +526,9 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       <tr>
         <td>Sample Download</td>
         {% if config.sampledl.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -543,7 +537,7 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
           </ul>
         </td>
         <td>Download a sample from a Task by Task ID/MD5/SHA1/SHA256. Return object will be octet-stream. (.bin)</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#sampledl">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#sampledl" aria-expanded="false" aria-controls="#sampledl">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="sampledl">
@@ -557,9 +551,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Virtual Machine List</td>
         {% if config.machinelist.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -568,7 +562,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>View basic statistics of available/total virtual machines. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#machinelist">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#machinelist" aria-expanded="false" aria-controls="#machinelist">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="machinelist">
@@ -579,9 +573,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Virtual Machine View</td>
         {% if config.machineview.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -590,7 +584,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>View information about a specific virtual machine. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#machineview">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#machineview" aria-expanded="false" aria-controls="#machineview">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="machineview">
@@ -601,9 +595,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Get tasks ids finished in latest X hours</td>
         {% if config.latests.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -612,7 +606,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>View ids of tasks finished on latest X hours.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#latests_ids">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#latests_ids" aria-expanded="false" aria-controls="#latests_ids">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="latests_ids">
@@ -623,9 +617,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Status</td>
         {% if config.cuckoostatus.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -634,7 +628,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>View the current status of the CAPE host. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#capestatus">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#capestatus" aria-expanded="false" aria-controls="#capestatus">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="capestatus">
@@ -645,9 +639,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>Extracted Sample Config</td>
         {% if config.capeconfig.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -656,7 +650,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>View the CAPE extracted sample config associated with a task by ID. Return object will be JSON.</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#capeconfig">Example</a>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#capeconfig" aria-expanded="false" aria-controls="#capeconfig">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="capeconfig">
@@ -667,9 +661,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Payload Files</td>
         {% if config.payloadfiles.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -678,8 +672,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#capepayloadfiles">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#capepayloadfiles" aria-expanded="false" aria-controls="#capepayloadfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capepayloadfiles">
         <td colspan="5">
@@ -689,9 +682,9 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       <tr>
         <td>CAPE Procdump Files</td>
         {% if config.procdumpfiles.enabled %}
-        <td><span class="label label-success">Yes</span></td>
+        <td><span class="badge badge-success">Yes</span></td>
         {% else %}
-        <td><span class="label label-danger">No</span></td>
+        <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
@@ -700,8 +693,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
           </ul>
         </td>
         <td>Download the procdump files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
-        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion"
-            href="#capeprocdumpfiles">Example</a></td>
+        <td><a class="accordion-toggle" data-toggle="collapse" href="#capeprocdumpfiles" aria-expanded="false" aria-controls="#capeprocdumpfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capeprocdumpfiles">
         <td colspan="5">

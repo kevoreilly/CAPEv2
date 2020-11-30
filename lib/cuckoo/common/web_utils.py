@@ -577,6 +577,7 @@ perform_search_filters = {
     "f_mlist_cnt": 1,
     "info.package": 1,
     "target.file.clamav": 1,
+    "target.file.sha256": 1,
     "suri_tls_cnt": 1,
     "suri_alert_cnt": 1,
     "suri_http_cnt": 1,

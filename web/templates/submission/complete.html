@@ -10,13 +10,15 @@
 </div>
 
 {% if existent_tasks %}
-    <div class="alert alert-secondary"><h4>Existent tasks for this hash!</h4>
-        <ul>
-            {% for block in existent_tasks %}
-                <li><a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> - Detection: <span style="color:#EE1B2F;">{{block.detections}}</span></li>
-            {% endfor %}
-        </ul>
-    </div>
+    {% for sha256, details in existent_tasks.items %}
+        <div class="alert alert-secondary"><h4>Existent tasks for this hash: {{sha256}}!</h4>
+            <ul>
+                {% for block in details %}
+                    <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> - Detection: <span style="color:#EE1B2F;">{{block.detections}}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endfor %}
 {% endif %}
 
 {% if errors %}

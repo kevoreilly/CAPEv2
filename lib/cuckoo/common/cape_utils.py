@@ -104,9 +104,10 @@ try:
         capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
         rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
         rules = capa.rules.RuleSet(rules)
+        HAVE_FLARE_CAPA = True
     else:
         print("You  need to place capa-rules under data/capa-rules. You can download them from https://github.com/fireeye/capa-rules or python3 community.py -h")
-    HAVE_FLARE_CAPA = True
+        HAVE_FLARE_CAPA = False
 except ImportError:
     HAVE_FLARE_CAPA = False
 

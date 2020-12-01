@@ -14,7 +14,7 @@
         {% if config.virustotal %}
             <li class="nav-item"><a class="nav-link" href="#static_antivirus_tab" data-toggle="tab">VirusTotal</a></li>
         {% endif %}
-        {% if analysis.static.flare_capa.capa_texttable %}
+        {% if analysis.static.flare_capa %}
             <li class="nav-item"><a class="nav-link" href="#static_flare_capa_tab" data-toggle="tab">FLARE CAPA</a></li>
         {% endif %}
     </ul>
@@ -60,9 +60,9 @@
                 {% include "analysis/static/_antivirus.html" %}
             </div>
         {% endif %}
-        {% if analysis.static.flare_capa.capa_texttable %}
+        {% if analysis.static.flare_capa %}
             <div class="tab-pane fade show" id="static_flare_capa_tab">
-                {% include "analysis/static/flare_capa.html" %}
+                {% include "analysis/static/_flare_capa.html" %}
             </div>
         {% endif %}
     </div>

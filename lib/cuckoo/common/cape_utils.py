@@ -121,7 +121,7 @@ pe_map = {
 cfg = Config()
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
-def flare_capa_details(file_path):
+def flare_capa_details(file_path: str) -> dict:
     capa_json = False
     capa_texttable = False
     if  HAVE_FLARE_CAPA:

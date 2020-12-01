@@ -28,16 +28,18 @@ import imp
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
+from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, flare_capa_details
 
 try:
     import pydeep
-
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
+
+processing_conf = Config("processing")
 
 ssdeep_threshold = 90
 
@@ -465,6 +467,8 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
+            if processing_conf.flare_capa.enabled and processing_conf.flare_capa.cape:
+                file_info["flare_capa"] = flare_capa_details(file_path)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

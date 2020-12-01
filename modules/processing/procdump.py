@@ -7,8 +7,11 @@ import os
 import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.cape_utils import flare_capa_details
 
+processing_conf = Config("processing")
 
 class ProcDump(Processing):
     """ProcDump files analysis."""
@@ -83,6 +86,9 @@ class ProcDump(Processing):
                     file_info["data"] = convert_to_printable(filedata[:buf] + " <truncated>")
                 else:
                     file_info["data"] = convert_to_printable(filedata)
+
+             if processing_conf.flare_capa.enabled and processing_conf.flare_capa.procdump:
+                file_info["flare_capa"] = flare_capa_details(file_path)
 
             procdump_files.append(file_info)
 

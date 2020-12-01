@@ -3,6 +3,7 @@ import os
 import imp
 import sys
 import glob
+import json
 import logging
 import tempfile
 import hashlib
@@ -92,6 +93,24 @@ except ImportError as e:
     plugx_parser = False
     log.error(e)
 
+try:
+    import capa.main
+    import capa.rules
+    import capa.engine
+    import capa.features
+    from capa.engine import *
+    rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+    if os.path.exists(rules_path):
+        capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+        rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+        rules = capa.rules.RuleSet(rules)
+    else:
+        print("You  need to place capa-rules under data/capa-rules. You can download them from https://github.com/fireeye/capa-rules or python3 community.py -h")
+    HAVE_FLARE_CAPA = True
+except ImportError:
+    HAVE_FLARE_CAPA = False
+
+
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 
 pe_map = {
@@ -102,6 +121,21 @@ pe_map = {
 cfg = Config()
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
+def flare_capa_details(file_path):
+    capa_json = False
+    capa_texttable = False
+    if  HAVE_FLARE_CAPA:
+        try:
+            extractor = capa.main.get_extractor(file_path, "auto", disable_progress=True)
+            meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
+            capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
+            meta["analysis"].update(counts)
+            capa_json  = json.loads(capa.render.render_json(meta, rules, capabilities))
+            capa_texttable = capa.render.render_default(meta, rules, capabilities)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+    return {"capa_json": capa_json, "capa_texttable": capa_texttable}
 
 def hash_file(method, path):
     """Calculates an hash on a file by path.

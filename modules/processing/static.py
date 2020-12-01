@@ -149,6 +149,23 @@ try:
 except ImportError:
     ELFFile = False
 
+try:
+    import capa.main
+    import capa.rules
+    import capa.engine
+    import capa.features
+    from capa.engine import *
+    rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+    if os.path.exists(rules_path):
+        capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+        rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+        rules = capa.rules.RuleSet(rules)
+    else:
+        print("You  need to place capa-rules under data/capa-rules. You can download them from https://github.com/fireeye/capa-rules or python3 community.py -h")
+    HAVE_FLARE_CAPA = True
+except ImportError:
+    HAVE_FLARE_CAPA = False
+
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
@@ -940,6 +957,21 @@ class PortableExecutable(object):
 
         return retlist
 
+    def flare_capa_details(self):
+        capa_json = False
+        capa_texttable = False
+        try:
+            extractor = capa.main.get_extractor(self.file_path, "auto", disable_progress=True)
+            meta = capa.main.collect_metadata("", self.file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
+            capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
+            meta["analysis"].update(counts)
+            capa_json  = json.loads(capa.render.render_json(meta, rules, capabilities))
+            capa_texttable = capa.render.render_default(meta, rules, capabilities)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+        return {"capa_json": capa_json, "capa_texttable": capa_texttable}
+
     def run(self):
         """Run analysis.
         @return: analysis results dict or None.
@@ -987,6 +1019,9 @@ class PortableExecutable(object):
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+
+        if processing_conf.static.flare_capa:
+            results["flare_capa"] = self.flare_capa_details()
 
         return results
 

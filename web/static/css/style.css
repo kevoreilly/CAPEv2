@@ -2,6 +2,8 @@ html {
     background: #1c1c1c;
 }
 body {
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 14px;
     padding-top: 60px;
     background: #1c1c1c repeat-x;
 }

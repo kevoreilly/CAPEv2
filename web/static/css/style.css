@@ -21,7 +21,7 @@ body {
 }
 
 a {
-    color: red
+    color: white
 }
 
 .navbar-collapse.in {
@@ -45,11 +45,22 @@ a:hover {
 }
 
 .page-link-active {
-    background-color: darkred;
+    background-color: #EE1B2F;
 }
 
-.text-success, .text-success:hover {
+.text-success {
     color: #62c462!important
+}
+
+.text-sucess:hover {
+    color: #62c462
+}
+
+.page-item.active .page-link {
+    z-index:3;
+    color:#fff;
+    background-color:#ee1b2f;
+    border-color:transparent
 }
 
 footer {
@@ -87,6 +98,7 @@ footer a:hover {
 }
 .mono {
     font-family: monospace;
+    font-size: medium;
 }
 .content {
     background-color: white;

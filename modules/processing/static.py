@@ -2563,7 +2563,7 @@ class EncodedScriptFile(object):
 
             o = o + 1
 
-        if (c % 2 ** 32) != struct.unpack("I", source[o : o + 8].decode("base64"))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("I", source[o : o + 8]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)

@@ -114,6 +114,7 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     from peepdf.PDFCore import PDFParser
@@ -987,6 +988,9 @@ class PortableExecutable(object):
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+
+        if processing_conf.flare_capa.enabled:
+            results["flare_capa"] = flare_capa_details(self.file_path)
 
         return results
 

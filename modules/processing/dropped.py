@@ -39,7 +39,10 @@ class Dropped(Processing):
         for dir_name, dir_names, file_names in os.walk(self.dropped_path):
             for file_name in file_names:
                 file_path = os.path.join(dir_name, file_name)
-                file_info = File(file_path=file_path).get_all()
+                file_info, pefile_object = File(file_path=file_path).get_all()
+                if pefile_object:
+                    self.results.setdefault("pefiles", {})
+                    self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                 file_info.update(meta.get(file_info["path"], {}))
                 guest_path = file_info["filepath"]
                 guest_name = guest_path.split("\\")[-1]
@@ -59,7 +62,10 @@ class Dropped(Processing):
         for dir_name, dir_names, file_names in os.walk(self.package_files):
             for file_name in file_names:
                 file_path = os.path.join(dir_name, file_name)
-                file_info = File(file_path=file_path).get_all()
+                file_info, pefile_object = File(file_path=file_path).get_all()
+                if pefile_object:
+                    self.results.setdefault("pefiles", {})
+                    self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                 dropped_files.append(file_info)
 
         return dropped_files

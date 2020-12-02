@@ -1,51 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-
-<div class="panel panel-primary">
-    <div class="panel-heading">
-        <h3 class="panel-title">Pending Tasks</h3>
-    </div>
+<div class="card ">
+    <div class="card-header">Pending Tasks</div>
     {% if tasks %}
     <table class="table table-striped" style="table-layout: fixed;">
         <thead>
         <tr>
-            <th>Timestamp</th>
-            <th>Category</th>
-            <th>Target</th>
-            <th>Status</th>
+            <th width="14%">Timestamp (added on)</th>
+            <th width="6%">Category</th>
+            <th width="35%">Target</th>
+            <th width="35%">MD5/SHA256</th>
         </tr>
         </thead>
         <tbody>
         {% for task in tasks %}
             <tr>
-                <td>
-                {% if task.status == "reported" %}
-                    {{task.completed_on}}
-                {% else %}
-                    <span class="muted">{{task.added_on}} (added on)</span>
-                {% endif %}
-                </td>
+                <td><span class="muted">{{task.added_on}}</span></td>
                 <td>{{task.category}}</td>
-                <td>{{task.target}}</td>
-                <td>
-                    {% if task.status == "pending" %}
-                        <span class="text-muted">pending</span>
-                    {% elif task.status == "running" %}
-                        <span class="text-warning">running</span>
-                    {% elif task.status == "completed" %}
-                        <span class="text-info">processing</span>
-                    {% elif task.status == "reported" %}
-                        <span class="text-success">reported</span>
-                    {% else %}
-                        <span class="text-danger">{{task.status}}</span>
-                    {% endif %}
-                </td>
+                <td>{{task.target|filename}}</td>
+                <td>{{task.md5}}</br>{{task.sha256}}</td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <div class="panel-body">No pending tasks.</div>
+    <div class="card-body">No pending tasks.</div>
     {% endif %}
         </div>
 {% endblock %}

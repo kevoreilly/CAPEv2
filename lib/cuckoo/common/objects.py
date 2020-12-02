@@ -543,6 +543,7 @@ class File(object):
         """Get all information available.
         @return: information dict.
         """
+
         infos = {}
         infos["name"] = self.get_name()
         infos["path"] = self.file_path
@@ -564,7 +565,7 @@ class File(object):
             infos["ep_bytes"] = self.get_ep_bytes(self.pe)
             infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(self.pe.FILE_HEADER.TimeDateStamp))
 
-        return infos
+        return infos, self.pe
 
 
 class Static(File):

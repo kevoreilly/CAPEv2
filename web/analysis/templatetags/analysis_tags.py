@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import os
 import six
 
 try:
@@ -9,6 +10,10 @@ except ImportError:
 from django.template.defaultfilters import register
 from collections import OrderedDict
 
+@register.filter("filename")
+def filename(value):
+    """get basename from path"""
+    return os.path.basename(value)
 
 @register.filter("mongo_id")
 def mongo_id(value):

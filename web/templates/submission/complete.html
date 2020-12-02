@@ -1,18 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-info"><h4>Submission complete!</h4>
-The following tasks were added successfully:
-{% for task in tasks %}
-    <a href="{% url "submission_status" task %}">{{task}}</a>
-{% endfor %}.
-Click on the links to monitor the status of the submission.
+<div class="alert alert-secondary"><h4>Submission complete!</h4>
+    The following tasks were added successfully:
+    {% for task in tasks %}
+        <a href="{% url "submission_status" task %}">{{task}}</a>
+    {% endfor %}.
+    Click on the links to monitor the status of the submission.
 </div>
+
+{% if existent_tasks %}
+    {% for sha256, details in existent_tasks.items %}
+        <div class="alert alert-secondary"><h4>Existent tasks for this hash: {{sha256}}!</h4>
+            <ul>
+                {% for block in details %}
+                    <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> - Detection: <span style="color:#EE1B2F;">{{block.detections}}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endfor %}
+{% endif %}
+
 {% if errors %}
     <div class="alert alert-danger"><h4>Submission Failed!</h4>
     {% for block in errors %}
         {% for k, v in block.iteritems %}
-            <p>{{k}} - {{v.error}}</p>
+            <p>{{k}} - {{v}}</p>
         {% endfor %}
     {% endfor %}
     </div>

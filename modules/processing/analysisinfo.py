@@ -95,7 +95,8 @@ class AnalysisInfo(Processing):
             # Save.
             self.task["machine"] = machine
         distributed = dict()
-        if HAVE_REQUEST and report_cfg.distributed.enabled:
+        parsed_options = get_options(self.task["options"])
+        if HAVE_REQUEST and report_cfg.distributed.enabled and "maint_task_id" in parsed_options:
             try:
                 res = requests.get("http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=3, verify=False)
                 if res and res.ok:
@@ -105,7 +106,8 @@ class AnalysisInfo(Processing):
             except Exception as e:
                 print(e)
 
-        parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
+        if "maint_task_id" not in parsed_options:
+            parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
         return dict(
@@ -127,6 +129,6 @@ class AnalysisInfo(Processing):
             tlp=self.task["tlp"],
             parent_sample=parent_sample_details,
             distributed=distributed,
-            options=get_options(self.task["options"]),
+            options=parsed_options,
             source_url=source_url,
         )

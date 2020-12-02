@@ -466,11 +466,8 @@ class AnalysisManager(threading.Thread):
         # Determine the desired routing strategy (none, internet, VPN).
         self.route = routing.routing.route
 
-        # Allow overwrite default conf value
-        if self.task.options:
-            options = get_options(self.task.options)
-            if options.get("route"):
-                self.route = options.get("route")
+        if self.task.route:
+            self.route = self.task.route
 
         if self.route in ("none", "None", "drop"):
             self.interface = None

@@ -2,8 +2,10 @@ html {
     background: #1c1c1c;
 }
 body {
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 14px;
     padding-top: 60px;
-    background: #ffffff url('/static/graphic/background.png') repeat-x;
+    background: #1c1c1c repeat-x;
 }
 
 @page {
@@ -17,6 +19,50 @@ body {
         padding-bottom: 0px;
     }
 }
+
+a {
+    color: white
+}
+
+.navbar-collapse.in {
+    display: block !important;
+}
+
+a:hover {
+    color: #EE1B2F
+}
+
+.btn-link {
+    color: red
+}
+
+.btn-link:hover {
+    color: #EE1B2F
+}
+
+.page-link {
+    background-color: #444
+}
+
+.page-link-active {
+    background-color: #EE1B2F;
+}
+
+.text-success {
+    color: #62c462!important
+}
+
+.text-sucess:hover {
+    color: #62c462
+}
+
+.page-item.active .page-link {
+    z-index:3;
+    color:#fff;
+    background-color:#ee1b2f;
+    border-color:transparent
+}
+
 footer {
     background: #292727;
     margin: 40px 0 0;
@@ -52,6 +98,7 @@ footer a:hover {
 }
 .mono {
     font-family: monospace;
+    font-size: medium;
 }
 .content {
     background-color: white;
@@ -93,42 +140,55 @@ a.tag-label {
 
 .filesystem {
     background-color: #ffe3c5;
+    color: black;
 }
 .registry {
     background-color: #ffc5c5;
+    color: black;
 }
 .process {
     background-color: #c5e0ff;
+    color: black;
 }
 .threading {
     background-color: #d3e0ff;
+    color: black;
 }
 .services {
     background-color: #ccc5ff;
+    color: black;
 }
 .device {
     background-color: #d3c5cc;
+    color: black;
 }
 .network {
     background-color: #d3ffc5;
+    color: black;
 }
 .socket {
     background-color: #d3ffc5;
+    color: black;
 }
 .synchronization {
     background-color: #f9c5ff;
+    color: black;
 }
 .browser {
     background-color: #dfffdf;
+    color: black;
 }
 .crypto {
     background-color: #f0f2c5;
+    color: black;
 }
 .system {
     background-color: #fffcc5;
+    color: black;
 }
 .windows {
     background-color: #ffc5ee;
+    color: black;
 }
 .page-header {
     margin-bottom: 10px;
@@ -151,7 +211,7 @@ td {
 }
 
 .row-active {
-    background-color: #d9edf7;
+    background-color:darkred;
 }
 
 pre {
@@ -187,4 +247,9 @@ pre {
 #filter-toggle {
     display: inline-block;
     cursor: pointer;
+}
+
+.form-control {
+    background-color: darkgray;
+    color:black;
 }

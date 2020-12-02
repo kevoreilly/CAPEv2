@@ -4,23 +4,24 @@
         if (pages === 0) return "";
 
         function alert_current_page(i, page) {
-            if (i == page) return " class=\"active\"";
-            return "";
+            if (i == page)
+                return " active\"";
+            return "\"";
         }
 
         var out = "";
-        out += "<li" + alert_current_page(1, page) + "><a href=\"#\">1</a></li>";
+        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link\" href=\"#\">1</a></li>";
 
         if (page - 5 > 5) out += "<li><span>...</span></li>";
 
         for (i = Math.max(2, page - 5); i <= Math.min(pages - 1, page + 5); i++) {
-            out += "<li" + alert_current_page(i, page) + "><a href=\"#\">" + i + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link\" href=\"#\">" + i + "</a></li>";
         }
 
         if (page + 5 < pages - 1) out += "<li><span>...</span></li>";
 
         if (pages > 1)
-            out += "<li" + alert_current_page(pages, page) + "><a href=\"#\">" + pages + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link\" href=\"#\">" + pages + "</a></li>";
         return out;
     }
     function load_chunk(pid, pagenum, callback) {
@@ -29,8 +30,8 @@
                 $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
             }
             else {
-                $("#process_" + pid + " div.pagination ul").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
-                $("#process_" + pid + " div.pagination a").click(function (e) {
+                $("#process_" + pid + " ul.pagination").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
+                $("#process_" + pid + " ul.pagination a").click(function (e) {
                     var t = $(e.target);
                     load_chunk(t.parents("#process_" + pid).data("pid"), parseInt(t.text()));
                 });
@@ -91,13 +92,14 @@
 
 <div class="tabbable">
     <ul class="nav nav-tabs">
-        <li><a href="#search" data-toggle="tab"><span class="glyphicon glyphicon-search"></span> Search</a></li>
+        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
         {% for process in behavior.processes %}
-        <li {% if forloop.counter == 1 %}class="active" {% endif %}><a href="#process_{{process.process_id}}"
-                data-toggle="tab"><span class="glyphicon glyphicon-cog"></span> {{process.process_name}}
+        <li {% if forloop.counter == 1 %} class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
+                data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}}
                 ({{process.process_id}})</a></li>
         {% endfor %}
     </ul>
+
     <div class="tab-content">
         {% include "analysis/behavior/_search.html" %}
         {% for process in behavior.processes %}
@@ -115,31 +117,21 @@
                 <div style="text-align: center; position:relative;">
                     <div>
                         <div id="currcategory" value="default"></div>
-                        <a id="badge_default_{{process.process_id}}" class="badge default"
-                            style="color:black;">default</a>
-                        <a id="badge_registry_{{process.process_id}}" class="badge registry"
-                            style="color:black;">registry</a>
-                        <a id="badge_filesystem_{{process.process_id}}" class="badge filesystem"
-                            style="color:black;">filesystem</a>
-                        <a id="badge_network_{{process.process_id}}" class="badge network"
-                            style="color:black;">network</a>
-                        <a id="badge_process_{{process.process_id}}" class="badge process"
-                            style="color:black;">process</a>
-                        <a id="badge_threading_{{process.process_id}}" class="badge threading"
-                            style="color:black;">threading</a>
-                        <a id="badge_services_{{process.process_id}}" class="badge services"
-                            style="color:black;">services</a>
+                        <a id="badge_default_{{process.process_id}}" class="badge default" style="color:black;">default</a>
+                        <a id="badge_registry_{{process.process_id}}" class="badge registry" style="color:black;">registry</a>
+                        <a id="badge_filesystem_{{process.process_id}}" class="badge filesystem" style="color:black;">filesystem</a>
+                        <a id="badge_network_{{process.process_id}}" class="badge network" style="color:black;">network</a>
+                        <a id="badge_process_{{process.process_id}}" class="badge process" style="color:black;">process</a>
+                        <a id="badge_threading_{{process.process_id}}" class="badge threading" style="color:black;">threading</a>
+                        <a id="badge_services_{{process.process_id}}" class="badge services" style="color:black;">services</a>
                         <a id="badge_device_{{process.process_id}}" class="badge device" style="color:black;">device</a>
-                        <a id="badge_sync_{{process.process_id}}" class="badge synchronization"
-                            style="color:black;">synchronization</a>
+                        <a id="badge_sync_{{process.process_id}}" class="badge synchronization" style="color:black;">synchronization</a>
                         <a id="badge_crypto_{{process.process_id}}" class="badge crypto" style="color:black;">crypto</a>
-                        <a id="badge_browser_{{process.process_id}}" class="badge browser"
-                            style="color:black;">browser</a>
-                        <a id="badge_all_{{process.process_id}}" class="badge all" style="color:black;">all</a>
+                        <a id="badge_browser_{{process.process_id}}" class="badge browser" style="color:black;">browser</a>
+                        <a id="badge_all_{{process.process_id}}" class="badge badge-light all" style="color:black;">all</a>
                         <div class="form-group" style="display:inline-block; padding-left: 10px">
                             <label class="sr-only" for="form_search">API Filter</label>
-                            <input type="text" class="form-control" id="apifilter_{{process.process_id}}"
-                                name="apifilter" size=25 placeholder="Comma-separated API filter" />
+                            <input type="text" class="form-control" id="apifilter_{{process.process_id}}" name="apifilter" size=25 placeholder="API(list) separated by ',' press all to show results " />
                         </div>
                     </div>
                 </div>
@@ -158,7 +150,7 @@
                         <input type="text" class="form-control" id="tidfilter_{{process.process_id}}" name="tidfilter"
                             size=25 placeholder="TID" />
                     </div>
-                    <button id="submit-filter" type="submit" class="btn btn-default">Filter</button>
+                    <button id="submit-filter" type="submit" class="btn btn-secondary">Filter</button>
                 </div>
             </div>
 
@@ -199,16 +191,17 @@
             });
             </script>
 
-            <div class="pagination pagination-centered">
-                <ul class="pagination">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
                 </ul>
-            </div>
+            </nav>
 
-            <div class="calltable"></div>
-            <div class="pagination pagination-centered pagination_{{process.process_id}}">
-                <ul class="pagination">
+            <nav aria-label="Page navigation">
+                <div class="calltable"></div>
+                <ul class="pagination justify-content-center pagination_{{process.process_id}}">
                 </ul>
-            </div>
+            </nav>
+
             <script type="text/javascript">
                 load_chunk({{ process.process_id }}, 1);
             </script>

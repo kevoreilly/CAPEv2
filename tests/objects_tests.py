@@ -73,11 +73,11 @@ class TestFile:
         assert_equal("inode/x-empty", self.file.get_content_type())
 
     def test_get_all_type(self):
-        assert isinstance(self.file.get_all(), dict)
+        assert isinstance(self.file.get_all()[0], dict)
 
     def test_get_all_keys(self):
         for key in ["name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"]:
-            assert key in self.file.get_all()
+            assert key in self.file.get_all()[0]
 
     def tearDown(self):
         os.remove(self.tmp[1])

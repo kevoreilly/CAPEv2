@@ -1,3 +1,16 @@
+
+### [TBD] CAPE 2.2
+* Malduck integration
+* Bootrstarp 4.5.3 & font awesome 5
+* Statistics
+* Tag_tasks - allows you tag your jobs
+* self.pefiles: introduced to prcessing/signatures modules, you can get PEFILE object by sha256 self.pefiles.get(sha256)
+* https traffic decription WIP
+* Pending page now is much useful and show hashes to easilly spot duplicated
+* Submission of file or resubmission will show all the jobs and detection for that file
+* [Flare capa](https://github.com/fireeye/capa) integrated under static tab for original binary, procdump and cape (should be enabled in processing.conf), Rules can be pulled from community, but we will leave it community driven to sync them. So you can copy them from https://github.com/fireeye/capa-rules and place under `data/flare-capa`
+* More soon ;)
+
 ### 16-11-2020
 * `utils/cleaners.py` option `--delete-older-than-days` moved to bulk remove 10 in 10, to improve performance and decrease IO
 

@@ -295,6 +295,8 @@ class Analyzer:
         # Copy the debugger log.
         upload_files("debugger")
 
+        upload_files("dumptls")
+
         # Stop the Pipe Servers.
         if hasattr(self, "command_pipe"):
             self.command_pipe.stop()

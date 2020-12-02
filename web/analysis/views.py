@@ -31,7 +31,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
 
 try:
@@ -334,13 +334,14 @@ def index(request, page=1):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
-    tasks = db.list_tasks(status=TASK_PENDING)
+    db = Database()
+    tasks = db.list_tasks(inclide_hashes=True, status=TASK_PENDING)
 
     pending = []
     for task in tasks:
-        pending.append(task.to_dict())
+        pending.append({"target": task.target, "added_on": task.added_on, "category": task.category, "md5": "", "sha256": "" })#task.sample.md5, "sha256": task.sample.sha256})
 
-    return render(request, "analysis/pending.html", {"tasks": pending})
+    return render(request, "analysis/pending.html",  {"tasks": pending})
 
 
 ajax_mongo_schema = {
@@ -358,7 +359,6 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    print(ajax_mongo_schema[category], category, "category")
     #ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger"):
         bingraph = False
@@ -1615,3 +1615,11 @@ def vtupload(request, category, task_id, filename, dlfile):
             return render(request, "error.html", {"error": err})
     else:
         return
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def statistics_data(request, days=7):
+    if days.isdigit():
+        details = statistics(int(days))
+        return render(request, "statistics.html", {"statistics": details, "days": days})
+    else:
+        return render(request, "error.html", {"error": "Provide days as number"})

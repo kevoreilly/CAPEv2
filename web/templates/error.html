@@ -5,7 +5,7 @@
         <div class="alert alert-danger"><h4>Submission Failed!</h4>
         {% for block in errors %}
             {% for k, v in block.iteritems %}
-                <p>{{k}} - {{v.error}}</p>
+                <p>{{k}} - {{v}}</p>
             {% endfor %}
         {% endfor %}
         </div>

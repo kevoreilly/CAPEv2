@@ -36,7 +36,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
 
@@ -353,7 +353,7 @@ def tasks_create_url(request):
 
         url = request.POST.get("url", None)
         static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp = parse_request_arguments(request)
+            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp, tags_tasks, route, cape = parse_request_arguments(request)
 
         task_ids = []
         task_machines = []
@@ -741,20 +741,21 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
 
-        if term == "ids":
+        if term in ("ids", "options", "tags_tasks"):
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
-                tmp_value = list()
-                for task in db.list_tasks(task_ids=value) or []:
-                    if task.status == "reported":
-                        tmp_value.append(task.id)
-                    else:
-                        return_data.append({"analysis": {"status": task.status, "id": task.id}})
-
-                value = tmp_value
-                del tmp_value
             else:
                 return jsonize({"error": True, "error_value": "Not all values are integers"}, response=True)
+        if term == "ids":
+            tmp_value = list()
+            for task in db.list_tasks(task_ids=value) or []:
+                if task.status == "reported":
+                    tmp_value.append(task.id)
+                else:
+                    return_data.append({"analysis": {"status": task.status, "id": task.id}})
+            value = tmp_value
+            del tmp_value
+
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)
@@ -2010,6 +2011,17 @@ def post_processing(request, category, task_id):
 
     return jsonize(resp, response=True)
 """
+
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+def statistics_data(requests, days):
+    resp = {}
+    if days.isdigit():
+        details = statistics(int(days))
+        resp = {"Error": False, "data": details}
+    else:
+        resp = {"Error": True, "error_value": "Provide days as number"}
+    return jsonize(resp, response=True)
 
 
 def limit_exceeded(request, exception):

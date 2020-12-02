@@ -110,8 +110,9 @@ try:
     else:
         print("You  need to place capa-rules under data/capa-rules. You can download them from https://github.com/fireeye/capa-rules or python3 community.py -h")
         HAVE_FLARE_CAPA = False
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     HAVE_FLARE_CAPA = False
+    print("FLARE-CAPA missed, pip3 install flare-capa")
 
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]

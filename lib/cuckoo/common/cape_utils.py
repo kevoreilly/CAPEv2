@@ -101,6 +101,7 @@ try:
     from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
     import capa.render.utils as capa_rutils
     from capa.engine import *
+    from capa.main import  UnsupportedRuntimeError
     rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
     if os.path.exists(rules_path):
         capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
@@ -306,6 +307,8 @@ def flare_capa_details(file_path: str) -> dict:
             meta["analysis"].update(counts)
             doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)
             capa_dictionary = render_dictionary(doc)
+        except UnsupportedRuntimeError:
+            pass
         except Exception as e:
             log.error(e, exc_info=True)
 

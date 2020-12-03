@@ -1,69 +1,12 @@
+<!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
 {% if analysis.static.flare_capa.capa_dict.CAPABILITY %}
-<table class="table table-striped table-hover table-bordered">
-    <thead>
-      <tr>
-        <th scope="col">Namespace</th>
-        <th scope="col">Capability</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for namespaces, capabilities in analysis.static.flare_capa.capa_dict.CAPABILITY.items %}
-        <tr>
-            <th scope="row">{{namespaces}}</th>
-            <td>
-                {% for capability in capabilities %}
-                  <li>{{capability}}</li>
-                {% endfor %}
-              </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {{analysis.static.flare_capa.capa_dict|flare_capa_capability}}
 {% endif %}
 
-
 {% if analysis.static.flare_capa.capa_dict.ATTCK %}
-<table class="table table-striped table-hover table-bordered">
-    <thead>
-      <tr>
-        <th scope="col">ATT&CK Tactic</th>
-        <th scope="col">ATT&CK Technique</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for tactic, techniques in analysis.static.flare_capa.capa_dict.ATTCK.items %}
-        <tr>
-            <th scope="row">{{tactic}}</th>
-            <td>
-                {% for technique in techniques %}
-                  <li>{{technique}}</li>
-                {% endfor %}
-              </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {{analysis.static.flare_capa.capa_dict|flare_capa_attck}}
 {% endif %}
 
 {% if analysis.static.flare_capa.capa_dict.MBC %}
-<table class="table table-striped table-hover table-bordered">
-    <thead>
-      <tr>
-        <th scope="col">MBC Objective</th>
-        <th scope="col">MBC Behavior</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for objective, behaviors in analysis.static.flare_capa.capa_dict.MBC.items %}
-        <tr>
-            <th scope="row">{{objective}}</th>
-            <td>
-                {% for behavior in behaviors %}
-                  <li>{{behavior}}</li>
-                {% endfor %}
-              </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {{analysis.static.flare_capa.capa_dict|flare_capa_mbc}}
 {% endif %}

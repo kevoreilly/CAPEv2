@@ -97,7 +97,7 @@ def flare_capa_capabilities(obj, *args, **kwargs):
     _print(3, '<tbody>\n')
     for namespaces, capabilities in obj.get("CAPABILITY", {}).items():
         _print(4, '<tr>\n')
-        _print(4, '<th scope="row">'+namespaces+'</th>\n')
+        _print(4, '<th width="25%" scope="row">'+namespaces+'</th>\n')
         _print(4, '<td>\n')
         for capability in capabilities:
             _print(5, '<li>'+capability+'</li>\n')

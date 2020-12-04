@@ -112,7 +112,7 @@ try:
     else:
         print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
         HAVE_FLARE_CAPA = False
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     HAVE_FLARE_CAPA = False
     print("FLARE-CAPA missed, pip3 install flare-capa")
 

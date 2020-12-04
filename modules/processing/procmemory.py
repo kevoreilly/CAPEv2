@@ -49,7 +49,7 @@ class ProcessMemory(Processing):
             data, pefile_object = File(path).get_all()
             if pefile_object:
                 self.results.setdefault("pefiles", {})
-                self.results["pefiles"].setdefault(data["file"]["sha256"], pefile_object)
+                self.results["pefiles"].setdefault(data["sha256"], pefile_object)
             res.append(data)
         return res
 

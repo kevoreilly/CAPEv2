@@ -101,6 +101,7 @@ try:
     from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
     import capa.render.utils as capa_rutils
     from capa.engine import *
+    import capa.render.utils as rutils
     from capa.main import  UnsupportedRuntimeError
     rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
     if os.path.exists(rules_path):
@@ -128,7 +129,6 @@ BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 # ===== CAPA
 import collections
-import capa.render.utils as rutils
 
 def render_meta(doc, ostream):
 

@@ -25,6 +25,7 @@ try:
     HAVE_FLOR = True
 except ImportError:
     HAVE_FLOR = False
+    logging.error("Python library 'flor' is not installed -> pip3 install flor")
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -36,7 +37,7 @@ API_PW = ""
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
     if not HAVE_FLOR:
-        logging.error("Python library 'flor' is not installed")
+        logging.error("Python library 'flor' is not installed -> pip3 install flor")
         sys.exit(-1)
 
     logging.info("Starting bloomfilter generation script")

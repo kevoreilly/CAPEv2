@@ -4,7 +4,8 @@
 
 from __future__ import absolute_import
 from django.conf.urls import include, url
-
+from django.urls import path
+from django.views.generic.base import TemplateView
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from dashboard import views as dashboard_views
@@ -19,6 +20,7 @@ from api import urls as api
 handler403 = 'web.views.handler403'
 
 urlpatterns = [
+    path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     url(r"^$", dashboard_views.index, name="dashboard"),
     url(r"^admin/", admin.site.urls),
     url(r"^accounts/login", auth_views.LoginView, {"template_name": "auth/login.html"}),

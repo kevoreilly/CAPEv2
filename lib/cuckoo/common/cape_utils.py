@@ -109,7 +109,7 @@ try:
         rules = capa.rules.RuleSet(rules)
         HAVE_FLARE_CAPA = True
     else:
-        print("You  need to place capa-rules under data/capa-rules. You can download them from https://github.com/fireeye/capa-rules or python3 community.py -h")
+        print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
         HAVE_FLARE_CAPA = False
 except (ImportError, ModuleNotFoundError):
     HAVE_FLARE_CAPA = False

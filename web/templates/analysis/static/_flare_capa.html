@@ -1,12 +1,12 @@
 <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-{% if analysis.static.flare_capa.capa_dict.CAPABILITY %}
-  {{analysis.static.flare_capa.capa_dict|flare_capa_capability}}
+{% if analysis.static.flare_capa.CAPABILITY %}
+  {{analysis.static.flare_capa|flare_capa_capability}}
 {% endif %}
 
-{% if analysis.static.flare_capa.capa_dict.ATTCK %}
-  {{analysis.static.flare_capa.capa_dict|flare_capa_attck}}
+{% if analysis.static.flare_capa.ATTCK %}
+  {{analysis.static.flare_capa|flare_capa_attck}}
 {% endif %}
 
-{% if analysis.static.flare_capa.capa_dict.MBC %}
-  {{analysis.static.flare_capa.capa_dict|flare_capa_mbc}}
+{% if analysis.static.flare_capa.MBC %}
+  {{analysis.static.flare_capa|flare_capa_mbc}}
 {% endif %}

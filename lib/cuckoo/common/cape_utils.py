@@ -312,7 +312,7 @@ def flare_capa_details(file_path: str) -> dict:
         except Exception as e:
             log.error(e, exc_info=True)
 
-    return {"capa_dict": capa_dictionary}
+    return capa_dictionary
 
 
 def hash_file(method, path):

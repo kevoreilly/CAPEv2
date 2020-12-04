@@ -119,23 +119,23 @@
                     </td>
                 </tr>
                 {% endif %}
-                {% if file.flare_capa.capa_dict %}
+                {% if file.flare_capa %}
                 <tr>
                     <th><p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
                     <td>
                     <div class="collapse" id="flare_capa_{{file.sha256}}">
                         <div class="card card-body">
                         <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-                        {% if file.flare_capa.capa_dict.CAPABILITY %}
-                            {{file.flare_capa.capa_dict|flare_capa_capability}}
+                        {% if file.flare_capa.CAPABILITY %}
+                            {{file.flare_capa|flare_capa_capability}}
                         {% endif %}
 
-                        {% if file.flare_capa.capa_dict.ATTCK %}
-                            {{file.flare_capa.capa_dict|flare_capa_attck}}
+                        {% if file.flare_capa.ATTCK %}
+                            {{file.flare_capa|flare_capa_attck}}
                         {% endif %}
 
-                        {% if file.flare_capa.capa_dict.MBC %}
-                            {{file.flare_capa.capa_dict|flare_capa_mbc}}
+                        {% if file.flare_capa.MBC %}
+                            {{file.flare_capa|flare_capa_mbc}}
                         {% endif %}
                         </div>
                     </div>

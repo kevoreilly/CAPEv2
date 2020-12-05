@@ -990,7 +990,9 @@ class PortableExecutable(object):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
         if processing_conf.flare_capa.enabled:
-            results["flare_capa"] = flare_capa_details(self.file_path)
+            capa_details = flare_capa_details(self.file_path)
+            if capa_details:
+                results["flare_capa"] = capa_details
 
         return results
 

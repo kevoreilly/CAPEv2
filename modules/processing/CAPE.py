@@ -468,7 +468,9 @@ class CAPE(Processing):
 
         if append_file is True:
             if processing_conf.flare_capa.enabled and processing_conf.flare_capa.cape:
-                file_info["flare_capa"] = flare_capa_details(file_path)
+                capa_details = flare_capa_details(file_path)
+                if capa_details
+                    file_info["flare_capa"] = capa_details
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

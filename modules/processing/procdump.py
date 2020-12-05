@@ -88,7 +88,9 @@ class ProcDump(Processing):
                     file_info["data"] = convert_to_printable(filedata)
 
             if processing_conf.flare_capa.enabled and processing_conf.flare_capa.procdump:
-                file_info["flare_capa"] = flare_capa_details(file_path)
+                capa_deatils = flare_capa_details(file_path)
+                if capa_deatils:
+                    file_info["flare_capa"] = capa_deatils
 
             procdump_files.append(file_info)
 

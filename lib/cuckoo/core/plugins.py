@@ -352,7 +352,7 @@ class RunProcessing(object):
         """
 
         # Used for cases where we need to add time of execution between modules
-        self.temp_processing_stats = {}
+        self.results["temp_processing_stats"] = {}
         # Order modules using the user-defined sequence number.
         # If none is specified for the modules, they are selected in
         # alphabetical order.
@@ -373,11 +373,11 @@ class RunProcessing(object):
             log.info("No processing modules loaded")
 
         # Add temp_processing stats to global processing stats
-        if self.temp_processing_stats:
-            for plugin_name in self.temp_processing_stats:
-                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.temp_processing_stats[plugin_name].get("time", 0)})
+        if self.results["temp_processing_stats"]:
+            for plugin_name in self.results["temp_processing_stats"]:
+                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)})
 
-        del self.temp_processing_stats
+        del self.results["temp_processing_stats"]
 
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")

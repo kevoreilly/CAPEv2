@@ -691,14 +691,14 @@ class Processing(object):
             timediff = posttime - pretime
             value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
 
-        if name not in self.temp_processing_stats:
-            self.temp_processing_stats[name] = {}
+        if name not in self.results["temp_processing_stats"]:
+            self.results["temp_processing_stats"][name] = {}
 
         # To be able to add yara/capa and others time summary over all processing modules
-        if field in self.temp_processing_stats[name]:
-            self.elf.temp_processing_stats[name][field] += value
+        if field in self.results["temp_processing_stats"][name]:
+            self.results["temp_processing_stats"][name][field] += value
         else:
-            self.elf.temp_processing_stats[name][field] = value
+            self.results["temp_processing_stats"][name][field] = value
 
     def run(self):
         """Start processing.

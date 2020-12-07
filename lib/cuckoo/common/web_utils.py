@@ -23,7 +23,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
-from lib.cuckoo.core.database import Database, Task, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, get_user_filename, sanitize_filename
 from lib.cuckoo.core.database import Database
 
@@ -240,6 +240,7 @@ def statistics(s_days: int) -> dict:
         "signatures": {},
         "processing": {},
         "reporting": {},
+        "top_samples": {},
     }
 
     tmp_data = dict()
@@ -271,18 +272,24 @@ def statistics(s_days: int) -> dict:
 
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
+    top_samples = dict()
     session = db.Session()
-    tasks = session.query(Task).filter(Task.added_on.between(date_since, date_till)).all()
+    tasks = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
     details["total"] = len(tasks)
     details["average"] = "{:.2f}".format(round(details["total"]/s_days, 2))
     details["tasks"] = dict()
-    for task in tasks:
+    for task in tasks or []:
         day = task.added_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
             details["tasks"].setdefault(day, {})
             details["tasks"][day].setdefault("failed", 0)
             details["tasks"][day].setdefault("reported", 0)
             details["tasks"][day].setdefault("added", 0)
+        if day not in top_samples:
+            top_samples.setdefault(day, dict())
+        if task.sample.sha256 not in top_samples[day]:
+            top_samples[day].setdefault(task.sample.sha256, 0)
+        top_samples[day][task.sample.sha256] += 1
         details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
             details["tasks"][day]["failed"] += 1
@@ -308,6 +315,16 @@ def statistics(s_days: int) -> dict:
         dist_db.close()
 
         details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[1], reverse=True))
+
+    # Get top15 of samples per day and seen more than once
+    for day in top_samples:
+        if day not in details["top_samples"]:
+            details["top_samples"].setdefault(day, {})
+        for sha256 in OrderedDict(sorted(top_samples[day].items(), key=lambda x: x[1], reverse=True)[:15]):
+            if top_samples[day][sha256] > 1:
+                details["top_samples"][day][sha256] = top_samples[day][sha256]
+
+        details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
 
     session.close()
     return details

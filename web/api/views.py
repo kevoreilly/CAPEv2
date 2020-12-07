@@ -1036,7 +1036,7 @@ def tasks_report(request, task_id, report_format="json"):
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
-        "intezer-analyze": {
+        "intezer": {
             "type": "+",
             "files": [
                 "files.json",

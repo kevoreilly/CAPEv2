@@ -354,7 +354,7 @@ class PortableExecutable(object):
         self.results["statistics"]["processing"].append({"name": name, field: value})
 
     def add_statistic_tmp(self, name, field, pretime):
-        posttime = datetime.datetime.now()
+        posttime = datetime.now()
         timediff = posttime - pretime
         value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
 

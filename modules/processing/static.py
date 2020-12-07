@@ -991,7 +991,7 @@ class PortableExecutable(object):
         capa_details = flare_capa_details(self.file_path, "binary")
         if capa_details:
             results["flare_capa"] = capa_details
-        self.add_statistic("flare_capa", "time", pretime=pretime)
+        self.add_statistic_tmp("flare_capa", "time", pretime)
 
         return results
 

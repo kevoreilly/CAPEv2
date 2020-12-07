@@ -685,11 +685,10 @@ class Processing(object):
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
 
-    def add_statistic(self, name, field, value=False, pretime=False):
-        if not value and pretime:
-            posttime = datetime.datetime.now()
-            timediff = posttime - pretime
-            value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+    def add_statistic_tmp(self, name, field, pretime):
+        posttime = datetime.datetime.now()
+        timediff = posttime - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
 
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}

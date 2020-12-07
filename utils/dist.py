@@ -43,6 +43,7 @@ from lib.cuckoo.core.database import (
     TASK_DISTRIBUTED_COMPLETED,
     TASK_DISTRIBUTED,
 )
+from lib.cuckoo.core.database import Task as MD_Task
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
@@ -616,7 +617,7 @@ class StatusThread(threading.Thread):
         if node.name != "master":
             # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
-            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"), options_like=options_like, limit=pend_tasks_num)
+            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, options_like=options_like, limit=pend_tasks_num, order_by=MD_Task.priority.desc())
             if not main_db_tasks:
                 return True
             if main_db_tasks:

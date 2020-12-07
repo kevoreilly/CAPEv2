@@ -335,7 +335,7 @@ class Task(Base):
     reporting_finished_on = Column(DateTime(timezone=False), nullable=True)
     timedout = Column(Boolean, nullable=False, default=False)
 
-    sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
+    sample_id = Column(Integer, ForeignKey("samples.id"), backref="tasks", nullable=True)
     sample = relationship("Sample", backref="tasks", lazy="subquery")
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")

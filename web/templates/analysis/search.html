@@ -1,17 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p>
 <div class="row">
-    <div class="col-md-6 col-md-offset-3 center">
+    <div class="col-md-0 mx-auto">
         <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
-            <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" data-toggle="collapse">help</a>.</p>
-
             <div class="form-group">
                 <label class="sr-only" for="form_search">Search term</label>
                 <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term as regex" />
             </div>
-            <button type="submit" class="btn btn-default">Search</button>
+            <button type="submit" class="btn btn-secondary">Search</button>
         </form>
+        <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" aria-expanded="false" aria-controls="#help" data-toggle="collapse">help</a>.</p>
         <div id="help" class="collapse">
             <p class="text-muted" style="margin-top: 10px;">ElasticSearch queries do not use a prefix. ie: '*windows.*' would match 'time.windows.com'</p>
             <p class="text-muted" style="margin-top: 10px;">For MD5, SHA1, SHA256 and SHA512 no prefix is needed.</p>
@@ -23,6 +21,22 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr>
+                        <td><code>id:</code></td>
+                        <td>task_id, Example: id:1</td>
+                    </tr>
+                    <tr>
+                        <td><code>ids:</code></td>
+                        <td>task_ids, Example: ids:1,2,3,4,5</td>
+                    </tr>
+                    <tr>
+                        <td><code>options:</code></td>
+                        <td>x=y</td>
+                    </tr>
+                    <tr>
+                        <td><code>tags_tasks:</code></td>
+                        <td>my_tag, Example: tags_tasks:mytag</td>
+                    </tr>
                     <tr>
                         <td><code>name:</code></td>
                         <td>File name pattern</td>
@@ -221,7 +235,7 @@
             <div class="panel-heading">
                 <h3 class="panel-title">Search Results</h3>
             </div>
-            <table class="table table-striped" style="table-layout: fixed;">
+            <table class="table table-striped table-ms" style="table-layout: fixed;">
                 <thead>
                 <tr>
                     <th width="5%">ID</th>
@@ -259,7 +273,7 @@
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
-                    <th width="6%" style="text-align: right;">Status</th>
+                    <th width="7%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -303,8 +317,11 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.detections != None %}
-                                <span style="color:#EE1B2F;" class="text-primary"><b>{{analysis.detections}}</b></span>
+                            {% if analysis.detections %}
+                                <form action="{% url "search" %}" method="post">
+                                    <input type="hidden" id="search" type="text" name="search" value="malfamily:{{analysis.detections}}">
+                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary btn-sm" type="submit" value="{{analysis.detections}}">
+                                </form>
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}
@@ -391,11 +408,11 @@
                             {% if analysis.malscore != None %}
                                 <span
                                 {% if analysis.malscore <= 2.0 %}
-                                class="label label-success"
+                                class="badge badge-success"
                                 {% elif analysis.malscore <= 6.0 %}
-                                class="label label-warning"
+                                class="badge badge-warning"
                                 {% else %}
-                                class="label label-danger"
+                                class="badge badge-danger"
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"

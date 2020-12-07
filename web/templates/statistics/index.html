@@ -1,69 +1,50 @@
-{% extends "base.html" %}
-{% block content %}
-<p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p>
-<style>
-.btn-file {
-    position: relative;
-    overflow: hidden;
-}
-.btn-file input[type=file] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 100%;
-    min-height: 100%;
-    font-size: 999px;
-    text-align: right;
-    filter: alpha(opacity=0);
-    opacity: 0;
-    background: red;
-    cursor: inherit;
-    display: block;
-}
-input[readonly] {
-    background-color: white !important;
-    cursor: text !important;
-}
-</style>
-<script>
-$(document)
-    .on('change', '.btn-file :file', function() {
-        var input = $(this),
-        numFiles = input.get(0).files ? input.get(0).files.length : 1,
-        label = input.val().replace(/\\/g, '/').replace(/.*\//, '');
-        input.trigger('fileselect', [numFiles, label]);
-});
-
-$(document).ready( function() {
-    $('.btn-file :file').on('fileselect', function(event, numFiles, label) {
-
-        var input = $(this).parents('.input-group').find(':text'),
-            log = numFiles > 1 ? numFiles + ' files selected' : label;
-
-        if( input.length ) {
-            input.val(log);
-        } else {
-            if( log ) alert(log);
-        }
-
-    });
-});
-</script>
-<div class="row">
-    <div class="col-md-6 col-md-offset-3 center">
-
-        <div class="row-fluid">
-            <div class="span8">
-                <h3>Statistics</h3>
-                {% for he, desc, im in stat_items %}
-                    <h2>{{he}}</h2>
-                    <img src="{{ STATIC_URL }}{{im}}"/>
-                    {{desc}}
-                {% endfor %}
-            </div>
-        </div>
-
-
+{% if analysis.statistics %}
+{% load analysis_tags %}
+    <div class="row">
+    <div class="card col-md-6">
+      <h4>Processing&emsp;( {{ analysis.statistics.processing|stats_total }} seconds )</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge.badge-pill">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
     </div>
-</div>
-{% endblock %}
+    </div>
+    <div class="row">
+    <div class="card col-md-6">
+        <h4>Signatures&emsp;( {{ analysis.statistics.signatures|stats_total }} seconds )</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge.badge-pill">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+    <div class="row">
+    <div class="card col-md-6">
+        <h4>Reporting&emsp;( {{ analysis.statistics.reporting|stats_total }} seconds )</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge.badge-pill">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+{% else %}
+    <div class="alert alert-primary">No statistics found.</div>
+{% endif %}

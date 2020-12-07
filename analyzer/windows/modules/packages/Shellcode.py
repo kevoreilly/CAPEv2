@@ -11,17 +11,17 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
-
 class Shellcode(Package):
-    """DLL analysis package."""
+    """32-bit Shellcode analysis package."""
 
-    # PATHS = [
-    #    ("SystemRoot", "system32"),
-    # ]
+    def __init__(self, options={}, config=None):
+        """@param options: options dict."""
+        self.config = config
+        self.options = options
+        self.options["procdump"] = "0"
 
     def start(self, path):
         loaderpath = "bin\\loader.exe"
-        # arguments = path
         arguments = "shellcode " + path
 
         # we need to move out of the analyzer directory
@@ -29,9 +29,5 @@ class Shellcode(Package):
         basepath = os.path.dirname(path)
         newpath = os.path.join(basepath, os.path.basename(loaderpath))
         shutil.copy(loaderpath, newpath)
-
-        log.info("[-] newpath : " + newpath)
-        log.info("[-] arguments : " + arguments)
-        # log.info("[-] Path: "+path)
 
         return self.execute(newpath, arguments, newpath)

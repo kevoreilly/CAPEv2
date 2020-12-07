@@ -154,7 +154,7 @@ def tasks_create_file():
     else:
 
         try:
-            task_ids = db.demux_sample_and_add_to_db(
+            task_ids, extra_details = db.demux_sample_and_add_to_db(
                 file_path=temp_file_path,
                 package=package,
                 timeout=timeout,
@@ -337,6 +337,7 @@ def tasks_delete():
     tasks = request.forms.get("ids", "")
     tasks = tasks.split(",")
     for task_id in tasks:
+        task_id = int(task_id)
         task = db.view_task(task_id)
         if task:
             if task.status == TASK_RUNNING:
@@ -677,8 +678,8 @@ def files_view(md5=None, sha1=None, sha256=None, sample_id=None):
     return jsonize(response)
 
 
-@route("/files/get/<sha256>", method="GET")
-@route("/v1/files/get/<sha256>", method="GET")
+@route("/files/get/<sha256:re:[\w\d]{64}>", method="GET")
+@route("/v1/files/get/<sha256:re:[\w\d]{64}>", method="GET")
 def files_get(sha256):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
     if os.path.exists(file_path):

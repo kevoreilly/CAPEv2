@@ -1,6 +1,8 @@
 [Unit]
 Description=CAPE
 Documentation=https://github.com/kevoreilly/CAPEv2
+Wants=cape-rooter.service
+After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/

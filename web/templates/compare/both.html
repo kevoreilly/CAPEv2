@@ -21,14 +21,14 @@ $(function () {
             <p>Following are the colored categories:</p>
 
             <p style="text-align: center;">
-                <span class="badge registry" style="color:black;">registry</span>
-                <span class="badge filesystem" style="color:black;">filesystem</span>
-                <span class="badge system" style="color:black;">system</span>
-                <span class="badge network" style="color:black;">network</span>
-                <span class="badge process" style="color:black;">process</span>
-                <span class="badge services" style="color:black;">services</span>
-                <span class="badge synchronization" style="color:black;">synchronization</span>
-                <span class="badge windows" style="color:black;">windows</span>
+                <span class="badge.badge-pill registry" style="color:black;">registry</span>
+                <span class="badge.badge-pill filesystem" style="color:black;">filesystem</span>
+                <span class="badge.badge-pill system" style="color:black;">system</span>
+                <span class="badge.badge-pill network" style="color:black;">network</span>
+                <span class="badge.badge-pill process" style="color:black;">process</span>
+                <span class="badge.badge-pill services" style="color:black;">services</span>
+                <span class="badge.badge-pill synchronization" style="color:black;">synchronization</span>
+                <span class="badge.badge-pill windows" style="color:black;">windows</span>
             </p>
         </div>
 
@@ -60,25 +60,24 @@ $(function () {
 <hr/>
 <div class="row">
     <h2 style="text-align: left;"> Summary Similarities</h2>
-    <div class="tabbable tabs">
         <ul class="nav nav-pills" style="margin-bottom: 0;">
-            <li class="active"><a href="#summary_compare_files" data-toggle="tab">Accessed Files</a></li>
-            <li><a href="#summary_compare_read_files" data-toggle="tab">Read Files</a></li>
-            <li><a href="#summary_compare_write_files" data-toggle="tab">Modified Files</a></li>
-            <li><a href="#summary_compare_delete_files" data-toggle="tab">Deleted Files</a></li>
-            <li><a href="#summary_compare_keys" data-toggle="tab">Accessed Registry Keys</a></li>
-            <li><a href="#summary_compare_read_keys" data-toggle="tab">Read Registry Keys</a></li>
-            <li><a href="#summary_compare_write_keys" data-toggle="tab">Modified Registry Keys</a></li>
-            <li><a href="#summary_compare_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>
-            <li><a href="#summary_compare_resolved_apis" data-toggle="tab">Resolved APIs</a></li>
-            <li><a href="#summary_compare_executed_commands" data-toggle="tab">Executed Commands</a></li>
-            <li><a href="#summary_compare_mutexes" data-toggle="tab">Mutexes</a></li>
-            <li><a href="#summary_compare_created_services" data-toggle="tab">Created Services</a></li>
-            <li><a href="#summary_compare_started_services" data-toggle="tab">Started Services</a></li>
+            <li class="nav-item active"><a class="nav-link" href=#summary_compare_files" data-toggle="tab">Accessed Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_files" data-toggle="tab">Read Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_files" data-toggle="tab">Modified Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_files" data-toggle="tab">Deleted Files</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_keys" data-toggle="tab">Accessed Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_read_keys" data-toggle="tab">Read Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_write_keys" data-toggle="tab">Modified Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_resolved_apis" data-toggle="tab">Resolved APIs</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_executed_commands" data-toggle="tab">Executed Commands</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_mutexes" data-toggle="tab">Mutexes</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_created_services" data-toggle="tab">Created Services</a></li>
+            <li class="nav-item"><a class="nav-link" href=#summary_compare_started_services" data-toggle="tab">Started Services</a></li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane fade in active" id="summary_compare_files">
-                <div class="well mono">
+            <div class="tab-pane fade show active" id="summary_compare_files">
+                <div class="card card-body">
                 {% if summary.files %}
                     {% for file in summary.files %}
                         {{file}}<br />
@@ -89,7 +88,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_read_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.read_files %}
                     {% for file in summary.read_files %}
                         {{file}}<br />
@@ -100,7 +99,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_write_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.write_files %}
                     {% for file in summary.write_files %}
                         {{file}}<br />
@@ -111,7 +110,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_delete_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.delete_files %}
                     {% for file in delete_files %}
                         {{file}}<br />
@@ -122,7 +121,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.keys %}
                     {% for key in summary.keys %}
                         {{key}}<br />
@@ -133,7 +132,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_read_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.read_keys %}
                     {% for key in summary.read_keys %}
                         {{key}}<br />
@@ -144,7 +143,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_write_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.write_keys %}
                     {% for key in summary.write_keys %}
                         {{key}}<br />
@@ -155,7 +154,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_delete_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.delete_keys %}
                     {% for key in summary.delete_keys %}
                         {{key}}<br />
@@ -166,7 +165,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_resolved_apis">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.resolved_apis %}
                     {% for api in summary.resolved_apis %}
                         {{api}}<br />
@@ -177,7 +176,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_executed_commands">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.executed_commands %}
                     {% for cmd in summary.executed_commands %}
                         {{cmd}}<br />
@@ -188,7 +187,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_mutexes">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.mutexes %}
                     {% for mutex in summary.mutexes %}
                         {{mutex}}<br />
@@ -199,7 +198,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_created_services">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.created_services %}
                     {% for service in summary.created_services %}
                         {{service}}<br />
@@ -210,7 +209,7 @@ $(function () {
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_compare_started_services">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if summary.started_services %}
                     {% for service in summary.started_services %}
                         {{service}}<br />
@@ -221,6 +220,5 @@ $(function () {
                 </div>
             </div>
         </div>
-    </div>
 </div>
 {% endblock %}

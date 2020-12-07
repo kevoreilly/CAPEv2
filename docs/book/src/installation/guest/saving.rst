@@ -84,6 +84,7 @@ while you are taking the snapshot. Then you can shut it down.
 You can finally take a snapshot with the following command::
 
     $ virsh snapshot-create "<Name of VM>"
+    $ virsh snapshot-create-as --domain "<Name of VM>" --name "<Name of snapshot>"
 
 Having multiple snapshots can cause errors.
 

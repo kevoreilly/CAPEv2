@@ -11,27 +11,19 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
-
-class Shellcode(Package):
-    """DLL analysis package."""
-
-    # PATHS = [
-    #    ("SystemRoot", "system32"),
-    # ]
+class Shellcode_Unpacker(Package):
+    """32-bit Shellcode Unpacker package."""
 
     def __init__(self, options={}, config=None):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.pids = []
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
-
-        log.info("Timeout: " + str(self.config.timeout))
+        self.options["dump-caller-regions"] = "0"
 
     def start(self, path):
         loaderpath = "bin\\loader.exe"
-        # arguments = path
         arguments = "shellcode " + path
 
         # we need to move out of the analyzer directory
@@ -42,6 +34,5 @@ class Shellcode(Package):
 
         log.info("[-] newpath : " + newpath)
         log.info("[-] arguments : " + arguments)
-        # log.info("[-] Path: "+path)
 
         return self.execute(newpath, arguments, newpath)

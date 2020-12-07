@@ -364,9 +364,9 @@ def Main():
         print("  https://DidierStevens.com")
         return
     elif len(args) == 0:
-        data = DecodeVBE("", options)
+        data = DecodeVBEJSE("", options)
     else:
-        data = DecodeVBE(open(args[0], "rb").read(), options)
+        data = DecodeVBEJSE(open(args[0], "rb").read(), options)
     if data:
         StdoutWriteChunked(data)
 

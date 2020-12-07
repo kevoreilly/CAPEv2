@@ -33,7 +33,7 @@ def choose_package(file_type, file_name, exports, target):
             return "dll"
     elif "PE32" in file_type or "MS-DOS" in file_type:
         return "exe"
-    elif file_name.endswith(".msi") or "MSI Installer" in file_type:
+    elif file_name.endswith((".msi",".msp",".appx")) or "MSI Installer" in file_type:
         return "msi"    
     elif "PDF" in file_type or file_name.endswith(".pdf"):
         return "pdf"
@@ -54,7 +54,7 @@ def choose_package(file_type, file_name, exports, target):
         or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk"))
     ):
         return "xls"
-    elif "Microsoft PowerPoint" in file_type or file_name.endswith(
+    elif "PowerPoint" in file_type or file_name.endswith(
         (".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
@@ -88,6 +88,8 @@ def choose_package(file_type, file_name, exports, target):
         return "html"
     elif file_name.endswith(".mht"):
         return "mht"
+    elif file_name.endswith(".url") or "MS Windows 95 Internet shortcut" in file_type or "Windows URL shortcut" in file_type:
+        return "html"
     elif b"mso-application" in file_content and b"Word.Document" in file_content:
         return "doc"
     elif file_name.endswith(".lnk") or "MS Windows shortcut" in file_type:
@@ -96,6 +98,8 @@ def choose_package(file_type, file_name, exports, target):
         return "chm"
     elif file_name.endswith((".hwp", ".hwpx", ".hwt", ".hml")) or "Hangul (Korean) Word Processor File" in file_type:
         return "hwp"
+    elif file_name.endswith((".inp", ".int")) or b"InPage Arabic Document" in file_content:
+        return "inp"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"#@~^" in file_content[:100]:

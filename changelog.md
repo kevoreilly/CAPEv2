@@ -1,3 +1,55 @@
+
+### [02.12.2020] CAPE 2.2
+* Malduck integration
+* Bootrstarp 4.5.3 & font awesome 5
+* Statistics
+* Tag_tasks - allows you tag your jobs
+* self.pefiles: introduced to prcessing/signatures modules, you can get PEFILE object by sha256 self.pefiles.get(sha256)
+* Pending page now is much useful and show hashes to easilly spot duplicated
+* Submission of file or resubmission will show all the jobs and detection for that file
+* [Flare capa](https://github.com/fireeye/capa) integrated under static tab for original binary, procdump and cape (should be enabled in processing.conf), Rules can be pulled from community, but we will leave it community driven to sync them. So you can copy them from https://github.com/fireeye/capa-rules and place under `data/flare-capa`
+* More soon ;)
+
+### 16-11-2020
+* `utils/cleaners.py` option `--delete-older-than-days` moved to bulk remove 10 in 10, to improve performance and decrease IO
+
+### [31-10-2020] Pre Halloween edition
+* [Box-js](https://github.com/kirk-sayre-work/box-js/) integration [docs](https://capev2.readthedocs.io/en/latest/integrations/box-js.html)
+* Fixed support for office in x64 VMs
+
+### [22-10-2020]
+* cape.py rewrite so it affects `api/tasks/get/config/` so before it was list of configs and it has `cape_name`, now its like `[{malware_family:{config}}]`
+
+### [20-10-2020]
+* static config extraction lookup in database before scan file with yara and extract
+* resubmit added to CAPE/procdump tabs
+
+### [15-10-2020]
+* Huge code unification and cleanup between `submission/views.py` and `api/views.py`
+* Improve error messages on bulk submission, for failed samples/hashes
+* Physical machinery updated by @hariomenkel, you can [read details in his writeup](https://mariohenkel.medium.com/using-cape-sandbox-and-fog-to-analyze-malware-on-physical-machines-4dda328d4e2c)
+
+### [05-10-2020]
+* Static extraction fix, thanks for testing it @nikhilh-20
+* Static endpoint now will return config apart of the task id
+
+### [01-10-2020] HacktoberFest edition
+* Create zip files in memory (requires pyzipper) instead of using 7z and write them to temp folder
+* Simplified parsing of arguments between submission/api views
+* Created [docs](https://capev2.readthedocs.io/en/latest/development/current_module_improvement.html) on how to test `Curtain` and `Suricata`
+* Static extraction api added
+* Curtain module updated
+* Code clenup
+* Massive useless IO improved, read config once instead of on each file submit
+
+### [14-09-2020]
+* Added ability to enable/disable some of 3rd part services for malware detection, like: VirusTotal, ClamAV, Suricata
+
+### [13-09-2020]
+* Enable ratelimit on download any file, to avoid scrapping, to change limits, edit: `api.conf` -> `download_file`
+* Error message for ratelimit can be configured in `web/web/settings.py`
+* Fixed a lot of bugs/typos, thanks Flake8 + GitHub Actions :)
+
 ### [11-08-2020]
 * Update suricata socket path in processing.conf as in cape2.sh from `/var/run/` to `/tmp/`
 * Fix pebble pool restart on timeout

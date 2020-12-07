@@ -77,7 +77,7 @@ except ImportError:
     HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
-from lib.cuckoo.common.utils import store_temp_file, bytes2str
+from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -114,6 +114,7 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     from peepdf.PDFCore import PDFParser
@@ -129,6 +130,25 @@ try:
 except ImportError:
     print("Missed dependey XLMMacroDeobfuscator: pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
     HAVE_XLM_DEOBF = False
+
+try:
+    from elftools.common.exceptions import ELFError
+    from elftools.elf.constants import E_FLAGS
+    from elftools.elf.descriptions import (
+        describe_ei_class, describe_ei_data, describe_ei_version,
+        describe_ei_osabi, describe_e_type, describe_e_machine,
+        describe_e_version_numeric, describe_p_type, describe_p_flags,
+        describe_sh_type, describe_dyn_tag, describe_symbol_type,
+        describe_symbol_bind, describe_note, describe_reloc_type
+    )
+    from elftools.elf.dynamic import DynamicSection
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.enums import ENUM_D_TAG
+    from elftools.elf.relocation import RelocationSection
+    from elftools.elf.sections import SymbolTableSection
+    from elftools.elf.segments import NoteSegment
+except ImportError:
+    ELFFile = False
 
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
@@ -686,19 +706,21 @@ class PortableExecutable(object):
             entry = rt_group_icon_dir.directory.entries[0]
             offset = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset : offset + size])
+            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset: offset + size])
             bigwidth = 0
             bigheight = 0
             bigbpp = 0
             bigidx = -1
             iconidx = 0
-            for idx, icon in enumerate(peicon.icons):
-                if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
-                    bigwidth = icon.bWidth
-                    bigheight = icon.bHeight
-                    bigbpp = icon.wBitCount
-                    bigidx = icon.nID
-                    iconidx = idx
+            if hasattr(peicon, "icons") and peicon.icons:
+                # TypeError: 'NoneType' object is not iterable
+                for idx, icon in enumerate(peicon.icons):
+                    if icon.bWidth >= bigwidth and icon.bHeight >= bigheight and icon.wBitCount >= bigbpp:
+                        bigwidth = icon.bWidth
+                        bigheight = icon.bHeight
+                        bigbpp = icon.wBitCount
+                        bigidx = icon.nID
+                        iconidx = idx
 
             rt_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_ICON"])
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
@@ -863,21 +885,9 @@ class PortableExecutable(object):
         if type(signatures) is bytearray:
             signatures = bytes(signatures)
 
-        bio = backend._bytes_to_bio(signatures)
+        certs = backend.load_der_pkcs7_certificates(signatures)
 
-        if not bio:
-            return []
-
-        pkcs7_obj = backend._lib.d2i_PKCS7_bio(bio.bio, backend._ffi.NULL)
-        if not pkcs7_obj:
-            return []
-
-        signers = backend._lib.PKCS7_get0_signers(pkcs7_obj, backend._ffi.NULL, 0)
-
-        for i in range(backend._lib.sk_X509_num(signers)):
-            x509_ptr = backend._lib.sk_X509_value(signers, i)
-            cert = x509._Certificate(backend, x509_ptr)
-
+        for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()
             sha1 = binascii.hexlify(cert.fingerprint(hashes.SHA1())).decode()
             sha256 = binascii.hexlify(cert.fingerprint(hashes.SHA256())).decode()
@@ -978,6 +988,11 @@ class PortableExecutable(object):
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+
+        if processing_conf.flare_capa.enabled:
+            capa_details = flare_capa_details(self.file_path)
+            if capa_details:
+                results["flare_capa"] = capa_details
 
         return results
 
@@ -1208,9 +1223,10 @@ class Office(object):
         - Rich Text Format (.rtf)
     """
 
-    def __init__(self, file_path, results):
+    def __init__(self, file_path, results, options):
         self.file_path = file_path
         self.results = results
+        self.options = get_options(options)
 
     def _get_meta(self, meta):
         ret = dict()
@@ -1227,30 +1243,6 @@ class Office(object):
                 continue
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
-
-    def _decode_xlm_macro(self, macro):
-        lines = macro.split("\n")
-        numre = re.compile("ptgInt (\d+) ")
-        strdict = dict()
-        dstrs = ""
-        for line in lines:
-            if "CHAR" not in line:
-                continue
-            res = re.findall(".*R\d+C(\d+)\s", line)
-            if not res:
-                continue
-
-            col = "C{}".format(res[0])
-            if not strdict.get(col, False):
-                strdict[col] = ""
-            found = numre.findall(line)
-            if found:
-                for n in found:
-                    strdict[col] += chr(int(n))
-        for col in strdict:
-            dstrs += f"{strdict[col]}\n"
-
-        return dstrs
 
     def _parse_rtf(self, data):
         results = dict()
@@ -1379,6 +1371,7 @@ class Office(object):
             log.error(e, exc_info=True)
 
         metares = officeresults["Metadata"] = dict()
+        macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
@@ -1396,18 +1389,16 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
-            decoded_strs = ""
+            macrores["info"] = dict()
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
             macrores["Analysis"] = dict()
             macrores["Analysis"]["AutoExec"] = list()
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            macrores["Analysis"]["DecodedStrings"] = list()
             for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != "":
@@ -1417,23 +1408,14 @@ class Office(object):
                     macrores["Code"][outputname] = list()
                     macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
-                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        if not os.path.exists(macro_folder):
-                            os.makedirs(macro_folder)
-                        decrypted_vba_code = self._decode_xlm_macro(vba_code)
-                        macro_file = os.path.join(macro_folder, outputname)
-                        with open(macro_file, "wb") as f:
-                            f.write(vba_code)
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
-                        if decrypted_vba_code:
-                            outputname += "_Decoded"
-                            macrores["Code"][outputname] = list()
-                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"), convert_to_printable(decrypted_vba_code)))
-                            macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                            macrores["info"][outputname]["yara_cape"] = File(macro_file).get_yara(category="CAPE")
-                            with open(os.path.join(macro_folder, outputname), "wb") as f:
-                                f.write(decrypted_vba_code)
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, outputname)
+                    with open(macro_file, "w") as f:
+                        f.write(convert_to_printable(vba_code))
+                    macrores["info"][outputname] = dict()
+                    macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
@@ -1454,10 +1436,7 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-                    if decoded_strs:
-                        for dstr in decoded_strs.split("\n"):
-                            if dstr:
-                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
+
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1468,8 +1447,6 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
-            if macrores["Analysis"]["DecodedStrings"] == []:
-                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
@@ -1495,6 +1472,7 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
+            password = self.options.get("password", "")
             xlm_kwargs = {
                 "file": filepath,
                 "noninteractive": True,
@@ -1502,14 +1480,24 @@ class Office(object):
                 "start_with_shell": False,
                 "return_deobfuscated": True,
                 "no_indent": False,
-                "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
                 "day": -1,
+                "password": password,
             }
 
             try:
                 deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
                 if deofuscated_xlm:
-                    results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
+                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = dict()
+                    xlmmacro["Code"]= deofuscated_xlm
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, "xlm_macro")
+                    with open(macro_file, "w") as f:
+                        f.write("\n".join(deofuscated_xlm))
+                    xlmmacro["info"] = dict()
+                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except Exception as e:
                 log.error(e, exc_info=True)
 
@@ -1912,7 +1900,10 @@ class Java(object):
             jar_file = store_temp_file(data, "decompile.jar")
 
             try:
-                p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
+                if self.decomp_jar.endswith(".jar"):
+                    p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
+                else:
+                    p = Popen([self.decomp_jar, jar_file], stdout=PIPE)
                 results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
             except Exception as e:
                 log.error(e, exc_info=True)
@@ -2538,7 +2529,10 @@ class EncodedScriptFile(object):
 
     def run(self):
         results = {}
-        source = open(self.filepath, "r").read()
+        try:
+            source = open(self.filepath, "r").read()
+        except UnicodeDecodeError as e:
+            return results
         source = self.decode(source)
         if not source:
             return results
@@ -2571,7 +2565,7 @@ class EncodedScriptFile(object):
 
             o = o + 1
 
-        if (c % 2 ** 32) != struct.unpack("I", source[o : o + 8].decode("base64"))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("I", source[o : o + 8]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)
@@ -2640,7 +2634,7 @@ class Static(Processing):
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
@@ -2653,7 +2647,7 @@ class Static(Processing):
             # oleid to fail us out silently, yeilding no static analysis
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":

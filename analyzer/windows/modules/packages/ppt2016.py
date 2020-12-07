@@ -13,6 +13,7 @@ class PPT2007(Package):
         self.config = config
         self.options = options
         self.options["exclude-apis"] = "memcpy"
+        self.options["office"] = "1"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office*", "root", "Office16", "POWERPNT.EXE"),

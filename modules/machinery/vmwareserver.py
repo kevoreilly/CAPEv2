@@ -26,8 +26,6 @@ class VMwareServer(Machinery):
         if not self.options.vmwareserver.path:
             raise CuckooMachineError("VMware vmrun path missing, " "please add it to vmwareserver.conf")
 
-            self._check_snapshot(vmx_path, snapshot)
-
         # Base checks.
         super(VMwareServer, self)._initialize_check()
 
@@ -80,6 +78,7 @@ class VMwareServer(Machinery):
         @raise CuckooMachineError: if unable to start.
         """
         snapshot = self._snapshot_from_vmx(vmx_path)
+        self._check_snapshot(vmx_path, snapshot)
 
         # Check if the machine is already running, stop if so.
         if self._is_running(vmx_path):

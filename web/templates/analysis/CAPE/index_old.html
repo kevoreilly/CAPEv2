@@ -1,0 +1,203 @@
+{% load key_tags %}
+{% if CAPE %}
+    {% for file in CAPE %}
+        {% if file.cape_config %}
+        <div class="card ">
+            <table class="table table-striped  table-dark table-sm" style="table-layout: fixed;">
+                <tr>
+                    <th style="border-top: 0; width: 15%;">Type</th>
+                    <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_name}} Config</b></td>
+                </tr>
+                {% for key, value in file.cape_config.items %}
+                    <tr>
+                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                        <td style="border-top: 0; word-wrap: break-word;">
+                        {% for subvalue in value %}
+                            {% if subvalue|length > 1 %}
+                                {% for subsubvalue in subvalue %}
+                                    {% if subsubvalue|length > 1 %}
+                                        <div>{{subsubvalue}}</div>
+                                    {% else %}
+                                        {% if forloop.first %}
+                                            <div>{{subvalue}}</div>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div>{{subvalue}}</div>
+                            {% endif %}
+                        {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+        </tr>
+        {% endif %}
+        {% if file.related_tasks %}
+            <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
+        {% endif %}
+    {% endfor %}
+    {% for file in CAPE %}
+        {% if not file.cape_config %}
+        <div class="card ">
+            <table class="table table-striped table-dark table-sm" style="table-layout: fixed;">
+                <tr>
+                    <th style="border-top: 0; width: 15%;">Type</th>
+                    <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_type}}</b></td>
+                </tr>
+                <tr>
+                    <th>Size</th>
+                    <td>{{file.size}} bytes</td>
+                </tr>
+                {% if file.cape_type_code == 8 or file.cape_type_code == 9 %}
+                    <tr>
+                        <th>Virtual Address</th>
+                        <td>{{file.virtual_address}}</td>
+                    </tr>
+                {% endif %}
+                {% if file.cape_type_code == 5 %}
+                    <tr>
+                        <th>Section Handle</th>
+                        <td>{{file.section_handle}}</td>
+                    </tr>
+                {% endif %}
+                {% if file.cape_type_code == 3 or file.cape_type_code == 4 %}
+                    <tr>
+                        <th>Target Process</th>
+                        <td>{{file.target_process}}</td>
+                    </tr>
+                    <tr>
+                        <th>Target PID</th>
+                        <td>{{file.target_pid}}</td>
+                    </tr>
+                    <tr>
+                        <th>Target Path</th>
+                        <td>{{file.target_path}}</td>
+                    </tr>
+                    <tr>
+                        <th>Injecting Process</th>
+                        <td>{{file.process_name}}</td>
+                    </tr>
+                    <tr>
+                        <th>Injecting PID</th>
+                        <td>{{file.pid}}</td>
+                    </tr>
+                    <tr>
+                        <th>Path</th>
+                        <td>{{file.process_path}}</td>
+                    </tr>
+                {% else %}
+                    {% if file.process_name %}
+                    <tr>
+                        <th>Process</th>
+                        <td>{{file.process_name}}</td>
+                    </tr>
+                    {% endif %}
+                    {% if file.pid %}
+                    <tr>
+                        <th>PID</th>
+                        <td>{{file.pid}}</td>
+                    </tr>
+                    {% endif %}
+                    {% if file.process_path %}
+                    <tr>
+                        <th>Path</th>
+                        <td>{{file.process_path}}</td>
+                    </tr>
+                    {% endif %}
+                {% endif %}
+                {% if file.timestamp %}
+                    <tr>
+                        <th>PE timestamp</th>
+                        <td>{{file.timestamp}}</td>
+                    </tr>
+                {% endif %}
+                <tr>
+                    <th>MD5</th>
+                    <td style="word-wrap: break-word;">{{file.md5}}</td>
+                </tr>
+                <tr>
+                    <th>SHA1</th>
+                    <td style="word-wrap: break-word;">{{file.sha1}}</td>
+                </tr>
+                <tr>
+                    <th>SHA256</th>
+                    <td style="word-wrap: break-word;">{{file.sha256}}</td>
+                </tr>
+                <tr>
+                    <th>CRC32</th>
+                    <td>{{file.crc32}}</td>
+                </tr>
+                <tr>
+                    <th>Ssdeep</th>
+                    <td style="word-wrap: break-word;">{{file.ssdeep}}</td>
+                </tr>
+                <tr>
+                    <th>Yara</th>
+                    <td>
+                    {% if file.yara %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.yara %}
+                            <li>{{sign.name}} - {{sign.meta.description}}
+                            {% if sign.meta.author %}
+                                - Author: {{sign.meta.author}}
+                            {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>CAPE Yara</th>
+                    <td>
+                    {% if file.cape_yara %}
+                        <ul style="margin-bottom: 0;">
+                        {% for sign in file.cape_yara %}
+                            <li>{{sign.name}}
+                            {% if sign.meta.cape_type %}
+                                {{sign.meta.cape_type}}
+                            {% elif sign.meta.description %}
+                                {{sign.meta.description}}
+                            {% endif %}
+                            {% if sign.meta.author %}
+                                - Author: {{sign.meta.author}}
+                            {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        None matched
+                    {% endif %}
+                    </td>
+                </tr>
+                {% if file.dropdir %}
+                <tr>
+                    <th></th>
+                    <td><a href="{% url "file" "CAPE" id file.dropdir %}" class="btn btn-secondary btn-small">Download</a>
+                    </td>
+                </tr>
+                {% elif file.sha256 %}
+                <tr>
+                    <th></th>
+                    <td>
+                        <a href="{% url "file" "CAPE" id file.sha256 %}" class="btn btn-secondary btn-small">Download</a>
+                        <a href="{% url "file" "CAPEZIP" id file.sha256 %}" class="btn btn-secondary btn-small">Download zip</a>
+                        <a class="btn btn-secondary btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                    </td>
+                </tr>
+                {% endif %}
+            </table>
+            {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
+                <h4>BinGraph <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
+                {{ bingraph.content|getkey:file.sha256|safe }}
+            {% endif %}
+        </div>
+        {% endif %}
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info"><b>Sorry!</b> No CAPE files.</div>
+{% endif %}

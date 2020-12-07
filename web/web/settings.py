@@ -36,8 +36,7 @@ if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
 if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg.elasticsearchdb.get("searchonly"):
     raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
-# Enable Django authentication for website
-WEB_AUTHENTICATION = False
+WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
@@ -56,14 +55,15 @@ zip_cfg = aux_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
-ZIP_PWD = zip_cfg.get("zip_pwd", "infected")
+ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
+if not isinstance(ZIP_PWD, bytes):
+    ZIP_PWD = ZIP_PWD.encode("utf-8")
 MOLOCH_BASE = moloch_cfg.get("base", None)
 MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 
 VTDL_ENABLED = vtdl_cfg.get("enabled", False)
-VTDL_PRIV_KEY = vtdl_cfg.get("dlprivkey", None)
-VTDL_INTEL_KEY = vtdl_cfg.get("dlintelkey", None)
+VTDL_KEY = vtdl_cfg.get("dlintelkey", None)
 VTDL_PATH = vtdl_cfg.get("dlpath", None)
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
@@ -173,11 +173,17 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Cuckoo headers.
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
     #'ratelimit.middleware.RatelimitMiddleware',
 ]
+
+# Header/protection related
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = 'DENY'
 
 ROOT_URLCONF = "web.urls"
 
@@ -230,6 +236,9 @@ ALLOWED_HOSTS = ["*"]
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
+
+# Don't forget to give some love to @doomedraven ;)
+RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
 
 # Hack to import local settings.
 try:

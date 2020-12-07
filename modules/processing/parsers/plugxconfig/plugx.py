@@ -23,6 +23,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 from __future__ import absolute_import
+import socket
 from struct import unpack_from, calcsize
 from socket import inet_ntoa
 from collections import defaultdict, OrderedDict

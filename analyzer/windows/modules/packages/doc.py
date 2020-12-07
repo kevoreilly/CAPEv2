@@ -14,7 +14,7 @@ class DOC(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["exclude-apis"] = "memcpy"
+        self.options["office"] = "1"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
@@ -30,4 +30,4 @@ class DOC(Package):
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, '"%s" /q /dde /n' % path, path)
+        return self.execute(word, "\"%s\" /q" % path, path)

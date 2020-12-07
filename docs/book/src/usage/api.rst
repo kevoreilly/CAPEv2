@@ -15,7 +15,15 @@ To enable auth on this api you can use htpasswd::
 
 Once you have enabled it, you can just specify ``username`` and ``password`` as ``GET/POST`` parameters, and you will have unlimited api on limited for the rest
 
-===============================================================
+.. code-block:: python
+
+    # Simple example of authentificated api usage, just include username and password in each request
+    import requests
+    requests.get(URL, params={"username":"<your_username>", "password": "<your apikey>"})
+    requests.get(URL, data={"username":"<your_username>", "password": "<your apikey>"})
+
+
+==============================================================
 REST API depricated, used only by dist.py aka distributed CAPE
 ==============================================================
 

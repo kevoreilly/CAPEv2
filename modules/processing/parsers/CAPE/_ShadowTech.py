@@ -22,7 +22,6 @@ enc_key = "pSILlzCwXBSrQ1Vb72t6bIXtKRzAHJklNNL94gD8hIi9FwLiiVlr"  # Actual key i
 def string_print(line):
     return [x for x in line if x in string.printable]
 
-
 def get_config(data):
     config_list = []
     config_string = data.split(split_string)
@@ -61,11 +60,12 @@ def parse_config(config_list):
     config_dict["MsgBoxText"] = config_list[13]
     return config_dict
 
-
+"""
 def decrypt_XOR(enckey, data):
+    # ToDo fix it yourself, XOR not defined
     cipher = XOR.new(enckey)  # set the cipher
     return cipher.decrypt(data)  # decrpyt the data
-
+"""
 
 def snortRule(md5, config_dict):
     rules = []

@@ -141,7 +141,7 @@ class Sniffer(Auxiliary):
         )
 
         # TODO fix this, temp fix to not get all that noise
-        pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
+        #pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
 
         if remote and bpf:
             pargs.extend(["and", "("] + bpf.split(" ") + [")"])

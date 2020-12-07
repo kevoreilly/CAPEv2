@@ -2,7 +2,7 @@
 Distributed CAPE
 ==================
 
-This works under the main server web interface/api, so everything is transparent for end user, even if they were analyzer on another server(s)
+This works under the main server web interface, so everything is transparent for end user, even if they were analyzer on another server(s)
 
 Deploy each server as normal serve and later just register it as worker on master server where dist.py is running
 
@@ -18,34 +18,8 @@ Starting the Distributed REST API
 =================================
 
 The Distributed REST API requires a few commandline options in order to run.
-Following is a listing of all available commandline options::
 
-    $ ./utils/dist.py -h
-
-    usage: dist.py [-h] [-d] [--uptime-logfile UPTIME_LOGFILE] [--node NODE]
-                [--delete-vm DELETE_VM] [--disable] [--enable] [--clean-workers]
-                [-ec] [-fr FORCE_REPORTED]
-                [host] [port]
-
-    positional arguments:
-    host                  Host to listen on
-    port                  Port to listen on
-
-    optional arguments:
-    -h, --help            show this help message and exit
-    -d, --debug           Enable debug logging
-    --uptime-logfile UPTIME_LOGFILE
-                            Uptime logfile path
-    --node NODE           Node name to update in distributed DB
-    --delete-vm DELETE_VM
-                            VM name to delete from Node
-    --disable             Disable Node provided in --node
-    --enable              Enable Node provided in --node
-    --clean-workers        Delete reported and notificated tasks from workers
-    -ec, --enable-clean   Enable delete tasks from nodes, also will remove tasks
-                            submited by humands and not dist
-    -fr FORCE_REPORTED, --force-reported FORCE_REPORTED
-                            change report to reported
+    $ cd /opt/CAPEv2/web && python3 manage.py runserver 0.0.0.0:8000
 
 
 RESTful resources
@@ -190,7 +164,7 @@ or::
 Submit a new analysis task
     The method of submission is always the same: by rest api or via web-gui , both only pointing on the "master node".
 
-Get the report of a task should be requested throw master node integrated /api/ or api.py
+Get the report of a task should be requested throw master node integrated /api/
 
 Proposed setup
 ==============
@@ -249,7 +223,7 @@ Setup Cuckoo
 On each machine the following three scripts should be ran::
 
     ./cuckoo.py
-    ./utils/api.py -H 1.2.3.4  # IP accessible by the Distributed script.
+    cd web/ && python3 manage.py runserver 8000  # IP accessible by the Distributed script.
     ./utils/process.py auto
 
 One way to do this is by placing each script in its own ``screen(1)`` session
@@ -257,7 +231,7 @@ as follows, this allows one to check back on each script to ensure it's
 (still) running successfully::
 
     $ screen -S cuckoo  ./cuckoo.py
-    $ screen -S api     ./utils/api.py
+    $ screen -S web     cd web/ && python3 manage.py runserver 8000
     $ screen -S process ./utils/process.py auto
 
 Setup Distributed Cuckoo
@@ -277,12 +251,12 @@ the Distributed CAPE script::
 
 without htaccess::
 
-    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8090/
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/api/
 
 with htaccess::
 
-    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8090/ \
-      -F ht_user=user -F ht_pass=password
+    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8000/api/ \
+      -F username=user -F password=password
 
 Having registered the CAPE nodes all that's left to do now is to submit
 tasks and fetch reports once finished. Documentation on these commands can be
@@ -323,38 +297,13 @@ And enable the worker again::
 Good practice for production
 ---------------------
 
-Number of retrieved threads from reporting.conf should be less then general threads in uwsgi for api.py
+Number of retrieved threads can be configured in reporting.conf
 
 Installation of "uwsgi"::
     # apt-get install uwsgi uwsgi-plugin-python nginx
     # nginx is only required if you want use basic web auth
 
-Is better if you run "api.py" and "dist.py" as uwsgi application
-
-With "config", for example you have file "/opt/CAPE/utils/api.ini" with this context::
-
-    [uwsgi]
-        plugins = python
-        callable = application
-        ;change this patch if is different
-        chdir = /opt/CAPE/utils
-        master = true
-        mount = /=api.py
-        processes = 5
-        manage-script-name = true
-        socket = 0.0.0.0:8090
-        http-timeout = 200
-        pidfile = /tmp/api.pid
-        ; if you will use with nginx, comment next line
-        protocol=http
-        enable-threads = true
-        lazy-apps = true
-        timeout = 600
-        chmod-socket = 664
-        chown-socket = cuckoo:cuckoo
-        gui = cuckoo
-        uid = cuckoo
-        stats = 127.0.0.1:9191
+Is better if you run "web" and "dist.py" as uwsgi application
 
 uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
@@ -384,13 +333,10 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
 To run your api with config just execute as::
 
-    $ uwsgi --ini /opt/cuckoo/utils/api.ini
+    # WEBGUI is started by systemd as cape-web.service
     $ uwsgi --ini /opt/cuckoo/utils/dist.ini
 
 To add your application to auto start after boot, move your config file to::
-
-    mv /opt/cuckoo/utils/api.ini /etc/uwsgi/apps-available/cuckoo_api.ini
-    ln -s /etc/uwsgi/apps-available/cuckoo_api.ini /etc/uwsgi/apps-enabled
 
     mv /opt/cuckoo/utils/dist.ini /etc/uwsgi/apps-available/cuckoo_dist.ini
     ln -s /etc/uwsgi/apps-available/cuckoo_dist.ini /etc/uwsgi/apps-enabled

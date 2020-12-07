@@ -18,7 +18,7 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File, URL, PCAP, Static
 from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLock, get_options
 from lib.cuckoo.common.demux import demux_sample
-from lib.cuckoo.common.cape_utils import static_extraction
+from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 
 try:
     from sqlalchemy import create_engine, Column, event
@@ -30,10 +30,10 @@ try:
 
     Base = declarative_base()
 except ImportError:
-    raise CuckooDependencyError("Unable to import sqlalchemy " "(install with `pip3 install sqlalchemy`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
 
 log = logging.getLogger(__name__)
-
+conf = Config("cuckoo")
 repconf = Config("reporting")
 
 results_db = pymongo.MongoClient(
@@ -44,7 +44,7 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.db,
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "2996ec5ea15c"
+SCHEMA_VERSION = "c554ed5f32a0"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"
@@ -277,11 +277,16 @@ class Task(Base):
     id = Column(Integer(), primary_key=True)
     target = Column(Text(), nullable=False)
     category = Column(String(255), nullable=False)
+    cape = Column(String(2048), nullable=True)
     timeout = Column(Integer(), server_default="0", nullable=False)
     priority = Column(Integer(), server_default="1", nullable=False)
     custom = Column(String(255), nullable=True)
     machine = Column(String(255), nullable=True)
     package = Column(String(255), nullable=True)
+    route = Column(String(128), nullable=True, default=False)
+    # Task tags
+    tags_tasks = Column(String(256), nullable=True)
+    # Virtual machine tags
     tags = relationship("Tag", secondary=tasks_tags, backref="tasks", lazy="subquery")
     options = Column(String(1024), nullable=True)
     platform = Column(String(255), nullable=True)
@@ -331,7 +336,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref="tasks")
+    sample = relationship("Sample", backref="tasks")#, lazy="subquery"
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")
     errors = relationship("Error", backref="tasks", cascade="save-update, delete")
@@ -1081,6 +1086,10 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        route = None,
+        cape = False,
+        tags_tasks = False,
+
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1099,6 +1108,9 @@ class Database(object, metaclass=Singleton):
         @param static: try static extraction first
         @param tlp: TLP sharing designation
         @param source_url: url from where it was downloaded
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
         session = self.Session()
@@ -1177,6 +1189,9 @@ class Database(object, metaclass=Singleton):
         task.shrike_refer = shrike_refer
         task.parent_id = parent_id
         task.tlp = tlp
+        task.route = route
+        task.cape = cape
+        task.tags_tasks = tags_tasks
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.replace(" ", "").split(","):
@@ -1232,6 +1247,10 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        route=None,
+        cape=False,
+        tags_tasks=False
+
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1249,6 +1268,9 @@ class Database(object, metaclass=Singleton):
         @param sample_parent_id: sample parent id, if archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1282,6 +1304,9 @@ class Database(object, metaclass=Singleton):
             sample_parent_id,
             tlp,
             source_url=source_url,
+            route=route,
+            cape=cape,
+            tags_tasks=tags_tasks,
         )
 
     def demux_sample_and_add_to_db(
@@ -1307,12 +1332,18 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
+        only_extraction=False,
+        tags_tasks=False,
+        route=None,
+        cape=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
         Returns a list of added task IDs
         """
+        task_id = False
         task_ids = []
+        config = {}
         sample_parent_id = None
         # force auto package for linux files
         if platform == "linux":
@@ -1320,8 +1351,12 @@ class Database(object, metaclass=Singleton):
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode("utf-8")
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
+            if conf.cuckoo.delete_archive:
+                os.remove(file_path)
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1336,12 +1371,16 @@ class Database(object, metaclass=Singleton):
 
         # create tasks for each file in the archive
         for file in extracted_files:
-            config = False
             if static:
-                config = static_extraction(file)
-                if config:
-                    task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
-            if not config:
+                # we don't need to process extra file if we already have it and config
+                config = static_config_lookup(file)
+                if not config:
+                    config = static_extraction(file)
+                    if config:
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
+                else:
+                    task_ids.append(config["id"])
+            if not config and only_extraction is False:
                 task_id = self.add_path(
                     file_path=file.decode(),
                     timeout=timeout,
@@ -1363,11 +1402,18 @@ class Database(object, metaclass=Singleton):
                     sample_parent_id=sample_parent_id,
                     tlp=tlp,
                     source_url=source_url,
+                    route=route,
+                    tags_tasks=tags_tasks,
+                    cape=cape,
                 )
             if task_id:
                 task_ids.append(task_id)
 
-        return task_ids
+        details = {}
+        if config:
+            details = {"config": config.get("cape_config", {})}
+        # this is aim to return custom data, think of this as kwargs
+        return task_ids, details
 
     @classlock
     def add_pcap(
@@ -1677,6 +1723,9 @@ class Database(object, metaclass=Singleton):
         id_before=None,
         id_after=None,
         options_like=False,
+        tags_tasks_like=False,
+        task_ids=False,
+        inclide_hashes=False,
     ):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
@@ -1692,12 +1741,16 @@ class Database(object, metaclass=Singleton):
         @param id_before: filter by tasks which is less than this value
         @param id_after filter by tasks which is greater than this value
         @param options_like: filter tasks by specific option insde of the options
+        @param tags_tasks_like: filter tasks by specific tag
+        @param task_ids: list of task_id
+        @param inclide_hashes: return task+samples details
         @return: list of tasks.
         """
         session = self.Session()
         try:
             search = session.query(Task)
-
+            #if inclide_hashes:
+            #    search = search.join(Sample, Task.sample_id==Sample.id)
             if status:
                 search = search.filter_by(status=status)
             if not_status:
@@ -1718,6 +1771,10 @@ class Database(object, metaclass=Singleton):
                 search = search.filter(Task.added_on < added_before)
             if options_like:
                 search = search.filter(Task.options.like("%{}%".format(options_like)))
+            if tags_tasks_like:
+                search = search.filter(Task.tags_tasks.like("%{}%".format(tags_tasks_like)))
+            if task_ids:
+                search = search.filter(Task.id.in_(task_ids))
             if order_by is not None:
                 search = search.order_by(order_by)
             else:
@@ -1846,6 +1903,19 @@ class Database(object, metaclass=Singleton):
             session.close()
         return True
 
+    #classlock
+    def delete_tasks(self, ids):
+        session = self.Session()
+        try:
+            search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
+        except SQLAlchemyError as e:
+            log.debug("Database error deleting task: {0}".format(e))
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return True
+
     @classlock
     def view_sample(self, sample_id):
         """Retrieve information on a sample given a sample id.
@@ -1911,10 +1981,16 @@ class Database(object, metaclass=Singleton):
         }
 
         sizes_mongo = {
-            32: "dropped.md5",
-            40: "dropped.sha1",
-            64: "dropped.sha256",
-            128: "dropped.sha512",
+            32: "md5",
+            40: "sha1",
+            64: "sha256",
+            128: "sha512",
+        }
+
+        folders = {
+            "dropped": "files",
+            "CAPE": "CAPE",
+            "procdump": "procdump",
         }
 
         query_filter = sizes.get(len(sample_hash), "")
@@ -1931,13 +2007,35 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find({sizes_mongo.get(len(sample_hash), ""): sample_hash})
+                    tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                                                     {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
                     if tasks:
                         for task in tasks:
-                            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash)
-                            if os.path.exists(path):
-                                sample = [path]
+                            for block in task.get("CAPE", {}).get("payloads", []) or []:
+                                if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
+                                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get("CAPE"),
+                                                        block["sha256"])
+                                    if os.path.exists(path):
+                                        sample = [path]
+                                        break
+                            if sample:
                                 break
+
+                    for category in ("dropped", "procdump"):
+                        # we can't filter more if query isn't sha256
+                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                                                         {category: 1, "_id": 0, "info.id":1 })
+                        if tasks:
+                            for task in tasks:
+                                for block in task.get(category, []) or []:
+                                    if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
+                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category),
+                                                            block["sha256"])
+                                        if os.path.exists(path):
+                                            sample = [path]
+                                            break
+                                if sample:
+                                    break
 
                 if sample is None:
                     # search in temp folder if not found in binaries
@@ -1955,7 +2053,6 @@ class Database(object, metaclass=Singleton):
                 pass
             except SQLAlchemyError as e:
                 log.debug("Database error viewing task: {0}".format(e))
-                pass
             finally:
                 session.close()
 

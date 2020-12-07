@@ -38,7 +38,7 @@ def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"])
     except ImportError as e:
-        log.warning('Unable to import plugin "{0}": {1}'.format(name, e))
+        print('Unable to import plugin "{0}": {1}'.format(name, e))
         return
     else:
         # ToDo remove for release
@@ -92,6 +92,7 @@ def list_plugins(group=None):
 suricata_passlist = (
     "agenttesla",
     "medusahttp",
+    "vjworm",
 )
 
 suricata_blocklist = (
@@ -152,6 +153,12 @@ suricata_blocklist = (
     "suspicious",
 )
 
+et_categories = ("ET TROJAN",
+                 "ETPRO TROJAN",
+                 "ET MALWARE",
+                 "ETPRO MALWARE",
+                 "ET CNC",
+                 "ETPRO CNC")
 
 def get_suricata_family(signature):
     """
@@ -167,7 +174,7 @@ def get_suricata_family(signature):
     if "/" in famcheck:
         famcheck_list = famcheck.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([black in fam_name.lower() for black in suricata_blocklist]):
+            if not any([block in fam_name.lower() for block in suricata_blocklist]):
                 famcheck = fam_name
                 break
     famchecklower = famcheck.lower()
@@ -180,10 +187,10 @@ def get_suricata_family(signature):
     if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any([black in famchecklower for black in suricata_blocklist])
+    isbad = any([block in famchecklower for block in suricata_blocklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-    isgood = any([white in famchecklower for white in suricata_passlist])
+    isgood = any([allow in famchecklower for allow in suricata_passlist])
     if isgood and len(famcheck) >= 4:
         family = famcheck.title()
     return family
@@ -386,49 +393,50 @@ class RunProcessing(object):
 
         family = ""
         self.results["malfamily_tag"] = ""
-        if self.results.get("detections", False):
-            family = self.results["detections"]
-            self.results["malfamily_tag"] = "Yara"
-        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
-            for alert in self.results["suricata"]["alerts"]:
-                if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
-                    family = get_suricata_family(alert["signature"])
-                    if family:
-                        self.results["malfamily_tag"] = "Suricata"
-                        self.results["detections"] = family
+        if self.cfg.detections.enabled:
+            if self.results.get("detections", False) and self.cfg.detections.yara:
+                family = self.results["detections"]
+                self.results["malfamily_tag"] = "Yara"
+            elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+                for alert in self.results["suricata"]["alerts"]:
+                    if alert.get("signature", "") and alert["signature"].startswith((et_categories)):
+                        family = get_suricata_family(alert["signature"])
+                        if family:
+                            self.results["malfamily_tag"] = "Suricata"
+                            self.results["detections"] = family
 
-        elif (
-            not family
-            and self.results["info"]["category"] == "file"
-            and "virustotal" in self.results
-            and "results" in self.results["virustotal"]
-            and self.results["virustotal"]["results"]
-        ):
-            detectnames = []
-            for res in self.results["virustotal"]["results"]:
-                if res["sig"] and "Trojan.Heur." not in res["sig"]:
-                    # weight Microsoft's detection, they seem to be more accurate than the rest
-                    if res["vendor"] == "Microsoft":
+            elif (
+                self.cfg.detections.virustotal and not family
+                and self.results["info"]["category"] == "file"
+                and "virustotal" in self.results
+                and "results" in self.results["virustotal"]
+                and self.results["virustotal"]["results"]
+            ):
+                detectnames = []
+                for res in self.results["virustotal"]["results"]:
+                    if res["sig"] and "Trojan.Heur." not in res["sig"]:
+                        # weight Microsoft's detection, they seem to be more accurate than the rest
+                        if res["vendor"] == "Microsoft":
+                            detectnames.append(res["sig"])
                         detectnames.append(res["sig"])
-                    detectnames.append(res["sig"])
-            family = get_vt_consensus(detectnames)
-            self.results["malfamily_tag"] = "VirusTotal"
+                family = get_vt_consensus(detectnames)
+                self.results["malfamily_tag"] = "VirusTotal"
 
-        # fall back to ClamAV detection
-        elif (
-            not family
-            and self.results["info"]["category"] == "file"
-            and "clamav" in self.results.get("target", {}).get("file", {})
-            and self.results["target"]["file"]["clamav"]
-        ):
-            for detection in self.results["target"]["file"]["clamav"]:
-                if detection.startswith("Win.Trojan."):
-                    words = re.findall(r"[A-Za-z0-9]+", detection)
-                    family = words[2]
-                    self.results["malfamily_tag"] = "ClamAV"
+            # fall back to ClamAV detection
+            elif (
+                self.cfg.detections.clamav and not family
+                and self.results["info"]["category"] == "file"
+                and "clamav" in self.results.get("target", {}).get("file", {})
+                and self.results["target"]["file"]["clamav"]
+            ):
+                for detection in self.results["target"]["file"]["clamav"]:
+                    if detection.startswith("Win.Trojan."):
+                        words = re.findall(r"[A-Za-z0-9]+", detection)
+                        family = words[2]
+                        self.results["malfamily_tag"] = "ClamAV"
 
-        if family:
-            self.results["detections"] = family
+            if family:
+                self.results["detections"] = family
 
         return self.results
 
@@ -440,6 +448,7 @@ class RunSignatures(object):
         self.task = task
         self.results = results
         self.ttps = dict()
+        self.cfg_processing = Config("processing")
 
     def _load_overlay(self):
         """Loads overlay data from a json file.
@@ -695,7 +704,7 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "Yara":
+        if self.results.get("malfamily_tag", "") != "Yara" and self.cfg_processing.detections.enabled and self.cfg_processing.detections.behavior:
             for match in matched:
                 if "families" in match and match["families"]:
                     self.results["detections"] = match["families"][0].title()
@@ -714,6 +723,10 @@ class RunReporting:
     def __init__(self, task, results, reprocess=False):
         """@param analysis_path: analysis folder path."""
         self.task = task
+
+        if results.get("pefiles"):
+            del results["pefiles"]
+
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
             process["calls"].begin_reporting()

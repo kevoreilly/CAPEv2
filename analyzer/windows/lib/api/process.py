@@ -630,19 +630,24 @@ class Process:
 
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
 
-        if thread_id or self.suspended:
-            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
-        else:
-            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
-
-        if ret.returncode != 0:
-            if ret.returncode == 1:
-                log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
+        try:
+            if thread_id or self.suspended:
+                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_QUEUEUSERAPC)])
             else:
-                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
+
+            if ret.returncode != 0:
+                if ret.returncode == 1:
+                    log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
+                else:
+                    log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+                return False
+            else:
+                return True
+
+        except Exception as e:
+            log.error(("process", e))
             return False
-        else:
-            return True
 
     def upload_memdump(self):
         """Upload process memory dump.

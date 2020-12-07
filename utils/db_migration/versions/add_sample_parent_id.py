@@ -19,20 +19,11 @@ from __future__ import print_function
 revision = "36926b59dfbb"
 down_revision = "3c8bf4133b44"
 
-from alembic import op
-import sqlalchemy as sa
-
-import os.path
-import sqlalchemy as sa
 import sys
-from datetime import datetime
+import os.path
 
-try:
-    from dateutil.parser import parse
-except ImportError:
-    print("Unable to import dateutil.parser", end=" ")
-    print("(install with `pip3 install python-dateutil`)")
-    sys.exit()
+from datetime import datetime
+import sqlalchemy as sa
 
 try:
     from alembic import op

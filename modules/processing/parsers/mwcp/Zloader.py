@@ -73,16 +73,15 @@ class Zloader(Parser):
         data_offset = pe.get_offset_from_rva(struct.unpack("I",filebuf[decrypt_conf+33:decrypt_conf+37])[0]-image_base)
         enc_data = filebuf[data_offset:].split(b"\0\0")[0]
         raw = decrypt_rc4(key, enc_data)
-        items = list(filter(None, raw.split(b'\x00\x00')))
-        self.reporter.add_metadata("other", {"Version": str(ord(items[0]))})
-        self.reporter.add_metadata("other", {"Botnet name": items[1]})
-        self.reporter.add_metadata("other", {"Campaign ID": items[2]})
-        for item in items:
-            item = item.lstrip(b'\x00')
-            if len(item) == 128:
-                self.reporter.add_metadata("other", {"RSA key": item.hex()})
-            elif item.startswith(b'http'):
-                self.reporter.add_metadata("address", item)
-            elif len(item) == 16:
-                self.reporter.add_metadata("other", {"RC4 key": item})
+                
+        botnet_id, campaign_id = list(filter(None, raw[1:41].split(b'\x00') ))
+        controllers = list(filter(None, raw[41:696].split(b'\x00') ))
+        rc4_key = raw[696: 696 + raw[696:].find(b'\x00') ]
+
+        self.reporter.add_metadata("other", {"Botnet name": botnet_id})
+        self.reporter.add_metadata("other", {"Campaign ID": campaign_id})
+        for controller in controllers:
+            self.reporter.add_metadata("address", controller)
+
+        self.reporter.add_metadata("other", {"RC4 key": rc4_key})
         return

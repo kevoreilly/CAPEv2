@@ -768,7 +768,13 @@ class Signature(object):
                     if re.findall(name, block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], block
 
-        for keyword in ("procdump", "procmemory", "extracted", "dropped", "CAPE"):
+        for block in self.results.get("CAPE", {}).get("payloads", []) or []:
+            for sub_keyword in ("yara", "cape_yara"):
+                for sub_block in block.get(sub_keyword, []):
+                    if re.findall(name, sub_block["name"], re.I):
+                        yield keyword, block["path"], sub_block
+
+        for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if keyword in self.results and self.results[keyword] is not None:
                 for block in self.results.get(keyword, []):
                     for sub_keyword in ("yara", "cape_yara"):
@@ -795,12 +801,16 @@ class Signature(object):
                                         yield "extracted_pe", pe["path"], sub_block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
-        for macroname in self.results.get("static", {}).get("office", {}).get("info", []) or []:
-            for yara_block in self.results["static"]["office"]["info"].get("macroname", []) or []:
-                for sub_block in self.results["static"]["office"]["info"]["macroname"].get(yara_block, []) or []:
+        for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
+            for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
+                for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
                     if re.findall(name, sub_block["name"], re.I):
                         yield "macro", os.path.join(macro_path, macroname), sub_block
 
+        if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
+            for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
+                if re.findall(name, sub_block["name"], re.I):
+                    yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
 
         yield False, False, False
 

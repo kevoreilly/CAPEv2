@@ -16,10 +16,11 @@ import subprocess
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
 from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
+#from lib.cuckoo.core.startup import init_yara
+from lib.cuckoo.common.exceptions import CuckooStartupError
 
 try:
     import magic
-
     HAVE_MAGIC = True
 except ImportError:
     HAVE_MAGIC = False
@@ -123,7 +124,6 @@ IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
 
-
 def IsPEImage(buf, size=False):
     if not buf:
         return False
@@ -183,6 +183,7 @@ def IsPEImage(buf, size=False):
         return False
 
     # To pass the above tests it should now be safe to assume it's a PE image
+
     return True
 
 
@@ -237,6 +238,8 @@ class File(object):
         self._sha256 = None
         self._sha512 = None
         self._pefile = False
+        self.file_type = None
+        self.pe = None
 
     def get_name(self):
         """Get file name.
@@ -377,67 +380,75 @@ class File(object):
         except Exception:
             return None
 
-    def get_type(self):
-        """Get MIME file type.
-        @return: file type.
-        """
-        file_type = None
-        if self.file_path:
-            if HAVE_MAGIC:
-                try:
-                    ms = magic.open(magic.MAGIC_SYMLINK)
-                    ms.load()
-                    file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        file_type = magic.from_file(self.file_path)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
-
-            if file_type is None:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    file_type = p.stdout.read().strip()
-                except:
-                    pass
-
-        return file_type
-
     def get_content_type(self):
         """Get MIME content file type (example: image/jpeg).
         @return: file content type.
         """
         file_type = None
-        if self.file_path:
-            if HAVE_MAGIC:
+        if HAVE_MAGIC:
+            if hasattr(magic, "from_file"):
                 try:
-                    ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
+                    file_type = magic.from_file(self.file_path)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+            if not file_type and hasattr(magic, "open"):
+                try:
+                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
                     ms.load()
                     file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        file_type = magic.from_file(self.file_path, mime=True)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
+                    ms.close()
+                except Exception as e:
+                    log.error(e, exc_info=True)
 
-            if file_type is None:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    file_type = p.stdout.read().strip()
-                except:
-                    pass
+        if file_type is None:
+            try:
+                p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                file_type = p.stdout.read().strip()
+            except Exception as e:
+                log.error(e, exc_info=True)
 
         return file_type
+
+
+    def get_type(self):
+        """Get MIME file type.
+        @return: file type.
+        """
+        if self.file_type:
+            return self.file_type
+        if self.file_path:
+            try:
+                if IsPEImage(self.file_data):
+                    self._pefile = True
+                    if not HAVE_PEFILE:
+                        if not File.notified_pefile:
+                            File.notified_pefile = True
+                            log.warning("Unable to import pefile (install with `pip3 install pefile`)")
+                    else:
+                        try:
+                            self.pe = pefile.PE(data=self.file_data, fast_load=True)
+                        except pefile.PEFormatError:
+                            self.file_type = "PE image for MS Windows"
+                            log.error('Unable to instantiate pefile on image')
+                        if self.pe:
+                            is_dll = self.pe.is_dll()
+                            is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
+                            # Emulate magic for now
+                            if is_dll and is_x64:
+                                self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+                            elif is_dll:
+                                self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
+                            elif is_x64:
+                                self.file_type = "PE32+ executable (GUI) x86-64, for MS Windows"
+                            else:
+                                self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
+            except Exception as e:
+                log.error(e, exc_info=True)
+
+            if not self.file_type:
+                self.file_type = self.get_content_type()
+
+        return self.file_type
 
     def _yara_encode_string(self, s):
         # Beware, spaghetti code ahead.
@@ -455,7 +466,6 @@ class File(object):
         @return: matched Yara signatures.
         """
         results = []
-
         if not HAVE_YARA:
             if not File.notified_yara:
                 File.notified_yara = True
@@ -464,19 +474,24 @@ class File(object):
 
         if not os.path.getsize(self.file_path):
             return results
-
+        """
         try:
             # TODO Once Yara obtains proper Unicode filepath support we can
             # remove this check. See also the following Github issue:
             # https://github.com/VirusTotal/yara-python/issues/48
             assert len(str(self.file_path)) == len(self.file_path)
         except (UnicodeEncodeError, AssertionError):
-            log.warning("Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!", self.file_path)
+            log.warning("Can't run Yara rules on %r as Unicode paths are currently not supported in combination with Yara!", self.file_path)
             return results
+        """
 
         try:
             results, rule = [], File.yara_rules[category]
-            for match in rule.match(self.file_path, externals=externals):
+            if isinstance(self.file_path, bytes):
+                path = self.file_path.decode("utf-8")
+            else:
+                path = self.file_path
+            for match in rule.match(path, externals=externals):
                 strings = set()
                 for s in match.strings:
                     strings.add(self._yara_encode_string(s[2]))
@@ -485,11 +500,9 @@ class File(object):
                 for s in match.strings:
                     addresses[s[1].strip("$")] = s[0]
 
-                results.append(
-                    {"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,}
-                )
+                results.append({"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,})
         except Exception as e:
-            errcode = e.message.split()[-1]
+            errcode = str(e).split()[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
             else:
@@ -530,6 +543,7 @@ class File(object):
         """Get all information available.
         @return: information dict.
         """
+
         infos = {}
         infos["name"] = self.get_name()
         infos["path"] = self.file_path
@@ -546,23 +560,12 @@ class File(object):
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
 
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
-        else:
-            try:
-                # read pefile once and share
-                if not IsPEImage(self.file_data):
-                    return infos
-                pe = pefile.PE(data=self.file_data, fast_load=True)
-                if pe:
-                    infos["entrypoint"] = self.get_entrypoint(pe)
-                    infos["ep_bytes"] = self.get_ep_bytes(pe)
-                    infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(pe.FILE_HEADER.TimeDateStamp))
-            except Exception as e:
-                log.error(e, exc_info=True)
-        return infos
+        if self.pe:
+            infos["entrypoint"] = self.get_entrypoint(self.pe)
+            infos["ep_bytes"] = self.get_ep_bytes(self.pe)
+            infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(self.pe.FILE_HEADER.TimeDateStamp))
+
+        return infos, self.pe
 
 
 class Static(File):
@@ -711,3 +714,76 @@ class ProcDump(object):
                         result["match"] = match
                         result["chunk"] = chunk
                         return result
+
+
+# ToDo remove/unify required for static extraction
+
+def init_yara():
+    """Generates index for yara signatures."""
+
+    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+
+    log.debug("Initializing Yara...")
+
+    # Generate root directory for yara rules.
+    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
+
+    # We divide yara rules in three categories.
+    # CAPE adds a fourth
+
+    # Loop through all categories.
+    for category in categories:
+        # Check if there is a directory for the given category.
+        category_root = os.path.join(yara_root, category)
+        if not os.path.exists(category_root):
+            log.warning("Missing Yara directory: %s?", category_root)
+            continue
+
+        rules, indexed = {}, []
+        for category_root, _, filenames in os.walk(category_root, followlinks=True):
+            for filename in filenames:
+                if not filename.endswith((".yar", ".yara")):
+                    continue
+
+                filepath = os.path.join(category_root, filename)
+
+                try:
+                    # TODO Once Yara obtains proper Unicode filepath support we
+                    # can remove this check. See also this Github issue:
+                    # https://github.com/VirusTotal/yara-python/issues/48
+                    assert len(str(filepath)) == len(filepath)
+                except (UnicodeEncodeError, AssertionError):
+                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
+                    continue
+
+                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                indexed.append(filename)
+
+            # Need to define each external variable that will be used in the
+        # future. Otherwise Yara will complain.
+        externals = {
+            "filename": "",
+        }
+
+        try:
+            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+        except yara.Error as e:
+            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+
+        # ToDo for Volatility3 yarascan
+        # The memory.py processing module requires a yara file with all of its
+        # rules embedded in it, so create this file to remain compatible.
+        # if category == "memory":
+        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
+        #    for filename in sorted(indexed):
+        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+
+        indexed = sorted(indexed)
+        for entry in indexed:
+            if (category, entry) == indexed[-1]:
+                log.debug("\t `-- %s %s", category, entry)
+            else:
+                log.debug("\t |-- %s %s", category, entry)
+
+
+init_yara()

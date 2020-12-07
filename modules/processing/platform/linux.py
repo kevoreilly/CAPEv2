@@ -7,6 +7,7 @@ import dateutil.parser
 import os
 import logging
 import re
+from functools import reduce
 
 from lib.cuckoo.common.abstracts import BehaviorHandler
 

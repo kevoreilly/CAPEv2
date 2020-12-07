@@ -59,12 +59,6 @@ $(function() {
     font-size: 12;
 }
 </style>
-<div class="row">
-    <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cape.png" /></p></div>
-    {% if analysis.info.category == "file" and analysis.target %}
-        <div class="col-md-6" style="text-align: right;"><a class="btn btn-default" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></div>
-    {% endif %}
-</div>
 {% if analysis.info.tlp %}
     {% if analysis.info.tlp == "Red" %}
     <div class="alert alert-tlp_red">
@@ -77,47 +71,50 @@ $(function() {
 {% endif %}
 
 <ul class="nav nav-tabs">
-    <li class="active"><a href="#overview" data-toggle="tab">Quick Overview</a></li>
-    {% if analysis.static or config.virustotal and analysis.virustotal %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
-    <li><a href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
-    <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
+    <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Quick Overview</a></li>
+    {% if analysis.static or config.virustotal and analysis.virustotal %}<li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
+    <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
+    <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" %}
-        {% if analysis.dropped %}<li><a href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}
-        {% if analysis.procmemory|length %}<li><a href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
-        {% if analysis.memory %}<li><a href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
-        {% if analysis.procdump|length %}<li><a href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}
-        {% if analysis.CAPE %}<li><a href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">CAPE ({{analysis.CAPE}})</a></li>{% endif%}
-        {% if analysis.debugger_logs %}<li><a href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">Debugger</a></li>{% endif %}
+        {% if analysis.dropped %}<li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}
+        {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
+        {% if analysis.memory %}<li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
+        {% if analysis.procdump|length %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}
+        {% if analysis.CAPE %}<li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">CAPE ({{analysis.CAPE}})</a></li>{% endif%}
+        <!--ToDo remove in CAPEv3-->
+        {% if analysis.CAPE_old %}<li class="nav-item"><a class="nav-link" href="#CAPE_old" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE_old/" data-toggle="tab">CAPE ({{analysis.CAPE_old}})</a></li>{% endif%}
+        {% if analysis.debugger_logs %}<li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">Debugger</a></li>{% endif %}
     {% endif %}
     {% if config.malheur %}
         {% if analysis.info.category == "file" or analysis.info.category == "url" %}
             {% if similar|length %}
-                <li><a href="#similar" data-toggle="tab">Similar ({{similar|length}})</a></li>
+                <li class="nav-item"><a class="nav-link" href="#similar" data-toggle="tab">Similar ({{similar|length}})</a></li>
             {% else %}
-                <li><a href="#similar" data-toggle="tab">Similar</a></li>
+                <li class="nav-item"><a class="nav-link" href="#similar" data-toggle="tab">Similar</a></li>
             {% endif %}
         {% endif %}
     {% endif %}
-    {% if reports_exist %}<li><a href="#reports" data-toggle="tab">Reports</a></li>{% endif %}
+    {% if reports_exist %}<li class="nav-item"><a class="nav-link" href="#reports" data-toggle="tab">Reports</a></li>{% endif %}
     {% if settings.COMMENTS %}
         {% if analysis.info.comments|length %}
-            <li><a href="#comments" data-toggle="tab">Comments ({{analysis.info.comments|length}})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#comments" data-toggle="tab">Comments ({{analysis.info.comments|length}})</a></li>
         {% else %}
-            <li><a href="#comments" data-toggle="tab">Comments</a></li>
+            <li class="nav-item"><a class="nav-link" href="#comments" data-toggle="tab">Comments</a></li>
         {% endif %}
     {% endif %}
     {% if analysis.misp %}
-            <li><a href="#misp" data-toggle="tab">MISP</a></li>
+            <li class="nav-item"><a class="nav-link" href="#misp" data-toggle="tab">MISP</a></li>
     {% endif %}
-    {% if analysis.backscatter %}<li><a href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
-    {% if analysis.mitre_attck %}<li><a href="#mitre" data-toggle="tab">Mitre ATT&CK</a></li>{% endif %}
-    {% if analysis.classification%}<li><a href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
-    {% if analysis.curtain%}<li> <a href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
-    <li><a href="#statistics" data-toggle="tab">Statistics</a></li>
-    {% if settings.ADMIN %}<li><a href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
+    {% if analysis.backscatter %}<li class="nav-item"><a class="nav-link" href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
+    {% if analysis.mitre_attck %}<li class="nav-item"><a class="nav-link" href="#mitre" data-toggle="tab">Mitre ATT&CK</a></li>{% endif %}
+    {% if analysis.classification%}<li class="nav-item"><a class="nav-link" href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
+    {% if analysis.curtain%}<li class="nav-item"> <a class="nav-link" href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
+    <li class="nav-item"><a class="nav-link" href="#statistics" data-toggle="tab">Statistics</a></li>
+    {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
+    {% if settings.ADMIN %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
-    <div class="tab-pane fade in active" id="overview">
+    <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
     </div>
     {% if analysis.static or analysis.strings or config.virustotal and analysis.virustotal %}
@@ -132,9 +129,18 @@ $(function() {
     <div class="tab-pane fade" id="dropped">
         {% include "analysis/dropped/index.html" %}
     </div>
-    <div class="tab-pane fade" id="CAPE">
+
+    {% if analysis.CAPE %}
+        <div class="tab-pane fade" id="CAPE">
         {% include "analysis/CAPE/index.html" %}
-    </div>
+        </div>
+    {% endif %}
+    <!--ToDo remve in CAPEv3-->
+    {% if analysis.CAPE_old %}
+        <div class="tab-pane fade" id="CAPE_old">
+        {% include "analysis/CAPE/index_old.html" %}
+        </div>
+    {% endif %}
     <div class="tab-pane fade" id="procdump">
         {% include "analysis/procdump/index.html" %}
     </div>
@@ -149,11 +155,11 @@ $(function() {
     </div>
     {% endif %}
     {% if config.malheur %}
-    {% if analysis.info.category == "file" or analysis.info.category == "url" %}
-    <div class="tab-pane fade" id="similar">
-        {% include "analysis/similar/index.html" %}
-    </div>
-    {% endif %}
+        {% if analysis.info.category == "file" or analysis.info.category == "url" %}
+        <div class="tab-pane fade" id="similar">
+            {% include "analysis/similar/index.html" %}
+        </div>
+        {% endif %}
     {% endif %}
     <div class="tab-pane fade" id="reports">
         {% include "analysis/reports/index.html" %}

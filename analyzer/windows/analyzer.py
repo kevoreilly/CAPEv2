@@ -295,6 +295,8 @@ class Analyzer:
         # Copy the debugger log.
         upload_files("debugger")
 
+        upload_files("dumptls")
+
         # Stop the Pipe Servers.
         if hasattr(self, "command_pipe"):
             self.command_pipe.stop()
@@ -361,9 +363,9 @@ class Analyzer:
         package_name = "modules.packages.%s" % package
         # Try to import the analysis package.
         try:
-            log.debug('Trying to import analysis package "%s"...', package)
+            log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
-            log.debug('Imported analysis package "%s".', package)
+            #log.debug('Imported analysis package "%s".', package)
         # If it fails, we need to abort the analysis.
         except ImportError:
             raise CuckooError('Unable to import package "{0}", does ' "not exist.".format(package_name))
@@ -380,9 +382,9 @@ class Analyzer:
             log.exception(e)
 
         # Initialize the analysis package.
-        log.debug('Trying to initialize analysis package "%s"...', package)
+        log.debug('Initializing analysis package "%s"...', package)
         self.package = package_class(self.options, self.config)
-        log.debug('Initialized analysis package "%s".', package)
+        #log.debug('Initialized analysis package "%s".', package)
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.
@@ -404,9 +406,9 @@ class Analyzer:
             #    continue
             # Import the auxiliary module.
             try:
-                log.debug('Trying to import auxiliary module "%s"...', name)
+                log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
-                log.debug('Imported auxiliary module "%s".', name)
+                #log.debug('Imported auxiliary module "%s".', name)
             except ImportError as e:
                 log.warning("Unable to import the auxiliary module " '"%s": %s', name, e)
         # Walk through the available auxiliary modules.
@@ -417,11 +419,11 @@ class Analyzer:
             # if module.__name__ == "Screenshots" and disable_screens:
             #    continue
             try:
-                log.debug('Trying to initialize auxiliary module "%s"...', module.__name__)
+                log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                log.debug('Initialized auxiliary module "%s".', module.__name__)
+                #log.debug('Initialized auxiliary module "%s".', module.__name__)
                 aux_avail.append(aux)
-                log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                #log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
             except (NotImplementedError, AttributeError):
                 log.warning("Auxiliary module %s was not implemented", module.__name__)
@@ -496,6 +498,20 @@ class Analyzer:
         else:
             copy("bin\\loader_x64.exe", LOADER64_NAME)
 
+        si = subprocess.STARTUPINFO()
+        # STARTF_USESHOWWINDOW
+        si.dwFlags = 1
+        # SW_HIDE
+        si.wShowWindow = 0
+        #log.info("Stopping WMI Service")
+        subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
+        #log.info("Stopped WMI Service")
+        subprocess.call("sc config winmgmt type= own", startupinfo=si)
+
+        log.info("Restarting WMI Service")
+        subprocess.call("net start winmgmt", startupinfo=si)
+        #log.info("Started WMI Service")
+
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
@@ -517,7 +533,7 @@ class Analyzer:
         # where the package isn't enabling any behavioral analysis), we don't
         # enable the process monitor.
         else:
-            log.info("No process IDs returned by the package, running " "for the full timeout.")
+            log.info("No process IDs returned by the package, running for the full timeout.")
             pid_check = False
 
         # Check in the options if the user toggled the timeout enforce. If so,
@@ -953,16 +969,6 @@ class CommandPipeHandler(object):
     def _handle_wmi(self, data):
         if not self.analyzer.MONITORED_WMI and ANALYSIS_TIMED_OUT is False:
             self.analyzer.MONITORED_WMI = True
-            si = subprocess.STARTUPINFO()
-            # STARTF_USESHOWWINDOW
-            si.dwFlags = 1
-            # SW_HIDE
-            si.wShowWindow = 0
-            log.info("Stopping WMI Service")
-            subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
-            log.info("Stopped WMI Service")
-            subprocess.call("sc config winmgmt type= own", startupinfo=si)
-
             if not self.analyzer.MONITORED_DCOM:
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
@@ -974,10 +980,6 @@ class CommandPipeHandler(object):
                     self.analyzer.LASTINJECT_TIME = datetime.now()
                     servproc.close()
                     KERNEL32.Sleep(2000)
-
-            log.info("Starting WMI Service")
-            subprocess.call("net start winmgmt", startupinfo=si)
-            log.info("Started WMI Service")
 
             wmi_pid = pid_from_service_name("winmgmt")
             if wmi_pid:
@@ -1167,7 +1169,8 @@ class CommandPipeHandler(object):
         # Open the process and inject the DLL. Hope it enjoys it.
         proc = Process(pid=process_id, tid=thread_id)
 
-        filename = os.path.basename(proc.get_filepath())
+        filepath = proc.get_filepath()
+        filename = os.path.basename(filepath)
 
         if not self.analyzer.files.is_protected_filename(filename):
             # Add the new process ID to the list of monitored processes.
@@ -1179,9 +1182,9 @@ class CommandPipeHandler(object):
 
             # If we have both pid and tid, then we can use APC to inject.
             if process_id and thread_id:
-                proc.inject(dll, apc=True, mode="%s" % mode)
+                proc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             else:
-                proc.inject(dll, apc=False, mode="%s" % mode)
+                proc.inject(injectmode=INJECT_CREATEREMOTETHREAD, interest=filepath, nosleepskip=True)
 
             log.info("Injected into process with pid %s and name %r", proc.pid, filename)
 
@@ -1258,7 +1261,7 @@ class CommandPipeHandler(object):
     def _handle_file_new(self, file_path):
         """Notification of a new dropped file."""
         if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode("utf-8"))
+            self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
@@ -1291,7 +1294,7 @@ class CommandPipeHandler(object):
                 if b"\\memory\\" in file_path:
                     self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
                 else:
-                    self.analyzer.files.add_file(file_path.decode("utf-8"))
+                    self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
             else:
                 log.info("File doesn't exist, %s", file_path)
 
@@ -1376,6 +1379,17 @@ if __name__ == "__main__":
             "status": "complete",
             "description": success,
         }
+
+    # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
+    except CuckooError:
+        log.info("You probably submitted the job with wrong package")
+        data["status"] = "exception"
+        data["description"] = "You probably submitted the job with wrong package"
+        try:
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
+        except Exception as e:
+            print(e)
+        sys.exit()
     # This is not likely to happen.
     except KeyboardInterrupt:
         error = "Keyboard Interrupt"

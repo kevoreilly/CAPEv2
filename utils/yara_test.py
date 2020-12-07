@@ -98,7 +98,7 @@ def compile_yara(rulepath=""):
 
     try:
         rules = yara.compile(rulepath)
-    except:
+    except Exception as e:
         print("Unexpected error:", sys.exc_info()[0])
         raise
         if "duplicated identifier" in e.args[0]:

@@ -27,7 +27,7 @@ class CAPEExtractedContent(Signature):
 
     def run(self):
         ret = False
-        for cape in self.results.get("CAPE", []) or []:
+        for cape in self.results.get("CAPE", {}).get("payloads", []) or []:
             capetype = cape.get("cape_type", "")
             if not capetype:
                 capetype = cape.get("description", "")
@@ -38,5 +38,23 @@ class CAPEExtractedContent(Signature):
                 ret = True
                 if yara:
                     self.data.append({process: yara[0].get("name")})
+
+        return ret
+
+class CAPEExtractedConfig(Signature):
+    name = "cape_extracted_config"
+    description = "CAPE has extracted a malware configuration"
+    severity = 3
+    categories = ["malware"]
+    authors = ["Kevin Ross"]
+    minimum = "1.3"
+    evented = True
+
+    def run(self):
+        ret = False
+        for block in self.results.get("CAPE", {}).get("cape_config", []) or []:
+            for malwarename in block.keys():
+                self.data.append({"extracted_config": malwarename})
+                ret = True
 
         return ret

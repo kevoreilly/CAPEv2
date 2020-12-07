@@ -20,7 +20,7 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U sflock")
+    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U git+https://github.com/doomedraven/sflock")
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)
@@ -181,10 +181,13 @@ def demux_sflock(filename, options, package):
         return [filename]
 
     try:
-        password = "infected"
+        password = b"infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
-            password = tmp_pass
+            if isinstance(tmp_pass, bytes):
+                password = tmp_pass
+            else:
+                password = tmp_pass.encode("utf-8")
 
         try:
             unpacked = unpack(filename, password=password)

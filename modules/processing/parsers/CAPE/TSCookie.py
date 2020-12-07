@@ -155,7 +155,7 @@ def config(data):
     if mr2:
         rc2_data = load_resource(dll, data)
         key_end = load_rc4key(data)
-        decode_resource(rc2_data, key_end, args.file + ".2nd.decode")
+        decode_resource(rc2_data, key_end, "TSCookie" + ".2nd.decode")
 
     try:
         enc_config = enc_config_data[4:]

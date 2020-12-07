@@ -1579,12 +1579,11 @@ def store_temp_file(filedata, filename, path=None):
     # Reduce length (100 is arbitrary).
     filename = filename[:100]
 
-    options = Config()
     # Create temporary directory path.
     if path:
         target_path = path
     else:
-        tmp_path = options.cuckoo.get("tmppath", b"/tmp")
+        tmp_path = config.cuckoo.get("tmppath", b"/tmp")
         target_path = os.path.join(tmp_path.encode(), b"cuckoo-tmp")
     if not os.path.exists(target_path):
         os.mkdir(target_path)
@@ -1605,7 +1604,7 @@ def store_temp_file(filedata, filename, path=None):
 
 
 def get_vt_consensus(namelist):
-    blacklist = [
+    banlist = [
         "other",
         "troj",
         "trojan",
@@ -1657,6 +1656,7 @@ def get_vt_consensus(namelist):
         "crypt",
         "rootkit",
         "malwares",
+        "malicious",
         "suspicious",
         "riskware",
         "risk",
@@ -1722,7 +1722,7 @@ def get_vt_consensus(namelist):
         if len(numlist) > 2 or len(tok) < 4:
             accepted = False
         if accepted:
-            for black in blacklist:
+            for black in banlist:
                 if black == lowertok:
                     accepted = False
                     break
@@ -1849,7 +1849,6 @@ def to_unicode(s):
 
     return result
 
-
 def get_user_filename(options, customs):
     opt_filename = ""
     for block in (options, customs):
@@ -1871,6 +1870,22 @@ def generate_fake_name():
     out = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15)))
     return out
 
+MAX_FILENAME_LEN = 24
+
+def truncate_filename(x):
+    truncated = None
+    parts = x.rsplit('.',1)
+    if len(parts) > 1:
+        # filename has extension
+        extension  = parts[1]
+        name = parts[0][:(MAX_FILENAME_LEN-(len(extension)+1))]
+        truncated = f"{name}.{extension}"
+    elif len(parts) == 1:
+        # no extension
+        truncated = parts[0][:(MAX_FILENAME_LEN)]
+    else:
+        return None
+    return truncated
 
 def sanitize_filename(x):
     """Kind of awful but necessary sanitizing of filenames to
@@ -1885,7 +1900,7 @@ def sanitize_filename(x):
     """Prevent long filenames such as files named by hash
     as some malware checks for this."""
     if len(out) >= 32:
-        out = generate_fake_name()
+        out = truncate_filename(out)
 
     return out
 
@@ -1946,12 +1961,10 @@ def get_options(optstring):
     #
     # Here we parse such options and provide a dictionary that will be made
     # accessible to the analysis package.
-    options = {}
-    if optstring and isinstance(optstring, str):
-        options = dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
+    if not optstring:
+        return {}
 
-    return options
-
+    return dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
 
 # get iface ip
 def get_ip_address(ifname):

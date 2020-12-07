@@ -313,7 +313,7 @@ def flare_capa_details(file_path: str, category: str) -> dict:
             doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)
             capa_dictionary = render_dictionary(doc)
         except UnsupportedRuntimeError:
-            log.error("FLARE CAPA -> UnsupportedRuntimeError")
+            log.warning("FLARE CAPA -> UnsupportedRuntimeError")
         except Exception as e:
             log.error(e, exc_info=True)
 

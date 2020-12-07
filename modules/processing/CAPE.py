@@ -464,7 +464,7 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            pretime = datetime.datetime.now()
+            pretime = datetime.now()
             capa_details = flare_capa_details(file_path, "CAPE")
             if capa_details:
                 file_info["flare_capa"] = capa_details

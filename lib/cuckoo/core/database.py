@@ -336,7 +336,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref="tasks")#, lazy="subquery"
+    sample = relationship("Sample", backref="tasks", lazy="subquery")
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")
     errors = relationship("Error", backref="tasks", cascade="save-update, delete")
@@ -1750,18 +1750,18 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             search = session.query(Task)
-            #if inclide_hashes:
-            #    search = search.join(Sample, Task.sample_id==Sample.id)
+            if inclide_hashes:
+                search = search.join(Sample, Task.sample_id==Sample.id)
             if status:
-                search = search.filter_by(status=status)
+                search = search.filter(Task.status==status)
             if not_status:
                 search = search.filter(Task.status != not_status)
             if category:
-                search = search.filter_by(category=category)
+                search = search.filter(Task.category==category)
             if details:
                 search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
             if sample_id is not None:
-                search = search.filter_by(sample_id=sample_id)
+                search = search.filter(Task.sample_id==sample_id)
             if id_before is not None:
                 search = search.filter(Task.id < id_before)
             if id_after is not None:
@@ -1780,8 +1780,8 @@ class Database(object, metaclass=Singleton):
                 search = search.order_by(order_by)
             else:
                 search = search.order_by(Task.added_on.desc())
-            tasks = search.limit(limit).offset(offset).all()
-            return tasks
+
+            return search.limit(limit).offset(offset).all()
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))
             return []

@@ -963,9 +963,7 @@ class PortableExecutable(object):
 
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
-        posttime = datetime.now()
-        timediff = posttime - pretime
-        self.add_statistic("peid", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+        self.add_statistic("peid", "time", pretime=pretime)
 
         peresults["imagebase"] = self._get_imagebase()
         peresults["entrypoint"] = self._get_entrypoint()
@@ -989,10 +987,11 @@ class PortableExecutable(object):
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
-        if processing_conf.flare_capa.enabled:
-            capa_details = flare_capa_details(self.file_path)
-            if capa_details:
-                results["flare_capa"] = capa_details
+        pretime = datetime.now()
+        capa_details = flare_capa_details(self.file_path, "binary")
+        if capa_details:
+            results["flare_capa"] = capa_details
+        self.add_statistic("flare_capa", "time", pretime=pretime)
 
         return results
 

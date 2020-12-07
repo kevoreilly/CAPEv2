@@ -17,7 +17,7 @@ import os
 import shutil
 import json
 import logging
-
+from datetime import datetime
 try:
     import re2 as re
 except ImportError:
@@ -464,9 +464,11 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            capa_details = flare_capa_details(file_path)
+            pretime = datetime.datetime.now()
+            capa_details = flare_capa_details(file_path, "CAPE")
             if capa_details:
                 file_info["flare_capa"] = capa_details
+            self.add_statistic("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

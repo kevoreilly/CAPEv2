@@ -93,28 +93,33 @@ except ImportError as e:
     plugx_parser = False
     log.error(e)
 
-try:
-    import capa.main
-    import capa.rules
-    import capa.engine
-    import capa.features
-    from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
-    import capa.render.utils as capa_rutils
-    from capa.engine import *
-    import capa.render.utils as rutils
-    from capa.main import  UnsupportedRuntimeError
-    rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-    if os.path.exists(rules_path):
-        capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-        rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
-        rules = capa.rules.RuleSet(rules)
-        HAVE_FLARE_CAPA = True
-    else:
-        print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
+processing_conf = Config("processing")
+
+if processing_conf.flare_capa.enabled:
+    try:
+        import capa.main
+        import capa.rules
+        import capa.engine
+        import capa.features
+        from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
+        import capa.render.utils as capa_rutils
+        from capa.engine import *
+        import capa.render.utils as rutils
+        from capa.main import  UnsupportedRuntimeError
+        rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+        if os.path.exists(rules_path):
+            capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+            rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+            rules = capa.rules.RuleSet(rules)
+            HAVE_FLARE_CAPA = True
+        else:
+            print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
+            HAVE_FLARE_CAPA = False
+    except ImportError:
         HAVE_FLARE_CAPA = False
-except ImportError:
+        print("FLARE-CAPA missed, pip3 install flare-capa")
+else:
     HAVE_FLARE_CAPA = False
-    print("FLARE-CAPA missed, pip3 install flare-capa")
 
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
@@ -297,9 +302,9 @@ def render_dictionary(doc):
 
 
 # ===== CAPA END, remove if merged https://github.com/fireeye/capa/pull/375
-def flare_capa_details(file_path: str) -> dict:
+def flare_capa_details(file_path: str, category: str) -> dict:
     capa_dictionary = False
-    if  HAVE_FLARE_CAPA:
+    if  HAVE_FLARE_CAPA and processing_conf.flare_capa.get(category, False):
         try:
             extractor = capa.main.get_extractor(file_path, "auto", disable_progress=True)
             meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
@@ -308,7 +313,7 @@ def flare_capa_details(file_path: str) -> dict:
             doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)
             capa_dictionary = render_dictionary(doc)
         except UnsupportedRuntimeError:
-            pass
+            log.error("FLARE CAPA -> UnsupportedRuntimeError")
         except Exception as e:
             log.error(e, exc_info=True)
 

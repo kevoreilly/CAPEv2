@@ -332,9 +332,7 @@ class RunProcessing(object):
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
-            )
+            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))})
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.

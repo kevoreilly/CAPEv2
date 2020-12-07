@@ -685,11 +685,21 @@ class Processing(object):
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
 
-    def add_statistic(self, name, field, value):
+    def add_statistic(self, name, field, value=False, pretime=False):
+        if not value and pretime:
+            posttime = datetime.datetime.now()
+            timediff = posttime - pretime
+            value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+
         if name not in self.results["statistics"]["processing"]:
             self.results["statistics"]["processing"][name] = {}
 
-        self.results["statistics"]["processing"][name][field] = value
+        # To be able to add yara/capa and others time summary over all processing modules
+        if field in self.results["statistics"]["processing"][name]:
+            self.results["statistics"]["processing"][name][field] += value
+        else:
+            self.results["statistics"]["processing"][name][field] = value
+
 
     def run(self):
         """Start processing.

@@ -2,9 +2,11 @@
 # we creates this be cause the jsondump report can sometimes be too big
 
 from __future__ import absolute_import
-import os
-import simplejson as json
+
 import codecs
+import os
+
+import simplejson as json
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
@@ -33,7 +35,8 @@ class JsonDump(Report):
         intezer_report = {k: results[k] for k in results.keys() & keys_to_copy}
 
         try:
-            path = os.path.join(self.reports_path, "intezer-report.json")
+            os.makedirs(f"{self.analysis_path}/intezer/", exist_ok=True)
+            path = os.path.join(self.analysis_path, "intezer", "intezer-report.json")
 
             with codecs.open(path, "w", "utf-8") as report:
                 json.dump(intezer_report, report, sort_keys=False,

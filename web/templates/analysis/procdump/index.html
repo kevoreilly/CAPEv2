@@ -144,17 +144,23 @@
                 </br>
                 {% else %}
                 <tr>
-                    <th><p><a class="btn btn-secondary" href="{% url "on_demand" "flare_capa" id "procdump" file.sha256 %}" role="button">Generate FLARE CAPA</a></p></th>
+                    <th><p><a class="btn btn-secondary" href="{% url "on_demand" "flare_capa" analysis.info.id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
                     <td></td>
                 </tr>
                 {% endif %}
-            </table>
-            {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-                <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
-                {{ graphs.bingraph.content|getkey:file.sha256|safe }}
+
+            {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
+                <tr>
+                    <p><a href="{% url "file_nl" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></p>
+                    {{ bingraph.content|getkey:file.sha256|safe }}
+                </tr>
             {% else %}
-                <a class="btn btn-secondary" href="{% url "on_demand" "bingraph" id "procdump" file.sha256 %}" role="button">Generate Bingraph</a>
+                <tr>
+                    <th><p><a class="btn btn-secondary" href="{% url "on_demand" "bingraph" analysis.info.id "procdump" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
+                    <td></td>
+                </tr>
             {% endif %}
+            </table>
         </div>
     {% endfor %}
 {% else %}

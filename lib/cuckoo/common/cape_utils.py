@@ -312,6 +312,8 @@ def flare_capa_details(file_path: str, category: str) -> dict:
             meta["analysis"].update(counts)
             doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)
             capa_dictionary = render_dictionary(doc)
+        except MemoryError:
+            log.warning("FLARE CAPA -> MemoryError")
         except UnsupportedRuntimeError:
             log.warning("FLARE CAPA -> UnsupportedRuntimeError")
         except Exception as e:

@@ -1,3 +1,6 @@
+### [08.12.2020] On demand
+* Added `on_demand` feature.
+    * This funcions aim to speedup processing but allow to user to generate parts of analysis that takes some time to finish and not used frequently. Example scripted submissions
 
 ### [02.12.2020] CAPE 2.2
 * Malduck integration

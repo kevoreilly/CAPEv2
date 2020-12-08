@@ -302,9 +302,9 @@ def render_dictionary(doc):
 
 
 # ===== CAPA END, remove if merged https://github.com/fireeye/capa/pull/375
-def flare_capa_details(file_path: str, category: str) -> dict:
+def flare_capa_details(file_path: str, category: str, on_demand: bool=False) -> dict:
     capa_dictionary = False
-    if  HAVE_FLARE_CAPA and processing_conf.flare_capa.get(category, False):
+    if  HAVE_FLARE_CAPA and processing_conf.flare_capa.enabled and processing_conf.flare_capa.get(category, False) and (processing_conf.flare_capa.on_demand is False or on_demand is True):
         try:
             extractor = capa.main.get_extractor(file_path, "auto", disable_progress=True)
             meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)

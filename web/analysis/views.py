@@ -33,6 +33,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
+from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     import re2 as re
@@ -54,6 +55,9 @@ except ImportError:
     HAVE_PYZIPPER = False
 
 TASK_LIMIT = 25
+
+processing_cfg = Config("processing")
+reporting_cfg = Config("reporting")
 
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
@@ -1602,15 +1606,16 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            params = {"apikey": settings.VTDL_PRIV_KEY}
+            params = {"x-apikey": settings.VTDL_PRIV_KEY}
             files = {"file": (filename, open(path, "rb"))}
-            response = requests.post("https://www.virustotal.com/vtapi/v2/file/scan", files=files, params=params)
-            response_code = response.json()["response_code"]
-            permalink = response.json()["permalink"]
-            if response_code == 1:
-                return render(request, "success_vtup.html", {"permalink": permalink})
-            else:
-                return render(request, "error.html", {"error": "Response code: {}".format(response.json())})
+            response = requests.post("https://www.virustotal.com/api/v3/files", files=files, params=params)
+            if response.ok:
+                data = response.json().get("data", {})
+                id = data.get("id")
+                if id:
+                    return render(request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)})
+                else:
+                    return render(request, "error.html", {"error": "Response code: {}".format(response.json())})
         except Exception as err:
             return render(request, "error.html", {"error": err})
     else:
@@ -1623,3 +1628,53 @@ def statistics_data(request, days=7):
         return render(request, "statistics.html", {"statistics": details, "days": days})
     else:
         return render(request, "error.html", {"error": "Provide days as number"})
+
+on_demain_config_mapper = {
+    "bingraph": processing_cfg,
+    "flare_capa": reporting_cfg,
+}
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def on_demand(request, service: str, task_id: int, category: str, sha256):
+    """
+        This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
+        @param service: Service for which we want to generate details
+        @param task_id: ID of analysis
+        @param category: Example: CAPE, procdump, etc
+        @param sha256: file hash for which we want to generate details
+        @return: redirect to the same webpage but with missed details included
+
+        # 0. ensure that we not generating this data or data exist
+        # 1. get file path
+        # 2. call to func
+        # 3. store results
+        # 4. reload page
+    """
+
+    if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+        return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
+
+    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+    path = os.path.join(base_path, str(task_id), category, sha256)
+
+    if path and not os.path.normpath(path).startswith(base_path) and os.path.exists(path):
+        return render(request, "error.html", {"error": "File not found"})
+
+    details = False
+
+    if service == "flare_capa":
+        details = flare_capa_details(path, category.lower(), on_demand=True)
+
+    print(details)
+    if details:
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
+        if category == "CAPE":
+            for block in  buf["CAPE"].get("payloads", []) or []:
+                if block.get("sha256") == sha256:
+                    block[service] = details
+                    break
+
+        results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+
+    return redirect("report", task_id=task_id)

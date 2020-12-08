@@ -1666,7 +1666,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     if service == "flare_capa":
         details = flare_capa_details(path, category.lower(), on_demand=True)
 
-    print(details)
     if details:
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":

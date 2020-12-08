@@ -33,7 +33,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
-from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     import re2 as re
@@ -58,6 +57,24 @@ TASK_LIMIT = 25
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+
+# On demand features
+if processing_cfg.flare_capa.on_demand:
+    from lib.cuckoo.common.cape_utils import flare_capa_details
+    HAVE_FLARE_CAPA = True
+else:
+    HAVE_FLARE_CAPA = False
+
+if reporting_cfg.bingraph.on_demand:
+    try:
+        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+        from modules.reporting.bingraph import bingraph_args_dict
+        HAVE_BINGRAPH = True
+    except ImportError:
+        HAVE_BINGRAPH = False
+else:
+    HAVE_BINGRAPH = False
+
 
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
@@ -1634,7 +1651,6 @@ on_demain_config_mapper = {
     "flare_capa": reporting_cfg,
 }
 
-
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def on_demand(request, service: str, task_id: int, category: str, sha256):
     """
@@ -1656,20 +1672,35 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-    path = os.path.join(base_path, str(task_id), category, sha256)
+    if category == "binary":
+        path = os.path.join(base_path, str(task_id), "binary")
+    else:
+        path = os.path.join(base_path, str(task_id), category, sha256)
 
-    if path and not os.path.normpath(path).startswith(base_path) and os.path.exists(path):
+    if path and (not os.path.normpath(path).startswith(base_path) or not os.path.exists(path)):
         return render(request, "error.html", {"error": "File not found"})
 
     details = False
-
-    if service == "flare_capa":
+    if service == "flare_capa" and HAVE_FLARE_CAPA:
         details = flare_capa_details(path, category.lower(), on_demand=True)
+
+    elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(base_path, str(task_id), "bingraph", sha256+"-ent.svg")):
+        bingraph_path = os.path.join(base_path, str(task_id), "bingraph")
+        if not os.path.exists(bingraph_path):
+            os.makedirs(bingraph_path)
+        try:
+            bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
+            try:
+                bingraph_gen(bingraph_args_dict)
+            except Exception as e:
+                print("Can't generate bingraph for {}: {}".format(sha256, e))
+        except Exception as e:
+            print("Bingraph on demand error:", e)
 
     if details:
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
-            for block in  buf["CAPE"].get("payloads", []) or []:
+            for block in buf["CAPE"].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break

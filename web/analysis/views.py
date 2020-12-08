@@ -33,7 +33,16 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
+
+# On demand features
 from lib.cuckoo.common.cape_utils import flare_capa_details
+
+try:
+    from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+    from modules.processing.binGraph import bingraph_args_dict
+    HAVE_BINGRAPH = True
+except ImportError:
+    HAVE_BINGRAPH = False
 
 try:
     import re2 as re
@@ -1665,11 +1674,24 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if service == "flare_capa":
         details = flare_capa_details(path, category.lower(), on_demand=True)
+    elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.binGraph.enabled and reporting_cfg.binGraph.on_demand and not os.path.exists(os.path.join(base_path, str(task_id), "bingraph", sha256+"-ent.svg")):
+        bingraph_path = os.path.join(base_path, str(task_id), "bingraph")
+        if not os.path.exists(bingraph_path):
+            os.makedirs(bingraph_path)
+        try:
+            if not os.listdir(bingraph_path) and results.get("target", {}).get("file", {}).get("sha256", False):
+                bingraph_args_dict.update({"prefix": sha256, "files": [self.file_path], "save_dir": bingraph_path})
+                try:
+                    bingraph_gen(bingraph_args_dict)
+                except Exception as e:
+                    log.warning("Can't generate bingraph for {}: {}".format(self.file_path, e))
+        except Exception as e:
+            log.info(e)
 
     if details:
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
-            for block in  buf["CAPE"].get("payloads", []) or []:
+            for block in buf["CAPE"].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break

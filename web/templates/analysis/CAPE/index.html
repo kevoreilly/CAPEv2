@@ -224,6 +224,8 @@
             {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
                 <h4>BinGraph <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
                 {{ bingraph.content|getkey:file.sha256|safe }}
+            {% else %}
+                <a class="btn btn-secondary" href="{% url "on_demand" "bingraph" id "procdump" file.sha256 %}" role="button">Generate Bingraph</a>
             {% endif %}
         </div>
         {% endfor %}

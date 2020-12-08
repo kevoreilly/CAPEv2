@@ -102,7 +102,6 @@ if processing_conf.flare_capa.enabled:
         import capa.engine
         import capa.features
         from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
-        import capa.render.utils as capa_rutils
         from capa.engine import *
         import capa.render.utils as rutils
         from capa.main import  UnsupportedRuntimeError

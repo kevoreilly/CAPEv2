@@ -465,7 +465,7 @@ class CAPE(Processing):
 
         if append_file is True:
             pretime = datetime.now()
-            capa_details = flare_capa_details(file_path, "CAPE")
+            capa_details = flare_capa_details(file_path, "cape")
             if capa_details:
                 file_info["flare_capa"] = capa_details
             self.add_statistic_tmp("flare_capa", "time", pretime=pretime)

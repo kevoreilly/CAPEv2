@@ -1,4 +1,5 @@
 ### [08.12.2020] On demand
+* Bingraph and FLARE CAPA on demand
 * Added `on_demand` feature.
     * This funcions aim to speedup processing but allow to user to generate parts of analysis that takes some time to finish and not used frequently. Example scripted submissions
 

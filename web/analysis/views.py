@@ -1706,5 +1706,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     break
 
         results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        del details
 
     return redirect("report", task_id=task_id)

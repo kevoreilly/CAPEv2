@@ -216,7 +216,7 @@
             </br>
             {% else %}
                 <tr>
-                    <th><p><a class="btn btn-secondary" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate CAPA</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate CAPA</a></p></th>
                     <td></td>
                 </tr>
             {% endif %}
@@ -227,7 +227,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <th><p><a class="btn btn-secondary" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
                     <td></td>
                 </tr>
             {% endif %}

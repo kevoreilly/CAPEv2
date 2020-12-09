@@ -131,7 +131,7 @@ pe_map = {
 cfg = Config()
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
-# ===== CAPA
+# ===== CAPA helpers
 import collections
 
 def render_meta(doc, ostream):
@@ -300,7 +300,7 @@ def render_dictionary(doc):
     return ostream
 
 
-# ===== CAPA END, remove if merged https://github.com/fireeye/capa/pull/375
+# ===== CAPA helpers END
 def flare_capa_details(file_path: str, category: str, on_demand: bool=False) -> dict:
     capa_dictionary = False
     if  HAVE_FLARE_CAPA and processing_conf.flare_capa.enabled and processing_conf.flare_capa.get(category, False) and (processing_conf.flare_capa.on_demand is False or on_demand is True):

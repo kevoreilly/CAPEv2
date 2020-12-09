@@ -187,13 +187,13 @@
                     <td>
                         <a href="{% url "file" "CAPE" id file.sha256 %}" class="btn btn-secondary btn-small">Download</a>
                         <a href="{% url "file" "CAPEZIP" id file.sha256 %}" class="btn btn-secondary btn-small">Download zip</a>
-                        <a class="btn btn-secondary btn-small btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                        <a class="btn btn-secondary btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
                     </td>
                 </tr>
                 {% endif %}
             {% if file.flare_capa %}
             <tr>
-                <th><p><a class="btn btn-secondary" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
+                <th><p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
                 <td>
                 <div class="collapse" id="flare_capa_{{file.sha256}}">
                     <div class="card card-body">

@@ -144,6 +144,7 @@ apilimiter = {
     "tasks_surifile": apiconf.tasksurifile,
     "tasks_rollingsuri": apiconf.rollingsuri,
     "tasks_rollingshrike": apiconf.rollingshrike,
+    "task_procdump": apiconf.taskprocdump,
     "tasks_procmemory": apiconf.taskprocmemory,
     "tasks_fullmemory": apiconf.taskprocmemory,
     "get_files": apiconf.sampledl,

@@ -2,3 +2,5 @@ User-agent: SemrushBot
 Disallow: /
 User-agent: MJ12bot
 Disallow: /
+User-agent: Barkrowler/0.9
+Disallow: /

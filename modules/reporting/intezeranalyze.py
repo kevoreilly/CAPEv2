@@ -21,6 +21,8 @@ class JsonDump(Report):
         @raise CuckooReportError: if fails to write report.
         """
 
+        encoding = self.options.get("encoding", "utf-8")
+
         keys_to_copy = {
             "CAPE",
             "procdump",
@@ -39,8 +41,12 @@ class JsonDump(Report):
             path = os.path.join(self.analysis_path, "intezer", "intezer-report.json")
 
             with codecs.open(path, "w", "utf-8") as report:
-                json.dump(intezer_report, report, sort_keys=False,
-                          encoding='utf-8', ensure_ascii=False)
+                json.dump(intezer_report,
+                          report,
+                          sort_keys=False,
+                          separators=(',', ':'),
+                          encoding='latin-1',
+                          ensure_ascii=False)
 
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError("Failed to generate JSON report: %s" % e)

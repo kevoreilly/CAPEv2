@@ -1651,11 +1651,25 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def check_file_uniq(self, sha256):
-        if not Database.find_sample(self, sha256=sha256):
-            return False
-        else:
-            return True
+    def check_file_uniq(self, sha256: str, hours: int=0):
+        uniq = False
+        session = self.Session()
+        try:
+            if hours and sha256:
+                date_since = datetime.now()-timedelta(hours=hours)
+                date_till = datetime.now()
+                uniq = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Sample.sha256==sha256, Task.added_on.between(date_since, date_till)).first()
+            else:
+                if not Database.find_sample(self, sha256=sha256):
+                    uniq = False
+                else:
+                    uniq = True
+        except SQLAlchemyError as e:
+            log.debug("Database error counting tasks: {0}".format(e))
+        finally:
+            session.close()
+
+        return uniq
 
     @classlock
     def list_parents(self, parent_id):
@@ -1948,6 +1962,7 @@ class Database(object, metaclass=Singleton):
         @param parent: sample_id int
         @return: matches list
         """
+        sample = False
         session = self.Session()
         try:
             if md5:

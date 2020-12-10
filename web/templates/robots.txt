@@ -4,3 +4,5 @@ User-agent: MJ12bot
 Disallow: /
 User-agent: Barkrowler/0.9
 Disallow: /
+User-agent: Googlebot-Image/1.0
+Disallow: /

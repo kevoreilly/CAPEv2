@@ -162,6 +162,8 @@ apilimiter = {
     "statistics": apiconf.statistics,
     "full_memory_dump_file": apiconf.full_memory_dump_file,
     "full_memory_dump_file_strings": apiconf.full_memory_dump_file_strings,
+    "comments": apiconf.comments,
+    "search": apiconf.web_search,
 }
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables

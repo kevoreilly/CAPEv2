@@ -1397,6 +1397,8 @@ def full_memory_dump_strings(request, analysis_number):
 
 
 @csrf_exempt
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def search(request):
     if "search" in request.POST:
@@ -1584,6 +1586,8 @@ def pcapstream(request, task_id, conntuple):
     return HttpResponse(json.dumps(packets), content_type="application/json")
 
 
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def comments(request, task_id):
     if request.method == "POST" and settings.COMMENTS:

@@ -1217,9 +1217,9 @@ def file(request, category, task_id, dlfile):
                 data = mem_zip.getvalue()
         else:
             data = open(path, "rb").read()
-        size = len(data)
-        #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
-        resp = HttpResponse(data, content_type=cd)
+        resp = StreamingHttpResponse(data, content_type=cd)
+        resp["Content-Length"] = len(data)
+        return resp
     except Exception as e:
         print(e)
         if path.endswith(".zip") and os.path.exists(path):

@@ -8,3 +8,7 @@ User-agent: Googlebot-Image
 Disallow: /
 User-agent: PetalBot
 Disallow: /
+User-agent: sogou spider
+Disallow: /
+User-agent: sogou+spider
+Disallow: /

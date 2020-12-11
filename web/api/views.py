@@ -1387,7 +1387,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
-            resp = StreamingHttpResponse(FileWrapper(shot, 8096), content_type="image/jpeg")
+            resp = StreamingHttpResponse(FileWrapper(open(shot), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
             return
 
@@ -1478,7 +1478,7 @@ def tasks_surifile(request, task_id):
 
     if os.path.exists(srcfile):
         fname = "%s_surifiles.zip" % task_id
-        resp = StreamingHttpResponse(FileWrapper(srcfile, 8192), content_type="application/octet-stream;")
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile), 8192), content_type="application/octet-stream;")
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp

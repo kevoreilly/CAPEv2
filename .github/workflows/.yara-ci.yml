@@ -1,9 +1,3 @@
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
 files:
   accept:
   - "data/yara/**.yar"

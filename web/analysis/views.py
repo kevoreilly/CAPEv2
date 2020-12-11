@@ -1218,7 +1218,7 @@ def file(request, category, task_id, dlfile):
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)
                 resp["Content-Length"] = len(mem_zip.getvalue())
         else:
-            if not os.paht.exists(path):
+            if not os.path.exists(path):
                  return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
             resp = StreamingHttpResponse(FileWrapper(open(path, 'rb'), 8091), content_type=cd)
             resp["Content-Length"] = os.path.getsize(path)

@@ -464,11 +464,11 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            pretime = datetime.datetime.now()
-            capa_details = flare_capa_details(file_path, "CAPE")
+            pretime = datetime.now()
+            capa_details = flare_capa_details(file_path, "cape")
             if capa_details:
                 file_info["flare_capa"] = capa_details
-            self.add_statistic("flare_capa", "time", pretime=pretime)
+            self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

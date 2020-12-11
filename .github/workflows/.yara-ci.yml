@@ -1,3 +1,7 @@
+false_positives:
+  ignore:
+   - rule: "CobaltStrikeBeacon"
+
 on:
   push:
     branches: [ master ]

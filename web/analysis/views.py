@@ -55,6 +55,27 @@ except ImportError:
 
 TASK_LIMIT = 25
 
+processing_cfg = Config("processing")
+reporting_cfg = Config("reporting")
+
+# On demand features
+if processing_cfg.flare_capa.on_demand:
+    from lib.cuckoo.common.cape_utils import flare_capa_details
+    HAVE_FLARE_CAPA = True
+else:
+    HAVE_FLARE_CAPA = False
+
+if reporting_cfg.bingraph.on_demand:
+    try:
+        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+        from modules.reporting.bingraph import bingraph_args_dict
+        HAVE_BINGRAPH = True
+    except ImportError:
+        HAVE_BINGRAPH = False
+else:
+    HAVE_BINGRAPH = False
+
+
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
 for cfile in ["reporting", "processing", "auxiliary", "web"]:
@@ -339,7 +360,7 @@ def pending(request):
 
     pending = []
     for task in tasks:
-        pending.append({"target": task.target, "added_on": task.added_on, "category": task.category, "md5": "", "sha256": "" })#task.sample.md5, "sha256": task.sample.sha256})
+        pending.append({"target": task.target, "added_on": task.added_on, "category": task.category, "md5": task.sample.md5, "sha256": task.sample.sha256})
 
     return render(request, "analysis/pending.html",  {"tasks": pending})
 
@@ -1193,16 +1214,16 @@ def file(request, category, task_id, dlfile):
     try:
         if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if mem_zip:
-                data = mem_zip.getvalue()
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type=cd)
+                resp["Content-Length"] = len(mem_zip.getvalue())
         else:
-            data = open(path, "rb").read()
-        size = len(data)
-        #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
-        resp = HttpResponse(data, content_type=cd)
+            resp = StreamingHttpResponse(FileWrapper(open(path, 'rb'), 8091), content_type=cd)
+            resp["Content-Length"] = os.path.getsize(path)
+        resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
+        return resp
     except Exception as e:
         print(e)
-        if path.endswith(".zip") and os.path.exists(path):
-            os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
 
     resp["Content-Length"] = size # os.path.getsize(path)
@@ -1214,6 +1235,8 @@ def file(request, category, task_id, dlfile):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def procdump(request, task_id, process_id, start, end):
     origname = process_id + ".dmp"
     tmpdir = None
@@ -1241,19 +1264,24 @@ def procdump(request, task_id, process_id, start, end):
 
     file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
 
-    for proc in analysis.get("procmemory", []) or []:
-        if proc["pid"] == int(process_id):
-            data = b""
-            for memmap in proc["address_space"]:
-                for chunk in memmap["chunks"]:
-                    if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
-                        file_item.seek(chunk["offset"])
-                        data += file_item.read(int(chunk["size"], 16))
-            if len(data):
-                content_type = "application/octet-stream"
-                response = HttpResponse(data, content_type=content_type)
-                response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-                break
+    if file_item and analysis and "procmemory" in analysis:
+        for proc in analysis["procmemory"]:
+            if proc["pid"] == int(process_id):
+                s = BytesIO()
+                for memmap in proc["address_space"]:
+                    for chunk in memmap["chunks"]:
+                        if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
+                            file_item.seek(chunk["offset"])
+                            s.write(file_item.read(int(chunk["size"], 16)))
+                s.seek(0)
+                size = s.getvalue()
+                if size:
+                    content_type = "application/octet-stream"
+                    response = StreamingHttpResponse(s, content_type=content_type)
+                    response["Content-Length"] = size
+                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                    break
+
 
     if file_item:
         file_item.close()
@@ -1314,6 +1342,8 @@ def filereport(request, task_id, category):
 
 
 @require_safe
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_file(request, analysis_number):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp")
@@ -1344,6 +1374,8 @@ def full_memory_dump_file(request, analysis_number):
 
 
 @require_safe
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings")
@@ -1365,6 +1397,8 @@ def full_memory_dump_strings(request, analysis_number):
 
 
 @csrf_exempt
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def search(request):
     if "search" in request.POST:
@@ -1552,6 +1586,8 @@ def pcapstream(request, task_id, conntuple):
     return HttpResponse(json.dumps(packets), content_type="application/json")
 
 
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def comments(request, task_id):
     if request.method == "POST" and settings.COMMENTS:
@@ -1602,15 +1638,16 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            params = {"apikey": settings.VTDL_PRIV_KEY}
+            params = {"x-apikey": settings.VTDL_PRIV_KEY}
             files = {"file": (filename, open(path, "rb"))}
-            response = requests.post("https://www.virustotal.com/vtapi/v2/file/scan", files=files, params=params)
-            response_code = response.json()["response_code"]
-            permalink = response.json()["permalink"]
-            if response_code == 1:
-                return render(request, "success_vtup.html", {"permalink": permalink})
-            else:
-                return render(request, "error.html", {"error": "Response code: {}".format(response.json())})
+            response = requests.post("https://www.virustotal.com/api/v3/files", files=files, params=params)
+            if response.ok:
+                data = response.json().get("data", {})
+                id = data.get("id")
+                if id:
+                    return render(request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)})
+                else:
+                    return render(request, "error.html", {"error": "Response code: {}".format(response.json())})
         except Exception as err:
             return render(request, "error.html", {"error": err})
     else:
@@ -1623,3 +1660,67 @@ def statistics_data(request, days=7):
         return render(request, "statistics.html", {"statistics": details, "days": days})
     else:
         return render(request, "error.html", {"error": "Provide days as number"})
+
+on_demain_config_mapper = {
+    "bingraph": processing_cfg,
+    "flare_capa": reporting_cfg,
+}
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def on_demand(request, service: str, task_id: int, category: str, sha256):
+    """
+        This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
+        @param service: Service for which we want to generate details
+        @param task_id: ID of analysis
+        @param category: Example: CAPE, procdump, etc
+        @param sha256: file hash for which we want to generate details
+        @return: redirect to the same webpage but with missed details included
+
+        # 0. ensure that we not generating this data or data exist
+        # 1. get file path
+        # 2. call to func
+        # 3. store results
+        # 4. reload page
+    """
+
+    if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+        return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
+
+    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+    if category == "binary":
+        path = os.path.join(base_path, str(task_id), "binary")
+    else:
+        path = os.path.join(base_path, str(task_id), category, sha256)
+
+    if path and (not os.path.normpath(path).startswith(base_path) or not os.path.exists(path)):
+        return render(request, "error.html", {"error": "File not found"})
+
+    details = False
+    if service == "flare_capa" and HAVE_FLARE_CAPA:
+        details = flare_capa_details(path, category.lower(), on_demand=True)
+
+    elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(base_path, str(task_id), "bingraph", sha256+"-ent.svg")):
+        bingraph_path = os.path.join(base_path, str(task_id), "bingraph")
+        if not os.path.exists(bingraph_path):
+            os.makedirs(bingraph_path)
+        try:
+            bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
+            try:
+                bingraph_gen(bingraph_args_dict)
+            except Exception as e:
+                print("Can't generate bingraph for {}: {}".format(sha256, e))
+        except Exception as e:
+            print("Bingraph on demand error:", e)
+
+    if details:
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
+        if category == "CAPE":
+            for block in buf["CAPE"].get("payloads", []) or []:
+                if block.get("sha256") == sha256:
+                    block[service] = details
+                    break
+
+        results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        del details
+
+    return redirect("report", task_id=task_id)

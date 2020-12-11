@@ -53,6 +53,7 @@ log = logging.getLogger(__name__)
 
 # Config variables
 repconf = Config("reporting")
+web_conf = Config("web")
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -271,8 +272,9 @@ def tasks_create_file(request):
                 return jsonize(resp, response=True)
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             details["path"] = tmp_path
-            if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
-                details["errors"].append({sample.name: "Not unique, as unique option set"})
+
+            if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours):
+                details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
                 continue
             if pcap:
                 if sample.name.lower().endswith(".saz"):
@@ -1060,10 +1062,8 @@ def tasks_report(request, task_id, report_format="json"):
                 content = "application/pdf"
                 ext = "pdf"
             fname = "%s_report.%s" % (task_id, ext)
-            with open(report_path, "rb") as report_data:
-                data = report_data.read()
-            resp = HttpResponse(data, content_type=content)
-            resp["Content-Length"] = str(len(data))
+            resp = StreamingHttpResponse(FileWrapper(open(report_path), 8096), content_type=content or "application/octet-stream;")
+            resp["Content-Length"] = os.path.getsize(report_path)
             resp["Content-Disposition"] = "attachment; filename=" + fname
             return resp
 
@@ -1082,7 +1082,8 @@ def tasks_report(request, task_id, report_format="json"):
         for rep in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, rep), arcname=rep)
         tar.close()
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        s.seek(0)
+        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1109,8 +1110,8 @@ def tasks_report(request, task_id, report_format="json"):
             except Exception as e:
                 log.error(e, exc_info=True)
         tar.close()
-
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        s.seek(0)
+        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
         return resp
@@ -1377,7 +1378,8 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         for shot in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, shot), arcname=shot)
         tar.close()
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        s.seek(0)
+        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1385,9 +1387,9 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
-            with open(shot, "rb") as picture:
-                data = picture.read()
-            return HttpResponse(data, content_type="image/jpeg")
+            resp = StreamingHttpResponse(FileWrapper(shot, 8096), content_type="image/jpeg")
+            resp["Content-Length"] = os.path.getsize(shot)
+            return
 
         else:
             resp = {"error": True, "error_value": "Screenshot does not exist"}
@@ -1411,11 +1413,9 @@ def tasks_pcap(request, task_id):
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if os.path.exists(srcfile):
-        with open(srcfile, "rb") as pcap:
-            data = pcap.read()
         fname = "%s_dump.pcap" % task_id
-        resp = HttpResponse(data, content_type="application/vnd.tcpdump.pcap")
-        resp["Content-Length"] = str(len(data))
+        resp = StreamingHttpResponse(FileWrapper(srcfile, 8096), content_type="application/vnd.tcpdump.pcap")
+        resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
 
@@ -1452,7 +1452,8 @@ def tasks_dropped(request, task_id):
         for dirfile in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
         tar.close()
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        s.seek(0)
+        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1476,11 +1477,9 @@ def tasks_surifile(request, task_id):
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
 
     if os.path.exists(srcfile):
-        with open(srcfile, "rb") as surifile:
-            data = surifile.read()
         fname = "%s_surifiles.zip" % task_id
-        resp = HttpResponse(data, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(data))
+        resp = StreamingHttpResponse(FileWrapper(srcfile, 8192), content_type="application/octet-stream;")
+        resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
 
@@ -1602,7 +1601,8 @@ def tasks_procmemory(request, task_id, pid="all"):
         for memdump in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, memdump), arcname=memdump)
         tar.close()
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+        s.seek(0)
+        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
     else:
@@ -1614,7 +1614,8 @@ def tasks_procmemory(request, task_id, pid="all"):
                 tar = tarfile.open(fileobj=s, mode="w:bz2")
                 tar.add(srcfile, arcname=fname)
                 tar.close()
-                resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
+                s.seek(0)
+                resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
                 archive = "%s-%s_dmp.tar.bz2" % (task_id, pid)
                 resp["Content-Length"] = str(len(s.getvalue()))
                 resp["Content-Disposition"] = "attachment; filename=" + archive
@@ -1622,7 +1623,6 @@ def tasks_procmemory(request, task_id, pid="all"):
                 mime = "application/octet-stream"
                 fname = "%s-%s.dmp" % (task_id, pid)
                 resp = StreamingHttpResponse(FileWrapper(open(srcfile), 8096), content_type=mime)
-                # Specify content length for StreamingHTTPResponse
                 resp["Content-Length"] = os.path.getsize(srcfile)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
         else:
@@ -1689,6 +1689,7 @@ def file(request, stype, value):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return jsonize(resp, response=True)
 
+    file_hash = False
     if stype == "md5":
         file_hash = db.find_sample(md5=value).to_dict()["sha256"]
     elif stype == "sha1":
@@ -1704,9 +1705,7 @@ def file(request, stype, value):
 
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
-        # ToDo failing but need to stream
-        # resp = StreamingHttpResponse(FileWrapper(open(sample), 8096), content_type="application/octet-stream")
-        resp = HttpResponse(open(sample, "rb").read(), content_type="application/octet-stream")
+        resp = StreamingHttpResponse(FileWrapper(open(sample), 8096), content_type="application/octet-stream")
         resp["Content-Length"] = os.path.getsize(sample)
         resp["Content-Disposition"] = "attachment; filename=" + "%s.bin" % file_hash
         return resp
@@ -1794,21 +1793,14 @@ def task_x_hours(request):
         return jsonize(resp, response=True)
 
     session = db.Session()
-    res = session.execute(
-        "SELECT date_trunc('hour', tasks.added_on) AS day_start, count(*) AS tasks_x_day FROM tasks WHERE added_on > now() - interval '24 hours' GROUP BY 1 ORDER BY 1"
-    )
+    res = session.query(Task).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1))).all()
+    results = dict()
     if res:
-        results = dict()
         for date, samples in res:
             results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
     session.close()
     resp = {"error": False, "stats": results}
     return jsonize(resp, response=True)
-    # q = ses.query(Task).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
-    # tasks = ses.query(func.to_char(Task.added_on, 'HH24:MI'), func.count(Task.added_on)).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1))).group_by(func.to_char(Task.added_on, 'HH24:MI')).order_by(func.to_char(Task.added_on, 'HH24:MI')).all()
-    # https://gist.github.com/yinian1992/6044294
-    # count = session.query(Task).filter(Task.adeded_on.between(datetime.utcnow() - timedelta(hours=24), datetime.utcnow())).all()
-
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -1862,7 +1854,6 @@ def tasks_payloadfiles(request, task_id):
 
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
         return resp
@@ -1909,7 +1900,6 @@ def tasks_procdumpfiles(request, task_id):
 
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
         return resp

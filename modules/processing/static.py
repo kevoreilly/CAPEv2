@@ -351,9 +351,21 @@ class PortableExecutable(object):
         self.results = results
 
     def add_statistic(self, name, field, value):
-        self.results["statistics"]["processing"].append(
-            {"name": name, field: value,}
-        )
+        self.results["statistics"]["processing"].append({"name": name, field: value})
+
+    def add_statistic_tmp(self, name, field, pretime):
+        posttime = datetime.now()
+        timediff = posttime - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+
+        if name not in self.results["temp_processing_stats"]:
+            self.results["temp_processing_stats"][name] = {}
+
+        # To be able to add yara/capa and others time summary over all processing modules
+        if field in self.results["temp_processing_stats"][name]:
+           self.results["temp_processing_stats"][name][field] += value
+        else:
+           self.results["temp_processing_stats"][name][field] = value
 
     def _get_peid_signatures(self):
         """Gets PEID signatures.
@@ -963,7 +975,9 @@ class PortableExecutable(object):
 
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
-        self.add_statistic("peid", "time", pretime=pretime)
+        timediff = datetime.now() - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        self.add_statistic("peid", "time", value)
 
         peresults["imagebase"] = self._get_imagebase()
         peresults["entrypoint"] = self._get_entrypoint()
@@ -991,7 +1005,7 @@ class PortableExecutable(object):
         capa_details = flare_capa_details(self.file_path, "binary")
         if capa_details:
             results["flare_capa"] = capa_details
-        self.add_statistic("flare_capa", "time", pretime=pretime)
+        self.add_statistic_tmp("flare_capa", "time", pretime)
 
         return results
 

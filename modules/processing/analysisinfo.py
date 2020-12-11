@@ -98,7 +98,7 @@ class AnalysisInfo(Processing):
         parsed_options = get_options(self.task["options"])
         if HAVE_REQUEST and report_cfg.distributed.enabled and "maint_task_id" in parsed_options:
             try:
-                res = requests.get("http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=3, verify=False)
+                res = requests.get("http://127.0.0.1:9003/task/{}".format(self.task["id"]), timeout=10, verify=False)
                 if res and res.ok:
                     if "name" in res.json():
                         distributed["name"] = res.json()["name"]

@@ -1,7 +1,3 @@
-false_positives:
-  ignore:
-   - rule: "CobaltStrikeBeacon"
-
 on:
   push:
     branches: [ master ]
@@ -11,3 +7,7 @@ on:
 files:
   accept:
   - "data/yara/**.yar"
+
+false_positives:
+  ignore:
+    - rule: "CobaltStrikeBeacon"

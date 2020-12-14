@@ -516,7 +516,7 @@ class Retriever(threading.Thread):
                     continue
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
-                if not os.path.isdir(report_path):
+                if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
                     fileobj = BytesIO(report.content)

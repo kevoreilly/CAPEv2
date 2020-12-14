@@ -48,6 +48,8 @@ MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
 LEN_BLOB_KEY = 40
 LEN_BOT_KEY = 107
 
+yara_rules = yara.compile(source=rule_source)
+
 def decrypt_rc4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
@@ -70,7 +72,6 @@ class DridexLoader(Parser):
         line, c2va_offset, delta = 0, 0, 0
         botnet_code, botnet_rva, rc4_decode = 0, 0, 0
 
-        yara_rules = yara.compile(source=rule_source)
         matches = yara_rules.match(data=filebuf)
         if not matches:
             return

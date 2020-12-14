@@ -30,7 +30,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.constants import CUCKOO_ROOT, ANALYSIS_BASE_PATH
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
 import modules.processing.network as network
 
@@ -1688,21 +1688,23 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
-    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-    if category == "binary":
-        path = os.path.join(base_path, str(task_id), "binary")
+    if category == "static":
+        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "binary")
     else:
-        path = os.path.join(base_path, str(task_id), category, sha256)
+        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), category, sha256)
 
-    if path and (not os.path.normpath(path).startswith(base_path) or not os.path.exists(path)):
-        return render(request, "error.html", {"error": "File not found"})
+    if path and (not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH) or not os.path.exists(path)):
+        return render(request, "error.html", {"error": "File not found: {}".format(path)})
 
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
-        details = flare_capa_details(path, category.lower(), on_demand=True)
+        if category == "static":
+            details = flare_capa_details(path, "binary" , on_demand=True)
+        else:
+             details = flare_capa_details(path, category.lower() , on_demand=True)
 
-    elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(base_path, str(task_id), "bingraph", sha256+"-ent.svg")):
-        bingraph_path = os.path.join(base_path, str(task_id), "bingraph")
+    elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256+"-ent.svg")):
+        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")
         if not os.path.exists(bingraph_path):
             os.makedirs(bingraph_path)
         try:
@@ -1721,8 +1723,11 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
-
+        elif category == "static":
+            if buf.get(category, {}):
+                buf[category]["flare_capa"] = details
         results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 
     return redirect("report", task_id=task_id)
+

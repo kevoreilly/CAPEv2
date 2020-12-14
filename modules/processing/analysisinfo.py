@@ -96,6 +96,7 @@ class AnalysisInfo(Processing):
             self.task["machine"] = machine
         distributed = dict()
         parsed_options = get_options(self.task["options"])
+        parent_sample_details = False
         if "maint_task_id" not in parsed_options:
             parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])

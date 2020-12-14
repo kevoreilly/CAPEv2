@@ -55,7 +55,7 @@
                     {% if analysis.info.options %}
                         <th>Options</th>
                     {% endif %}
-                    {% if analysis.info.distributed %}
+                    {% if analysis.distributed %}
                         <th>Distributed</th>
                     {% endif %}
                     <th>Log</th>
@@ -74,8 +74,8 @@
                     {% if analysis.info.options %}
                         <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#options">Show Options</a></td>
                     {% endif %}
-                    {% if analysis.info.distributed %}
-                        <td>{{analysis.info.distributed.name}} - {{analysis.info.distributed.task_id}}</td>
+                    {% if analysis.distributed %}
+                        <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#info-log">Show Log</a></td>
                     {% if config.malscore and analysis.malscore %}

@@ -1705,7 +1705,7 @@ def file(request, stype, value):
 
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
-        resp = StreamingHttpResponse(FileWrapper(open(sample), 8096), content_type="application/octet-stream")
+        resp = StreamingHttpResponse(FileWrapper(open(sample, "rb"), 8096), content_type="application/octet-stream")
         resp["Content-Length"] = os.path.getsize(sample)
         resp["Content-Disposition"] = "attachment; filename=" + "%s.bin" % file_hash
         return resp

@@ -785,6 +785,8 @@ class Signature(object):
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if keyword in self.results and self.results[keyword] is not None:
                 for block in self.results.get(keyword, []):
+                    if not isinstance(block, dict):
+                        continue
                     for sub_keyword in ("yara", "cape_yara"):
                         for sub_block in block.get(sub_keyword, []):
                             if re.findall(name, sub_block["name"], re.I):

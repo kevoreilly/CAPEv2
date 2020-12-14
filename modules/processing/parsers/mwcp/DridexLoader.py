@@ -121,15 +121,15 @@ class DridexLoader(Parser):
                 rc4_rva = struct.unpack('i', filebuf[rc4_decode+5:rc4_decode+9])[0] - image_base
             else:
                 rc4_rva = struct.unpack('i', filebuf[rc4_decode+3:rc4_decode+7])[0] - image_base
-        if rc4_rva:
-            rc4_offset = pe.get_offset_from_rva(rc4_rva)
-            if not zb:
-                raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY][::-1], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
-            else:
-                raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
-            for item in raw.split(b"\x00"):
-                if len(item) == LEN_BLOB_KEY-1:
-                    self.reporter.add_metadata('other', {'RC4 key': item.split(b';')[0]})
+            if rc4_rva:
+                rc4_offset = pe.get_offset_from_rva(rc4_rva)
+                if not zb:
+                    raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY][::-1], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                else:
+                    raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                for item in raw.split(b"\x00"):
+                    if len(item) == LEN_BLOB_KEY-1:
+                        self.reporter.add_metadata('other', {'RC4 key': item.split(b';')[0]})
 
         if botnet_code:
             botnet_rva = struct.unpack('i', filebuf[botnet_code+23:botnet_code+27])[0] - image_base

@@ -12,3 +12,8 @@ User-agent: sogou spider
 Disallow: /
 User-agent: sogou+spider
 Disallow: /
+User-agent: *
+Disallow: /file/
+Disallow: /compare/
+Disallow: /submit/
+Disallow: /analysis/[\w_]/

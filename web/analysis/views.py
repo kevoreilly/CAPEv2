@@ -59,11 +59,14 @@ processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
 
 # On demand features
+HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.cape_utils import flare_capa_details
-    HAVE_FLARE_CAPA = True
-else:
-    HAVE_FLARE_CAPA = False
+    from lib.cuckoo.common.cape_utils import flare_capa_details, HAVE_FLARE_CAPA
+
+HAVE_VBA2GRAPH = False
+if processing_cfg.vba2graph.on_demand:
+    from lib.cuckoo.common.cape_utils import vba2graph_func, HAVE_VBA2GRAPH
+
 
 if reporting_cfg.bingraph.on_demand:
     try:
@@ -1702,6 +1705,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             details = flare_capa_details(path, "binary" , on_demand=True)
         else:
              details = flare_capa_details(path, category.lower() , on_demand=True)
+
+    elif service == "vba2graph" and HAVE_VBA2GRAPH:
+        vba2graph_func(path, task_id, on_demand=True)
 
     elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256+"-ent.svg")):
         bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")

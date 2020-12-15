@@ -1,6 +1,6 @@
 ### [08.12.2020] On demand
 * Add uniq submission limitation, can be enabled in `conf/web.conf` to disable the same submission during X hours
-* Bingraph and FLARE CAPA on demand
+* Bingraph, FLARE CAPA, vba2graph on demand
 * Added `on_demand` feature.
     * This funcions aim to speedup processing but allow to user to generate parts of analysis that takes some time to finish and not used frequently. Example scripted submissions
 

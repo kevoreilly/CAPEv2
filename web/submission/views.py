@@ -274,8 +274,9 @@ def index(request, resubmit_hash=False):
                 else:
                     records = perform_search("sha256", sha256)
                     for record in records:
-                        existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
-                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                        if record.get("target").get("file", {}).get("sha256"):
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                            existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:

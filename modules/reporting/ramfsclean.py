@@ -17,6 +17,8 @@ class RAMFSCLEAN(Report):
     def run(self, results):
         action = "delete"
         src = get_memdump_path(results["info"]["id"])
+        if "store_memdump" in results["info"]["options"]:
+            action  = "store"
 
         if reporting_conf.ramfsclean.key in results:
             if any(["checkme" in block for block in results[reporting_conf.ramfsclean.key]]):

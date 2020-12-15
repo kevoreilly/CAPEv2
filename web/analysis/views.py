@@ -1667,8 +1667,8 @@ def statistics_data(request, days=7):
         return render(request, "error.html", {"error": "Provide days as number"})
 
 on_demain_config_mapper = {
-    "bingraph": processing_cfg,
-    "flare_capa": reporting_cfg,
+    "bingraph": reporting_cfg,
+    "flare_capa": processing_cfg,
 }
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

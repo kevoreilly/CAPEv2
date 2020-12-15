@@ -25,13 +25,12 @@ Notes:
 # *                              General Imports                             *
 # ****************************************************************************
 
-from __future__ import absolute_import
 import os
 import sys
 import errno
 import argparse
 import regex as re
-import StringIO
+from io import StringIO
 from subprocess import Popen
 
 # ****************************************************************************
@@ -40,10 +39,10 @@ from subprocess import Popen
 
 import networkx as nx
 from networkx.drawing.nx_pydot import write_dot
-
 try:
     from oletools.olevba import VBA_Parser
-
+    # Temporary workaround. Change when oletools 0.56 will be released.
+    VBA_Parser.detect_vba_stomping = lambda self: False
     HAVE_OLETOOLS = True
 except ImportError:
     HAVE_OLETOOLS = False
@@ -52,7 +51,6 @@ except ImportError:
 # ****************************************************************************
 
 import logging
-
 logger = logging.getLogger("-vba2graph-")
 
 # ****************************************************************************
@@ -66,66 +64,78 @@ logger = logging.getLogger("-vba2graph-")
 LINE_SEP = "\n"
 
 color_schemes = [
-    {  # regular theme - boring black on white
+    {   # regular theme - boring black on white
         "COLOR_BACKGROUND": "#FFFFFF",
         "COLOR_DEFAULT_BOX": "black",
         "COLOR_DEFAULT_TEXT": "black",
         "COLOR_DEFAULT_EDGES": "black",
         "COLOR_DEFAULT_EDGES_FONT": "black",
+
         "COLOR_REGULAR_KEYWORD": "black",
         "COLOR_OBFUSCATION_KEYWORD": "#666699",
+
         "COLOR_CRITICAL_NUM_OF_CALLS": "red",
         "COUNT_CRITICAL_NUM_OF_CALLS": 10,
+
         "COLOR_PROPERTY": "purple",
         "COLOR_TRIGGERED_CALL_EDGE": "purple",
         "COLOR_AUTORUN_FUNCTIONS": "red",
-        "COLOR_EXTERNAL_FUNCTION": "brown",
+        "COLOR_EXTERNAL_FUNCTION": "brown"
     },
-    {  # darker theme - cyan colors
+    {   # darker theme - cyan colors
         "COLOR_BACKGROUND": "#40334E",
         "COLOR_DEFAULT_BOX": "#6A416D",
         "COLOR_DEFAULT_TEXT": "#E9BA69",
         "COLOR_DEFAULT_EDGES": "white",
         "COLOR_DEFAULT_EDGES_FONT": "white",
+
         "COLOR_REGULAR_KEYWORD": "#9E62E7",
         "COLOR_OBFUSCATION_KEYWORD": "#666699",
+
         "COLOR_CRITICAL_NUM_OF_CALLS": "red",
         "COUNT_CRITICAL_NUM_OF_CALLS": 10,
+
         "COLOR_PROPERTY": "#ABDACC",
         "COLOR_TRIGGERED_CALL_EDGE": "#F6C565",
         "COLOR_AUTORUN_FUNCTIONS": "red",
-        "COLOR_EXTERNAL_FUNCTION": "#ABDACC",
+        "COLOR_EXTERNAL_FUNCTION": "#ABDACC"
     },
-    {  # 80s theme
+    {   # 80s theme
         "COLOR_BACKGROUND": "#6075AF",
         "COLOR_DEFAULT_BOX": "#F3879B",
         "COLOR_DEFAULT_TEXT": "#88D3F4",
         "COLOR_DEFAULT_EDGES": "white",
         "COLOR_DEFAULT_EDGES_FONT": "white",
+
         "COLOR_REGULAR_KEYWORD": "#FFE5D3",
         "COLOR_OBFUSCATION_KEYWORD": "#8999c2",
+
         "COLOR_CRITICAL_NUM_OF_CALLS": "#F6C565",
         "COUNT_CRITICAL_NUM_OF_CALLS": 10,
+
         "COLOR_PROPERTY": "#ABDACC",
         "COLOR_TRIGGERED_CALL_EDGE": "#F6C565",
         "COLOR_AUTORUN_FUNCTIONS": "#F6C565",
-        "COLOR_EXTERNAL_FUNCTION": "#ABDACC",
+        "COLOR_EXTERNAL_FUNCTION": "#ABDACC"
     },
-    {  # terminal theme
+    {   # terminal theme
         "COLOR_BACKGROUND": "black",
         "COLOR_DEFAULT_BOX": "#31FF00",
         "COLOR_DEFAULT_TEXT": "#31FF00",
         "COLOR_DEFAULT_EDGES": "#31FF00",
         "COLOR_DEFAULT_EDGES_FONT": "#31FF00",
+
         "COLOR_REGULAR_KEYWORD": "#31FF00",
         "COLOR_OBFUSCATION_KEYWORD": "#356235",
+
         "COLOR_CRITICAL_NUM_OF_CALLS": "#c2ffb3",
         "COUNT_CRITICAL_NUM_OF_CALLS": 10,
+
         "COLOR_PROPERTY": "#c2ffb3",
         "COLOR_TRIGGERED_CALL_EDGE": "#c2ffb3",
         "COLOR_AUTORUN_FUNCTIONS": "#c2ffb3",
-        "COLOR_EXTERNAL_FUNCTION": "#c2ffb3",
-    },
+        "COLOR_EXTERNAL_FUNCTION": "#c2ffb3"
+    }
 ]
 
 # set default color scheme
@@ -138,270 +148,90 @@ color_scheme = color_schemes[0]
 
 # Recognize keywords of automatic execution
 lst_autorun = [
-    "AutoExec",
-    "AutoOpen",
-    "DocumentOpen",
-    "AutoExit",
-    "AutoClose",
-    "Document_Close",
-    "DocumentBeforeClose",
-    "DocumentChange",
-    "AutoNew",
-    "Document_New",
-    "NewDocument",
-    "Document_Open",
-    "Document_BeforeClose",
-    "Auto_Open",
-    "Workbook_Open",
-    "Workbook_Activate",
-    "Workbook_Deactivate",
-    "Auto_Close",
-    "Workbook_Close",
-    u"\w+_Painted",
-    u"\w+_Change",
-    u"\w+_DocumentBeforePrint",
-    u"\w+_DocumentOpen",
-    u"\w+_DocumentBeforeClose",
-    u"\w+_DocumentBeforeSave",
-    u"\w+_GotFocus",
-    u"\w+_LostFocus",
-    u"\w+_MouseHover",
-    u"\w+_Resize",
-    "App_WorkbookOpen",
-    "App_NewWorkbook",
-    "App_WorkbookBeforeClose",
-    "Workbook_BeforeClose",
-    "FileSave",
-    "CloseWithoutSaving",
-    "FileOpen",
-    "FileClose",
-    "FileExit",
-    "Workbook_SheetSelectionChange",
-    "Workbook_BeforeSave",
-    "FileTemplates",
-    "ViewVBCode",
-    "ToolsMacro",
-    "FormatStyle",
-    "OpenMyMacro",
-    "HelpAbout",
-    u"\w+_Layout",
-    u"\w+_Painting",
-    u"\w+_BeforeNavigate2",
-    u"\w+_BeforeScriptExecute",
-    u"\w+_DocumentComplete",
-    u"\w+_DownloadBegin",
-    u"\w+_DownloadComplete",
-    u"\w+_FileDownload",
-    u"\w+_NavigateComplete2",
-    u"\w+_NavigateError",
-    u"\w+_ProgressChange",
-    u"\w+_PropertyChange",
-    u"\w+_PropertyChange",
-    u"\w+_StatusTextChange",
-    u"\w+_TitleChange",
-    u"\w+_MouseMove",
-    u"\w+_MouseEnter",
-    u"\w+_MouseLeave",
-    u"\w+_Activate",
+    'AutoExec', 'AutoOpen', 'DocumentOpen', 'AutoExit', 'AutoClose',
+    'Document_Close', 'DocumentBeforeClose', 'DocumentChange', 'AutoNew',
+    'Document_New', 'NewDocument', 'Document_Open', 'Document_BeforeClose',
+    'Auto_Open', 'Workbook_Open', 'Workbook_Activate', 'Workbook_Deactivate', 'Auto_Close',
+    'Workbook_Close', u'\w+_Painted', u'\w+_Change', u'\w+_DocumentBeforePrint',
+    u'\w+_DocumentOpen', u'\w+_DocumentBeforeClose', u'\w+_DocumentBeforeSave',
+    u'\w+_GotFocus', u'\w+_LostFocus', u'\w+_MouseHover', u'\w+_Resize',
+    'App_WorkbookOpen', 'App_NewWorkbook', 'App_WorkbookBeforeClose', 'Workbook_BeforeClose',
+    'FileSave', 'CloseWithoutSaving', 'FileOpen', 'FileClose', 'FileExit',
+    'Workbook_SheetSelectionChange', 'Workbook_BeforeSave', 'FileTemplates',
+    'ViewVBCode', 'ToolsMacro', 'FormatStyle', 'OpenMyMacro', 'HelpAbout',
+    u'\w+_Layout', u'\w+_Painting',
+    u'\w+_BeforeNavigate2', u'\w+_BeforeScriptExecute', u'\w+_DocumentComplete', u'\w+_DownloadBegin',
+    u'\w+_DownloadComplete', u'\w+_FileDownload', u'\w+_NavigateComplete2', u'\w+_NavigateError',
+    u'\w+_ProgressChange', u'\w+_PropertyChange', u'\w+_PropertyChange', u'\w+_StatusTextChange',
+    u'\w+_TitleChange', u'\w+_MouseMove', u'\w+_MouseEnter', u'\w+_MouseLeave', u'\w+_Activate'
 ]
 
 # Recognize keywords of possible malicious intent
 lst_mal_case_sensetive = [
-    "Open",
-    "Write",
-    "Put",
-    "Output",
-    "Print #",
-    "Binary",
-    "FileCopy",
-    "CopyFile",
-    "Kill",
-    "CreateTextFile",
-    "ADODB.Stream",
-    "WriteText",
-    "SaveToFile",
-    "vbNormal",
-    "vbNormalFocus",
-    "vbHide",
-    "vbMinimizedFocus",
-    "vbMaximizedFocus",
-    "vbNormalNoFocus",
-    "vbMinimizedNoFocus",
-    u"\w+\.Run",
-    "MacScript",
-    "popen",
-    r"exec[lv][ep]?",
-    "noexit",
-    "ExecutionPolicy",
-    "noprofile",
-    "command",
-    "EncodedCommand",
-    "invoke-command",
-    "scriptblock",
-    "Invoke-Expression",
-    "AuthorizationManager",
-    "Start-Process",
-    "Application\.Visible",
-    "ShowWindow",
-    "SW_HIDE",
-    "MkDir",
-    "ActiveWorkbook.SaveAs",
-    "Application.AltStartupPath",
-    "CreateObject",
-    "New-Object",
-    "Windows",
-    "FindWindow",
-    "libc\.dylib",
-    "dylib",
-    "CreateThread",
-    "VirtualAlloc",
-    "VirtualAllocEx",
-    "RtlMoveMemory",
-    "EnumSystemLanguageGroupsW?",
-    u"EnumDateFormats(?:W|(?:Ex){1,2})?",
-    "URLDownloadToFileA",
-    "User-Agent",
-    "Net\.WebClient",
-    "DownloadFile",
-    "DownloadString",
-    "SendKeys",
-    "AppActivate",
-    "CallByName",
-    "RegOpenKeyExAs",
-    "RegOpenKeyEx",
-    "RegCloseKey",
-    "RegQueryValueExA",
-    "RegQueryValueEx",
-    "RegRead",
-    "GetVolumeInformationA",
-    "GetVolumeInformation",
-    "1824245000",
-    r"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProductId",
-    "popupkiller",
-    "SbieDll\.dll",
-    "SandboxieControlWndClass",
-    "currentuser",
-    "Schmidti",
-    "AccessVBOM",
-    "VBAWarnings",
-    "ProtectedView",
-    "DisableAttachementsInPV",
-    "DisableInternetFilesInPV",
-    "DisableUnsafeLocationsInPV",
-    "blockcontentexecutionfrominternet",
-    "VBProject",
-    "VBComponents",
-    "CodeModule",
-    "AddFromString",
-    "Call",
-    "GetObject",
-    "ExecQuery",
-    "GetStringValue",
-    "GetDWORDValue",
-    u"ActiveDocument\.\w+",
-    "DOMDocument",
-    "IXMLDOMElement",
-    "ComputerName",
-    "Domain",
-    "RegRead",
-    "RegWrite",
-    "#If Mac",
-    "appdata",
-    u"WordBasic\.\w+",
-    "WriteLine",
-    "Cells",
-    u"Application\.\w+",
-    "Sleep",
-    "Process",
-    u"NormalTemplate\.\w+",
-    u"\w+\.Application",
-    "CommandBars",
-    u"System\.\w+",
-    "setRequestHeader",
-    "Send",
-    "setOption",
-    "RecentFiles",
-    "Mozilla",
-    "UserName",
-    "DeleteFile",
-    "Delete",
-    "\.Execute",
-    "\.Content",
-    "MsgBox",
-    "\.Quit",
-    "Run",
-    "Now",
-    "Comments",
-    "PROCESSOR_ARCHITECTURE",
-    "CopyFolder",
-    "winmgmts",
-    "bin\.base64",
-    "\.CreateKey",
-    "\.Create",
-    "\.SpawnInstance_",
-    "Selection\.WholeStory",
-    "\.CreateShortcut",
-    "\.CreateFolder",
-    "\.DynamicInvoke",
-    "\.CreateInstance",
-    "\.MSFConnect",
-    "\.RegisterTaskDefinition",
-    "Shell\.Application|ShellExecute|WScript\.Shell|Shell",
-    "\.Load",
-    "\.transformNode",
-    "ExecuteExcel4Macro",
-    ".\Show",
+    "Open", 'Write', 'Put', 'Output', 'Print #', 'Binary', 'FileCopy',
+    'CopyFile', 'Kill', 'CreateTextFile', 'ADODB.Stream', 'WriteText',
+    'SaveToFile', 'vbNormal', 'vbNormalFocus', 'vbHide',
+    'vbMinimizedFocus', 'vbMaximizedFocus', 'vbNormalNoFocus',
+    'vbMinimizedNoFocus', u'\w+\.Run', 'MacScript',
+    'popen', r'exec[lv][ep]?', 'noexit',
+    'ExecutionPolicy', 'noprofile', 'command', 'EncodedCommand',
+    'invoke-command', 'scriptblock', 'Invoke-Expression',
+    'AuthorizationManager', 'Start-Process', 'Application\.Visible',
+    'ShowWindow', 'SW_HIDE', 'MkDir', 'ActiveWorkbook.SaveAs',
+    'Application.AltStartupPath', 'CreateObject', 'New-Object',
+    'Windows', 'FindWindow', 'libc\.dylib', 'dylib',
+    'CreateThread', 'VirtualAlloc', 'VirtualAllocEx', 'RtlMoveMemory',
+    'EnumSystemLanguageGroupsW?', u'EnumDateFormats(?:W|(?:Ex){1,2})?',
+    'URLDownloadToFileA',  'User-Agent',
+    'Net\.WebClient', 'DownloadFile', 'DownloadString',
+    'SendKeys', 'AppActivate', 'CallByName',
+    'RegOpenKeyExAs', 'RegOpenKeyEx', 'RegCloseKey',
+    'RegQueryValueExA', 'RegQueryValueEx', 'RegRead',
+    'GetVolumeInformationA', 'GetVolumeInformation', '1824245000',
+    r'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProductId',
+    'popupkiller', 'SbieDll\.dll', 'SandboxieControlWndClass',
+    'currentuser', 'Schmidti', 'AccessVBOM', 'VBAWarnings',
+    'ProtectedView', 'DisableAttachementsInPV', 'DisableInternetFilesInPV',
+    'DisableUnsafeLocationsInPV', 'blockcontentexecutionfrominternet',
+    'VBProject', 'VBComponents', 'CodeModule', 'AddFromString', 'Call', 'GetObject',
+    'ExecQuery', 'GetStringValue', 'GetDWORDValue', u'ActiveDocument\.\w+', 'DOMDocument',
+    'IXMLDOMElement', 'ComputerName', 'Domain', 'RegRead', 'RegWrite', '#If Mac',
+    'appdata', u'WordBasic\.\w+', 'WriteLine',
+    'Cells', u'Application\.\w+', 'Sleep', 'Process', u'NormalTemplate\.\w+',
+    u'\w+\.Application', 'CommandBars', u'System\.\w+', "setRequestHeader", "Send", "setOption",
+    "RecentFiles", "Mozilla", "UserName", "DeleteFile", "Delete", "\.Execute", "\.Content",
+    "MsgBox", "\.Quit",  'Run', 'Now', 'Comments', 'PROCESSOR_ARCHITECTURE',
+    'CopyFolder', 'winmgmts', 'bin\.base64', '\.CreateKey', '\.Create',
+    '\.SpawnInstance_', 'Selection\.WholeStory', '\.CreateShortcut', '\.CreateFolder',
+    '\.DynamicInvoke', '\.CreateInstance', '\.MSFConnect', '\.RegisterTaskDefinition',
+    'Shell\.Application|ShellExecute|WScript\.Shell|Shell', '\.Load', '\.transformNode',
+    'ExecuteExcel4Macro', '.\Show'
 ]
 
 # Recognize attempts to hide values in form controls and properties
-lst_mal_case_sensetive += ["\.caption", "\.text", "\.value", "\.ControlTipText", "\.tag", "\.CustomDocumentProperties", "\.AlternativeText"]
+lst_mal_case_sensetive += ["\.caption", "\.text", "\.value", "\.ControlTipText", "\.tag",
+    "\.CustomDocumentProperties", "\.AlternativeText"
+]
 
-lst_obfuscation_keywords = [
-    "Asc",
-    "Mid",
-    "Left",
-    "Right",
-    "Tan",
-    "StrReverse",
-    "Xor",
-    "ChrB",
-    "ChrW",
-    "Chr",
-    "CStr",
-    "StrConv",
-    "Replace",
-    "Int",
-    "Hex",
-    "Sqr",
-    "CByte",
-    "Log",
-    "Rnd",
+lst_obfuscation_keywords = ['Asc', 'Mid', 'Left', 'Right', 'Tan', 'StrReverse', 'Xor',
+    'ChrB', 'ChrW', 'Chr', 'CStr', 'StrConv', 'Replace', 'Int', 'Hex', 'Sqr', 'CByte',
+    'Log', 'Rnd'
 ]
 
 lst_mal_case_sensetive += lst_obfuscation_keywords
 
 lst_mal_case_insensetive = [
-    r"SYSTEM\\ControlSet001\\Services\\Disk\\Enum",
-    "VIRTUAL",
-    "VMWARE",
-    "VBOX",
+    r'SYSTEM\\ControlSet001\\Services\\Disk\\Enum', 'VIRTUAL', 'VMWARE', 'VBOX',
     u'"[\w-_\\/]+\.(?:EXE|PIF|GADGET|MSI|MSP|MSC|VBS|VBE|VB|JSE|JS|WSF|WSC|WSH|WS|BAT|CMD|DLL|SCR|HTA|CPL|CLASS|JAR|PS1XML|PS1|PS2XML|PS2|PSC1|PSC2|SCF|LNK|INF|REG)"',
-    "FileSystemObject",
-    "GetSpecialFolder",
-    "PowerShell",
-    u"SELECT \* FROM \w+",
-    "deletefolder",
-    "regsvr\.32",
-    "scrobj\.dll",
-    "cmd\.exe",
-    'Environ\("ALLUSERSPROFILE"\)|Environ\("TEMP"\)|Environ\("TMP"\)|Environ',
-    "Msxml2\.XMLHTTP|Microsoft\.XMLHTTP|MSXML2\.ServerXMLHTTP|microsoft\.xmlhttp|http",
+    'FileSystemObject', 'GetSpecialFolder', 'PowerShell', u'SELECT \* FROM \w+', 'deletefolder',
+    'regsvr\.32', 'scrobj\.dll', 'cmd\.exe',
+    'Environ\(\"ALLUSERSPROFILE\"\)|Environ\(\"TEMP\"\)|Environ\(\"TMP\"\)|Environ',
+    'Msxml2\.XMLHTTP|Microsoft\.XMLHTTP|MSXML2\.ServerXMLHTTP|microsoft\.xmlhttp|http'
 ]
 
 # ****************************************************************************
 # *                             Helper Functions                             *
 # ****************************************************************************
-
 
 def list_files_in_dir(dir_path):
     """Creates a list of files paths
@@ -441,8 +271,8 @@ def create_functions_listing(function_dict, code_output_path):
     for func_name in function_dict:
         # limit func_name size to display
         func_name_limited = func_name[:70]
-        prefix_padding = ((77 - len(func_name_limited)) / 2) * " "
-        suffix_padding = (77 - len(prefix_padding) - len(func_name_limited)) * " "
+        prefix_padding = int((77 - len(func_name_limited)) / 2) * " "
+        suffix_padding = int(77 - len(prefix_padding) - len(func_name_limited)) * " "
 
         f_output.write("'" + "*" * 79)
         f_output.write("\n")
@@ -455,11 +285,9 @@ def create_functions_listing(function_dict, code_output_path):
 
     f_output.close()
 
-
 # ****************************************************************************
 # *                             Input Functions                              *
 # ****************************************************************************
-
 
 def handle_input(input_path="", is_piped=False, input_content=""):
     """Reads the input and returns the content
@@ -545,7 +373,6 @@ def handle_olevba_input(file_content):
 # *                           Processing Functions                           *
 # ****************************************************************************
 
-
 def vba_seperate_lines(input_vba_content):
     """Takes the full VBA input and breaks it into lines
 
@@ -605,7 +432,7 @@ def vba_clean_metadata(vba_content_lines):
     # process lines one by one
     for vba_line in vba_content_lines:
         # check and discard empty lines
-        if vba_line.startswith("Attribute") or vba_line.startswith("'"):
+        if (vba_line.startswith("Attribute") or vba_line.startswith("'")):
             continue
 
         # crop inline comments
@@ -671,16 +498,18 @@ def vba_extract_functions(vba_content_lines):
         #   Private Declare PtrSafe Function mcvWGqJifEVHwB Lib "urlmon" Alias "URLDownloadToFileA" (ByVal pfsseerwseer As Long,...
         #   - would become: mcvWGqJifEVHwB (URLDownloadToFileA) (External)
 
-        if " Lib " in vba_line and " Alias " in vba_line and not inside_function:
+        if " Lib " in vba_line and ' Alias ' in vba_line and not inside_function:
             if " Function " in vba_line:
                 func_type = " Function "
             else:
                 func_type = " Sub "
 
-            declared_func_name = vba_line[vba_line.find(func_type) + len(func_type) : vba_line.find(" Lib ")]
+            declared_func_name = vba_line[vba_line.find(func_type) + len(
+                func_type):vba_line.find(" Lib ")]
             external_func_name = vba_line[
-                vba_line.find(' Alias "') + len(' Alias "') : vba_line.find('" (', vba_line.find(' Alias "') + len(' Alias "'))
-            ]
+                vba_line.find(" Alias \"") + len(" Alias \""):vba_line.find(
+                    "\" (",
+                    vba_line.find(" Alias \"") + len(" Alias \""))]
             func_name = declared_func_name + " (" + external_func_name + ")" + " (External)"
 
             if "libc.dylib" in vba_line:
@@ -701,7 +530,8 @@ def vba_extract_functions(vba_content_lines):
                 func_type = " Function "
             else:
                 func_type = " Sub "
-            func_name = vba_line[vba_line.find(func_type) + len(func_type) : vba_line.find(" Lib ")] + " (External)"
+            func_name = vba_line[vba_line.find(func_type) + len(
+                func_type):vba_line.find(" Lib ")] + " (External)"
 
             if "libc.dylib" in vba_line:
                 func_name += "(Mac)"
@@ -735,9 +565,11 @@ def vba_extract_functions(vba_content_lines):
 
             # extract function name from declaration
             if "Function " in vba_line:
-                func_name = vba_line[(func_start_pos + len("Function ")) : vba_line.find("(")]
+                func_name = vba_line[(
+                    func_start_pos + len("Function ")):vba_line.find("(")]
             elif "Sub " in vba_line:
-                func_name = vba_line[(func_start_pos + len("Sub ")) : vba_line.find("(")]
+                func_name = vba_line[(
+                    func_start_pos + len("Sub ")):vba_line.find("(")]
             else:
                 logger.error("Error parsing function name")
                 sys.exit(1)
@@ -793,7 +625,8 @@ def vba_extract_properties(vba_content_lines):
 
             # extract property name from declaration
             if "Property Let " in vba_line or "Property Get " in vba_line:
-                prop_name = vba_line[(prop_start_pos + len("Property Let ")) : vba_line.find("(")] + " (Property)"
+                prop_name = vba_line[(
+                    prop_start_pos + len("Property Let ")):vba_line.find("(")] + " (Property)"
 
             else:
                 logger.error("Error parsing property name")
@@ -820,7 +653,6 @@ def vba_extract_properties(vba_content_lines):
 # *                        Graph Generation Functions                        *
 # ****************************************************************************
 
-
 def create_call_graph(vba_func_dict):
     """Creates directed graph object (DG) from VBA functions dicitonary
 
@@ -833,13 +665,13 @@ def create_call_graph(vba_func_dict):
     DG = nx.DiGraph()
     for func_name in vba_func_dict:
         DG.add_node(func_name, keywords="")
-
     # analyze function calls
     for func_name in vba_func_dict:
 
         func_code = vba_func_dict[func_name]
         # split function code into tokens
-        func_code_tokens = [_f for _f in re.split('["(, \-!?:\r\n)&=.><]+', func_code) if _f]
+        func_code_tokens = list(filter(None, re.split('[\"(, \-!?:\r\n)&=.><]+',
+                                                 func_code)))
         # inside each function's code, we are looking for a function name
         for func_name1 in vba_func_dict:
             orig_func_name = func_name1
@@ -881,7 +713,7 @@ def find_keywords_in_graph(vba_func_dict, DG):
 
         func_code = vba_func_dict[func_name]
         # split function code into lines
-        func_code_lines = [_f for _f in re.split("\n", func_code) if _f]
+        func_code_lines = filter(None, re.split("\n", func_code))
 
         # handle malicious keywords
         keywords_re_sensetive = "(" + ")|(".join(lst_mal_case_sensetive) + ")"
@@ -913,18 +745,15 @@ def find_keywords_in_graph(vba_func_dict, DG):
                 keyword_color = color_scheme["COLOR_REGULAR_KEYWORD"]
 
             keyword_count = dict_items[dic_key]
-            if DG.node[func_name]["keywords"] != "":
-                DG.node[func_name]["keywords"] = DG.node[func_name]["keywords"] + ","
+            if DG.nodes[func_name]["keywords"] != "":
+                DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + ","
 
-            DG.node[func_name]["keywords"] = (
-                DG.node[func_name]["keywords"] + "<font color='" + keyword_color + "'>" + dic_key + "[" + str(keyword_count) + "]" + "</font>"
-            )
+            DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + "<font color='" + keyword_color + "'>" + dic_key + "[" + str(keyword_count) + "]" + "</font>"
 
         # handle autorun keywords
         keywords_re = "(" + ")|(".join(lst_autorun) + ")"
         if re.match(keywords_re, func_name, re.IGNORECASE):
-            DG.node[func_name]["color"] = color_scheme["COLOR_AUTORUN_FUNCTIONS"]
-
+            DG.nodes[func_name]["color"] = color_scheme["COLOR_AUTORUN_FUNCTIONS"]
     return DG
 
 
@@ -953,7 +782,7 @@ def find_change_flow(vba_func_dict, DG):
     for func_name in vba_func_dict:
         func_code = vba_func_dict[func_name]
         # split function code into lines
-        func_code_lines = [_f for _f in re.split("\n", func_code) if _f]
+        func_code_lines = filter(None, re.split("\n", func_code))
         for func_line in func_code_lines:
             for changed_object in changed_objects:
                 # look for .[changed_object] pattern, followd by "="
@@ -963,9 +792,7 @@ def find_change_flow(vba_func_dict, DG):
                         # we found object with Change event that was assigned a value
 
                         # show this connection as a function call
-                        DG.add_edge(
-                            func_name, changed_object + "_Change", label="Triggers", fontcolor=color_scheme["COLOR_TRIGGERED_CALL_EDGE"]
-                        )
+                        DG.add_edge(func_name, changed_object + "_Change", label="Triggers", fontcolor=color_scheme["COLOR_TRIGGERED_CALL_EDGE"])
     return DG
 
 
@@ -980,42 +807,37 @@ def design_graph_dot(DG):
     """
     # locate malicious keywords
     for key in DG:
-        if "color" not in DG.node[key]:
-            DG.node[key]["color"] = color_scheme["COLOR_DEFAULT_BOX"]
-        DG.node[key]["fontcolor"] = color_scheme["COLOR_DEFAULT_TEXT"]
+        if "color" not in DG.nodes[key]:
+            DG.nodes[key]["color"] = color_scheme["COLOR_DEFAULT_BOX"]
+        DG.nodes[key]["fontcolor"] = color_scheme["COLOR_DEFAULT_TEXT"]
 
         # handle functions without keywords - create box shape
-        if DG.node[key]["keywords"] == "":
-            DG.node[key]["shape"] = "box"
+        if DG.nodes[key]["keywords"] == "":
+            DG.nodes[key]['shape'] = "box"
 
             # color external functions
             if "(External)" in key:
-                DG.node[key]["color"] = color_scheme["COLOR_EXTERNAL_FUNCTION"]
+                DG.nodes[key]["color"] = color_scheme["COLOR_EXTERNAL_FUNCTION"]
 
         # handle functions with keywords - create html table
         else:
-            DG.node[key]["shape"] = "plaintext"
-            DG.node[key]["margin"] = 0
+            DG.nodes[key]["shape"] = "plaintext"
+            DG.nodes[key]["margin"] = 0
 
             header = key
-            content = DG.node[key]["keywords"]
-            DG.node[key]["label"] = (
-                r"<<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\"><TR><TD><FONT FACE=\"Courier\">"
-                + header
-                + r"</FONT></TD></TR><TR><TD><FONT FACE=\"Courier Bold\">"
-                + content
-                + r"</FONT></TD></TR></TABLE>>"
-            )
+            content = DG.nodes[key]["keywords"]
+            DG.nodes[key]["label"] = r"<<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\"><TR><TD><FONT FACE=\"Courier\">" + header + r"</FONT></TD></TR><TR><TD><FONT FACE=\"Courier Bold\">" + content + r"</FONT></TD></TR></TABLE>>"
             # fix a bug in DOT generation
-            DG.node[key]["keywords"] = ""
+            DG.nodes[key]["keywords"] = ""
 
             # color VBA properties
             if "(Property)" in key:
-                DG.node[key]["color"] = color_scheme["COLOR_PROPERTY"]
+                DG.nodes[key]["color"] = color_scheme["COLOR_PROPERTY"]
 
     # graph background color
     DG.add_node("graph", bgcolor=color_scheme["COLOR_BACKGROUND"])
     DG.add_node("edge", color=color_scheme["COLOR_DEFAULT_EDGES"], fontcolor=color_scheme["COLOR_DEFAULT_EDGES_FONT"])
+
 
     return DG
 
@@ -1083,16 +905,17 @@ def vba2graph_from_vba_object(filepath):
             return False
     full_vba_code = ""
     for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():
-        full_vba_code += "VBA MACRO %s \n" % vba_filename
-        full_vba_code += "- " * 39 + "\n"
+        full_vba_code += 'VBA MACRO %s \n' % vba_filename
+        full_vba_code += '- '*39 + '\n'
+        # Temporary workaround. Change when oletools 0.56 will be released.
+        if isinstance(vba_code, bytes):
+            vba_code = vba_code.decode('utf8', errors='replace')
         full_vba_code += vba_code
     vba.close()
     if full_vba_code:
         input_vba_content = handle_olevba_input(full_vba_code)
         return input_vba_content
-
     return False
-
 
 def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vba2graph", color_scheme=color_scheme):
 
@@ -1110,13 +933,14 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
 
     vba_content_lines = vba_seperate_lines(input_vba_content)
     vba_content_lines_no_whitespace = vba_clean_whitespace(vba_content_lines)
-    vba_content_lines_no_metadata = vba_clean_metadata(vba_content_lines_no_whitespace)
+    vba_content_lines_no_metadata = vba_clean_metadata(
+        vba_content_lines_no_whitespace)
     vba_content_deobfuscated = vba_deobfuscation(vba_content_lines_no_metadata)
     vba_func_dict = vba_extract_functions(vba_content_deobfuscated)
     vba_prop_dict = vba_extract_properties(vba_content_lines_no_metadata)
 
     # treat properties like functions and merge both dictionaries
-    vba_func_dict = dict(list(vba_func_dict.items()) + list(vba_prop_dict.items()))
+    vba_func_dict = dict(vba_func_dict.items() | vba_prop_dict.items())
 
     ##############################################################################
     # at this point, vba_func_dict should contain the code of functions and
@@ -1148,7 +972,7 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
     except OSError as exc:
         if exc.errno != errno.EEXIST:
             logger.error("Error creating debugging output folder")
-    code_output_path = bas_folder + os.sep + input_file_name + ".bas"
+    code_output_path = bas_folder + os.sep + input_file_name + '.bas'
     create_functions_listing(vba_func_dict, code_output_path)
 
     ################################
@@ -1160,18 +984,18 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
     except OSError as exc:
         if exc.errno != errno.EEXIST:
             logger.error("Error creating DOT output folder")
-    dot_output_path = dot_folder + os.sep + input_file_name + ".dot"
+    dot_output_path = dot_folder + os.sep + input_file_name + '.dot'
 
     # redirect NetworkX write_dot output to StringIO for further manipulation
-    str_io_dot = StringIO.StringIO()
+    str_io_dot = StringIO()
     write_dot(DG, str_io_dot)
-    str_dot = str_io_dot.getvalue()
+    str_dot = str_io_dot.getvalue().replace('\\', '')
     str_io_dot.close()
 
     # check if our DOT file is broken (one of the funciton names was reserved keyword)
     str_dot = fix_dot_output(str_dot)
 
-    with open(dot_output_path, "w") as the_file:
+    with open(dot_output_path, 'wb') as the_file:
         the_file.write(str_dot.encode("utf-8", errors="ignore"))
 
     ##############################
@@ -1183,8 +1007,8 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
     except OSError as exc:
         if exc.errno != errno.EEXIST:
             logger.error("Error creating PNG output folder")
-    png_output_path = png_folder + os.sep + input_file_name + ".png"
-    process = Popen(["dot", "-Tpng", dot_output_path, "-o", png_output_path])
+    png_output_path = png_folder + os.sep + input_file_name + '.png'
+    process = Popen(['dot', '-Tpng', dot_output_path, '-o', png_output_path])
     process.wait()
 
     ##############################
@@ -1196,10 +1020,9 @@ def vba2graph_gen(input_vba_content, output_folder="output", input_file_name="vb
     except OSError as exc:
         if exc.errno != errno.EEXIST:
             logger.error("Error creating PNG output folder")
-    svg_output_path = svg_folder + os.sep + input_file_name + ".svg"
-    process = Popen(["dot", "-Tsvg", dot_output_path, "-o", svg_output_path])
+    svg_output_path = svg_folder + os.sep + input_file_name + '.svg'
+    process = Popen(['dot', '-Tsvg', dot_output_path, '-o', svg_output_path])
     process.wait()
-
 
 def main():
     global color_scheme
@@ -1218,10 +1041,8 @@ def main():
 
     # argument parser would be modified, depended on if we have input in the pipe
     ap = argparse.ArgumentParser()
-    ap.add_argument("-o", "--output", required=False, help='output folder (default: "output")')
-    ap.add_argument(
-        "-c", "--colors", required=False, type=int, choices=[0, 1, 2, 3], help="color scheme number [0, 1, 2, 3] (default: 0 - B&W)"
-    )
+    ap.add_argument("-o", "--output", required=False, help="output folder (default: \"output\")")
+    ap.add_argument("-c", "--colors", required=False, type=int, choices=[0, 1, 2, 3], help="color scheme number [0, 1, 2, 3] (default: 0 - B&W)")
 
     if is_pipe:
         input_content = sys.stdin.read()
@@ -1270,6 +1091,6 @@ def main():
     vba2graph_gen(input_vba_content, output_folder, input_file_name, color_scheme)
 
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == '__main__' and __package__ is None:
     logging.basicConfig(level=logging.INFO)
     main()

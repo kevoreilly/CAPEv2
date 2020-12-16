@@ -699,6 +699,8 @@ def perform_search(term, value):
                     query_val = {"$in": ids}
                 else:
                     term = "id"
+                    if isinstance(value, list):
+                        value = value[0]
                     query_val = int(value)
         except Exception as e:
             print(term, value, e)

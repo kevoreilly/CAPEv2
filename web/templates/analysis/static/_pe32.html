@@ -4,8 +4,12 @@
         <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
         {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
     </br></br>
-    {% else %
-        <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
+    {% else %}
+        {% if graphs.bingraph.enabled %}
+        <h4>BinGraph
+            <p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
+        </h4>
+        {% endif %}
     {% endif %}
     {% if analysis.static.flare_capa %}
     <p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a></p>

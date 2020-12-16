@@ -84,7 +84,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-
+from lib.cuckoo.common.cape_utils import vba2graph_func
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -1002,7 +1002,7 @@ class PortableExecutable(object):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
         pretime = datetime.now()
-        capa_details = flare_capa_details(self.file_path, "binary")
+        capa_details = flare_capa_details(self.file_path, "static")
         if capa_details:
             results["flare_capa"] = capa_details
         self.add_statistic_tmp("flare_capa", "time", pretime)
@@ -1461,16 +1461,8 @@ class Office(object):
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
 
-            if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
-                try:
-                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "vba2graph")
-                    if not os.path.exists(vba2graph_path):
-                        os.makedirs(vba2graph_path)
-                    vba_code = vba2graph_from_vba_object(filepath)
-                    if vba_code:
-                        vba2graph_gen(vba_code, vba2graph_path)
-                except Exception as e:
-                    log.error(e, exc_info=True)
+            vba2graph_func(filepath, str(self.results["info"]["id"]))
+
         else:
             metares["HasMacros"] = "No"
 
@@ -1512,7 +1504,10 @@ class Office(object):
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except Exception as e:
-                log.error(e, exc_info=True)
+                if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
+                    log.info("Workbook not found. Probably not an Excel file.")
+                else:
+                    log.error(e, exc_info=True)
 
         return results
 

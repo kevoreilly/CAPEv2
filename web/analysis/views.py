@@ -31,7 +31,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.core.database import Database, Task, TASK_PENDING
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, statistics
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, my_rate_minutes, my_rate_seconds, rateblock, statistics
 import modules.processing.network as network
 
 try:
@@ -365,7 +365,7 @@ def pending(request):
     for task in tasks:
         pending.append({"target": task.target, "added_on": task.added_on, "category": task.category, "md5": task.sample.md5, "sha256": task.sample.sha256})
 
-    return render(request, "analysis/pending.html",  {"tasks": pending})
+    return render(request, "analysis/pending.html", {"tasks": pending})
 
 
 ajax_mongo_schema = {
@@ -391,7 +391,9 @@ def load_files(request, task_id, category):
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
-                data = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0})
+                data = results_db.analysis.find_one(
+                    {"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0},
+                )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             else:
@@ -924,7 +926,8 @@ def search_behavior(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)]
+        report = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)],
         )
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
@@ -952,7 +955,11 @@ def report(request, task_id):
         children = report["CAPE_children"]
 
     try:
-        report["dropped"] = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]))[0]["dropped_size"]
+        report["dropped"] = list(
+            results_db.analysis.aggregate(
+                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]
+            )
+        )[0]["dropped_size"]
     except:
         report["dropped"] = 0
 
@@ -1052,14 +1059,13 @@ def report(request, task_id):
             except Exception as e:
                 print(e)
 
-    vba2graph = False
+    vba2graph = processing_cfg.vba2graph.enabled
     vba2graph_svg_content = ""
     vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
     if os.path.exists(vba2graph_svg_path):
-        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read()
-        vba2graph = True
+        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read().decode('utf8')
 
-    bingraph = False
+    bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
     bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
     if os.path.exists(bingraph_path):
@@ -1067,8 +1073,6 @@ def report(request, task_id):
             tmp_file = os.path.join(bingraph_path, file)
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
-    if bingraph_dict_content:
-        bingraph = True
 
     return render(
         request,
@@ -1158,7 +1162,7 @@ def file(request, category, task_id, dlfile):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(b"infected")
+                    zf.setpassword(settings.ZIP_PWD)
                     with open(path, "rb") as f:
                         zf.writestr(os.path.basename(path), f.read())
             else:
@@ -1666,7 +1670,7 @@ def statistics_data(request, days=7):
     else:
         return render(request, "error.html", {"error": "Provide days as number"})
 
-on_demain_config_mapper = {
+on_demand_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": processing_cfg,
     "vba2graph": processing_cfg,
@@ -1689,7 +1693,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
@@ -1702,13 +1706,10 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
-        if category == "static":
-            details = flare_capa_details(path, "binary" , on_demand=True)
-        else:
-             details = flare_capa_details(path, category.lower() , on_demand=True)
+        details = flare_capa_details(path, category.lower(), on_demand=True)
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, task_id, on_demand=True)
+        vba2graph_func(path, str(task_id), on_demand=True)
 
     elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256+"-ent.svg")):
         bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")
@@ -1726,13 +1727,21 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     if details:
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
-            for block in buf["CAPE"].get("payloads", []) or []:
+            for block in buf[category].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
+
         elif category == "static":
             if buf.get(category, {}):
-                buf[category]["flare_capa"] = details
+                buf["static"][service] = details
+
+        elif category == "procdump":
+            for block in buf[category] or []:
+                if block.get("sha256") == sha256:
+                    block[service] = details
+                    break
+
         results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 

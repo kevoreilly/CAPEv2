@@ -155,10 +155,12 @@
                     {{ bingraph.content|getkey:file.sha256|safe }}
                 </tr>
             {% else %}
+                {% if bingraph.enabled %}
                 <tr>
                     <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "procdump" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
                     <td></td>
                 </tr>
+                {% endif %}
             {% endif %}
             </table>
         </div>

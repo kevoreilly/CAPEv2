@@ -3,17 +3,14 @@ from __future__ import print_function
 import os
 import sys
 import json
-import time
 import magic
 import logging
-import hashlib
 import requests
 import hashlib
 import tempfile
 from datetime import datetime, timedelta
 from random import choice
 from collections import OrderedDict
-from ratelimit.decorators import ratelimit
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
@@ -24,8 +21,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
-from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, get_user_filename, sanitize_filename
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
 
 cfg = Config("cuckoo")
 repconf = Config("reporting")
@@ -411,7 +407,6 @@ def get_platform(magic):
         return "windows"
 
 def download_file(**kwargs):
-
     """ Example of kwargs
     {
         "errors": [],
@@ -468,7 +463,6 @@ def download_file(**kwargs):
             f = open(kwargs["path"], 'wb')
             f.write(kwargs["content"])
             f. close()
-
     except Exception as e:
         print(e)
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
@@ -492,7 +486,6 @@ def download_file(**kwargs):
             return "error", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}
         else:
             kwargs["task_machines"] = [machine]
-
     else:
         kwargs["task_machines"] = ["first"]
 

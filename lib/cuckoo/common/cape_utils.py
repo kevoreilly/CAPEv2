@@ -331,6 +331,10 @@ def flare_capa_details(file_path: str, category: str, on_demand: bool=False) -> 
 def vba2graph_func(file_path: str, id: str, on_demand: bool=False):
     if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled and (processing_conf.vba2graph.on_demand is False or on_demand is True):
         try:
+            vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id), "vba2graph", "svg", "vba2graph.svg")
+            if os.path.exists(vba2graph_svg_path):
+                return
+
             vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(id), "vba2graph")
             if not os.path.exists(vba2graph_path):
                 os.makedirs(vba2graph_path)

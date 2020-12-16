@@ -1732,11 +1732,11 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        if category == "static":
+        elif category == "static":
             if buf.get(category, {}):
                 buf["static"][service] = details
 
-        if category == "procdump":
+        elif category == "procdump":
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details

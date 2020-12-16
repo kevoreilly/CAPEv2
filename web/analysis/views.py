@@ -1669,6 +1669,7 @@ def statistics_data(request, days=7):
 on_demain_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": processing_cfg,
+    "vba2graph": processing_cfg,
 }
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -1688,7 +1689,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

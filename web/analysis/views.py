@@ -1733,7 +1733,8 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     break
 
         if category == "static":
-            buf["static"][service] = details
+            if buf["static"]:
+                buf["static"][service] = details
 
         if category == "procdump":
             for block in buf[category] or []:

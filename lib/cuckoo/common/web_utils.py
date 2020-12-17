@@ -600,6 +600,7 @@ perform_search_filters = {
     "suri_http_cnt": 1,
     "suri_file_cnt": 1,
     "trid": 1,
+    "CAPE_childrens": 1,
     "_id": 0,
 }
 

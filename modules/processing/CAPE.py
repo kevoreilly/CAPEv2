@@ -28,7 +28,6 @@ import imp
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, flare_capa_details
 
@@ -518,7 +517,7 @@ class CAPE(Processing):
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
+                log.error('Sample file doesn\'t exist: "%s"' % self.file_path)
 
         self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 

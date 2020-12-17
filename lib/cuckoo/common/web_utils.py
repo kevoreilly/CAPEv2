@@ -297,6 +297,8 @@ def statistics(s_days: int) -> dict:
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
 
+    details["tasks"] = OrderedDict(sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
+
     if HAVE_DIST and repconf.distributed.enabled:
         details["distributed_tasks"] = dict()
         dist_db = dist_session()
@@ -326,7 +328,7 @@ def statistics(s_days: int) -> dict:
                 details["top_samples"][day][sha256] = top_samples[day][sha256]
 
         details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
-
+    details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
     session.close()
     return details
 

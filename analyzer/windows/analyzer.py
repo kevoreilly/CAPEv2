@@ -295,7 +295,8 @@ class Analyzer:
         # Copy the debugger log.
         upload_files("debugger")
 
-        upload_files("dumptls")
+        # TLS secrets (if any)
+        upload_files("tlsdump")
 
         # Stop the Pipe Servers.
         if hasattr(self, "command_pipe"):
@@ -393,6 +394,52 @@ class Analyzer:
         if self.config.category == "file":
             self.target = self.package.move_curdir(self.target)
 
+        # Set the DLL to that specified by package
+        if "dll" in self.package.options and self.package.options["dll"] is not None:
+            MONITOR_DLL = self.package.options["dll"]
+            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a DLL option", package_name)
+
+        # Set the DLL_64 to that specified by package
+        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
+            MONITOR_DLL_64 = self.package.options["dll_64"]
+            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
+
+        # Set the loader to that specified by package
+        if "loader" in self.package.options and self.package.options["loader"] is not None:
+            LOADER32 = self.package.options["loader"]
+            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader option", package_name)
+
+        # Set the loader_64 to that specified by package
+        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
+            LOADER64 = self.package.options["loader_64"]
+            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
+
+        # randomize monitor DLL and loader executable names
+        if MONITOR_DLL is not None:
+            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
+        else:
+            copy("dll\\capemon.dll", CAPEMON32_NAME)
+        if MONITOR_DLL_64 is not None:
+            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
+        else:
+            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
+        if LOADER32 is not None:
+            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
+        else:
+            copy("bin\\loader.exe", LOADER32_NAME)
+        if LOADER64 is not None:
+            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
+        else:
+            copy("bin\\loader_x64.exe", LOADER64_NAME)
+
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = auxiliary.__name__ + "."
@@ -451,52 +498,6 @@ class Analyzer:
         # Propagate the requested dump interval, if set.
         zer0m0n.dumpint(int(self.options.get("dumpint", "0")))
         """
-
-        # Set the DLL to that specified by package
-        if "dll" in self.package.options and self.package.options["dll"] is not None:
-            MONITOR_DLL = self.package.options["dll"]
-            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL option", package_name)
-
-        # Set the DLL_64 to that specified by package
-        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
-            MONITOR_DLL_64 = self.package.options["dll_64"]
-            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
-
-        # Set the loader to that specified by package
-        if "loader" in self.package.options and self.package.options["loader"] is not None:
-            LOADER32 = self.package.options["loader"]
-            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader option", package_name)
-
-        # Set the loader_64 to that specified by package
-        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
-            LOADER64 = self.package.options["loader_64"]
-            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
-
-        # randomize monitor DLL and loader executable names
-        if MONITOR_DLL is not None:
-            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
-        else:
-            copy("dll\\capemon.dll", CAPEMON32_NAME)
-        if MONITOR_DLL_64 is not None:
-            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
-        else:
-            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
-        if LOADER32 is not None:
-            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
-        else:
-            copy("bin\\loader.exe", LOADER32_NAME)
-        if LOADER64 is not None:
-            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
-        else:
-            copy("bin\\loader_x64.exe", LOADER64_NAME)
 
         si = subprocess.STARTUPINFO()
         # STARTF_USESHOWWINDOW
@@ -690,7 +691,6 @@ class Analyzer:
             except Exception as e:
                 log.warning("Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e)
 
-        # Let's invoke the completion procedure.
         log.info("Shutting down pipe server and dumping dropped files.")
 
         return True

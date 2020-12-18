@@ -112,8 +112,6 @@ if enabledconf["elasticsearchdb"]:
 
 db = Database()
 
-maxsimilar = int(Config("reporting").malheur.maxsimilar)
-
 # Conditional decorator for web authentication
 class conditional_login_required(object):
     def __init__(self, dec, condition):
@@ -1020,44 +1018,6 @@ def report(request, task_id):
         domainlookups = dict()
         iplookups = dict()
 
-    similar = []
-    similarinfo = []
-    if enabledconf["malheur"]:
-        malheur_file = os.path.join(CUCKOO_ROOT, "storage", "malheur", "malheur.txt")
-        if os.path.exists(malheur_file):
-            classes = dict()
-            ourclassname = None
-
-            try:
-                with open(malheur_file, "r") as malfile:
-                    for line in malfile:
-                        if line[0] == "#":
-                            continue
-                        parts = line.strip().split(" ")
-                        classname = parts[1]
-                        if classname != "rejected":
-                            if classname not in classes:
-                                classes[classname] = []
-                            addval = dict()
-                            addval["id"] = parts[0][:-4]
-                            addval["proto"] = parts[2][:-4]
-                            addval["distance"] = parts[3]
-                            if addval["id"] == task_id:
-                                ourclassname = classname
-                            else:
-                                classes[classname].append(addval)
-                if ourclassname:
-                    similar = classes[ourclassname]
-                    for sim in similar[:maxsimilar]:
-                        siminfo = get_analysis_info(db, id=int(sim["id"]))
-                        if siminfo:
-                            similarinfo.append(siminfo)
-                    if similarinfo:
-                        buf = sorted(similarinfo, key=lambda z: z["id"], reverse=True)
-                        similarinfo = buf
-
-            except Exception as e:
-                print(e)
 
     vba2graph = processing_cfg.vba2graph.enabled
     vba2graph_svg_content = ""
@@ -1082,7 +1042,6 @@ def report(request, task_id):
             "children": children,
             "domainlookups": domainlookups,
             "iplookups": iplookups,
-            "similar": similarinfo,
             "settings": settings,
             "config": enabledconf,
             "reports_exist": reports_exist,

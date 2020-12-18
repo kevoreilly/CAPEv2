@@ -8,12 +8,12 @@ import socket
 import struct
 import tempfile
 import logging
+import binascii
 import dns.resolver
 from collections import OrderedDict
 from urllib.parse import urlunparse
-from hashlib import md5
+from hashlib import md5, sha1, sha256
 from json import loads
-import six
 from base64 import b64encode
 
 try:
@@ -31,6 +31,7 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
+from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
 
 try:
     import GeoIP
@@ -46,6 +47,17 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
+    print("Missed dependency: pip3 install -U dpkt")
+
+HAVE_HTTPREPLAY = False
+try:
+    import httpreplay
+    import httpreplay.cut
+    if httpreplay.__version__ == '0.3':
+        HAVE_HTTPREPLAY = True
+except ImportError:
+    print("Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+
 
 # Imports for the batch sort.
 # http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
@@ -68,9 +80,13 @@ passlist_file = proc_cfg.network.dnswhitelist_file
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
+# Be less verbose about httpreplay logging messages.
+logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
+
 
 class Pcap:
     """Reads network data from PCAP file."""
+    ssl_ports = 443,
 
     def __init__(self, filepath, ja3_fprints):
         """Creates a new instance.
@@ -282,6 +298,9 @@ class Pcap:
         # IRC.
         if conn["dport"] != 21 and self._check_irc(data):
             self._add_irc(conn, data)
+        # HTTPS.
+        if conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
+            self._https_identify(conn, data)
         # ja3
         ja3hash = self._check_ja3(data)
         if ja3hash != None:
@@ -563,6 +582,44 @@ class Pcap:
 
         return True
 
+    def _https_identify(self, conn, data):
+        """Extract a combination of the Session ID, Client Random, and Server
+        Random in order to identify the accompanying master secret later."""
+        try:
+            record = dpkt.ssl.TLSRecord(data)
+        except dpkt.NeedData as e:
+            log.error("dpkt.NeedData: {}".format(str(e)), exc_info=True)
+            return
+        except Exception as e:
+            log.exception("Error reading possible TLS Record")
+            return
+
+        # Is this a valid TLS packet?
+        if record.type not in dpkt.ssl.RECORD_TYPES:
+            log.info("record.type not in dpkt.ssl.RECORD_TYPES")
+            return
+
+        try:
+            record = dpkt.ssl.RECORD_TYPES[record.type](record.data)
+        except (dpkt.NeedData, dpkt.ssl.SSL3Exception):
+            log.info((dpkt.NeedData, dpkt.ssl.SSL3Exception))
+            return
+
+        # Is this a TLSv1 Handshake packet?
+        if not isinstance(record, dpkt.ssl.TLSHandshake):
+            return
+
+        # We're only interested in the TLS Server Hello packets.
+        if not isinstance(record.data, dpkt.ssl.TLSServerHello):
+            log.info("# We're only interested in the TLS Server Hello packets.")
+            return
+
+        # Extract the server random and the session id.
+        self.tls_keys.append({
+            "server_random": binascii.b2a_hex(record.data.random),
+            "session_id": binascii.b2a_hex(record.data.session_id),
+        })
+
     def _reassemble_smtp(self, conn, data):
         """Reassemble a SMTP flow.
         @param conn: connection dict.
@@ -575,7 +632,7 @@ class Pcap:
 
     def _process_smtp(self):
         """Process SMTP flow."""
-        for conn, data in six.iteritems(self.smtp_flow):
+        for conn, data in self.smtp_flow.items():
             # Detect new SMTP flow.
             if data.startswith((b"EHLO", b"HELO")):
                 self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(data)})
@@ -720,7 +777,7 @@ class Pcap:
 
         try:
             pcap = dpkt.pcap.Reader(file)
-        except dpkt.dpkt.NeedData:
+        except dpkt.dpkt.NeedData as e:
             log.error('Unable to read PCAP file at path "%s".', self.filepath)
             return self.results
         except ValueError:
@@ -831,6 +888,166 @@ class Pcap:
 
         return self.results
 
+class Pcap2(object):
+    """Interpret the PCAP file through the httpreplay library which parses
+    the various protocols, decrypts and decodes them, and then provides us
+    with the high level representation of it."""
+
+    def __init__(self, pcap_path, tlsmaster, network_path):
+        self.pcap_path = pcap_path
+        self.network_path = network_path
+
+        tlsmaster = [
+                        [
+                            "5fdcb05427e413bc5b05e55ec3089478c98b105af4a05273f9aa809fdfe01416",
+                            "873169af3ca0afaf134d30d4f63709a99c02c1549fa81d8a444f574e47524400",
+                            "5a86fb3b7d18632f217205bdf66b02722081b6c5fe4ca240155b180d89ed00f3fee3284d13aed8254571d5d624e00291"
+                        ],
+                        [
+                            "5fdcb059a87c13942f65c9654ab835048576c1ece38109c73849b8395d0b0280",
+                            "3e135bee1bad4820df78229a9d31b9bef53ae4af5e5b57f8444f574e47524400",
+                            "6872844c8a8e491c5fb9a78f45d79cebecf5a79d69661ab16b3b33b7e379fceee837268358440a6f68b6f007d54310e6"
+                        ],
+                        [
+                            "5fdcb0578a07133d228572d7785dfc0757ace29bb10c1f0e6947bf3002218513",
+                            "0b0cbebe55fc8d0a1a4102f381aeb7dc4ff8f1bec70ba101444f574e47524400",
+                            "b41a539898f7a9721879315070d514b01f2eb44a433be43acc39eb81f35dcf225fd1dc904120915a129240b9d604f09c"
+                        ],
+                        [
+                            "5fdcb055845f6c21356517c4aaf5fbdfe214e00afaee1cdaea10379b90dd23e4",
+                            "01508dadb5abde51a244d5a7a3c4c2f215a0ee1069b73140444f574e47524400",
+                            "a1f8e5925ec7550e3601de1e543a4260c3f9c4edb5ed075c5ea1c652e962f0bdc2bad4fefac3aa1728506af5dc032290"
+                        ],
+                        [
+                            "5fdcb045a982a394c8049b1eaeac773197cc5fba43e80ad664a7ac5be43d9829",
+                            "8dec810968d081ea8d558753dd2c82ade4c53dcdb25cbdba444f574e47524400",
+                            "91e1bb4ad6d852fb493e5dcfa716f46b9994a68fe49a1ab166217786261ef07c1508c6407fc170223c8a0de542d8959b"
+                        ],
+                        [
+                            "5fdcb05724f35ec3e01559075c3cd91fd8fbc2b8112e41b31e886653c52a67e1",
+                            "7097480489e90898b71f74ad198f30e9d9aad98540f9879c444f574e47524400",
+                            "dd7b09cd3de077004098d93b39094e494f38bbbf350652ff3b6a4853d362cbce2f53724b146fecdcb6eab7d67bac540a"
+                        ],
+                        [
+                            "5fdcb05746c758e21433872452007f2126216cd8d29bd57cf876833fa52c54d6",
+                            "c99939028d78a98a8f91358417ba955d6b8863d4be3cd3c4444f574e47524400",
+                            "abec32f9bf0e6a3ca9f55234a5daa7db082f25824f2c300c328e4430af317bc0e2ec3ae91ba964f9ff5bb83fe200c7e1"
+                        ]
+                    ]
+
+        self.handlers = {
+            25: httpreplay.cut.smtp_handler,
+            80: httpreplay.cut.http_handler,
+            443: lambda: httpreplay.cut.https_handler(tlsmaster),
+            465: httpreplay.cut.smtp_handler,
+            587: httpreplay.cut.smtp_handler,
+            4443: lambda: httpreplay.cut.https_handler(tlsmaster),
+            8000: httpreplay.cut.http_handler,
+            8080: httpreplay.cut.http_handler,
+            8443: lambda: httpreplay.cut.https_handler(tlsmaster),
+        }
+
+    def run(self):
+        results = {
+            "http_ex": [],
+            "https_ex": [],
+            "smtp_ex": []
+        }
+
+        if not os.path.exists(self.network_path):
+            os.mkdir(self.network_path)
+
+        if not os.path.exists(self.pcap_path):
+            log.warning("The PCAP file does not exist at path \"%s\".", self.pcap_path)
+            return {}
+
+        r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
+        r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
+
+        l = sorted(r.process(), key=lambda x: x[1])
+        for s, ts, protocol, sent, recv in l:
+            srcip, srcport, dstip, dstport = s
+
+            if is_safelisted_ip(dstip):
+                continue
+
+            if protocol == "smtp":
+                results["smtp_ex"].append({
+                    "src": srcip,
+                    "dst": dstip,
+                    "sport": srcport,
+                    "dport": dstport,
+                    "protocol": protocol,
+                    "req": {
+                        "hostname": sent.hostname,
+                        "mail_from": sent.mail_from,
+                        "mail_to": sent.mail_to,
+                        "auth_type": sent.auth_type,
+                        "username": sent.username,
+                        "password": sent.password,
+                        "headers": sent.headers,
+                        "mail_body": sent.message
+                    },
+                    "resp": {
+                        "banner": recv.ready_message
+                    }
+                })
+
+            if protocol == "http" or protocol == "https":
+                request = sent.raw.split(b"\r\n\r\n", 1)[0]
+                response = recv.raw.split(b"\r\n\r\n", 1)[0]
+
+                # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
+                req_md5 = md5(sent.body.encode("utf-8") or b"").hexdigest()
+                req_sha1 = sha1(sent.body.encode("utf-8") or b"").hexdigest()
+                req_sha256 = sha256(sent.body.encode("utf-8") or b"").hexdigest()
+                req_path = os.path.join(self.network_path, req_sha1)
+                if sent.body:
+                    open(req_path, "wb").write(sent.body or b"")
+
+                resp_md5 = md5(recv.body or b"").hexdigest()
+                resp_sha1 = sha1(recv.body or b"").hexdigest()
+                resp_sha256 = sha256(recv.body or b"").hexdigest()
+                resp_path = os.path.join(self.network_path, resp_sha256)
+                if recv.body:
+                    open(resp_path, "wb").write(recv.body or b"")
+
+                results["%s_ex" % protocol].append({
+                    "src": srcip, "sport": srcport,
+                    "dst": dstip, "dport": dstport,
+                    "protocol": protocol,
+                    "method": sent.method,
+                    "host": sent.headers.get("host", dstip),
+                    "uri": sent.uri,
+                    "status": int(getattr(recv, "status", 0)),
+
+                    # We'll keep these fields here for now.
+                    "request": request,#.decode("latin-1"),
+                    "response": response,#.decode("latin-1"),
+
+                    # It's not perfect yet, but it'll have to do.
+                    "req": {
+                        "path": req_path,
+                        "md5": req_md5,
+                        "sha1": req_sha1,
+                        "sha256": req_sha256,
+                    },
+                    "resp": {
+                        "path": resp_path,
+                        "md5": resp_md5,
+                        "sha1": resp_sha1,
+                        "sha256": resp_sha256,
+                    },
+
+                    # Obsolete fields.
+                    "md5": resp_md5,
+                    "sha1": resp_sha1,
+                    "sha256": resp_sha256,
+                    "path": resp_path,
+                })
+
+        print(results)
+        return results
 
 class NetworkAnalysis(Processing):
     """Network analysis."""
@@ -872,22 +1089,54 @@ class NetworkAnalysis(Processing):
         ja3_fprints = self._import_ja3_fprints()
 
         sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
-        if cfg.processing.sort_pcap:
-            sort_pcap(self.pcap_path, sorted_path)
-            buf = Pcap(self.pcap_path, ja3_fprints).run()
-            results = Pcap(sorted_path, ja3_fprints).run()
-            results["http"] = buf["http"]
-            results["dns"] = buf["dns"]
-        else:
-            results = Pcap(self.pcap_path, ja3_fprints).run()
 
+        results = {}
         # Save PCAP file hash.
         if os.path.exists(self.pcap_path):
             results["pcap_sha256"] = File(self.pcap_path).get_sha256()
-        if os.path.exists(sorted_path):
-            results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
+
+        sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+        if proc_cfg.network.sort_pcap:
+            sort_pcap(self.pcap_path, sorted_path)
+            # Sorted PCAP file hash.
+            if os.path.exists(sorted_path):
+                results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
+                pcap_path = sorted_path
+            else:
+                pcap_path = self.pcap_path
+        else:
+            pcap_path = self.pcap_path
+
+        results.update(Pcap(pcap_path, ja3_fprints).run())
+        # buf = Pcap(self.pcap_path, ja3_fprints).run()
+        # results = Pcap(sorted_path, ja3_fprints).run()
+        # results["http"] = buf["http"]
+        # results["dns"] = buf["dns"]
+
+        if os.path.exists(pcap_path) and HAVE_HTTPREPLAY:
+            try:
+                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path)
+                results.update(p2.run())
+            except:
+                log.exception("Error running httpreplay-based PCAP analysis")
 
         return results
+
+    def get_tlsmaster(self):
+        """Obtain the client/server random to TLS master secrets mapping that we have obtained through dynamic analysis."""
+        tlsmaster = {}
+        dump_tls_log = os.path.join(self.analysis_path, "dumptls", "dumptls.log")
+        if not os.path.exists(dump_tls_log):
+            return tlsmaster
+
+        for entry in open(dump_tls_log, "rb").readlines() or []:
+            client_random, server_random, master_secret = entry.split(",")
+            client_random = binascii.a2b_hex(client_random.split(":")[-1].strip())
+            server_random = binascii.a2b_hex(server_random.split(":")[-1].strip())
+            master_secret = binascii.a2b_hex(master_secret.split(":")[-1].strip())
+            tlsmaster[client_random, server_random] = master_secret
+        return tlsmaster
+
 
 
 def iplayer_from_raw(raw, linktype=1):

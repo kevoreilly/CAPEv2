@@ -684,6 +684,7 @@ class Processing(object):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.network_path = os.path.join(self.analysis_path, "network")
 
     def add_statistic_tmp(self, name, field, pretime):
         posttime = datetime.datetime.now()

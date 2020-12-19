@@ -897,44 +897,6 @@ class Pcap2(object):
         self.pcap_path = pcap_path
         self.network_path = network_path
 
-        tlsmaster = [
-                        [
-                            "5fdcb05427e413bc5b05e55ec3089478c98b105af4a05273f9aa809fdfe01416",
-                            "873169af3ca0afaf134d30d4f63709a99c02c1549fa81d8a444f574e47524400",
-                            "5a86fb3b7d18632f217205bdf66b02722081b6c5fe4ca240155b180d89ed00f3fee3284d13aed8254571d5d624e00291"
-                        ],
-                        [
-                            "5fdcb059a87c13942f65c9654ab835048576c1ece38109c73849b8395d0b0280",
-                            "3e135bee1bad4820df78229a9d31b9bef53ae4af5e5b57f8444f574e47524400",
-                            "6872844c8a8e491c5fb9a78f45d79cebecf5a79d69661ab16b3b33b7e379fceee837268358440a6f68b6f007d54310e6"
-                        ],
-                        [
-                            "5fdcb0578a07133d228572d7785dfc0757ace29bb10c1f0e6947bf3002218513",
-                            "0b0cbebe55fc8d0a1a4102f381aeb7dc4ff8f1bec70ba101444f574e47524400",
-                            "b41a539898f7a9721879315070d514b01f2eb44a433be43acc39eb81f35dcf225fd1dc904120915a129240b9d604f09c"
-                        ],
-                        [
-                            "5fdcb055845f6c21356517c4aaf5fbdfe214e00afaee1cdaea10379b90dd23e4",
-                            "01508dadb5abde51a244d5a7a3c4c2f215a0ee1069b73140444f574e47524400",
-                            "a1f8e5925ec7550e3601de1e543a4260c3f9c4edb5ed075c5ea1c652e962f0bdc2bad4fefac3aa1728506af5dc032290"
-                        ],
-                        [
-                            "5fdcb045a982a394c8049b1eaeac773197cc5fba43e80ad664a7ac5be43d9829",
-                            "8dec810968d081ea8d558753dd2c82ade4c53dcdb25cbdba444f574e47524400",
-                            "91e1bb4ad6d852fb493e5dcfa716f46b9994a68fe49a1ab166217786261ef07c1508c6407fc170223c8a0de542d8959b"
-                        ],
-                        [
-                            "5fdcb05724f35ec3e01559075c3cd91fd8fbc2b8112e41b31e886653c52a67e1",
-                            "7097480489e90898b71f74ad198f30e9d9aad98540f9879c444f574e47524400",
-                            "dd7b09cd3de077004098d93b39094e494f38bbbf350652ff3b6a4853d362cbce2f53724b146fecdcb6eab7d67bac540a"
-                        ],
-                        [
-                            "5fdcb05746c758e21433872452007f2126216cd8d29bd57cf876833fa52c54d6",
-                            "c99939028d78a98a8f91358417ba955d6b8863d4be3cd3c4444f574e47524400",
-                            "abec32f9bf0e6a3ca9f55234a5daa7db082f25824f2c300c328e4430af317bc0e2ec3ae91ba964f9ff5bb83fe200c7e1"
-                        ]
-                    ]
-
         self.handlers = {
             25: httpreplay.cut.smtp_handler,
             80: httpreplay.cut.http_handler,

@@ -1,3 +1,6 @@
+### [22.12.2020] Peque edition
+* TLS decrypt integration, huge thanks to Hatching team to release their code. WEBGUI integration isn't finished yet, but you already can see https requests there
+
 ### [08.12.2020] On demand
 * Add uniq submission limitation, can be enabled in `conf/web.conf` to disable the same submission during X hours
 * Bingraph, FLARE CAPA, vba2graph on demand

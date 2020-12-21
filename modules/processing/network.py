@@ -588,7 +588,6 @@ class Pcap:
         try:
             record = dpkt.ssl.TLSRecord(data)
         except dpkt.NeedData as e:
-            log.error("dpkt.NeedData: {}".format(str(e)), exc_info=True)
             return
         except Exception as e:
             log.exception("Error reading possible TLS Record")
@@ -956,13 +955,17 @@ class Pcap2(object):
                 })
 
             if protocol == "http" or protocol == "https":
-                request = sent.raw.split(b"\r\n\r\n", 1)[0]
-                response = recv.raw.split(b"\r\n\r\n", 1)[0]
+                response = b""
+                request = b""
+                if isinstance(sent.raw, bytes):
+                    request = sent.raw.split(b"\r\n\r\n", 1)[0]
+                if isinstance(recv.raw, bytes):
+                    response = recv.raw.split(b"\r\n\r\n", 1)[0]
 
                 # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
-                req_md5 = md5(sent.body.encode("utf-8") or b"").hexdigest()
-                req_sha1 = sha1(sent.body.encode("utf-8") or b"").hexdigest()
-                req_sha256 = sha256(sent.body.encode("utf-8") or b"").hexdigest()
+                req_md5 = md5(sent.body or b"").hexdigest()
+                req_sha1 = sha1(sent.body or b"").hexdigest()
+                req_sha256 = sha256(sent.body or b"").hexdigest()
                 req_path = os.path.join(self.network_path, req_sha1)
                 if sent.body:
                     open(req_path, "wb").write(sent.body or b"")
@@ -1086,7 +1089,7 @@ class NetworkAnalysis(Processing):
     def get_tlsmaster(self):
         """Obtain the client/server random to TLS master secrets mapping that we have obtained through dynamic analysis."""
         tlsmaster = {}
-        dump_tls_log = os.path.join(self.analysis_path, "dumptls", "dumptls.log")
+        dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
         if not os.path.exists(dump_tls_log):
             return tlsmaster
 

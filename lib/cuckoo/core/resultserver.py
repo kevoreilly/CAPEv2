@@ -53,14 +53,15 @@ RESULT_UPLOADABLE = (
     b"aux",
     b"buffer",
     b"curtain",
+    b"debugger",
+    b"tlsdump",
     b"extracted",
     b"files",
     b"memory",
+    b"procdump",
     b"shots",
     b"sysmon",
     b"stap",
-    b"procdump",
-    b"debugger",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -208,12 +209,13 @@ class FileUpload(ProtocolHandler):
         try:
             self.fd = open_exclusive(file_path)
         except OSError as e:
+            log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
             if e.errno == errno.EEXIST:
                 raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
             raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(
@@ -326,7 +328,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger")
+        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger", "tlsdump")
 
         for folder in folders:
             try:

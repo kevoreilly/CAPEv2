@@ -1250,8 +1250,7 @@ class Database(object, metaclass=Singleton):
         source_url=False,
         route=None,
         cape=False,
-        tags_tasks=False
-
+        tags_tasks=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1525,6 +1524,9 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
+        route=None,
+        cape=False,
+        tags_tasks=False
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1567,6 +1569,9 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
+            route = route,
+            cape = cape,
+            tags_tasks = tags_tasks,
         )
 
     @classlock

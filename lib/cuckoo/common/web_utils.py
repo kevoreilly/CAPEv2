@@ -26,6 +26,7 @@ from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer
 cfg = Config("cuckoo")
 repconf = Config("reporting")
 socks5_conf = Config("socks5")
+routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
@@ -747,7 +748,7 @@ def parse_request_arguments(request):
     unique = bool(request.POST.get("unique", False))
     tlp = request.POST.get("tlp", None)
     lin_options = request.POST.get("lin_options", "")
-    route = request.POST.get("route", None)
+    route = request.POST.get("route", routing_conf.routing.route)
     cape = request.POST.get("cape", "")
     # Linux options
     if lin_options:

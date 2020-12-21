@@ -381,7 +381,6 @@ def index(request, resubmit_hash=False):
 
             else:
                 machines = [None]
-
             for entry in machines:
                 task_id = db.add_url(
                     url=url,
@@ -400,6 +399,9 @@ def index(request, resubmit_hash=False):
                     shrike_msg=shrike_msg,
                     shrike_sid=shrike_sid,
                     shrike_refer=shrike_refer,
+                    route=route,
+                    cape=cape,
+                    tags_tasks=tags_tasks,
                 )
                 details["task_ids"].append(task_id)
 

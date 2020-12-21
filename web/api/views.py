@@ -405,6 +405,10 @@ def tasks_create_url(request):
                 shrike_msg=shrike_msg,
                 shrike_sid=shrike_sid,
                 shrike_refer=shrike_refer,
+                route=route,
+                cape=cape,
+                tlp=tlp,
+                tags_tasks=tags_tasks,
             )
             if task_id:
                 task_ids.append(task_id)

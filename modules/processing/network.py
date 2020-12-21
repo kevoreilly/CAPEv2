@@ -1008,7 +1008,6 @@ class Pcap2(object):
                     "path": resp_path,
                 })
 
-        print(results)
         return results
 
 class NetworkAnalysis(Processing):
@@ -1050,15 +1049,14 @@ class NetworkAnalysis(Processing):
 
         ja3_fprints = self._import_ja3_fprints()
 
-        sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
-
         results = {}
         # Save PCAP file hash.
         if os.path.exists(self.pcap_path):
             results["pcap_sha256"] = File(self.pcap_path).get_sha256()
 
-        sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+        """
         if proc_cfg.network.sort_pcap:
+            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             # Sorted PCAP file hash.
             if os.path.exists(sorted_path):
@@ -1068,7 +1066,8 @@ class NetworkAnalysis(Processing):
                 pcap_path = self.pcap_path
         else:
             pcap_path = self.pcap_path
-
+        """
+        pcap_path = self.pcap_path
         results.update(Pcap(pcap_path, ja3_fprints).run())
         # buf = Pcap(self.pcap_path, ja3_fprints).run()
         # results = Pcap(sorted_path, ja3_fprints).run()
@@ -1091,7 +1090,7 @@ class NetworkAnalysis(Processing):
         if not os.path.exists(dump_tls_log):
             return tlsmaster
 
-        for entry in open(dump_tls_log, "rb").readlines() or []:
+        for entry in open(dump_tls_log, "r").readlines() or []:
             client_random, server_random, master_secret = entry.split(",")
             client_random = binascii.a2b_hex(client_random.split(":")[-1].strip())
             server_random = binascii.a2b_hex(server_random.split(":")[-1].strip())
@@ -1121,9 +1120,7 @@ def conn_from_flowtuple(ft):
     sip, sport, dip, dport, offset, relts = ft
     return {"src": sip, "sport": sport, "dst": dip, "dport": dport, "offset": offset, "time": relts}
 
-
-# input_iterator should be a class that also supports writing so we can use
-# it for the temp files
+# input_iterator should be a class that also supports writing so we can use it for the temp files
 # this code is mostly taken from some SO post, can't remember the url though
 def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None):
     """batch sort helper with temporary files, supports sorting large stuff"""

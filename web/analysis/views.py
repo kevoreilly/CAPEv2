@@ -954,10 +954,7 @@ def report(request, task_id):
 
     try:
         report["dropped"] = list(
-            results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]
-            )
-        )[0]["dropped_size"]
+            results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]))[0]["dropped_size"]
     except:
         report["dropped"] = 0
 

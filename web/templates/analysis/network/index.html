@@ -2,7 +2,7 @@
     <div class="alert alert-primary center"><a class="btn btn-secondary btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
     <!--allow dl tls keys-->
 {% endif %}
-    <ul class="nav nav-pills flex-column flex-sm-row" style="margin-bottom: 0;">
+    <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
         <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ analysis.network.hosts|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ analysis.network.domains|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ analysis.network.tcp|length }})</a></li>

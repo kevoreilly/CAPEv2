@@ -345,12 +345,12 @@ def tasks_create_file(request):
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 def tasks_create_url(request):
+    if not apiconf.urlcreate.get("enabled"):
+        resp = {"error": True, "error_value": "URL Create API is Disabled"}
+        return jsonize(resp, response=True)
+
     resp = {}
     if request.method == "POST":
-        if not apiconf.urlcreate.get("enabled"):
-            resp = {"error": True, "error_value": "URL Create API is Disabled"}
-            return jsonize(resp, response=True)
-
         resp["error"] = False
 
         url = request.POST.get("url", None)

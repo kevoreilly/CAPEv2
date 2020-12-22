@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import socket
 import struct
 import tempfile
@@ -21,6 +22,11 @@ try:
 except ImportError:
     import re
 
+# required to work webgui
+CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", ".."
+sys.path.append(CUCKOO_ROOT)
+
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dns import resolve
@@ -29,7 +35,6 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
 #from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
 from data.safelist.domains import domain_passlist

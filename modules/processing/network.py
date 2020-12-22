@@ -1102,7 +1102,6 @@ class NetworkAnalysis(Processing):
         return tlsmaster
 
 
-
 def iplayer_from_raw(raw, linktype=1):
     """Converts a raw packet to a dpkt packet regarding of link type.
     @param raw: raw packet

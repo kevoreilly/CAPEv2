@@ -1525,7 +1525,7 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         route=None,
         cape=False,
-        tags_tasks=False
+        tags_tasks=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1540,6 +1540,9 @@ class Database(object, metaclass=Singleton):
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param tlp: TLP sharing designation
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
 

@@ -31,7 +31,8 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
-from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+#from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+from data.safelist.domains import domain_passlist
 
 try:
     import GeoIP
@@ -83,65 +84,14 @@ ip_passlist_file = proc_cfg.network.ipwhitelist_file
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
-domain_passlist = [
-    # Certificate Trust Update domains
-    "^ocsp\.usertrust\.com$",
-    "\.windows\.com$",
-    "^ocsp\.comodoca\.com$",
-    "^ctldl\.windowsupdate\.com$",
-    "^crl\.microsoft\.com$",
-    "^urs\.microsoft\.com$",
-    "\.microsoft\.com$",
-    "\.skype\.com$",
-    "\.live\.com$",
-    "clients[0-9]+\.google\.com$",
-    "\.googleapis\.com$",
-    "\.gvt1\.com$",
-    "\.msftncsi\.com$",
-    "^apps\.identrust\.com$",
-    "^isrg\.trustid\.ocsp\.identrust\.com$",
-    "^urs\.microsoft\.com$",
-    "^config\.edge\.skype\.com$",
-    "^client-office365-tas\.msedge\.net$",
-    "ecs\.office\.com$",
-    "^files\.acrobat\.com$",
-    "^acroipm2\.adobe\.com$",
-    "^acroipm\.adobe\.com$",
-    "^ocsp\.trust-provider\.com$",
-    "^ocsp\.comodoca4\.com$",
-    "^ocsp\.pki\.goog$",
-    "^oneclient.sfx.ms$",
-    "^ocsp\.verisign\.com$",
-    "^s2\.symcb\.com$",
-    "^sv\.symcd\.com$",
-    "^s\.symcd\.com$",
-    "^ts-ocsp\.ws\.symantec\.com$",
-    "^ocsp\.thawte\.com$",
-    "^crl\.thawte\.com$",
-    "^crt\.comodoca\.com$",
-    "^crt\.usertrust\.com$",
-    "^ocsp\.sectigo\.com$",
-    "^crl\.globalsign\.net$",
-    "^cacerts\.digicert\.com$",
-    "\.amazontrust\.com$",
-    "\.opera\.com",
-    "\.ss2\.us$",
-    "\.google-analytics\.com$",
-    "\.googletagmanager\.com$",
-    "^stats\.g\.doubleclick\.net$",
-    "^www\.google\.com$",
-    "^cdn\.amplitude\.com$",
-    "\.msn\.com",
-    "\.operacdn\.com$",
-    "^cdn\.jsdelivr\.net",
-    "^fonts\.gstatic\.com$"
-
-]
-
 if enabled_passlist and passlist_file:
     with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-        domain_passlist += domain_passlist + f.read().split("\n")
-        domain_passlist = list(set(domain_passlist))
+        for domain in list(set(f.readlines())):
+            if domain.startswith("#") or len(domain.strip()) == 0:
+                # comment or empty line
+                continue
+            domain_passlist.append(domain)
+
 
 ip_passlist = set()
 if enabled_ip_passlist and ip_passlist_file:
@@ -479,8 +429,6 @@ class Pcap:
 
             if enabled_passlist:
                 for reject in domain_passlist:
-                    if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue  # comment or empty line
                     try:
                         if re.search(reject, query["request"]):
                             if query["answers"]:
@@ -563,9 +511,6 @@ class Pcap:
 
             if enabled_passlist:
                 for reject in domain_passlist:
-                    # comment or empty line
-                    if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue
                     if re.search(reject, entry["host"]):
                         return False
 
@@ -957,11 +902,7 @@ class Pcap2(object):
                 elif protocol in ("http", "https"):
                     hostname = sent.headers.get("host")
 
-                print(protocol, hostname)
                 for reject in domain_passlist:
-                    # comment or empty line
-                    if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue
                     if hostname and re.search(reject, hostname):
                         return False
 

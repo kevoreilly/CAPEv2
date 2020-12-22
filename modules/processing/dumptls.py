@@ -20,12 +20,11 @@ class TLSMasterSecrets(Processing):
         metakeys = {}
 
         # Build server random <-> session id mapping from the PCAP.
-        if "network" in self.results and "tls" in self.results["network"]:
-            for row in self.results["network"]["tls"]:
-                metakeys[row["server_random"]] = row["session_id"]
+        for row in self.results.get("network", {}).get("tls", []) or []:
+            metakeys[row["server_random"]] = row["session_id"]
 
         results = {}
-        dump_tls_log = os.path.join(self.analysis_path, "dumptls", "dumptls.log")
+        dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
         if not os.path.exists(dump_tls_log):
             return results
 

@@ -877,7 +877,7 @@ class Pcap2(object):
         }
 
         if not os.path.exists(self.network_path):
-            os.mkdir(self.network_path)
+            os.makedirs(self.network_path, exist_ok=True)
 
         if not os.path.exists(self.pcap_path):
             log.warning("The PCAP file does not exist at path \"%s\".", self.pcap_path)

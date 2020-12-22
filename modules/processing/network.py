@@ -83,6 +83,70 @@ ip_passlist_file = proc_cfg.network.ipwhitelist_file
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
+domain_passlist = [
+    # Certificate Trust Update domains
+    "^ocsp\.usertrust\.com$",
+    "\.windows\.com$",
+    "^ocsp\.comodoca\.com$",
+    "^ctldl\.windowsupdate\.com$",
+    "^crl\.microsoft\.com$",
+    "^urs\.microsoft\.com$",
+    "\.microsoft\.com$",
+    "\.skype\.com$",
+    "\.live\.com$",
+    "clients[0-9]+\.google\.com$",
+    "\.googleapis\.com$",
+    "\.gvt1\.com$",
+    "\.msftncsi\.com$",
+    "^apps\.identrust\.com$",
+    "^isrg\.trustid\.ocsp\.identrust\.com$",
+    "^urs\.microsoft\.com$",
+    "^config\.edge\.skype\.com$",
+    "^client-office365-tas\.msedge\.net$",
+    "ecs\.office\.com$",
+    "^files\.acrobat\.com$",
+    "^acroipm2\.adobe\.com$",
+    "^acroipm\.adobe\.com$",
+    "^ocsp\.trust-provider\.com$",
+    "^ocsp\.comodoca4\.com$",
+    "^ocsp\.pki\.goog$",
+    "^oneclient.sfx.ms$",
+    "^ocsp\.verisign\.com$",
+    "^s2\.symcb\.com$",
+    "^sv\.symcd\.com$",
+    "^s\.symcd\.com$",
+    "^ts-ocsp\.ws\.symantec\.com$",
+    "^ocsp\.thawte\.com$",
+    "^crl\.thawte\.com$",
+    "^crt\.comodoca\.com$",
+    "^crt\.usertrust\.com$",
+    "^ocsp\.sectigo\.com$",
+    "^crl\.globalsign\.net$",
+    "^cacerts\.digicert\.com$",
+    "\.amazontrust\.com$",
+    "\.opera\.com",
+    "\.ss2\.us$",
+    "\.google-analytics\.com$",
+    "\.googletagmanager\.com$",
+    "^stats\.g\.doubleclick\.net$",
+    "^www\.google\.com$",
+    "^cdn\.amplitude\.com$",
+    "\.msn\.com",
+    "\.operacdn\.com$",
+    "^cdn\.jsdelivr\.net",
+    "^fonts\.gstatic\.com$"
+
+]
+
+if enabled_passlist and passlist_file:
+    with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
+        domain_passlist += domain_passlist + f.read().split("\n")
+        domain_passlist = list(set(domain_passlist))
+
+ip_passlist = set()
+if enabled_ip_passlist and ip_passlist_file:
+    with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
+        ip_passlist = set(f.read().split("\n"))
 
 class Pcap:
     """Reads network data from PCAP file."""
@@ -125,56 +189,6 @@ class Pcap:
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS ignore list
-        self.domain_passlist = [
-            # Certificate Trust Update domains
-            "^ocsp\.usertrust\.com$",
-            "\.windows\.com$",
-            "^ocsp\.comodoca\.com$",
-            "^ctldl\.windowsupdate\.com$",
-            "^crl\.microsoft\.com$",
-            "^urs\.microsoft\.com$",
-            "\.microsoft\.com$",
-            "\.skype\.com$",
-            "\.live\.com$",
-            "clients[0-9]+\.google\.com$",
-            "\.googleapis\.com$",
-            "\.gvt1\.com$",
-            "\.msftncsi\.com$",
-            "^apps\.identrust\.com$",
-            "^isrg\.trustid\.ocsp\.identrust\.com$",
-            "^urs\.microsoft\.com$",
-            "^config\.edge\.skype\.com$",
-            "^client-office365-tas\.msedge\.net$",
-            "^files\.acrobat\.com$",
-            "^acroipm2\.adobe\.com$",
-            "^acroipm\.adobe\.com$",
-            "^ocsp\.trust-provider\.com$",
-            "^ocsp\.comodoca4\.com$",
-            "^ocsp\.pki\.goog$",
-            "^oneclient.sfx.ms$",
-            "^ocsp\.verisign\.com$",
-            "^s2\.symcb\.com$",
-            "^sv\.symcd\.com$",
-            "^s\.symcd\.com$",
-            "^ts-ocsp\.ws\.symantec\.com$",
-            "^ocsp\.thawte\.com$",
-            "^crl\.thawte\.com$",
-            "^crt\.comodoca\.com$",
-            "^crt\.usertrust\.com$",
-            "^ocsp\.sectigo\.com$",
-            "^crl\.globalsign\.net$",
-            "^cacerts\.digicert\.com$"
-        ]
-
-        if enabled_passlist and passlist_file:
-            with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-                self.domain_passlist += self.domain_passlist + f.read().split("\n")
-                self.domain_passlist = list(set(self.domain_passlist))
-
-        self.ip_passlist = set()
-        if enabled_ip_passlist and ip_passlist_file:
-            with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
-                self.ip_passlist = set(f.read().split("\n"))
 
     def _dns_gethostbyname(self, name):
         """Get host by name wrapper.
@@ -245,7 +259,7 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in self.ip_passlist:
+                    if ip in ip_passlist:
                         return False
                     self.hosts.append(ip)
 
@@ -464,7 +478,7 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in self.domain_passlist:
+                for reject in domain_passlist:
                     if reject.startswith("#") or len(reject.strip()) == 0:
                         continue  # comment or empty line
                     try:
@@ -472,7 +486,7 @@ class Pcap:
                             if query["answers"]:
                                 for addip in query["answers"]:
                                     if addip["type"] == "A" or addip["type"] == "AAAA":
-                                        self.ip_passlist.add(addip["data"])
+                                        ip_passlist.add(addip["data"])
                             return True
                     except re.RegexError as e:
                         log.error(("bad regex", reject, e))
@@ -548,7 +562,7 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in self.domain_passlist:
+                for reject in domain_passlist:
                     # comment or empty line
                     if reject.startswith("#") or len(reject.strip()) == 0:
                         continue
@@ -595,13 +609,11 @@ class Pcap:
 
         # Is this a valid TLS packet?
         if record.type not in dpkt.ssl.RECORD_TYPES:
-            log.info("record.type not in dpkt.ssl.RECORD_TYPES")
             return
 
         try:
             record = dpkt.ssl.RECORD_TYPES[record.type](record.data)
         except (dpkt.NeedData, dpkt.ssl.SSL3Exception):
-            log.info((dpkt.NeedData, dpkt.ssl.SSL3Exception))
             return
 
         # Is this a TLSv1 Handshake packet?
@@ -610,7 +622,6 @@ class Pcap:
 
         # We're only interested in the TLS Server Hello packets.
         if not isinstance(record.data, dpkt.ssl.TLSServerHello):
-            log.info("# We're only interested in the TLS Server Hello packets.")
             return
 
         # Extract the server random and the session id.
@@ -656,9 +667,9 @@ class Pcap:
         """
 
         if enabled_passlist:
-            if conn["src"] in self.ip_passlist:
+            if conn["src"] in ip_passlist:
                 return False
-            if conn["dst"] in self.ip_passlist:
+            if conn["dst"] in ip_passlist:
                 return False
 
         try:
@@ -875,13 +886,13 @@ class Pcap:
         if enabled_passlist:
 
             for host in self.results["hosts"]:
-                for delip in self.ip_passlist:
+                for delip in ip_passlist:
                     if delip == host["ip"]:
                         self.results["hosts"].remove(host)
 
             for keyword in ("tcp", "udp", "icmp"):
                 for host in self.results[keyword]:
-                    for delip in self.ip_passlist:
+                    for delip in ip_passlist:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
 
@@ -929,8 +940,30 @@ class Pcap2(object):
         for s, ts, protocol, sent, recv in l:
             srcip, srcport, dstip, dstport = s
 
-            if is_safelisted_ip(dstip):
-                continue
+            if enabled_passlist:
+                """
+                if is_safelisted_ip(dstip):
+                    continue
+                """
+                #ToDo rewrite the whole safelists
+                #ip or host
+
+                if dstip in ip_passlist:
+                    continue
+
+                hostname = False
+                if protocol == "smtp":
+                    hostname = sent.hostname
+                elif protocol in ("http", "https"):
+                    hostname = sent.headers.get("host")
+
+                print(protocol, hostname)
+                for reject in domain_passlist:
+                    # comment or empty line
+                    if reject.startswith("#") or len(reject.strip()) == 0:
+                        continue
+                    if hostname and re.search(reject, hostname):
+                        return False
 
             if protocol == "smtp":
                 results["smtp_ex"].append({

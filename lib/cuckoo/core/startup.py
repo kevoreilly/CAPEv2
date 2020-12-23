@@ -288,7 +288,7 @@ def init_yara():
                 else:
                     log.debug("\t |-- %s %s", category, entry)
         else:
-             try:
+            try:
                 compiled = yara.compile(filepaths=rules, externals=externals)
                 compiled_path = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yarac")
                 if not os.path.exists(compiled_path):

@@ -124,15 +124,11 @@ class AnalysisManager(threading.Thread):
         if os.path.exists(self.binary):
             log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, self.binary))
         else:
-            # TODO: do we really need to abort the analysis in case we are not
-            # able to store a copy of the file?
+            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
-                log.error(
-                    "Task #{0}: Unable to store file from '{1}' to '{2}', "
-                    "analysis aborted".format(self.task.id, self.task.target, self.binary)
-                )
+                log.error("Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(self.task.id, self.task.target, self.binary))
                 return False
 
         try:
@@ -143,7 +139,7 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to " "'{2}': {3}".format(self.task.id, self.binary, self.storage, e))
+            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to '{2}': {3}".format(self.task.id, self.binary, self.storage, e))
 
         return True
 
@@ -167,16 +163,13 @@ class AnalysisManager(threading.Thread):
             # used or machine tags acquire the machine accordingly.
             machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=self.task.tags)
 
-            # If no machine is available at this moment, wait for one second
-            # and try again.
+            # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #{0}: no machine available yet".format(self.task.id))
+                log.debug("Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(self.task.id))
                 time.sleep(1)
             else:
-                log.info(
-                    "Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform)
-                )
+                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform))
                 break
 
         self.machine = machine
@@ -241,9 +234,7 @@ class AnalysisManager(threading.Thread):
         dead_machine = False
         self.socks5s = _load_socks5_operational()
 
-        log.info(
-            "Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target))
-        )
+        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
 
         # Initialize the analysis folders.
         if not self.init_storage():
@@ -635,9 +626,7 @@ class Scheduler:
         conf = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery_name)
 
         if not os.path.exists(conf):
-            raise CuckooCriticalError(
-                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
-            )
+            raise CuckooCriticalError("The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf))
 
         # Provide a dictionary with the configuration options to the
         # machine manager instance.

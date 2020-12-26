@@ -209,7 +209,7 @@ class MongoDB(Report):
         if analyses.count() > 0:
             log.debug("Deleting analysis data for Task %s" % report["info"]["id"])
             for analysis in analyses:
-                for process in analysis["behavior"]["processes"]:
+                for process in analysis["behavior"].get("processes", []) or []:
                     for call in process["calls"]:
                         self.db.calls.remove({"_id": ObjectId(call)})
                 self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})

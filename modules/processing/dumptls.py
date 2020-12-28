@@ -35,7 +35,7 @@ class TLSMasterSecrets(Processing):
             master_secret = binascii.a2b_hex(master_secret.split(":")[-1].strip())
 
             if server_random not in metakeys:
-                log.info("Was unable to extract TLS master secret for server random %s, skipping it.", server_random)
+                log.debug("Was unable to extract TLS master secret for server random %s, skipping it.", server_random)
                 continue
 
             results[metakeys[server_random]] = master_secret

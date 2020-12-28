@@ -36,7 +36,7 @@ from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
 from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
-#from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
 from data.safelist.domains import domain_passlist
 
 try:
@@ -107,12 +107,13 @@ class Pcap:
     """Reads network data from PCAP file."""
     ssl_ports = 443,
 
-    def __init__(self, filepath, ja3_fprints):
+    def __init__(self, filepath, ja3_fprints, options):
         """Creates a new instance.
         @param filepath: path to PCAP file
         """
         self.filepath = filepath
         self.ja3_fprints = ja3_fprints
+        self.options = options
 
         # List of all hosts.
         self.hosts = []
@@ -140,6 +141,10 @@ class Pcap:
         # List containing all DNS requests.
         self.dns_requests = OrderedDict()
         self.dns_answers = set()
+        # List of known good DNS servers
+        self.known_dns = self._build_known_dns()
+        # List of all used DNS servers
+        self.dns_servers = []
         # List containing all SMTP requests.
         self.smtp_requests = []
         # Reconstruncted SMTP flow.
@@ -151,6 +156,39 @@ class Pcap:
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS ignore list
+        self.safelist_enabled = self.options.get("safelist_dns")
+
+    def _is_safelisted(self, conn, hostname):
+        """Check if safelisting conditions are met"""
+        # Is safelistng enabled?
+        if not self.safelist_enabled:
+            return False
+
+        # Is DNS recording coming from allowed NS server.
+        if not self.known_dns:
+            pass
+        elif (conn.get("src") in self.known_dns or conn.get("dst") in self.known_dns):
+            pass
+        else:
+            return False
+
+        # Is hostname safelisted.
+        if not is_safelisted_domain(hostname):
+            return False
+
+        return True
+
+    def _build_known_dns(self):
+        """Build known DNS list."""
+        result = []
+        _known_dns = self.options.get("allowed_dns")
+        _known_dns = None
+        if _known_dns is not None:
+            for r in _known_dns.split(","):
+                result.append(r.strip())
+            return result
+
+        return []
 
     def _dns_gethostbyname(self, name):
         """Get host by name wrapper.
@@ -1088,7 +1126,7 @@ class NetworkAnalysis(Processing):
             pcap_path = self.pcap_path
         """
         pcap_path = self.pcap_path
-        results.update(Pcap(pcap_path, ja3_fprints).run())
+        results.update(Pcap(pcap_path, ja3_fprints, self.options).run())
         # buf = Pcap(self.pcap_path, ja3_fprints).run()
         # results = Pcap(sorted_path, ja3_fprints).run()
         # results["http"] = buf["http"]

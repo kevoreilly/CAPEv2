@@ -824,8 +824,6 @@ class Signature(object):
                 if re.findall(name, sub_block["name"], re.I):
                     yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
 
-        yield False, False, False
-
     def add_statistic(self, name, field, value):
         if name not in self.results["statistics"]["signatures"]:
             self.results["statistics"]["signatures"][name] = {}

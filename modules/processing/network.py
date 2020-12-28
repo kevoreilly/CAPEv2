@@ -123,6 +123,11 @@ class Pcap:
         # List containing all TCP packets.
         self.tcp_connections = []
         self.tcp_connections_seen = set()
+        # Lookup table to identify connection requests to services or IP
+        # addresses that are no longer available.
+        self.tcp_connections_dead = {}
+        self.dead_hosts = {}
+        self.alive_hosts = {}
         # List containing all UDP packets.
         self.udp_connections = []
         self.udp_connections_seen = set()
@@ -130,6 +135,8 @@ class Pcap:
         self.icmp_requests = []
         # List containing all HTTP requests.
         self.http_requests = OrderedDict()
+        # List containing all TLS/SSL3 key combinations.
+        self.tls_keys = []
         # List containing all DNS requests.
         self.dns_requests = OrderedDict()
         self.dns_answers = set()
@@ -644,6 +651,11 @@ class Pcap:
         @param tcpdata: TCP data flow.
         """
 
+
+        if not tcpdata:
+            return
+
+        import code;code.interact(local=dict(locals(), **globals()))
         tls_handshake = bytearray(tcpdata)
         if tls_handshake[0] != TLS_HANDSHAKE:
             return
@@ -776,13 +788,26 @@ class Pcap:
 
                     connection["sport"] = tcp.sport
                     connection["dport"] = tcp.dport
-                    if len(tcp.data) > 0:
+                    if not tcp.data:
                         self._tcp_dissect(connection, tcp.data)
 
-                    src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
-                    if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
-                        self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
-                        self.tcp_connections_seen.add((src, sport, dst, dport))
+                    if tcp.data:
+                        src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                        if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
+                            self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
+                            self.tcp_connections_seen.add((src, sport, dst, dport))
+                        self.alive_hosts[dst, dport] = True
+                    else:
+                        ipconn = (
+                            connection["src"], tcp.sport,
+                            connection["dst"], tcp.dport,
+                        )
+                        seqack = self.tcp_connections_dead.get(ipconn)
+                        if seqack == (tcp.seq, tcp.ack):
+                            host = connection["dst"], tcp.dport
+                            self.dead_hosts[host] = self.dead_hosts.get(host, 1) + 1
+
+                        self.tcp_connections_dead[ipconn] = tcp.seq, tcp.ack
 
                 elif ip.p == dpkt.ip.IP_PROTO_UDP:
                     udp = ip.data
@@ -832,6 +857,19 @@ class Pcap:
         self.results["smtp"] = self.smtp_requests
         self.results["irc"] = self.irc_requests
         self.results["ja3"] = self.ja3_records
+
+        self.results["dead_hosts"] = []
+
+        # Report each IP/port combination as a dead host if we've had to retry
+        # at least 3 times to connect to it and if no successful connections
+        # were detected throughout the analysis.
+        for (ip, port), count in self.dead_hosts.items():
+            if count < 3 or (ip, port) in self.alive_hosts:
+                continue
+
+            # Report once.
+            if (ip, port) not in self.results["dead_hosts"]:
+                self.results["dead_hosts"].append((ip, port))
 
         if enabled_passlist:
 

@@ -134,19 +134,20 @@ class CAPE(Processing):
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)
             newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
-            shutil.move(unpacked_file, newname)
+            if os.path.exists(newname):
+                shutil.move(unpacked_file, newname)
 
-            # Recursive process of unpacked file
-            upx_extract = self.process_file(newname, True, {})
-            if upx_extract and upx_extract["type"]:
-                upx_extract["cape_type"] = "UPX-extracted "
-                type_strings = upx_extract["type"].split()
-                if type_strings[0] in ("PE32+", "PE32"):
-                    upx_extract["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2][0] == "(DLL)":
-                        upx_extract["cape_type"] += "DLL"
-                    else:
-                        upx_extract["cape_type"] += "executable"
+                # Recursive process of unpacked file
+                upx_extract = self.process_file(newname, True, {})
+                if upx_extract and upx_extract["type"]:
+                    upx_extract["cape_type"] = "UPX-extracted "
+                    type_strings = upx_extract["type"].split()
+                    if type_strings[0] in ("PE32+", "PE32"):
+                        upx_extract["cape_type"] += pe_map[type_strings[0]]
+                        if type_strings[2][0] == "(DLL)":
+                            upx_extract["cape_type"] += "DLL"
+                        else:
+                            upx_extract["cape_type"] += "executable"
 
     def process_file(self, file_path, append_file, metadata={}):
         """Process file.

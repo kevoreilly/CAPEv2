@@ -154,6 +154,8 @@ def is_valid_type(magic):
 
 def _sf_chlildren(child):
     path_to_extract = False
+    if not os.stat(child.filename).st_size:
+        return path_to_extract
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):

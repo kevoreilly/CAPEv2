@@ -243,12 +243,23 @@ def statistics(s_days: int) -> dict:
         "processing": {},
         "reporting": {},
         "top_samples": {},
+        "detections": {},
     }
 
     tmp_data = dict()
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
-    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
+    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "malfamily": 1, "detections":1, _id": 0})
     for analysis in data or []:
+
+        malfamily = False
+        if "detections" in analysis:
+            malfamily = analysis["detections"]
+        elif "malfamily" in analysis:
+            malfamily = analysis["malfamily"]
+        if malfamily:
+            details["detections"].setdefault(malfamily, 0)
+            details["detections"][malfamily] += 1
+
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
                 tmp_data.setdefault(type_entry, dict())
@@ -330,6 +341,10 @@ def statistics(s_days: int) -> dict:
 
         details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
     details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
+
+    # top 15 detections
+    details["detections"] = OrderedDict(sorted(details["detections"].items(), key=lambda x: x[1], reverse=True)[:15])
+
     session.close()
     return details
 

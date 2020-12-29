@@ -3,6 +3,30 @@
 {% if statistics %}
 
 <h4>Information for {{days}} days. Total number of tasks: {{statistics.total}}, Average per day: {{statistics.average}}</h4>
+
+{% if statistics.detections %}
+<h4>Top 15 detections</h4>
+  <table class="table table-striped table-bordered">
+    {% for name, count in statistics.detections.items %}
+        <td>{{count}}</td>
+        <td>
+          <span class="text-danger">{{name}}</span>
+          <!--<form action="{% url "search" %}" method="post">
+          <input type="hidden" id="search" type="text" name="search" value="malfamily:{{name}}">
+          <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{name}}">
+        </form>
+        -->
+      </td>
+
+      {% if forloop.counter|divisibleby:"3" %}
+          </tr>
+      {% elif forloop.last %}
+          </tr>
+      {% endif %}
+    {% endfor %}
+</table>
+{% endif %}
+
 <table class="table table-striped table-hover">
     <thead>
       <tr>

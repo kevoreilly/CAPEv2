@@ -54,4 +54,5 @@ domain_passlist = [
     "\.edgesuite\.net$",
     "^www\.bing\.com$",
     "^api\.bing\.com$",
+    "^crl\.pki\.goog$",
 ]

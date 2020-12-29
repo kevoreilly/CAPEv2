@@ -723,7 +723,7 @@ class Scheduler:
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
                 need_space, space_available = free_space_monitor(dir_path, return_value=True)
                 if need_space:
-                    log.error("Not enough free disk space! (Only %d MB!)", space_available)
+                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
                     continue
 
             # Have we limited the number of concurrently executing machines?

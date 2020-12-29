@@ -1,3 +1,7 @@
+### [29.12.2020]
+* YARA integrated to capemon, this allows to bypass anti-* aka capemon scripting, more [here](https://github.com/kevoreilly/CAPEv2/commit/9306e4e2629f569d4275e241d14aea65a74b421b)
+* Docs and more anti bypasses and examples coming soon
+
 ### [22.12.2020] Peque edition
 * TLS decrypt integration, huge thanks to Hatching team to release their code. WEBGUI integration isn't finished yet, but you already can see https requests there
 * Safelists moved from network.py to `data/safelist/{domains,ips}.py`

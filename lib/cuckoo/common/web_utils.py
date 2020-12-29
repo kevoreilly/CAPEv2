@@ -248,7 +248,7 @@ def statistics(s_days: int) -> dict:
 
     tmp_data = dict()
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
-    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "malfamily": 1, "detections":1, _id": 0})
+    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "malfamily": 1, "detections":1, "_id": 0})
     for analysis in data or []:
 
         malfamily = False

@@ -40,9 +40,10 @@ rule Emotet
         $snippet8 = {85 C0 74 3? B9 [2] 40 00 33 D2 89 ?8 [0-1] 89 [1-2] 8B [1-2] 89 [1-2] EB 0? 41 89 [1-2] 39 14 CD [2] 40 00 75 F? 8B CE E8 [4] 85 C0 74 05 33 C0 40 5E C3}
         $snippet9 = {85 C0 74 4? 8B ?8 [0-1] C7 40 [5] C7 [5-6] C7 40 ?? 00 00 00 00 83 3C CD [4] 00 74 0? 41 89 [2-3] 3C CD [4] 00 75 F? 8B CF E8 [4] 85 C0 74 07 B8 01 00 00 00 5F C3}
         $snippetA = {85 C0 74 5? 8B ?8 04 89 78 28 89 38 89 70 2C EB 04 41 89 48 04 39 34 CD [4] 75 F3 FF 75 DC FF 75 F0 8B 55 F8 FF 75 10 8B 4D EC E8 [4] 83 C4 0C 85 C0 74 05}
+        $snippetB = {85 C9 74 4? 8B 41 ?? 33 D2 89 71 ?? 89 71 ?? 89 51 ?? EB 04 40 89 41 ?? 39 14 C5}
         $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? ?? 00 8D 5? [4-6] E8}
     condition:
-        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($snippet9) or ($snippetA) or ($ref_rsa)
+        uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($snippet9) or ($snippetA) or ($snippetB) or ($ref_rsa)
 }
 
 """
@@ -201,6 +202,10 @@ class Emotet(Parser):
                         tb = struct.unpack("b", filebuf[c2list_va_offset+5:c2list_va_offset+6])[0]
                         if tb == 0x48:
                             delta += 1
+                if not refc2list:
+                    snippet = "$snippetB"
+                    delta = 27
+                    refc2list = yara_scan(filebuf, snippet)
                 if refc2list:
                     c2list_va_offset = int(refc2list[snippet])
                     c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]

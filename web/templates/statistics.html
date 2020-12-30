@@ -10,7 +10,7 @@
     {% for name, count in statistics.detections.items %}
         <td>{{count}}</td>
         <td>
-          <span class="text-danger">{{name}}</span>
+          <td><span class="text-danger">{{name}}</span></td>
           <!--<form action="{% url "search" %}" method="post">
           <input type="hidden" id="search" type="text" name="search" value="malfamily:{{name}}">
           <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{name}}">

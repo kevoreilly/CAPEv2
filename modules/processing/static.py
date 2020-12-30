@@ -98,12 +98,7 @@ except ImportError:
 try:
     from oletools import oleobj
     from oletools.oleid import OleID
-    from oletools.olevba import detect_autoexec
-    from oletools.olevba import detect_hex_strings
-    from oletools.olevba import detect_patterns
-    from oletools.olevba import detect_suspicious
-    from oletools.olevba import filter_vba
-    from oletools.olevba import VBA_Parser
+    from oletools.olevba import detect_autoexec, detect_hex_strings, detect_patterns, detect_suspicious, filter_vba, VBA_Parser, UnexpectedDataError
     from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
 
@@ -1458,7 +1453,7 @@ class Office(object):
                         if hex_strs:
                             for encoded, decoded in hex_strs:
                                 macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-            except AssertionError as e:
+            except (AssertionError, UnexpectedDataError) as e:
                 log.warning(("Macros in static.py", e))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.

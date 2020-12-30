@@ -129,11 +129,12 @@ def demux_office(filename, password):
     if HAS_SFLOCK:
         ofile = OfficeFile(sfFile.from_path(filename))
         d = ofile.decrypt(password)
-        with open(decrypted_name, "w") as outs:
-            outs.write(d.contents)
-        # TODO add decryption verification checks
-        if "Encrypted" not in d.magic:
-            retlist.append(decrypted_name)
+        if hasattr(d, "contents"):
+            with open(decrypted_name, "w") as outs:
+                outs.write(d.contents)
+            # TODO add decryption verification checks
+            if "Encrypted" not in d.magic:
+                retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
 
@@ -154,8 +155,6 @@ def is_valid_type(magic):
 
 def _sf_chlildren(child):
     path_to_extract = False
-    if not os.stat(child.filename).st_size:
-        return path_to_extract
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if ext in demux_extensions_list or is_valid_type(child.magic):
@@ -164,8 +163,10 @@ def _sf_chlildren(child):
             os.mkdir(target_path)
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
-            path_to_extract = os.path.join(tmp_dir, child.filename)
-            open(path_to_extract, "wb").write(child.contents)
+            if child.contents:
+                path_to_extract = os.path.join(tmp_dir, child.filename)
+                with open(path_to_extract, "wb") as f:
+                    f.write(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
     return path_to_extract
@@ -183,13 +184,13 @@ def demux_sflock(filename, options, package):
         return [filename]
 
     try:
-        password = b"infected"
+        password = "infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
             if isinstance(tmp_pass, bytes):
-                password = tmp_pass
+                password = tmp_pass.decode("utf-8")
             else:
-                password = tmp_pass.encode("utf-8")
+                password = tmp_pass#.encode("utf-8")
 
         try:
             unpacked = unpack(filename, password=password)

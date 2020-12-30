@@ -343,7 +343,7 @@ def statistics(s_days: int) -> dict:
     details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
 
     # top 15 detections
-    details["detections"] = OrderedDict(sorted(details["detections"].items(), key=lambda x: x[1], reverse=True)[:15])
+    details["detections"] = OrderedDict(sorted(details["detections"].items(), key=lambda x: x[1], reverse=True)[:20])
 
     session.close()
     return details

@@ -1239,7 +1239,7 @@ def procdump(request, task_id, process_id, start, end):
                             file_item.seek(chunk["offset"])
                             s.write(file_item.read(int(chunk["size"], 16)))
                 s.seek(0)
-                size = s.getvalue()
+                size = len(s.getvalue())
                 if size:
                     content_type = "application/octet-stream"
                     response = StreamingHttpResponse(s, content_type=content_type)

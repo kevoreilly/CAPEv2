@@ -491,7 +491,7 @@ def download_file(**kwargs):
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
 
     onesuccess = True
-    magic_type = get_magic_type(kwargs["content"])
+    magic_type = get_magic_type(kwargs["path"])
     if disable_x64 is True and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
@@ -797,6 +797,10 @@ def download_from_vt(vtdl, details, opt_filename, settings):
         else:
             filename = base_dir + "/" + sanitize_filename(h)
         paths = db.sample_path_by_hash(h)
+
+        # clean old content
+        if "content" in details:
+            del details["content"]
 
         if paths:
             details["content"] = get_file_content(paths)

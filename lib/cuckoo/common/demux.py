@@ -107,9 +107,8 @@ def options2passwd(options):
             try:
                 key, value = field.split("=", 1)
                 if key == "password":
-                    # sflock requires password to be bytes object for Py3
-                    if isinstance(value, str):
-                        value = value.encode("utf8")
+                    if isinstance(value, bytes):
+                        value = value.decode("utf8")
                     password = value
                     break
             except:
@@ -187,10 +186,7 @@ def demux_sflock(filename, options, package):
         password = "infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
-            if isinstance(tmp_pass, bytes):
-                password = tmp_pass.decode("utf-8")
-            else:
-                password = tmp_pass#.encode("utf-8")
+            password = tmp_pass
 
         try:
             unpacked = unpack(filename, password=password)
@@ -237,10 +233,6 @@ def demux_sample(filename, package, options):
             tmp_pass = options2passwd(options)
             if tmp_pass:
                 password = tmp_pass
-            if password:
-                return demux_office(filename, password)
-            else:
-                return [filename]
 
     # don't try to extract from Java archives or executables
     if "Java Jar" in magic:

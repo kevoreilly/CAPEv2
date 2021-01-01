@@ -55,4 +55,6 @@ domain_passlist = [
     "^www\.bing\.com$",
     "^api\.bing\.com$",
     "^crl\.pki\.goog$",
+    "^crl\.identrust\.com$",
+    "^r3.o.lencr.org$",
 ]

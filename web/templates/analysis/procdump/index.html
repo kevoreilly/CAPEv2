@@ -106,22 +106,22 @@
                 {% if file.dropdir %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-secondary btn-small">Download</a>
+                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download</a>
-                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download Zip</a>
-                        <a class="btn btn-secondary btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
+                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download Zip</a>
+                        <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
                     </td>
                 </tr>
                 {% endif %}
                 {% if file.flare_capa %}
                 <tr>
-                    <th><p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
                     <td>
                     <div class="collapse" id="flare_capa_{{file.sha256}}">
                         <div class="card card-body">
@@ -144,14 +144,14 @@
                 </br>
                 {% else %}
                 <tr>
-                    <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "flare_capa" analysis.info.id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
                     <td></td>
                 </tr>
                 {% endif %}
 
             {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
                 <tr>
-                    <p><a href="{% url "file_nl" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></p>
+                    <p><a href="{% url "file_nl" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a></p>
                     {{ bingraph.content|getkey:file.sha256|safe }}
                 </tr>
             {% else %}

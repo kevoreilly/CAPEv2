@@ -1086,8 +1086,6 @@ class Pcap2(object):
 
                 results["%s_ex" % protocol].append(tmp_dict)
 
-
-
         return results
 
 class NetworkAnalysis(Processing):

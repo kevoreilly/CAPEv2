@@ -1025,12 +1025,28 @@ class Pcap2(object):
                 if sent.body:
                     open(req_path, "wb").write(sent.body or b"")
 
+                resp_preview = list()
                 resp_md5 = md5(recv.body or b"").hexdigest()
                 resp_sha1 = sha1(recv.body or b"").hexdigest()
                 resp_sha256 = sha256(recv.body or b"").hexdigest()
                 resp_path = os.path.join(self.network_path, resp_sha256)
                 if recv.body:
                     open(resp_path, "wb").write(recv.body or b"")
+                    # Temp solution
+                    try:
+                        c = 0
+                        for i in range(3):
+                            data = recv.body[c:c+16]
+                            print(data)
+                            if not data:
+                                continue
+                            s1 = " ".join([f"{i:02x}" for i in data]) # hex string
+                            s1 = s1[0:23] + " " + s1[23:]          # insert extra space between groups of 8 hex values
+                            s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data]) # ascii string; chained comparison
+                            resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
+                            c += 16
+                    except Exception as e:
+                        log.info(e)
 
                 results["%s_ex" % protocol].append({
                     "src": srcip, "sport": srcport,
@@ -1057,13 +1073,8 @@ class Pcap2(object):
                         "md5": resp_md5,
                         "sha1": resp_sha1,
                         "sha256": resp_sha256,
+                        "preview": resp_preview,
                     },
-
-                    # Obsolete fields.
-                    "md5": resp_md5,
-                    "sha1": resp_sha1,
-                    "sha256": resp_sha256,
-                    "path": resp_path,
                 })
 
         return results

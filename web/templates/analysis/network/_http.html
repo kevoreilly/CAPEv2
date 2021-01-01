@@ -24,6 +24,12 @@
                 {% for value in http.response|network_rn %}
                     <li>{{value}}</li>
                 {% endfor %}
+                </br>Response preview:
+                {% if http.resp.preview %}
+                    {% for line in http.resp.preview %}
+                        <li>{{line}}</li>
+                    {% endfor %}
+                {% endif %}
             {% else %}
                 No response
             {% endif %}

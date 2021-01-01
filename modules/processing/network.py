@@ -1017,9 +1017,6 @@ class Pcap2(object):
                 if isinstance(recv.raw, bytes):
                     response = recv.raw.split(b"\r\n\r\n", 1)[0]
 
-                req_path = False
-                resp_path = False
-
                 status = int(getattr(recv, "status", 0))
                 tmp_dict = {
                     "src": srcip, "sport": srcport,
@@ -1037,7 +1034,6 @@ class Pcap2(object):
 
                 if status and status not in (301, 302):
                     if sent.body:
-                        # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
                         req_md5 = md5(sent.body).hexdigest()
                         req_sha1 = sha1(sent.body).hexdigest()
                         req_sha256 = sha256(sent.body).hexdigest()

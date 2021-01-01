@@ -12,7 +12,11 @@
             <table class="table table-striped table-bordered">
             {% if http.request %}
                 <tr><td>
-                    Request:
+                    {% if http.req.sha256 %}
+                        <a href="{% url "file" "networkzip" analysis.info.id http.req.sha256 %}" class="btn btn-secondary btn-sm">Download Request content</a>
+                    {% else %}
+                        Request:
+                    {% endif %}
                     {% for value in http.request|network_rn %}
                         <li>{{value}}</li>
                     {% endfor %}
@@ -20,7 +24,11 @@
             {% endif %}
             <tr><td>
             {% if http.response %}
-                <a href="{% url "file" "networkzip" analysis.info.id http.sha256 %}" class="btn btn-secondary btn-small">Download Response content</a>
+                {% if http.resp.sha256 %}
+                    <a href="{% url "file" "networkzip" analysis.info.id http.resp.sha256 %}" class="btn btn-secondary btn-sm">Download Response content</a>
+                {% else %}
+                    Response:
+                {% endif %}
                 {% for value in http.response|network_rn %}
                     <li>{{value}}</li>
                 {% endfor %}

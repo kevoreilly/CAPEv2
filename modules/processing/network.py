@@ -1017,65 +1017,76 @@ class Pcap2(object):
                 if isinstance(recv.raw, bytes):
                     response = recv.raw.split(b"\r\n\r\n", 1)[0]
 
-                # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
-                req_md5 = md5(sent.body or b"").hexdigest()
-                req_sha1 = sha1(sent.body or b"").hexdigest()
-                req_sha256 = sha256(sent.body or b"").hexdigest()
-                req_path = os.path.join(self.network_path, req_sha1)
-                if sent.body:
-                    open(req_path, "wb").write(sent.body or b"")
+                req_path = False
+                resp_path = False
 
-                resp_preview = list()
-                resp_md5 = md5(recv.body or b"").hexdigest()
-                resp_sha1 = sha1(recv.body or b"").hexdigest()
-                resp_sha256 = sha256(recv.body or b"").hexdigest()
-                resp_path = os.path.join(self.network_path, resp_sha256)
-                if recv.body:
-                    open(resp_path, "wb").write(recv.body or b"")
-                    # Temp solution
-                    try:
-                        c = 0
-                        for i in range(3):
-                            data = recv.body[c:c+16]
-                            print(data)
-                            if not data:
-                                continue
-                            s1 = " ".join([f"{i:02x}" for i in data]) # hex string
-                            s1 = s1[0:23] + " " + s1[23:]          # insert extra space between groups of 8 hex values
-                            s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data]) # ascii string; chained comparison
-                            resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
-                            c += 16
-                    except Exception as e:
-                        log.info(e)
-
-                results["%s_ex" % protocol].append({
+                status = int(getattr(recv, "status", 0))
+                tmp_dict = {
                     "src": srcip, "sport": srcport,
                     "dst": dstip, "dport": dstport,
                     "protocol": protocol,
                     "method": sent.method,
                     "host": sent.headers.get("host", dstip),
                     "uri": sent.uri,
-                    "status": int(getattr(recv, "status", 0)),
+                    "status": status,
 
                     # We'll keep these fields here for now.
                     "request": request,#.decode("latin-1"),
                     "response": response,#.decode("latin-1"),
+                }
 
-                    # It's not perfect yet, but it'll have to do.
-                    "req": {
-                        "path": req_path,
-                        "md5": req_md5,
-                        "sha1": req_sha1,
-                        "sha256": req_sha256,
-                    },
-                    "resp": {
-                        "path": resp_path,
-                        "md5": resp_md5,
-                        "sha1": resp_sha1,
-                        "sha256": resp_sha256,
-                        "preview": resp_preview,
-                    },
-                })
+                if status and status not in (301, 302):
+                    if sent.body:
+                        # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
+                        req_md5 = md5(sent.body).hexdigest()
+                        req_sha1 = sha1(sent.body).hexdigest()
+                        req_sha256 = sha256(sent.body).hexdigest()
+
+                        req_path = os.path.join(self.network_path, req_sha1)
+                        with open(req_path, "wb") as f:
+                            f.write(sent.body)
+
+                        # It's not perfect yet, but it'll have to do.
+                        tmp_dict["req"] = {
+                            "path": req_path,
+                            "md5": req_md5,
+                            "sha1": req_sha1,
+                            "sha256": req_sha256,
+                        }
+
+                    if recv.body:
+                        resp_md5 = md5(recv.body).hexdigest()
+                        resp_sha1 = sha1(recv.body).hexdigest()
+                        resp_sha256 = sha256(recv.body).hexdigest()
+                        resp_path = os.path.join(self.network_path, resp_sha256)
+                        with open(resp_path, "wb") as f:
+                            f.write(recv.body)
+                        resp_preview = list()
+                        try:
+                            c = 0
+                            for i in range(3):
+                                data = recv.body[c:c+16]
+                                if not data:
+                                    continue
+                                s1 = " ".join([f"{i:02x}" for i in data]) # hex string
+                                s1 = s1[0:23] + " " + s1[23:]          # insert extra space between groups of 8 hex values
+                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data]) # ascii string; chained comparison
+                                resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
+                                c += 16
+                        except Exception as e:
+                            log.info(e)
+
+                        tmp_dict["resp"] = {
+                            "md5": resp_md5,
+                            "sha1": resp_sha1,
+                            "sha256": resp_sha256,
+                            "preview": resp_preview,
+                            "path": resp_path,
+                        }
+
+                results["%s_ex" % protocol].append(tmp_dict)
+
+
 
         return results
 

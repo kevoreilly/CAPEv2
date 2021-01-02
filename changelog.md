@@ -1,3 +1,7 @@
+### [02.01.02021] POST 2020
+* Allow download http(s) Request/Response and Response 48bytes hex preview
+* auth_only in api.conf to allow apikey/autentificated users hit the rest api
+
 ### [29.12.2020]
 * YARA integrated to capemon, this allows to bypass anti-* aka capemon scripting, more [here](https://github.com/kevoreilly/CAPEv2/commit/9306e4e2629f569d4275e241d14aea65a74b421b)
 * Docs and more anti bypasses and examples coming soon

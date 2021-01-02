@@ -183,6 +183,8 @@ def my_rate_seconds(group, request):
             password = request.GET.get("password", "")
         if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
             return None
+        elif apilimiter[group].get("auth_only"):
+            return "0/s"
         else:
             return apilimiter[group].get("rps")
 
@@ -208,6 +210,8 @@ def my_rate_minutes(group, request):
 
         if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
             return None
+        elif apilimiter[group].get("auth_only"):
+            return "0/m"
         else:
             return apilimiter[group].get("rpm")
 

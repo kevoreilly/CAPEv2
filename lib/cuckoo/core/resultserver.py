@@ -200,19 +200,21 @@ class FileUpload(ProtocolHandler):
             pids = list(map(int, self.handler.read_newline().split()))
             metadata = self.handler.read_newline()
             category = self.handler.read_newline()
+            duplicated = int(self.handler.read_newline()) or 0
         else:
-            filepath, pids, metadata, category = None, [], b"", b""
+            filepath, pids, metadata, category, duplicated = None, [], b"", b"", False
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
-        file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
+        if not duplicated:
+            file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
 
-        try:
-            self.fd = open_exclusive(file_path)
-        except OSError as e:
-            log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
-            if e.errno == errno.EEXIST:
-                raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
-            raise
+            try:
+                self.fd = open_exclusive(file_path)
+            except OSError as e:
+                log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
+                if e.errno == errno.EEXIST:
+                    raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
+                raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
         if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/")):
@@ -232,11 +234,12 @@ class FileUpload(ProtocolHandler):
                     file=f,
                 )
 
-        self.handler.sock.settimeout(None)
-        try:
-            return self.handler.copy_to_fd(self.fd, self.upload_max_size)
-        finally:
-            log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
+        if not duplicated:
+            self.handler.sock.settimeout(None)
+            try:
+                return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+            finally:
+                log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):

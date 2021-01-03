@@ -755,11 +755,12 @@ class Files(object):
             log.warning("File at path %r does not exist, skip.", filepath)
             return False
 
+        duplicated = False
         # Check whether we've already dumped this file - in that case skip it.
         try:
             sha256 = hash_file(hashlib.sha256, filepath)
             if sha256 in self.dumped:
-                return
+                duplicated = True
         except IOError as e:
             log.info('Error dumping file from path "%s": %s', filepath, e)
             return
@@ -785,7 +786,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category)
+            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)

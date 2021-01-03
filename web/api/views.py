@@ -1076,16 +1076,21 @@ def tasks_report(request, task_id, report_format="json"):
             return jsonize(resp, response=True)
 
     elif report_format.lower() == "all":
+        bzf = bz_formats[report_format.lower()]
+        srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % int(task_id))
+
         if not apiconf.taskreport.get("all"):
             resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
             return jsonize(resp, response=True)
 
-        fname = "%s_reports.tar.bz2" % task_id
         s = BytesIO()
+
+        fname = "%s_reports.tar.bz2" % task_id
         tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
         for rep in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, rep), arcname=rep)
         tar.close()
+
         s.seek(0)
         resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
@@ -1099,7 +1104,6 @@ def tasks_report(request, task_id, report_format="json"):
 
         # By default go for bz2 encoded tar files (for legacy reasons.)
         # tarmode = tar_formats.get("tar", "w:bz2")
-
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         if not os.path.exists(srcdir):
             resp = {"error": True, "error_value": "Report doesn't exists"}
@@ -1118,18 +1122,6 @@ def tasks_report(request, task_id, report_format="json"):
         resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
-        return resp
-
-    elif report_format.lower() in bz_formats:
-        fname = "%s_reports.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
-        for rep in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, rep), arcname=rep)
-        tar.close()
-        resp = HttpResponse(s.getvalue(), content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
 
     else:

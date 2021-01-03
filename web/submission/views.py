@@ -259,8 +259,9 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
                 sha256 = File(path).get_sha256()
-                if unique and db.check_file_uniq(sha256):
-                    return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
+                if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
+                    details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
+                    continue
 
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
@@ -273,8 +274,9 @@ def index(request, resubmit_hash=False):
                 else:
                     records = perform_search("sha256", sha256)
                     for record in records:
-                        existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
-                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                        if record.get("target").get("file", {}).get("sha256"):
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                            existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:
@@ -379,7 +381,6 @@ def index(request, resubmit_hash=False):
 
             else:
                 machines = [None]
-
             for entry in machines:
                 task_id = db.add_url(
                     url=url,
@@ -398,6 +399,9 @@ def index(request, resubmit_hash=False):
                     shrike_msg=shrike_msg,
                     shrike_sid=shrike_sid,
                     shrike_refer=shrike_refer,
+                    route=route,
+                    cape=cape,
+                    tags_tasks=tags_tasks,
                 )
                 details["task_ids"].append(task_id)
 

@@ -1,4 +1,25 @@
 {% if debugger %}
+<script>
+function show_tab_dbg(id, callback) {
+        // First, see if tab is already active. If it is, just run the callback
+        if ($('#' + id).hasClass('active')) {
+            typeof callback === 'function' && callback();
+        }
+        // Else, show the tab and run the callback once the tab is shown
+        else {
+            // Wait for tab to be shown
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if ($(e.target).attr('href') == '#' + id) {
+                    $('a[data-toggle="tab"]').off('shown.bs.tab');
+                    typeof callback === 'function' && callback();
+                }
+            });
+
+            // Show the tab
+            $('a[href="#' + id + '"]').tab('show');
+        }
+    }
+</script>
 <h4>Debugger Output</h4>
 <ul>
     {% for process in debugger.processtree|proctreetolist %}
@@ -8,7 +29,7 @@
         </ul>
         {% else %}
         <li>
-        <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
+        <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
         {% if process.commandline %}
           <i>{{ process.commandline }}</i>
         {% endif %}
@@ -19,7 +40,11 @@
 
 <ul class="nav nav-tabs">
     {% for process in debugger.processes %}
-    <li class="nav-item {% if forloop.counter == 1%} active{% endif %}"><a class="nav-link" href="#{{process.process_id}}" data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}} ({{process.process_id}})</a></li>
+        {% for key, value in debugger_logs.items %}
+                {% if key == process.process_id %}
+                    <li class="nav-item"><a class="nav-link {% if forloop.counter == 1%} active {% endif %}" href="#dbg_{{process.process_id}}" data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}} ({{process.process_id}})</a></li>
+                {% endif %}
+        {% endfor %}
     {% endfor %}
 </ul>
 
@@ -27,7 +52,7 @@
     {% for process in debugger.processes %}
         {% for key, value in debugger_logs.items %}
             {% if key == process.process_id %}
-            <div class="tab-pane fade show {% if forloop.parentloop.counter == 1 %} active {% endif %}" id="{{key}}">
+            <div class="tab-pane fade {% if forloop.parentloop.counter == 1 %} show active {% endif %}" id="dbg_{{key}}">
                 <div class="alert alert-danger center"><a class="btn btn-secondary btn-small" href="{% url "file" "debugger_log" id key %}">Download Log</a></div>
                 <pre>{{value}}</pre>
             </div>

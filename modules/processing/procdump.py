@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 import os
 import json
+from datetime import datetime
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
@@ -87,10 +88,11 @@ class ProcDump(Processing):
                 else:
                     file_info["data"] = convert_to_printable(filedata)
 
-            if processing_conf.flare_capa.enabled and processing_conf.flare_capa.procdump:
-                capa_deatils = flare_capa_details(file_path)
-                if capa_deatils:
-                    file_info["flare_capa"] = capa_deatils
+            pretime = datetime.now()
+            capa_details = flare_capa_details(file_path, "procdump")
+            if capa_details:
+                file_info["flare_capa"] = capa_details
+            self.add_statistic_tmp("flare_capa", "time", pretime)
 
             procdump_files.append(file_info)
 

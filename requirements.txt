@@ -28,7 +28,7 @@ regex
 xmltodict
 git+https://github.com/doomedraven/sflock.git
 git+https://github.com/doomedraven/socks5man.git
-"pyattck>=2.0.2"
+git+https://github.com/swimlane/pyattck.git
 distorm3
 openpyxl
 git+https://github.com/volatilityfoundation/volatility3

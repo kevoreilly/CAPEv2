@@ -54,11 +54,11 @@ pending_future_map = {}
 pending_task_id_map = {}
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
-def memory_limit(percentage: float):
+def memory_limit(percentage: float = 0.8):
     if platform.system() != "Linux":
         print('Only works on linux!')
         return
-    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    _, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (get_memory() * 1024 * percentage, hard))
 
 def get_memory():
@@ -70,20 +70,6 @@ def get_memory():
                 free_memory = int(sline[1])
                 break
     return free_memory
-
-def memory(percentage=0.8):
-    def decorator(function):
-        def wrapper(*args, **kwargs):
-            memory_limit(percentage)
-            try:
-                function(*args, **kwargs)
-            except MemoryError:
-                mem = get_memory() / 1024 /1024
-                print('Remain: %.2f GB' % mem)
-                sys.stderr.write('\n\nERROR: Memory Exception\n')
-                sys.exit(1)
-        return wrapper
-    return decorator
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
@@ -231,6 +217,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     # pool = multiprocessing.Pool(parallel, init_worker)
 
     try:
+        memory_limit()
         log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
@@ -286,15 +273,18 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         # ToDo verify in finally
         # pool.terminate()
         raise
-    except:
+    except MemoryError:
+        mem = get_memory() / 1024 /1024
+        print('Remain: %.2f GB' % mem)
+        sys.stderr.write('\n\nERROR: Memory Exception\n')
+        sys.exit(1)
+    except Exception as e:
         import traceback
-
         traceback.print_exc()
     finally:
         pool.close()
         pool.join()
 
-@memory(percentage=0.8)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("id", type=str, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")

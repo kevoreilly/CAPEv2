@@ -138,6 +138,10 @@ a.tag-label {
     color: white;
 }
 
+h4, .h4 {
+    font-size: 18px;
+}
+
 .filesystem {
     background-color: #ffe3c5;
     color: black;

@@ -91,7 +91,7 @@ logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 if enabled_passlist and passlist_file:
     with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-        for domain in list(set(f.readlines())):
+        for domain in list(set(f.read().splitlines())):
             if domain.startswith("#") or len(domain.strip()) == 0:
                 # comment or empty line
                 continue
@@ -826,10 +826,9 @@ class Pcap:
 
                     connection["sport"] = tcp.sport
                     connection["dport"] = tcp.dport
-                    if not tcp.data:
-                        self._tcp_dissect(connection, tcp.data)
 
                     if tcp.data:
+                        self._tcp_dissect(connection, tcp.data)
                         src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
                         if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))

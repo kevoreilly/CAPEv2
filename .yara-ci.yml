@@ -1,0 +1,7 @@
+files:
+  accept:
+  - "data/yara/**.yar"
+
+false_positives:
+  ignore:
+    - rule: "CobaltStrikeBeacon"

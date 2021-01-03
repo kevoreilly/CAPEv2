@@ -12,7 +12,8 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
-from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter, bytes2str
+from lib.cuckoo.common.utils import convert_to_printable, pretty_print_arg, pretty_print_retval, logtime, default_converter, bytes2str, get_options
+
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -339,9 +340,7 @@ class Processes:
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
-        self.options = dict(
-            (value.strip() for value in option.split("=", 1)) for option in self.task["options"].split(",") if option and "=" in option
-        )
+        self.options = get_options(self.task["options"])
 
     def run(self):
         """Run analysis.

@@ -4,6 +4,7 @@
 import os
 import sys
 import struct
+import socket
 import pefile
 import hashlib
 import datetime
@@ -66,6 +67,20 @@ def parse_controllers(data):
     return controllers
 
 """
+    Parses the binary CNC block format introduced Nov'20
+"""
+def parse_binary_c2(data):
+    controllers = []
+    c2_offset = 0
+    length = len(data)
+    while c2_offset < length:
+        ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset+1:c2_offset+5])[0]))
+        port = str(struct.unpack(">H", data[c2_offset+5:c2_offset+7])[0])
+        c2_offset += 7
+        controllers.append('{}:{}'.format(ip,port))
+    return controllers
+
+"""
     Decompress data with blzpack decompression
 """
 def decompress(data):
@@ -123,19 +138,37 @@ class QakBot(Parser):
                                             config = parse_config(dec_bytes)
                                             #log.info("qbot_config:{}".format(config))
                                             self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe2).decode("utf-8") })
-                                    
+
                                             for k,v in config.items():
                                                 #log.info( { k.decode("utf-8"): v.decode("utf-8") })
                                                 self.reporter.add_metadata("other", {k:v})
-                                 
+
                                         elif entry.name.__str__() == '311':
                                             dec_bytes = decrypt_data(res_data)
                                             controllers = parse_controllers(dec_bytes)
-                                            
+
                                             #log.info("controllers:{}".format(controllers))
                                             for controller in controllers:
                                                 self.reporter.add_metadata("address", controller)
+                            #log.info("meta data:{}".format(self.reporter.metadata))
 
+                        elif entry.name.__str__() == '308':
+                            dec_bytes = decrypt_data(res_data)
+                            config = parse_config(dec_bytes)
+                            #log.info("qbot_config:{}".format(config))
+                            self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe)})
+
+                            for k,v in config.items():
+                                #log.info({k:v})
+                                self.reporter.add_metadata("other", {k:v})
+
+                        elif entry.name.__str__() == '311':
+                            dec_bytes = decrypt_data(res_data)
+                            controllers = parse_binary_c2(dec_bytes)
+
+                            #log.info("controllers:{}".format(controllers))
+                            for controller in controllers:
+                                self.reporter.add_metadata("address", controller)
                             #log.info("meta data:{}".format(self.reporter.metadata))
 
         except Exception as e:

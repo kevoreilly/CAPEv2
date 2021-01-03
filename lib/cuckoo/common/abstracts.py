@@ -684,12 +684,22 @@ class Processing(object):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.network_path = os.path.join(self.analysis_path, "network")
+        self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
 
-    def add_statistic(self, name, field, value):
-        if name not in self.results["statistics"]["processing"]:
-            self.results["statistics"]["processing"][name] = {}
+    def add_statistic_tmp(self, name, field, pretime):
+        posttime = datetime.datetime.now()
+        timediff = posttime - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
 
-        self.results["statistics"]["processing"][name][field] = value
+        if name not in self.results["temp_processing_stats"]:
+            self.results["temp_processing_stats"][name] = {}
+
+        # To be able to add yara/capa and others time summary over all processing modules
+        if field in self.results["temp_processing_stats"][name]:
+            self.results["temp_processing_stats"][name][field] += value
+        else:
+            self.results["temp_processing_stats"][name][field] = value
 
     def run(self):
         """Start processing.
@@ -772,11 +782,13 @@ class Signature(object):
             for sub_keyword in ("yara", "cape_yara"):
                 for sub_block in block.get(sub_keyword, []):
                     if re.findall(name, sub_block["name"], re.I):
-                        yield keyword, block["path"], sub_block
+                        yield sub_keyword, block["path"], sub_block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if keyword in self.results and self.results[keyword] is not None:
                 for block in self.results.get(keyword, []):
+                    if not isinstance(block, dict):
+                        continue
                     for sub_keyword in ("yara", "cape_yara"):
                         for sub_block in block.get(sub_keyword, []):
                             if re.findall(name, sub_block["name"], re.I):
@@ -812,8 +824,6 @@ class Signature(object):
                 if re.findall(name, sub_block["name"], re.I):
                     yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
 
-        yield False, False, False
-
     def add_statistic(self, name, field, value):
         if name not in self.results["statistics"]["signatures"]:
             self.results["statistics"]["signatures"][name] = {}
@@ -832,7 +842,7 @@ class Signature(object):
         if os.path.exists(logs):
             pids += [pidb.replace(".bson", "") for pidb in os.listdir(logs) if ".bson" in pidb]
 
-        #  in case if injection not follows
+        #  in case if injection not follows
         if "procmemory" in self.results and self.results["procmemory"] is not None:
             pids += [str(block["pid"]) for block in self.results["procmemory"]]
         if "procdump" in self.results and self.results["procdump"] is not None:

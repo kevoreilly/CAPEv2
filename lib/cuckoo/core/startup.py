@@ -228,15 +228,12 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
     yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # We divide yara rules in three categories.
-    # CAPE adds a fourth
 
     # Loop through all categories.
     for category in categories:
@@ -260,9 +257,7 @@ def init_yara():
                     # https://github.com/VirusTotal/yara-python/issues/48
                     assert len(str(filepath)) == len(filepath)
                 except (UnicodeEncodeError, AssertionError):
-                    log.warning(
-                        "Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath
-                    )
+                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
                     continue
 
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
@@ -270,29 +265,37 @@ def init_yara():
 
             # Need to define each external variable that will be used in the
         # future. Otherwise Yara will complain.
-        externals = {
-            "filename": "",
-        }
+        externals = {"filename": ""}
 
-        try:
-            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-        except yara.Error as e:
-            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+        if category != "monitor":
+            try:
+                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+            except yara.Error as e:
+                raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
 
-        # ToDo for Volatility3 yarascan
-        # The memory.py processing module requires a yara file with all of its
-        # rules embedded in it, so create this file to remain compatible.
-        # if category == "memory":
-        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-        #    for filename in sorted(indexed):
-        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+            # ToDo for Volatility3 yarascan
+            # The memory.py processing module requires a yara file with all of its
+            # rules embedded in it, so create this file to remain compatible.
+            # if category == "memory":
+            #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
+            #    for filename in sorted(indexed):
+            #        f.write('include "%s"\n' % os.path.join(category_root, filename))
 
-        indexed = sorted(indexed)
-        for entry in indexed:
-            if (category, entry) == indexed[-1]:
-                log.debug("\t `-- %s %s", category, entry)
-            else:
-                log.debug("\t |-- %s %s", category, entry)
+            indexed = sorted(indexed)
+            for entry in indexed:
+                if (category, entry) == indexed[-1]:
+                    log.debug("\t `-- %s %s", category, entry)
+                else:
+                    log.debug("\t |-- %s %s", category, entry)
+        else:
+            try:
+                compiled = yara.compile(filepaths=rules, externals=externals)
+                compiled_path = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yarac")
+                if not os.path.exists(compiled_path):
+                    os.makedirs(compiled_path, exist_ok=True)
+                compiled.save(os.path.join(compiled_path, "monitor.yac"))
+            except yara.Error as e:
+                raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
 
 
 def init_rooter():

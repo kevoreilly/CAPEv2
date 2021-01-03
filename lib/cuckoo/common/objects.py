@@ -385,27 +385,28 @@ class File(object):
         @return: file content type.
         """
         file_type = None
-        if HAVE_MAGIC:
-            if hasattr(magic, "from_file"):
-                try:
-                    file_type = magic.from_file(self.file_path)
-                except Exception as e:
-                    log.error(e, exc_info=True)
-            if not file_type and hasattr(magic, "open"):
-                try:
-                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
-                    ms.load()
-                    file_type = ms.file(self.file_path)
-                    ms.close()
-                except Exception as e:
-                    log.error(e, exc_info=True)
+        if os.path.exists(self.file_path):
+            if HAVE_MAGIC:
+                if hasattr(magic, "from_file"):
+                    try:
+                        file_type = magic.from_file(self.file_path)
+                    except Exception as e:
+                        log.error(e, exc_info=True)
+                if not file_type and hasattr(magic, "open"):
+                    try:
+                        ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                        ms.load()
+                        file_type = ms.file(self.file_path)
+                        ms.close()
+                    except Exception as e:
+                        log.error(e, exc_info=True)
 
-        if file_type is None:
-            try:
-                p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                file_type = p.stdout.read().strip()
-            except Exception as e:
-                log.error(e, exc_info=True)
+            if file_type is None:
+                try:
+                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                    file_type = p.stdout.read().strip()
+                except Exception as e:
+                    log.error(e, exc_info=True)
 
         return file_type
 

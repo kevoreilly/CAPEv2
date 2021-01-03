@@ -1,3 +1,20 @@
+### [02.01.02021] POST 2020
+* Allow download http(s) Request/Response and Response 48bytes hex preview
+* auth_only in api.conf to allow apikey/autentificated users hit the rest api
+
+### [29.12.2020]
+* YARA integrated to capemon, this allows to bypass anti-* aka capemon scripting, more [here](https://github.com/kevoreilly/CAPEv2/commit/9306e4e2629f569d4275e241d14aea65a74b421b)
+* Docs and more anti bypasses and examples coming soon
+
+### [22.12.2020] Peque edition
+* TLS decrypt integration, huge thanks to Hatching team to release their code. WEBGUI integration isn't finished yet, but you already can see https requests there
+* Safelists moved from network.py to `data/safelist/{domains,ips}.py`
+
+### [08.12.2020] On demand
+* Add uniq submission limitation, can be enabled in `conf/web.conf` to disable the same submission during X hours
+* Bingraph, FLARE CAPA, vba2graph on demand
+* Added `on_demand` feature.
+    * This funcions aim to speedup processing but allow to user to generate parts of analysis that takes some time to finish and not used frequently. Example scripted submissions
 
 ### [02.12.2020] CAPE 2.2
 * Malduck integration

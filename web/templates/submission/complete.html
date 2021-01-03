@@ -14,7 +14,7 @@
         <div class="alert alert-secondary"><h4>Existent tasks for this hash: {{sha256}}!</h4>
             <ul>
                 {% for block in details %}
-                    <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> - Detection: <span style="color:#EE1B2F;">{{block.detections}}</span></li>
+                    <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> {% if block.family  %} - Detection: <span style="color:#EE1B2F;">{{block.malfamily}}</span>{% endif %}</li>
                 {% endfor %}
             </ul>
         </div>

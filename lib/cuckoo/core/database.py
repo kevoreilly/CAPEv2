@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import json
 import logging
 from datetime import datetime, timedelta
@@ -336,7 +337,7 @@ class Task(Base):
     timedout = Column(Boolean, nullable=False, default=False)
 
     sample_id = Column(Integer, ForeignKey("samples.id"), nullable=True)
-    sample = relationship("Sample", backref="tasks")#, lazy="subquery"
+    sample = relationship("Sample", backref="tasks", lazy="subquery")
     machine_id = Column(Integer, nullable=True)
     guest = relationship("Guest", uselist=False, backref="tasks", cascade="save-update, delete")
     errors = relationship("Error", backref="tasks", cascade="save-update, delete")
@@ -470,11 +471,9 @@ class Database(object, metaclass=Singleton):
             last = tmp_session.query(AlembicVersion).first()
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
-                raise CuckooDatabaseError(
-                    "DB schema version mismatch: found {0}, expected {1}. "
-                    "Try to apply all migrations (cd utils/db_migration/ && "
-                    "alembic upgrade head).".format(last.version_num, SCHEMA_VERSION)
-                )
+                print("DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(last.version_num, SCHEMA_VERSION))
+                print(red("cd utils/db_migration/ && alembic upgrade head"))
+                sys.exit()
 
     def __del__(self):
         """Disconnects pool."""
@@ -1249,8 +1248,7 @@ class Database(object, metaclass=Singleton):
         source_url=False,
         route=None,
         cape=False,
-        tags_tasks=False
-
+        tags_tasks=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1524,6 +1522,9 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
+        route=None,
+        cape=False,
+        tags_tasks=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1538,6 +1539,9 @@ class Database(object, metaclass=Singleton):
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param tlp: TLP sharing designation
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
 
@@ -1566,6 +1570,9 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
+            route = route,
+            cape = cape,
+            tags_tasks = tags_tasks,
         )
 
     @classlock
@@ -1650,11 +1657,25 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def check_file_uniq(self, sha256):
-        if not Database.find_sample(self, sha256=sha256):
-            return False
-        else:
-            return True
+    def check_file_uniq(self, sha256: str, hours: int=0):
+        uniq = False
+        session = self.Session()
+        try:
+            if hours and sha256:
+                date_since = datetime.now()-timedelta(hours=hours)
+                date_till = datetime.now()
+                uniq = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Sample.sha256==sha256, Task.added_on.between(date_since, date_till)).first()
+            else:
+                if not Database.find_sample(self, sha256=sha256):
+                    uniq = False
+                else:
+                    uniq = True
+        except SQLAlchemyError as e:
+            log.debug("Database error counting tasks: {0}".format(e))
+        finally:
+            session.close()
+
+        return uniq
 
     @classlock
     def list_parents(self, parent_id):
@@ -1749,18 +1770,18 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             search = session.query(Task)
-            #if inclide_hashes:
-            #    search = search.join(Sample, Task.sample_id==Sample.id)
+            if inclide_hashes:
+                search = search.join(Sample, Task.sample_id==Sample.id)
             if status:
-                search = search.filter_by(status=status)
+                search = search.filter(Task.status==status)
             if not_status:
                 search = search.filter(Task.status != not_status)
             if category:
-                search = search.filter_by(category=category)
+                search = search.filter(Task.category==category)
             if details:
                 search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
             if sample_id is not None:
-                search = search.filter_by(sample_id=sample_id)
+                search = search.filter(Task.sample_id==sample_id)
             if id_before is not None:
                 search = search.filter(Task.id < id_before)
             if id_after is not None:
@@ -1779,8 +1800,8 @@ class Database(object, metaclass=Singleton):
                 search = search.order_by(order_by)
             else:
                 search = search.order_by(Task.added_on.desc())
-            tasks = search.limit(limit).offset(offset).all()
-            return tasks
+
+            return search.limit(limit).offset(offset).all()
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))
             return []
@@ -1947,6 +1968,7 @@ class Database(object, metaclass=Singleton):
         @param parent: sample_id int
         @return: matches list
         """
+        sample = False
         session = self.Session()
         try:
             if md5:

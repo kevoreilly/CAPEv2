@@ -159,6 +159,7 @@ TEMPLATES = [
                 "django.template.context_processors.media",
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
+                "django.template.context_processors.request",
                 "django.contrib.messages.context_processors.messages",
             ],
             "loaders": ["django.template.loaders.filesystem.Loader", "django.template.loaders.app_directories.Loader",],

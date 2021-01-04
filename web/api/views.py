@@ -1065,7 +1065,7 @@ def tasks_report(request, task_id, report_format="json"):
     if report_format.lower() in formats:
         report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
         if os.path.exists(report_path):
-            if report_format in ("intezeranalyze", "json", "maec5"):
+            if report_format in ("intezerreport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
                 ext = "json"
             elif report_format.startswith("html"):

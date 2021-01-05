@@ -74,7 +74,7 @@ $(function() {
     <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.static or config.virustotal and analysis.virustotal %}<li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
     <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
-    <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tab">Network Analysis</a></li>
+    <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/network/" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" %}
         {% if analysis.dropped %}<li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}
         {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}

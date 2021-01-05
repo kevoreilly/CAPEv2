@@ -19,8 +19,8 @@
 <hr />
 {% endif %}
 <div class="row">
-    <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts.html" %}</div>
-    <div class="col-md-6 mx-auto">{% include "analysis/network/_dns.html" %}</div>
+    <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts_not_ajax.html" %}</div>
+    <div class="col-md-6 mx-auto">{% include "analysis/network/_dns_not_ajax.html" %}</div>
 </div>
 <hr />
 {% if analysis.info.category != "pcap" %}

@@ -1,32 +1,32 @@
-{% if analysis.network.pcap_sha256 %}
-    <div class="alert alert-primary center"><a class="btn btn-secondary btn-small" href="{% url "file" "pcap" analysis.info.id analysis.network.pcap_sha256 %}">Download PCAP</a></div>
+{% if network.pcap_sha256 %}
+    <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}">Download PCAP</a></div>
     <!--allow dl tls keys-->
 {% endif %}
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
-        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ analysis.network.hosts|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ analysis.network.domains|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ analysis.network.tcp|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ analysis.network.udp|length }})</a></li>
+        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ network.domains|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ network.tcp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ network.udp|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-toggle="tab">
-            {% if analysis.network.http_ex or analysis.network.https_ex %}
-                HTTP(S) <span class="button-badge">{{ analysis.network.http_ex|add:analysis.network.https_ex|length }}</span>
+            {% if network.http_ex or network.https_ex %}
+                HTTP(S) <span class="button-badge">{{ network.http_ex|add:network.https_ex|length }}</span>
             {% else %}
-                HTTP <span class="button-badge">{{ analysis.network.http|length }}</span>
+                HTTP <span class="button-badge">{{ network.http|length }}</span>
             {% endif %}
         </a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">SMTP ({{ analysis.network.smtp|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-toggle="tab">IRC ({{ analysis.network.irc|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-toggle="tab">ICMP ({{ analysis.network.icmp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">SMTP ({{ network.smtp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-toggle="tab">IRC ({{ network.irc|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-toggle="tab">ICMP ({{ network.icmp|length }})</a></li>
         {% if config.cif %}
-            <li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-toggle="tab">CIF Results ({{ analysis.cif|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-toggle="tab">CIF Results ({{ cif|length }})</a></li>
         {% endif %}
         {% if config.suricata %}
-            <li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-toggle="tab">Suricata Alerts ({{ analysis.suricata.alerts|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-toggle="tab">Suricata TLS ({{ analysis.suricata.tls|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ analysis.suricata.http|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">Suricata Files ({{ analysis.suricata.files|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-toggle="tab">Suricata Alerts ({{ suricata.alerts|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-toggle="tab">Suricata TLS ({{ suricata.tls|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ suricata.http|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">Suricata Files ({{ suricata.files|length }})</a></li>
         {% endif %}
-        <li class="nav-item"><a class="nav-link" href="#network_ja3_tab" data-toggle="tab">JA3 ({{ analysis.network.ja3|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_ja3_tab" data-toggle="tab">JA3 ({{ network.ja3|length }})</a></li>
     </ul>
     <div class="tab-content">
         <div class="tab-pane fade show active" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>

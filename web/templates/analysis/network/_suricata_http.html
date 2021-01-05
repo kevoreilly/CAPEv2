@@ -1,6 +1,6 @@
 <section id="suri_http">
     <h4>Suricata HTTP</h4>
-    {% if analysis.suricata.http %}
+    {% if suricata.http %}
         <table class="table table-striped table-bordered" style="table-layout: fixed; width: 100%">
             <tr>
                 <th width="8%">Timestamp</th>
@@ -17,13 +17,13 @@
                 <th width="13%">Referrer</th>
                 <th width="4%">Length</th>
             </tr>
-            {% for http in analysis.suricata.http %}
+            {% for http in suricata.http %}
             <tr>
                 <td>{{http.timestamp}}</td>
-                <td>{{http.srcip}} 
-                    <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a> 
+                <td>{{http.srcip}}
+                    <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
                     {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.srcip}}" target="_blank">[ET]</a> 
+                    <a href="https://threatintel.proofpoint.com/search?q={{http.srcip}}" target="_blank">[ET]</a>
                     {% endif %}
                     {% if config.display_pt_portal %}
                     <a href="https://www.passivetotal.org/passive/{{http.srcip}}" target="_blank">[PT]</a>
@@ -32,15 +32,15 @@
                     <a href={{http.moloch_src_ip_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
-                <td>{{http.srcport}} 
+                <td>{{http.srcport}}
                     {% if http.moloch_src_port_url %}
                     <a href={{http.moloch_src_port_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
-                <td>{{http.dstip}} 
-                   <a href="https://www.virustotal.com/en/ip-address/{{http.dstip}}/information/">[VT]</a> 
+                <td>{{http.dstip}}
+                   <a href="https://www.virustotal.com/en/ip-address/{{http.dstip}}/information/">[VT]</a>
                     {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.dstip}}" target="_blank">[ET]</a> 
+                    <a href="https://threatintel.proofpoint.com/search?q={{http.dstip}}" target="_blank">[ET]</a>
                     {% endif %}
                     {% if config.display_pt_portal %}
                     <a href="https://www.passivetotal.org/passive/{{http.dstip}}" target="_blank">[PT]</a>
@@ -49,21 +49,21 @@
                     <a href={{http.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
-                <td>{{http.dstport}} 
+                <td>{{http.dstport}}
                     {% if http.moloch_dst_port_url %}
                     <a href={{http.moloch_dst_port_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
-                <td>{{http.method}} 
+                <td>{{http.method}}
                     {% if http.moloch_http_method_url %}
                     <a href={{http.moloch_http_method_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
                 <td>{{http.status}}</td>
-                <td>{{http.hostname}} 
-                    <a href="https://www.virustotal.com/en/domain/{{http.hostname}}/information/">[VT]</a> 
+                <td>{{http.hostname}}
+                    <a href="https://www.virustotal.com/en/domain/{{http.hostname}}/information/">[VT]</a>
                     {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.hostname}}" target="_blank">[ET]</a> 
+                    <a href="https://threatintel.proofpoint.com/search?q={{http.hostname}}" target="_blank">[ET]</a>
                     {% endif %}
                     {% if config.display_pt_portal %}
                     <a href="https://www.passivetotal.org/passive/{{http.hostname}}" target="_blank">[PT]</a>
@@ -72,13 +72,13 @@
                     <a href={{http.moloch_http_host_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
-                <td>{{http.uri}} 
+                <td>{{http.uri}}
                     {% if http.moloch_http_uri_url %}
                     <a href={{http.moloch_http_uri_url}} target="_blank">[MLCH]</a>
                     {% endif %}
                 </td>
                 <td>{{http.contenttype}}</td>
-                <td>{{http.ua}} 
+                <td>{{http.ua}}
                     {% if http.moloch_http_ua_url %}
                     <a href={{http.moloch_http_ua_url}} target="_blank">[MLCH]</a>
                     {% endif %}

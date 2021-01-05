@@ -17,9 +17,14 @@ from compare import urls as compare
 from submission import urls as submission
 from api import urls as api
 
+from . import views
+
 handler403 = 'web.views.handler403'
 
 urlpatterns = [
+    path("register", views.register, name="register"),
+    path('admin/', admin.site.urls),
+    path('accounts/', include('allauth.urls')),
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     url(r"^$", dashboard_views.index, name="dashboard"),
     url(r"^admin/", admin.site.urls),

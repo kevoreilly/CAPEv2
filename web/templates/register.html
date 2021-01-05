@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% load crispy_forms_tags %}
+{% load socialaccount %}
+{% load static %}
+<center>
+<div class="container mx-5">
+	<div class=" signin text-center">
+		<a href="{% provider_login_url 'google' %}" class="text-dark"><img src="{% static "img/google_login.png" %}" style="width:14rem; height:auto"></a>
+	</div>
+	<br><br>
+	<div style="width: 100%; height: 15px; border-bottom: 1px solid lightgray; text-align: center">
+		<span class="text-muted" style="margin-top:-15% !important; font-size: 11px; background-color: white; padding: 0px 10px;">
+			OR
+		</span>
+	</div>
+	<br><br>
+	<form method="post">
+		{% csrf_token %}
+		{{ form|crispy }}
+		<button type="submit" class="btn btn-primary">Register</button>
+	</form>
+</div>
+</center>
+{% endblock %}

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
+from forms import NewUserForm
 
 def handler403(request, exception=None):
     if isinstance(exception, Ratelimited):
@@ -12,7 +13,7 @@ def handler403(request, exception=None):
 
 def register(request):
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = NewUserForm(request.POST)
         if form.is_valid():
             user = form.save()
             username = form.cleaned_data.get('username')
@@ -24,4 +25,4 @@ def register(request):
         return redirect("main:homepage")
 
     form = UserCreationForm()
-    return render(request,"register.html", {"form": form})
+    return render(request, "register.html", context={"register_form":form})

@@ -693,7 +693,6 @@ class Pcap:
         if not tcpdata:
             return
 
-        import code;code.interact(local=dict(locals(), **globals()))
         tls_handshake = bytearray(tcpdata)
         if tls_handshake[0] != TLS_HANDSHAKE:
             return
@@ -920,6 +919,19 @@ class Pcap:
                     for delip in ip_passlist:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
+
+        domainlookups = dict()
+        iplookups = dict()
+        # Creating dns information dicts by domain and ip.
+        if self.unique_domains:
+            domainlookups = dict((i["domain"], i["ip"]) for i in self.unique_domains)
+            iplookups = dict((i["ip"], i["domain"]) for i in self.unique_domains)
+            for i in self.results["dns"]:
+                for a in i["answers"]:
+                    iplookups[a["data"]] = i["request"]
+
+        self.results["domainlookups"] = domainlookups
+        self.results["iplookups"] = iplookups
 
         return self.results
 

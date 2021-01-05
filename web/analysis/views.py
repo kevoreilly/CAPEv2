@@ -372,6 +372,7 @@ ajax_mongo_schema = {
     "dropped": "dropped",
     "debugger": "debugger",
     "behavior": "behavior",
+    "network": "network",
 }
 
 
@@ -382,18 +383,18 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     #ToDo remove in CAPEv3
-    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger"):
+    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
-                data = results_db.analysis.find_one(
-                    {"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0},
-                )
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0},)
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
+            if category == "network":
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "suricata":1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
@@ -443,16 +444,21 @@ def load_files(request, task_id, category):
         else:
             page = "analysis/{}/index.html".format(category)
 
-        return render(request, page,
-            {
-                ajax_mongo_schema[category]: data.get(category, {}),
-                "tlp": data.get("info").get("tlp", ""),
-                "id": task_id,
-                "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
-                "debugger_logs": debugger_logs,
-                "config": enabledconf,
-            },
-        )
+        ajax_response = {
+            ajax_mongo_schema[category]: data.get(category, {}),
+            "tlp": data.get("info").get("tlp", ""),
+            "id": task_id,
+            "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
+            "config": enabledconf,
+        }
+
+        if category == "debugger":
+            ajax_response["debugger_logs"] = debugger_logs
+        elif category == "network":
+            ajax_response["suricata"] = data.get("suricata", {})
+
+        return render(request, page, ajax_response)
+
     else:
         raise PermissionDenied
 
@@ -521,9 +527,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
             )
         if es_as_db:
             # print "info.id: \"%s\" and behavior.processes.process_id: \"%s\"" % (task_id, pid)
-            record = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s" and behavior.processes.process_id: "%s"' % (task_id, pid),)[
-                "hits"
-            ]["hits"][0]["_source"]
+            record = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s" and behavior.processes.process_id: "%s"' % (task_id, pid),)["hits"]["hits"][0]["_source"]
 
         if not record:
             raise PermissionDenied
@@ -923,10 +927,10 @@ def search_behavior(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
+    network_report = False
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0}, sort=[("_id", pymongo.DESCENDING)],
-        )
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
+        network_report = results_db.analysis.find_one({"info.id": int(task_id)}, {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
         report = query["_source"]
@@ -969,15 +973,6 @@ def report(request, task_id):
         print(e)
         report["CAPE"] = 0
 
-    """
-    try:
-        if report.get("info", {}).get("category", "").lower() == "static":
-            report["behavior"] = 0
-        else:
-            report["behavior"] = results_db.analysis.find_one({"info.id": int(task_id), "behavior": {"$exist": True}}, {"$project": {"_id": 1}})
-    except Exception as e:
-        report["behavior"] = 0
-    """
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
@@ -1004,18 +999,6 @@ def report(request, task_id):
     if settings.MOLOCH_ENABLED and "virustotal" in report:
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
-    # Creating dns information dicts by domain and ip.
-    if "network" in report and "domains" in report["network"]:
-        domainlookups = dict((i["domain"], i["ip"]) for i in report["network"]["domains"])
-        iplookups = dict((i["ip"], i["domain"]) for i in report["network"]["domains"])
-        for i in report["network"]["dns"]:
-            for a in i["answers"]:
-                iplookups[a["data"]] = i["request"]
-    else:
-        domainlookups = dict()
-        iplookups = dict()
-
-
     vba2graph = processing_cfg.vba2graph.enabled
     vba2graph_svg_content = ""
     vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
@@ -1031,14 +1014,17 @@ def report(request, task_id):
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
 
+    if network_report.get("network", {}):
+        report["network"] = network_report["network"]
+
     return render(
         request,
         "analysis/report.html",
         {
             "analysis": report,
             "children": children,
-            "domainlookups": domainlookups,
-            "iplookups": iplookups,
+            "domainlookups": network_report.get("network", {}).get("domainlookups", {}),
+            "iplookups": network_report.get("network", {}).get("iplookups", {}),
             "settings": settings,
             "config": enabledconf,
             "reports_exist": reports_exist,

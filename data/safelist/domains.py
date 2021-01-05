@@ -4,6 +4,7 @@ domain_passlist = [
     "\.windows\.com$",
     "^ocsp\.comodoca\.com$",
     "^ctldl\.windowsupdate\.com$",
+    "^www\.download\.windowsupdate\.com$",
     "^crl\.microsoft\.com$",
     "^urs\.microsoft\.com$",
     "\.microsoft\.com$",

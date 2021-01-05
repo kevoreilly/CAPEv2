@@ -87,11 +87,11 @@
                         {% if analysis.malscore != None %}
                             <span 
                             {% if analysis.malscore <= 2.0 %}
-                            class="badge label-success"
+                            class="badge badge-success"
                             {% elif analysis.malscore <= 6.0 %}
-                            class="badge label-warning"
+                            class="badge badge-warning"
                             {% else %}
-                            class="badge label-danger"
+                            class="badge badge-danger"
                             {% endif %}
                             >{{analysis.malscore|floatformat:1}}</span>
                         {% else %}

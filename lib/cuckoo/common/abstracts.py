@@ -1117,6 +1117,19 @@ class Signature(object):
         subject = self.results["behavior"]["summary"]["started_services"]
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
 
+    def check_created_service(self, pattern, regex=False, all=False):
+        """Checks for a service being created.
+        @param pattern: string or expression to check for.
+        @param regex: boolean representing if the pattern is a regular
+                      expression or not and therefore should be compiled.
+        @param all: boolean representing if all results should be returned
+                      in a set or not
+        @return: depending on the value of param 'all', either a set of
+                      matched items or the first matched item
+        """
+        subject = self.results["behavior"]["summary"]["created_services"]
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
         """Checks for a command being executed.
         @param pattern: string or expression to check for.

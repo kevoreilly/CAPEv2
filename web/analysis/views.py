@@ -393,7 +393,7 @@ def load_files(request, task_id, category):
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0},)
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
-            if category == "network":
+            elif category == "network":
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "suricata":1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
@@ -450,8 +450,6 @@ def load_files(request, task_id, category):
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             "config": enabledconf,
-        #ToDo
-            "debugger_logs": debugger_logs,
         }
 
         if category == "debugger":

@@ -190,11 +190,11 @@
                             {% if analysis.malscore != None %}
                                 <span
                                 {% if analysis.malscore <= 2.0 %}
-                                class="badge label-success"
+                                class="badge badge-success"
                                 {% elif analysis.malscore <= 6.0 %}
-                                class="badge label-warning"
+                                class="badge badge-warning"
                                 {% else %}
-                                class="badge label-danger"
+                                class="badge badge-danger"
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"
@@ -474,11 +474,11 @@
                             {% if analysis.malscore != None %}
                                 <span
                                 {% if analysis.malscore <= 2.0 %}
-                                class="badge label-success"
+                                class="badge badge-success"
                                 {% elif analysis.malscore <= 6.0 %}
-                                class="badge label-warning"
+                                class="badge badge-warning"
                                 {% else %}
-                                class="badge label-danger"
+                                class="badge badge-danger"
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"
@@ -722,11 +722,11 @@
                     <td>
                         {% if analysis.malscore != None %}
                         <span {% if analysis.malscore <= 2.0 %}
-                            class="badge label-success"
+                            class="badge badge-success"
                         {% elif analysis.malscore <= 6.0 %}
-                            class="badge label-warning"
+                            class="badge badge-warning"
                         {% else %}
-                            class="badge label-danger"
+                            class="badge badge-danger"
                         {% endif %}
                         {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}
                             >{{analysis.malscore|floatformat:1}}</span>

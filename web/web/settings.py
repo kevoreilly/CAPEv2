@@ -20,6 +20,13 @@ from lib.cuckoo.common.config import Config
 # which VPNs are available (for representation upon File/URL submission).
 from lib.cuckoo.core.startup import init_rooter, init_routing
 
+try:
+    from captcha.fields import ReCaptchaField
+    from captcha.widgets import ReCaptchaV3
+except ImportError:
+    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
+
+
 init_rooter()
 init_routing()
 
@@ -208,16 +215,26 @@ INSTALLED_APPS = (
     "compare",
     "api",
     "ratelimit",
-    "crispy_forms",
 
     #allauth
     'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-
     'allauth.socialaccount.providers.google', #for google auth
+
+    "crispy_forms",
+    "captcha", # https://pypi.org/project/django-recaptcha/
 )
+
+NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
+# create your keys here -> https://www.google.com/recaptcha/about/
+RECAPTCHA_PRIVATE_KEY = 'TEST_PUBLIC_KEY'
+RECAPTCHA_PUBLIC_KEY = 'TEST_PRIVATE_KEY'
+RECAPTCHA_DEFAULT_ACTION = 'generic'
+RECAPTCHA_REQUIRED_SCORE = 0.85
+
+#RECAPTCHA_DOMAIN = 'www.recaptcha.net'
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
@@ -245,6 +262,8 @@ AUTHENTICATION_BACKENDS = (
 SITE_ID = 1
 
 LOGIN_REDIRECT_URL = "/"
+ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+#### ALlauth end
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469
@@ -265,6 +284,7 @@ LOGGING = {
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",
+    #'captcha.recaptcha_test_key_error'
 ]
 
 ALLOWED_HOSTS = ["*"]

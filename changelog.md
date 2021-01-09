@@ -1,3 +1,10 @@
+### [WIP]
+* ReCaptcha for admin/user registration/login
+
+### [09-01-2020]
+* Add Web sighup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
+* [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/tree/master/captcha_admin)
+
 ### [02.01.02021] POST 2020
 * Allow download http(s) Request/Response and Response 48bytes hex preview
 * auth_only in api.conf to allow apikey/autentificated users hit the rest api

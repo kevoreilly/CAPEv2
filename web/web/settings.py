@@ -263,7 +263,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 SITE_ID = 1
 
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
-if web_cfg.registration.get("email_verification", False)
+if web_cfg.registration.get("email_verification", False):
     ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
     SOCIALACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 else:

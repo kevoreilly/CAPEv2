@@ -450,8 +450,6 @@ def load_files(request, task_id, category):
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             "config": enabledconf,
-            #ToDo
-            "debugger_logs": debugger_logs,
         }
 
         if category == "debugger":

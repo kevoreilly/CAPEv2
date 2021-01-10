@@ -22,8 +22,6 @@ from compare import urls as compare
 from submission import urls as submission
 from api import urls as api
 
-from . import views
-
 handler403 = 'web.views.handler403'
 
 urlpatterns = [

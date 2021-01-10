@@ -1,5 +1,5 @@
 ### [10-01-2020] Scrappers&Bots nightmare :)
-* Add Web sighup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
+* Add Web signup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
 * [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/)
 * New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6`
 * __REQUIRED ACTION: __ -> `python3 manage.py migrate` inside of the `/web/` folder, if no you will get `No such table as django_site`

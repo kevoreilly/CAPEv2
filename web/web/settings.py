@@ -20,13 +20,6 @@ from lib.cuckoo.common.config import Config
 # which VPNs are available (for representation upon File/URL submission).
 from lib.cuckoo.core.startup import init_rooter, init_routing
 
-try:
-    from captcha.fields import ReCaptchaField
-    from captcha.widgets import ReCaptchaV3
-except ImportError:
-    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
-
-
 init_rooter()
 init_routing()
 
@@ -75,9 +68,8 @@ VTDL_PATH = vtdl_cfg.get("dlpath", None)
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
-# Enabled/Disable Zer0m0n tickbox on the submission page
+# DEPRICATED - Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
-
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
@@ -121,6 +113,13 @@ except ImportError:
 
     # Reload key.
     from secret_key import *
+
+try:
+    from captcha.fields import ReCaptchaField
+    from captcha.widgets import ReCaptchaV3
+except ImportError:
+    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
+
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
@@ -259,8 +258,21 @@ AUTHENTICATION_BACKENDS = (
  'allauth.account.auth_backends.AuthenticationBackend',
 )
 
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 SITE_ID = 1
 
+# https://django-allauth.readthedocs.io/en/latest/configuration.html
+if web_cfg.registration.get("email_verification", False)
+    ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+else:
+    ACCOUNT_EMAIL_VERIFICATION = 'none'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+
+ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
+ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 #### ALlauth end

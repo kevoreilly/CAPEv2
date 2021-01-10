@@ -6,10 +6,15 @@ from __future__ import absolute_import
 from django.conf.urls import include, url
 from django.urls import path
 from django.views.generic.base import TemplateView
-from captcha_admin import admin
 from django.contrib.auth import views as auth_views
 from dashboard import views as dashboard_views
 from analysis import views as analysis_views
+from django.conf import settings
+
+if settings.NOCAPTCHA:
+    from captcha_admin import admin
+else:
+    from django.contrib import admin
 
 from dashboard import urls as dashboard
 from analysis import urls as analysis

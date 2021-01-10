@@ -259,6 +259,11 @@ AUTHENTICATION_BACKENDS = (
 )
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+if web_cfg.registration.get("email_verification", False):
+    EMAIL_HOST = web_cfg.registration.get("email_host", False)
+    EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
+    EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
+    EMAIL_PORT = web_cfg.registration.get("email_port", 465)
 
 SITE_ID = 1
 

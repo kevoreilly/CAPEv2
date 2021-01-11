@@ -973,7 +973,12 @@ class Pcap2(object):
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
         r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
 
-        l = sorted(r.process(), key=lambda x: x[1])
+        try:
+            l = sorted(r.process(), key=lambda x: x[1])
+        except TypeError:
+            log.warning("You running old httpreplay: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+            return results
+
         for s, ts, protocol, sent, recv in l:
             srcip, srcport, dstip, dstport = s
 

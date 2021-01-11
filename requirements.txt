@@ -41,7 +41,7 @@ git+https://github.com/fireeye/capa.git
 greenlet==0.4.16
 cython
 git+https://github.com/andreasvc/pyre2.git
-git+https://github.com/jbremer/peepdf.git
+git+https://github.com/CAPESandbox/peepdf.git
 matplotlib>=2.2.2
 numpy>=1.15.0
 six>=1.12.0

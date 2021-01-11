@@ -2,7 +2,8 @@
 * Add Web signup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
 * [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/)
 * New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6 django-crispy-forms`
-* __REQUIRED ACTION: __ -> `python3 manage.py migrate` inside of the `/web/` folder, if no you will get `No such table as django_site`
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate` if no you will get `No such table as django_site`
     * `python3 manage.py collectstatic` -> to enable django admin css
 
 ### [02.01.02021] POST 2020

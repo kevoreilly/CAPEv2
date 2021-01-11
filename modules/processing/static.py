@@ -372,7 +372,7 @@ class PortableExecutable(object):
         try:
             result = userdb_signatures.match_all(self.pe, ep_only=True)
             if result:
-                return list(set(result))
+                return list(result)
         except Exception as e:
             log.error(e, exc_info=True)
 

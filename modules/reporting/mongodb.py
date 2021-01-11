@@ -250,10 +250,15 @@ class MongoDB(Report):
                             self.db.analysis.save(report, check_keys=False)
                             error_saved = False
                         except InvalidDocument as e:
-                            parent_key, psize = self.debug_dict_size(report)[0]
-                            #ror(str(e))
-                            log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
-                            size_filter = size_filter - MEGABYTE
+                            if str(e).startswith("documents must have only string keys"):
+                                log.error("Search bug in your modifications - you got an dictionary key as int, should be string")
+                                log.eror(str(e))
+                                return
+                            else:
+                                parent_key, psize = self.debug_dict_size(report)[0]
+                                log.eror(str(e))
+                                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                                size_filter = size_filter - MEGABYTE
                     except Exception as e:
                         log.error("Failed to delete child key: %s" % str(e))
                         error_saved = False

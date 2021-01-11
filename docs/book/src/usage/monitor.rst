@@ -100,7 +100,7 @@ Fake-rdtsc
 Practical examples
 ==================
 
-* Those examples can be ourdated, but to get an idea is more than enough
+* Those examples can be outdated, but to get an idea is more than enough
 
 .. code-block:: bash
 

@@ -96,3 +96,66 @@ Fake-rdtsc
 * The effect of this setting is to allow the first traced rdtsc instruction to execute normally, but thereafter to fake the return value with the original return value plus whatever value is specified in the option. For example:
     * rdtsc=0x1000
 * This will result in each subsequent rdtsc instruction after the first being faked with a value that has incremented by 0x1000.
+
+Practical examples
+==================
+
+* Those examples can be ourdated, but to get an idea is more than enough
+
+.. code-block:: bash
+
+    rule Guloader
+    {
+        meta:
+            author = "kevoreilly"
+            description = "Guloader bypass"
+            cape_options = "bp0=$trap0,bp0=$trap1+4,action0=skip,bp1=$trap2+11,bp1=$trap3+19,action1=skip,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,"
+        strings:
+            $trap0 = {0F 85 [2] FF FF 81 BD ?? 00 00 00 [2] 00 00 0F 8F [2] FF FF 39 D2 83 FF 00}
+            $trap1 = {49 83 F9 00 75 [1-20] 83 FF 00 [2-6] 81 FF}
+            $trap2 = {39 CB 59 01 D7 49 85 C8 83 F9 00 75 B3}
+            $trap3 = {61 0F AE E8 0F 31 0F AE E8 C1 E2 20 09 C2 29 F2 83 FA 00 7E CE C3}
+            $antihook = {FF 34 08 [0-48] 8F 04 0B [0-80] 83 C1 04 83 F9 18 75 [0-128] FF E3}
+        condition:
+            2 of them
+    }
+
+    rule GuloaderB
+    {
+        meta:
+            author = "kevoreilly"
+            description = "Guloader bypass 2021 Edition"
+            cape_options = "bp0=$trap0+12,action0=ret,bp1=$trap1,action1=ret2,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,"
+        strings:
+            $trap0 = {81 C6 00 10 00 00 81 FE 00 F0 FF 7F 0F 84 [2] 00 00}
+            $trap1 = {31 FF [0-24] (B9|C7 85 F8 00 00 00) 60 5F A9 00}
+            $antihook = {FF 34 08 [0-48] 8F 04 0B [0-80] 83 C1 04 83 F9 18 75 [0-128] FF E3}
+        condition:
+            2 of them
+    }
+
+    rule Pafish
+    {
+        meta:
+            author = "kevoreilly"
+            description = "Pafish bypass"
+            cape_options = "bp0=$rdtsc_vmexit-2,action0=SetZeroFlag,count=1"
+        strings:
+            $rdtsc_vmexit = {8B 45 E8 80 F4 00 89 C3 8B 45 EC 80 F4 00 89 C6 89 F0 09 D8 85 C0 75 07}
+        condition:
+            uint16(0) == 0x5A4D and $rdtsc_vmexit
+    }
+
+    rule Ursnif3
+    {
+        meta:
+            author = "kevoreilly"
+            description = "Ursnif Config Extraction"
+            cape_options = "br0=$crypto32-73,instr0=cmp,dumpsize=eax,action0=dumpebx,dumptype0=0x24,count=1"
+        strings:
+            $golden_ratio = {8B 70 EC 33 70 F8 33 70 08 33 30 83 C0 04 33 F1 81 F6 B9 79 37 9E C1 C6 0B 89 70 08 41 81 F9 84 00 00 00}
+            $crypto32_1 = {8B C3 83 EB 01 85 C0 75 0D 0F B6 16 83 C6 01 89 74 24 14 8D 58 07 8B C2 C1 E8 07 83 E0 01 03 D2 85 C0 0F 84 AB 01 00 00 8B C3 83 EB 01 85 C0 89 5C 24 20 75 13 0F B6 16 83 C6 01 BB 07 00 00 00}
+            $crypto32_2 = {8B 45 EC 0F B6 38 FF 45 EC 33 C9 41 8B C7 23 C1 40 40 D1 EF 75 1B 89 4D 08 EB 45}
+        condition:
+            ($golden_ratio) and any of ($crypto32*)
+    }

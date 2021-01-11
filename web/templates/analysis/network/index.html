@@ -9,9 +9,9 @@
         <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ network.udp|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-toggle="tab">
             {% if network.http_ex or network.https_ex %}
-                HTTP(S) <span class="button-badge">{{ network.http_ex|add:network.https_ex|length }}</span>
+                HTTP(S) <span class="button-badge">({{ network.http_ex|add:network.https_ex|length }})</span>
             {% else %}
-                HTTP <span class="button-badge">{{ network.http|length }}</span>
+                HTTP <span class="button-badge">({{ network.http|length }})</span>
             {% endif %}
         </a></li>
         <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">SMTP ({{ network.smtp|length }})</a></li>

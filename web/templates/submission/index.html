@@ -165,6 +165,24 @@ $(document).ready( function() {
                     <div id="options" class="panel-collapse collapse show" style="text-align: left;">
                         <div class="card-body">
                             <div id="non-pcap-1">
+                                {% if existent_tasks %}
+                                <div class="form-group">
+                                    <label for="form_existent_tasks"><a class="btn btn-secondary" href="#existent_tasks" data-toggle="collapse" aria-expanded="true" ><b>Show existent tasks</b></a></label>
+                                    <div id="existent_tasks" class="collapse">
+                                        {% for sha256, details in existent_tasks.items %}
+                                            <div class="alert alert-secondary"><h4>Existent tasks for this hash: <b>{{sha256}}</b>!</h4>
+                                                <ul>
+                                                    {% for block in details %}
+                                                        <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> {% if block.family  %} - Detection: <span style="color:#EE1B2F;">{{block.malfamily}}</span>{% endif %}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+
                                 <div class="form-group">
                                     <label for="form_package">Analysis Package</label>
                                     <select class="form-control" id="form_package" name="package">

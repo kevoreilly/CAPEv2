@@ -486,6 +486,13 @@ def index(request, resubmit_hash=False):
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)
 
+        existent_tasks = dict()
+        if resubmit_hash:
+            records = perform_search("sha256", resubmit_hash)
+            for record in records:
+                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                existent_tasks[record["target"]["file"]["sha256"]].append(record)
+
         return render(
             request,
             "submission/index.html",
@@ -502,6 +509,7 @@ def index(request, resubmit_hash=False):
                 "config": enabledconf,
                 "resubmit": resubmit_hash,
                 "tags": sorted(list(set(all_vms_tags))),
+                "existent_tasks": existent_tasks,
             },
         )
 

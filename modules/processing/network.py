@@ -693,7 +693,6 @@ class Pcap:
         if not tcpdata:
             return
 
-        import code;code.interact(local=dict(locals(), **globals()))
         tls_handshake = bytearray(tcpdata)
         if tls_handshake[0] != TLS_HANDSHAKE:
             return
@@ -921,6 +920,19 @@ class Pcap:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
 
+        domainlookups = dict()
+        iplookups = dict()
+        # Creating dns information dicts by domain and ip.
+        if self.unique_domains:
+            domainlookups = dict((i["domain"], i["ip"]) for i in self.unique_domains)
+            iplookups = dict((i["ip"], i["domain"]) for i in self.unique_domains)
+            for i in self.results["dns"]:
+                for a in i["answers"]:
+                    iplookups[a["data"]] = i["request"]
+
+        self.results["domainlookups"] = domainlookups
+        self.results["iplookups"] = iplookups
+
         return self.results
 
 class Pcap2(object):
@@ -961,7 +973,12 @@ class Pcap2(object):
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
         r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
 
-        l = sorted(r.process(), key=lambda x: x[1])
+        try:
+            l = sorted(r.process(), key=lambda x: x[1])
+        except TypeError:
+            log.warning("You running old httpreplay: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+            return results
+
         for s, ts, protocol, sent, recv in l:
             srcip, srcport, dstip, dstport = s
 

@@ -90,9 +90,9 @@
                                     <td>{{memmap.size}}</td>
                                     <td>{{memmap.prot}}</td>
                                     {% if memmap.PE %}
-                                    <td><span class="badge label-success">Yes</span></td>
+                                    <td><span class="badge badge-success">Yes</span></td>
                                     {% else %}
-                                    <td><span class="badge label-primary">No</span></td>
+                                    <td><span class="badge badge-primary">No</span></td>
                                     {% endif %}
                                     {% if proc.file %}
                                     <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}">Download</a></td>

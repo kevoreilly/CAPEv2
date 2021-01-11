@@ -1,9 +1,11 @@
 {% extends "auth/base.html" %}
 
-{% block title %}{{ title }} | {{ site_title|default:_('CAPE Sandbox') }}{% endblock %}
+{% block title %}
+    {{ title }} | {{ site_title|default:_('CAPE Sandbox') }}
+{% endblock %}
 
 {% block branding %}
-<h1 id="site-name"><a href="#">{{ site_header|default:_('CAPE Sandbox') }}</a></h1>
+    <h1 id="site-name"><a href="#">{{ site_header|default:_('CAPE Sandbox') }}</a></h1>
 {% endblock %}
 
 {% block nav-global %}{% endblock %}

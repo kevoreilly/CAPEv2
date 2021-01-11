@@ -35,3 +35,7 @@ DEBUG = True
 # When DEBUG is True or when running tests, host validation is disabled; any
 # host will be accepted. Thus it's usually only necessary to set it in production.
 ALLOWED_HOSTS = ["*"]
+
+# Uncomment for deployment with NGINX
+#STATIC_ROOT = ""
+#STATIC_ROOT = os.path.join(os.getcwd(), "static")

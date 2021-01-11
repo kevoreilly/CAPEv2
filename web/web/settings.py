@@ -68,9 +68,8 @@ VTDL_PATH = vtdl_cfg.get("dlpath", None)
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
-# Enabled/Disable Zer0m0n tickbox on the submission page
+# DEPRICATED - Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
-
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
@@ -114,6 +113,13 @@ except ImportError:
 
     # Reload key.
     from secret_key import *
+
+try:
+    from captcha.fields import ReCaptchaField
+    from captcha.widgets import ReCaptchaV3
+except ImportError:
+    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
+
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
@@ -208,9 +214,73 @@ INSTALLED_APPS = (
     "compare",
     "api",
     "ratelimit",
+
+    #allauth
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google', #for google auth
+
+    "crispy_forms",
+    "captcha", # https://pypi.org/project/django-recaptcha/
 )
 
+NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
+# create your keys here -> https://www.google.com/recaptcha/about/
+RECAPTCHA_PRIVATE_KEY = 'TEST_PUBLIC_KEY'
+RECAPTCHA_PUBLIC_KEY = 'TEST_PRIVATE_KEY'
+RECAPTCHA_DEFAULT_ACTION = 'generic'
+RECAPTCHA_REQUIRED_SCORE = 0.85
+
+#RECAPTCHA_DOMAIN = 'www.recaptcha.net'
+
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
+
+
+AUTHENTICATION_BACKENDS = (
+ #used for default signin such as loggin into admin panel
+ 'django.contrib.auth.backends.ModelBackend',
+
+ #used for social authentications
+ 'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+if web_cfg.registration.get("email_verification", False):
+    EMAIL_HOST = web_cfg.registration.get("email_host", False)
+    EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
+    EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
+    EMAIL_PORT = web_cfg.registration.get("email_port", 465)
+
+SITE_ID = 1
+
+# https://django-allauth.readthedocs.io/en/latest/configuration.html
+if web_cfg.registration.get("email_verification", False):
+    ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+else:
+    ACCOUNT_EMAIL_VERIFICATION = 'none'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+
+ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
+ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
+ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+#### ALlauth end
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469
@@ -231,6 +301,7 @@ LOGGING = {
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",
+    #'captcha.recaptcha_test_key_error'
 ]
 
 ALLOWED_HOSTS = ["*"]

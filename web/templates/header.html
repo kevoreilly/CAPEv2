@@ -27,6 +27,8 @@
             <li class="nav-item"><a class="nav-link" href="{% url "api" %}"><span class="fas fa-cog"></span> API</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> Submit</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><span class="fas fa-chart-area"></span> Statistics</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin"><span class="fas fa-users-cog"></span> Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="/accounts/signup/"><span class="fas fa-users"></span> Register</a></li>
           </ul>
           <form class="form-inline" style="margin:0px;" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
             <input class="form-control" type="text" id="form_search" name="search" placeholder="Search term as regex">

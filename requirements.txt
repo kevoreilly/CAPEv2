@@ -64,7 +64,7 @@ pytz
 requests[socks]
 python-magic
 geoip
-pillow
+pillow>=7
 java-random
 python-whois
 bs4

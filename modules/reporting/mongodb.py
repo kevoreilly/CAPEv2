@@ -103,6 +103,19 @@ class MongoDB(Report):
             else:
                 cls.ensure_valid_utf8(v)
 
+    # use this function to hunt down non string key
+    def fix_int2str(self, dictionary, current_key_tree=""):
+        for k, v in dictionary.iteritems():
+            if not isinstance(k, str):
+                log.error("BAD KEY: {}".format(".".join([current_key_tree, str(k)])))
+                dictionary[str(k)] = dictionary.pop(k)
+            elif isinstance(v, dict):
+                self.fix_int2str(v, ".".join([current_key_tree, k]))
+            elif isinstance(v, list):
+                for d in v:
+                    if isinstance(d, dict):
+                        self.fix_int2str(d, ".".join([current_key_tree, k]))
+
     def run(self, results):
         """Writes report.
         @param results: analysis results dictionary.

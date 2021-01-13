@@ -337,26 +337,6 @@ RECAPTCHA_REQUIRED_SCORE = 0.85
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
-    },
-    'github': {
-        'SCOPE': [
-            'user',
-            'repo',
-            'read:org',
-        ],
-    },
-}
-
-
 AUTHENTICATION_BACKENDS = (
  #used for default signin such as loggin into admin panel
  'django.contrib.auth.backends.ModelBackend',

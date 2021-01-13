@@ -78,3 +78,4 @@ django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
 django-allauth # https://django-allauth.readthedocs.io/en/latest/configuration.html
 django-crispy-forms
 git+https://github.com/CAPESandbox/httpreplay
+django-settings-export

@@ -1,3 +1,8 @@
+### [13-10-2020] Social Media buttons for sign in
+* Adding [bootstrap-social](https://github.com/peterblazejewicz/bootstrap-social) to simplify sign buttons integration
+* Move SSO providers config to from `web/web/settings.py` to `web/web/local_settings.py`
+* `[oauth]` added to `conf/web.conf` for future on/off of the buttons
+
 ### [10-01-2020] Scrappers&Bots nightmare :)
 * Add Web signup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
 * [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/)

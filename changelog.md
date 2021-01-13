@@ -4,7 +4,7 @@
 * New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6 django-crispy-forms`
 * __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
     * `python3 manage.py migrate` if no you will get `No such table as django_site`
-    * `python3 manage.py collectstatic` -> to enable django admin css
+    * `python3 manage.py collectstatic` -> to enable django admin css -> requires web/web/local_settings.py modifiy `STATIC_ROOT`
 
 ### [02.01.02021] POST 2020
 * Allow download http(s) Request/Response and Response 48bytes hex preview

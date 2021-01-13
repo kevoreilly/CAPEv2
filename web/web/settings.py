@@ -37,6 +37,7 @@ if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg
     raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
+WEB_OAUTH = web_cfg.oauth
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
@@ -167,6 +168,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.template.context_processors.request",
                 "django.contrib.messages.context_processors.messages",
+                "django_settings_export.settings_export",
             ],
             "loaders": ["django.template.loaders.filesystem.Loader", "django.template.loaders.app_directories.Loader",],
         },
@@ -344,6 +346,11 @@ AUTHENTICATION_BACKENDS = (
  #used for social authentications
  'allauth.account.auth_backends.AuthenticationBackend',
 )
+
+SETTINGS_EXPORT = [
+    'WEB_AUTHENTICATION',
+    'WEB_OAUTH',
+]
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 if web_cfg.registration.get("email_verification", False):

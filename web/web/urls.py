@@ -16,6 +16,13 @@ if settings.NOCAPTCHA:
 else:
     from django.contrib import admin
 
+if settings.TWOFA:
+    from django_otp.admin import OTPAdminSite
+    admin.site.__class__ = OTPAdminSite
+
+admin.site.site_header = "CAPE Administration"
+admin.site.site_title = "CAPE Administration"
+
 from dashboard import urls as dashboard
 from analysis import urls as analysis
 from compare import urls as compare

@@ -1,4 +1,7 @@
-### [13-10-2020] Social Media buttons for sign in
+### [14-01-20202] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
+* [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
+
+### [13-01-2020] Social Media buttons for sign in
 * Adding [bootstrap-social](https://github.com/peterblazejewicz/bootstrap-social) to simplify sign buttons integration
 * Move SSO providers config to from `web/web/settings.py` to `web/web/local_settings.py`
 * `[oauth]` added to `conf/web.conf` for future on/off of the buttons

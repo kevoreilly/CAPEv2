@@ -2,6 +2,8 @@
 * [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
 * [2FA for Django Admin](https://hackernoon.com/5-ways-to-make-django-admin-safer-eb7753698ac8)
 * New dependency: `pip3 install django-otp qrcode`
+ __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate` if no you will get `no such table: otp_totp_totpdevice`
 
 ### [13-01-2020] Social Media buttons for sign in
 * Adding [bootstrap-social](https://github.com/peterblazejewicz/bootstrap-social) to simplify sign buttons integration

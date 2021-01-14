@@ -188,7 +188,11 @@ MIDDLEWARE = [
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
     #'ratelimit.middleware.RatelimitMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
 ]
+
+OTP_TOTP_ISSUER = 'CAPE Sandbox'
 
 # Header/protection related
 SECURE_BROWSER_XSS_FILTER = True
@@ -216,6 +220,9 @@ INSTALLED_APPS = (
     "compare",
     "api",
     "ratelimit",
+
+    'django_otp',
+    'django_otp.plugins.otp_totp',
 
     #allauth
     'django.contrib.sites',
@@ -327,6 +334,8 @@ INSTALLED_APPS = (
     "crispy_forms",
     "captcha", # https://pypi.org/project/django-recaptcha/
 )
+
+TWOFA = web_cfg.web_auth.get("2fa", False)
 
 NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
 # create your keys here -> https://www.google.com/recaptcha/about/

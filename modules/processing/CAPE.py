@@ -134,9 +134,8 @@ class CAPE(Processing):
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)
             newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
-            if all([os.path.exists(path) for path in (unpacked_file, newname)]):
+            if os.path.exists(unpacked_file):
                 shutil.move(unpacked_file, newname)
-
                 # Recursive process of unpacked file
                 upx_extract = self.process_file(newname, True, {})
                 if upx_extract and upx_extract["type"]:

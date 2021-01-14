@@ -1,6 +1,3 @@
-# This report generator is specific for intezer analyze
-# we creates this be cause the jsondump report can sometimes be too big
-
 from __future__ import absolute_import
 
 import codecs
@@ -12,8 +9,8 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
 
-class JsonDump(Report):
-    """Saves analysis results in JSON format specifically for intezer analyze needs"""
+class LiteReport(Report):
+    """A lite report with only specific parts"""
 
     def run(self, results):
         """Writes report.
@@ -33,15 +30,15 @@ class JsonDump(Report):
             "target"
         }
 
-        # Intezer report only has the specific keys 
-        intezer_report = {k: results[k] for k in results.keys() & keys_to_copy}
+        # lite report report only has the specific keys
+        lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
 
         try:
-            os.makedirs(f"{self.analysis_path}/intezer/", exist_ok=True)
-            path = os.path.join(self.analysis_path, "intezer", "intezer-report.json")
+            os.makedirs(f"{self.analysis_path}/lite/", exist_ok=True)
+            path = os.path.join(self.analysis_path, "lite", "lite-report.json")
 
             with codecs.open(path, "w", "utf-8") as report:
-                json.dump(intezer_report,
+                json.dump(lite_report,
                           report,
                           sort_keys=False,
                           separators=(',', ':'),

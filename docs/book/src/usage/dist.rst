@@ -410,6 +410,9 @@ Add clients, execute on master mongo server::
     cfg.members[2].priority = 1
     rs.reconfig(cfg)
 
+    # Add arbiter only
+    rs.addArb("192.168.1.51:27017")
+
     # add shards
     mongo --port 27020
 

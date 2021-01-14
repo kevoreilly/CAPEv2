@@ -406,6 +406,21 @@ MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
 # Don't forget to give some love to @doomedraven ;)
 RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
 
+SECURE_REFERRER_POLICY = "same-origin" # "no-referrer-when-downgrade"
+
+# https://django-csp.readthedocs.io/en/latest/configuration.html
+CSP_DEFAULT_SRC = ["'self'"]
+# When DEBUG is on we don't require HTTPS on our resources because in a local environment
+# we generally don't have access to HTTPS. However, when DEBUG is off, such as in our
+# production environment, we want all our resources to load over HTTPS
+CSP_UPGRADE_INSECURE_REQUESTS = not DEBUG
+# For roughly 60% of the requests to our django server we should include the report URI.
+# This helps keep down the number of CSP reports sent from client web browsers
+CSP_REPORT_PERCENTAGE = 0.6
+CSP_FONT_SRC = ["https://fonts.googleapis.com"]
+CSP_STYLE_SRC = ["'self'"]
+CSP_IMG_SRC = ["'self'"]
+
 # Hack to import local settings.
 try:
     LOCAL_SETTINGS

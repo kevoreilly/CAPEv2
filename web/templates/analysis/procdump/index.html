@@ -1,7 +1,7 @@
 {% load key_tags %}
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
-{% if analysis.procdump|length > 0 %}
-    {% for file in analysis.procdump %}
+{% if procdump|length > 0 %}
+    {% for file in procdump %}
         <div class="panel panel-default">
             <table class="table table-striped table-bordered" style="table-layout: fixed;">
                 <tr>
@@ -106,15 +106,15 @@
                 {% if file.dropdir %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "procdump" analysis.info.id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
+                    <td><a href="{% url "file" "procdump" id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "procdump" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
-                        <a href="{% url "file" "procdumpzip" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download Zip</a>
+                        <a href="{% url "file" "procdump" id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
+                        <a href="{% url "file" "procdumpzip" id file.sha256 %}" class="btn btn-secondary btn-sm">Download Zip</a>
                         <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
                     </td>
                 </tr>
@@ -144,20 +144,19 @@
                 </br>
                 {% else %}
                 <tr>
-                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
                     <td></td>
                 </tr>
                 {% endif %}
-
             {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
                 <tr>
-                    <p><a href="{% url "file_nl" "bingraph" analysis.info.id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a></p>
-                    {{ bingraph.content|getkey:file.sha256|safe }}
+                    <th><p><a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a></p></th>
+                    <td>{{ bingraph.content|getkey:file.sha256|safe }}</td>
                 </tr>
             {% else %}
-                {% if bingraph.enabled %}
+                {% if config.bingraph %}
                 <tr>
-                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "procdump" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
+                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "procdump" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
                     <td></td>
                 </tr>
                 {% endif %}
@@ -166,5 +165,5 @@
         </div>
     {% endfor %}
 {% else %}
-    <div class="alert alert-info"><b>Sorry!</b> No process dumps.</div>
+    <div class="alert alert-secondary"><b>Sorry!</b> No process dumps.</div>
 {% endif %}

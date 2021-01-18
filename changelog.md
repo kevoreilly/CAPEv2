@@ -1,3 +1,41 @@
+### [14-01-20202] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
+* [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
+* [2FA for Django Admin](https://hackernoon.com/5-ways-to-make-django-admin-safer-eb7753698ac8)
+* New dependency: `pip3 install django-otp qrcode`
+ __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate` if no you will get `no such table: otp_totp_totpdevice`
+
+### [13-01-2020] Social Media buttons for sign in
+* Adding [bootstrap-social](https://github.com/peterblazejewicz/bootstrap-social) to simplify sign buttons integration
+* Move SSO providers config to from `web/web/settings.py` to `web/web/local_settings.py`
+* `[oauth]` added to `conf/web.conf` for future on/off of the buttons
+* New dependency: `pip3 install django-settings-export`
+
+### [10-01-2020] Scrappers&Bots nightmare :)
+* Add Web signup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
+* [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/)
+* New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6 django-crispy-forms git+https://github.com/CAPESandbox/httpreplay.git`
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate` if no you will get `No such table as django_site`
+    * `python3 manage.py collectstatic` -> to enable django admin css -> requires web/web/local_settings.py modifiy `STATIC_ROOT`
+
+### [02.01.02021] POST 2020
+* Allow download http(s) Request/Response and Response 48bytes hex preview
+* auth_only in api.conf to allow apikey/autentificated users hit the rest api
+
+### [29.12.2020]
+* YARA integrated to capemon, this allows to bypass anti-* aka capemon scripting, more [here](https://github.com/kevoreilly/CAPEv2/commit/9306e4e2629f569d4275e241d14aea65a74b421b)
+* Docs and more anti bypasses and examples coming soon
+
+### [22.12.2020] Peque edition
+* TLS decrypt integration, huge thanks to Hatching team to release their code. WEBGUI integration isn't finished yet, but you already can see https requests there
+* Safelists moved from network.py to `data/safelist/{domains,ips}.py`
+
+### [08.12.2020] On demand
+* Add uniq submission limitation, can be enabled in `conf/web.conf` to disable the same submission during X hours
+* Bingraph, FLARE CAPA, vba2graph on demand
+* Added `on_demand` feature.
+    * This funcions aim to speedup processing but allow to user to generate parts of analysis that takes some time to finish and not used frequently. Example scripted submissions
 
 ### [02.12.2020] CAPE 2.2
 * Malduck integration

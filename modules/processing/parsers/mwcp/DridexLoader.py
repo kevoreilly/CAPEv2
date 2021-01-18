@@ -14,17 +14,51 @@
 
 import os
 import struct
+import string
 import socket
 import pefile
 import yara
+from Crypto.Cipher import ARC4
 from mwcp.parser import Parser
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "DridexLoader.yar")
-rule_source = open(yara_path, "r").read()
+rule_source = '''
+rule DridexLoader
+{
+    meta:
+        author = "kevoreilly"
+        description = "Dridex v4 dropper C2 parsing function"
+        cape_type = "DridexLoader Payload"
 
-MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
+    strings:
+        $c2parse_1 = {57 0F 95 C0 89 35 ?? ?? ?? ?? 88 46 04 33 FF 80 3D ?? ?? ?? ?? 00 76 54 8B 04 FD ?? ?? ?? ?? 8D 4D EC 83 65 F4 00 89 45 EC 66 8B 04 FD ?? ?? ?? ?? 66 89 45 F0 8D 45 F8 50}
+        $c2parse_2 = {89 45 00 0F B7 53 04 89 10 0F B6 4B 0C 83 F9 0A 7F 03 8A 53 0C 0F B6 53 0C 85 D2 7E B7 8D 74 24 0C C7 44 24 08 00 00 00 00 8D 04 7F 8D 8C 00}
+        $c2parse_3 = {89 08 66 39 1D ?? ?? ?? ?? A1 ?? ?? ?? ?? 0F 95 C1 88 48 04 80 3D ?? ?? ?? ?? 0A 77 05 A0 ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 56 8B F3 76 4E 66 8B 04 F5}
+        $c2parse_4 = {0F B7 C0 89 01 A0 ?? ?? ?? ?? 3C 0A 77 ?? A0 ?? ?? ?? ?? A0 ?? ?? ?? ?? 57 33 FF 84 C0 74 ?? 56 BE}
+        $c2parse_5 = {0F B7 05 [4] 89 02 89 15 [4] 0F B6 15 [4] 83 FA 0A 7F 07 0F B6 05 [4] 0F B6 05 [4] 85 C0}
+        $botnet_id = {C7 00 00 00 00 00 8D 00 6A 04 50 8D 4C ?? ?? E8 ?? ?? ?? ?? 0F B7 05}
+        $rc4_key_1 = {56 52 BA [4] 8B F1 E8 [4] 8B C? 5? C3}
+        $rc4_key_2 = {5? 8B ?9 52 [5-6] E8 [4] 8B C? 5? C3}
+    condition:
+        uint16(0) == 0x5A4D and any of them
+}
 
+'''
+
+MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+LEN_BLOB_KEY = 40
+LEN_BOT_KEY = 107
+
+yara_rules = yara.compile(source=rule_source)
+
+def decrypt_rc4(key, data):
+    cipher = ARC4.new(key)
+    return cipher.decrypt(data)
+
+def extract_rdata(pe):
+    for section in pe.sections:
+        if b'.rdata' in section.Name:
+            return section.get_data(section.VirtualAddress, section.SizeOfRawData)
+    return None
 
 class DridexLoader(Parser):
 
@@ -35,25 +69,29 @@ class DridexLoader(Parser):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
-        delta = 0
+        line, c2va_offset, delta = 0, 0, 0
+        botnet_code, botnet_rva, rc4_decode = 0, 0, 0
 
-        yara_rules = yara.compile(source=rule_source)
         matches = yara_rules.match(data=filebuf)
         if not matches:
             return
 
-        line, c2va_offset = False, False
         for match in matches:
             if match.rule != "DridexLoader":
                 continue
-
             for item in match.strings:
-                if item[1] in ("$c2parse_4", "$c2parse_3", "$c2parse_2", "$c2parse_1"):
+                if '$c2parse' in item[1]:
                     c2va_offset = int(item[0])
                     line = item[1]
-                    break
+                elif '$botnet_id' in item[1]:
+                    botnet_code = int(item[0])
+                elif '$rc4_key' in item[1] and not rc4_decode:
+                    rc4_decode = int(item[0])
 
-        if line == "$c2parse_4":
+        if line == "$c2parse_5":
+            c2_rva = struct.unpack("i", filebuf[c2va_offset + 75 : c2va_offset + 79])[0] - image_base
+            botnet_rva = struct.unpack("i", filebuf[c2va_offset + 3 : c2va_offset + 7])[0] - image_base
+        elif line == "$c2parse_4":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 6 : c2va_offset + 10])[0] - image_base + 1
         elif line == "$c2parse_3":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 60 : c2va_offset + 64])[0] - image_base
@@ -77,5 +115,28 @@ class DridexLoader(Parser):
                 self.reporter.add_metadata("address", c2_address + ":" + port)
 
             c2_offset += 6 + delta
+
+        if rc4_decode:
+            zb = struct.unpack("B", filebuf[rc4_decode+8:rc4_decode+9])[0]
+            if not zb:
+                rc4_rva = struct.unpack('i', filebuf[rc4_decode+5:rc4_decode+9])[0] - image_base
+            else:
+                rc4_rva = struct.unpack('i', filebuf[rc4_decode+3:rc4_decode+7])[0] - image_base
+            if rc4_rva:
+                rc4_offset = pe.get_offset_from_rva(rc4_rva)
+                if not zb:
+                    raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY][::-1], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                else:
+                    raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                for item in raw.split(b"\x00"):
+                    if len(item) == LEN_BLOB_KEY-1:
+                        self.reporter.add_metadata('other', {'RC4 key': item.split(b';')[0]})
+
+        if botnet_code:
+            botnet_rva = struct.unpack('i', filebuf[botnet_code+23:botnet_code+27])[0] - image_base
+        if botnet_rva:
+            botnet_offset = pe.get_offset_from_rva(botnet_rva)
+            botnet_id = struct.unpack('H', filebuf[botnet_offset:botnet_offset+2])[0]
+            self.reporter.add_metadata('other', {'Botnet ID': str(botnet_id)})
 
         return

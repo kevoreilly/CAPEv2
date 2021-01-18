@@ -55,7 +55,7 @@
                     {% if analysis.info.options %}
                         <th>Options</th>
                     {% endif %}
-                    {% if analysis.info.distributed %}
+                    {% if analysis.distributed %}
                         <th>Distributed</th>
                     {% endif %}
                     <th>Log</th>
@@ -72,20 +72,20 @@
                     <td>{{analysis.info.ended}}</td>
                     <td>{{analysis.info.duration}} seconds</td>
                     {% if analysis.info.options %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#options">Show Options</a></td>
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#options">Show Options</a></td>
                     {% endif %}
-                    {% if analysis.info.distributed %}
-                        <td>{{analysis.info.distributed.name}} - {{analysis.info.distributed.task_id}}</td>
+                    {% if analysis.distributed %}
+                        <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
-                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#info-log">Show Log</a></td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Log</a></td>
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}
-                           <span class="label label-danger">{{analysis.malscore|floatformat:1}}</span>
+                           <span class="label badge-danger">{{analysis.malscore|floatformat:1}}</span>
                             {% elif analysis.malscore > 2.0 %}
-                            <span class="label label-warning">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="label badge-warning">{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                            <span class="label label-success">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="label badge-success">{{analysis.malscore|floatformat:1}}</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -138,6 +138,6 @@
                     </tr>
                 </tbody>
             </table>
-            </div
+        </div>
     </section>
 {% endif %}

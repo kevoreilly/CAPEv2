@@ -77,3 +77,20 @@ Apache, Nginx, Unicorn and so on.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 
 .. _`Django documentation`: https://docs.djangoproject.com/
+
+Exposed to internet
+===================
+
+To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for instalation steps
+
+* Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
+* Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
+* `AllAuth`_ aka SSO autentification with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
+    * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
+
+.. _`AllAuth`: https://django-allauth.readthedocs.io/
+.. _`Video Tutorial`: https://www.youtube.com/watch?v=1yqKNQ3ogKQ
+.. _`StackOverflow example`: https://stackoverflow.com/a/64524223/1294762
+.. _`Nginx Ultimate bad bot blocker`: https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/
+.. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
+

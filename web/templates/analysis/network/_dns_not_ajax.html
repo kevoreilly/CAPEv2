@@ -1,0 +1,58 @@
+<section id="domains">
+    <h4>DNS</h4>
+    {% if analysis.network.dns %}
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th>Name</th>
+                <th>Response</th>
+                <th>Post-Analysis Lookup</th>
+            </tr>
+            {% for p in analysis.network.dns %}
+                <tr>
+                <td>{{p.request}} <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection">[VT]</a>
+                {% if config.display_et_portal %}
+                <a href="https://threatintel.proofpoint.com/search?q={{p.request}}" target="_blank">[ET]</a>
+                {% endif %}
+                {% if config.display_pt_portal %}
+                <a href="https://www.passivetotal.org/passive/{{p.request}}" target="_blank">[PT]</a>
+                {% endif %}
+                </td>
+                    <td>
+                        {% for a in p.answers %}
+                            {{a.type}} {{a.data|linebreaksbr}}
+                            {% if a.type != "NXDOMAIN" %}
+                                {% if a.type == "CNAME" %}
+                                <a href="https://www.virustotal.com/gui/domain/{{a.data}}/detection">[VT]</a>
+                                {% else %}
+                                <a href="https://www.virustotal.com/gui/ip-address/{{a.data}}/detection">[VT]</a>
+                                {% endif %}
+                                {% if config.display_et_portal %}
+                                <a href="https://threatintel.proofpoint.com/search?q={{a.data}}" target="_blank">[ET]</a>
+                                {% endif %}
+                                {% if config.display_pt_portal %}
+                                <a href="https://www.passivetotal.org/passive/{{a.data}}" target="_blank">[PT]</a>
+                                {% endif %}
+                            {% endif %}
+                            {% if not forloop.last %}
+                                <br/>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>{% if domainlookups and domainlookups|get_item:p.request %}
+                        {{ domainlookups|get_item:p.request }}
+                        <a href="https://www.virustotal.com/gui/ip-address/{{domainlookups|get_item:p.request}}/detection">[VT]</a>
+                        {% if config.display_et_portal %}
+                        <a href="https://threatintel.proofpoint.com/search?q={{domainlookups|get_item:p.request}}" target="_blank">[ET]</a>
+                        {% endif %}
+                        {% if config.display_pt_portal %}
+                        <a href="https://www.passivetotal.org/passive/{{domainlookups|get_item:p.request}}" target="_blank">[PT]</a>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No domains contacted.</p>
+    {% endif %}
+</section>

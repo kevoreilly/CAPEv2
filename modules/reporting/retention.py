@@ -160,7 +160,6 @@ class Retention(Report):
                 "dropped": CUCKOO_ROOT + "/storage/analyses/{0}/files",
                 "screencaps": CUCKOO_ROOT + "/storage/analyses/{0}/shots",
                 "reports": CUCKOO_ROOT + "/storage/analyses/{0}/reports",
-                "malheur": CUCKOO_ROOT + "/storage/malheur/reports/{0}.txt",
                 # Handled seperately
                 "mongo": None,
                 "elastic": None,

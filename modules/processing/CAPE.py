@@ -28,7 +28,6 @@ import imp
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, flare_capa_details
 
@@ -135,19 +134,19 @@ class CAPE(Processing):
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)
             newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
-            shutil.move(unpacked_file, newname)
-
-            # Recursive process of unpacked file
-            upx_extract = self.process_file(newname, True, {})
-            if upx_extract and upx_extract["type"]:
-                upx_extract["cape_type"] = "UPX-extracted "
-                type_strings = upx_extract["type"].split()
-                if type_strings[0] in ("PE32+", "PE32"):
-                    upx_extract["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2][0] == "(DLL)":
-                        upx_extract["cape_type"] += "DLL"
-                    else:
-                        upx_extract["cape_type"] += "executable"
+            if os.path.exists(unpacked_file):
+                shutil.move(unpacked_file, newname)
+                # Recursive process of unpacked file
+                upx_extract = self.process_file(newname, True, {})
+                if upx_extract and upx_extract["type"]:
+                    upx_extract["cape_type"] = "UPX-extracted "
+                    type_strings = upx_extract["type"].split()
+                    if type_strings[0] in ("PE32+", "PE32"):
+                        upx_extract["cape_type"] += pe_map[type_strings[0]]
+                        if type_strings[2][0] == "(DLL)":
+                            upx_extract["cape_type"] += "DLL"
+                        else:
+                            upx_extract["cape_type"] += "executable"
 
     def process_file(self, file_path, append_file, metadata={}):
         """Process file.
@@ -464,11 +463,11 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            pretime = datetime.datetime.now()
-            capa_details = flare_capa_details(file_path, "CAPE")
+            pretime = datetime.now()
+            capa_details = flare_capa_details(file_path, "cape")
             if capa_details:
                 file_info["flare_capa"] = capa_details
-            self.add_statistic("flare_capa", "time", pretime=pretime)
+            self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:
@@ -518,7 +517,7 @@ class CAPE(Processing):
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
+                log.error('Sample file doesn\'t exist: "%s"' % self.file_path)
 
         self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 

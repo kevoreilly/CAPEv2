@@ -11,6 +11,7 @@ import logging
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.utils import get_options
 
 try:
     from sflock import unpack
@@ -102,18 +103,9 @@ VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 def options2passwd(options):
     password = False
     if "password=" in options:
-        fields = options.split(",")
-        for field in fields:
-            try:
-                key, value = field.split("=", 1)
-                if key == "password":
-                    # sflock requires password to be bytes object for Py3
-                    if isinstance(value, str):
-                        value = value.encode("utf8")
-                    password = value
-                    break
-            except:
-                pass
+        password = get_options(options).get("password")
+        if password and isinstance(password, bytes):
+            password = password.decode("utf8")
 
     return password
 
@@ -129,11 +121,12 @@ def demux_office(filename, password):
     if HAS_SFLOCK:
         ofile = OfficeFile(sfFile.from_path(filename))
         d = ofile.decrypt(password)
-        with open(decrypted_name, "w") as outs:
-            outs.write(d.contents)
-        # TODO add decryption verification checks
-        if "Encrypted" not in d.magic:
-            retlist.append(decrypted_name)
+        if hasattr(d, "contents"):
+            with open(decrypted_name, "w") as outs:
+                outs.write(d.contents)
+            # TODO add decryption verification checks
+            if "Encrypted" not in d.magic:
+                retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
 
@@ -162,8 +155,10 @@ def _sf_chlildren(child):
             os.mkdir(target_path)
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
-            path_to_extract = os.path.join(tmp_dir, child.filename)
-            open(path_to_extract, "wb").write(child.contents)
+            if child.contents:
+                path_to_extract = os.path.join(tmp_dir, child.filename)
+                with open(path_to_extract, "wb") as f:
+                    f.write(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
     return path_to_extract
@@ -181,13 +176,10 @@ def demux_sflock(filename, options, package):
         return [filename]
 
     try:
-        password = b"infected"
+        password = "infected"
         tmp_pass = options2passwd(options)
         if tmp_pass:
-            if isinstance(tmp_pass, bytes):
-                password = tmp_pass
-            else:
-                password = tmp_pass.encode("utf-8")
+            password = tmp_pass
 
         try:
             unpacked = unpack(filename, password=password)
@@ -234,10 +226,6 @@ def demux_sample(filename, package, options):
             tmp_pass = options2passwd(options)
             if tmp_pass:
                 password = tmp_pass
-            if password:
-                return demux_office(filename, password)
-            else:
-                return [filename]
 
     # don't try to extract from Java archives or executables
     if "Java Jar" in magic:

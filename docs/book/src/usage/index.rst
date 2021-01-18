@@ -17,3 +17,4 @@ This chapter explains how to use CAPE.
     clean
     utilities - processing generated data by Virtual Machine(s)
     performance
+    monitor

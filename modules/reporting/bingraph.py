@@ -48,7 +48,7 @@ class BinGraph(Report):
     "Generate bingraphs"
 
     def run(self, results):
-        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled:
+        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled and reporting_conf.bingraph.on_demand is False:
             bingraph_path = os.path.join(self.analysis_path, "bingraph")
             if not os.path.exists(bingraph_path):
                 os.makedirs(bingraph_path)

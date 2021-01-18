@@ -351,6 +351,8 @@ class RunProcessing(object):
         @return: processing results.
         """
 
+        # Used for cases where we need to add time of execution between modules
+        self.results["temp_processing_stats"] = {}
         # Order modules using the user-defined sequence number.
         # If none is specified for the modules, they are selected in
         # alphabetical order.
@@ -369,6 +371,13 @@ class RunProcessing(object):
                     self.results.update(result)
         else:
             log.info("No processing modules loaded")
+
+        # Add temp_processing stats to global processing stats
+        if self.results["temp_processing_stats"]:
+            for plugin_name in self.results["temp_processing_stats"]:
+                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)})
+
+        del self.results["temp_processing_stats"]
 
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")
@@ -395,7 +404,7 @@ class RunProcessing(object):
             if self.results.get("detections", False) and self.cfg.detections.yara:
                 family = self.results["detections"]
                 self.results["malfamily_tag"] = "Yara"
-            elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+            elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
                 for alert in self.results["suricata"]["alerts"]:
                     if alert.get("signature", "") and alert["signature"].startswith((et_categories)):
                         family = get_suricata_family(alert["signature"])
@@ -403,13 +412,7 @@ class RunProcessing(object):
                             self.results["malfamily_tag"] = "Suricata"
                             self.results["detections"] = family
 
-            elif (
-                self.cfg.detections.virustotal and not family
-                and self.results["info"]["category"] == "file"
-                and "virustotal" in self.results
-                and "results" in self.results["virustotal"]
-                and self.results["virustotal"]["results"]
-            ):
+            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("results"):
                 detectnames = []
                 for res in self.results["virustotal"]["results"]:
                     if res["sig"] and "Trojan.Heur." not in res["sig"]:
@@ -421,12 +424,7 @@ class RunProcessing(object):
                 self.results["malfamily_tag"] = "VirusTotal"
 
             # fall back to ClamAV detection
-            elif (
-                self.cfg.detections.clamav and not family
-                and self.results["info"]["category"] == "file"
-                and "clamav" in self.results.get("target", {}).get("file", {})
-                and self.results["target"]["file"]["clamav"]
-            ):
+            elif self.cfg.detections.clamav and not family and self.results["info"]["category"] == "file" and self.results.get("target", {}).get("file", {}).get("clamav"):
                 for detection in self.results["target"]["file"]["clamav"]:
                     if detection.startswith("Win.Trojan."):
                         words = re.findall(r"[A-Za-z0-9]+", detection)

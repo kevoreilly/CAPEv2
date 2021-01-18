@@ -373,6 +373,7 @@ ajax_mongo_schema = {
     "debugger": "debugger",
     "behavior": "behavior",
     "network": "network",
+    "procdump": "procdump",
 }
 
 
@@ -383,7 +384,7 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     #ToDo remove in CAPEv3
-    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network"):
+    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network", "procdump"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
@@ -398,35 +399,36 @@ def load_files(request, task_id, category):
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
-            if ajax_mongo_schema.get(category, "") == "dropped":
+            if enabledconf["bingraph"]:
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
-                    for block in data.get(category, []):
-                        if not block.get("sha256"):
-                            continue
-                        tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                        if os.path.exists(tmp_file):
-                            with open(tmp_file, "r") as f:
-                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+                    if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
+                        for block in data.get(category, []):
+                            print(block)
+                            if not block.get("sha256"):
+                                print("missed sha256", block)
+                                continue
+                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                            if os.path.exists(tmp_file):
+                                with open(tmp_file, "r") as f:
+                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-            if ajax_mongo_schema.get(category, "").startswith("CAPE"):
-                bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-                if os.path.exists(bingraph_path):
-                    if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
-                        cape_files = data.get("CAPE", {}).get("payloads", []) or []
-                    #ToDo remove in CAPEv3
-                    else:
-                        cape_files = data.get("CAPE", []) or []
-                    for block in cape_files:
-                        if not block.get("sha256"):
-                            continue
-                        tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                        if os.path.exists(tmp_file):
-                            with open(tmp_file, "r") as f:
-                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+                    if ajax_mongo_schema.get(category, "").startswith("CAPE"):
+                        if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
+                            cape_files = data.get("CAPE", {}).get("payloads", []) or []
+                        #ToDo remove in CAPEv3
+                        else:
+                            cape_files = data.get("CAPE", []) or []
+                        for block in cape_files:
+                            if not block.get("sha256"):
+                                continue
+                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                            if os.path.exists(tmp_file):
+                                with open(tmp_file, "r") as f:
+                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-            if bingraph_dict_content:
-                bingraph = True
+                    if bingraph_dict_content:
+                        bingraph = True
             if category == "debugger":
                 debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
                 if os.path.exists(debugger_log_path):
@@ -929,7 +931,7 @@ def search_behavior(request, task_id):
 def report(request, task_id):
     network_report = False
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "procdump": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
         network_report = results_db.analysis.find_one({"info.id": int(task_id)}, {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
@@ -972,6 +974,13 @@ def report(request, task_id):
     except Exception as e:
         print(e)
         report["CAPE"] = 0
+
+    try:
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "procdump_size": {"$size": "$procdump.sha256"}}}]))
+        report["procdump"] = tmp_data[0]["procdump_size"]  or 0
+    except Exception as e:
+        print(e)
+        report["procdump_size"] = 0
 
 
     reports_exist = False

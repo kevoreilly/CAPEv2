@@ -156,7 +156,8 @@ def main():
 
     if args.capa_rules:
         flare_capa_rules()
-        return
+        if not enabled:
+            return
 
     if not enabled:
         print(colors.red("You need to enable a category!\n"))
@@ -171,4 +172,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-

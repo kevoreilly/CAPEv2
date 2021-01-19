@@ -62,36 +62,57 @@ def xor_data(data, key):
     data = [q for q in data]
     return bytes([c ^ k for c, k in zip(data, cycle(key))])
 
-# This function is originally by Jason Reaves (@sysopfb),
-# suggested as an addition by @pollo290987, updated by
-# phate1. A big thank you to all.
+def emotet_decode(data, size, xor_key):
+    offset = 8
+    res = b''
+    for count in range(int(size/4)):
+        off_from = offset+count*4
+        off_to = off_from+4
+        encoded_dw = int.from_bytes(data[off_from:off_to], byteorder='little')
+        decoded = xor_key ^ encoded_dw
+        res = res + decoded.to_bytes(4, byteorder='little')
+    return res
+
+# Thanks to Jason Reaves (@sysopfb), @pollo290987, phate1.
 def extract_emotet_rsakey(pe):
     for section in pe.sections:
         if section.Name.replace(b'\x00',b'') == b'.data':
             data_section = section.get_data()
+    res_list = []
     pub_matches = re.findall(b"""\x00{4,12}(?=([\x01-\xff][\x00-\xff]{120}))""", data_section)
     if pub_matches:
-        res_list = []
         for match in pub_matches:
             xor_key = int.from_bytes(match[:4], byteorder='little')
             encoded_size = int.from_bytes(match[4:8], byteorder='little')
             decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
             if decoded_size == 0x6c:
-                offset = 8
-                res = b''
-                for count in range(int(0x6c/4)):
-                    off_from = offset+count*4
-                    off_to = off_from+4
-                    encoded_dw = int.from_bytes(match[off_from:off_to], byteorder='little')
-                    decoded = xor_key ^ encoded_dw
-                    res = res + decoded.to_bytes(4, byteorder='little')
-                res_list.append(res)
-
-        res_list = list(set(res_list))
-        pub_key = res_list[0][0:106]
-        seq = asn1.DerSequence()
-        seq.decode(pub_key)
-        return RSA.construct((seq[0], seq[1]))
+                res_list.append(emotet_decode(match, decoded_size, xor_key))
+        if res_list:
+            res_list = list(set(res_list))
+            pub_key = res_list[0][0:106]
+            seq = asn1.DerSequence()
+            seq.decode(pub_key)
+            return RSA.construct((seq[0], seq[1]))
+    for section in pe.sections:
+        if section.Name.replace(b'\x00',b'') == b'.text':
+            code_section = section.get_data()
+            code_size = len(code_section)
+    if code_size:
+        delta = 0
+        while delta < code_size:
+            xor_key = int.from_bytes(code_section[delta:delta+4], byteorder='little')
+            encoded_size = int.from_bytes(code_section[delta+4:delta+8], byteorder='little')
+            decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
+            if decoded_size == 0x6c:
+                res_list.append(emotet_decode(code_section[delta:], decoded_size, xor_key))
+                break
+            delta += 4
+        if res_list:
+            res_list = list(set(res_list))
+            pub_key = res_list[0][0:106]
+            seq = asn1.DerSequence()
+            seq.decode(pub_key)
+            return RSA.construct((seq[0], seq[1]))
 
 class Emotet(Parser):
     # def __init__(self, reporter=None):

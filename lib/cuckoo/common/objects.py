@@ -367,9 +367,9 @@ class File(object):
         Get SHA3_384.
         @return: SHA3_384.
         """
-        if not self.sha3_384:
+        if not self._sha3_384:
             self.calc_hashes()
-        return self.sha3_384
+        return self._sha3_384
 
     def get_ssdeep(self):
         """Get SSDEEP.

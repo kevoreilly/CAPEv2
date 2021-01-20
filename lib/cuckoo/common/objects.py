@@ -58,6 +58,12 @@ try:
 except ImportError:
     HAVE_PEFILE = False
 
+try:
+    import tlsh
+    HAVE_TLSH = True
+except ImportError:
+    print("Missed dependency: pip3 install python-tlsh")
+    HAVE_TLSH = False
 
 log = logging.getLogger(__name__)
 
@@ -276,6 +282,10 @@ class File(object):
         sha1 = hashlib.sha1()
         sha256 = hashlib.sha256()
         sha512 = hashlib.sha512()
+        sha3_384 = hashlib.sha3_384()
+
+        if HAVE_TLSH:
+            tlsh_hash = tlsh.Tlsh()
 
         for chunk in self.get_chunks():
             crc = binascii.crc32(chunk, crc)
@@ -283,12 +293,18 @@ class File(object):
             sha1.update(chunk)
             sha256.update(chunk)
             sha512.update(chunk)
+            sha3_384.update(chunk)
+            if HAVE_TLSH:
+                tlsh_hash.update(chunk)
 
         self._crc32 = "".join("%02X" % ((crc >> i) & 0xFF) for i in [24, 16, 8, 0])
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
         self._sha512 = sha512.hexdigest()
+        self._sha3_384 = sha3_384.hexdigest()
+        if HAVE_TLSH:
+            self._tlsh_hash.final()
 
     @property
     def file_data(self):
@@ -345,6 +361,15 @@ class File(object):
         if not self._sha512:
             self.calc_hashes()
         return self._sha512
+
+    def get_sha3_384(self):
+        """
+        Get SHA3_384.
+        @return: SHA3_384.
+        """
+        if not self.sha3_384:
+            self.calc_hashes()
+        return self.sha3_384
 
     def get_ssdeep(self):
         """Get SSDEEP.
@@ -540,6 +565,15 @@ class File(object):
                 return matches
         return matches
 
+    def get_tlsh(self):
+        """
+        Get TLSH.
+        @return: TLSH.
+        """
+        if not self._tlsh_hash:
+            self.calc_hashes()
+        return self._tlsh_hash
+
     def get_all(self):
         """Get all information available.
         @return: information dict.
@@ -560,6 +594,8 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
+        infos["tlsh"] = self.get_tlsh()
+        infos["sha3_384"] = self.get_sha3_384()
 
         if self.pe:
             infos["entrypoint"] = self.get_entrypoint(self.pe)

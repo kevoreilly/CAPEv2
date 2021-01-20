@@ -1,4 +1,8 @@
-### [14-01-20202] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
+### [20-01-2021]
+* [TLSH hashing](https://github.com/trendmicro/tlsh) - Trend Micro Locality Sensitive Hash
+* sha3-384
+
+### [14-01-2021] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
 * [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
 * [2FA for Django Admin](https://hackernoon.com/5-ways-to-make-django-admin-safer-eb7753698ac8)
 * New dependency: `pip3 install django-otp qrcode`

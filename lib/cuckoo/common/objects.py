@@ -571,9 +571,12 @@ class File(object):
         Get TLSH.
         @return: TLSH.
         """
-        if not self._tlsh_hash:
-            self.calc_hashes()
-        return self._tlsh_hash
+        if hasattr(self, "_tlsh_hash"):
+            if not self._tlsh_hash:
+                self.calc_hashes()
+            return self._tlsh_hash
+        else:
+            return False
 
     def get_all(self):
         """Get all information available.

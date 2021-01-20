@@ -395,7 +395,7 @@ def load_files(request, task_id, category):
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             elif category == "network":
-                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "suricata":1, "_id": 0})
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "cif":1 "suricata":1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
@@ -458,6 +458,7 @@ def load_files(request, task_id, category):
             ajax_response["debugger_logs"] = debugger_logs
         elif category == "network":
             ajax_response["suricata"] = data.get("suricata", {})
+            ajax_response["cif"] = data.get("cif", [])
 
         return render(request, page, ajax_response)
 

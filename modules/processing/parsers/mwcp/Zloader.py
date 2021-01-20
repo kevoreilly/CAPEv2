@@ -29,7 +29,7 @@ rule Zloader
         cape_type = "Zloader Payload"
     strings:
         $rc4_init = {31 [1-3] 66 C7 8? 00 01 00 00 00 00 90 90 [0-5] 8? [5-90] 00 01 00 00 [0-15] (74|75)}
-        $decrypt_conf = {83 C4 04 84 C0 74 54 E8 [4] E8 [4] E8 [4] E8 [4] 68 [4] 68 [4] E8}
+        $decrypt_conf = {83 C4 04 84 C0 74 54 E8 [4] E8 [4] E8 [4] E8 [4] ?8 [4] 68 [4] ?8}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
@@ -37,20 +37,11 @@ rule Zloader
 '''
 MAX_STRING_SIZE = 32
 
+yara_rules = yara.compile(source=rule_source)
+
 def decrypt_rc4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
-
-def yara_scan(raw_data, rule_name):
-    addresses = {}
-    yara_rules = yara.compile(source=rule_source)
-    matches = yara_rules.match(data=raw_data)
-    for match in matches:
-        if match.rule == 'Zloader':
-            for item in match.strings:
-                if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
-                    return addresses
 
 def string_from_offset(data, offset):
     string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
@@ -65,23 +56,30 @@ class Zloader(Parser):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase
-        hit = yara_scan(filebuf, "$decrypt_conf")
-        if not hit:
+        matches = yara_rules.match(data=filebuf)
+        if not matches:
             return
-        decrypt_conf = int(hit["$decrypt_conf"])
-        key = string_from_offset(filebuf, pe.get_offset_from_rva(struct.unpack("I",filebuf[decrypt_conf+28:decrypt_conf+32])[0]-image_base))
-        data_offset = pe.get_offset_from_rva(struct.unpack("I",filebuf[decrypt_conf+33:decrypt_conf+37])[0]-image_base)
+        for match in matches:
+            if match.rule != "Zloader":
+                continue
+            for item in match.strings:
+                if '$decrypt_conf' in item[1]:
+                    decrypt_conf = int(item[0])+28
+        va = struct.unpack("I",filebuf[decrypt_conf:decrypt_conf+4])[0]
+        if va < 0x10000:
+            decrypt_conf += 5
+            va = struct.unpack("I",filebuf[decrypt_conf:decrypt_conf+4])[0]
+        key = string_from_offset(filebuf, pe.get_offset_from_rva(va-image_base))
+        data_offset = pe.get_offset_from_rva(struct.unpack("I",filebuf[decrypt_conf+5:decrypt_conf+9])[0]-image_base)
         enc_data = filebuf[data_offset:].split(b"\0\0")[0]
         raw = decrypt_rc4(key, enc_data)
-                
-        botnet_id, campaign_id = list(filter(None, raw[1:41].split(b'\x00') ))
-        controllers = list(filter(None, raw[41:696].split(b'\x00') ))
-        rc4_key = raw[696: 696 + raw[696:].find(b'\x00') ]
-
-        self.reporter.add_metadata("other", {"Botnet name": botnet_id})
-        self.reporter.add_metadata("other", {"Campaign ID": campaign_id})
-        for controller in controllers:
-            self.reporter.add_metadata("address", controller)
-
-        self.reporter.add_metadata("other", {"RC4 key": rc4_key})
+        items = list(filter(None, raw.split(b'\x00\x00')))
+        self.reporter.add_metadata("other", {"Botnet name": items[1].lstrip(b'\x00')})
+        self.reporter.add_metadata("other", {"Campaign ID": items[2]})
+        for item in items:
+            item = item.lstrip(b'\x00')
+            if item.startswith(b'http'):
+                self.reporter.add_metadata("address", item)
+            elif len(item) == 16:
+                self.reporter.add_metadata("other", {"RC4 key": item})
         return

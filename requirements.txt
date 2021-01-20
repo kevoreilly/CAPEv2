@@ -82,3 +82,4 @@ django-settings-export
 django-csp
 django-otp
 qrcode
+python-tlsh

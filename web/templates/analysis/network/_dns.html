@@ -38,14 +38,14 @@
                             {% endif %}
                         {% endfor %}
                     </td>
-                    <td>{% if domainlookups and  domainlookups|get_item:p.request %}
-                        {{ domainlookups|get_item:p.request }}
-                        <a href="https://www.virustotal.com/gui/ip-address/{{domainlookups|get_item:p.request}}/detection">[VT]</a>
+                    <td>{% if network.domainlookups and  network.domainlookups|get_item:p.request %}
+                        {{ network.domainlookups|get_item:p.request }}
+                        <a href="https://www.virustotal.com/gui/ip-address/{{network.domainlookups|get_item:p.request}}/detection">[VT]</a>
                         {% if config.display_et_portal %}
-                        <a href="https://threatintel.proofpoint.com/search?q={{domainlookups|get_item:p.request}}" target="_blank">[ET]</a>
+                        <a href="https://threatintel.proofpoint.com/search?q={{network.domainlookups|get_item:p.request}}" target="_blank">[ET]</a>
                         {% endif %}
                         {% if config.display_pt_portal %}
-                        <a href="https://www.passivetotal.org/passive/{{domainlookups|get_item:p.request}}" target="_blank">[PT]</a>
+                        <a href="https://www.passivetotal.org/passive/{{network.domainlookups|get_item:p.request}}" target="_blank">[PT]</a>
                         {% endif %}
                         {% endif %}
                     </td>

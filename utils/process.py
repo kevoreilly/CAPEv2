@@ -221,7 +221,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     count = 0
     db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
-
+    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
     try:
         memory_limit()
         log.info("Processing analysis data")

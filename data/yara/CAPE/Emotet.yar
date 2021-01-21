@@ -13,7 +13,9 @@ rule Emotet
         $snippetA = {85 C0 74 5? 8B ?8 04 89 78 28 89 38 89 70 2C EB 04 41 89 48 04 39 34 CD [4] 75 F3 FF 75 DC FF 75 F0 8B 55 F8 FF 75 10 8B 4D EC E8 [4] 83 C4 0C 85 C0 74 05}
         $snippetB = {EB 04 4? 89 [2] 39 [6] 75 F3}
         $snippetC = {EB 03 4? 89 1? 39 [6] 75 F4}
-        $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? ?? 00 8D 5? [4-6] E8}
+        $comboA1 = {83 EC 28 56 FF 75 ?? BE}
+        $comboA2 = {83 EC 38 56 57 BE}
+        $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
     condition:
-        uint16(0) == 0x5A4D and any of them
+        uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*)
 }

@@ -1078,7 +1078,7 @@ def tasks_report(request, task_id, report_format="json"):
                 content = "application/pdf"
                 ext = "pdf"
             fname = "%s_report.%s" % (task_id, ext)
-            resp = StreamingHttpResponse(FileWrapper(open(report_path), 8096), content_type=content or "application/octet-stream;")
+            resp = StreamingHttpResponse(FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;")
             resp["Content-Length"] = os.path.getsize(report_path)
             resp["Content-Disposition"] = "attachment; filename=" + fname
             return resp
@@ -1407,7 +1407,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
-            resp = StreamingHttpResponse(FileWrapper(open(shot), 8096), content_type="image/jpeg")
+            resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
             return
 
@@ -1434,7 +1434,7 @@ def tasks_pcap(request, task_id):
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
-        resp = StreamingHttpResponse(FileWrapper(srcfile, 8096), content_type="application/vnd.tcpdump.pcap")
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1498,7 +1498,7 @@ def tasks_surifile(request, task_id):
 
     if os.path.exists(srcfile):
         fname = "%s_surifiles.zip" % task_id
-        resp = StreamingHttpResponse(FileWrapper(open(srcfile), 8192), content_type="application/octet-stream;")
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type="application/octet-stream;")
         resp["Content-Length"] = os.path.getsize(srcfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
@@ -1642,7 +1642,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             else:
                 mime = "application/octet-stream"
                 fname = "%s-%s.dmp" % (task_id, pid)
-                resp = StreamingHttpResponse(FileWrapper(open(srcfile), 8096), content_type=mime)
+                resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type=mime)
                 resp["Content-Length"] = os.path.getsize(srcfile)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
         else:
@@ -1689,7 +1689,7 @@ def tasks_fullmemory(request, task_id):
     if filename:
         content_type = "application/octet-stream"
         chunk_size = 8192
-        response = StreamingHttpResponse(FileWrapper(open(file_path), chunk_size), content_type=content_type)
+        response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), chunk_size), content_type=content_type)
         response["Content-Length"] = os.path.getsize(file_path)
         response["Content-Disposition"] = "attachment; filename=%s" % filename
         return response

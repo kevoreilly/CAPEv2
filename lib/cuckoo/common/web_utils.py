@@ -681,6 +681,8 @@ search_term_map = {
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
     "tlp": "info.tlp",
+    "ja3_hash": "suricata.tls.ja3.hash",
+    "ja3_string": "suricata.tls.ja3.string",
 }
 
 

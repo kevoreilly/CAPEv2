@@ -35,7 +35,6 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
-from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
 from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
 from data.safelist.domains import domain_passlist
 
@@ -151,8 +150,6 @@ class Pcap:
         self.smtp_flow = {}
         # List containing all IRC requests.
         self.irc_requests = []
-        # List containing all JA3 hashes.
-        self.ja3_records = []
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS ignore list
@@ -315,10 +312,6 @@ class Pcap:
         # HTTPS.
         if conn["dport"] in self.ssl_ports or conn["sport"] in self.ssl_ports:
             self._https_identify(conn, data)
-        # ja3
-        ja3hash = self._check_ja3(data)
-        if ja3hash != None:
-            self._add_ja3(conn, data, ja3hash)
 
     def _udp_dissect(self, conn, data):
         """Runs all UDP dissectors.
@@ -683,83 +676,6 @@ class Pcap:
 
         return True
 
-    def _check_ja3(self, tcpdata):
-        """Generate JA3 fingerprint for TLS HELLO
-        Based on and importing from https://github.com/salesforce/ja3
-        @param tcpdata: TCP data flow.
-        """
-
-
-        if not tcpdata:
-            return
-
-        tls_handshake = bytearray(tcpdata)
-        if tls_handshake[0] != TLS_HANDSHAKE:
-            return
-
-        records = list()
-        try:
-            records, bytes_used = dpkt.ssl.tls_multi_factory(tcpdata)
-        except dpkt.ssl.SSL3Exception:
-            return
-        except dpkt.dpkt.NeedData:
-            return
-
-        if len(records) <= 0:
-            return
-
-        for record in records:
-            if record.type != TLS_HANDSHAKE:
-                return
-            if len(record.data) == 0:
-                return
-            client_hello = bytearray(record.data)
-            if client_hello[0] != 1:
-                # We only want client HELLO
-                return
-            try:
-                handshake = dpkt.ssl.TLSHandshake(record.data)
-            except dpkt.dpkt.NeedData:
-                # Looking for a handshake here
-                return
-            if not isinstance(handshake.data, dpkt.ssl.TLSClientHello):
-                # Still not the HELLO
-                return
-
-            client_handshake = handshake.data
-            buf, ptr = parse_variable_array(client_handshake.data, 1)
-            buf, ptr = parse_variable_array(client_handshake.data[ptr:], 2)
-            ja3 = [str(client_handshake.version)]
-
-            # Cipher Suites (16 bit values)
-            ja3.append(convert_to_ja3_segment(buf, 2))
-            ja3 += process_extensions(client_handshake)
-            ja3 = ",".join(ja3)
-
-            return md5(ja3.encode()).hexdigest()
-
-    def _add_ja3(self, conn, tcpdata, ja3hash):
-        """
-        Adds an JA3 digest.
-	    @param conn: TCP connection info.
-        @param tcpdata: TCP data in flow
-        """
-        if conn["src"] == cfg.resultserver.ip:
-            return
-
-        entry = {}
-        entry["src"] = conn["src"]
-        entry["sport"] = conn["sport"]
-        entry["dst"] = conn["dst"]
-        entry["dport"] = conn["dport"]
-        entry["ja3"] = ja3hash
-        entry["desc"] = "unknown"
-
-        if ja3hash in self.ja3_fprints:
-            entry["desc"] = self.ja3_fprints[ja3hash]
-
-        self.ja3_records.append(entry)
-
     def run(self):
         """Process PCAP.
         @return: dict with network analysis data.
@@ -892,7 +808,6 @@ class Pcap:
         self.results["dns"] = list(self.dns_requests.values())
         self.results["smtp"] = self.smtp_requests
         self.results["irc"] = self.irc_requests
-        self.results["ja3"] = self.ja3_records
 
         self.results["dead_hosts"] = []
 
@@ -1103,6 +1018,7 @@ class Pcap2(object):
 class NetworkAnalysis(Processing):
     """Network analysis."""
 
+    # ToDo map this to suricata.tls.ja
     def _import_ja3_fprints(self):
         """
         open and read ja3 fingerprint json file from:

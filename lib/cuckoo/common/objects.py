@@ -304,8 +304,11 @@ class File(object):
         self._sha512 = sha512.hexdigest()
         self._sha3_384 = sha3_384.hexdigest()
         if HAVE_TLSH:
-            tlsh_hash.final()
-            self._tlsh_hash = tlsh_hash.hexdigest()
+            try:
+                tlsh_hash.final()
+                self._tlsh_hash = tlsh_hash.hexdigest()
+            except ValueError:
+                print("TLSH: less than 50 of input, ignoring")
 
     @property
     def file_data(self):

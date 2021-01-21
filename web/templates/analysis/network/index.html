@@ -26,7 +26,6 @@
             <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ suricata.http|length }})</a></li>
             <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">Suricata Files ({{ suricata.files|length }})</a></li>
         {% endif %}
-        <li class="nav-item"><a class="nav-link" href="#network_ja3_tab" data-toggle="tab">JA3 ({{ network.ja3|length }})</a></li>
     </ul>
     <div class="tab-content">
         <div class="tab-pane fade show active" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>

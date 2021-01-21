@@ -265,11 +265,11 @@ class MongoDB(Report):
                         except InvalidDocument as e:
                             if str(e).startswith("documents must have only string keys"):
                                 log.error("Search bug in your modifications - you got an dictionary key as int, should be string")
-                                log.eror(str(e))
+                                log.error(str(e))
                                 return
                             else:
                                 parent_key, psize = self.debug_dict_size(report)[0]
-                                log.eror(str(e))
+                                log.error(str(e))
                                 log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
                                 size_filter = size_filter - MEGABYTE
                     except Exception as e:

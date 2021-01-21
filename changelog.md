@@ -1,3 +1,6 @@
+### [21-01-2021] JA3 by Suricata no custom scripts anymore
+* `sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml && sudo systemctl restart suricata`
+
 ### [20-01-2021]
 * [TLSH hashing](https://github.com/trendmicro/tlsh) - Trend Micro Locality Sensitive Hash
 * sha3-384

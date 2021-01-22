@@ -52,7 +52,6 @@ sqlalchemy
 sqlalchemy-utils
 jinja2
 markupsafe
-bottle
 chardet
 pygal
 rarfile

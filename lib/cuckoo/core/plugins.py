@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import json
 import pkgutil
 import inspect
@@ -40,6 +41,12 @@ def import_plugin(name):
     except (ImportError, SyntaxError) as e:
         print('Unable to import plugin "{0}": {1}'.format(name, e))
         return
+    else:
+        # ToDo remove for release
+        try:
+            load_plugins(module)
+        except Exception as e:
+            print(e, sys.exc_info())
 
 
 def import_package(package):

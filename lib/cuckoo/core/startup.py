@@ -285,6 +285,7 @@ def init_yara():
                 except yara.Error as e:
                     print(e, sys.exc_info())
                     log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                    break
 
             # ToDo for Volatility3 yarascan
             # The memory.py processing module requires a yara file with all of its

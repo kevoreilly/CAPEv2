@@ -295,8 +295,8 @@ def init_yara():
                     os.makedirs(compiled_path, exist_ok=True)
                 compiled.save(os.path.join(compiled_path, "monitor.yac"))
             except yara.Error as e:
+                print(e, sys.exc_info())
                 raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
-
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can

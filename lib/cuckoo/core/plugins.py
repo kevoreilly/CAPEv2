@@ -37,15 +37,9 @@ _modules = defaultdict(dict)
 def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"])
-    except ImportError as e:
+    except (ImportError, SyntaxError) as e:
         print('Unable to import plugin "{0}": {1}'.format(name, e))
         return
-    else:
-        # ToDo remove for release
-        try:
-            load_plugins(module)
-        except Exception as e:
-            print(e)
 
 
 def import_package(package):

@@ -5,8 +5,8 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import shutil
 import sys
+import shutil
 import copy
 import socket
 import logging
@@ -268,10 +268,23 @@ def init_yara():
         externals = {"filename": ""}
 
         if category != "monitor":
-            try:
-                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-            except yara.Error as e:
-                raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+            while True:
+                try:
+                    File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                    break
+                except yara.SyntaxError as e:
+                    bad_rule = str(e).split(".yar")[0]+".yar"
+                    if bad_rule in indexed:
+                        for k,v in rules.items():
+                            if v == bad_rule:
+                                del rules[k]
+                                indexed.remove(os.path.basename(bad_rule))
+                                print("Deleted broken yara rule: {}".format(bad_rule))
+                    else:
+                        break
+                except yara.Error as e:
+                    print(e, sys.exc_info())
+                    log.error("There was a syntax error in one or more Yara rules: %s" % e)
 
             # ToDo for Volatility3 yarascan
             # The memory.py processing module requires a yara file with all of its

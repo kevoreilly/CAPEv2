@@ -335,6 +335,11 @@ INSTALLED_APPS = (
     "captcha", # https://pypi.org/project/django-recaptcha/
 )
 
+if web_cfg.registration.disposable_email_disable:
+    DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)
+    ACCOUNT_ADAPTER = 'web.allauth_adapters.DisposableEmails'
+
+
 TWOFA = web_cfg.web_auth.get("2fa", False)
 
 NOCAPTCHA = web_cfg.web_auth.get("captcha", False)

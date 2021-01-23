@@ -1,3 +1,7 @@
+### [24-01-2021] Disposable email services ban support
+* To enable it see `[registration]` in `web.conf`
+* List of domains can be placed in `data/safelist/disposable_domain_list.txt`
+
 ### [21-01-2021] JA3 by Suricata no custom scripts anymore
 * `sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml && sudo systemctl restart suricata`
 

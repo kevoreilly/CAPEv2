@@ -335,11 +335,6 @@ INSTALLED_APPS = (
     "captcha", # https://pypi.org/project/django-recaptcha/
 )
 
-if web_cfg.registration.disposable_email_disable:
-    DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)
-    ACCOUNT_ADAPTER = 'web.allauth_adapters.DisposableEmails'
-
-
 TWOFA = web_cfg.web_auth.get("2fa", False)
 
 NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
@@ -392,6 +387,13 @@ ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 #### ALlauth end
+
+if web_cfg.registration.get("disposable_email_disable", False):
+    DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)
+    ACCOUNT_ADAPTER = 'web.allauth_adapters.DisposableEmails'
+
+if web_cfg.registration.get("captcha_enabled", False):
+    ACCOUNT_SIGNUP_FORM_CLASS = 'web.allauth_forms.CaptchedSignUpForm'
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469

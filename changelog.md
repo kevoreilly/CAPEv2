@@ -2,6 +2,7 @@
 * To enable it see `[registration]` in `web.conf`
 * List of domains can be placed in `data/safelist/disposable_domain_list.txt`
 * Allow enable ReCaptcha for user registration to avoid bots
+* Integrated [stopforumspam domain list](https://www.stopforumspam.com/downloads/toxic_domains_partial.txt)
 
 ### [21-01-2021] JA3 by Suricata no custom scripts anymore
 * `sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml && sudo systemctl restart suricata`

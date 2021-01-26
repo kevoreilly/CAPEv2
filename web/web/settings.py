@@ -333,6 +333,8 @@ INSTALLED_APPS = (
 
     "crispy_forms",
     "captcha", # https://pypi.org/project/django-recaptcha/
+
+    "rest_framework",
 )
 
 TWOFA = web_cfg.web_auth.get("2fa", False)

@@ -1396,9 +1396,9 @@ class Office(object):
             # must be left this way or we won't see the results
             officeresults["Metadata"] = self._get_meta(meta)
             metares = officeresults["Metadata"]
-            if metares["SummaryInformation"]["create_time"]:
+            if metares.get("SummaryInformation", {}).get("create_time", ""):
                 metares["SummaryInformation"]["create_time"] = metares["SummaryInformation"]["create_time"]
-            if metares["SummaryInformation"]["last_saved_time"]:
+            if metares.get("SummaryInformation", {}).get("last_saved_time", ""):
                 metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
         if vba and vba.detect_vba_macros():

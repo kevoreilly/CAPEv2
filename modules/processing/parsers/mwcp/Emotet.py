@@ -82,15 +82,18 @@ def extract_emotet_rsakey(pe):
     for section in pe.sections:
         if section.Name.replace(b'\x00',b'') == b'.data':
             data_section = section.get_data()
+            data_size = len(data_section)
     res_list = []
-    pub_matches = re.findall(b"""\x00{4,12}(?=([\x01-\xff][\x00-\xff]{120}))""", data_section)
-    if pub_matches:
-        for match in pub_matches:
-            xor_key = int.from_bytes(match[:4], byteorder='little')
-            encoded_size = int.from_bytes(match[4:8], byteorder='little')
+    if data_size:
+        delta = 0
+        while delta < data_size:
+            xor_key = int.from_bytes(data_section[delta:delta+4], byteorder='little')
+            encoded_size = int.from_bytes(data_section[delta+4:delta+8], byteorder='little')
             decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
             if decoded_size == 0x6c:
-                res_list.append(emotet_decode(match, decoded_size, xor_key))
+                res_list.append(emotet_decode(data_section[delta:], decoded_size, xor_key))
+                break
+            delta += 4
         if res_list:
             res_list = list(set(res_list))
             pub_key = res_list[0][0:106]

@@ -1,6 +1,5 @@
 flor
 Pebble
-bson
 pymisp
 cryptography>=3.1
 requests[security]

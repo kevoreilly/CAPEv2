@@ -1,3 +1,12 @@
+### [28-01-2021] CAPE 2.3
+* APIv2 - [Django REST Framework](https://www.django-rest-framework.org) + [Token AUTH](https://simpleisbetterthancomplex.com/tutorial/2018/11/22/how-to-implement-token-authentication-using-django-rest-framework.html)
+    * just replace `/api/` to `/apiv2/`
+* Current API will be removed in future, so move toward new one
+* Updated API [documentation](https://capev2.readthedocs.io/en/latest/usage/api.html)
+* New dependency: `pip3 install djangorestframework`
+ __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate`
+
 ### [24-01-2021] Disposable email services ban support
 * To enable it see `[registration]` in `web.conf`
 * List of domains can be placed in `data/safelist/disposable_domain_list.txt`

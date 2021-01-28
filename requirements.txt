@@ -2,7 +2,7 @@ flor
 Pebble
 bson
 pymisp
-cryptography
+cryptography>=3.1
 requests[security]
 pyOpenSSL
 pefile

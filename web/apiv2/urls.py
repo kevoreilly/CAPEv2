@@ -4,13 +4,17 @@
 
 from __future__ import absolute_import
 from django.conf.urls import url, include
-from django.urls import path, re_path
+from django.urls import path
 
+from rest_framework.authtoken.views import obtain_auth_token
 
 from api import views
 
 urlpatterns = [
     url(r"^$", views.index, name="api"),
+    # disabled due to token auth
+    #url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
     url(r"^tasks/create/file/$", views.tasks_create_file),
     url(r"^tasks/stats/$", views.task_x_hours),
     url(r"^tasks/create/url/$", views.tasks_create_url),

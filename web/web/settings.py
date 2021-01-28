@@ -27,7 +27,7 @@ init_routing()
 cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
-
+api_cfg = Config("api")
 
 # Error handling for database backends
 if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
@@ -338,11 +338,12 @@ INSTALLED_APPS = (
     'rest_framework.authtoken',
 )
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-    ],
-}
+if api_cfg.api.token_auth_enabled:
+    REST_FRAMEWORK = {
+        'DEFAULT_AUTHENTICATION_CLASSES': [
+            'rest_framework.authentication.TokenAuthentication',
+        ],
+    }
 
 TWOFA = web_cfg.web_auth.get("2fa", False)
 

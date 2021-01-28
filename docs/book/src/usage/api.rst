@@ -20,7 +20,7 @@ To generate user autorization token:
     python3 manage.py drf_create_token <your_user>
 
     # Auto generation
-    curl -d "username=<USER>&password=<PASSWD>" http://127.0.0.1:8000/api-token-auth/
+    curl -d "username=<USER>&password=<PASSWD>" http://127.0.0.1:8000/apiv2/api-token-auth/
 
     # Usage
     import requests

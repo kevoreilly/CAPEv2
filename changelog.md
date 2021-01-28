@@ -4,8 +4,8 @@
 * Current API will be removed in future, so move toward new one
 * Updated API [documentation](https://capev2.readthedocs.io/en/latest/usage/api.html)
 * New dependency: `pip3 install djangorestframework`
- __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
-    * `python3 manage.py migrate`
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate && python3 manage.py collectstatic`
 
 ### [24-01-2021] Disposable email services ban support
 * To enable it see `[registration]` in `web.conf`

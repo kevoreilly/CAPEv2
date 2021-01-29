@@ -36,8 +36,8 @@
       </tr>
       <tr class="collapse" id="filecreate">
           <td colspan="5">
-            <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/file/
-  Note: machine is optional.</pre>
+            <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token <TOKEN>" {{ config.api.url }}/api/tasks/create/file/
+  Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
           </td>
       </tr>
       <tr>
@@ -58,8 +58,8 @@
       </tr>
       <tr class="collapse" id="vtdl">
         <td colspan="5">
-          <pre>curl -F vtdl=hash -F machine="VM-Name" -F apikey="[VT API key]" {{ config.api.url }}/api/tasks/create/vtdl/
-Note: machine is optional.</pre>
+          <pre>curl -F vtdl=hash -F machine="VM-Name" -H "Authorization: Token <TOKEN>" -F apikey="[VT API key]" {{ config.api.url }}/api/tasks/create/vtdl/
+Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
         </td>
       </tr>
       <tr>
@@ -124,7 +124,7 @@ Note: machine is optional.</pre>
       </tr>
       <tr class="collapse" id="staticextraction">
         <td colspan="5">
-          <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/static/
+          <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token <TOKEN>" {{ config.api.url }}/api/tasks/create/static/
         </td>
       </tr>
             <tr>

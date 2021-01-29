@@ -39,10 +39,22 @@
                     <th>SHA256</th>
                     <td style="word-wrap: break-word;">{{file.sha256}}</td>
                 </tr>
+                {% if file.sha3_384 %}
+                <tr>
+                    <th>SHA3-384</th>
+                    <td style="word-wrap: break-word;">{{file.sha3_384}}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <th>CRC32</th>
                     <td>{{file.crc32}}</td>
                 </tr>
+                {% if file.tlsh %}
+                <tr>
+                    <th>TLSH</th>
+                    <td style="word-wrap: break-word;">{{file.tlsh}}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <th>Ssdeep</th>
                     <td style="word-wrap: break-word;">{{file.ssdeep}}</td>

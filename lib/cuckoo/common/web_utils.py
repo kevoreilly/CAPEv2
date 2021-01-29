@@ -451,10 +451,11 @@ def download_file(**kwargs):
             tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
-    """
+
     if package:
-        # Reject jobs with bad packages
-    """
+        if package == "Emotet":
+            return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
+
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
@@ -680,6 +681,8 @@ search_term_map = {
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
     "tlp": "info.tlp",
+    "ja3_hash": "suricata.tls.ja3.hash",
+    "ja3_string": "suricata.tls.ja3.string",
 }
 
 

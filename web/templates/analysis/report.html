@@ -79,7 +79,7 @@ $(function() {
         {% if analysis.dropped %}<li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}
         {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
         {% if analysis.memory %}<li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
-        {% if analysis.procdump|length %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tab">Process Dumps ({{analysis.procdump|length}})</a></li>{% endif %}
+        {% if analysis.procdump %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump}})</a></li>{% endif %}
         {% if analysis.CAPE %}<li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">CAPE ({{analysis.CAPE}})</a></li>{% endif%}
         <!--ToDo remove in CAPEv3-->
         {% if analysis.CAPE_old %}<li class="nav-item"><a class="nav-link" href="#CAPE_old" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE_old/" data-toggle="tab">CAPE ({{analysis.CAPE_old}})</a></li>{% endif%}

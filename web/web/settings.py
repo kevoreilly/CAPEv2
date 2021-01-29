@@ -27,7 +27,7 @@ init_routing()
 cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
-
+api_cfg = Config("api")
 
 # Error handling for database backends
 if not cfg.mongodb.get("enabled") and not cfg.elasticsearchdb.get("enabled"):
@@ -333,7 +333,29 @@ INSTALLED_APPS = (
 
     "crispy_forms",
     "captcha", # https://pypi.org/project/django-recaptcha/
+
+    "rest_framework",
+    'rest_framework.authtoken',
 )
+
+if api_cfg.api.token_auth_enabled:
+    REST_FRAMEWORK = {
+            'DEFAULT_AUTHENTICATION_CLASSES': [
+                'rest_framework.authentication.TokenAuthentication',
+                'rest_framework.authentication.SessionAuthentication',
+            ],
+            'DEFAULT_PERMISSION_CLASSES': (
+                'rest_framework.permissions.IsAuthenticated',
+            ),
+        }
+
+else:
+    REST_FRAMEWORK = {
+        'DEFAULT_AUTHENTICATION_CLASSES': [],
+        'DEFAULT_PERMISSION_CLASSES': [
+            'rest_framework.permissions.AllowAny'
+        ],
+    }
 
 TWOFA = web_cfg.web_auth.get("2fa", False)
 
@@ -361,22 +383,25 @@ SETTINGS_EXPORT = [
     'WEB_OAUTH',
 ]
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-if web_cfg.registration.get("email_verification", False):
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+if web_cfg.registration.get("email_confirmation", False):
     EMAIL_HOST = web_cfg.registration.get("email_host", False)
     EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
     EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
     EMAIL_PORT = web_cfg.registration.get("email_port", 465)
+    EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
+    EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
+    SERVER_EMAIL = EMAIL_HOST_USER
 
 SITE_ID = 1
 
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
-if web_cfg.registration.get("email_verification", False):
+if web_cfg.registration.get("email_confirmation", False):
     ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
-    SOCIALACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
 else:
     ACCOUNT_EMAIL_VERIFICATION = 'none'
-    SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+    SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
 
 ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
@@ -384,6 +409,13 @@ ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
 #### ALlauth end
+
+if web_cfg.registration.get("disposable_email_disable", False):
+    DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)
+    ACCOUNT_ADAPTER = 'web.allauth_adapters.DisposableEmails'
+
+if web_cfg.registration.get("captcha_enabled", False):
+    ACCOUNT_SIGNUP_FORM_CLASS = 'web.allauth_forms.CaptchedSignUpForm'
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469

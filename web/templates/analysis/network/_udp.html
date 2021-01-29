@@ -16,8 +16,8 @@
                             <td>{{p.src}}</td>
                             <td>{{p.sport}}</td>
                             <td>{{p.dst}}
-                                {% if iplookups %}
-                                    {{ iplookups|get_item:p.dst }}
+                                {% if network.iplookups %}
+                                    {{ network.iplookups|get_item:p.dst }}
                                 {% endif %}
                                 </td>
                             <td>{{p.dport}}</td>

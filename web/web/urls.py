@@ -28,6 +28,7 @@ from analysis import urls as analysis
 from compare import urls as compare
 from submission import urls as submission
 from api import urls as api
+from apiv2 import urls as apiv2
 
 handler403 = 'web.views.handler403'
 
@@ -40,6 +41,7 @@ urlpatterns = [
     url(r"^compare/", include(compare)),
     url(r"^submit/", include(submission)),
     url(r"^api/", include(api)),
+    url(r"^apiv2/", include(apiv2)),
     url(r"^file/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", analysis_views.file, name="file"),
     url(r"^vtupload/(?P<category>\w+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"),
     url(r"^filereport/(?P<task_id>\w+)/(?P<category>\w+)/$", analysis_views.filereport, name="filereport"),

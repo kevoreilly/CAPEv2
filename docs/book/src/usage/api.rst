@@ -1,6 +1,37 @@
-================
-Current REST API
-================
+===================
+Current REST API v2
+===================
+
+To see current REST api see ``/apiv2/`` you will find all endpoints and details how to do requests
+
+`api example`: https://capesandbox.com/apiv2/
+
+To enable using django-rest-framework::
+
+    $ pip3 install djangorestframework
+
+.. _`django-rest-framework`: https://www.django-rest-framework.org
+
+To generate user autorization token:
+
+.. code-block:: python
+
+    # By hand
+    python3 manage.py drf_create_token <your_user>
+
+    # Auto generation
+    curl -d "username=<USER>&password=<PASSWD>" http://127.0.0.1:8000/apiv2/api-token-auth/
+
+    # Usage
+    import requests
+
+    url = 'http://127.0.0.1:8000/apiv2/<ENDPOINT>'
+    headers = {'Authorization': 'Token <YOUR_TOKEN>'}
+    r = requests.get(url, headers=headers)
+
+===========
+REST API v1
+===========
 
 To see current REST api see ``/api/`` you will find all endpoints and details how to do requests
 

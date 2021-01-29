@@ -1,8 +1,7 @@
 flor
 Pebble
-bson
 pymisp
-cryptography
+cryptography>=3.1
 requests[security]
 pyOpenSSL
 pefile
@@ -52,7 +51,6 @@ sqlalchemy
 sqlalchemy-utils
 jinja2
 markupsafe
-bottle
 chardet
 pygal
 rarfile
@@ -82,3 +80,5 @@ django-settings-export
 django-csp
 django-otp
 qrcode
+python-tlsh
+djangorestframework

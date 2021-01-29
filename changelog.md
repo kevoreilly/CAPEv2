@@ -1,4 +1,26 @@
-### [14-01-20202] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
+### [28-01-2021] CAPE 2.3
+* APIv2 - [Django REST Framework](https://www.django-rest-framework.org) + [Token AUTH](https://simpleisbetterthancomplex.com/tutorial/2018/11/22/how-to-implement-token-authentication-using-django-rest-framework.html)
+    * just replace `/api/` to `/apiv2/` in your urls
+* Current API will be removed in future, so move toward new one
+* Updated API [documentation](https://capev2.readthedocs.io/en/latest/usage/api.html)
+* New dependency: `pip3 install djangorestframework`
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate && python3 manage.py collectstatic`
+
+### [24-01-2021] Disposable email services ban support
+* To enable it see `[registration]` in `web.conf`
+* List of domains can be placed in `data/safelist/disposable_domain_list.txt`
+* Allow enable ReCaptcha for user registration to avoid bots
+* Integrated [stopforumspam domain list](https://www.stopforumspam.com/downloads/toxic_domains_partial.txt)
+
+### [21-01-2021] JA3 by Suricata no custom scripts anymore
+* `sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml && sudo systemctl restart suricata`
+
+### [20-01-2021]
+* [TLSH hashing](https://github.com/trendmicro/tlsh) - Trend Micro Locality Sensitive Hash
+* sha3-384
+
+### [14-01-2021] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
 * [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
 * [2FA for Django Admin](https://hackernoon.com/5-ways-to-make-django-admin-safer-eb7753698ac8)
 * New dependency: `pip3 install django-otp qrcode`

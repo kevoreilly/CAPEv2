@@ -302,6 +302,8 @@ def init_yara():
                 else:
                     log.debug("\t |-- %s %s", category, entry)
         else:
+            continue
+            """
             try:
                 compiled = yara.compile(filepaths=rules, externals=externals)
                 compiled_path = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yarac")
@@ -311,6 +313,7 @@ def init_yara():
             except yara.Error as e:
                 print(e, sys.exc_info())
                 raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+            """
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can

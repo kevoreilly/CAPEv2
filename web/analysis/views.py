@@ -943,7 +943,7 @@ def report(request, task_id):
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist or not finished yet"})
 
-    if report.get("CAPE", {}).get("configs", {}):
+    if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
         report["malware_conf"] = report["CAPE"]["configs"]
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):

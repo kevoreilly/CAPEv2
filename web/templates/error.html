@@ -3,11 +3,13 @@
     <div class="alert alert-danger"><b>ERROR :-(</b><br />{{error}}</div>
     {% if errors %}
         <div class="alert alert-danger"><h4>Submission Failed!</h4>
+        <ul>
         {% for block in errors %}
-            {% for k, v in block.iteritems %}
-                <p>{{k}} - {{v}}</p>
+            {% for k, v in block.items %}
+                <li><b>{{k}}</b> - {{v}}</li>
             {% endfor %}
         {% endfor %}
+        </ul>
         </div>
     {% endif %}
 {% endblock %}

@@ -1,17 +1,18 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load crispy_forms_tags %}
 {% block title %}Log In{% endblock title %}
 {% block content %}
 <div style="margin-top:6%" class="container">
-    <h2>Log In</h2>
+    <h2>{% trans "Sign In" %}</h2>
+    <p>
+        {% blocktrans %}If you have not created an account yet, then please <a style="color:red" href="{{signup_url}}">Sign up</a> first.
+        {% endblocktrans %}
+    </p>
     <form method="post" autocomplete="off">
     {% csrf_token %}
     {{ form|crispy }}
-    <button class="btn btn-secondary" type="submit">Login</button>
+    <button class="btn btn-secondary" type="submit">Login</button> <a style="color:red" href="/accounts/password/reset/">{% trans "Forgot password?" %}</a>
     </form>
-    <div style="width: 100%; height: 15px; border-bottom: 1px solid lightgray; text-align: center">
-        <span class="text-muted" style="margin-top:-15% !important; font-size: 11px; background-color: white; padding: 0px 10px;">OR</span>
-    </div>
-    <div><a class="btn btn-secondary" href="/accounts/signup/">Register</a></div> or <div><a class="btn btn-secondary" href="/accounts/password/reset/">Forgot password</a></div>
 </div>
 {% endblock content %}

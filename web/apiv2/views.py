@@ -1648,7 +1648,7 @@ def tasks_fullmemory(request, task_id):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
+                return redirect(url.replace(":8090", ":8000") + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             log.error(e)
 

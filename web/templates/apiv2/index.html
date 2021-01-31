@@ -36,7 +36,7 @@
       </tr>
       <tr class="collapse" id="filecreate">
           <td colspan="5">
-            <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token <TOKEN>" {{ config.api.url }}/api/tasks/create/file/
+            <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/file/
   Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
           </td>
       </tr>
@@ -58,7 +58,7 @@
       </tr>
       <tr class="collapse" id="vtdl">
         <td colspan="5">
-          <pre>curl -F vtdl=hash -F machine="VM-Name" -H "Authorization: Token <TOKEN>" -F apikey="[VT API key]" {{ config.api.url }}/api/tasks/create/vtdl/
+          <pre>curl -F vtdl=hash -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" -F apikey="[VT API key]" {{ config.api.url }}/apiv2/tasks/create/vtdl/
 Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
         </td>
       </tr>
@@ -81,7 +81,7 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
       </tr>
       <tr class="collapse" id="urlcreate">
         <td colspan="5">
-          <pre>curl -F url="somebadness.tld" {{ config.api.url }}/api/tasks/create/url/</pre>
+          <pre>curl -F url="somebadness.tld" {{ config.api.url }}/apiv2/tasks/create/url/</pre>
         </td>
       </tr>
       <tr>
@@ -102,7 +102,7 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
       </tr>
       <tr class="collapse" id="dlnexeccreate">
         <td colspan="5">
-          <pre>curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/api/tasks/create/dlnexec/</pre>
+          <pre>curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/apiv2/tasks/create/dlnexec/</pre>
         </td>
       </tr>
       <tr>
@@ -124,7 +124,7 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
       </tr>
       <tr class="collapse" id="staticextraction">
         <td colspan="5">
-          <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token <TOKEN>" {{ config.api.url }}/api/tasks/create/static/
+          <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/static/
         </td>
       </tr>
             <tr>
@@ -140,10 +140,10 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
                 <td><a class="accordion-toggle" data-toggle="collapse" href="#fileview" aria-expanded="false" aria-controls="#fileview">Example</a></td>
             </tr>
             <tr class="collapse" id="fileview">
-              <td colspan="5"><pre>curl {{ config.api.url }}/api/files/view/md5/[md5 hash]/
-curl {{ config.api.url }}/api/files/view/sha1/[sha1 hash]/
-curl {{ config.api.url }}/api/files/view/sha256/[sha256 hash]/
-curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
+              <td colspan="5"><pre>curl {{ config.api.url }}/apiv2/files/view/md5/[md5 hash]/
+curl {{ config.api.url }}/apiv2/files/view/sha1/[sha1 hash]/
+curl {{ config.api.url }}/apiv2/files/view/sha256/[sha256 hash]/
+curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
         </td>
       </tr>
       <tr>
@@ -166,9 +166,9 @@ curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
       </tr>
       <tr class="collapse" id="tasksearch">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/search/md5/[md5 hash]/
-curl {{ config.api.url }}/api/tasks/search/sha1/[sha1 hash]/
-curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/search/md5/[md5 hash]/
+curl {{ config.api.url }}/apiv2/tasks/search/sha1/[sha1 hash]/
+curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
         </td>
       </tr>
       <tr>
@@ -189,7 +189,7 @@ curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="extendedtasksearch">
         <td colspan="5">
-          <pre>curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/api/tasks/extendedsearch/
+          <pre>curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/apiv2/tasks/extendedsearch/
 
 Searchable Options List:
 id : Task id
@@ -246,9 +246,9 @@ TTP: TTP number
       </tr>
       <tr class="collapse" id="tasklist">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/list/
-curl {{ config.api.url }}/api/tasks/list/[limit]/ (specify a limit of tasks to return)
-curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
+          <pre>curl {{ config.api.url }}/apiv2/tasks/list/
+curl {{ config.api.url }}/apiv2/tasks/list/[limit]/ (specify a limit of tasks to return)
+curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
 Acepts as params status to check for status and/or option to search by option LIKE</pre>
         </td>
       </tr>
@@ -272,7 +272,7 @@ Acepts as params status to check for status and/or option to search by option LI
       </tr>
       <tr class="collapse" id="taskview">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/view/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/view/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -294,7 +294,7 @@ Acepts as params status to check for status and/or option to search by option LI
       </tr>
       <tr class="collapse" id="taskresched">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/reschedule/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/reschedule/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -316,7 +316,7 @@ Acepts as params status to check for status and/or option to search by option LI
       </tr>
       <tr class="collapse" id="taskdelete">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/delete/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/delete/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -338,7 +338,7 @@ Acepts as params status to check for status and/or option to search by option LI
       </tr>
       <tr class="collapse" id="taskstatus">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/status/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/status/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -361,8 +361,8 @@ Acepts as params status to check for status and/or option to search by option LI
       </tr>
       <tr class="collapse" id="taskreport">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/report/[task id]/
-curl {{ config.api.url }}/api/tasks/get/report/[task id]/[format]/
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/
+curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/
 Note: Format can be json/maec/maec5/metadata/all.</pre>
         </td>
       </tr>
@@ -385,8 +385,8 @@ Note: Format can be json/maec/maec5/metadata/all.</pre>
       </tr>
       <tr class="collapse" id="taskiocs">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/
-curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/
+curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
         </td>
       </tr>
       <tr>
@@ -408,8 +408,8 @@ curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
       </tr>
       <tr class="collapse" id="taskscreenshot">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/    (Downloads all screenshots)
-curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/    (Downloads all screenshots)
+curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot number]/</pre>
         </td>
       </tr>
       <tr>
@@ -431,7 +431,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       </tr>
       <tr class="collapse" id="taskpcap">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/pcap/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/pcap/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -453,7 +453,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       </tr>
       <tr class="collapse" id="taskdropped">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/dropped/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/dropped/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -476,7 +476,7 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       </tr>
       <tr class="collapse" id="tasksurifile">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/surifile/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/surifile/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -498,8 +498,8 @@ curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]
       </tr>
       <tr class="collapse" id="taskprocmemory">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/    (Downloads all process memory dumps)
-curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/    (Downloads all process memory dumps)
+curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
         </td>
       </tr>
       <tr>
@@ -520,7 +520,7 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       </tr>
       <tr class="collapse" id="taskfullmemory">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/fullmemory/[task id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/fullmemory/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -542,10 +542,10 @@ curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
       </tr>
       <tr class="collapse" id="sampledl">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/files/get/task/[task id]/
-curl {{ config.api.url }}/api/files/get/md5/[md5 hash]/
-curl {{ config.api.url }}/api/files/get/sha1/[sha1 hash]/
-curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/files/get/task/[task id]/
+curl {{ config.api.url }}/apiv2/files/get/md5/[md5 hash]/
+curl {{ config.api.url }}/apiv2/files/get/sha1/[sha1 hash]/
+curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         </td>
       </tr>
       <tr>
@@ -567,7 +567,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="machinelist">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/machines/list/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/machines/list/</pre>
         </td>
       </tr>
       <tr>
@@ -589,7 +589,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="machineview">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/machines/view/[vm-name]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/machines/view/[vm-name]/</pre>
         </td>
       </tr>
       <tr>
@@ -611,7 +611,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="latests_ids">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/latests/1/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/latests/1/</pre>
         </td>
       </tr>
       <tr>
@@ -633,7 +633,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="capestatus">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/cuckoo/status/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/cuckoo/status/</pre>
         </td>
       </tr>
       <tr>
@@ -655,7 +655,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="capeconfig">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/config/[task_id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/config/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -676,7 +676,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="capepayloadfiles">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/payloadfiles/[task_id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/payloadfiles/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -697,7 +697,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="capeprocdumpfiles">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/get/procdumpfiles/[task_id]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/get/procdumpfiles/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -718,7 +718,7 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr class="collapse" id="statistircs">
         <td colspan="5">
-          <pre>curl {{ config.api.url }}/api/tasks/[days]/</pre>
+          <pre>curl {{ config.api.url }}/apiv2/tasks/[days]/</pre>
         </td>
       </tr>
     </tbody>

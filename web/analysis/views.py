@@ -25,6 +25,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from ratelimit.decorators import ratelimit
+from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -1047,6 +1048,7 @@ def report(request, task_id):
         },
     )
 
+
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -1076,9 +1078,11 @@ def file_nl(request, category, task_id, dlfile):
     return resp
 
 @require_safe
-@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file(request, category, task_id, dlfile):
     file_name = dlfile
     cd = ""

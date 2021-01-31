@@ -80,7 +80,7 @@ $(function() {
         {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
         {% if analysis.memory %}<li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
         {% if analysis.procdump %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump}})</a></li>{% endif %}
-        {% if analysis.CAPE %}<li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">CAPE ({{analysis.CAPE}})</a></li>{% endif%}
+        {% if analysis.CAPE %}<li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">Payloads ({{analysis.CAPE}})</a></li>{% endif%}
         <!--ToDo remove in CAPEv3-->
         {% if analysis.CAPE_old %}<li class="nav-item"><a class="nav-link" href="#CAPE_old" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE_old/" data-toggle="tab">CAPE ({{analysis.CAPE_old}})</a></li>{% endif%}
         {% if analysis.debugger_logs %}<li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">Debugger</a></li>{% endif %}

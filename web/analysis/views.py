@@ -1049,6 +1049,9 @@ def report(request, task_id):
     )
 
 
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))

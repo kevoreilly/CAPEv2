@@ -199,7 +199,7 @@ def malware_config(obj, *args, **kwargs):
         if obj:
             if len(obj) > 1:
                 _print(0, '\n')
-                _print(level + 0, '<ul>\n')
+                _print(level + 0, '<ul style="columns: 4;">\n')
                 for item in obj:
                     _print(level + 1, '<li>' + malware_config(item, level=level + 2) + '</li>\n')
                 _print(level + 0, '</ul>\n')

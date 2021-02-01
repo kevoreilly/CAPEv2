@@ -1,3 +1,7 @@
+### [01-02-2021]
+* Instead of Volatility3 integration planned for today you got this, thanks spammers
+* If registration enabled, allow to set manual approve of users and set them inactive by default
+
 ### [28-01-2021] CAPE 2.3
 * APIv2 - [Django REST Framework](https://www.django-rest-framework.org) + [Token AUTH](https://simpleisbetterthancomplex.com/tutorial/2018/11/22/how-to-implement-token-authentication-using-django-rest-framework.html)
     * just replace `/api/` to `/apiv2/` in your urls

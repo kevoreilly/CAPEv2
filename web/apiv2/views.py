@@ -566,7 +566,7 @@ def tasks_vtdl(request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
+        if not settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
             resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
             return Response(resp)
 
@@ -590,7 +590,7 @@ def tasks_vtdl(request):
 
 
         details = {
-            "apikey": opt_apikey,
+            "apikey": settings.VTDL_KEY or opt_apikey,
             "errors": [],
             "content": False,
             "request": request,
@@ -1740,10 +1740,8 @@ def machines_view(request, name=None):
 
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-@csrf_exempt
 @api_view(['GET'])
 def cuckoo_status(request):
-
     # get
     # print(request.query_params)
     # post

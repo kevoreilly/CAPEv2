@@ -1,4 +1,6 @@
-### [01-02-2021]
+### [02-02-2021]
+* Link task to user_id, to be able to ban spammers and bad users
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
 * Instead of Volatility3 integration planned for today you got this, thanks spammers
 * If registration enabled, allow to set manual approve of users and set them inactive by default
 

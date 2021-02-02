@@ -45,7 +45,7 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.db,
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "c554ed5f32a0"
+SCHEMA_VERSION = "6ab863a3b510"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"
@@ -349,6 +349,8 @@ class Task(Base):
 
     parent_id = Column(Integer(), nullable=True)
     tlp = Column(String(255), nullable=True)
+
+    user_id = Column(Integer(), nullable=True)
 
     __table_args__ = (
         Index("category_index", "category"),
@@ -1089,6 +1091,7 @@ class Database(object, metaclass=Singleton):
         route = None,
         cape = False,
         tags_tasks = False,
+        user_id = False,
 
     ):
         """Add a task to database.
@@ -1111,6 +1114,7 @@ class Database(object, metaclass=Singleton):
         @param route: Routing route
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
+        @param user_id: Link task to user if auth enabled
         @return: cursor or None.
         """
         session = self.Session()
@@ -1210,6 +1214,8 @@ class Database(object, metaclass=Singleton):
         else:
             task.clock = datetime.utcfromtimestamp(0)
 
+        task.user_id = user_id
+
         session.add(task)
 
         try:
@@ -1250,6 +1256,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         tags_tasks=False,
+        user_id=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1270,6 +1277,7 @@ class Database(object, metaclass=Singleton):
         @param route: Routing route
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
+        @user_id: Allow link task to user if auth enabled
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1306,6 +1314,7 @@ class Database(object, metaclass=Singleton):
             route=route,
             cape=cape,
             tags_tasks=tags_tasks,
+            user_id=user_id,
         )
 
     def demux_sample_and_add_to_db(
@@ -1335,6 +1344,7 @@ class Database(object, metaclass=Singleton):
         tags_tasks=False,
         route=None,
         cape=False,
+        user_id=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1404,6 +1414,7 @@ class Database(object, metaclass=Singleton):
                     route=route,
                     tags_tasks=tags_tasks,
                     cape=cape,
+                    user_id=user_id,
                 )
             if task_id:
                 task_ids.append(task_id)

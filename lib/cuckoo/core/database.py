@@ -1446,6 +1446,7 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
+        user_id=None,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1466,6 +1467,7 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
+            user_id,
         )
 
     @classlock

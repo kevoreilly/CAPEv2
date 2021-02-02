@@ -1386,7 +1386,7 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp)
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
@@ -1446,6 +1446,7 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
+        user_id=None,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1466,6 +1467,7 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
+            user_id,
         )
 
     @classlock
@@ -1490,6 +1492,7 @@ class Database(object, metaclass=Singleton):
         parent_id=None,
         tlp=None,
         static=True,
+        user_id = False
     ):
         return self.add(
             Static(file_path.decode()),
@@ -1511,6 +1514,7 @@ class Database(object, metaclass=Singleton):
             parent_id,
             tlp,
             static,
+            user_id = user_id,
         )
 
     @classlock
@@ -1537,6 +1541,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         tags_tasks=False,
+        user_id=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1554,6 +1559,7 @@ class Database(object, metaclass=Singleton):
         @param route: Routing route
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
+        @param user_id: Link task to user
         @return: cursor or None.
         """
 
@@ -1585,6 +1591,7 @@ class Database(object, metaclass=Singleton):
             route = route,
             cape = cape,
             tags_tasks = tags_tasks,
+            user_id = user_id,
         )
 
     @classlock

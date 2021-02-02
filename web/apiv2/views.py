@@ -160,7 +160,7 @@ def tasks_create_static(request):
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True)
+            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0)
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
@@ -230,6 +230,7 @@ def tasks_create_file(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         task_ids_tmp = []
@@ -296,7 +297,7 @@ def tasks_create_file(request):
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority)
+                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
                 details["task_ids"].append(task_id)
                 continue
             if quarantine:
@@ -412,6 +413,7 @@ def tasks_create_url(request):
                 cape=cape,
                 tlp=tlp,
                 tags_tasks=tags_tasks,
+                user_id=request.user.id or 0,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -503,6 +505,7 @@ def tasks_create_dlnexec(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         status, task_ids_tmp = download_file(**details)
@@ -603,6 +606,7 @@ def tasks_vtdl(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         details = download_from_vt(hashes, details, opt_filename, settings)

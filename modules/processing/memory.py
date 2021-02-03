@@ -68,6 +68,37 @@ class FileConsumer(interfaces.plugins.FileConsumerInterface):
     def consume_file(self, file: interfaces.plugins.FileInterface):
         self.files.append(file)
 
+
+class ReturnJsonRenderer(JsonRenderer):
+    def render(self, grid: interfaces.renderers.TreeGrid):
+        final_output = ({}, [])
+
+        def visitor(
+            node: Optional[interfaces.renderers.TreeNode],
+            accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
+        ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+            # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
+            acc_map, final_tree = accumulator
+            node_dict = {"__children": []}
+            for column_index in range(len(grid.columns)):
+                column = grid.columns[column_index]
+                renderer = self._type_renderers.get(
+                    column.type, self._type_renderers["default"]
+                )
+                data = renderer(list(node.values)[column_index])
+                if isinstance(data, interfaces.renderers.BaseAbsentValue):
+                    data = None
+                node_dict[column.name] = data
+            if node.parent:
+                acc_map[node.parent.path]["__children"].append(node_dict)
+            else:
+                final_tree.append(node_dict)
+            acc_map[node.path] = node_dict
+            return (acc_map, final_tree)
+
+        error = grid.populate(visitor, final_output, fail_on_errors=False)
+        return final_output[1], error
+
 class VolatilityAPI(object):
     def __init__(self, memdump):
         self.context = None
@@ -97,7 +128,7 @@ class VolatilityAPI(object):
         # Do the initialization
         self.context = contexts.Context()  # Construct a blank context
         # Will not log as console's default level is WARNING
-        failures = framework.import_files(volatility.plugins, True)
+        failures = framework.import_files(volatility3.plugins, True)
 
         self.automagics = automagic.available(self.context)
         # Initialize the list of plugins in case the plugin needs it
@@ -109,6 +140,26 @@ class VolatilityAPI(object):
         volatility_interface = plugins.construct_plugin(self.context, self.automagics, plugin_class, self.base_config_path, None, None)
 
         return volatility_interface
+
+
+        ctx = contexts.Context()
+        constants.PARALLELISM = constants.Parallelism.Off
+        failures = framework.import_files(volatility3.plugins, True)
+        automagics = automagic.available(ctx)
+        plugin_list = framework.list_plugins()
+        json_renderer = ReturnJsonRenderer
+        seen_automagics = set()
+        for amagic in automagics:
+            if amagic in seen_automagics:
+                continue
+            seen_automagics.add(amagic)
+        plugin = plugin_list.get(plugin_name)
+        base_config_path = "plugins"
+        single_location = "file:" + pathname2url(path)
+        ctx.config["automagic.LayerStacker.single_location"] = single_location
+        automagics = automagic.choose_automagic(automagics, plugin)
+        constructed = plugins.construct_plugin(ctx, automagics, plugin, base_config_path, MuteProgress(), None)
+
 
 
 '''

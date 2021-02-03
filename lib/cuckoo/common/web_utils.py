@@ -544,6 +544,7 @@ def download_file(**kwargs):
             tags_tasks=tags_tasks,
             route=route,
             cape=cape,
+            user_id=kwargs.get("user_id"),
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )

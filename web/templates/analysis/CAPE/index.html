@@ -1,44 +1,4 @@
 {% load key_tags %}
-{% if CAPE %}
-    {% for config_block in CAPE.configs %}
-        {% for family, config in config_block.items %}
-        <div class="panel panel-default">
-            <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                <tr>
-                    <th style="border-top: 0; width: 15%;">Type</th>
-                    <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
-                </tr>
-                {% for key, value in config.items %}
-                    <tr>
-                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                        <td style="border-top: 0; word-wrap: break-word;">
-                        {% for subvalue in value %}
-                            {% if subvalue|length > 1 %}
-                                {% for subsubvalue in subvalue %}
-                                    {% if subsubvalue|length > 1 %}
-                                        <div>{{subsubvalue}}</div>
-                                    {% else %}
-                                        {% if forloop.first %}
-                                            <div>{{subvalue}}</div>
-                                        {% endif %}
-                                    {% endif %}
-                                {% endfor %}
-                            {% else %}
-                                <div>{{subvalue}}</div>
-                            {% endif %}
-                        {% endfor %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            {% endfor %}
-            </table>
-        </div>
-        </tr>
-        {% if file.related_tasks %}
-            <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
-        {% endif %}
-    {% endfor %}
-{% endif %}
 {% if CAPE.payloads %}
     {% for file in CAPE.payloads|dictsortreversed:"size" %}
     <div class="panel panel-default">
@@ -249,5 +209,5 @@
     </div>
     {% endfor %}
 {% else %}
-    <div class="alert alert-info"><b>Sorry!</b> No CAPE files.</div>
+    <div class="alert alert-secondary"><b>Sorry!</b> No CAPE files.</div>
 {% endif %}

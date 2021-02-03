@@ -169,3 +169,44 @@ def flare_capa_mbc(obj, *args, **kwargs):
     _print(1, '</table>\n')
 
     return mark_safe(result.getvalue())
+
+# Thanks Sandor
+@register.simple_tag
+def malware_config(obj, *args, **kwargs):
+    """Custom Django tag for improved malware config rendering.
+    This tag will render Python dicts as tables, and Python lists as
+    unordered lists. Empty dicts and lists are rendered as empty fields.
+    Single element lists are expanded and rendered as regular values.
+    """
+    level = kwargs.get('level') or 0
+    result = StringIO()
+
+    def _print(lvl, s):
+        result.write((lvl * u'  ') + str(s))
+
+    if isinstance(obj, dict):
+        if obj:
+            _print(0, '\n')
+            _print(level + 0, '<table>\n')
+            for key, val in obj.items():
+                _print(level + 1, '<tr>\n')
+                _print(level + 2, '<td>' + malware_config(key, level=level + 3) + '</td>\n')
+                _print(level + 2, '<td>' + malware_config(val, level=level + 3) + '</td>\n')
+                _print(level + 1, '</tr>\n')
+            _print(level + 0, '</table>\n')
+            _print(level - 1, '')
+    elif isinstance(obj, list):
+        if obj:
+            if len(obj) > 1:
+                _print(0, '\n')
+                _print(level + 0, '<ul style="columns: 4;">\n')
+                for item in obj:
+                    _print(level + 1, '<li>' + malware_config(item, level=level + 2) + '</li>\n')
+                _print(level + 0, '</ul>\n')
+                _print(level - 1, '')
+            else:
+                result.write(malware_config(obj[0]))
+    else:
+        result.write(escape(str(obj)))
+
+    return mark_safe(result.getvalue())

@@ -25,6 +25,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from ratelimit.decorators import ratelimit
+from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -932,7 +933,7 @@ def search_behavior(request, task_id):
 def report(request, task_id):
     network_report = False
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "procdump": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
         network_report = results_db.analysis.find_one({"info.id": int(task_id)}, {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
@@ -943,6 +944,8 @@ def report(request, task_id):
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist or not finished yet"})
 
+    if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
+        report["malware_conf"] = report["CAPE"]["configs"]
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
             if report.get(keyword, False):
@@ -966,8 +969,8 @@ def report(request, task_id):
         report["dropped"] = 0
 
     try:
-        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
-        report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}}}]))
+        report["CAPE"] = tmp_data[0]["cape_size"]  or 0
         # ToDo remove in CAPEv3 *_old
         if not report["CAPE"]:
             tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
@@ -1045,6 +1048,10 @@ def report(request, task_id):
         },
     )
 
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -1074,9 +1081,11 @@ def file_nl(request, category, task_id, dlfile):
     return resp
 
 @require_safe
-@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file(request, category, task_id, dlfile):
     file_name = dlfile
     cd = ""

@@ -1,18 +1,43 @@
 {% include "analysis/overview/_info.html" %}
 <hr />
-{% if analysis.info.category != "pcap" %}
-{% if analysis.info.category in "file,static" and analysis.target %}
-    {% include "analysis/overview/_file.html" %}
-{% elif analysis.info.category == "url" %}
-    {% include "analysis/overview/_url.html" %}
+{% if analysis.malware_conf %}
+    {% for config_block in analysis.malware_conf %}
+        {% for family, config in config_block.items %}
+
+        <div class="card-header"><a class="accordion-toggle" data-toggle="collapse" href="#{{family}}_config"
+                aria-expanded="false"><i class="fas fa-tasks"></i> {{family}} Config</a></div>
+        <div id="{{family}}_config" class="collapse">
+            <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                <tr>
+                    <th style="border-top: 0; width: 15%;">Type</th>
+                    <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
+                </tr>
+                {% for key, value in config.items %}
+                <tr>
+                    <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                    <td style="border-top: 0; word-wrap: break-word;">{% malware_config value %}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endfor %}
+    {% endfor %}
 {% endif %}
+
+<hr />
+{% if analysis.info.category != "pcap" %}
+    {% if analysis.info.category in "file,static" and analysis.target %}
+        {% include "analysis/overview/_file.html" %}
+    {% elif analysis.info.category == "url" %}
+        {% include "analysis/overview/_url.html" %}
+    {% endif %}
 {% endif %}
 <hr/>
 {% include "analysis/overview/_signatures.html" %}
 {% if analysis.info.category != "pcap" %}
-{% if analysis.usage %}
-<hr />
-{% include "analysis/overview/_usage.html" %}
+    {% if analysis.usage %}
+    <hr />
+    {% include "analysis/overview/_usage.html" %}
 {% endif %}
 <hr />
 {% include "analysis/overview/_screenshots.html" %}
@@ -24,5 +49,5 @@
 </div>
 <hr />
 {% if analysis.info.category != "pcap" %}
-{% include "analysis/overview/_summary.html" %}
+    {% include "analysis/overview/_summary.html" %}
 {% endif %}

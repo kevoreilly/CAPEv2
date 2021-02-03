@@ -134,7 +134,7 @@ def index(request):
                 parsed[key]["rps"] = "None"
                 parsed[key]["rpm"] = "None"
 
-    return render(request, "api/index.html", {"config": parsed})
+    return render(request, "apiv2/index.html", {"config": parsed})
 
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -160,7 +160,7 @@ def tasks_create_static(request):
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True)
+            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0)
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
@@ -230,6 +230,7 @@ def tasks_create_file(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         task_ids_tmp = []
@@ -296,7 +297,7 @@ def tasks_create_file(request):
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority)
+                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
                 details["task_ids"].append(task_id)
                 continue
             if quarantine:
@@ -412,6 +413,7 @@ def tasks_create_url(request):
                 cape=cape,
                 tlp=tlp,
                 tags_tasks=tags_tasks,
+                user_id=request.user.id or 0,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -503,6 +505,7 @@ def tasks_create_dlnexec(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         status, task_ids_tmp = download_file(**details)
@@ -566,7 +569,7 @@ def tasks_vtdl(request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
+        if not settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
             resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
             return Response(resp)
 
@@ -590,7 +593,7 @@ def tasks_vtdl(request):
 
 
         details = {
-            "apikey": opt_apikey,
+            "apikey": settings.VTDL_KEY or opt_apikey,
             "errors": [],
             "content": False,
             "request": request,
@@ -603,6 +606,7 @@ def tasks_vtdl(request):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         details = download_from_vt(hashes, details, opt_filename, settings)
@@ -1648,7 +1652,7 @@ def tasks_fullmemory(request, task_id):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
+                return redirect(url.replace(":8090", ":8000") + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             log.error(e)
 
@@ -1740,10 +1744,8 @@ def machines_view(request, name=None):
 
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-@csrf_exempt
 @api_view(['GET'])
 def cuckoo_status(request):
-
     # get
     # print(request.query_params)
     # post

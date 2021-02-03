@@ -207,6 +207,7 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
@@ -359,7 +360,7 @@ def index(request, resubmit_hash=False):
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp)
+                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -402,6 +403,7 @@ def index(request, resubmit_hash=False):
                     route=route,
                     cape=cape,
                     tags_tasks=tags_tasks,
+                    user_id=request.user.id or 0,
                 )
                 details["task_ids"].append(task_id)
 
@@ -440,7 +442,6 @@ def index(request, resubmit_hash=False):
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
-
         if tasks_count > 0:
             data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"], "existent_tasks": existent_tasks}
             return render(request, "submission/complete.html", data)

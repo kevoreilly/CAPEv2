@@ -6,7 +6,7 @@ To see current REST api see ``/apiv2/`` you will find all endpoints and details 
 
 `api example`: https://capesandbox.com/apiv2/
 
-To enable using django-rest-framework::
+To enable it, we use django-rest-framework::
 
     $ pip3 install djangorestframework
 
@@ -55,7 +55,7 @@ Once you have enabled it, you can just specify ``username`` and ``password`` as 
 
 
 ==============================================================
-REST API depricated, used only by dist.py aka distributed CAPE
+REST API deprecated, used only by dist.py aka distributed CAPE
 ==============================================================
 
 As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST

@@ -1,3 +1,6 @@
+### [03-02-2021]
+* ratelimit 4 upgrade -> `pip3 install django-ratelimit -U`
+
 ### [02-02-2021]
 * Link task to user_id, to be able to ban spammers and bad users
 * __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`

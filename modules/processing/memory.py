@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 # Based on work of Xabier Ugarte-Pedrero
-#  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
+#  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
@@ -15,25 +15,27 @@ try:
 except ImportError:
     import re
 
+from urllib.request import pathname2url
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 try:
-    import volatility.plugins
-    import volatility.symbols
-    from volatility import framework
-    from volatility.cli import text_renderer
-    from volatility.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
-    from volatility.framework.configuration import requirements
+    import volatility3.plugins
+    import volatility3.symbols
+    from volatility3 import framework
+    from volatility3.cli.text_renderer import JsonRenderer
+    from volatility3.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
+    from volatility3.framework.configuration import requirements
     from typing import Any, Dict, List, Optional, Tuple, Union, Type
-    from volatility.framework import interfaces, constants
-    from volatility.framework.configuration import requirements
+    from volatility3.framework import interfaces, constants
 
-    # from volatility.plugins.windows import pslist
+    # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except Exception as e:
+    print("Missed dependency: pip3 install volatility3 -U")
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
@@ -51,6 +53,20 @@ log = logging.getLogger()
 # console.setFormatter(formatter)
 # log.addHandler(console)
 
+
+class MuteProgress(object):
+    def __init__(self):
+        self._max_message_len = 0
+
+    def __call__(self, progress: Union[int, float], description: str = None):
+        pass
+
+class FileConsumer(interfaces.plugins.FileConsumerInterface):
+    def __init__(self):
+        self.files = []
+
+    def consume_file(self, file: interfaces.plugins.FileInterface):
+        self.files.append(file)
 
 class VolatilityAPI(object):
     def __init__(self, memdump):
@@ -97,20 +113,20 @@ class VolatilityAPI(object):
 
 '''
 try:
-    import volatility.conf as conf
-    import volatility.registry as registry
-    import volatility.commands as commands
-    import volatility.utils as utils
-    import volatility.plugins.malware.devicetree as devicetree
-    import volatility.plugins.malware.apihooks as apihooks
-    import volatility.plugins.getsids as sidm
-    import volatility.plugins.privileges as privm
-    import volatility.plugins.taskmods as taskmods
-    import volatility.win32.tasks as tasks
-    import volatility.obj as obj
-    import volatility.exceptions as exc
-    import volatility.plugins.filescan as filescan
-    import volatility.protos as protos
+    import volatility3.conf as conf
+    import volatility3.registry as registry
+    import volatility3.commands as commands
+    import volatility3.utils as utils
+    import volatility3.plugins.malware.devicetree as devicetree
+    import volatility3.plugins.malware.apihooks as apihooks
+    import volatility3.plugins.getsids as sidm
+    import volatility3.plugins.privileges as privm
+    import volatility3.plugins.taskmods as taskmods
+    import volatility3.win32.tasks as tasks
+    import volatility3.obj as obj
+    import volatility3.exceptions as exc
+    import volatility3.plugins.filescan as filescan
+    import volatility3.protos as protos
 
     HAVE_VOLATILITY = True
     rootlogger = logging.getLogger()
@@ -1243,7 +1259,7 @@ class VolatilityManager(object):
 
         self.do_strings()
         self.cleanup()
-        
+
         if not self.voptions.basic.delete_memdump:
             results['memory_path'] = self.memfile
         if self.voptions.basic.dostrings:

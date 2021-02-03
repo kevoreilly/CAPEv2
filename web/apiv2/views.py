@@ -26,7 +26,13 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
-from ratelimit.decorators import ratelimit
+try:
+    from django_ratelimit.decorators import ratelimit
+except ImportError:
+    try:
+        from ratelimit.decorators import ratelimit
+    except ImportError:
+        print("missed dependency: pip3 install django-ratelimit -U")
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File

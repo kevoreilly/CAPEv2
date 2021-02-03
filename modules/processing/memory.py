@@ -153,9 +153,9 @@ class VolatilityAPI(object):
             if amagic in seen_automagics:
                 continue
             seen_automagics.add(amagic)
-        plugin = plugin_list.get(plugin_name)
+        plugin = plugin_list.get(plugin_class)
         base_config_path = "plugins"
-        single_location = "file:" + pathname2url(path)
+        single_location = "file:" + pathname2url(memdump)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
         constructed = plugins.construct_plugin(ctx, automagics, plugin, base_config_path, MuteProgress(), None)

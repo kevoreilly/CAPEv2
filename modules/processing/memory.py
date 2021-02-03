@@ -119,7 +119,7 @@ class VolatilityAPI(object):
 
         """
 
-        volatility.framework.require_interface_version(1, 0, 0)
+        volatility3.framework.require_interface_version(1, 0, 0)
         # Set the PARALLELISM
         # constants.PARALLELISM = constants.Parallelism.Multiprocessing
         # constants.PARALLELISM = constants.Parallelism.Threading
@@ -182,8 +182,8 @@ try:
     HAVE_VOLATILITY = True
     rootlogger = logging.getLogger()
     # re-use the rootlogger level (so if we want to debug, it works for volatility)
-    logging.getLogger("volatility.obj").setLevel(rootlogger.level)
-    logging.getLogger("volatility.utils").setLevel(rootlogger.level)
+    logging.getLogger("volatility3.obj").setLevel(rootlogger.level)
+    logging.getLogger("volatility3.utils").setLevel(rootlogger.level)
 except ImportError:
     HAVE_VOLATILITY = False
 
@@ -390,7 +390,7 @@ class VolatilityAPI(object):
         results = []
 
         command = self.plugins["gdt"](self.config)
-        # Comment: this code is pretty much ripped from render_text in volatility.
+        # Comment: this code is pretty much ripped from render_text in volatility3.
         for n, entry in command.calculate():
             selector = n * 8
 
@@ -443,7 +443,7 @@ class VolatilityAPI(object):
 
         command = self.plugins["ssdt"](self.config)
 
-        # Comment: this code is pretty much ripped from render_text in volatility.
+        # Comment: this code is pretty much ripped from render_text in volatility3.
         addr_space = self.addr_space
         syscalls = addr_space.profile.syscalls
         bits32 = addr_space.profile.metadata.get("memory_model", "32bit") == "32bit"
@@ -723,7 +723,7 @@ class VolatilityAPI(object):
 
         command = self.plugins["yarascan"](self.config)
         for o, addr, hit, content in command.calculate():
-            # Comment: this code is pretty much ripped from render_text in volatility.
+            # Comment: this code is pretty much ripped from render_text in volatility3.
             # Find out if the hit is from user or kernel mode
             if o is None:
                 owner = "Unknown Kernel Memory"

@@ -943,6 +943,8 @@ def report(request, task_id):
     if enabledconf["mongodb"]:
         report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "behavior.processes": 0, "network": 0, "memory":0}, sort=[("_id", pymongo.DESCENDING)])
         network_report = results_db.analysis.find_one({"info.id": int(task_id)}, {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1}, sort=[("_id", pymongo.DESCENDING)])
+        # ToDo
+        # memory_exist = results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}})
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
         report = query["_source"]

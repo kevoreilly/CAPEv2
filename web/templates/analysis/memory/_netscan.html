@@ -8,18 +8,30 @@
             <th>Remote Address</th>
             <th>Remote Port</th>
             <th>Protocol</th>
+            <th>Created</th>
+            <th>Owner</th>
         </tr>
     </thead>
     <tbody>
-    {% for sock in analysis.memory.netscan.data %}
+    {% for sock in memory.netscan %}
         <tr>
-            <td>{{sock.offset}}</td>
-            <td>{{sock.process_id}}</td>
-            <td>{{sock.local_address}}</td>
-            <td>{{sock.local_port}}</td>
-            <td>{{sock.remote_address}}</td>
-            <td>{{sock.remote_port}}</td>
-            <td>{{sock.protocol}}</td>
+            <td>{{sock.Offset}}</td>
+            <td>{{sock.PID}}</td>
+            <td>{{sock.LocalAddr}}</td>
+            <td>{{sock.LocalPort}}</td>
+            <td>{{sock.ForeignAddr}}</td>
+            <td>{{sock.ForeignPort}}</td>
+            <td>{{sock.Proto}}</td>
+            {% if sock.Created %}
+                <td>{{sock.Created}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
+            {% if sock.Owner %}
+                <td>{{sock.Owner}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
         </tr>
     {% endfor %}
     </tbody>

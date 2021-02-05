@@ -118,8 +118,5 @@ git merge kevoreilly/master
 git push
 ```
 
-#### What doesn't work
-* volatility details, the bridge exists to use VolatilityAPI with vol3, but not to run the default modules.
-
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)

@@ -1,19 +1,19 @@
 <table class="table table-bordered" style="table-layout: fixed;">
     <thead>
         <tr>
+            <th width="150px">Module</th>
+            <th width="150px">Callback</th>
             <th>Type</th>
-            <th>Callback</th>
-            <th>Module</th>
             <th>Details</th>
         </tr>
     </thead>
     <tbody>
-    {% for x in analysis.memory.callbacks.data %}
+    {% for x in memory.callbacks %}
         <tr>
-            <td>{{x.type}}</td>
-            <td><span class="mono">{{x.callback}}</span></td>
-            <td>{{x.module}}</td>
-            <td>{{x.details}}</td>
+            <td>{{x.Module}}</td>
+            <td><span class="mono">{{x.Callback}}</span></td>
+            <td>{{x.Type}}</td>
+            <td>{{x.Details}}</td>
         </tr>
     {% endfor %}
     </tbody>

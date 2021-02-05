@@ -12,7 +12,7 @@
         </tr>
     </thead>
     <tbody>
-    {% for service in analysis.memory.svcscan.data %}
+    {% for service in memory.svcscan.data %}
         <tr>
             <td>{{service.service_name}}</td>
             <td>{{service.service_display_name}}</td>

@@ -19,3 +19,4 @@ results_db = pymongo.MongoClient(
 )[repconf.mongodb.db]
 
 # import code;code.interact(local=dict(locals(), **globals()))
+q = results_db.analysis.find({"info.id":26}, {"memory":1})

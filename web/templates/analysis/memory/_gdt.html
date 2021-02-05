@@ -12,7 +12,7 @@
         </tr>
     </thead>
     <tbody>
-    {% for x in analysis.memory.gdt.data %}
+    {% for x in memory.gdt.data %}
         <tr>
             <td>{{x.cpu_number}}</td>
             <td><span class="mono">{{x.selector}}</span></td>

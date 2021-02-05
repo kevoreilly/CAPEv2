@@ -82,3 +82,4 @@ django-otp
 qrcode
 python-tlsh
 djangorestframework
+volatility3

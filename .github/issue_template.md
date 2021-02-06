@@ -12,7 +12,7 @@ Please answer the following questions for yourself before submitting an issue.
 
 # Expected Behavior
 
-Please describe the behavior you are expecting
+Please describe the behavior you are expecting. __If your samples stuck in pending ensure that you set tags=x64 in hypervisor conf__
 
 # Current Behavior
 

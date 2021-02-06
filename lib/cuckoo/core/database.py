@@ -1091,7 +1091,7 @@ class Database(object, metaclass=Singleton):
         route = None,
         cape = False,
         tags_tasks = False,
-        user_id = False,
+        user_id = 0,
 
     ):
         """Add a task to database.
@@ -1256,7 +1256,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         tags_tasks=False,
-        user_id=False,
+        user_id=0,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1344,7 +1344,7 @@ class Database(object, metaclass=Singleton):
         tags_tasks=False,
         route=None,
         cape=False,
-        user_id=False,
+        user_id=0,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1446,7 +1446,7 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
-        user_id=None,
+        user_id=0,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1492,7 +1492,7 @@ class Database(object, metaclass=Singleton):
         parent_id=None,
         tlp=None,
         static=True,
-        user_id = False
+        user_id=0,
     ):
         return self.add(
             Static(file_path.decode()),
@@ -1541,7 +1541,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         tags_tasks=False,
-        user_id=False,
+        user_id=0,
     ):
         """Add a task to database from url.
         @param url: url.

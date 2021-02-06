@@ -5,6 +5,8 @@
     * `conf/processing.conf` -> `[memory]`
     * `conf/memory.conf` for the plugins
 
+* You will need to download `symbols`, see [volatility3 readme for details](https://github.com/volatilityfoundation/volatility3)
+
 ### [03-02-2021]
 * ratelimit 4 upgrade -> `pip3 install django-ratelimit -U`
 

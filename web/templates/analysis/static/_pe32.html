@@ -7,12 +7,12 @@
     {% else %}
         {% if graphs.bingraph.enabled %}
         <h4>BinGraph
-            <p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
+            <p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
         </h4>
         {% endif %}
     {% endif %}
     {% if analysis.static.flare_capa %}
-    <p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a></p>
+    <p><a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a></p>
         <div class="collapse" id="flare_capa">
             <div class="card card-body">
             <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->

@@ -68,9 +68,6 @@ python-whois
 bs4
 pype32-py3
 git+https://github.com/kbandla/pydeep.git
-flask
-flask-restful
-flask-sqlalchemy
 pyvmomi
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
 django-allauth # https://django-allauth.readthedocs.io/en/latest/configuration.html

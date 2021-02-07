@@ -15,7 +15,7 @@ import logging.handlers
 try:
     import yara
     if not int(yara.__version__[0]) >= 4:
-        raise("Missed library: pip3 install yara-python>=4.0.0 -U")
+        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
 except ImportError:
     print("Missed library: pip3 install yara-python>=4.0.0 -U")
 import modules.auxiliary

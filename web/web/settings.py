@@ -221,6 +221,7 @@ INSTALLED_APPS = (
     "api",
     "ratelimit",
 
+    'django_extensions',
     'django_otp',
     'django_otp.plugins.otp_totp',
 

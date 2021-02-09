@@ -76,6 +76,7 @@ git+https://github.com/CAPESandbox/httpreplay
 django-settings-export
 django-csp
 django-otp
+django-extensions
 qrcode
 python-tlsh
 djangorestframework

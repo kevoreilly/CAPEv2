@@ -1,6 +1,7 @@
 ### [09-02-2021] Registration more configrations
 * Allow enable/disable all new users to activate them by hand
 * Disable new users after email verification if set `manual_approve` in `conf/web.conf`
+* __REQUIRED ACTION:__ -> `pip3 install django-extensions`
 
 ### [05-02-2021] Volatility3 integration done, some future optimizations might come later
 * ToDo: pass yara file to exec yarascan

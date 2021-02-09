@@ -408,10 +408,10 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", 
 ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
-#### ALlauth end
-
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)
 REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
+EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
+#### ALlauth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
     DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)

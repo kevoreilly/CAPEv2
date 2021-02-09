@@ -25,11 +25,11 @@ class DisposableEmails(DefaultAccountAdapter):
 if settings.EMAIL_CONFIRMATION is False:
     @receiver(user_signed_up)
     def user_signed_up_(request, user, **kwargs):
-        user.is_active = settings.MANUAL_APPROVE
+        user.is_active = not settings.MANUAL_APPROVE
         user.save()
 
 @receiver(email_confirmed)
 def email_confirmed_(request, email_address, **kwargs):
     user = User.objects.get(email=email_address.email)
-    user.is_active = settings.MANUAL_APPROVE
+    user.is_active = not settings.MANUAL_APPROVE
     user.save()

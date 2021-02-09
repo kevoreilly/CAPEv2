@@ -174,11 +174,6 @@ class Package(object):
         If configured, upload memory dumps of
         all running processes.
         """
-        if self.options.get("procmemdump"):
-            for pid in self.pids:
-                p = Process(pid=pid)
-                # p.upload_memdump()
-                p.dump_memory()
 
         return True
 

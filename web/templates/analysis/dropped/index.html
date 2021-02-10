@@ -105,7 +105,7 @@
                     <th></th>
                     <td><a href="{% url "file" "dropped" id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
                         {% if file.data %}
-                        &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                        &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#h_{{file.sha256}}">Display Text</a>
                         {% endif %}
                     </td>
                 </tr>
@@ -117,7 +117,7 @@
                         <a href="{% url "file" "droppedzip" id file.sha256 %}" class="btn btn-secondary btn-sm">Download ZIP</a>
                         <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-sync-alt" aria-hidden="true"></span> Submit file</a>
                         {% if file.data %}
-                        &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                        &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#h_{{file.sha256}}">Display Text</a>
                         {% endif %}
                     </td>
                     {% if config.vtupload %}
@@ -130,7 +130,7 @@
                 </tr>
                 {% endif %}
                 {% if file.data %}
-                <tr id="{{file.sha256}}" class="collapse" aria-labelledby="{{file.sha256}}" data-parent="#accordion">
+                <tr id="h_{{file.sha256}}" class="collapse">
                     <td colspan="2"><pre>{{file.data}}</pre></td>
                 </tr>
                 {% endif %}

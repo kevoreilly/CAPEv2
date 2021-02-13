@@ -393,6 +393,7 @@ if web_cfg.registration.get("email_confirmation", False):
     EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
     EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
     SERVER_EMAIL = EMAIL_HOST_USER
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 SITE_ID = 1
 

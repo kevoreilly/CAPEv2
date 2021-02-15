@@ -77,8 +77,8 @@ $(function() {
     <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/network/" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.info.category != "pcap" %}
         {% if analysis.dropped %}<li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>{% endif %}
-        {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
-        {% if analysis.memory %}<li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
+        {% if analysis.procmemory|length %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab" >Process Memory ({{analysis.procmemory|length}})</a></li>{% endif %}
+        <li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" data-toggle="tab">Memory Analysis</a></li>
         {% if analysis.procdump %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump}})</a></li>{% endif %}
         {% if analysis.CAPE %}<li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">Payloads ({{analysis.CAPE}})</a></li>{% endif%}
         <!--ToDo remove in CAPEv3-->
@@ -120,7 +120,6 @@ $(function() {
     <div class="tab-pane fade" id="dropped">
         {% include "analysis/dropped/index.html" %}
     </div>
-
     {% if analysis.CAPE %}
         <div class="tab-pane fade" id="CAPE">
         {% include "analysis/CAPE/index.html" %}
@@ -140,11 +139,9 @@ $(function() {
         {% include "analysis/procmemory/index.html" %}
     </div>
     {% endif %}
-    {% if analysis.memory %}
     <div class="tab-pane fade" id="memory">
         {% include "analysis/memory/index.html" %}
     </div>
-    {% endif %}
     {% if config.malheur %}
         {% if analysis.info.category == "file" or analysis.info.category == "url" %}
         <div class="tab-pane fade" id="similar">

@@ -1,3 +1,20 @@
+### [09-02-2021] Registration more configrations
+* Allow enable/disable all new users to activate them by hand
+* Disable new users after email verification if set `manual_approve` in `conf/web.conf`
+* __REQUIRED ACTION:__ -> `pip3 install django-extensions`
+
+### [05-02-2021] Volatility3 integration done, some future optimizations might come later
+* ToDo: pass yara file to exec yarascan
+* Thanks to Xabier Ugarte-Pedrero and dadokkio for their work
+* `pip3 install volatility3`, then check
+    * `conf/processing.conf` -> `[memory]`
+    * `conf/memory.conf` for the plugins
+
+* You will need to download `symbols`, see [volatility3 readme for details](https://github.com/volatilityfoundation/volatility3)
+
+### [03-02-2021]
+* ratelimit 4 upgrade -> `pip3 install django-ratelimit -U`
+
 ### [02-02-2021]
 * Link task to user_id, to be able to ban spammers and bad users
 * __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`

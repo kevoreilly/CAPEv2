@@ -5,7 +5,6 @@ from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.signals import user_signed_up, email_confirmed
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from allauth.account.models import EmailAddress
 
 disposable_domain_list = list()
 if hasattr(settings, "DISPOSABLE_DOMAIN_LIST"):
@@ -23,15 +22,14 @@ class DisposableEmails(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         return settings.REGISTRATION_ENABLED
 
-@receiver(user_signed_up)
-def user_signed_up_(request, user, **kwargs):
-    user.is_active = False
-    user.save()
+if settings.EMAIL_CONFIRMATION is False:
+    @receiver(user_signed_up)
+    def user_signed_up_(request, user, **kwargs):
+        user.is_active = not settings.MANUAL_APPROVE
+        user.save()
 
 @receiver(email_confirmed)
-def email_confirmed_(request, *args, **kwargs):
-    user = request.user
-    new_email_address = EmailAddress.objects.get(email=kwargs['email_address'].email)
-    user = User.objects.get(email=new_email_address.user)
-    user.is_active = False
+def email_confirmed_(request, email_address, **kwargs):
+    user = User.objects.get(email=email_address.email)
+    user.is_active = not settings.MANUAL_APPROVE
     user.save()

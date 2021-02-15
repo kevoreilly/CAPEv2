@@ -26,7 +26,13 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
-from ratelimit.decorators import ratelimit
+try:
+    from django_ratelimit.decorators import ratelimit
+except ImportError:
+    try:
+        from ratelimit.decorators import ratelimit
+    except ImportError:
+        print("missed dependency: pip3 install django-ratelimit -U")
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
@@ -569,7 +575,7 @@ def tasks_vtdl(request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if not settings.VTDL_KEY or not settings.VTDL_PATH or not opt_apikey:
+        if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
             resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
             return Response(resp)
 

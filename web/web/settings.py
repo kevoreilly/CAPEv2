@@ -221,6 +221,7 @@ INSTALLED_APPS = (
     "api",
     "ratelimit",
 
+    'django_extensions',
     'django_otp',
     'django_otp.plugins.otp_totp',
 
@@ -392,6 +393,7 @@ if web_cfg.registration.get("email_confirmation", False):
     EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
     EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
     SERVER_EMAIL = EMAIL_HOST_USER
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 SITE_ID = 1
 
@@ -408,10 +410,10 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", 
 ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 3
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
-#### ALlauth end
-
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)
 REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
+EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
+#### ALlauth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
     DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)

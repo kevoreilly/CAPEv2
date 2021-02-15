@@ -459,6 +459,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
+        enabledconf["timeout"] = cfg.timeouts.default
 
         if all_vms_tags:
             enabledconf["tags"] = True

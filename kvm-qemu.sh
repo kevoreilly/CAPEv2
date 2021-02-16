@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Copyright (C) 2011-2019 DoomedRaven.
+# Copyright (C) 2011-2021 DoomedRaven.
 # This file is part of Tools - https://github.com/doomedraven/Tools
 # See the file 'LICENSE.md' for copying permission.
 # https://www.doomedraven.com/2016/05/kvm.html
 # https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
 # Use Ubuntu 20.04 LTS
 
-#Update date: 28.04.2020
+#Update date: 09.02.2021
 
 : '
 Huge thanks to:
@@ -17,9 +17,12 @@ Huge thanks to:
     * @seifreed
     * @Fire9
     * @abuse_ch
+    * @wmetcalf
+    * @ClaudioWayne
+    * @CplNathan
 '
 
-#ToDo investigate
+# ToDo investigate
 #https://www.jamescoyle.net/how-to/1810-qcow2-disk-images-and-performance
 #when backing storage is attached to virtio_blk (vda, vdb, etc.) storage controller - performance from iSCSI client connecting to the iSCSI target was in my environment ~ 20 IOPS, with throughput (depending on IO size) ~ 2-3 MiB/s. I changed virtual disk controller within virtual machine to SCSI and I'm able to get 1000+ IOPS and throughput 100+ MiB/s from my iSCSI clients.
 
@@ -35,7 +38,7 @@ Huge thanks to:
 # Dump on linux
 #   acpidump > acpidump.out
 # Dump on Windows
-#    https://acpica.org/downloads/binary-tools
+#   https://acpica.org/downloads/binary-tools
 #    acpixtract -a acpi/4/acpi.dump
 
 # acpixtract -a acpidump.out
@@ -51,16 +54,18 @@ Huge thanks to:
 #      strs[5] = "VBoxVBoxVBox"; /* VirtualBox */
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=5.0.0
+qemu_version=5.2.0
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
 #5.6.0 can be the best
-libvirt_version=6.2.0
+libvirt_version=7.0.0
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
 username=""
-sudo apt-get install pcregrep
+
+sudo apt install aptitude -y
+sudo aptitude install -f pcregrep aptitude
 cpuspeed=$(cat /proc/cpuinfo | pcregrep -Mio '(?s)processor\s+\: 0\s*\n.*?model name\s+\:[^\r\n]*?\K\s+@\s+\d+\.\d+GHz')
 cpuspeedsz=${#cpuspeed}
 
@@ -89,7 +94,7 @@ bochs_cpu_replacement="INTELCPU"
 qemu_bochs_cpu='INTEL\/INTEL'
 qemu_bochs_cpu='AMD\/AMD'
 
-#qemu 
+#qemu
 qemu_space_replacement="intel "
 #qemu_space_replacement="amd "
 
@@ -102,7 +107,7 @@ src_bios_table_date2="11\/03\/2018"
 #01\/01\/2011
 src_fw_smbios_date="11\/03\/2018"
 
-if ( $cpuspeedsz > 0 ); then
+if (( $cpuspeedsz > 0 )); then
     cpuid+="$cpuspeed"
 fi
 echo $cpuid
@@ -117,6 +122,8 @@ QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux
 
 function changelog() {
 cat << EndOfCL
+    # 17.06.2020 - Ubuntu 20.04 some package remove thanks @t14g0p
+    # 28.05.2020 - Libvirt 6.4, putlic version fixes extended
     # 25.04.2020 - Libvirt 6.2, QEMU 5, Ubuntu 20.04
     # 14.02.2020 - Libvirt 6, fix libvirt installation
     # 13.12.2019 - Libvirt 5.10, QEMU 4.2
@@ -156,8 +163,8 @@ cat << EndOfHelp
             * https://www.cyberciti.biz/cloud-computing/increase-your-linux-server-internet-speed-with-tcp-bbr-congestion-control/
         Mosh - mobile shell - https://mosh.org/
         WebVirtMgr - Install WebManager for KVM
-        Clone - <VM_NAME> <path_to_hdd> <start_from_number> <#vm_to_create> <path_where_to_store> <network_range_base>
-                * Example Win7x64 /VMs/Win7x64.qcow2 0 5 /var/lib/libvirt/images/ 192.168.1
+        Clone - <VM_NAME> <path_to_hdd> <start_from_number> <#vm_to_create> <path_where_to_store> <network_range_base> <full/linked hdd>
+                * Example Win7x64 /VMs/Win7x64.qcow2 0 5 /var/lib/libvirt/images/ 192.168.1 linked
                 https://wiki.qemu.org/Documentation/CreateSnapshot
         Libvmi - install LibVMI
         Virtmanager - install virt-manager
@@ -167,6 +174,7 @@ cat << EndOfHelp
         Issues - will give you error - solution list
         noip - Install No-ip deamon and enable on boot
         SysRQ - enable SysRQ - https://sites.google.com/site/syscookbook/rhel/rhel-sysrq-key
+        jemalloc - install Jemalloc google if you need details ;)
 
     Tips:
         * Latest kernels having some KVM features :)
@@ -205,6 +213,7 @@ function _enable_tcp_bbr() {
         echo "net.core.default_qdisc=fq" >> /etc/security/limits.conf
         echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/security/limits.conf
     fi
+
     modprobe br_netfilter
     echo "br_netfilter" >> /etc/modules
     echo "net.bridge.bridge-nf-call-arptables = 1" >> /etc/sysctl.conf
@@ -220,6 +229,7 @@ function _enable_tcp_bbr() {
     echo "vm.swappiness = 1"  >> /etc/sysctl.conf
     echo "vm.dirty_ratio = 15"  >> /etc/sysctl.conf
     sudo sysctl -p
+
     sudo sysctl --system
 }
 
@@ -235,6 +245,9 @@ function install_haxm_mac() {
     brew tap jeffreywildman/homebrew-virt-manager
     brew cask install xquartz
     brew install virt-manager virt-viewer
+    mkdir -p $(brew --prefix libosinfo)/share/libosinfo
+    wget https://pci-ids.ucw.cz/v2.2/pci.ids -O $(brew --prefix libosinfo)/share/libosinfo/pci.ids
+    wget http://www.linux-usb.org/usb.ids -O $(brew --prefix libosinfo)/share/libosinfo/usb.ids
 
     if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ] ; then
         echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.zsh"
@@ -249,7 +262,11 @@ function install_libguestfs() {
     echo "[+] Check for previous version of LibGuestFS"
     sudo dpkg --purge --force-all "libguestfs-*" 2>/dev/null
 
-    sudo apt install parted libyara3 erlang-dev gperf flex bison libaugeas-dev libhivex-dev supermin ocaml-nox libhivex-ocaml genisoimage libhivex-ocaml-dev libmagic-dev libjansson-dev gnulib jq -y 2>/dev/null
+    wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
+    sudo add-apt-repository "deb https://packages.erlang-solutions.com/ubuntu $(lsb_release -sc) contrib"
+    sudo aptitude install -f parted libyara3 erlang-dev gperf flex bison libaugeas-dev libhivex-dev supermin ocaml-nox libhivex-ocaml genisoimage libhivex-ocaml-dev libmagic-dev libjansson-dev gnulib jq -y 2>/dev/null
+    sudo apt update
+    sudo aptitude install -f erlang -y
 
     if [ ! -d libguestfs ]; then
         #ToDo move to latest release not latest code
@@ -300,14 +317,14 @@ function install_libvmi() {
     cd "libvmi" || return
 
     # install deps
-    apt install -y cmake flex bison libglib2.0-dev libjson-c-dev libyajl-dev
+    aptitude install -f -y cmake flex bison libglib2.0-dev libjson-c-dev libyajl-dev
     # other deps
-    apt install -y pkg-config
+    aptitude install -f -y pkg-config
     mkdir build
     cd build || return
     cmake -DENABLE_XEN=ON -DENABLE_KVM=ON -DENABLE_XENSTORE=OFF -DENABLE_BAREFLANK=OFF ..
     make -j"$(nproc)"
-    make install
+    checkinstall -D --pkgname=libvmi --default
     /sbin/ldconfig
 
     # LibVMI Python
@@ -318,19 +335,16 @@ function install_libvmi() {
         # https://github.com/libvmi/python/tree/76d9ea85eefa0d77f6ad4d6089e757e844763917
         # git checkout add_vmi_request_page_fault
         # git pull
-        git clone https://github.com/libvmi/python.git
+        git clone https://github.com/libvmi/python.git libvmi-python
         echo "[+] Cloned LibVMI Python repo"
     fi
-    cd "python" || return
+    cd "libvmi-python" || return
 
     # install deps
-    apt install -y python3-pkgconfig python3-cffi python3-future
-    #pip install .
-    python setup.py build
-    python setup.py install
+    aptitude install -f -y python3-pkgconfig python3-cffi python3-future
     #pip3 install .
     python3 setup.py build
-    python3 setup.py install
+    pip3 install .
 
     # Rekall
     cd /tmp || return
@@ -362,7 +376,7 @@ function install_libvmi() {
 #
 function install_pyvmidbg() {
     # deps
-    apt install python3-docopt python3-lxml cabextract
+    aptitude install -f python3-docopt python3-lxml cabextract
 
     # libvmi config entry
     # /etc/libvmi.conf:
@@ -390,7 +404,8 @@ function install_pyvmidbg() {
     # git clone https://github.com/Wenzel/pyvmidbg.git
     # virtualenv -p python3 venv
     # source venv/bin/activate
-    # pip install .
+    # python3 setup.py build
+    # pip3 install .
 
     # sudo python3 -m vmidbg 5000 <vm_name> --address 0.0.0.0 cmd -d
 
@@ -419,6 +434,20 @@ EOH
     apt purge libvirt0 libvirt-bin libvirt-$libvirt_version 2>/dev/null
     dpkg -l|grep "libvirt-[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
 
+    # Remove old links
+    updatedb
+    temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
+    libvirt_so_path="${temp_libvirt_so_path%/*}/"
+
+    if [[ -n "$libvirt_so_path" ]]; then
+        for so_path in $(ls ${libvirt_so_path}libvirt*.so.0);  do
+            dest_path=/lib/$(uname -m)-linux-gnu/$(basename $so_path)
+            if [ -f $dest_path ]; then
+                rm $dest_path
+            fi
+        done
+    fi
+
     cd /tmp || return
     if [ -f  libvirt-$libvirt_version.tar.xz ]; then
         rm -r libvirt-$libvirt_version
@@ -430,33 +459,37 @@ EOH
     tar xf libvirt-$libvirt_version.tar.xz
     cd libvirt-$libvirt_version || return
     if [ "$OS" = "Linux" ]; then
-        apt install python3-dev unzip numad glib-2.0 libglib2.0-dev libsdl1.2-dev lvm2 python3-pip python-libxml2 python3-libxml2 ebtables libosinfo-1.0-dev libnl-3-dev libnl-route-3-dev libyajl-dev xsltproc libapparmor-dev apparmor-utils libdevmapper-dev libpciaccess-dev dnsmasq dmidecode librbd-dev -y 2>/dev/null
-        apt install apparmor-profiles apparmor-profiles-extra apparmor-utils libapparmor-dev python3-apparmor libapparmor-perl -y
-        pip3 install ipaddr
+        aptitude install -f iptables locate python3-dev unzip numad libglib2.0-dev libsdl1.2-dev lvm2 python3-pip ebtables libosinfo-1.0-dev libnl-3-dev libnl-route-3-dev libyajl-dev xsltproc libdevmapper-dev libpciaccess-dev dnsmasq dmidecode librbd-dev libtirpc-dev -y 2>/dev/null
+        aptitude install -f apparmor-profiles apparmor-profiles-extra apparmor-utils libapparmor-dev python3-apparmor libapparmor-perl libapparmor-dev apparmor-utils -y
+        pip3 install ipaddr ninja meson flake8 -U
         # --prefix=/usr --localstatedir=/var --sysconfdir=/etc
-        git init
-        git remote add doomedraven https://github.com/libvirt/libvirt
-        mkdir build && cd build
-        ../autogen.sh --system --with-qemu=yes --with-dtrace --with-numad --disable-nls --with-openvz=no --with-yajl=yes --with-secdriver-apparmor=yes --with-apparmor-profiles
-        make -j"$(nproc)"
-        checkinstall -D --pkgname=libvirt-$libvirt_version --default
+        #git init
+        #git remote add doomedraven https://github.com/libvirt/libvirt
+        # To see whole config sudo meson configure
+        sudo meson build -D system=true -D driver_remote=enabled -D driver_qemu=enabled -D driver_libvirtd=enabled -D prefix=/usr -D qemu_group=libvirt -D qemu_user=root -D secdriver_apparmor=enabled -D apparmor_profiles=true
+        sudo ninja -C build
+        sudo ninja -C build install
+        #mkdir build && cd build
+        #../autogen.sh --system --with-qemu=yes --with-dtrace --with-numad --disable-nls --with-openvz=no --with-yajl=yes --with-secdriver-apparmor=yes --with-apparmor-profiles
+        #make -j"$(nproc)"
+
+        #checkinstall -D --pkgname=libvirt-$libvirt_version --default
         cd ..
-        # check if linked correctly
-        if [ -f /usr/lib/libvirt-qemu.so ]; then
-            libvirt_so_path=/usr/lib/
-            export PKG_CONFIG_PATH=/usr/lib/pkgconfig/
-        elif [ -f /usr/lib64/libvirt-qemu.so ]; then
-            libvirt_so_path=/usr/lib64/
-            export PKG_CONFIG_PATH=/usr/lib64/pkgconfig/
-        fi
+
+        updatedb
+        temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
+        temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+        libvirt_so_path="${temp_libvirt_so_path%/*}/"
+        export_path="${temp_export_path%/*}/"
+        export PKG_CONFIG_PATH=$export_path
 
         if [[ -n "$libvirt_so_path" ]]; then
             # #ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
-            for so_path in $(ls ${libvirt_so_path}libvirt*.so.0); do ln -s $so_path /lib/$(uname -m)-linux-gnu/$(basename $so_path) 2>/dev/null; done
+            for so_path in $(ls ${libvirt_so_path}libvirt*.so.0); do ln -s $so_path /lib/$(uname -m)-linux-gnu/$(basename $so_path); done
         fi
 
-    elif [ "$OS" = "Darwin" ]; then
-        ./autogen.sh --system --prefix=/usr/local/ --localstatedir=/var --sysconfdir=/etc --with-qemu=yes --with-dtrace --disable-nls --with-openvz=no --with-vmware=no --with-phyp=no --with-xenapi=no --with-libxl=no  --with-vbox=no --with-lxc=no --with-vz=no   --with-esx=no --with-hyperv=no --with-wireshark-dissector=no --with-yajl=yes
+    #elif [ "$OS" = "Darwin" ]; then
+    #    ./autogen.sh --system --prefix=/usr/local/ --localstatedir=/var --sysconfdir=/etc --with-qemu=yes --with-dtrace --disable-nls --with-openvz=no --with-vmware=no --with-phyp=no --with-xenapi=no --with-libxl=no  --with-vbox=no --with-lxc=no --with-vz=no   --with-esx=no --with-hyperv=no --with-wireshark-dissector=no --with-yajl=yes
     fi
 
     # https://wiki.archlinux.org/index.php/Libvirt#Using_polkit
@@ -471,6 +504,8 @@ EOH
     sed -i 's/#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/g' "$path"
     sed -i 's/#auth_unix_ro = "none"/auth_unix_ro = "none"/g' "$path"
     sed -i 's/#auth_unix_rw = "none"/auth_unix_rw = "none"/g' "$path"
+    sed -i 's/#auth_unix_ro = "polkit"/auth_unix_ro = "none"/g' "$path"
+    sed -i 's/#auth_unix_rw = "polkit"/auth_unix_rw = "none"/g' "$path"
 
     #echo "[+] Setting AppArmor for libvirt/kvm/qemu"
     sed -i 's/#security_driver = "selinux"/security_driver = "apparmor"/g' /etc/libvirt/qemu.conf
@@ -515,8 +550,8 @@ EOH
         fi
 
         #check links
-        #sudo ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
-        #sudo ln -s /usr/lib64/libvirt.so.0 /lib/x86_64-linux-gnu/libvirt.so.0
+        sudo ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
+        sudo ln -s /usr/lib64/libvirt.so.0 /lib/x86_64-linux-gnu/libvirt.so.0
         echo "[+] You should logout and login "
     fi
 
@@ -524,20 +559,20 @@ EOH
 
 function install_virt_manager() {
     # from build-dep
-    apt install libgirepository1.0-dev gtk-doc-tools python3 python3-pip gir1.2-govirt-1.0 libgovirt-dev \
+    aptitude install -f libgirepository1.0-dev gtk-doc-tools python3 python3-pip gir1.2-govirt-1.0 libgovirt-dev \
     libgovirt-common libgovirt2 gir1.2-rest-0.7 unzip intltool augeas-doc ifupdown wodim cdrkit-doc indicator-application \
-    augeas-tools radvd auditd systemtap nfs-common zfsutils pm-utils python-openssl-doc samba ovmf \
+    augeas-tools radvd auditd systemtap nfs-common zfsutils pm-utils python-openssl-doc samba \
     debootstrap sharutils-doc ssh-askpass gnome-keyring\
     sharutils spice-client-glib-usb-acl-helper ubuntu-mono x11-common python-enum34 python3-gi \
-    python3-gi-cairo  python3-minimal python3-pkg-resources \
-    libxml2-utils libxrandr2 libxrender1 libxshmfence1 libxtst6 libxv1 libyajl2 msr-tools osinfo-db \
+    python3-gi-cairo python3-pkg-resources \
+    python3-libxml2 libxml2-utils libxrandr2 libxrender1 libxshmfence1 libxtst6 libxv1 libyajl2 msr-tools osinfo-db \
     python3-cairo python3-cffi-backend libxcb-present0 libxcb-render0 libxcb-shm0 libxcb-sync1 \
-    libxcb-xfixes0 libxcomposite1 libxcursor1 libxdamage1 libxen-4.9 libxenstore3.0 libxfixes3 libxft2 libxi6 libxinerama1 \
-    libxkbcommon0 libusbredirhost1 libusbredirparser1 libv4l-0 libv4lconvert0 libvisual-0.4-0 libvorbis0a libvorbisenc2 libvpx5 \
+    libxcb-xfixes0 libxcomposite1 libxcursor1 libxdamage1 libxenstore3.0 libxfixes3 libxft2 libxi6 libxinerama1 \
+    libxkbcommon0 libusbredirhost1 libusbredirparser1 libv4l-0 libv4lconvert0 libvisual-0.4-0 libvorbis0a libvorbisenc2 \
     libvte-2.91-0 libvte-2.91-common libwavpack1 libwayland-client0 libwayland-cursor0 libwayland-egl1-mesa libwayland-server0 \
     libx11-xcb1 libxcb-dri2-0 libxcb-dri3-0 libsoup-gnome2.4-1 libsoup2.4-1 libspeex1 libspice-client-glib-2.0-8 \
     libspice-client-gtk-3.0-5 libspice-server1 libtag1v5 libtag1v5-vanilla libthai-data libthai0 libtheora0 libtiff5 \
-    libtwolame0 librados2 libraw1394-11 librbd1 librdmacm1 librest-0.7-0 \
+    libtwolame0 libpython3-dev librados2 libraw1394-11 librbd1 librdmacm1 librest-0.7-0 \
     librsvg2-2 librsvg2-common libsamplerate0 libsdl1.2debian libshout3 libsndfile1 libpango-1.0-0 libpangocairo-1.0-0 \
     libpangoft2-1.0-0 libpangoxft-1.0-0 libpciaccess0 libphodav-2.0-0 libphodav-2.0-common libpixman-1-0 libproxy1v5 \
     libpulse-mainloop-glib0 libpulse0 libgstreamer1.0-0 libgtk-3-0 libgtk-3-bin libgtk-3-common libgtk-vnc-2.0-0 \
@@ -549,33 +584,36 @@ function install_virt_manager() {
     libgstreamer-plugins-base1.0-0 libgstreamer-plugins-good1.0-0 gtk-update-icon-cache hicolor-icon-theme humanity-icon-theme \
     ibverbs-providers  libaa1 libaio1 libappindicator3-1 libasound2 libasound2-data libasyncns0 libatk-bridge2.0-0 libatk1.0-0 \
     libatk1.0-data libatspi2.0-0 libaugeas0 libavahi-client3 libavahi-common-data libavahi-common3 libavc1394-0 libbluetooth3 \
-    libbrlapi0.6 libcaca0 libcacard0 gir1.2-atk-1.0 gir1.2-freedesktop gir1.2-gdkpixbuf-2.0 gir1.2-gtk-3.0 gir1.2-gtk-vnc-2.0 \
+    libcaca0 libcacard0 gir1.2-atk-1.0 gir1.2-freedesktop gir1.2-gdkpixbuf-2.0 gir1.2-gtk-3.0 gir1.2-gtk-vnc-2.0 \
     gir1.2-libosinfo-1.0  gir1.2-pango-1.0 gir1.2-spiceclientglib-2.0 gir1.2-spiceclientgtk-3.0 gir1.2-vte-2.91 glib-networking \
     glib-networking-common glib-networking-services gsettings-desktop-schemas gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-x adwaita-icon-theme at-spi2-core augeas-lenses cpu-checker dconf-gsettings-backend dconf-service \
     fontconfig fontconfig-config fonts-dejavu-core genisoimage gir1.2-appindicator3-0.1 gir1.2-secret-1 \
     gobject-introspection intltool pkg-config libxml2-dev libxslt-dev python3-dev gir1.2-gtk-vnc-2.0 gir1.2-spiceclientgtk-3.0 libgtk-3-dev -y
     # should be installed first
-
+    # moved out as some 20.04 doesn't have this libs %)
+    aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
+    apt -y -o Dpkg::Options::="--force-overwrite" install ovmf
     pip3 install requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject -U
 
-    if [ -f /usr/lib/libvirt-qemu.so ]; then
-        libvirt_so_path=/usr/lib/
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig/
-    elif [ -f /usr/lib64/libvirt-qemu.so ]; then
-        libvirt_so_path=/usr/lib64/
-        export PKG_CONFIG_PATH=/usr/lib64/pkgconfig/
-    fi
+    updatedb
+
+    temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
+    temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+    libvirt_so_path="${temp_libvirt_so_path%/*}/"
+    export_path="${temp_export_path%/*}/"
+
+    export PKG_CONFIG_PATH=$export_path
 
     cd /tmp || return
-    if [ ! -f libvirt-glib-1.0.0.tar.gz ]; then
-        wget https://libvirt.org/sources/glib/libvirt-glib-1.0.0.tar.gz
-        wget https://libvirt.org/sources/glib/libvirt-glib-1.0.0.tar.gz.asc
-        gpg --verify "libvirt-glib-1.0.0.tar.gz.asc"
+    if [ ! -f libvirt-glib-3.0.0.tar.gz ]; then
+        wget https://libvirt.org/sources/glib/libvirt-glib-3.0.0.tar.gz
+        wget https://libvirt.org/sources/glib/libvirt-glib-3.0.0.tar.gz.asc
+        gpg --verify "libvirt-glib-3.0.0.tar.gz.asc"
 
     fi
-    tar xf libvirt-glib-1.0.0.tar.gz
-    cd libvirt-glib-1.0.0 || return
+    tar xf libvirt-glib-3.0.0.tar.gz
+    cd libvirt-glib-3.0.0 || return
     aclocal && libtoolize --force
     automake --add-missing
     ./configure
@@ -583,7 +621,7 @@ function install_virt_manager() {
     #ToDo add blacklist
     checkinstall --pkgname=libvirt-glib-1.0-0 --default
 
-    cd /tmp || return
+    cd /tmp || return
     if [ ! -f gir1.2-libvirt-glib-1.0_1.0.0-1_amd64.deb ]; then
         wget http://launchpadlibrarian.net/297448356/gir1.2-libvirt-glib-1.0_1.0.0-1_amd64.deb
     fi
@@ -610,11 +648,11 @@ function install_virt_manager() {
 function install_kvm_linux() {
     sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
     apt update 2>/dev/null
-    apt install build-essential python3-pip gcc pkg-config cpu-checker intltool -y 2>/dev/null
-    apt install gtk-update-icon-cache -y 2>/dev/null
+    aptitude install -f build-essential python3-pip gcc pkg-config cpu-checker intltool libtirpc-dev -y 2>/dev/null
+    aptitude install -f gtk-update-icon-cache -y 2>/dev/null
 
     # WSL support
-    apt install gcc make gnutls-bin -y
+    aptitude install -f gcc make gnutls-bin -y
     # remove old
     apt purge libvirt0 libvirt-bin -y
     install_libvirt
@@ -660,23 +698,19 @@ EOF
 
 function replace_qemu_clues_public() {
     echo '[+] Patching QEMU clues'
-    
     _sed_aux "s/QEMU HARDDISK/$qemu_hd_replacement/g" qemu*/hw/ide/core.c 'QEMU HARDDISK was not replaced in core.c'
     _sed_aux "s/QEMU HARDDISK/$qemu_hd_replacement/g" qemu*/hw/scsi/scsi-disk.c 'QEMU HARDDISK was not replaced in scsi-disk.c'
     _sed_aux "s/QEMU DVD-ROM/$qemu_dvd_replacement/g" qemu*/hw/ide/core.c 'QEMU DVD-ROM was not replaced in core.c'
     _sed_aux "s/QEMU DVD-ROM/$qemu_dvd_replacement/g" qemu*/hw/ide/atapi.c 'QEMU DVD-ROM was not replaced in atapi.c'
-    _sed_aux "s/QEMU PenPartner tablet/DELL PenPartner tablet/g" qemu*/hw/usb/dev-wacom.c 'QEMU PenPartner tablet'
-    _sed_aux 's/s->vendor = g_strdup("QEMU");/s->vendor = g_strdup("DELL");/g' qemu*/hw/scsi/scsi-disk.c 'Vendor string was not replaced in scsi-disk.c'
+    _sed_aux "s/QEMU PenPartner tablet/<WOOT> PenPartner tablet/g" qemu*/hw/usb/dev-wacom.c 'QEMU PenPartner tablet'
+    _sed_aux 's/s->vendor = g_strdup("QEMU");/s->vendor = g_strdup("<WOOT>");/g' qemu*/hw/scsi/scsi-disk.c 'Vendor string was not replaced in scsi-disk.c'
     _sed_aux "s/QEMU CD-ROM/$qemu_dvd_replacement/g" qemu*/hw/scsi/scsi-disk.c 'Vendor string was not replaced in scsi-disk.c'
-    _sed_aux 's/padstr8(buf + 8, 8, "QEMU");/padstr8(buf + 8, 8, "DELL");/g'  qemu*/hw/ide/atapi.c 'padstr was not replaced in atapi.c'
-    _sed_aux 's/QEMU MICRODRIVE/DELL MICRODRIVE/g' qemu*/hw/ide/core.c 'QEMU MICRODRIVE was not replaced in core.c'
+    _sed_aux 's/padstr8(buf + 8, 8, "QEMU");/padstr8(buf + 8, 8, "<WOOT>");/g'  qemu*/hw/ide/atapi.c 'padstr was not replaced in atapi.c'
+    _sed_aux 's/QEMU MICRODRIVE/<WOOT> MICRODRIVE/g' qemu*/hw/ide/core.c 'QEMU MICRODRIVE was not replaced in core.c'
     _sed_aux "s/KVMKVMKVM\\0\\0\\0/$hypervisor_string_replacemnt/g" qemu*/target/i386/kvm.c 'KVMKVMKVM was not replaced in kvm.c'
-    _sed_aux 's/"bochs"/"dell"/g' qemu*/block/bochs.c 'BOCHS was not replaced in block/bochs.c'
+    _sed_aux 's/"bochs"/"<WOOT>"/g' qemu*/block/bochs.c 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'
-    if ! sed -i -E "s/\.model_id = \x22(Westmere|Intel|Genuine Intel|AMD Opteron|AMD Phenom|AMD EPYC)[^\x22]+\x22/.model_id = \"$cpuid\"/g" qemu*/target/i386/cpu.c; then
-        echo 'failed to set cpu $cpuid'; fail=1
-    fi
 }
 
 function replace_seabios_clues_public() {
@@ -686,7 +720,6 @@ function replace_seabios_clues_public() {
     _sed_aux "s/BOCHSCPU/$bochs_cpu_replacement/g" src/config.h 'BOCHSCPU was not replaced in src/config.h'
     _sed_aux 's/"BOCHS "/"DELL"/g' src/config.h 'BOCHS was not replaced in src/config.h'
     _sed_aux 's/BXPC/DELL/g' src/config.h 'BXPC was not replaced in src/config.h'
-    _sed_aux 's/QEMU0001/DELL0001/g' src/fw/ssdt-misc.dsl 'QEMU0001 was not replaced in src/fw/ssdt-misc.dsl'
     _sed_aux "s/QEMU\/Bochs/$qemu_bochs_cpu/g" vgasrc/Kconfig 'QEMU\/Bochs was not replaced in vgasrc/Kconfig'
     _sed_aux "s/qemu /$qemu_space_replacement/g" vgasrc/Kconfig 'qemu was not replaced in vgasrc/Kconfig'
     _sed_aux "s/06\/23\/99/$src_misc_bios_table/g" src/misc.c 'change seabios date 1'
@@ -699,17 +732,17 @@ function replace_seabios_clues_public() {
         src/fw/paravirt.c
     )
     for file in "${FILES[@]}"; do
-        _sed_aux 's/"QEMU/"DELL/g' "$file" "QEMU was not replaced in $file"
+        _sed_aux 's/"QEMU/"<WOOT>/g' "$file" "QEMU was not replaced in $file"
     done
 
-    _sed_aux 's/"QEMU"/"DELL"/g' src/hw/blockcmd.c '"QEMU" was not replaced in  src/hw/blockcmd.c'
+    _sed_aux 's/"QEMU"/"<WOOT>"/g' src/hw/blockcmd.c '"QEMU" was not replaced in  src/hw/blockcmd.c'
 
     FILES=(
         "src/fw/acpi-dsdt.dsl"
         "src/fw/q35-acpi-dsdt.dsl"
     )
     for file in "${FILES[@]}"; do
-        _sed_aux 's/"BXPC"/"DELL"/g' "$file" "BXPC was not replaced in $file"
+        _sed_aux 's/"BXPC"/"<WOOT>"/g' "$file" "BXPC was not replaced in $file"
     done
     _sed_aux 's/"BXPC"/"AMPC"/g' "src/fw/ssdt-pcihp.dsl" 'BXPC was not replaced in src/fw/ssdt-pcihp.dsl'
     _sed_aux 's/"BXDSDT"/"AMDSDT"/g' "src/fw/ssdt-pcihp.dsl" 'BXDSDT was not replaced in src/fw/ssdt-pcihp.dsl'
@@ -734,7 +767,30 @@ function replace_seabios_clues_public() {
     done
 }
 
+function install_jemalloc() {
+
+    # https://zapier.com/engineering/celery-python-jemalloc/
+    cd /tmp || return
+    jelloc_info=$(curl -s https://api.github.com/repos/jemalloc/jemalloc/releases/latest)
+    jelloc_version=$(echo $jelloc_info |jq .tag_name|sed "s/\"//g")
+    jelloc_repo_url=$(echo $jelloc_info | jq ".zipball_url" | sed "s/\"//g")
+    if [ ! -f $jelloc_version ]; then
+        wget -q $jelloc_repo_url
+        unzip -q $jelloc_version
+    fi
+
+    directory=`ls | grep "jemalloc-jemalloc-*"`
+    cd $directory || return
+    ./autogen.sh
+    make -j$(nproc)
+    checkinstall -D --pkgname="jemalloc-$jelloc_version" --pkgversion="$jelloc_version" --default
+    ln -s /usr/local/lib/libjemalloc.so /usr/lib/x86_64-linux-gnu/libjemalloc.so
+}
+
+
 function qemu_func() {
+    cd /tmp || return
+    install_jemalloc
     cd /tmp || return
 
     echo '[+] Cleaning QEMU old install if exists'
@@ -761,15 +817,15 @@ function qemu_func() {
     fail=0
 
     if [ "$OS" = "Linux" ]; then
-        apt install software-properties-common
+        aptitude install -f software-properties-common
         add-apt-repository universe
         apt update 2>/dev/null
-        apt install checkinstall python3-pip openbios-sparc openbios-ppc libssh2-1-dev vde2 liblzo2-dev libghc-gtk3-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev libvde-dev  -y
-        apt install debhelper libusb-1.0-0-dev libxen-dev uuid-dev xfslibs-dev libjpeg-dev libusbredirparser-dev device-tree-compiler texinfo libbluetooth-dev libbrlapi-dev libcap-ng-dev libcurl4-gnutls-dev libfdt-dev gnutls-dev libiscsi-dev libncurses5-dev libnuma-dev libcacard-dev librados-dev librbd-dev libsasl2-dev libseccomp-dev libspice-server-dev \
-        libaio-dev libcap-dev libattr1-dev libpixman-1-dev libgtk2.0-bin libxml2-utils systemtap-sdt-dev uml-utilities -y
+        aptitude install -f python3-pip checkinstall openbios-sparc openbios-ppc libssh2-1-dev vde2 liblzo2-dev libghc-gtk3-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev libvde-dev  -y
+        aptitude install -f debhelper libusb-1.0-0-dev libxen-dev uuid-dev xfslibs-dev libjpeg-dev libusbredirparser-dev device-tree-compiler texinfo libbluetooth-dev libbrlapi-dev libcap-ng-dev libcurl4-gnutls-dev libfdt-dev gnutls-dev libiscsi-dev libncurses5-dev libnuma-dev libcacard-dev librados-dev librbd-dev libsasl2-dev libseccomp-dev libspice-server-dev \
+        libaio-dev libcap-dev libattr1-dev libpixman-1-dev libgtk2.0-bin  libxml2-utils systemtap-sdt-dev uml-utilities -y
         # qemu docs required
         PERL_MM_USE_DEFAULT=1 perl -MCPAN -e install "Perl/perl-podlators"
-        pip3 install sphinx
+        pip3 install sphinx ninja
 
     elif [ "$OS" = "Darwin" ]; then
         _check_brew
@@ -777,7 +833,6 @@ function qemu_func() {
     fi
     # WOOT
     # some checks may be depricated, but keeping them for compatibility with old versions
-
     #if [ $? -eq 0 ]; then
         if declare -f -F "replace_qemu_clues"; then
             replace_qemu_clues
@@ -795,7 +850,7 @@ function qemu_func() {
                 #if [[ -n "$QEMU_TARGERS" ]]; then
                 #    QTARGETS=""
                 #fi
-                ./configure $QTARGETS --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-vnc-png --enable-vnc-jpeg --enable-curl --enable-kvm  --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-libxml2 --enable-tcmalloc --enable-replication --enable-tools --enable-capstone
+                ./configure $QTARGETS --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-vnc-png --enable-vnc-jpeg --enable-curl --enable-kvm  --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-libxml2 --enable-jemalloc --enable-replication --enable-tools --enable-capstone
             elif [ "$OS" = "Darwin" ]; then
                 # --enable-vhost-net --enable-vhost-crypto
                 ./configure --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs  --enable-vnc --enable-vnc-sasl --enable-vnc-png --enable-vnc-jpeg --enable-curl --enable-hax --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool  --enable-libxml2 --enable-tcmalloc --enable-replication --enable-tools --enable-capstone
@@ -807,7 +862,8 @@ function qemu_func() {
                 fi
                 make -j"$(nproc)"
                 if [ "$OS" = "Linux" ]; then
-                    checkinstall -D --pkgname=qemu-$qemu_version --nodoc --showinstall=no --default
+                    checkinstall -D --pkgname=qemu-$qemu_version --nodoc --showinstall=no --default --install=no
+                    apt -y -o Dpkg::Options::="--force-overwrite" install ./qemu-$qemu_version/qemu-$qemu_version_$qemu_version-1_amd64.deb
                 elif [ "$OS" = "Darwin" ]; then
                     make -j"$(nproc)" install
                 fi
@@ -856,7 +912,7 @@ function seabios_func() {
     cd /tmp || return
     fail=0
     echo '[+] Installing SeaBios dependencies'
-    apt install git iasl -y
+    aptitude install -f git acpica-tools -y
     if [ -d seabios ]; then
         rm -r seabios
     fi
@@ -874,6 +930,7 @@ function seabios_func() {
         # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
         # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
         sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config
+        sed -i 's/PYTHON=python/PYTHON=python3/g' Makefile
         if make -j "$(nproc)"; then
             echo '[+] Replacing old bios.bin to new out/bios.bin'
             bios=0
@@ -976,9 +1033,9 @@ cat << EndOfHelp
         yara: error while loading shared libraries: libyara.so.3: cannot open shared object file: No such file or directory
 
     Solution 1:
-        apt install libyara3
+        aptitude install -f libyara3
     Solution 2:
-        sudo echo “/usr/local/lib” >> /etc/ld.so.conf
+        sudo echo "/usr/local/lib" >> /etc/ld.so.conf
         sudo ldconfig
 
     # Fixes from http://ask.xmodulo.com/compile-virt-manager-debian-ubuntu.html
@@ -986,10 +1043,10 @@ cat << EndOfHelp
     $ ./kvm-qemu.sh libvirt
 
     2. ImportError: No module named libxml2
-    $ apt install python-libxml2 python3-libxml2
+    $ pip3 install libxml2-python3
 
     3. ImportError: No module named requests
-    $ apt install python-requests
+    $ aptitude install -f python-requests
 
     4. Error launching details: Namespace GtkVnc not available
     $ ./kvm-qemu.sh libvirt
@@ -998,22 +1055,22 @@ cat << EndOfHelp
     $ ./kvm-qemu.sh libvirt
 
     6. ValueError: Namespace Libosinfo not available
-    $ apt install libosinfo-1.0
+    $ aptitude install -f libosinfo-1.0
 
     7. ImportError: No module named ipaddr
-    $ apt install python-ipaddr
+    $ aptitude install -f python-ipaddr
 
     8. Namespace Gtk not available: Could not open display: localhost:10.0
     8 ValueError: Namespace GtkSource not available
-    $ apt install libgtk-3-dev libgtksourceview-3.0-dev
+    $ aptitude install -f libgtk-3-dev libgtksourceview-3.0-dev
     * Error will specify version, example `gi.require_version("GtkSource", "4")`, if that version is not available for your distro
     * you will need downgrade your virt-manager with `sudo rm -r /usr/share/virt-manager` and install older version
 
     9. ImportError: cannot import name Vte
-    $ apt install gir1.2-vte-2.90
+    $ aptitude install -f gir1.2-vte-2.90
 
     10. TypeError: Couldn't find foreign struct converter for 'cairo.Context'
-    $ apt install python3-gi-cairo
+    $ aptitude install -f python3-gi-cairo
 
 
 EndOfHelp
@@ -1044,8 +1101,8 @@ function install_WebVirtCloud(){
 }
 
 function cloning() {
-    if [ $# -lt 5 ]; then
-        echo '[-] You must provide <VM_NAME> <path_to_hdd> <start_from_number> <#vm_to_create> <path_where_to_store> <network_base>'
+    if [ $# -lt 6 ]; then
+        echo '[-] You must provide <VM_NAME> <path_to_hdd> <start_from_number> <#vm_to_create> <path_where_to_store> <network_base> <full/linked hdd>'
         exit 1
     fi
     for i in $(seq "$3" "$4"); do
@@ -1053,15 +1110,17 @@ function cloning() {
         # bad macaddress can be generated
         while [ $worked -eq 1 ]; do
             macaddr=$(hexdump -n 6 -ve '1/1 "%.2x "' /dev/random | awk -v a="2,6,a,e" -v r="$RANDOM" 'BEGIN{srand(r);}NR==1{split(a,b,",");r=int(rand()*4+1);printf "%s%s:%s:%s:%s:%s:%s\n",substr($1,0,1),b[r],$2,$3,$4,$5,$6}') 2>/dev/null
-            #virt-clone --print-xml -n $1_$i -o $1 -m "$macaddr"
-            if [ ! -f "${5}/${1}_${i}.qcow2" ]; then
-                #Linked snapshots are disabled due to performance problems
-                echo "Creating $5/$1_$i.qcow2"
-                qemu-img create -f qcow2 -F qcow2 -b "$2" "$5/$1_$i.qcow2"
-                #cp "$2" "$5/$1_$i.qcow2"
-            fi
-            #2>/dev/null
-            if virt-clone --print-xml -n "$1_$i" -o "$1" -m "$macaddr" |sed "s|<driver name=\"qemu\" type=\"qcow2\" cache=\"none\" io=\"native\"/>|<driver name=\"qemu\" type=\"qcow2\" cache=\"none\" discard=\"unmap\" detect_zeroes=\"on\" io=\"native\"/>\\n      <source file=\"${5}/${1}_${i}.qcow2\"/>|g" > "$5/$1_$i.xml"; then
+            if virt-clone --print-xml -n "$1_$i" -o "$1" -m "$macaddr" -f "${5}/${1}_${i}.qcow2" |sed "s|<driver name=\"qemu\" type=\"qcow2\" cache=\"none\" io=\"native\"/>|<driver name=\"qemu\" type=\"qcow2\" cache=\"none\" discard=\"unmap\" detect_zeroes=\"on\" io=\"native\"/>|g" > "$5/$1_$i.xml"; then
+                if [ ! -f "${5}/${1}_${i}.qcow2" ]; then
+                    echo "Creating $5/$1_$i.qcow2"
+                    if [ "$7" == "linked"]; then
+                        qemu-img create -f qcow2 -F qcow2 -b "$2" "$5/$1_$i.qcow2"
+                    else
+                    # full clone
+                        cp "$2" "$5/$1_$i.qcow2"
+                    fi
+                fi
+                #2>/dev/null
                 sed -i "s|<domain type='kvm'>|<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>|g" "$5/$1_$i.xml"
                 virsh define "$5/$1_$i.xml"
                 worked=0
@@ -1071,7 +1130,6 @@ function cloning() {
     done
 
     echo "[+] Enjoy"
-
 }
 
 # Doesn't work ${$1,,}
@@ -1107,8 +1165,10 @@ OS="$(uname -s)"
 #make
 
 case "$COMMAND" in
+'issues')
+    issues;;
 'all')
-    apt install language-pack-UTF-8
+    aptitude install -f language-pack-UTF-8
     qemu_func
     seabios_func
     if [ "$OS" = "Linux" ]; then
@@ -1190,9 +1250,11 @@ case "$COMMAND" in
     install_WebVirtCloud;;
 'grub')
     grub_iommu;;
+'jemalloc')
+    install_jemalloc;;
 'mosh')
     if [ "$OS" = "Linux" ]; then
-        sudo apt install mosh -y
+        sudo aptitude install -f mosh -y
     elif [ "$OS" = "Darwin" ]; then
         _check_brew
         brew install mosh

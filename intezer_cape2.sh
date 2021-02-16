@@ -5,19 +5,23 @@
 # This file is part of Tools - https://github.com/doomedraven/Tools
 # See the file 'LICENSE.md' for copying permission.
 
-# Huge thanks to: @NaxoneZ @kevoreilly @ENZOK
+# Huge thanks to: @NaxoneZ @kevoreilly @ENZOK @wmetcalf @ClaudioWayne
 
 
 # Static values
 # Where to place everything
 NETWORK_IFACE=virbr0
 # for tor
-IFACE_IP="192.168.122.1"
+IFACE_IP="192.168.1.1"
 # DB password
-PASSWD="XXXpasswordXXX"
-DIST_MASTER_IP="127.0.0.1"
+PASSWD="change password"
+DIST_MASTER_IP=X.X.X.X
 USER="cape"
-nginx_version=1.18.0
+nginx_version=1.19.6
+prometheus_version=2.20.1
+grafana_version=7.1.5
+node_exporter_version=1.0.1
+guacamole_version=1.2.0
 
 function issues() {
 cat << EOI
@@ -62,8 +66,15 @@ cat << EndOfHelp
         Mongo - Install latest mongodb
         LetsEncrypt - Install dependencies and retrieves certificate
         Dist - will install CAPE distributed stuff
+        ClamAv - Install ClamAV and unofficial signatures
         redsocks2 - install redsocks2
         logrotate - install logrotate config to rotate daily or 10G logs
+        prometheus - Install Prometheus and Grafana
+        node_exporter - Install node_exporter to report data to Prometheus+Grafana, only on worker servers
+        jemalloc - Install jemalloc, required for CAPE to decrease memory usage
+            Details: https://zapier.com/engineering/celery-python-jemalloc/
+        crowdsecurity - Install CrowdSecurity for NGINX and webgui
+        docker - install docker
         Issues - show some known possible bugs/solutions
 
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
@@ -75,11 +86,63 @@ cat << EndOfHelp
 EndOfHelp
 }
 
+function install_crowdsecurity() {
+    sudo apt-get install bash gettext whiptail curl wget
+    cd /tmp || return
+    if [ ! -d crowdsec-release.tgz ]; then
+        curl -s https://api.github.com/repos/crowdsecurity/crowdsec/releases/latest | grep browser_download_url| cut -d '"' -f 4  | wget -i -
+    fi
+    tar xvzf crowdsec-release.tgz
+    directory=`ls | grep "crowdsec-v*"`
+    cd $directory || return
+    sudo ./wizard.sh -i
+    sudo cscli collections install crowdsecurity/nginx
+    sudo systemctl reload crowdsec
+    install_docker
+    sudo cscli dashboard setup -l 127.0.0.1 -p 8448
+
+    wget https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v0.0.4/cs-nginx-bouncer.tgz
+    tar xvzf cs-nginx-bouncer.tgz
+    directory=`ls | grep "cs-nginx-bouncer*"`
+    cd $directory || return
+    sudo ./install.sh
+}
+
+function install_docker() {
+    # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
+    sudo apt install apt-transport-https ca-certificates curl software-properties-common
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+    sudo apt update
+    sudo apt install docker-ce
+    sudo usermod -aG docker ${USER}
+}
+
+function install_jemalloc() {
+
+    # https://zapier.com/engineering/celery-python-jemalloc/
+    cd /tmp || return
+    jelloc_info=$(curl -s https://api.github.com/repos/jemalloc/jemalloc/releases/latest)
+    jelloc_version=$(echo $jelloc_info |jq .tag_name|sed "s/\"//g")
+    jelloc_repo_url=$(echo $jelloc_info | jq ".zipball_url" | sed "s/\"//g")
+    if [ ! -f $jelloc_version ]; then
+        wget -q $jelloc_repo_url
+        unzip -q $jelloc_version
+    fi
+
+    directory=`ls | grep "jemalloc-jemalloc-*"`
+    cd $directory || return
+    ./autogen.sh
+    make -j$(nproc)
+    checkinstall -D --pkgname="jemalloc-$jelloc_version" --pkgversion="$jelloc_version" --default
+    ln -s /usr/local/lib/libjemalloc.so /usr/lib/x86_64-linux-gnu/libjemalloc.so
+}
+
 function install_nginx() {
     wget http://nginx.org/download/nginx-$nginx_version.tar.gz
     wget http://nginx.org/download/nginx-$nginx_version.tar.gz.asc
     gpg --verify "nginx-$nginx_version.tar.gz.asc"
-    unzip nginx-$nginx_version.tar.gz
+    tar xfz nginx-$nginx_version.tar.gz
 
     # PCRE version 8.42
     wget https://ftp.pcre.org/pub/pcre/pcre-8.42.tar.gz && tar xzvf pcre-8.42.tar.gz
@@ -96,7 +159,7 @@ function install_nginx() {
 
     cd nginx-$nginx_version
 
-    sudo cp nginx-$nginx_version/man/nginx.8 /usr/share/man/man8
+    sudo cp man/nginx.8 /usr/share/man/man8
     sudo gzip /usr/share/man/man8/nginx.8
     ls /usr/share/man/man8/ | grep nginx.8.gz
 
@@ -106,7 +169,7 @@ function install_nginx() {
                 --conf-path=/etc/nginx/nginx.conf \
                 --error-log-path=/var/log/nginx/error.log \
                 --http-log-path=/var/log/nginx/access.log \
-                --pid-path=/run/nginx.pid \
+                --pid-path=/tmp/nginx.pid \
                 --lock-path=/var/lock/nginx.lock \
                 --user=www-data \
                 --group=www-data \
@@ -141,6 +204,7 @@ function install_nginx() {
                 --with-http_sub_module \
                 --with-http_stub_status_module \
                 --with-http_v2_module \
+                #--with-http_v3_module \
                 --with-http_secure_link_module \
                 --with-mail \
                 --with-mail_ssl_module \
@@ -152,7 +216,7 @@ function install_nginx() {
                 --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2' \
                 --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
 
-make -j$(nproc)
+    make -j$(nproc)
     checkinstall -D --pkgname="nginx-$nginx_version" --pkgversion="$nginx_version" --default
     sudo ln -s /usr/lib/nginx/modules /etc/nginx/modules
     sudo adduser --system --home /nonexistent --shell /bin/false --no-create-home --disabled-login --disabled-password --gecos "nginx user" --group nginx
@@ -161,8 +225,8 @@ make -j$(nproc)
     sudo chmod 700 /var/cache/nginx/*
     sudo chown nginx:root /var/cache/nginx/*
 
-    if [ ! -f /etc/systemd/system/nginx.service ]; then
-        sudo cat >> /etc/systemd/system/nginx.service << EOF
+    if [ ! -f /lib/systemd/system/nginx.service ]; then
+        sudo cat >> /lib/systemd/system/nginx.service << EOF
 [Unit]
 Description=nginx - high performance web server
 Documentation=https://nginx.org/en/docs/
@@ -171,7 +235,7 @@ Wants=network-online.target
 
 [Service]
 Type=forking
-PIDFile=/var/run/nginx.pid
+PIDFile=/tmp/nginx.pid
 ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx.conf
 ExecStart=/usr/sbin/nginx -c /etc/nginx/nginx.conf
 ExecReload=/bin/kill -s HUP $MAINPID
@@ -203,8 +267,8 @@ EOF
     create 640 nginx adm
     sharedscripts
     postrotate
-    if [ -f /var/run/nginx.pid ]; then
-            kill -USR1 `cat /var/run/nginx.pid`
+    if [ -f /tmp/nginx.pid ]; then
+            kill -USR1 `cat /tmp/nginx.pid`
     fi
     endscript
 }
@@ -223,14 +287,22 @@ server {
 }
 
 server {
+     if ($http_user_agent = "") {
+        return 444;
+    }
     # SSL configuration
     listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    //listen [::]:443 ssl http2;
+    //listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
     ssl        on;
+    //ssl_protocols       TLSv1.3; # QUIC requires TLS 1.3
     ssl_certificate         /etc/letsencrypt/live/$1/fullchain.pem;
     ssl_certificate_key     /etc/letsencrypt/live/$1/privkey.pem;
     ssl_client_certificate /etc/ssl/certs/cloudflare.crt;
     ssl_verify_client on;
+
+    //add_header Alt-Svc 'quic=":443"'; # Advertise that QUIC is available
+    //add_header QUIC-Status $quic;     # Sent when QUIC was used
 
     server_name $1 www.$1;
     location / {
@@ -349,7 +421,7 @@ function distributed() {
     sudo chown mongodb:mongodb /data/ -R
     cat >> /etc/uwsgi/apps-available/sandbox_api.ini << EOL
 [uwsgi]
-    plugins = python
+    plugins = python3
     callable = application
     ;change this patch if is different
     chdir = /opt/CAPEv2/utils
@@ -375,14 +447,14 @@ EOL
     ln -s /etc/uwsgi/apps-available/sandbox_api.ini /etc/uwsgi/apps-enabled
     service uwsgi restart
 
-    if [ ! -f /etc/systemd/system/mongos.service ]; then
-        cat >> /etc/systemd/system/mongos.service << EOL
+    if [ ! -f /lib/systemd/system/mongos.service ]; then
+        cat >> /lib/systemd/system/mongos.service << EOL
 [Unit]
 Description=Mongo shard service
 After=network.target
 After=bind9.service
 [Service]
-PIDFile=/var/run/mongos.pid
+PIDFile=/tmp/mongos.pid
 User=root
 ExecStart=/usr/bin/mongos --configdb cape_config/${DIST_MASTER_IP}:27019 --port 27020
 [Install]
@@ -402,7 +474,7 @@ fi
 function install_suricata() {
     echo '[+] Installing Suricata'
 
-    add-apt-repository ppa:oisf/suricata-stable
+    add-apt-repository ppa:oisf/suricata-stable -y
     apt install suricata -y
     touch /etc/suricata/threshold.config
 
@@ -420,9 +492,9 @@ function install_suricata() {
     # Download etupdate to update Emerging Threats Open IDS rules:
     pip3 install suricata-update
     mkdir -p "/etc/suricata/rules"
-    crontab -l | { cat; echo "15 * * * * sudo /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/"; } | crontab -
-    crontab -l | { cat; echo "15 * * * * /usr/bin/suricatasc -c reload-rules"; } | crontab -
-
+    if ! crontab -l | grep -q '15 * * * * /usr/bin/suricata-update'; then
+        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
+    fi
     if [ -d /usr/share/suricata/rules/ ]; then
         cp "/usr/share/suricata/rules/*" "/etc/suricata/rules/"
     fi
@@ -438,15 +510,17 @@ function install_suricata() {
     sed -i 's/mpm-algo: ac/mpm-algo: hs/g' /etc/suricata/suricata.yaml
     sed -i 's/mpm-algo: auto/mpm-algo: hs/g' /etc/suricata/suricata.yaml
     sed -i 's/#run-as:/run-as:/g' /etc/suricata/suricata.yaml
-    sed -i 's/#  user: suri/   user: ${USER}/g' /etc/suricata/suricata.yaml
-    sed -i 's/#  group: suri/   group: ${USER}/g' /etc/suricata/suricata.yaml
+    sed -i "s/#  user: suri/   user: ${USER}/g" /etc/suricata/suricata.yaml
+    sed -i "s/#  group: suri/   group: ${USER}/g" /etc/suricata/suricata.yaml
     sed -i 's/    depth: 1mb/    depth: 0/g' /etc/suricata/suricata.yaml
     sed -i 's/request-body-limit: 100kb/request-body-limit: 0/g' /etc/suricata/suricata.yaml
     sed -i 's/response-body-limit: 100kb/response-body-limit: 0/g' /etc/suricata/suricata.yaml
     sed -i 's/EXTERNAL_NET: "!$HOME_NET"/EXTERNAL_NET: "ANY"/g' /etc/suricata/suricata.yaml
-    sed -i 's/#pid-file: /var/run/suricata.pid/pid-file: /var/run/suricata.pid/g' /etc/suricata/suricata.yaml
+    sed -i 's|#pid-file: /var/run/suricata.pid|pid-file: /tmp/suricata.pid|g' /etc/suricata/suricata.yaml
+    sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml
     #-k none
-    sed -i 's/#checksum-validation: nones/checksum-validation: nones/g' /etc/suricata/suricata.yaml
+    sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
+    sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
 
     # enable eve-log
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
@@ -488,12 +562,13 @@ function install_yara() {
 function install_mongo(){
     echo "[+] Installing MongoDB"
 
+    # $(lsb_release -cs) on 20.04 they uses 18.04 repo
     wget -qO - https://www.mongodb.org/static/pgp/server-4.2.asc | sudo apt-key add -
-    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/4.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
+    echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
 
     apt update 2>/dev/null
     apt install libpcre3-dev -y
-    apt install -y mongodb-org-mongos mongodb-org-server mongodb-org-shell mongodb-org-tools
+    apt install -y mongodb-org
     pip3 install pymongo -U
 
     apt install -y ntp
@@ -505,16 +580,17 @@ function install_mongo(){
         echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
     fi
 
-    if [ -f /etc/systemd/system/mongod.service ]; then
+    if [ -f /lib/systemd/system/mongod.service ]; then
         systemctl stop mongod.service
         systemctl disable mongod.service
-        rm /etc/systemd/system/mongod.service
+        rm /lib/systemd/system/mongod.service
+	rm /lib/systemd/system/mongod.service
         systemctl daemon-reload
     fi
 
-    if [ ! -f /etc/systemd/system/mongodb.service ]; then
+    if [ ! -f /lib/systemd/system/mongodb.service ]; then
         crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-        cat >> /etc/systemd/system/mongodb.service <<EOF
+        cat >> /lib/systemd/system/mongodb.service <<EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
@@ -546,15 +622,15 @@ EOF
 }
 
 function install_postgresql() {
-    echo "[+] Installing PostgreSQL 12"
+    echo "[+] Installing PostgreSQL"
 
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
     echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update -y
-    sudo apt -y install libpq-dev postgresql-12 postgresql-client-12
+    sudo apt -y install libpq-dev postgresql postgresql-client
 
-    pip3 install psycopg2
+    pip3 install psycopg2-binary
 }
 
 function dependencies() {
@@ -570,36 +646,33 @@ function dependencies() {
 
     # deps
     apt install python3-pip -y
-    apt install psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
+    apt install iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
     apt install upx-ucl libssl-dev wget zip unzip p7zip-full rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install ssdeep uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
-    #clamav clamav-daemon clamav-freshclam
+    apt install openvpn wireguard -y
     # if broken sudo python -m pip uninstall pip && sudo apt install python-pip --reinstall
     #pip3 install --upgrade pip
     # /usr/bin/pip
     # from pip import __main__
     # if __name__ == '__main__':
     #     sys.exit(__main__._main())
-    #httpreplay not py3
-    pip3 install Pebble bson pymisp cryptography requests[security] pyOpenSSL pefile tldextract imagehash oletools olefile "networkx>=2.1" mixbox capstone PyCrypto voluptuous xmltodict future python-dateutil requests_file "gevent==20.4.0" simplejson pyvmomi pyinstaller maec regex xmltodict -U
-    pip3 install git+https://github.com/doomedraven/sflock.git git+https://github.com/doomedraven/socks5man.git pyattck>=2.0.2 distorm3 openpyxl git+https://github.com/volatilityfoundation/volatility3 git+https://github.com/DissectMalware/XLMMacroDeobfuscator
-    #config parsers
-    pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP.git git+https://github.com/kevthehermit/RATDecoders.git
+
+    # pip3 install flare-capa fails for me
+    cd /tmp || return
+    if [ ! -d /tmp/capa ]; then
+        git clone --recurse-submodules https://github.com/fireeye/capa.git
+    fi
+    cd capa || return
+    git pull
+    git submodule update --init rules
+    pip3 install .
+
     # re2
     apt install libre2-dev -y
     #re2 for py3
     pip3 install cython
     pip3 install git+https://github.com/andreasvc/pyre2.git
-
-    #thanks Jurriaan <3
-    pip3 install git+https://github.com/jbremer/peepdf.git
-    pip3 install matplotlib==2.2.2 numpy==1.15.0 six>=1.12.0 statistics==1.0.3.5
-
-    pip3 install "django>3" git+https://github.com/jsocol/django-ratelimit.git
-    pip3 install sqlalchemy sqlalchemy-utils jinja2 markupsafe bottle chardet pygal rarfile jsbeautifier dpkt nose dnspython pytz requests[socks] python-magic geoip pillow java-random python-whois bs4 pype32-py3 git+https://github.com/kbandla/pydeep.git flask flask-restful flask-sqlalchemy pyvmomi
-    apt install -y openjdk-11-jdk-headless
-    apt install -y openjdk-8-jdk-headless
 
     install_postgresql
 
@@ -614,7 +687,11 @@ function dependencies() {
     aa-disable /usr/sbin/tcpdump
     # ToDo check if user exits
 
-    useradd -s /bin/bash -d /home/${USER}/ -m ${USER}
+    if id "${USER}" &>/dev/null; then
+        echo 'user ${USER} already exist'
+    else
+        useradd -s /bin/bash -d /home/${USER}/ -m ${USER}
+    fi
     usermod -G ${USER} -a ${USER}
     groupadd pcap
     usermod -a -G pcap ${USER}
@@ -697,30 +774,161 @@ EOF
     pip3 install unicorn capstone
 }
 
+function install_clamav() {
+    apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
+    pip3 install -U pyclamd
+
+    cat >> /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf << EOF
+# This file contains user configuration settings for the clamav-unofficial-sigs.sh
+# Script provide by Bill Landry (unofficialsigs@gmail.com).
+# Script updates can be found at: http://sourceforge.net/projects/unofficial-sigs
+# License: BSD (Berkeley Software Distribution)
+PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+export PATH
+clam_user="clamav"
+clam_group="clamav"
+setmode="yes"
+clam_dbs="/var/lib/clamav"
+clamd_pid="/var/run/clamd.pid"
+reload_dbs="no"
+reload_opt="clamdscan --reload"  # Default
+enable_random="yes"
+min_sleep_time="60"    # Default minimum is 60 seconds (1 minute).
+max_sleep_time="600"   # Default maximum is 600 seconds (10 minutes).
+# ========================
+# Sanesecurity Database(s)
+# ========================
+# http://www.sanesecurity.com/clamav/databases.htm
+ss_dbs="
+   blurl.ndb
+   junk.ndb
+   jurlbl.ndb
+   phish.ndb
+   rogue.hdb
+   sanesecurity.ftm
+   scam.ndb
+   sigwhitelist.ign2
+   spamattach.hdb
+   spamimg.hdb
+   winnow.attachments.hdb
+   winnow_bad_cw.hdb
+   winnow_extended_malware.hdb
+   winnow_malware.hdb
+   winnow_malware_links.ndb
+   doppelstern.hdb
+   bofhland_cracked_URL.ndb
+   bofhland_malware_attach.hdb
+   bofhland_malware_URL.ndb
+   bofhland_phishing_URL.ndb
+   crdfam.clamav.hdb
+   phishtank.ndb
+   porcupine.ndb
+   foxhole_filename.cdb
+   foxhole_all.cdb
+"
+# ========================
+# SecuriteInfo Database(s)
+# ========================
+si_dbs="
+   honeynet.hdb
+   securiteinfo.hdb
+   securiteinfobat.hdb
+   securiteinfodos.hdb
+   securiteinfoelf.hdb
+   securiteinfohtml.hdb
+   securiteinfooffice.hdb
+   securiteinfopdf.hdb
+   securiteinfosh.hdb
+"
+si_update_hours="4"   # Default is 4 hours (6 update checks daily).
+mbl_dbs="
+   mbl.ndb
+"
+mbl_update_hours="6"   # Default is 6 hours (4 downloads daily).
+rsync_connect_timeout="15"
+rsync_max_time="60"
+curl_connect_timeout="15"
+curl_max_time="90"
+work_dir="/usr/unofficial-dbs"   #Top level working directory
+# Sub-directory names:
+ss_dir="$work_dir/ss-dbs"        # Sanesecurity sub-directory
+si_dir="$work_dir/si-dbs"        # SecuriteInfo sub-directory
+mbl_dir="$work_dir/mbl-dbs"      # MalwarePatrol sub-directory
+config_dir="$work_dir/configs"   # Script configs sub-directory
+gpg_dir="$work_dir/gpg-key"      # Sanesecurity GPG Key sub-directory
+add_dir="$work_dir/add-dbs"      # User defined databases sub-directory
+# If you would like to make a backup copy of the current running database
+# file before updating, leave the following variable set to "yes" and a
+# backup copy of the file will be created in the production directory
+# with -bak appended to the file name.
+keep_db_backup="no"
+# If you want to silence the information reported by curl, rsync, gpg
+# or the general script comments, change the following variables to
+# "yes".  If all variables are set to "yes", the script will output
+# nothing except error conditions.
+curl_silence="no"      # Default is "no" to report curl statistics
+rsync_silence="no"     # Default is "no" to report rsync statistics
+gpg_silence="no"       # Default is "no" to report gpg signature status
+comment_silence="no"   # Default is "no" to report script comments
+# Log update information to '$log_file_path/$log_file_name'.
+enable_logging="yes"
+log_file_path="/var/log"
+log_file_name="clamav-unofficial-sigs.log"
+# If necessary to proxy database downloads, define the rsync and/or curl
+# proxy settings here.  For rsync, the proxy must support connections to
+# port 873.  Both curl and rsync proxy setting need to be defined in the
+# format of "hostname:port".  For curl, also note the -x and -U flags,
+# which must be set as "-x hostname:port" and "-U username:password".
+rsync_proxy=""
+curl_proxy=""
+# After you have completed the configuration of this file, set the
+# following variable to "yes".
+user_configuration_complete="no"
+################################################################################
+#                          END OF USER CONFIGURATION                           #
+################################################################################
+add_dbs="
+    https://raw.githubusercontent.com/wmetcalf/clam-punch/master/miscreantpunch099.ldb
+    https://raw.githubusercontent.com/wmetcalf/clam-punch/master/exexor99.ldb
+    https://raw.githubusercontent.com/twinwave-security/twinclams/master/twinclams.ldb
+    https://raw.githubusercontent.com/twinwave-security/twinclams/master/twinwave.ign2
+"
+EOF
+    chown root:root /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
+    chmod 644 /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
+    usermod -a -G ${USER} clamav
+    echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
+    sudo systemctl enable clamav-daemon
+    sudo systemctl start clamav-daemon
+    sudo -u clamav /usr/sbin/clamav-unofficial-sigs
+}
+
 function install_CAPE() {
     echo "[+] Installing CAPEv2"
 
     cd /opt || return
-    git clone https://github.com/intezer/CAPEv2/
+    git clone https://github.com/intezer/CAPEv2.git
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
+    pip3 install -r /opt/CAPEv2/requirements.txt
+
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" /opt/CAPEv2/conf/cuckoo.conf
     sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" /opt/CAPEv2/conf/routing.conf
-    sed -i "/memory_dump = off/cmemory_dump = on" /opt/CAPEv2/conf/cuckoo.conf
-    sed -i "/machinery =/cmachinery = kvm" /opt/CAPEv2/conf/cuckoo.conf
+    #sed -i "/memory_dump = off/cmemory_dump = on" /opt/CAPEv2/conf/cuckoo.conf
+    #sed -i "/machinery =/cmachinery = kvm" /opt/CAPEv2/conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" /opt/CAPEv2/conf/auxiliary.conf
 
     cd CAPEv2 || return
-    python3 utils/community.py -af
+    python3 utils/community.py -waf -cr
 }
 
 function install_systemd() {
 
-    if [ ! -f /etc/systemd/system/cape-processor.service ]; then
-        cat >> /etc/systemd/system/cape-processor.service << EOL
+    if [ ! -f /lib/systemd/system/cape-processor.service ]; then
+        cat >> /lib/systemd/system/cape-processor.service << EOL
 [Unit]
 Description=CAPEv2 report processor
 Documentation=https://github.com/kevoreilly/CAPEv2
@@ -741,8 +949,8 @@ WantedBy=multi-user.target
 EOL
 fi
 
-    if [ ! -f /etc/systemd/system/cape-rooter.service ]; then
-        cat >> /etc/systemd/system/cape-rooter.service << EOL
+    if [ ! -f /lib/systemd/system/cape-rooter.service ]; then
+        cat >> /lib/systemd/system/cape-rooter.service << EOL
 [Unit]
 Description=CAPE rooter
 Documentation=https://github.com/kevoreilly/CAPEv2
@@ -751,7 +959,7 @@ After=syslog.target network.target
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStart=/usr/bin/python3 rooter.py -g ${USER}
+ExecStart=/usr/bin/python3 rooter.py --iptables /usr/sbin/iptables --iptables-restore /usr/sbin/iptables-restore --iptables-save /usr/sbin/iptables-save -g ${USER}
 User=root
 Group=root
 Restart=always
@@ -762,8 +970,8 @@ WantedBy=multi-user.target
 EOL
 fi
 
-    if [ ! -f /etc/systemd/system/cape-web.service ]; then
-        cat >> /etc/systemd/system/cape-web.service << EOL
+    if [ ! -f /lib/systemd/system/cape-web.service ]; then
+        cat >> /lib/systemd/system/cape-web.service << EOL
 [Unit]
 Description=CAPE WSGI app
 Documentation=https://github.com/kevoreilly/CAPEv2
@@ -784,13 +992,14 @@ WantedBy=multi-user.target
 EOL
 fi
 
-    if [ ! -f /etc/systemd/system/mongos.service ]; then
-        cat >> /etc/systemd/system/mongos.service << EOL
+    if [ ! -f /lib/systemd/system/cape.service ]; then
+        cat >> /lib/systemd/system/cape.service << EOL
 [Unit]
 Description=CAPE
 Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
+Environment=LD_PRELOAD=libjemalloc.so
 WorkingDirectory=/opt/CAPEv2/
 ExecStart=/usr/bin/python3 cuckoo.py
 User=${USER}
@@ -803,8 +1012,8 @@ WantedBy=multi-user.target
 EOL
 fi
 
-    if [ ! -f /etc/systemd/system/suricata.service ]; then
-        cat >> /etc/systemd/system/suricata.service << EOL
+    if [ ! -f /lib/systemd/system/suricata.service ]; then
+        cat >> /lib/systemd/system/suricata.service << EOL
 [Unit]
 Description=Suricata IDS/IDP daemon
 After=network.target
@@ -817,11 +1026,11 @@ Type=forking
 #Environment=LD_PREDLOAD=/usr/lib/libtcmalloc_minimal.so.4
 #Environment=CFG=/etc/suricata/suricata.yaml
 #CapabilityBoundingSet=CAP_NET_ADMIN
-ExecStartPre=/bin/rm -f /var/run/suricata.pid
+ExecStartPre=/bin/rm -f /tmp/suricata.pid
 ExecStart=/usr/bin/suricata -D -c /etc/suricata/suricata.yaml --unix-socket
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill $MAINPID
-PrivateTmp=yes
+PrivateTmp=no
 InaccessibleDirectories=/home /root
 ReadOnlyDirectories=/boot /usr /etc
 User=root
@@ -833,6 +1042,21 @@ fi
 
 
     systemctl daemon-reload
+    systemctl enable cape-rooter
+    systemctl start cape-rooter
+
+    systemctl enable cape
+    systemctl start cape
+
+    systemctl enable cape-processor
+    systemctl start cape-processor
+
+    systemctl enable cape-web
+    systemctl start cape-web
+
+    systemctl enable suricata
+    systemctl start suricata
+
 }
 
 function supervisor() {
@@ -851,8 +1075,8 @@ function supervisor() {
 	echo_supervisord_conf > /etc/supervisor/supervisord.conf
     fi
 
-    if [ ! -f /etc/systemd/system/supervisor.service ]; then
-        cat >> /etc/systemd/system/supervisor.service <<EOF
+    if [ ! -f /lib/systemd/system/supervisor.service ]; then
+        cat >> /lib/systemd/system/supervisor.service <<EOF
 [Unit]
 Description=Supervisor process control system for UNIX
 Documentation=http://supervisord.org
@@ -956,6 +1180,47 @@ EOF
     # msoffice decrypt encrypted files
 }
 
+function install_prometheus_grafana() {
+
+    # install only on master only master
+    wget https://github.com/prometheus/prometheus/releases/download/v$prometheus_version/prometheus-$prometheus_version.linux-amd64.tar.gz && tar xf prometheus-$prometheus_version.linux-amd64.tar.gz
+    cd prometheus-$prometheus_version.linux-amd6 && ./prometheus --config.file=prometheus.yml &
+
+    sudo apt-get install -y adduser libfontconfig1
+    wget https://dl.grafana.com/oss/release/grafana_$grafana_version_amd64.deb
+    sudo dpkg -i grafana_$grafana_version_amd64.deb
+
+    systemctl enable grafana
+    cat << EOL
+    Edit grafana config to listen on correct interface, default localhost, then
+    systemctl start grafana
+    Add prometheus data source: https://prometheus.io/docs/visualization/grafana/
+    Add this dashboard: https://grafana.com/grafana/dashboards/11074
+EOL
+}
+
+function install_node_exporter() {
+    # deploy on all all monitoring servers
+    wget https://github.com/prometheus/node_exporter/releases/download/v$node_exporter_version/node_exporter-$node_exporter_version.linux-amd64.tar.gz && tar xf node_exporter-$node_exporter_version.linux-amd64.tar.gz
+    cd node_exporter-$node_exporter_version.linux-amd6 && ./node_exporter &
+}
+
+function install_guacamole() {
+    # https://guacamole.apache.org/doc/gug/installing-guacamole.html
+    sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp2-2 #libfreerdp-dev
+    sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+    # https://downloads.apache.org/guacamole/$guacamole_version/source/
+    mkdir /tmp/guac-build && cd /tmp/guac-build
+    wget https://downloads.apache.org/guacamole/$guacamole_version/source/guacamole-server-$guacamole_version.tar.gz
+    wget https://downloads.apache.org/guacamole/$guacamole_version/source/guacamole-server-$guacamole_version.tar.gz.asc
+    ./configure --with-systemd-dir=/lib/systemd/system
+    make -j"$(getconf _NPROCESSORS_ONLN)"
+    sudo checkinstall -D --pkgname=guacamole-server-$guacamole --pkgversion="$guacamole_version" --default
+    sudo ldconfig
+    sudo systemctl enable guacd
+    sudo systemctl start guacd
+
+}
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "[A-Z]" "[a-z]")
 
@@ -993,7 +1258,16 @@ case "$COMMAND" in
     install_yara
     install_CAPE
     install_systemd
-    crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh"; } | crontab -
+    install_jemalloc
+    if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
+        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+    fi
+    # Update FLARE CAPA rules and community every 3 hours
+    if ! crontab -l | grep -q 'community.py -waf -cr'; then
+        crontab -l | { cat; echo "5 */3 * * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    fi
+
+
     ;;
 'all')
     dependencies
@@ -1006,13 +1280,19 @@ case "$COMMAND" in
         install_CAPE
     fi
     install_systemd
+    install_jemalloc
     install_logrotate
-    redsocks2
     #socksproxies is to start redsocks stuff
     if [ -f /opt/CAPEv2/socksproxies.sh ]; then
         crontab -l | { cat; echo "@reboot /opt/CAPEv2/socksproxies.sh"; } | crontab -
     fi
-    crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh"; } | crontab -
+    if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
+        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+    fi
+    # Update FLARE CAPA rules once per day
+    if ! crontab -l | grep -q 'community.py -cr'; then
+        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && python3 community.py -cr && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    fi
     ;;
 'systemd')
     install_systemd;;
@@ -1049,6 +1329,20 @@ case "$COMMAND" in
     install_nginx;;
 'letsencrypt')
     install_letsencrypt;;
+'clamav')
+    install_clamav;;
+'prometheus')
+    install_prometheus_grafana;;
+'node_exporter')
+    install_node_exporter;;
+'jemalloc')
+    install_jemalloc;;
+'guacamole')
+    install_guacamole;;
+'docker')
+    install_docker;;
+'crowdsecurity')
+    install_crowdsecurity;;
 *)
     usage;;
 esac

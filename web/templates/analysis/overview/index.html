@@ -4,9 +4,9 @@
     {% for config_block in analysis.malware_conf %}
         {% for family, config in config_block.items %}
 
-        <div class="card-header"><a class="accordion-toggle" data-toggle="collapse" href="#{{family}}_config"
-                aria-expanded="false"><i class="fas fa-tasks"></i> {{family}} Config</a></div>
-        <div id="{{family}}_config" class="collapse">
+        <div class="card-header">
+            <a style="color:red;" class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i> {{family}} Config</a></div>
+        <div id="{{family}}_config" class="collapse show">
             <table class="table table-striped table-bordered" style="table-layout: fixed;">
                 <tr>
                     <th style="border-top: 0; width: 15%;">Type</th>

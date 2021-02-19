@@ -233,12 +233,6 @@ $(document).ready( function() {
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
                                         {% endif %}
-                                        {% if inetsim %}
-                                            <option value="inetsim">inetsim/fakenet-ng</option>
-                                        {% endif %}
-                                        {% if tor %}
-                                            <option value="tor">tor</option>
-                                        {% endif %}
                                         {% for vpn in vpns %}
                                             <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
                                         {% endfor %}
@@ -250,6 +244,12 @@ $(document).ready( function() {
                                         {% endfor %}
                                         {% if socks5s_random %}
                                             <option value="{{socks5s_random}}" selected>{{socks5s_random}} (socks5)</option>
+                                        {% endif %}
+                                        {% if inetsim %}
+                                            <option value="inetsim">inetsim/fakenet-ng</option>
+                                        {% endif %}
+                                        {% if tor %}
+                                            <option value="tor">tor</option>
                                         {% endif %}
                                         <option value="none" >Drop all VM traffic</option>
                                     </select>

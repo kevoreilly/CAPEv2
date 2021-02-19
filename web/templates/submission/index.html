@@ -233,17 +233,11 @@ $(document).ready( function() {
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
                                         {% endif %}
-                                        {% for vpn in vpns %}
-                                            <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
-                                        {% endfor %}
                                         {% if vpn_random %}
-                                            <option value="{{vpn_random}}" selected>{{vpn_random}} (vpn)</option>
+                                            <option value="{{vpn_random.description}}" selected>{{vpn_random.description}} (vpn)</option>
                                         {% endif %}
-                                        {% for socks5 in socks5s|dictsort:"0.lower" %}
-                                            <option value="{{ socks5.name }}"{% if route == socks5.name %} selected{% endif %}>{{ socks5.description }} (socks5)</option>
-                                        {% endfor %}
                                         {% if socks5s_random %}
-                                            <option value="{{socks5s_random}}" selected>{{socks5s_random}} (socks5)</option>
+                                            <option value="{{socks5s_random.description}}" selected>{{socks5s_random.description}} (socks5)</option>
                                         {% endif %}
                                         {% if inetsim %}
                                             <option value="inetsim">inetsim/fakenet-ng</option>
@@ -251,6 +245,13 @@ $(document).ready( function() {
                                         {% if tor %}
                                             <option value="tor">tor</option>
                                         {% endif %}
+                                        {% for vpn in vpns %}
+                                            <option value="{{ vpn.name }}">{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
+                                        {% endfor %}
+
+                                        {% for socks5 in socks5s|dictsort:"0.lower" %}
+                                            <option value="{{ socks5.name }}">{{ socks5.description }} (socks5)</option>
+                                        {% endfor %}
                                         <option value="none" >Drop all VM traffic</option>
                                     </select>
                                 </div>

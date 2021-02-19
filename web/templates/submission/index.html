@@ -242,6 +242,9 @@ $(document).ready( function() {
                                         {% for vpn in vpns %}
                                             <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
                                         {% endfor %}
+                                        {% if vpn_random %}
+                                            <option value="{{vpn_random}}" selected>{{vpn_random}} (vpn)</option>
+                                        {% endif %}
                                         {% for socks5 in socks5s|dictsort:"0.lower" %}
                                             <option value="{{ socks5.name }}"{% if route == socks5.name %} selected{% endif %}>{{ socks5.description }} (socks5)</option>
                                         {% endfor %}

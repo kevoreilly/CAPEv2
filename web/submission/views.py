@@ -492,7 +492,7 @@ def index(request, resubmit_hash=False):
             socks5s_random = random.choice(socks5s.values()).get("description", False)
 
         if routing.vpn.random_vpn:
-            vpn_random =  random.choice(vpns.values())
+            vpn_random =  random.choice(list(vpns.values()))
 
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)

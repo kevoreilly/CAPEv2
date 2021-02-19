@@ -488,10 +488,10 @@ def index(request, resubmit_hash=False):
         socks5s_random = ""
         vpn_random = ""
 
-        if cfg.routing.random_socks5 and socks5s:
+        if routing.socks5.vpn and socks5s:
             socks5s_random = random.choice(socks5s.values()).get("description", False)
 
-        if cfg.routing.random_vpn:
+        if routing.vpn.random_vpn:
             vpn_random =  random.choice(vpns.values())
 
         if socks5s:

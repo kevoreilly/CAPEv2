@@ -484,7 +484,16 @@ def index(request, resubmit_hash=False):
         packages, machines = get_form_data("windows")
 
         socks5s = _load_socks5_operational()
+
         socks5s_random = ""
+        vpn_random = ""
+
+        if cfg.routing.random_socks5 and socks5s:
+            socks5s_random = random.choice(socks5s.values()).get("description", False)
+
+        if cfg.routing.random_vpn:
+            vpn_random =  random.choice(vpns.values())
+
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)
 
@@ -502,6 +511,7 @@ def index(request, resubmit_hash=False):
                 "packages": sorted(packages),
                 "machines": machines,
                 "vpns": list(vpns.values()),
+                "vpn_random": vpn_random,
                 "socks5s": list(socks5s.values()),
                 "socks5s_random": socks5s_random,
                 "route": routing.routing.route,

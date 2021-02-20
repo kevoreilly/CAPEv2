@@ -28,6 +28,18 @@ a {
     display: block !important;
 }
 
+.nav-link {
+    padding: .5rem 1rem;
+}
+
+element.style {
+    font-size: 14px;
+}
+
+.card-body {
+    padding: 1.0rem;
+}
+
 a:hover {
     color: #EE1B2F
 }

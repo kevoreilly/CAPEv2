@@ -6,7 +6,7 @@ import json
 import logging
 import hashlib
 import tempfile
-from random import choice, choices
+from random import choice
 from datetime import datetime, timedelta
 from collections import OrderedDict
 

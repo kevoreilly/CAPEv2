@@ -10,7 +10,6 @@ import sys
 import logging
 import tempfile
 import random
-import datetime
 
 try:
     import re2 as re
@@ -28,8 +27,8 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
+from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
+from lib.cuckoo.common.web_utils import download_file, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
 
 
 # this required for hash searches
@@ -488,7 +487,7 @@ def index(request, resubmit_hash=False):
         socks5s_random = ""
         vpn_random = ""
 
-        if routing.socks5.vpn and socks5s:
+        if routing.socks5.random_socks5 and socks5s:
             socks5s_random = random.choice(socks5s.values()).get("description", False)
 
         if routing.vpn.random_vpn:

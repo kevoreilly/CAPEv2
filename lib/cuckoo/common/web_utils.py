@@ -3,29 +3,28 @@ from __future__ import print_function
 import os
 import sys
 import json
-import magic
 import logging
-import requests
 import hashlib
 import tempfile
+from random import choice, choices
 from datetime import datetime, timedelta
-from random import choice
 from collections import OrderedDict
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
 
+import magic
+import requests
 from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
-from lib.cuckoo.core.rooter import _load_socks5_operational
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
 
 cfg = Config("cuckoo")
 repconf = Config("reporting")
-socks5_conf = Config("socks5")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
@@ -451,6 +450,26 @@ def download_file(**kwargs):
             tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
+
+    # in case if user didn't specify routing, and we have enabled random route
+    if not route:
+        socks5s = _load_socks5_operational()
+
+        socks5s_random = ""
+        vpn_random = ""
+
+        if routing_conf.socks5.random_socks5 and socks5s:
+            socks5s_random = choice(socks5s.values()).get("description", False)
+
+        if routing_conf.vpn.random_vpn:
+            vpn_random = choice(vpns.values()).get("description", False)
+
+        if vpn_random and socks5s_random:
+            route = choice((vpn_random, socks5s_random))
+        elif vpn_random:
+            route = vpn_random
+        elif socks5s_random:
+            route = socks5s_random
 
     if package:
         if package == "Emotet":

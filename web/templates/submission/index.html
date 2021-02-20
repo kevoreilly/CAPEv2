@@ -232,12 +232,9 @@ $(document).ready( function() {
                                     <select class="form-control" id="form_route" name="route">
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
-                                        {% endif %}
-                                        {% if vpn_random %}
-                                            <option value="{{vpn_random.description}}" selected>{{vpn_random.description}} (vpn)</option>
-                                        {% endif %}
-                                        {% if socks5s_random %}
-                                            <option value="{{socks5s_random.description}}" selected>{{socks5s_random.description}} (socks5)</option>
+                                        {% endif %}}
+                                        {% if random_route %}
+                                            <option value="{{random_route}}" selected>{{random_route}}</option>
                                         {% endif %}
                                         {% if inetsim %}
                                             <option value="inetsim">inetsim/fakenet-ng</option>

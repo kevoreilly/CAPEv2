@@ -3,22 +3,21 @@ from __future__ import absolute_import
 import json
 import os
 import sys
-import time
 import socket
 import tarfile
 import logging
+from io import BytesIO
 from datetime import datetime, timedelta
-import tempfile
-import requests
-import subprocess
 from zlib import decompress
+
+import requests
 from django.conf import settings
 from wsgiref.util import FileWrapper
-from django.http import HttpResponse, StreamingHttpResponse
+from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from io import BytesIO
+
 
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser

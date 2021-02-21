@@ -236,19 +236,25 @@ def load_vms_tags():
 
 all_vms_tags = load_vms_tags()
 
-def top_detections() -> dict:
+def top_detections(date_since: datetime=False, results_limit: int=15) -> dict:
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
-    data = results_db.analysis.aggregate([
+
+    aggregation_command = [
         {"$match": {"detections": {"$exists":True}}},
         {"$group": {"_id": "$detections", "total":{"$sum":1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"family": "$_id"}},
         {"$project": {"_id": 0}},
-        {"$limit": 15},
-    ])
+        {"$limit": results_limit},
+    ]
+
+    if date_since:
+        aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
+
+    data = results_db.analysis.aggregate(aggregation_command)
     if data:
         return list(data)
 
@@ -267,18 +273,8 @@ def statistics(s_days: int) -> dict:
 
     tmp_data = dict()
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
-    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "malfamily": 1, "detections":1, "_id": 0})
+    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
     for analysis in data or []:
-
-        malfamily = False
-        if "detections" in analysis:
-            malfamily = analysis["detections"]
-        elif "malfamily" in analysis:
-            malfamily = analysis["malfamily"]
-        if malfamily:
-            details["detections"].setdefault(malfamily, 0)
-            details["detections"][malfamily] += 1
-
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
                 tmp_data.setdefault(type_entry, dict())
@@ -361,8 +357,7 @@ def statistics(s_days: int) -> dict:
         details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
     details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
 
-    # top 15 detections
-    details["detections"] = OrderedDict(sorted(details["detections"].items(), key=lambda x: x[1], reverse=True)[:20])
+    details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
     session.close()
     return details

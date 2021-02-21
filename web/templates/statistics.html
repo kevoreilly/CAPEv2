@@ -7,8 +7,8 @@
 {% if statistics.detections %}
 <h4>Top 20 detections</h4>
   <table class="table table-striped table-bordered">
-    {% for name, count in statistics.detections.items %}
-        <td>{{count}}: <span class="text-danger">{{name}}</span></td>
+    {% for block in statistics.detections %}
+        <td>{{block.total}}: <span class="text-danger">{{block.family}}</span></td>
           <!--<form action="{% url "search" %}" method="post">
           <input type="hidden" id="search" type="text" name="search" value="malfamily:{{name}}">
           <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{name}}">

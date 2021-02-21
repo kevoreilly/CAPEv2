@@ -236,6 +236,20 @@ def load_vms_tags():
 
 all_vms_tags = load_vms_tags()
 
+def top_detections() -> dict:
+    """function that gets detection: count
+    based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    """
+    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
+    data = results_db.analysis.aggregate([
+        {"$match": {"detections": {"$exists":True}}},
+        {"$group": {"_id": "$detections", "total":{"$sum":1}}},
+        {"$sort": {"total": -1}},
+        {"$limit": 15},
+    ])
+    if data:
+        return list(data)
+
 
 def statistics(s_days: int) -> dict:
     date_since = datetime.now()-timedelta(days=s_days)

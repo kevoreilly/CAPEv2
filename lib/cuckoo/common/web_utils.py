@@ -245,6 +245,8 @@ def top_detections() -> dict:
         {"$match": {"detections": {"$exists":True}}},
         {"$group": {"_id": "$detections", "total":{"$sum":1}}},
         {"$sort": {"total": -1}},
+        {"$addFields": {"family": "$_id"}},
+        {"$project": {"_id": 0}},
         {"$limit": 15},
     ])
     if data:

@@ -21,7 +21,7 @@
 </div>
 
 {% if report.top_detections %}
-<h4>Top 20 detections</h4>
+<h4>Top 15 detections</h4>
     <table class="table table-striped table-bordered">
         {% for block in report.top_detections %}
         <td>{{block.total}}: <span class="text-danger">{{block.family}}</span></td>

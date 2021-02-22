@@ -236,7 +236,7 @@ def load_vms_tags():
 
 all_vms_tags = load_vms_tags()
 
-def top_detections(date_since: datetime=False, results_limit: int=15) -> dict:
+def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """

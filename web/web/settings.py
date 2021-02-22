@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import sys
 import os
 
+from pathlib import Path
+
 try:
     import re2 as re
 except ImportError:
@@ -13,6 +15,9 @@ except ImportError:
 # Cuckoo path.
 CUCKOO_PATH = os.path.join(os.getcwd(), "..")
 sys.path.append(CUCKOO_PATH)
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 from lib.cuckoo.common.config import Config
 
 # In case we have VPNs enabled we need to initialize through the following
@@ -117,7 +122,7 @@ except ImportError:
 
 try:
     from captcha.fields import ReCaptchaField
-    from captcha.widgets import ReCaptchaV3
+    from captcha.widgets import ReCaptchaV2Checkbox
 except ImportError:
     sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
 
@@ -205,7 +210,7 @@ WSGI_APPLICATION = "web.wsgi.application"
 
 RATELIMIT_VIEW = "api.views.limit_exceeded"
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -337,7 +342,7 @@ INSTALLED_APPS = (
 
     "rest_framework",
     'rest_framework.authtoken',
-)
+]
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {

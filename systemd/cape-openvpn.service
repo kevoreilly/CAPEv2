@@ -1,0 +1,18 @@
+# This is a specific script for the Cape-CCC installation
+
+[Unit]
+Description=OpenVPN configured correctly for CAPE
+After=network.target
+
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/usr/sbin/openvpn --config /etc/openvpn/cape_vpn.ovpn --script-security 2 --route-noexec --route-up "/usr/bin/python3 /opt/CAPEv2/utils/route.py"
+WorkingDirectory=/etc/openvpn
+User=root
+Group=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

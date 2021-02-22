@@ -1202,7 +1202,7 @@ EOL
 function install_node_exporter() {
     # deploy on all all monitoring servers
     wget https://github.com/prometheus/node_exporter/releases/download/v$node_exporter_version/node_exporter-$node_exporter_version.linux-amd64.tar.gz && tar xf node_exporter-$node_exporter_version.linux-amd64.tar.gz
-    cd node_exporter-$node_exporter_version.linux-amd6 && ./node_exporter &
+    cd node_exporter-$node_exporter_version.linux-amd64 && ./node_exporter &
 }
 
 function install_guacamole() {

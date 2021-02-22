@@ -496,6 +496,7 @@ def index(request, resubmit_hash=False):
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)
 
+        random_route = False
         if vpn_random and socks5s_random:
             random_route = random.choice((vpn_random, socks5s_random))
         elif vpn_random:

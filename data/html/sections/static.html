@@ -313,7 +313,7 @@
                 <div id="pe_imports" style="display: none;">
                 {% endif %}
                     {% for library in results.static.pe.imports %}
-                        <div class="well">
+                        <div class="card">
                             <div><strong>Library {{library.dll}}</strong>:</div>
                             {% for function in library.imports %}
                                 <div>&bull; <span class="mono">{{function.address}}</span> - {{function.name}}</div>

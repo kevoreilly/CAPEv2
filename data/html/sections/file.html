@@ -36,6 +36,18 @@
                 <th>SHA512</th>
                 <td><span class="mono" style="word-wrap: break-word;">{{results.target.file.sha512}}</span></td>
             </tr>
+            {% if results.target.file.sha3_384 %}
+            <tr>
+                <th>SHA3-384</th>
+                <td><span class="mono" style="word-wrap: break-word;">{{results.target.file.sha3_384}}</span></td>
+            </tr>
+            {% endif %}
+            {% if results.target.file.tlsh %}
+            <tr>
+                <th>TLSH</th>
+                <td><span class="mono" style="word-wrap: break-word;">{{results.target.file.tlsh}}</span></td>
+            </tr>
+            {% endif %}
             <tr>
                 <th>Ssdeep</th>
                 <td><span class="mono" style="word-wrap: break-word;">{{results.target.file.ssdeep}}</span></td>
@@ -43,31 +55,23 @@
     	    {% if results.trid %}
             <tr>
                 <th>TriD</th>
-		<td>
-		    <ul style="margin-top: 0;margin-bottom: 0;">
+		        <td>
+		        <ul style="margin-top: 0;margin-bottom: 0;">
                     {% for str in results.trid %}
                         <li>{{str}}</li>
                     {% endfor %}
-		    </ul>
-		<td>
+		        </ul>
+		        <td>
             </tr>
     	    {% endif %}
             <tr>
-                <th>PEiD</th>
+                <th>ClamAV</th>
                 <td>
-                    {% if results.static and results.static.peid_signatures %}
-                        {% if results.static.peid_signatures|length == 0 %}
-                            None matched
-                        {% else %}
-                            <ul style="margin-top: 0;margin-bottom: 0;">
-                            {% for sign in results.static.peid_signatures %}
-                                <li>{{sign}}</li>
-                            {% endfor %}
-                            </ul>
-                        {% endif %}
-                    {% else %}
-                        None matched
-                    {% endif %}
+                    <ul style="margin-top: 0;margin-bottom: 0;">
+                        {% for sig in results.target.file.clamav %}
+                        <li>{{sig}}</li>
+                        {% endfor %}
+                    </ul>
                 </td>
             </tr>
             <tr>
@@ -84,6 +88,27 @@
                     {% endif %}
                 </td>
             </tr>
+            {% if results.target.file.cape_yara %}
+            <tr>
+                <th>CAPE Yara</th>
+                <td>
+                    <ul style="margin-top: 0;margin-bottom: 0;">
+                        {% for sig in results.target.file.cape_yara %}
+                        <li>
+                            {% if sig.meta.cape_type %}
+                                {{sig.meta.cape_type}}
+                            {% elif sig.meta.description %}
+                                {{sig.meta.description}}
+                            {% endif %}
+                            {% if sig.meta.author %}
+                                - Author: {{sig.meta.author}}
+                            {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
             <tr>
                 <th>VirusTotal</th>
                 <td>

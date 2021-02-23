@@ -1,0 +1,36 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Parent PID</th>
+            <th>PID</th>
+            <th>Name</th>
+            <th>Create Time</th>
+            <th>Exit Time</th>
+            <th># Threads</th>
+            <th># Handles</th>
+            <th>Session ID</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for process in results.memory.pslist %}
+        <tr>
+            <td>{{process.PPID}}</td>
+            <td>{{process.PID}}</td>
+            <td>{{process.ImageFileName}}</td>
+            <td>{{process.CreateTime}}</td>
+            {% if process.ExitTime %}
+                <td>{{process.ExitTime}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
+            <td>{{process.Threads}}</td>
+            <td>{{process.Handles}}</td>
+            {% if process.SessionId %}
+                <td>{{process.SessionId}}</td>
+            {% else %}
+                <td>-</td>
+            {% endif %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

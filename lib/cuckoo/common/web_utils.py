@@ -85,6 +85,13 @@ if repconf.elasticsearchdb.enabled:
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
+hash_len = {
+    32: "md5",
+    40: "sha1",
+    64: "sha256",
+    128: "sha512",
+}
+
 hashes = {
     32: hashlib.md5,
     40: hashlib.sha1,
@@ -714,6 +721,7 @@ search_term_map = {
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
+    "payloads": "CAPE.payloads.",
 }
 
 
@@ -764,6 +772,9 @@ def perform_search(term, value):
 
     if term not in search_term_map:
         return None
+
+    if term == "payloads" and len(value) in (32, 40, 64, 128):
+        search_term_map[term] = search_term_map[term]+hash_len.get(len(value))
 
     if repconf.mongodb.enabled and query_val:
         return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])

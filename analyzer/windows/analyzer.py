@@ -1288,7 +1288,7 @@ class CommandPipeHandler(object):
             # Syntax -> PATH|PID|Metadata
             file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], ppids=ppid.decode("utf-8"), metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], ppids=[ppid.decode("utf-8")], metadata=metadata, category="procdump")
 
         else:
             if os.path.exists(file_path):
@@ -1382,8 +1382,9 @@ if __name__ == "__main__":
         }
 
     # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
-    except CuckooError:
+    except CuckooError as error:
         log.info("You probably submitted the job with wrong package")
+        log.error(error)
         data["status"] = "exception"
         data["description"] = "You probably submitted the job with wrong package"
         try:

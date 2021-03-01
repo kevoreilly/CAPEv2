@@ -294,6 +294,9 @@ def statistics(s_days: int) -> dict:
                     tmp_data[type_entry][entry["name"]]["time"] += entry["time"]
                     tmp_data[type_entry][entry["name"]]["runs"] += 1
 
+    if not data:
+        return details
+
     for module_name in [u'signatures', u'processing', u'reporting']:
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
         for entry in s:

@@ -1,0 +1,22 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Base Address</th>
+            <th>Offset</th>
+            <th>Name</th>
+            <th>File</th>
+            <th>Size</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for mod in results.memory.modscan %}
+        <tr>
+            <td><span class="mono">{{mod.Base}}</span></td>
+            <td><span class="mono">{{mod.Offset}}</span></td>
+            <td>{{mod.Name}}</td>
+            <td>{{mod.Path}}</td>
+            <td>{{mod.Size}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

@@ -1,4 +1,5 @@
 # encoding: utf-8
+from Users.Do_Not_Scan.github.cuckoo.CAPE.web.analysis.views import procdump
 from __future__ import absolute_import
 import json
 import os
@@ -43,7 +44,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import download_file, validate_task, my_rate_minutes, my_rate_seconds, apiconf, rateblock, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
@@ -1818,7 +1819,7 @@ def tasks_latest(request, hours):
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 @api_view(['GET'])
-def tasks_payloadfiles(request, task_id):
+def tasks_payloadfiles(request, task_id, file_hash):
 
     if not apiconf.payloadfiles.get("enabled"):
         resp = {"error": True, "error_value": "CAPE payload file download API is disabled"}
@@ -1834,6 +1835,10 @@ def tasks_payloadfiles(request, task_id):
         zippwd = b"infected"
 
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
+    if file_hash:
+        capepath = os.path.join(capepath, file_hash)
+    elif not apiconf.payloadfiles.get("all_files"):
+         return Response({"error": True, "error_value": f"Retrieve all files is disabled in conf/api.conf"})
 
     if os.path.exists(capepath):
         if not HAVE_PYZIPPER:
@@ -1841,13 +1846,15 @@ def tasks_payloadfiles(request, task_id):
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(capepath))[2]:
-                if len(fname) == 64:
-                    filepath = os.path.join(capepath, fname)
-                    with open(filepath, "rb") as f:
-                        zf.writestr(os.path.basename(filepath), f.read())
-
-
+            if file_hash:
+                with open(capepath, "rb") as f:
+                    zf.writestr(os.path.basename(capepath), f.read())
+            else:
+                for fname in next(os.walk(capepath))[2]:
+                    if len(fname) == 64:
+                        filepath = os.path.join(capepath, fname)
+                        with open(filepath, "rb") as f:
+                            zf.writestr(os.path.basename(filepath), f.read())
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
@@ -1861,7 +1868,7 @@ def tasks_payloadfiles(request, task_id):
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 @api_view(['GET'])
-def tasks_procdumpfiles(request, task_id):
+def tasks_procdumpfiles(request, task_id, file_hash=False):
 
     if not apiconf.procdumpfiles.get("enabled"):
         resp = {"error": True, "error_value": "Procdump file download API is disabled"}
@@ -1876,23 +1883,27 @@ def tasks_procdumpfiles(request, task_id):
     except AttributeError:
         zippwd = b"infected"
 
-    # ToDo add all/one
-
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
+    if file_hash:
+        procdumppath = os.path.join(procdumppath, file_hash)
+    elif not apiconf.procdumpfiles.get("all_files"):
+         return Response({"error": True, "error_value": f"Retrieve all files is disabled in conf/api.conf"})
 
-    #ToDo check bad rturn
     if os.path.exists(procdumppath):
         if not HAVE_PYZIPPER:
             return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(procdumppath))[2]:
-                if len(fname) == 64:
-                    filepath = os.path.join(procdumppath, fname)
-                    with open(filepath, "rb") as f:
-                        zf.writestr(os.path.basename(filepath), f.read())
-
+            if file_hash:
+                with open(procdumppath, "rb") as f:
+                    zf.writestr(os.path.basename(procdumppath), f.read())
+            else:
+                for fname in next(os.walk(procdumppath))[2]:
+                    if len(fname) == 64:
+                        filepath = os.path.join(procdumppath, fname)
+                        with open(filepath, "rb") as f:
+                            zf.writestr(os.path.basename(filepath), f.read())
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())

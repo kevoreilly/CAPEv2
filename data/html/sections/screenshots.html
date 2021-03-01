@@ -4,7 +4,7 @@
     </div>
     {% if results.shots %}
         {% for shot in results.shots %}
-            <a href="data:image/jpeg;base64,{{shot.data}}"><img class="fade" src="data:image/jpeg;base64,{{shot.data}}" height="100px" width="150px" /></a>
+            <a href="data:image/jpeg;base64,{{shot.data}}"><img class="opaque" src="data:image/jpeg;base64,{{shot.data}}" height="300px" width="450px" /></a>
         {% endfor %}
     {% else %}
         No screenshots available.

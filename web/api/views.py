@@ -1,5 +1,4 @@
 # encoding: utf-8
-from Users.Do_Not_Scan.github.cuckoo.CAPE.web.analysis.views import procdump
 from __future__ import absolute_import
 import json
 import os

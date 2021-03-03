@@ -20,6 +20,9 @@ from base64 import b64encode
 import argparse
 import io
 import re
+import pefile
+import logging
+log = logging.getLogger(__name__)
 
 COLUMN_WIDTH = 35
 SUPPORTED_VERSIONS = (3, 4)
@@ -231,7 +234,7 @@ class BeaconSettings:
 
     def __init__(self, version):
         if version not in SUPPORTED_VERSIONS:
-            print("Error: Only supports version 3 and 4, not %d" % version)
+            log.info("Error: Only supports version 3 and 4, not %d" % version)
         self.version = version
         self.settings = OrderedDict()
         self.init()
@@ -338,13 +341,13 @@ class cobaltstrikeConfig:
             if parsed_setting == "Not Found" and quiet:
                 continue
             if type(parsed_setting) != list:
-                print("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting))
+                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting))
             elif parsed_setting == []:
-                print("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val="Empty"))
+                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val="Empty"))
             else:
-                print("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting[0]))
+                log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting[0]))
                 for val in parsed_setting[1:]:
-                    print(" " * COLUMN_WIDTH, end="")
+                    log.info(" " * COLUMN_WIDTH, end="")
                     print(val)
 
         if as_json:
@@ -365,16 +368,53 @@ class cobaltstrikeConfig:
                 if conf:
                     return conf
         else:
-            if self._parse_config(version=version, quiet=quiet, as_json=as_json):
-                return True
+            conf = self._parse_config(version=version, quiet=quiet, as_json=as_json)
+            if conf:
+                return conf
 
         if __name__ == "__main__":
-            print("Configuration not found. Are you sure this is a beacon?")
-        return False
+            log.info("Configuration not found. Are you sure this is a beacon?")
+        return None
 
+    def parse_encrypted_config(self, version=None, quiet=False, as_json=False):
+        '''
+        Parses beacon's configuration from stager dll or memory dump
+        :bool quiet: Whether to print missing settings
+        :bool as_json: Whether to dump as json
+        '''
 
-def config(data):
-    return cobaltstrikeConfig(data).parse_config(quiet=True, as_json=True)
+        THRESHOLD = 1100
+        pe = pefile.PE(data=self.data)
+        data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]
+        if not data_sections:
+            return None
+        data = data_sections[0].get_data()
+
+        offset = 0
+        key_found = False
+        while offset < len(data):
+            key = data[offset:offset+4]
+            if key != bytes(4):
+                if data.count(key) >= THRESHOLD:
+                    key_found = True
+                    size = int.from_bytes(data[offset-4:offset], 'little')
+                    encrypted_data_offset = offset+16 - (offset % 16)
+                    break
+
+            offset += 4
+
+        if not key_found:
+            log.info("Failed to find encrypted data (try to lower the threshold constant)")
+            return None
+
+        ## decrypt and parse
+        enc_data = data[encrypted_data_offset:encrypted_data_offset+size]
+        dec_data = []
+        for i,c in enumerate(enc_data):
+            dec_data.append(c ^ key[i % 4])
+
+        dec_data = bytes(dec_data)
+        return cobaltstrikeConfig(dec_data).parse_config(version, quiet, as_json)
 
 
 if __name__ == "__main__":
@@ -393,3 +433,10 @@ if __name__ == "__main__":
     parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
     if args.json:
         print(json.dumps(parsed_config, cls=Base64Encoder))
+
+# CAPE
+def config(data):
+    output = cobaltstrikeConfig(data).parse_config(quiet=False, as_json=True)
+    if output is None:
+        output = cobaltstrikeConfig(data).parse_encrypted_config(quiet=False, as_json=True)
+    return output

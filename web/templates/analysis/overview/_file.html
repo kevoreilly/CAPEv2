@@ -85,10 +85,23 @@
                 <th>SHA512</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.sha512}}</td>
             </tr>
+            {% if analysis.target.file.sha3_384 %}
+            <tr>
+                <th>SHA3-384</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha3_384}}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <th>CRC32</th>
                 <td>{{analysis.target.file.crc32}}</td>
             </tr>
+            {% if analysis.target.file.tlsh %}
+            <tr>
+                <th>TLSH</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.tlsh}}</td>
+            </tr>
+            {% endif %}
+
             {% if analysis.target.file.ssdeep %}
             <tr>
                 <th>Ssdeep</th>

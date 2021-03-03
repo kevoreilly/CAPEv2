@@ -24,7 +24,15 @@ from django.views.decorators.http import require_safe
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from ratelimit.decorators import ratelimit
+try:
+    from django_ratelimit.decorators import ratelimit
+except ImportError:
+    try:
+        from ratelimit.decorators import ratelimit
+    except ImportError:
+        print("missed dependency: pip3 install django-ratelimit -U")
+
+from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -373,6 +381,8 @@ ajax_mongo_schema = {
     "debugger": "debugger",
     "behavior": "behavior",
     "network": "network",
+    "procdump": "procdump",
+    "memory": "memory",
 }
 
 
@@ -383,7 +393,7 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     #ToDo remove in CAPEv3
-    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network"):
+    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
         bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = {}
@@ -394,39 +404,40 @@ def load_files(request, task_id, category):
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             elif category == "network":
-                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "suricata":1, "_id": 0})
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "cif":1, "suricata":1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
 
-            if ajax_mongo_schema.get(category, "") == "dropped":
+            if enabledconf["bingraph"]:
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
-                    for block in data.get(category, []):
-                        if not block.get("sha256"):
-                            continue
-                        tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                        if os.path.exists(tmp_file):
-                            with open(tmp_file, "r") as f:
-                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+                    if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
+                        for block in data.get(category, []):
+                            print(block)
+                            if not block.get("sha256"):
+                                print("missed sha256", block)
+                                continue
+                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                            if os.path.exists(tmp_file):
+                                with open(tmp_file, "r") as f:
+                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-            if ajax_mongo_schema.get(category, "").startswith("CAPE"):
-                bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-                if os.path.exists(bingraph_path):
-                    if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
-                        cape_files = data.get("CAPE", {}).get("payloads", []) or []
-                    #ToDo remove in CAPEv3
-                    else:
-                        cape_files = data.get("CAPE", []) or []
-                    for block in cape_files:
-                        if not block.get("sha256"):
-                            continue
-                        tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                        if os.path.exists(tmp_file):
-                            with open(tmp_file, "r") as f:
-                                bingraph_dict_content.setdefault(block["sha256"], f.read())
+                    if ajax_mongo_schema.get(category, "").startswith("CAPE"):
+                        if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
+                            cape_files = data.get("CAPE", {}).get("payloads", []) or []
+                        #ToDo remove in CAPEv3
+                        else:
+                            cape_files = data.get("CAPE", []) or []
+                        for block in cape_files:
+                            if not block.get("sha256"):
+                                continue
+                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                            if os.path.exists(tmp_file):
+                                with open(tmp_file, "r") as f:
+                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-            if bingraph_dict_content:
-                bingraph = True
+                    if bingraph_dict_content:
+                        bingraph = True
             if category == "debugger":
                 debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
                 if os.path.exists(debugger_log_path):
@@ -456,6 +467,7 @@ def load_files(request, task_id, category):
             ajax_response["debugger_logs"] = debugger_logs
         elif category == "network":
             ajax_response["suricata"] = data.get("suricata", {})
+            ajax_response["cif"] = data.get("cif", [])
 
         return render(request, page, ajax_response)
 
@@ -929,8 +941,10 @@ def search_behavior(request, task_id):
 def report(request, task_id):
     network_report = False
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE": 0, "behavior.processes": 0, "network": 0}, sort=[("_id", pymongo.DESCENDING)])
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "behavior.processes": 0, "network": 0, "memory":0}, sort=[("_id", pymongo.DESCENDING)])
         network_report = results_db.analysis.find_one({"info.id": int(task_id)}, {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1}, sort=[("_id", pymongo.DESCENDING)])
+        # ToDo
+        # memory_exist = results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}})
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
         report = query["_source"]
@@ -940,6 +954,8 @@ def report(request, task_id):
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist or not finished yet"})
 
+    if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
+        report["malware_conf"] = report["CAPE"]["configs"]
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
             if report.get(keyword, False):
@@ -963,8 +979,8 @@ def report(request, task_id):
         report["dropped"] = 0
 
     try:
-        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
-        report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}}}]))
+        report["CAPE"] = tmp_data[0]["cape_size"]  or 0
         # ToDo remove in CAPEv3 *_old
         if not report["CAPE"]:
             tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
@@ -972,6 +988,13 @@ def report(request, task_id):
     except Exception as e:
         print(e)
         report["CAPE"] = 0
+
+    try:
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "procdump_size": {"$size": "$procdump.sha256"}}}]))
+        report["procdump"] = tmp_data[0]["procdump_size"]  or 0
+    except Exception as e:
+        print(e)
+        report["procdump_size"] = 0
 
 
     reports_exist = False
@@ -1035,6 +1058,10 @@ def report(request, task_id):
         },
     )
 
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -1064,9 +1091,11 @@ def file_nl(request, category, task_id, dlfile):
     return resp
 
 @require_safe
-@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@csrf_exempt
+@api_view(['GET'])
 def file(request, category, task_id, dlfile):
     file_name = dlfile
     cd = ""

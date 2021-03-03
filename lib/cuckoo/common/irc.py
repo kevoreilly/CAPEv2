@@ -93,7 +93,7 @@ class ircMessage(object):
 
         logirc = False
         for element in lines:
-            if not re.match("^:", element) is None:
+            if not re.match(b"^:", element) is None:
                 command = "([a-zA-Z]+|[0-9]{3})"
                 params = "(\x20.+)"
                 irc_server_msg = re.findall("(^:[\w+.{}!@|()]+\x20)" + command + params, element)
@@ -105,7 +105,7 @@ class ircMessage(object):
                     if logirc:
                         self._messages.append(dict(self._sc))
             else:
-                irc_client_msg = re.findall("([a-zA-Z]+\x20)(.+[\x0a\0x0d])", element)
+                irc_client_msg = re.findall(b"([a-zA-Z]+\x20)(.+[\x0a\0x0d])", element)
                 if irc_client_msg and irc_client_msg[0][0].strip() in self.__methods_client:
                     self._cc["command"] = convert_to_printable(irc_client_msg[0][0].strip())
                     if self._cc["command"] in ["NICK", "USER"]:

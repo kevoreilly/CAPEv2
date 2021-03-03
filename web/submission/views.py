@@ -10,7 +10,6 @@ import sys
 import logging
 import tempfile
 import random
-import datetime
 
 try:
     import re2 as re
@@ -28,8 +27,8 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
+from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
+from lib.cuckoo.common.web_utils import download_file, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
 
 
 # this required for hash searches
@@ -207,6 +206,7 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
@@ -359,7 +359,7 @@ def index(request, resubmit_hash=False):
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp)
+                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -402,6 +402,7 @@ def index(request, resubmit_hash=False):
                     route=route,
                     cape=cape,
                     tags_tasks=tags_tasks,
+                    user_id=request.user.id or 0,
                 )
                 details["task_ids"].append(task_id)
 
@@ -440,7 +441,6 @@ def index(request, resubmit_hash=False):
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
-
         if tasks_count > 0:
             data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"], "existent_tasks": existent_tasks}
             return render(request, "submission/complete.html", data)
@@ -458,6 +458,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
+        enabledconf["timeout"] = cfg.timeouts.default
 
         if all_vms_tags:
             enabledconf["tags"] = True
@@ -482,9 +483,27 @@ def index(request, resubmit_hash=False):
         packages, machines = get_form_data("windows")
 
         socks5s = _load_socks5_operational()
+
         socks5s_random = ""
+        vpn_random = ""
+
+        if routing.socks5.random_socks5 and socks5s:
+            socks5s_random = random.choice(socks5s.values()).get("description", False)
+
+        if routing.vpn.random_vpn:
+            vpn_random =  random.choice(list(vpns.values())).get("description", False)
+
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("description", False)
+
+        random_route = False
+        if vpn_random and socks5s_random:
+            random_route = random.choice((vpn_random, socks5s_random))
+        elif vpn_random:
+            random_route = vpn_random
+        elif socks5s_random:
+            random_route = socks5s_random
+
 
         existent_tasks = dict()
         if resubmit_hash:
@@ -500,8 +519,8 @@ def index(request, resubmit_hash=False):
                 "packages": sorted(packages),
                 "machines": machines,
                 "vpns": list(vpns.values()),
+                "random_route": random_route,
                 "socks5s": list(socks5s.values()),
-                "socks5s_random": socks5s_random,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

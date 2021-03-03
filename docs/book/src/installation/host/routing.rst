@@ -227,9 +227,6 @@ file detailing the relevant information for the VPN. In the configuration the
 VPN will also have to be *registered* in the list of available VPNs (exactly
 the same as you'd do for registering more VMs).
 
-.. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
-.. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
-
 Configuration for a single VPN looks roughly as follows::
 
     [vpn]
@@ -265,12 +262,49 @@ Configuration for a single VPN looks roughly as follows::
 .. note:: It is required to register each VPN network interface with iproute2
     as described in the :ref:`routing_iproute2` section.
 
+* `Helper script, read code to understand it`_
+* `Example of wireguard integration`_
+.. _`Helper script, read code to understand it`: https://github.com/kevoreilly/CAPEv2/blob/master/utils/vpn2cape.py
+.. _`Example of wireguard integration`: https://musings.konundrum.org/2020/12/12/wireguard-and-cape.html
+
+VPN persistance & autorestart `source`_::
+
+    1. Run the command:
+        # sudo nano /etc/default/openvpn`
+        and uncomment, or remove, the “#” in front of AUTOSTART="all"
+        then press ‘Ctrl X’ to save the changes and exit the text editor.
+
+    2. Move the .ovpn file with the desired server location to the ‘/etc/openvpn’ folder:
+        # sudo cp /location/whereYouDownloadedConfigfilesTo/Germany.ovpn /etc/openvpn/
+
+    3. In the ‘/etc/openvpn’ folder, create a text file called login.creds:
+        # sudo nano /etc/openvpn/login.creds
+        and enter your IVPN Account ID (starts with ‘ivpn’) on the first line and any non-blank text on the 2nd line, then press ‘Ctrl X’ to save the changes and exit the text editor.
+
+    4. Change the permissions on the pass file to protect the credentials:
+        # sudo chmod 400 /etc/openvpn/login.creds
+
+    5. Rename the .ovpn file to ‘client.conf’:
+        # sudo cp /etc/openvpn/Germany.ovpn /etc/openvpn/client.conf
+
+    6. Reload the daemons:
+    # sudo systemctl daemon-reload
+
+    7. Start the OpenVPN service:
+        # sudo systemctl start openvpn
+
+    8. Test if it is working by checking the external IP:
+        # curl ifconfig.co
+
+    9. If curl is not installed:
+        # sudo apt install curl
+
+.. _`source`: https://www.ivpn.net/knowledgebase/linux/linux-autostart-openvpn-in-systemd-ubuntu/
+
 .. _routing_socks:
 
 SOCKS Routing
-
-
-^^^^^^^^^^^
+^^^^^^^^^^^^^
 You also can use socks proxy servers to route your traffic.
 To manage your socks server you can use Socks5man software.
 Bulding them by yourself, using your favorite software, bying, etc

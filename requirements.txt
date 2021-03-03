@@ -1,8 +1,7 @@
 flor
 Pebble
-bson
 pymisp
-cryptography
+cryptography>=3.1
 requests[security]
 pyOpenSSL
 pefile
@@ -47,12 +46,11 @@ numpy>=1.15.0
 six>=1.12.0
 statistics>=1.0.3.5
 django>3
-git+https://github.com/jsocol/django-ratelimit.git
+django-ratelimit
 sqlalchemy
 sqlalchemy-utils
 jinja2
 markupsafe
-bottle
 chardet
 pygal
 rarfile
@@ -70,10 +68,17 @@ python-whois
 bs4
 pype32-py3
 git+https://github.com/kbandla/pydeep.git
-flask
-flask-restful
-flask-sqlalchemy
 pyvmomi
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
 django-allauth # https://django-allauth.readthedocs.io/en/latest/configuration.html
 django-crispy-forms
+git+https://github.com/CAPESandbox/httpreplay
+django-settings-export
+django-csp
+django-otp
+django-extensions
+qrcode
+python-tlsh
+djangorestframework
+volatility3
+yara-python>=4.0.0

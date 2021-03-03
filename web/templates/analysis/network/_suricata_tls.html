@@ -11,6 +11,7 @@
                 <th>Subject</th>
                 <th>Issuer</th>
                 <th>Fingerprint</th>
+                <th>JA3</th>
                 <th>Version</th>
             </tr>
             {% for tls in suricata.tls %}
@@ -52,7 +53,15 @@
                 </td>
                 <td>{{tls.subject}}</td>
                 <td>{{tls.issuer}}</td>
-                <td>{{tls.fingerprint}}</td>
+                <td>{{tls.fingerprint}} </td>
+                <td>
+                    {% if tls.ja3 %}
+                        <ul>
+                        <li><strong>hash:</strong> {{tls.ja3.hash}}</li>
+                        <li><strong>string:</strong> {{tls.ja3.string}}</li>
+                        </ul>
+                    {% endif %}
+                </td>
                 <td>{{tls.version}}</td>
             </tr>
             {% endfor %}

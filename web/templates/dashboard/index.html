@@ -20,6 +20,26 @@
     </div>
 </div>
 
+{% if report.top_detections %}
+<h4>Top 20 detections</h4>
+    <table class="table table-striped table-bordered table-sm">
+        {% for block in report.top_detections %}
+        <td style="text-align:center">
+            <form action="{% url "search" %}" method="post">
+            <input type="hidden" id="search" type="text" name="search" value="malfamily:{{block.family}}">
+            {{block.total}}:<input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{block.family}}">
+            </form>
+        </td>
+
+        {% if forloop.counter|divisibleby:"5" %}
+        </tr>
+        {% elif forloop.last %}
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </table>
+{% endif %}
+
 <div class="table ">
     <table class="table table-striped table-dark table-hover" style="table-layout: fixed;">
         <thead>

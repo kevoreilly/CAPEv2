@@ -5,14 +5,19 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import shutil
 import sys
+import shutil
 import copy
 import socket
 import logging
 import logging.handlers
 
-import yara
+try:
+    import yara
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
+except ImportError:
+    print("Missed library: pip3 install yara-python>=4.0.0 -U")
 import modules.auxiliary
 import modules.processing
 import modules.signatures
@@ -267,36 +272,36 @@ def init_yara():
         # future. Otherwise Yara will complain.
         externals = {"filename": ""}
 
-        if category != "monitor":
+        while True:
             try:
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-            except yara.Error as e:
-                raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
-
-            # ToDo for Volatility3 yarascan
-            # The memory.py processing module requires a yara file with all of its
-            # rules embedded in it, so create this file to remain compatible.
-            # if category == "memory":
-            #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-            #    for filename in sorted(indexed):
-            #        f.write('include "%s"\n' % os.path.join(category_root, filename))
-
-            indexed = sorted(indexed)
-            for entry in indexed:
-                if (category, entry) == indexed[-1]:
-                    log.debug("\t `-- %s %s", category, entry)
+                break
+            except yara.SyntaxError as e:
+                bad_rule = str(e).split(".yar")[0]+".yar"
+                if bad_rule in indexed:
+                    for k,v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            print("Deleted broken yara rule: {}".format(bad_rule))
                 else:
-                    log.debug("\t |-- %s %s", category, entry)
-        else:
-            try:
-                compiled = yara.compile(filepaths=rules, externals=externals)
-                compiled_path = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yarac")
-                if not os.path.exists(compiled_path):
-                    os.makedirs(compiled_path, exist_ok=True)
-                compiled.save(os.path.join(compiled_path, "monitor.yac"))
+                    break
             except yara.Error as e:
-                raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+                print(e, sys.exc_info())
+                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                break
 
+        if category == "memory":
+            with open(os.path.join(yara_root, "index_memory.yar"), "w") as f:
+                for filename in sorted(indexed):
+                    f.write('include "%s"\n' % os.path.join(category_root, filename))
+
+        indexed = sorted(indexed)
+        for entry in indexed:
+            if (category, entry) == indexed[-1]:
+                log.debug("\t `-- %s %s", category, entry)
+            else:
+                log.debug("\t |-- %s %s", category, entry)
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can

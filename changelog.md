@@ -1,10 +1,68 @@
+### [09-02-2021] Registration more configrations
+* Allow enable/disable all new users to activate them by hand
+* Disable new users after email verification if set `manual_approve` in `conf/web.conf`
+* __REQUIRED ACTION:__ -> `pip3 install django-extensions`
+
+### [05-02-2021] Volatility3 integration done, some future optimizations might come later
+* ToDo: pass yara file to exec yarascan
+* Thanks to Xabier Ugarte-Pedrero and dadokkio for their work
+* `pip3 install volatility3`, then check
+    * `conf/processing.conf` -> `[memory]`
+    * `conf/memory.conf` for the plugins
+
+* You will need to download `symbols`, see [volatility3 readme for details](https://github.com/volatilityfoundation/volatility3)
+
+### [03-02-2021]
+* ratelimit 4 upgrade -> `pip3 install django-ratelimit -U`
+
+### [02-02-2021]
+* Link task to user_id, to be able to ban spammers and bad users
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
+* Instead of Volatility3 integration planned for today you got this, thanks spammers
+* If registration enabled, allow to set manual approve of users and set them inactive by default
+
+### [28-01-2021] CAPE 2.3
+* APIv2 - [Django REST Framework](https://www.django-rest-framework.org) + [Token AUTH](https://simpleisbetterthancomplex.com/tutorial/2018/11/22/how-to-implement-token-authentication-using-django-rest-framework.html)
+    * just replace `/api/` to `/apiv2/` in your urls
+* Current API will be removed in future, so move toward new one
+* Updated API [documentation](https://capev2.readthedocs.io/en/latest/usage/api.html)
+* New dependency: `pip3 install djangorestframework`
+* __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate && python3 manage.py collectstatic`
+
+### [24-01-2021] Disposable email services ban support
+* To enable it see `[registration]` in `web.conf`
+* List of domains can be placed in `data/safelist/disposable_domain_list.txt`
+* Allow enable ReCaptcha for user registration to avoid bots
+* Integrated [stopforumspam domain list](https://www.stopforumspam.com/downloads/toxic_domains_partial.txt)
+
+### [21-01-2021] JA3 by Suricata no custom scripts anymore
+* `sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml && sudo systemctl restart suricata`
+
+### [20-01-2021]
+* [TLSH hashing](https://github.com/trendmicro/tlsh) - Trend Micro Locality Sensitive Hash
+* sha3-384
+
+### [14-01-2021] [Headers Quality](https://adamj.eu/tech/2019/04/10/how-to-score-a+-for-security-headers-on-your-django-website/)
+* [Content Security Policy](https://www.laac.dev/blog/content-security-policy-using-django/) - [writeup](https://www.laac.dev/blog/content-security-policy-using-django/)
+* [2FA for Django Admin](https://hackernoon.com/5-ways-to-make-django-admin-safer-eb7753698ac8)
+* New dependency: `pip3 install django-otp qrcode`
+ __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
+    * `python3 manage.py migrate` if no you will get `no such table: otp_totp_totpdevice`
+
+### [13-01-2020] Social Media buttons for sign in
+* Adding [bootstrap-social](https://github.com/peterblazejewicz/bootstrap-social) to simplify sign buttons integration
+* Move SSO providers config to from `web/web/settings.py` to `web/web/local_settings.py`
+* `[oauth]` added to `conf/web.conf` for future on/off of the buttons
+* New dependency: `pip3 install django-settings-export`
+
 ### [10-01-2020] Scrappers&Bots nightmare :)
 * Add Web signup/SSO, email verification - [more details](https://django-allauth.readthedocs.io/en/latest/overview.html) - Amazing [writeup](https://www.theophilusn.com/blog/django-with-bootstrap-4) was used for integration
 * [ReCaptcha protected admin](https://github.com/axil/django-captcha-admin/)
-* New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6 django-crispy-forms`
+* New dependencies -> `pip3 install django-allauth django-recaptcha==2.0.6 django-crispy-forms git+https://github.com/CAPESandbox/httpreplay.git`
 * __REQUIRED ACTION:__ -> `cd /opt/CAPEv2/web/`
     * `python3 manage.py migrate` if no you will get `No such table as django_site`
-    * `python3 manage.py collectstatic` -> to enable django admin css
+    * `python3 manage.py collectstatic` -> to enable django admin css -> requires web/web/local_settings.py modifiy `STATIC_ROOT`
 
 ### [02.01.02021] POST 2020
 * Allow download http(s) Request/Response and Response 48bytes hex preview

@@ -3,7 +3,10 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-from django.conf.urls import url
+from django.conf.urls import url, include
+from django.urls import path, re_path
+
+
 from api import views
 
 urlpatterns = [
@@ -41,7 +44,9 @@ urlpatterns = [
     url(r"^tasks/get/dropped/(?P<task_id>\d+)/$", views.tasks_dropped),
     url(r"^tasks/get/surifile/(?P<task_id>\d+)/$", views.tasks_surifile),
     url(r"^tasks/get/payloadfiles/(?P<task_id>\d+)/$", views.tasks_payloadfiles),
+    url(r"^tasks/get/payloadfiles/(?P<task_id>\d+)/(?P<file_hash>[\w\d]{64})/$", views.tasks_payloadfiles),
     url(r"^tasks/get/procdumpfiles/(?P<task_id>\d+)/$", views.tasks_procdumpfiles),
+    url(r"^tasks/get/procdumpfiles/(?P<task_id>\d+)/(?P<file_hash>[\w\d]{64})/$", views.tasks_procdumpfiles),
     url(r"^files/view/md5/(?P<md5>([a-fA-F\d]{32}))/$", views.files_view),
     url(r"^files/view/sha1/(?P<sha1>([a-fA-F\d]{40}))/$", views.files_view),
     url(r"^files/view/sha256/(?P<sha256>([a-fA-F\d]{64}))/$", views.files_view),

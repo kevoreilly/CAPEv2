@@ -103,6 +103,19 @@ class MongoDB(Report):
             else:
                 cls.ensure_valid_utf8(v)
 
+    # use this function to hunt down non string key
+    def fix_int2str(self, dictionary, current_key_tree=""):
+        for k, v in dictionary.iteritems():
+            if not isinstance(k, str):
+                log.error("BAD KEY: {}".format(".".join([current_key_tree, str(k)])))
+                dictionary[str(k)] = dictionary.pop(k)
+            elif isinstance(v, dict):
+                self.fix_int2str(v, ".".join([current_key_tree, k]))
+            elif isinstance(v, list):
+                for d in v:
+                    if isinstance(d, dict):
+                        self.fix_int2str(d, ".".join([current_key_tree, k]))
+
     def run(self, results):
         """Writes report.
         @param results: analysis results dictionary.
@@ -250,10 +263,15 @@ class MongoDB(Report):
                             self.db.analysis.save(report, check_keys=False)
                             error_saved = False
                         except InvalidDocument as e:
-                            parent_key, psize = self.debug_dict_size(report)[0]
-                            #ror(str(e))
-                            log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
-                            size_filter = size_filter - MEGABYTE
+                            if str(e).startswith("documents must have only string keys"):
+                                log.error("Search bug in your modifications - you got an dictionary key as int, should be string")
+                                log.error(str(e))
+                                return
+                            else:
+                                parent_key, psize = self.debug_dict_size(report)[0]
+                                log.error(str(e))
+                                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                                size_filter = size_filter - MEGABYTE
                     except Exception as e:
                         log.error("Failed to delete child key: %s" % str(e))
                         error_saved = False

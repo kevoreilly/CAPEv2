@@ -9,10 +9,12 @@ Please answer the following questions for yourself before submitting an issue.
 - [ ] I checked the documentation and found no answer
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I'm reporting the issue to the correct repository (for multi-repository projects)
+- [ ] I'm have read all configs with all optional parts
+
 
 # Expected Behavior
 
-Please describe the behavior you are expecting
+Please describe the behavior you are expecting. __If your samples(x64) stuck in pending ensure that you set tags=x64 in hypervisor conf for x64 vms__
 
 # Current Behavior
 

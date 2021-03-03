@@ -1,74 +1,105 @@
-<div class="alert alert-primary center">
-    <a class="btn btn-secondary btn-small" href="{% url "full_memory_dump_file" analysis.info.id %}">Download Full Memory Dump</a>
-    <a class="btn btn-secondary btn-small" href="{% url "full_memory_dump_strings" analysis.info.id %}">Download Full Memory Dump Strings</a>
-</div>
-<div class="tabbable tabs">
-    <ul class="nav nav-pills" style="margin-bottom: 0;">
-        <li class="nav-item active"><a href="#memory_pslist" data-toggle="tab">Process List</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-toggle="tab">Services</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_malfind" data-toggle="tab">Code Injection</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_timers" data-toggle="tab">Timers</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_messagehooks" data-toggle="tab">Messagehooks</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_apihooks" data-toggle="tab">API Hooks</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_callbacks" data-toggle="tab">Callbacks</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_yarascan" data-toggle="tab">Yarascan</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>
-        <li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>
-        {% if analysis.memory.sockscan or analysis.memory.netscan %}
-        <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
-        {% endif %}
-    </ul>
-    <div class="tab-content">
-        <div class="tab-pane fade in active" id="memory_pslist">
-            {% include "analysis/memory/_pslist.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_svcscan">
-            {% include "analysis/memory/_svcscan.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_modscan">
-            {% include "analysis/memory/_modscan.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_devicetree">
-            {% include "analysis/memory/_devicetree.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_malfind">
-            {% include "analysis/memory/_malfind.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_apihooks">
-            {% include "analysis/memory/_apihooks.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_ssdt">
-            {% include "analysis/memory/_ssdt.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_idt">
-            {% include "analysis/memory/_idt.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_gdt">
-            {% include "analysis/memory/_gdt.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_timers">
-            {% include "analysis/memory/_timers.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_messagehooks">
-            {% include "analysis/memory/_messagehooks.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_yarascan">
-            {% include "analysis/memory/_yarascan.html" %}
-        </div>
-        <div class="tab-pane fade in" id="memory_callbacks">
-            {% include "analysis/memory/_callbacks.html" %}
-        </div>
-        {% if analysis.memory.sockscan %}
-        <div class="tab-pane fade in" id="memory_sockets">
-            {% include "analysis/memory/_sockscan.html" %}
-        </div>
-        {% elif analysis.memory.netscan %}
-        <div class="tab-pane fade in" id="memory_sockets">
-            {% include "analysis/memory/_netscan.html" %}
-        </div>
-        {% endif %}
+{% if memory %}
+    <div class="alert alert-primary center">
+        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_file" id %}">Download Full Memory Dump</a>
+        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_strings" id %}">Download Full Memory Dump Strings</a>
     </div>
-</div>
+    <div class="tabbable tabs">
+        <ul class="nav nav-tabs" style="margin-bottom: 0;">
+            {% if memory.pslist %}<li class="nav-item active"><a class="nav-link" href="#memory_pslist" data-toggle="tab">Process List</a></li>{% endif %}
+            {% if memory.svcscan %}<li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-toggle="tab">Services</a></li>{% endif %}
+            {% if memory.modscan %}<li class="nav-item"><a class="nav-link" href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>{% endif %}
+            {% if memory.devicetree %}<li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>{% endif %}
+            {% if memory.malfind %}<li class="nav-item"><a class="nav-link" href="#memory_malfind" data-toggle="tab">Code Injection</a></li>{% endif %}
+            {% if memory.timers %}<li class="nav-item"><a class="nav-link" href="#memory_timers" data-toggle="tab">Timers</a></li>{% endif %}
+            {% if memory.messagehooks %}<li class="nav-item"><a class="nav-link" href="#memory_messagehooks" data-toggle="tab">Messagehooks</a></li>{% endif %}
+            {% if memory.apihooks %}<li class="nav-item"><a class="nav-link" href="#memory_apihooks" data-toggle="tab">API Hooks</a></li>{% endif %}
+            {% if memory.callbacks %}<li class="nav-item"><a class="nav-link" href="#memory_callbacks" data-toggle="tab">Callbacks</a></li>{% endif %}
+            {% if memory.yarascan %}<li class="nav-item"><a class="nav-link" href="#memory_yarascan" data-toggle="tab">Yarascan</a></li>{% endif %}
+            {% if memory.ssdt %}<li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>{% endif %}
+            {% if memory.idt %}<li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>{% endif %}
+            {% if memory.gdt %}<li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>{% endif %}
+            {% if analysis.memory.sockscan or analysis.memory.netscan %}
+            <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
+            {% endif %}
+        </ul>
+
+        <div class="tab-content">
+            {% if memory.pslist %}
+            <div class="tab-pane fade show active" id="memory_pslist">
+                {% include "analysis/memory/_pslist.html" %}
+            </div>
+            {% endif %}
+            {% if memory.svcscan %}
+            <div class="tab-pane fade show" id="memory_svcscan">
+                {% include "analysis/memory/_svcscan.html" %}
+            </div>
+            {% endif %}
+            {% if memory.modscan %}
+            <div class="tab-pane fade show" id="memory_modscan">
+                {% include "analysis/memory/_modscan.html" %}
+            </div>
+            {% endif %}
+            {% if memory.devicetree %}
+            <div class="tab-pane fade show" id="memory_devicetree">
+                {% include "analysis/memory/_devicetree.html" %}
+            </div>
+            {% endif %}
+            {% if memory.malfind %}
+            <div class="tab-pane fade show" id="memory_malfind">
+                {% include "analysis/memory/_malfind.html" %}
+            </div>
+            {% endif %}
+            {% if memory.apihooks %}
+            <div class="tab-pane fade show" id="memory_apihooks">
+                {% include "analysis/memory/_apihooks.html" %}
+            </div>
+            {% endif %}
+            {% if memory.ssdt %}
+            <div class="tab-pane fade show" id="memory_ssdt">
+                {% include "analysis/memory/_ssdt.html" %}
+            </div>
+            {% endif %}
+            {% if memory.idt %}
+            <div class="tab-pane fade show" id="memory_idt">
+                {% include "analysis/memory/_idt.html" %}
+            </div>
+            {% endif %}
+            {% if memory.gdt %}
+            <div class="tab-pane fade show" id="memory_gdt">
+                {% include "analysis/memory/_gdt.html" %}
+            </div>
+            {% endif %}
+            {% if memory.timers %}
+            <div class="tab-pane fade show" id="memory_timers">
+                {% include "analysis/memory/_timers.html" %}
+            </div>
+            {% endif %}
+            {% if memory.messagehooks %}
+            <div class="tab-pane fade show" id="memory_messagehooks">
+                {% include "analysis/memory/_messagehooks.html" %}
+            </div>
+            {% endif %}
+            {% if memory.yarascan %}
+            <div class="tab-pane fade show" id="memory_yarascan">
+                {% include "analysis/memory/_yarascan.html" %}
+            </div>
+            {% endif %}
+            {% if memory.callbacks %}
+            <div class="tab-pane fade show" id="memory_callbacks">
+                {% include "analysis/memory/_callbacks.html" %}
+            </div>
+            {% endif %}
+            {% if memory.sockscan %}
+            <div class="tab-pane fade show" id="memory_sockets">
+                {% include "analysis/memory/_sockscan.html" %}
+            </div>
+            {% elif memory.netscan %}
+            <div class="tab-pane fade show" id="memory_sockets">
+                {% include "analysis/memory/_netscan.html" %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-secondary"><b>Sorry!</b> No Memory details.</div>
+{% endif %}

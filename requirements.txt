@@ -82,3 +82,4 @@ python-tlsh
 djangorestframework
 volatility3
 yara-python>=4.0.0
+netstruct

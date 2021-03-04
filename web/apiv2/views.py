@@ -21,10 +21,11 @@ from django.views.decorators.http import require_safe
 
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes
 
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
+"""
 try:
     from django_ratelimit.decorators import ratelimit
 except ImportError:
@@ -32,12 +33,12 @@ except ImportError:
         from ratelimit.decorators import ratelimit
     except ImportError:
         print("missed dependency: pip3 install django-ratelimit -U")
-
+"""
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from utils.cleaners import delete_mongo_data
-from lib.cuckoo.core.database import TASK_REPORTED
+from lib.cuckoo.core.database import TASK_RUNNING
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
@@ -46,7 +47,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import download_file, jsonize, validate_task, apiconf, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
@@ -1991,6 +1992,29 @@ def statistics_data(requests, days):
     else:
         resp = {"Error": True, "error_value": "Provide days as number"}
     return Response(resp)
+
+
+@api_view(['POST'])
+def tasks_delete_many(request):
+    response = {}
+    for task_id in request.data.get("ids", "").split(",") or []:
+        task_id = int(task_id)
+        task = db.view_task(task_id)
+        if task:
+            if task.status == TASK_RUNNING:
+                response.setdefault(task_id, "running")
+                continue
+            if db.delete_task(task_id):
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+            task = results_db.analysis.find_one({"info.id": task_id})
+            if task is not None:
+                for processes in task.get("behavior", {}).get("processes", []):
+                    [results_db.calls.remove(call) for call in processes.get("calls", [])]
+                results_db.analysis.remove({"info.id": task_id})
+        else:
+            response.setdefault(task_id, "not exists")
+    response["status"] = "OK"
+    return jsonize(response)
 
 
 def limit_exceeded(request, exception):

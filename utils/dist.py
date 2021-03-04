@@ -577,7 +577,7 @@ class Retriever(threading.Thread):
             node = nodes[node_id]
             if node and details[node_id]:
                 try:
-                    url = os.path.join(node.url, "tasks", "delete_many")
+                    url = os.path.join(node.url, "tasks", "delete_many/")
                     log.debug("Removing task id(s): {0} - from node: {1}".format(",".join(details[node_id]), node.name))
                     res = requests.post(url, data={"ids": ",".join(details[node_id]), "username": node.ht_user, "password": node.ht_pass}, verify=False)
                     if res and res.status_code != 200:
@@ -1067,7 +1067,7 @@ def cron_cleaner():
             if node and not details[node]:
                 continue
             try:
-                url = os.path.join(nodes[node].url, "tasks", "delete_many")
+                url = os.path.join(nodes[node].url, "tasks", "delete_many/")
                 log.info("Removing task id(s): {0} - from node: {1}".format(",".join(details[node]), nodes[node].name))
                 res = requests.post(url, data={"ids": ",".join(details[node]), "username": nodes[node].ht_user, "password": nodes[node].ht_pass}, verify=False)
                 if res and res.status_code != 200:

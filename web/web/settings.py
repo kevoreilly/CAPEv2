@@ -223,7 +223,7 @@ INSTALLED_APPS = [
     # 'django.contrib.admindocs',
     "analysis",
     "compare",
-    "api",
+    "apiv2",
     "ratelimit",
 
     'django_extensions',

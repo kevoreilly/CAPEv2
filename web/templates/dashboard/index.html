@@ -26,7 +26,7 @@
         {% for block in report.top_detections %}
         <td style="text-align:center">
             <form action="{% url "search" %}" method="post">
-            <input type="hidden" id="search" type="text" name="search" value="malfamily:{{block.family}}">
+            <input type="hidden" id="search" type="text" name="search" value="detections:{{block.family}}">
             {{block.total}}:<input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{block.family}}">
             </form>
         </td>

@@ -164,7 +164,7 @@ class packedSetting:
                         ret_arr.append("%s:%s" % (string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
-            if self.is_transform:
+            elif self.is_transform:
                 if conf_data == bytes(len(conf_data)):
                     return "Empty"
 
@@ -178,7 +178,7 @@ class packedSetting:
                 ret_arr.append(append if append_length < 256 and append != bytes(append_length) else "Empty")
                 return ret_arr
 
-            if self.is_malleable_stream:
+            elif self.is_malleable_stream:
                 prog = []
                 fh = io.BytesIO(conf_data)
                 while True:
@@ -203,6 +203,9 @@ class packedSetting:
                         prog.append("XOR mask w/ random key")
 
                 conf_data = prog
+
+            else:
+                conf_data = conf_data.hex()
 
             return conf_data
 

@@ -255,16 +255,6 @@ def init_yara():
                     continue
 
                 filepath = os.path.join(category_root, filename)
-
-                try:
-                    # TODO Once Yara obtains proper Unicode filepath support we
-                    # can remove this check. See also this Github issue:
-                    # https://github.com/VirusTotal/yara-python/issues/48
-                    assert len(str(filepath)) == len(filepath)
-                except (UnicodeEncodeError, AssertionError):
-                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
-                    continue
-
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
 

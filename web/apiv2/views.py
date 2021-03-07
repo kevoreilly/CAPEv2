@@ -51,6 +51,13 @@ from lib.cuckoo.common.web_utils import download_file, jsonize, validate_task, a
 from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
+    import psutil
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
+    print("Missed psutil dependency: pip3 install -U psutil")
+
+try:
     import pyzipper
     HAVE_PYZIPPER = True
 except ImportError:
@@ -1748,6 +1755,9 @@ def machines_view(request, name=None):
         resp["error_value"] = "Machine not found"
     return Response(resp)
 
+def _bytes2gb(size):
+    return int(size/1024/1024/1024)
+
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @api_view(['GET'])
@@ -1774,6 +1784,24 @@ def cuckoo_status(request):
                 reported=db.count_tasks("reported"),
             ),
         )
+
+        if HAVE_PSUTIL:
+            du = psutil.disk_usage('/')
+            hdd_free = _bytes2gb(du.free)
+            hdd_total = _bytes2gb(du.total)
+            hdd_used = _bytes2gb(du.used)
+            hdd_percent_used = du.percent
+
+            vu = psutil.virtual_memory()
+            ram_free = _bytes2gb(vu.free)
+            ram_total = _bytes2gb(vu.total)
+            ram_used = _bytes2gb(vu.used)
+
+            # add more from https://pypi.org/project/psutil/
+            resp["data"]["server"] = {
+                "storage": {"free": hdd_free, "total": hdd_total, "used": hdd_used, "used_by": "{}%".format(hdd_percent_used)},
+                "ram": {"free": ram_free, "total": ram_total, "used": ram_used},
+            }
     return Response(resp)
 
 
@@ -2015,7 +2043,6 @@ def tasks_delete_many(request):
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"
     return jsonize(response)
-
 
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}

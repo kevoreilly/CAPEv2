@@ -109,7 +109,7 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 def node_status(url, name, ht_user, ht_pass):
     try:
         r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
-        return r.json().get("data", {})["tasks"]
+        return r.json().get("data", {})
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}
@@ -807,7 +807,7 @@ class StatusThread(threading.Thread):
                             #STATUSES[node.name]["enabled"] = False
                         continue
                     failed_count[node.name] = 0
-                    log.info("Status.. %s -> %s", node.name, status)
+                    log.info("Status.. %s -> %s", node.name, status["tasks"])
                     statuses[node.name] = status
                     statuses[node.name]["enabled"] = True
                     STATUSES = statuses

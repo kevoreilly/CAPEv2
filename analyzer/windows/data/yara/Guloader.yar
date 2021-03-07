@@ -23,7 +23,7 @@ rule GuloaderB
     strings:
         $trap0 = {81 C6 00 10 00 00 [0-88] 81 FE 00 F0 [2] 0F 84 [2] 00 00}
         $trap1 = {31 FF [0-128] (B9|C7 85 F8 00 00 00) 60 5F A9 00}
-        $antihook = {FF 34 08 [0-300] 8F 04 0B [0-300] 83 F9 18 [0-300] FF E3}
+        $antihook = {FF 34 08 [0-300] 8F 04 0B [0-300] 83 F9 18 [0-360] FF E3}
     condition:
         2 of them
 }

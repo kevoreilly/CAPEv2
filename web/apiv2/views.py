@@ -47,7 +47,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
-from lib.cuckoo.common.web_utils import download_file, jsonize, validate_task, apiconf, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import download_file, validate_task, apiconf, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
@@ -2025,7 +2025,7 @@ def statistics_data(requests, days):
 @api_view(['POST'])
 def tasks_delete_many(request):
     response = {}
-    for task_id in request.data.get("ids", "").split(",") or []:
+    for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)
         if task:
@@ -2042,7 +2042,7 @@ def tasks_delete_many(request):
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"
-    return jsonize(response)
+    return Response(response)
 
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}

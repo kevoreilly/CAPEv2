@@ -24,18 +24,17 @@ from zipfile import ZipFile
 from datetime import datetime
 from itertools import combinations
 import distutils.util
-from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, DateTime, or_, and_, desc
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file, get_options
-from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_session
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.dist_db import Node, Task, Machine, create_session
 from lib.cuckoo.core.database import (
     Database,
-    TASK_COMPLETED,
     TASK_REPORTED,
     TASK_RUNNING,
     TASK_PENDING,
@@ -176,6 +175,7 @@ def node_submit_task(task_id, node_id):
             clock=task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
+            route=task.route,
             username=node.ht_user,
             password=node.ht_pass,
         )
@@ -671,7 +671,7 @@ class StatusThread(threading.Thread):
                     args = dict(package=t.package, category=t.category, timeout=t.timeout, priority=t.priority,
                                 options=t.options+",main_task_id={}".format(t.id), machine=t.machine, platform=t.platform,
                                 tags=tags, custom=t.custom, memory=t.memory, clock=t.clock,
-                                enforce_timeout=t.enforce_timeout, main_task_id=t.id)
+                                enforce_timeout=t.enforce_timeout, main_task_id=t.id, route=t.route)
                     task = Task(path=t.target, **args)
 
                     db.add(task)

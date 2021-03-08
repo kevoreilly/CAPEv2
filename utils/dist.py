@@ -818,11 +818,11 @@ class StatusThread(threading.Thread):
                             continue
                         # Balance the tasks, works fine if no tags are set
 
-                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
+                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["tasks"]["completed"] + STATUSES[k]["tasks"]["pending"] + STATUSES[k]["tasks"]["running"])
                         if node_name != node.name:
                             node = db.query(Node).filter_by(name=node_name).first()
 
-                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["pending"] + STATUSES[node.name]["running"])
+                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"])
                     except KeyError:
                         # servers hotplug
                         MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
@@ -837,7 +837,7 @@ class StatusThread(threading.Thread):
                         if not res:
                             continue
 
-                    elif statuses.get("master", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["pending"] < MINIMUMQUEUE[node.name]:
+                    elif statuses.get("master", {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]:
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)
                         if not res:
                             continue

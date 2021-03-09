@@ -1198,8 +1198,9 @@ class Database(object, metaclass=Singleton):
         task.tags_tasks = tags_tasks
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
-            for tag in tags.replace(" ", "").split(","):
-                task.tags.append(self._get_or_create(session, Tag, name=tag))
+            for tag in tags.split(","):
+                if tag.strip():
+                    task.tags.append(self._get_or_create(session, Tag, name=tag))
 
         if clock:
             if isinstance(clock, str):

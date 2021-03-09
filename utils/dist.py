@@ -148,6 +148,24 @@ def node_get_report(task_id, fmt, url, ht_user, ht_pass, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
+def _delete_many(node, ids, nodes, db):
+    try:
+        url = os.path.join(nodes[node].url, "tasks", "delete_many/")
+        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        res = requests.post(
+            url,
+            auth=HTTPBasicAuth(nodes[node].ht_user, nodes[node].ht_pass),
+            data={"ids": ids},
+            verify=False,
+        )
+        if res and res.status_code != 200:
+            log.info("{} - {}".format(res.status_code, res.content))
+            db.rollback()
+    except Exception as e:
+        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
+        db.rollback()
+
+
 def node_submit_task(task_id, node_id):
 
     db = session()
@@ -576,15 +594,8 @@ class Retriever(threading.Thread):
 
             node = nodes[node_id]
             if node and details[node_id]:
-                try:
-                    url = os.path.join(node.url, "tasks", "delete_many/")
-                    log.debug("Removing task id(s): {0} - from node: {1}".format(",".join(details[node_id]), node.name))
-                    res = requests.post(url, data={"ids": ",".join(details[node_id]), "username": node.ht_user, "password": node.ht_pass}, verify=False)
-                    if res and res.status_code != 200:
-                        log.info("{} - {}".format(res.status_code, res.content))
-                    details[node_id] = list()
-                except Exception as e:
-                    log.critical("Error deleting task (task #%d, node %s): %s", task_id, node.name, e)
+                ids = ",".join(details[node])
+                _delete_many(node, ids, nodes, db)
 
             db.commit()
             time.sleep(20)
@@ -1034,7 +1045,6 @@ def node_enabled(node_name, status):
     db.commit()
     db.close()
 
-
 def cron_cleaner():
     """ Method that runs forever """
 
@@ -1066,16 +1076,9 @@ def cron_cleaner():
         for node in details:
             if node and not details[node]:
                 continue
-            try:
-                url = os.path.join(nodes[node].url, "tasks", "delete_many/")
-                log.info("Removing task id(s): {0} - from node: {1}".format(",".join(details[node]), nodes[node].name))
-                res = requests.post(url, data={"ids": ",".join(details[node]), "username": nodes[node].ht_user, "password": nodes[node].ht_pass}, verify=False)
-                if res and res.status_code != 200:
-                    log.info("{} - {}".format(res.status_code, res.content))
-                    db.rollback()
-            except Exception as e:
-                log.critical("Error deleting task (tasks #%s, node %s): %s", ",".join(details[node]), nodes[node].name, e)
-                db.rollback()
+
+            ids = ",".join(details[node])
+            _delete_many(node, ids, nodes, db)
 
     db.commit()
     db.close()

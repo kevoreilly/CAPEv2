@@ -268,7 +268,7 @@ def init_yara():
                 break
             except yara.SyntaxError as e:
                 bad_rule = str(e).split(".yar")[0]+".yar"
-                if bad_rule in indexed:
+                if os.path.basename(bad_rule) in indexed:
                     for k,v in rules.items():
                         if v == bad_rule:
                             del rules[k]

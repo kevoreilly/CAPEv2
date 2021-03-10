@@ -21,7 +21,7 @@ import argparse
 import threading
 from io import BytesIO
 from zipfile import ZipFile
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import combinations
 import distutils.util
 from sqlalchemy import or_, and_
@@ -1045,7 +1045,7 @@ def node_enabled(node_name, status):
     db.commit()
     db.close()
 
-def cron_cleaner():
+def cron_cleaner(clean_x_hours=False):
     """ Method that runs forever """
 
     # Check if we are not runned
@@ -1064,7 +1064,11 @@ def cron_cleaner():
     for node in db.query(Node).all():
         nodes.setdefault(node.id, node)
 
-    tasks = db.query(Task).filter_by(notificated=True, deleted=False).order_by(Task.id.desc()).all()
+    # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
+    if clean_x_hours:
+        tasks = db.query(Task).filter(Task.notificated==True, Task.clock >= datetime.now()-timedelta(hours=clean_x_hours)).order_by(Task.id.desc()).all()
+    else:
+        tasks = db.query(Task).filter_by(notificated=True, deleted=False).order_by(Task.id.desc()).all()
     if tasks is not None:
         for task in tasks:
             node = nodes[task.node_id]
@@ -1137,12 +1141,20 @@ if __name__ == "__main__":
     p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist")
     p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist")
     p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
+    p.add_argument(
+        "-ch",
+        "--clean-hours",
+        action="store",
+        type=int,
+        default=0,
+        help="Clean tasks for last X hours",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
 
     if args.enable_clean:
-        cron_cleaner()
+        cron_cleaner(args.clean_hours)
         sys.exit()
 
     if args.force_reported:

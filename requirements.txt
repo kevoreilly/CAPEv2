@@ -2,7 +2,7 @@ flor
 Pebble
 pymisp
 cryptography>=3.1
-requests[security]
+requests[security,socks]
 pyOpenSSL
 pefile
 tldextract
@@ -59,7 +59,6 @@ dpkt
 nose
 dnspython
 pytz
-requests[socks]
 python-magic
 geoip
 pillow>=7

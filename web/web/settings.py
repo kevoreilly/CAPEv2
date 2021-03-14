@@ -346,14 +346,21 @@ INSTALLED_APPS = [
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
-            'DEFAULT_AUTHENTICATION_CLASSES': [
-                'rest_framework.authentication.TokenAuthentication',
-                'rest_framework.authentication.SessionAuthentication',
-            ],
-            'DEFAULT_PERMISSION_CLASSES': (
-                'rest_framework.permissions.IsAuthenticated',
-            ),
+        'DEFAULT_AUTHENTICATION_CLASSES': [
+            'rest_framework.authentication.TokenAuthentication',
+            'rest_framework.authentication.SessionAuthentication',
+        ],
+        'DEFAULT_PERMISSION_CLASSES': (
+            'rest_framework.permissions.IsAuthenticated',
+        ),
+        'DEFAULT_THROTTLE_CLASSES': [
+            'rest_framework.throttling.UserRateThrottle',
+            'web.apiv2.throttling.SubscriptionDailyRateThrottle'
+        ],
+        'DEFAULT_THROTTLE_RATES': {
+            'user': '5/m',
         }
+    }
 
 else:
     REST_FRAMEWORK = {

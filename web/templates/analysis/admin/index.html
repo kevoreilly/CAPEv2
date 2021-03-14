@@ -28,5 +28,11 @@
             <th></th>
             <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-small">Delete</a></td>
         </tr>
+        {% if analysis.info.user_id %}
+        <tr>
+            <th>Task submitted by user id:</th>
+            <td>{{analysis.info.user_id}}</td>
+        </tr>
+        {% endif %}
     </table>
 </div>

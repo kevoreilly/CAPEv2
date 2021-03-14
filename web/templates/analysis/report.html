@@ -102,7 +102,7 @@ $(function() {
     {% if analysis.curtain%}<li class="nav-item"> <a class="nav-link" href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
     <li class="nav-item"><a class="nav-link" href="#statistics" data-toggle="tab">Statistics</a></li>
     {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
-    {% if settings.ADMIN %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
+    {% if settings.ADMIN or request.user.is_stuff %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
     <div class="tab-pane fade show active" id="overview">

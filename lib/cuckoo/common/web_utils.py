@@ -265,6 +265,31 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     if data:
         return list(data)
 
+# ToDo extend this to directly extract per day
+def get_stats_per_category(date_since, date_to, category)
+    aggregation_command = [
+        {"$match": {
+            "info.started": {
+                "$gte": date_since.isoformat(),
+                "$lt": date_to.isoformat(),
+            },
+            "statistics.{}".format(category): {"$exists": True},
+            }
+        },
+        {"$unwind":"$statistics.{}".format(category)},
+        {"$group": {
+            "_id": "$statistics.{}.name".format(category),
+            "total_time": {"$sum": "$statistics.{}.time".format(category)},
+            "total_run": {"$sum": 1}}
+        },
+        {"$addFields": {"name": "$_id"}},
+        {"$project": {"_id": 0}},
+        {"$sort": {"total_time": -1}},
+    ]
+    data = results_db.analysis.aggregate(aggregation_command)
+    if data:
+        return data
+
 
 def statistics(s_days: int) -> dict:
     date_since = datetime.now()-timedelta(days=s_days)
@@ -298,7 +323,9 @@ def statistics(s_days: int) -> dict:
         return details
 
     for module_name in [u'signatures', u'processing', u'reporting']:
+        # module_data = get_stats_per_category(module_name)
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
+
         for entry in s:
             times_in_mins = tmp_data[module_name][entry]["time"]/60
             if not times_in_mins:
@@ -307,7 +334,6 @@ def statistics(s_days: int) -> dict:
             details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
             details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
-
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     top_samples = dict()

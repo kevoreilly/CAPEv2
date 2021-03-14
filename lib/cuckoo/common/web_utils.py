@@ -266,7 +266,7 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
         return list(data)
 
 # ToDo extend this to directly extract per day
-def get_stats_per_category(date_since, date_to, category)
+def get_stats_per_category(date_since, date_to, category):
     aggregation_command = [
         {"$match": {
             "info.started": {
@@ -284,6 +284,7 @@ def get_stats_per_category(date_since, date_to, category)
         },
         {"$addFields": {"name": "$_id"}},
         {"$project": {"_id": 0}},
+        {"day": { "$dayOfMonth": "$info.started" }},
         {"$sort": {"total_time": -1}},
     ]
     data = results_db.analysis.aggregate(aggregation_command)

@@ -604,7 +604,8 @@ class Scheduler:
 
         max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
         if max_vmstartup_count:
-            machine_lock = threading.Semaphore(max_vmstartup_count)
+            # machine_lock = threading.Semaphore(max_vmstartup_count)
+            machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
         else:
             machine_lock = threading.Lock()
 

@@ -1084,8 +1084,9 @@ class NetworkAnalysis(Processing):
 
         if os.path.exists(pcap_path) and HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path)
-                results.update(p2.run())
+                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path).run()
+                if p2:
+                    results.update(p2
             except:
                 log.exception("Error running httpreplay-based PCAP analysis")
 

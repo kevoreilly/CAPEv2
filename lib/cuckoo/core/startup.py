@@ -6,7 +6,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import sys
-import shutil
 import copy
 import socket
 import logging
@@ -25,13 +24,13 @@ import modules.reporting
 import modules.feeds
 
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.colors import red, green, yellow, cyan
+from lib.cuckoo.common.colors import red, yellow, cyan
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooStartupError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
-from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_FAILED_ANALYSIS
+from lib.cuckoo.common.utils import create_folders
+from lib.cuckoo.core.database import Database, TASK_RUNNING, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
@@ -253,7 +252,6 @@ def init_yara():
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
                     continue
-
                 filepath = os.path.join(category_root, filename)
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
@@ -268,12 +266,14 @@ def init_yara():
                 break
             except yara.SyntaxError as e:
                 bad_rule = str(e).split(".yar")[0]+".yar"
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
                 if os.path.basename(bad_rule) in indexed:
                     for k,v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
                             print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
                 else:
                     break
             except yara.Error as e:

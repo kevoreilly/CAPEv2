@@ -115,7 +115,7 @@ def demux_office(filename, password):
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
     if not os.path.exists(target_path):
-        os.mkdir(target_path)
+        os.makedirs(target_path)
     decrypted_name = os.path.join(target_path, basename)
 
     if HAS_SFLOCK:

@@ -1452,7 +1452,7 @@ def search(request):
 def remove(request, task_id):
     """Remove an analysis.
     """
-    if not enabledconf["delete"] or not request.user.is_stuff:
+    if not enabledconf["delete"] or not request.user.is_staff:
         return render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
 
     if enabledconf["mongodb"]:

@@ -16,7 +16,7 @@ except ImportError:
 else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
-        bson_decode = lambda d: bson.BSON(d).decode()
+        bson_decode = lambda d: bson.decode(d)
     # The BSON module provided by "pip3 install bson" works through the
     # "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
@@ -24,10 +24,6 @@ else:
     else:
         HAVE_BSON = False
 
-from lib.cuckoo.common.defines import REG_SZ, REG_EXPAND_SZ
-from lib.cuckoo.common.defines import REG_DWORD_BIG_ENDIAN
-from lib.cuckoo.common.defines import REG_DWORD_LITTLE_ENDIAN
-from lib.cuckoo.common.exceptions import CuckooResultError
 from lib.cuckoo.common.logtbl import table as LOGTBL
 from lib.cuckoo.common.utils import get_filename_from_path, default_converter
 

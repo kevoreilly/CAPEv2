@@ -17,8 +17,7 @@ else:
     # The BSON module provided by pymongo works through its "BSON" class.
     if hasattr(bson, "BSON"):
         bson_decode = lambda d: bson.decode(d)
-    # The BSON module provided by "pip3 install bson" works through the
-    # "loads" function (just like pickle etc.)
+    # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
     elif hasattr(bson, "loads"):
         bson_decode = lambda d: bson.loads(d)
     else:

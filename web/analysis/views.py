@@ -419,7 +419,7 @@ def load_files(request, task_id, category):
                                 with open(tmp_file, "r") as f:
                                     bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-                    if ajax_mongo_schema.get(category, "").startswith("CAPE"):
+                    if ajax_mongo_schema.get(category, "").startswith("CAPE") and data:
                         if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
                             cape_files = data.get("CAPE", {}).get("payloads", []) or []
                         #ToDo remove in CAPEv3

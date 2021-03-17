@@ -993,6 +993,13 @@ def report(request, task_id):
         print(e)
         report["procdump_size"] = 0
 
+    try:
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 1}}]))
+        report["memory"] = tmp_data[0]["_id"]  or 0
+    except Exception as e:
+        print(e)
+        report["memory"] = 0
+
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")

@@ -27,7 +27,8 @@ class LiteReport(Report):
             "signatures",
             "dropped",
             "static",
-            "target"
+            "target",
+            "network"
         }
 
         # lite report report only has the specific keys

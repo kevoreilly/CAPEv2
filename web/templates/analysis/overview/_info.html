@@ -126,6 +126,9 @@
                         <th>Manager</th>
                         <th>Started On</th>
                         <th>Shutdown On</th>
+                        {% if analysis.info.route %}
+                            <th>Route</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -135,6 +138,9 @@
                         <td>{{analysis.info.machine.manager}}</td>
                         <td>{{analysis.info.machine.started_on}}</td>
                         <td>{{analysis.info.machine.shutdown_on}}</td>
+                        {% if analysis.info.route %}
+                            <td>{{analysis.info.route}}</td>
+                        {% endif %}
                     </tr>
                 </tbody>
             </table>

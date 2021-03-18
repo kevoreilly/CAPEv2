@@ -122,5 +122,6 @@ class AnalysisInfo(Processing):
             distributed=distributed,
             options=parsed_options,
             source_url=source_url,
+            route=self.task.get("route"),
             user_id=self.task.get("user_id"),
         )

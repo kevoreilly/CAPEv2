@@ -11,7 +11,6 @@ from ctypes import (
     c_ubyte as BYTE,
     c_ushort as WORD,
     c_uint as DWORD,
-    c_int as LONG,
     cast,
     pointer,
     POINTER,
@@ -63,24 +62,6 @@ class ICONDIRENTRY(Structure):
         ("wBitCount", WORD),
         ("dwBytesInRes", DWORD),
         ("dwImageOffset", DWORD),
-    ]
-
-
-class BITMAPINFOHEADER(Structure):
-    _pack_ = 1
-    _fields_ = [
-        ("biSize", DWORD),  # size of this structure
-        ("biWidth", LONG),
-        ("biHeight", LONG),
-        ("biPlanes", WORD),
-        ("biBitCount", WORD),
-        ("biCompression", DWORD),
-        ("biSizeImage", DWORD),
-        ("biXPelsPerMeter", LONG),
-        ("biYPelsPerMeter", LONG),
-        ("biClrUsed", DWORD),
-        ("biClrImportant", DWORD),
-        # an ICONIMAGE follows this by arrays of RGBQUAD icColors, byte icXOR, and byte icAND
     ]
 
 

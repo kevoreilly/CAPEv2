@@ -499,7 +499,7 @@ def download_file(**kwargs):
     onesuccess = False
 
 
-    # in case if user didn't specify routing, and we have enabled random route
+    # in case if user didn't specify routing, and we have enabled random route
     if not route:
         socks5s = _load_socks5_operational()
 
@@ -510,7 +510,7 @@ def download_file(**kwargs):
             socks5s_random = choice(socks5s.values()).get("description", False)
 
         if routing_conf.vpn.random_vpn:
-            vpn_random = choice(vpns.values()).get("description", False)
+            vpn_random = choice(list(vpns.values())).get("description", False)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))
@@ -847,7 +847,7 @@ def parse_request_arguments(request):
     unique = bool(request.POST.get("unique", False))
     tlp = request.POST.get("tlp", None)
     lin_options = request.POST.get("lin_options", "")
-    route = request.POST.get("route", routing_conf.routing.route)
+    route = request.POST.get("route")
     cape = request.POST.get("cape", "")
     # Linux options
     if lin_options:

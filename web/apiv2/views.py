@@ -954,7 +954,7 @@ def tasks_reschedule(request, task_id):
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 @api_view(['GET'])
-@permission_classes((IsAuthenticated, IsAdminUser))
+@permission_classes((IsAuthenticated))
 def tasks_delete(request, task_id):
     """
         task_id: int or string if many

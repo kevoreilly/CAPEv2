@@ -20,8 +20,7 @@ from django.views.decorators.http import require_safe
 
 
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view
 
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
@@ -954,14 +953,13 @@ def tasks_reschedule(request, task_id):
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
 @api_view(['GET'])
-@permission_classes((IsAuthenticated))
 def tasks_delete(request, task_id):
     """
         task_id: int or string if many
         example: 1 or 1,2,3,4
 
     """
-    if not apiconf.taskdelete.get("enabled") or not request.user.is_staff:
+    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
         resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
         return Response(resp)
 

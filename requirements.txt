@@ -46,7 +46,6 @@ numpy>=1.15.0
 six>=1.12.0
 statistics>=1.0.3.5
 django>3
-django-ratelimit
 sqlalchemy
 sqlalchemy-utils
 jinja2

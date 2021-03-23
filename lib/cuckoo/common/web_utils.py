@@ -24,6 +24,7 @@ from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
 
 cfg = Config("cuckoo")
+web_cfg = Config("web")
 repconf = Config("reporting")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
@@ -247,6 +248,7 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
+    data = False
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
 
     aggregation_command = [
@@ -263,7 +265,11 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
 
     data = results_db.analysis.aggregate(aggregation_command)
     if data:
-        return list(data)
+        data = list(data)
+
+    # ToDo verify
+    #results_db.close()
+    return data
 
 # ToDo extend this to directly extract per day
 def get_stats_per_category(date_since, date_to, category):
@@ -396,6 +402,7 @@ def statistics(s_days: int) -> dict:
 
     details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
+    #ToDo missed results_db.close()
     session.close()
     return details
 
@@ -807,7 +814,7 @@ def perform_search(term, value):
         search_term_map[term] = search_term_map[term]+hash_len.get(len(value))
 
     if repconf.mongodb.enabled and query_val:
-        return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])
+        return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]]).limit(web_cfg.general.get("search_limit", 50))
     if es_as_db:
         return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]
 

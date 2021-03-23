@@ -8,9 +8,11 @@ from rest_framework.throttling import UserRateThrottle
 # https://docs.djangoproject.com/en/3.2/ref/settings/#caches
 # https://docs.djangoproject.com/en/3.2/topics/cache/#setting-up-the-cache
 
-def get_user_daily_limit(user):
-    # ToDo implement all the logic for user limits here
-    pass
+duration_map = {
+    "m": 1,
+    "h": 60,
+    "d": 24 * 60 * 60,
+}
 
 class SubscriptionRateThrottle(UserRateThrottle):
     # Define a custom scope name to be referenced by DRF in settings.py
@@ -33,11 +35,13 @@ class SubscriptionRateThrottle(UserRateThrottle):
             return True
 
         if request.user.is_authenticated:
-            user_daily_limit = get_user_daily_limit(request.user)
-            if user_daily_limit:
-                # Override the default from settings.py
-                self.duration = 86400
-                self.num_requests = user_daily_limit
+            user_limit = request.user.userprofile.suscription
+            if user_limit:
+                requests, duration = user_limit.split("/")
+                if duration in duration_map:
+                    # Override the default from settings.py
+                    self.duration = duration_map[duration]
+                    self.num_requests = int(requests)
             else:
                 # No limit == unlimited plan
                 return True

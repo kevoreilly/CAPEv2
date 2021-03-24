@@ -1,7 +1,7 @@
 flor
 Pebble
 pymisp
-cryptography>=3.1
+cryptography==3.3.1
 requests[security,socks]
 pyOpenSSL
 pefile

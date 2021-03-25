@@ -920,9 +920,9 @@ class PortableExecutable(object):
                 cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
             try:
                 for extension in cert.extensions:
-                    if extension.oid._name == "authorityKeyIdentifier":
+                    if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier)
-                    elif extension.oid._name == "subjectKeyIdentifier":
+                    elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest)
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):

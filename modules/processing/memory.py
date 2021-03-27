@@ -39,6 +39,7 @@ except Exception as e:
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
+yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 
 # set logger volatility3
 
@@ -261,8 +262,10 @@ class VolatilityManager(object):
             results["svcscan"] = vol3.run("windows.svcscan.SvcScan")
         if self.voptions.modscan.enabled:
             results["modscan"] = vol3.run("windows.modscan.ModScan")
-        #if self.voptions.yarascan.enabled:
-        #    results["yarascan"] = vol3.run("yarascan.YaraScan")
+        if self.voptions.yarascan.enabled:
+            if os.path.exists(yara_rules_path):
+                vol3.config["yara_compiled_file"] = yara_rules_path
+            results["yarascan"] = vol3.run("yarascan.YaraScan")
         if self.voptions.netscan.enabled:
             results["netscan"] = vol3.run("windows.netscan.NetScan")
 

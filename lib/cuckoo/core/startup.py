@@ -282,9 +282,13 @@ def init_yara():
                 break
 
         if category == "memory":
-            with open(os.path.join(yara_root, "index_memory.yar"), "w") as f:
+            mem_rules = yara.compile(filepaths=rules, externals=externals)
+            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            """
+            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
                 for filename in sorted(indexed):
                     f.write('include "%s"\n' % os.path.join(category_root, filename))
+            """
 
         indexed = sorted(indexed)
         for entry in indexed:

@@ -126,12 +126,12 @@ class VolatilityAPI(object):
             base_config_path = "plugins"
             single_location = self.memdump #"file:" + pathname2url(path)
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
+            if os.path.exists(yara_rules_path):
+                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
 
         plugin = self.plugin_list.get(plugin_class)
         automagics = automagic.choose_automagic(self.automagics, plugin)
         constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
-        if plugin_class == "yarascan.YaraScan" and os.path.exists(yara_rules_path):
-            self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
         runned_plugin = constructed.run()
         json_data, error = ReturnJsonRenderer().render(runned_plugin)
         return json_data#, error

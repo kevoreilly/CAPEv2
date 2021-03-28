@@ -3,9 +3,9 @@ rule VBCrypter
     meta:
         author = "kevoreilly"
         description = "VBCrypter anti-hook Bypass"
-        cape_options = "bp0=$antihook+4,action0=jmp,count=0,no-logs=1"
+        cape_options = "bp0=$antihook-12,action0=jmp,count=0"
     strings:
-        $antihook = {41 43 3B 13 75 20 66 81 7B FE C9 33 74 06 80 7B FB B9 74 0A C6 43 F9 B8 89 43 FA 40 EB 08}
+        $antihook = {43 39 C3 0F 84 ?? 00 00 00 80 3B B8 75 ?? 83 7B 01 00 75 ?? 80 7B 05 BA 75 ?? 8B 53 06 83 C3 0A 31 C9}
     condition:
         any of them
 }

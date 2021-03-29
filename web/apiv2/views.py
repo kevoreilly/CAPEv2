@@ -1459,6 +1459,16 @@ def tasks_dropped(request, task_id):
             tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
         tar.close()
         s.seek(0)
+
+        # in Mb
+        dropped_max_size_limit = request.GET.get("max_size", False)
+        # convert to MB
+        size = len(s.getvalue())
+        size_in_mb = int(size/1024/1024)
+        if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
+            resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
+            return Response(resp)
+
         resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname

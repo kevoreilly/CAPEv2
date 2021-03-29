@@ -31,7 +31,7 @@ rule Zloader
         cape_type = "Zloader Payload"
     strings:
         $rc4_init = {31 [1-3] 66 C7 8? 00 01 00 00 00 00 90 90 [0-5] 8? [5-90] 00 01 00 00 [0-15] (74|75)}
-        $decrypt_conf = {83 C4 04 84 C0 74 5? E8 [4] E8 [4] E8 [4] E8 [4] ?8 [4] ?8 [4] ?8}
+        $decrypt_conf = {e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? e8 ?? ?? ?? ?? 83 c4 08 e8 ?? ?? ?? ??}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
@@ -66,11 +66,8 @@ class Zloader(Parser):
                 continue
             for item in match.strings:
                 if '$decrypt_conf' in item[1]:
-                    decrypt_conf = int(item[0])+28
+                    decrypt_conf = int(item[0])+21
         va = struct.unpack("I",filebuf[decrypt_conf:decrypt_conf+4])[0]
-        while va > 0x100000:
-            decrypt_conf += 5
-            va = struct.unpack("I",filebuf[decrypt_conf:decrypt_conf+4])[0]
         key = string_from_offset(filebuf, pe.get_offset_from_rva(va-image_base))
         data_offset = pe.get_offset_from_rva(struct.unpack("I",filebuf[decrypt_conf+5:decrypt_conf+9])[0]-image_base)
         enc_data = filebuf[data_offset:].split(b"\0\0")[0]

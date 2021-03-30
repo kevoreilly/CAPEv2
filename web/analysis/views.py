@@ -36,9 +36,6 @@ from lib.cuckoo.common.web_utils import (
     perform_malscore_search,
     perform_search,
     perform_ttps_search,
-    my_rate_minutes,
-    my_rate_seconds,
-    rateblock,
     statistics,
 )
 import modules.processing.network as network

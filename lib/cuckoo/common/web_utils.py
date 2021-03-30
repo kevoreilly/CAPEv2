@@ -31,7 +31,6 @@ machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
-rateblock = apiconf.api.get("ratelimit", False)
 
 db = Database()
 
@@ -125,104 +124,6 @@ try:
 except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
-
-apilimiter = {
-    "tasks_create_file": apiconf.filecreate,
-    "tasks_create_url": apiconf.urlcreate,
-    "tasks_create_static": apiconf.staticextraction,
-    "tasks_create_dlnexec": apiconf.dlnexeccreate,
-    "tasks_vtdl": apiconf.vtdl,
-    "files_view": apiconf.fileview,
-    "tasks_search": apiconf.tasksearch,
-    "ext_tasks_search": apiconf.extendedtasksearch,
-    "tasks_list": apiconf.tasklist,
-    "tasks_view": apiconf.taskview,
-    "tasks_reschedule": apiconf.taskresched,
-    "tasks_delete": apiconf.taskdelete,
-    "tasks_status": apiconf.taskstatus,
-    "tasks_report": apiconf.taskreport,
-    "tasks_iocs": apiconf.taskiocs,
-    "tasks_screenshot": apiconf.taskscreenshot,
-    "tasks_pcap": apiconf.taskpcap,
-    "tasks_dropped": apiconf.taskdropped,
-    "tasks_surifile": apiconf.tasksurifile,
-    "tasks_rollingsuri": apiconf.rollingsuri,
-    "tasks_rollingshrike": apiconf.rollingshrike,
-    "task_procdump": apiconf.taskprocdump,
-    "tasks_procmemory": apiconf.taskprocmemory,
-    "tasks_fullmemory": apiconf.taskprocmemory,
-    "get_files": apiconf.sampledl,
-    "machines_list": apiconf.machinelist,
-    "machines_view": apiconf.machineview,
-    "cuckoo_status": apiconf.cuckoostatus,
-    "task_x_hours": apiconf.task_x_hours,
-    "tasks_latest": apiconf.tasks_latest,
-    # "post_processing":
-    "tasks_payloadfiles": apiconf.payloadfiles,
-    "tasks_procdumpfiles": apiconf.procdumpfiles,
-    "tasks_config": apiconf.capeconfig,
-    "file": apiconf.download_file,
-    "filereport": apiconf.filereport,
-    "statistics": apiconf.statistics,
-    "full_memory_dump_file": apiconf.full_memory_dump_file,
-    "full_memory_dump_file_strings": apiconf.full_memory_dump_file_strings,
-    "comments": apiconf.comments,
-    "search": apiconf.web_search,
-}
-
-# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
-def my_rate_seconds(group, request):
-    # RateLimits not enabled
-    if rateblock is False:
-        return "99999999999999/s"
-
-    username = False
-    password = False
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        elif apilimiter[group].get("auth_only"):
-            return "0/s"
-        else:
-            return apilimiter[group].get("rps")
-
-    return "0/s"
-
-def my_rate_minutes(group, request):
-    # RateLimits not enabled
-    if rateblock is False:
-        return "99999999999999/m"
-
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-        username = False
-        password = False
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        elif apilimiter[group].get("auth_only"):
-            return "0/m"
-        else:
-            return apilimiter[group].get("rpm")
-
-    return "0/m"
 
 def load_vms_tags():
     all_tags = list()

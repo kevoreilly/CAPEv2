@@ -39,6 +39,7 @@ except Exception as e:
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
+yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 
 # set logger volatility3
 
@@ -125,6 +126,9 @@ class VolatilityAPI(object):
             base_config_path = "plugins"
             single_location = self.memdump #"file:" + pathname2url(path)
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
+            if os.path.exists(yara_rules_path):
+                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
+
         plugin = self.plugin_list.get(plugin_class)
         automagics = automagic.choose_automagic(self.automagics, plugin)
         constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
@@ -211,7 +215,6 @@ class VolatilityManager(object):
             return
 
         vol3 = VolatilityAPI(self.memfile)
-
         """
         if self.voptions.idt.enabled:
             try:
@@ -261,8 +264,8 @@ class VolatilityManager(object):
             results["svcscan"] = vol3.run("windows.svcscan.SvcScan")
         if self.voptions.modscan.enabled:
             results["modscan"] = vol3.run("windows.modscan.ModScan")
-        #if self.voptions.yarascan.enabled:
-        #    results["yarascan"] = vol3.run("yarascan.YaraScan")
+        if self.voptions.yarascan.enabled:
+            results["yarascan"] = vol3.run("yarascan.YaraScan")
         if self.voptions.netscan.enabled:
             results["netscan"] = vol3.run("windows.netscan.NetScan")
 

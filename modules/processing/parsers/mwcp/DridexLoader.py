@@ -72,6 +72,8 @@ class DridexLoader(Parser):
         image_base = pe.OPTIONAL_HEADER.ImageBase
         line, c2va_offset, delta = 0, 0, 0
         botnet_code, botnet_rva, rc4_decode = 0, 0, 0
+        num_ips_rva = 0
+        num_ips = 4
 
         matches = yara_rules.match(data=filebuf)
         if not matches:
@@ -95,6 +97,7 @@ class DridexLoader(Parser):
         elif line == "$c2parse_5":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 75 : c2va_offset + 79])[0] - image_base
             botnet_rva = struct.unpack("i", filebuf[c2va_offset + 3 : c2va_offset + 7])[0] - image_base
+            num_ips_rva = struct.unpack("i", filebuf[c2va_offset + 18 : c2va_offset + 22])[0] - image_base
         elif line == "$c2parse_4":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 6 : c2va_offset + 10])[0] - image_base + 1
         elif line == "$c2parse_3":
@@ -110,7 +113,11 @@ class DridexLoader(Parser):
 
         c2_offset = pe.get_offset_from_rva(c2_rva)
 
-        for i in range(0, 4):
+        if num_ips_rva:
+            num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
+            num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
+
+        for i in range(0, num_ips):
             ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])

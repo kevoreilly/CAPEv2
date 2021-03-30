@@ -170,10 +170,10 @@ class packedSetting:
 
                 ret_arr = []
                 prepend_length = unpack(">I", conf_data[0:4])[0]
-                prepend = conf_data[4 : 4 + prepend_length]
+                prepend = conf_data[4 : 4 + prepend_length].hex()
                 append_length_offset = prepend_length + 4
                 append_length = unpack(">I", conf_data[append_length_offset : append_length_offset + 4])[0]
-                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length]
+                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length].hex()
                 ret_arr.append(prepend)
                 ret_arr.append(append if append_length < 256 and append != bytes(append_length) else "Empty")
                 return ret_arr

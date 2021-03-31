@@ -138,10 +138,10 @@ def index(request, resubmit_hash=False):
         options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
         opt_filename = get_user_filename(options, custom)
 
-        if priority and web_conf.public.enabled and web_conf.public.priority:
+        if priority and web_conf.public.enabled and web_conf.public.priority and not request.user.is_staff:
             priority = web_conf.public.priority
 
-        if timeout and web_conf.public.enabled and web_conf.public.timeout:
+        if timeout and web_conf.public.enabled and web_conf.public.timeout and not request.user.is_staff:
             timeout = web_conf.public.timeout
 
         if options:

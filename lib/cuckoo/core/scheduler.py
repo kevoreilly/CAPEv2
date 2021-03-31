@@ -540,10 +540,6 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
 
-        if self.route in vpns:
-            self.rooter_response = rooter("vpn_disable", self.route)
-            time.sleep(1)
-
         if self.route == "inetsim":
             self.rooter_response = rooter(
                 "inetsim_disable",

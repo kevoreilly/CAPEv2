@@ -415,10 +415,10 @@ def download_file(**kwargs):
         vpn_random = ""
 
         if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(socks5s.values()).get("description", False)
+            socks5s_random = choice(socks5s.values()).get("name", False)
 
         if routing_conf.vpn.random_vpn:
-            vpn_random = choice(list(vpns.values())).get("description", False)
+            vpn_random = choice(list(vpns.values())).get("name", False)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))

@@ -488,13 +488,13 @@ def index(request, resubmit_hash=False):
         vpn_random = ""
 
         if routing.socks5.random_socks5 and socks5s:
-            socks5s_random = random.choice(socks5s.values()).get("description", False)
+            socks5s_random = random.choice(socks5s.values()).get("name", False)
 
         if routing.vpn.random_vpn:
-            vpn_random =  random.choice(list(vpns.values())).get("description", False)
+            vpn_random =  random.choice(list(vpns.values())).get("name", False)
 
         if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("description", False)
+            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
 
         random_route = False
         if vpn_random and socks5s_random:

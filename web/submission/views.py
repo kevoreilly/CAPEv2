@@ -259,7 +259,7 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
                 sha256 = File(path).get_sha256()
-                if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
+                if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
                     details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
                     continue
 

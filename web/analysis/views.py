@@ -916,7 +916,7 @@ def search_behavior(request, task_id):
 
         query = query.strip()
 
-        query = re.compile(query)
+        query = re.compile(re.escape(query))
 
         # Fetch anaylsis report
         if enabledconf["mongodb"]:

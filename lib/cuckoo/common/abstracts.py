@@ -441,6 +441,12 @@ class LibVirtMachinery(Machinery):
             self._disconnect(conn)
             raise CuckooMachineError("No snapshot found for virtual machine " "{0}".format(label))
 
+        try:
+            self.vms[label].create()
+        except libvirt.libvirtError:
+            msg = "Unable to start virtual machine {0}".format(label)
+            raise CuckooMachineError(msg)
+
         # Check state.
         self._wait_status(label, self.RUNNING)
 

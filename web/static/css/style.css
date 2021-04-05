@@ -28,6 +28,11 @@ a {
     display: block !important;
 }
 
+.alert-primary
+{
+    background-color: #303030
+}
+
 .nav-link {
     padding: .5rem 1rem;
 }

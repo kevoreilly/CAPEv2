@@ -910,8 +910,6 @@ class Signature(object):
         @return: url or None
         """
 
-        val = URLValidator(schemes=["http", "https", "udp", "tcp"])
-
         try:
             django_url_validator(url)
             return url

@@ -10,7 +10,14 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import flare_capa_details
+
+from lib.cuckoo.common.config import Config
+processing_conf = Config("processing")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
 
 processing_conf = Config("processing")
 
@@ -88,11 +95,12 @@ class ProcDump(Processing):
                 else:
                     file_info["data"] = convert_to_printable(filedata)
 
-            pretime = datetime.now()
-            capa_details = flare_capa_details(file_path, "procdump")
-            if capa_details:
-                file_info["flare_capa"] = capa_details
-            self.add_statistic_tmp("flare_capa", "time", pretime)
+            if HAVE_FLARE_CAPA:
+                pretime = datetime.now()
+                capa_details = flare_capa_details(file_path, "procdump")
+                if capa_details:
+                    file_info["flare_capa"] = capa_details
+                self.add_statistic_tmp("flare_capa", "time", pretime)
 
             procdump_files.append(file_info)
 

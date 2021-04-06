@@ -1,3 +1,8 @@
+### [06-04-2021] Small performance improvements
+* New dependecy `ujson`
+    * __REQUIRED ACTION:__ -> `pip3 install ujson -U`
+
+
 ### [23-03-2021] API Suscription
 * Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
 * This was done with huge help from those writeups

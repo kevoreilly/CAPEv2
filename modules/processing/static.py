@@ -109,7 +109,6 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
-from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     from peepdf.PDFCore import PDFParser
@@ -145,8 +144,15 @@ try:
 except ImportError:
     ELFFile = False
 
-log = logging.getLogger(__name__)
 processing_conf = Config("processing")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
+
+log = logging.getLogger(__name__)
 
 userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
 userdb_signatures = peutils.SignatureDatabase()
@@ -1004,11 +1010,12 @@ class PortableExecutable(object):
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
-        pretime = datetime.now()
-        capa_details = flare_capa_details(self.file_path, "static")
-        if capa_details:
-            results["flare_capa"] = capa_details
-        self.add_statistic_tmp("flare_capa", "time", pretime)
+        if HAVE_FLARE_CAPA:
+            pretime = datetime.now()
+            capa_details = flare_capa_details(self.file_path, "static")
+            if capa_details:
+                results["flare_capa"] = capa_details
+            self.add_statistic_tmp("flare_capa", "time", pretime)
 
         return results
 

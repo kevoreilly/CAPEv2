@@ -26,7 +26,8 @@ from collections import defaultdict
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-import lib.cuckoo.common.utils_pretty_print_funcs as pp_fns
+from lib.cuckoo.common import utils_dicts
+from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 import six
 
 try:
@@ -36,10 +37,14 @@ except ImportError:
 
 try:
     import chardet
-
     HAVE_CHARDET = True
 except ImportError:
     HAVE_CHARDET = False
+
+def arg_name_clscontext(arg_val):
+    val = int(arg_val, 16)
+    enumdict = utils_dicts.ClsContextDict()
+    return simple_pretty_print_convert(val, enumdict)
 
 config = Config()
 
@@ -355,48 +360,48 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
     @return: pretty-printed version of the argument value provided, or None if no conversion exists
     """
     if api_name == "NtCreateSection" and arg_name == "DesiredAccess":
-        return pp_fns.api_name_ntcreatesection_arg_name_desiredaccess(arg_val)
+        return pp_funcs.api_name_ntcreatesection_arg_name_desiredaccess(arg_val)
     elif api_name == "CreateToolhelp32Snapshot" and arg_name == "Flags":
-        return pp_fns.api_name_createtoolhelp32snapshot_arg_name_flags(arg_val)
+        return pp_funcs.api_name_createtoolhelp32snapshot_arg_name_flags(arg_val)
     elif arg_name == "ClsContext":
-        return pp_fns.arg_name_clscontext(arg_val)
+        return arg_name_clscontext(arg_val)
     elif arg_name == "BlobType":
-        return pp_fns.blobtype(arg_val)
+        return pp_funcs.blobtype(arg_val)
     elif arg_name == "Algid":
-        return pp_fns.algid(arg_val)
+        return pp_funcs.algid(arg_val)
     elif api_name == "SHGetFolderPathW" and arg_name == "Folder":
-        return pp_fns.api_name_shgetfolderpathw_arg_name_folder(arg_val)
+        return pp_funcs.api_name_shgetfolderpathw_arg_name_folder(arg_val)
     elif arg_name == "HookIdentifier":
-        return pp_fns.hookidentifer(arg_val)
+        return pp_funcs.hookidentifer(arg_val)
     elif arg_name == "InfoLevel":
-        return pp_fns.infolevel(arg_val)
+        return pp_funcs.infolevel(arg_val)
 
     elif arg_name == "Disposition":
-        return pp_fns.disposition(arg_val)
+        return pp_funcs.disposition(arg_val)
     elif arg_name == "CreateDisposition":
-        return pp_fns.createdisposition(arg_val)
+        return pp_funcs.createdisposition(arg_val)
     elif arg_name == "ShareAccess":
-        return pp_fns.shareaccess(arg_val)
+        return pp_funcs.shareaccess(arg_val)
     elif arg_name == "SystemInformationClass":
-        return pp_fns.systeminformationclass(arg_val)
+        return pp_funcs.systeminformationclass(arg_val)
     elif category == "registry" and arg_name == "Type":
-        return pp_fns.category_registry_arg_name_type(arg_val)
+        return pp_funcs.category_registry_arg_name_type(arg_val)
     elif (api_name == "OpenSCManagerA" or api_name == "OpenSCManagerW") and arg_name == "DesiredAccess":
-        return pp_fns.api_name_opensc_arg_name_desiredaccess(arg_val)
+        return pp_funcs.api_name_opensc_arg_name_desiredaccess(arg_val)
     elif category == "services" and arg_name == "ControlCode":
-        return pp_fns.category_services_arg_name_controlcode(arg_val)
+        return pp_funcs.category_services_arg_name_controlcode(arg_val)
     elif category == "services" and arg_name == "ErrorControl":
-        return pp_fns.category_services_arg_name_errorcontrol(arg_val)
+        return pp_funcs.category_services_arg_name_errorcontrol(arg_val)
     elif category == "services" and arg_name == "StartType":
-        return pp_fns.category_services_arg_name_starttype(arg_val)
+        return pp_funcs.category_services_arg_name_starttype(arg_val)
     elif category == "services" and arg_name == "ServiceType":
-        return pp_fns.category_services_arg_name_servicetype(arg_val)
+        return pp_funcs.category_services_arg_name_servicetype(arg_val)
     elif category == "services" and arg_name == "DesiredAccess":
-        return pp_fns.category_services_arg_name_desiredaccess(arg_val)
+        return pp_funcs.category_services_arg_name_desiredaccess(arg_val)
     elif category == "registry" and (arg_name == "Access" or arg_name == "DesiredAccess"):
-        return pp_fns.category_registry_arg_name_access_desired_access(arg_val)
+        return pp_funcs.category_registry_arg_name_access_desired_access(arg_val)
     elif arg_name == "IoControlCode":
-        return pp_fns.arg_name_iocontrolcode(arg_val)
+        return pp_funcs.arg_name_iocontrolcode(arg_val)
     elif (
         arg_name == "Protection"
         or arg_name == "Win32Protect"
@@ -404,47 +409,47 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         or arg_name == "OldAccessProtection"
         or arg_name == "OldProtection"
     ):
-        return pp_fns.arg_name_protection_and_others(arg_val)
+        return pp_funcs.arg_name_protection_and_others(arg_val)
     elif (
         api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
     ):
-        return pp_fns.api_name_in_creation(arg_val)
+        return pp_funcs.api_name_in_creation(arg_val)
     elif (api_name == "MoveFileWithProgressW" or api_name == "MoveFileWithProgressTransactedW") and arg_name == "Flags":
-        return pp_fns.api_name_move_arg_name_flags(arg_val)
+        return pp_funcs.api_name_move_arg_name_flags(arg_val)
     elif arg_name == "FileAttributes":
-        return pp_fns.arg_name_fileattributes(arg_val)
+        return pp_funcs.arg_name_fileattributes(arg_val)
     elif (
         api_name == "NtCreateFile"
         or api_name == "NtOpenFile"
         or api_name == "NtCreateDirectoryObject"
         or api_name == "NtOpenDirectoryObject"
     ) and arg_name == "DesiredAccess":
-        return pp_fns.api_name_nt_arg_name_desiredaccess(arg_val)
+        return pp_funcs.api_name_nt_arg_name_desiredaccess(arg_val)
     elif api_name == "NtOpenProcess" and arg_name == "DesiredAccess":
-        return pp_fns.api_name_ntopenprocess_arg_name_desiredaccess(arg_val)
+        return pp_funcs.api_name_ntopenprocess_arg_name_desiredaccess(arg_val)
     elif api_name == "NtOpenThread" and arg_name == "DesiredAccess":
-        return pp_fns.api_name_ntopenthread_arg_name_desiredaccess(arg_val)
+        return pp_funcs.api_name_ntopenthread_arg_name_desiredaccess(arg_val)
     elif api_name == "CoInternetSetFeatureEnabled" and arg_name == "FeatureEntry":
-        return pp_fns.api_name_cointernet_arg_name_featureentry(arg_val)
+        return pp_funcs.api_name_cointernet_arg_name_featureentry(arg_val)
     elif api_name == "CoInternetSetFeatureEnabled" and arg_name == "Flags":
-        return pp_fns.api_name_cointernet_arg_name_flags(arg_val)
+        return pp_funcs.api_name_cointernet_arg_name_flags(arg_val)
 
     elif api_name == "InternetSetOptionA" and arg_name == "Option":
-        return pp_fns.api_name_internetsetoptiona_arg_name_option(arg_val)
+        return pp_funcs.api_name_internetsetoptiona_arg_name_option(arg_val)
     elif api_name in ["socket", "WSASocketA", "WSASocketW"]:
-        return pp_fns.api_name_socket(arg_val, arg_name)
+        return pp_funcs.api_name_socket(arg_val, arg_name)
     elif arg_name == "FileInformationClass":
-        return pp_fns.arg_name_fileinformationclass(arg_val)
+        return pp_funcs.arg_name_fileinformationclass(arg_val)
     elif arg_name == "ProcessInformationClass":
-        return pp_fns.arg_name_processinformationclass(arg_val)
+        return pp_funcs.arg_name_processinformationclass(arg_val)
     elif arg_name == "ThreadInformationClass":
-        return pp_fns.arg_name_threadinformationclass(arg_val)
+        return pp_funcs.arg_name_threadinformationclass(arg_val)
     elif arg_name == "MemType":
-        return pp_fns.arg_name_memtype(arg_val)
+        return pp_funcs.arg_name_memtype(arg_val)
     elif arg_name == "Show":
-        return pp_fns.arg_name_show(arg_val)
+        return pp_funcs.arg_name_show(arg_val)
     elif arg_name == "Registry":
-        return pp_fns.arg_name_registry(arg_val)
+        return pp_funcs.arg_name_registry(arg_val)
 
     return None
 

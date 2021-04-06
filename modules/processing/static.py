@@ -64,17 +64,9 @@ except ImportError:
 
 try:
     from whois import whois
-
     HAVE_WHOIS = True
 except:
     HAVE_WHOIS = False
-
-try:
-    from lib.cuckoo.common.office.vba2graph import vba2graph_from_vba_object, vba2graph_gen
-
-    HAVE_VBA2GRAPH = True
-except ImportError:
-    HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
@@ -84,7 +76,6 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.cape_utils import vba2graph_func
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -151,6 +142,9 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
     from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
 
+HAVE_VBA2GRAPH = False
+if processing_conf.vba2graph.on_demand is False:
+    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
 
 log = logging.getLogger(__name__)
 
@@ -1473,7 +1467,8 @@ class Office(object):
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
 
-            vba2graph_func(filepath, str(self.results["info"]["id"]))
+            if HAVE_VBA2GRAPH:
+                vba2graph_func(filepath, str(self.results["info"]["id"]))
 
         else:
             metares["HasMacros"] = "No"

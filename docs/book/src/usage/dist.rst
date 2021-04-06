@@ -319,7 +319,7 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
         manage-script-name = true
         ; if you will use with nginx, comment next line
         socket = 0.0.0.0:9003
-        pidfile = /tmp/dist.pid
+        safe-pidfile = /tmp/dist.pid
         protocol=http
         enable-threads = true
         lazy = true

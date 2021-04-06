@@ -40,6 +40,8 @@ cfg = Config()
 repconf = Config("reporting")
 machinery_conf = Config(cfg.cuckoo.machinery)
 
+django_url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
+
 try:
     import libvirt
 
@@ -749,7 +751,6 @@ class Signature(object):
         self._current_call_raw_dict = None
         self.hostname2ips = dict()
         self.machinery_conf = machinery_conf
-        self.django_url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
     def set_path(self, analysis_path):
         """Set analysis folder path.
@@ -912,7 +913,7 @@ class Signature(object):
         val = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
         try:
-            self.django_url_validator(url)
+            django_url_validator(url)
             return url
         except:
             pass
@@ -923,7 +924,7 @@ class Signature(object):
                 url = url[last + 3 :]
 
         try:
-            self.django_url_validator("http://%s" % url)
+            django_url_validator("http://%s" % url)
             return "http://%s" % url
         except:
             pass

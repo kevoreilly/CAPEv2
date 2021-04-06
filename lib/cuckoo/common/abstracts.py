@@ -50,8 +50,7 @@ except ImportError:
     HAVE_LIBVIRT = False
 
 try:
-    import tldextract
-
+    from tldextract import TLDExtract
     HAVE_TLDEXTRACT = True
 except ImportError:
     HAVE_TLDEXTRACT = False
@@ -860,7 +859,7 @@ class Signature(object):
             EXTRA_SUFFIXES = ("bit",)
             parsed = False
             try:
-                parsed = tldextract.TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
+                parsed = TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
             except Exception as e:
                 log.error(e)
             return parsed

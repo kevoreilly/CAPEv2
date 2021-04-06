@@ -28,14 +28,23 @@ import imp
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, flare_capa_details
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
 
 try:
     import pydeep
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
+
+
+processing_conf = Config("processing")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
 
 ssdeep_threshold = 90
 
@@ -463,11 +472,12 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            pretime = datetime.now()
-            capa_details = flare_capa_details(file_path, "cape")
-            if capa_details:
-                file_info["flare_capa"] = capa_details
-            self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
+            if HAVE_FLARE_CAPA:
+                pretime = datetime.now()
+                capa_details = flare_capa_details(file_path, "cape")
+                if capa_details:
+                    file_info["flare_capa"] = capa_details
+                self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

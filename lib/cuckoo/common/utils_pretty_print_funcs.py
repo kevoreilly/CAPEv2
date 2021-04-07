@@ -5,7 +5,6 @@
 
 from __future__ import absolute_import
 import lib.cuckoo.common.utils_dicts as utils_dicts
-from lib.cuckoo.common.utils import simple_pretty_print_convert
 
 
 def api_name_ntcreatesection_arg_name_desiredaccess(arg_val):
@@ -91,12 +90,6 @@ def api_name_createtoolhelp32snapshot_arg_name_flags(arg_val):
     if val:
         res.append("0x{0:08x}".format(val))
     return "|".join(res)
-
-
-def arg_name_clscontext(arg_val):
-    val = int(arg_val, 16)
-    enumdict = utils_dicts.ClsContextDict()
-    return simple_pretty_print_convert(val, enumdict)
 
 
 def blobtype(arg_val):
@@ -737,13 +730,7 @@ def api_name_socket(arg_val, arg_name):
         return utils_dicts.afWSASocketDict().get(val, None)
     elif arg_name == "type":
         val = int(arg_val, 10)
-        return {
-            1: "SOCK_STREAM",
-            2: "SOCK_DGRAM",
-            3: "SOCK_RAW",
-            4: "SOCK_RDM",
-            5: "SOCK_SEQPACKET",
-        }.get(val, None)
+        return utils_dicts.afWSASocketTypeDict().get(val, None)
     elif arg_name == "protocol":
         val = int(arg_val, 10)
         return utils_dicts.protocolWSASocketDict().get(val, None)
@@ -775,8 +762,8 @@ def arg_name_memtype(arg_val):
 
 
 def arg_name_show(arg_val):
-    val = int(arg_val, 16)
-    return utils_dicts.MemTypeDict().get(val, None)
+    val = int(arg_val, 10)
+    return utils_dicts.ShowDict().get(val, None)
 
 
 def arg_name_registry(arg_val):

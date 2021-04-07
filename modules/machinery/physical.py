@@ -4,16 +4,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
-import bs4
 import struct
 import logging
-import re
 import requests
 import socket
-import subprocess
-import time
-import wakeonlan
-import xmlrpc.client
 import json
 from time import sleep
 
@@ -21,7 +15,6 @@ from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
-from lib.cuckoo.common.utils import TimeoutServer
 
 log = logging.getLogger(__name__)
 

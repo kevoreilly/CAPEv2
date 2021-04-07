@@ -155,6 +155,7 @@
                     <ul style="margin-bottom: 0;">
                         {% for sign in analysis.target.file.cape_yara %}
                         <li>
+                            {{sign.name}} - 
                             {% if sign.meta.cape_type %}
                                 {{sign.meta.cape_type}}
                             {% elif sign.meta.description %}

@@ -14,8 +14,6 @@ import threading
 import logging
 import time
 
-from urllib.parse import urlparse
-
 try:
     import re2 as re
 except ImportError:
@@ -33,14 +31,15 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.utils import create_folder
 from lib.cuckoo.core.database import Database
-from django.core.validators import URLValidator
+from lib.cuckoo.common.url_validate import url as url_validator
 
 log = logging.getLogger(__name__)
 cfg = Config()
 repconf = Config("reporting")
 machinery_conf = Config(cfg.cuckoo.machinery)
 
-django_url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
+# from django.core.validators import URLValidator
+# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
 try:
     import libvirt
@@ -902,16 +901,16 @@ class Signature(object):
             return False
 
     def _check_valid_url(self, url, all_checks=False):
-        """ Checks if url is correct and can be parsed by tldextract/urlparse
+        """ Checks if url is correct
         @param url: string
         @return: url or None
         """
 
         try:
-            django_url_validator(url)
-            return url
-        except:
-            pass
+            if url_validator(url):
+                return url
+        except Exception as e:
+            print(e)
 
         if all_checks:
             last = url.rfind("://")
@@ -919,10 +918,10 @@ class Signature(object):
                 url = url[last + 3 :]
 
         try:
-            django_url_validator("http://%s" % url)
-            return "http://%s" % url
-        except:
-            pass
+            if url_validator("http://%s" % url):
+                return "http://%s" % url
+        except Exception as e:
+            print(e)
 
     def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
         """Checks a pattern against a given subject.

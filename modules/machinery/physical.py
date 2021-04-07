@@ -35,12 +35,6 @@ class Physical(Machinery):
             one or more physical machines are offline.
         """
         # TODO This should be moved to a per-machine thing.
-        if not self.options.physical.user or not self.options.physical.password:
-            raise CuckooCriticalError(
-                "Physical machine credentials are missing, please add it to "
-                "the Physical machinery configuration file."
-            )
-
         global headers
         headers = {
         "fog-api-token": self.options.fog.apikey,

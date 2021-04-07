@@ -492,7 +492,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in self.socks5s:
             self.interface = ""
         else:
-            log.warning("Unknown network routing destination specified, " "ignoring routing for this analysis: %r",
+            log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %r",
                         self.route)
             self.interface = None
             self.rt_table = None

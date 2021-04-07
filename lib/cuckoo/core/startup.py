@@ -46,7 +46,7 @@ def check_python_version():
     @raise CuckooStartupError: if version is not supported.
     """
     if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version " "of Python, please use >= 3.5")
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.5")
 
 
 def check_working_directory():
@@ -54,11 +54,11 @@ def check_working_directory():
     @raise CuckooStartupError: if directories are not properly configured.
     """
     if not os.path.exists(CUCKOO_ROOT):
-        raise CuckooStartupError("You specified a non-existing root " "directory: {0}".format(CUCKOO_ROOT))
+        raise CuckooStartupError("You specified a non-existing root directory: {0}".format(CUCKOO_ROOT))
 
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
-        raise CuckooStartupError("You are not running Cuckoo from it's " "root directory")
+        raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
 
 def check_webgui_mongo():
@@ -96,7 +96,7 @@ def check_configs():
 
     for config in configs:
         if not os.path.exists(config):
-            raise CuckooStartupError("Config file does not exist at " "path: {0}".format(config))
+            raise CuckooStartupError("Config file does not exist at path: {0}".format(config))
 
     return True
 
@@ -193,7 +193,7 @@ def init_tasks():
     for task in tasks:
         if cuckoo.cuckoo.reschedule:
             db.reschedule(task.id)
-            log.info("Rescheduled task with ID {0} and " "target {1}".format(task.id, task.target))
+            log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
         else:
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
@@ -427,7 +427,7 @@ def init_routing():
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
         if not rooter("nic_available", routing.tor.interface):
-            raise CuckooStartupError("The network interface that has been configured as tor " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as tor line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -444,7 +444,7 @@ def init_routing():
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
-            raise CuckooStartupError("The network interface that has been configured as inetsim " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as inetsim line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

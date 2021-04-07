@@ -575,3 +575,13 @@ def RegistryDict():
         0x80000005: "HKEY_CURRENT_CONFIG",
         0x80000006: "HKEY_DYN_DATA",
     }
+
+
+def afWSASocketTypeDict():
+    return {
+        1: "SOCK_STREAM",
+        2: "SOCK_DGRAM",
+        3: "SOCK_RAW",
+        4: "SOCK_RDM",
+        5: "SOCK_SEQPACKET",
+    }

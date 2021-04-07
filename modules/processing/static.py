@@ -20,7 +20,7 @@ import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
-from datetime import datetime, date, time
+from datetime import datetime
 
 try:
     import bs4
@@ -38,7 +38,6 @@ except ImportError:
 
 try:
     import pefile
-    import peutils
 
     HAVE_PEFILE = True
 except ImportError:
@@ -148,10 +147,14 @@ if processing_conf.vba2graph.on_demand is False:
 
 log = logging.getLogger(__name__)
 
-userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-userdb_signatures = peutils.SignatureDatabase()
-if os.path.exists(userdb_path):
-    userdb_signatures.load(userdb_path)
+HAVE_USERDB = False
+if processing_conf.static.get("userdb_signature", False):
+    import peutils
+    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+    userdb_signatures = peutils.SignatureDatabase()
+    if os.path.exists(userdb_path):
+        userdb_signatures.load(userdb_path)
+        HAVE_USERDB = True
 
 # Obtained from
 # https://github.com/erocarrera/pefile/blob/master/pefile.py
@@ -366,7 +369,7 @@ class PortableExecutable(object):
         """Gets PEID signatures.
         @return: matched signatures or None.
         """
-        if not self.pe:
+        if not self.pe or not HAVE_USERDB:
             return None
 
         try:

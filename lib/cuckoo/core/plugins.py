@@ -34,6 +34,13 @@ log = logging.getLogger(__name__)
 db = Database()
 _modules = defaultdict(dict)
 
+processing_cfg = Config("processing")
+reporting_cfg = Config("reporting")
+
+config_mapper = {
+    "processing": processing_cfg,
+    "reporting": reporting_cfg,
+}
 
 def import_plugin(name):
     try:
@@ -54,6 +61,12 @@ def import_package(package):
     for _, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         if ispkg:
             continue
+
+        # Disable initialization of disabled plugins, performance++
+        _, category, module_name = name.split(".")
+        if category in config_mapper and module_name in config_mapper[category].fullconfig and config_mapper[category].get(module_name).get("enabled", False) is False:
+            continue
+
         try:
             import_plugin(name)
         except Exception as e:

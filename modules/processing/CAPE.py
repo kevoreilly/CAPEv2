@@ -139,7 +139,6 @@ class CAPE(Processing):
                 if unpacked_hit["name"] == "UPX":
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
-                    os.unlink(unpacked_file)
                     break
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)

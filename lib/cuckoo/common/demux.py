@@ -97,7 +97,7 @@ blacklist_extensions = ("apk", "dmg")
 
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python", "MS Windows shortcut"]
 
 
 def options2passwd(options):

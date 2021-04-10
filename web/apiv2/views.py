@@ -1423,7 +1423,8 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         if os.path.exists(shot):
             resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
-            return
+            resp["Content-Disposition"] = "attachment; filename=" + os.path.basename(shot)
+            return resp
 
         else:
             resp = {"error": True, "error_value": "Screenshot does not exist"}

@@ -128,9 +128,14 @@ qakbot_id_map = {
     b"26": "#5",
 }
 
-
 class CAPE(Processing):
     """CAPE output file processing."""
+
+    def detect2pid(self, cape_name, pid):
+        if "detections2pid" not in self.results:
+            self.results.setdefault("detections2pid", {})
+        self.results["detections2pid"][str(pid)] = cape_name
+
 
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
@@ -442,6 +447,9 @@ class CAPE(Processing):
 
             suppress_parsing_list = ["Cerber", "Ursnif"]
 
+            if hit["name"] == "Guloader":
+                self.detect2pid(file_info["pid"], "Guloader")
+
             if hit["name"] in suppress_parsing_list:
                 continue
 
@@ -455,9 +463,7 @@ class CAPE(Processing):
                     #ToDo list of keys
                     self.results["detections"] = cape_name
             if file_info.get("pid"):
-                if "detections2pid" not in self.results:
-                    self.results.setdefault("detections2pid", {})
-                self.results["detections2pid"][str(file_info["pid"])] = cape_name
+                self.detect2pid(file_info["pid"], cape_name)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:

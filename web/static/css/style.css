@@ -61,6 +61,10 @@ a:hover {
     background-color: #444
 }
 
+.page-link:hover {
+    background-color: #EE1B2F
+}
+
 .page-link-active {
     background-color: #EE1B2F;
 }

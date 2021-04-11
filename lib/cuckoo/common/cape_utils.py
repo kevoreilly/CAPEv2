@@ -268,3 +268,10 @@ def static_extraction(path):
         log.error(e)
 
     return False
+
+def cape_name_from_yara(details, pid, results):
+    for hit in details.get("cape_yara", []) or []:
+        if "meta" in hit and any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]):
+            if "detections2pid" not in results:
+                results.setdefault("detections2pid", {})
+            results["detections2pid"][str(pid)] = hit["name"].replace("_", " ")

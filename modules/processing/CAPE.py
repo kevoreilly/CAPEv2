@@ -423,12 +423,12 @@ class CAPE(Processing):
                 self.upx_unpack(file_data)
 
             # Check for a payload or config hit
-            extraction_types = ["payload", "config", "loader"]
+            extraction_types = ("payload", "config", "loader")
+
             try:
-                for type in extraction_types:
-                    if type in hit["meta"].get("cape_type", "").lower():
-                        file_info["cape_type"] = hit["meta"]["cape_type"]
-                        cape_name = hit["name"].replace("_", " ")
+                if any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in extraction_types]):
+                    file_info["cape_type"] = hit["meta"]["cape_type"]
+                    cape_name = hit["name"].replace("_", " ")
             except Exception as e:
                 print("Cape type error: {}".format(e))
             type_strings = file_info["type"].split()

@@ -14,8 +14,8 @@
       {% if process.commandline %}
         <i>{{ process.commandline }}</i>
       {% endif %}
-      {% if detections2pid|get_item_str:process.pid %}
-        <i style="color:red">{{ detections2pid|get_item_str:process.pid }}</i>
+      {% if detections2pid|get_detection_by_pid:process.pid %}
+        <i style="color:red">{{ detections2pid|get_detection_by_pid:process.pid }}</i>
       </li>
       {% endif %}
     {% endif %}

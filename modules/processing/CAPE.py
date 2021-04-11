@@ -131,12 +131,11 @@ qakbot_id_map = {
 class CAPE(Processing):
     """CAPE output file processing."""
 
-    def detect2pid(self, cape_name, pid):
+    def detect2pid(self, pid, cape_name):
         if "detections2pid" not in self.results:
             self.results.setdefault("detections2pid", {})
         self.results["detections2pid"].setdefault(str(pid), list())
         self.results["detections2pid"][str(pid)].append(cape_name)
-
 
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)

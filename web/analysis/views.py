@@ -420,7 +420,7 @@ def load_files(request, task_id, category):
             if category in ("behavior", "debugger"):
                 data = results_db.analysis.find_one(
                     {"info.id": int(task_id)},
-                    {"behavior.processes": 1, "behavior.processtree": 1, "info.tlp": 1, "_id": 0},
+                    {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid":1, "info.tlp": 1, "_id": 0},
                 )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
@@ -484,6 +484,7 @@ def load_files(request, task_id, category):
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             "config": enabledconf,
+
         }
 
         if category == "debugger":
@@ -491,7 +492,8 @@ def load_files(request, task_id, category):
         elif category == "network":
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
-
+        elif category == "behavior":
+            ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
 
     else:

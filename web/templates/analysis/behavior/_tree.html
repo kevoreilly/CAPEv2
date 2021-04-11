@@ -5,16 +5,19 @@
 <ul>
 {% for process in behavior.processtree|proctreetolist %}
     {% if process.startchildren %}
-    <ul>
+      <ul>
     {% elif process.endchildren %}
-    </ul>
+      </ul>
     {% else %}
-    <li>
+      <li>
     <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
-    {% if process.commandline %}
-      <i>{{ process.commandline }}</i>
-    {% endif %}
-    </li>
+      {% if process.commandline %}
+        <i>{{ process.commandline }}</i>
+      {% endif %}
+      {% if detections2pid|get_item_str:process.pid %}
+        <i style="color:red">{{ detections2pid|get_item_str:process.pid }}</i>
+      </li>
+      {% endif %}
     {% endif %}
 {% endfor %}
 </ul>

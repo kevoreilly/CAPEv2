@@ -454,6 +454,10 @@ class CAPE(Processing):
                 if cape_name != "UPX":
                     #ToDo list of keys
                     self.results["detections"] = cape_name
+            if file_info.get("pid"):
+                if "detections2pid" not in self.results:
+                    self.results.setdefault("detections2pid", {})
+                self.results["detections2pid"][str(file_info["pid"])] = cape_name
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:

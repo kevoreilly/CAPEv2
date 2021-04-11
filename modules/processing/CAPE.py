@@ -134,7 +134,8 @@ class CAPE(Processing):
     def detect2pid(self, cape_name, pid):
         if "detections2pid" not in self.results:
             self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"][str(pid)] = cape_name
+        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"][str(pid)].append(cape_name)
 
 
     def upx_unpack(self, file_data):

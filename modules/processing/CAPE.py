@@ -447,8 +447,8 @@ class CAPE(Processing):
 
             suppress_parsing_list = ["Cerber", "Ursnif"]
 
-            if hit["name"] == "Guloader":
-                self.detect2pid(file_info["pid"], "Guloader")
+            if hit["name"] == "GuLoader":
+                self.detect2pid(file_info["pid"], "GuLoader")
 
             if hit["name"] in suppress_parsing_list:
                 continue

@@ -48,9 +48,13 @@ def get_item(dictionary, key):
     return dictionary.get(key, "")
 
 @register.filter
-def get_item_str(dictionary, key):
-    print(key, type(key))
-    return dictionary.get(str(key), "")
+def get_detection_by_pid(dictionary, key):
+    detections = dictionary.get(str(key), "")
+    if detections:
+        if len(detections) > 1:
+            return " -> ".join(detections)
+        else:
+            return detections[0]
 
 @register.filter(name="dehex")
 def dehex(value):

@@ -47,6 +47,10 @@ def is_dict(value):
 def get_item(dictionary, key):
     return dictionary.get(key, "")
 
+@register.filter
+def get_item_str(dictionary, key):
+    print(key, type(key))
+    return dictionary.get(str(key), "")
 
 @register.filter(name="dehex")
 def dehex(value):

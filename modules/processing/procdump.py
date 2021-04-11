@@ -11,7 +11,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import convert_to_printable
 
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
@@ -94,6 +94,9 @@ class ProcDump(Processing):
                     file_info["data"] = convert_to_printable(filedata[:buf] + " <truncated>")
                 else:
                     file_info["data"] = convert_to_printable(filedata)
+
+            if file_info["pid"]:
+                cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             if HAVE_FLARE_CAPA:
                 pretime = datetime.now()

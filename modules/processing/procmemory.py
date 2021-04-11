@@ -18,7 +18,6 @@ except ImportError:
 import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File, ProcDump
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger(__name__)
 

@@ -18,6 +18,7 @@ except ImportError:
 import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +147,8 @@ class ProcessMemory(Processing):
 
                 procdump.close()
                 results.append(proc)
+
+                cape_name_from_yara(proc, process_id, self.results)
                 if "cape_yara" in proc:
                     cape_name = ""
                     for hit in proc["cape_yara"]:

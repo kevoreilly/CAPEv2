@@ -49,6 +49,8 @@ def get_item(dictionary, key):
 
 @register.filter
 def get_detection_by_pid(dictionary, key):
+    if not dictionary:
+        return
     detections = dictionary.get(str(key), "")
     if detections:
         if len(detections) > 1:

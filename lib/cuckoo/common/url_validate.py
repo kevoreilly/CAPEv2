@@ -15,7 +15,7 @@ ip_last_octet = r"(?:\.(?:0|[1-9]\d?|1\d\d|2[0-4]\d|25[0-5]))"
 regex = re.compile(  # noqa: W605
     r"^"
     # protocol identifier
-    r"(?:(?:https?|ftp)://)"
+    r"(?:(?:https?|ftp|tcp|udp)://)"
     # user:pass authentication
     r"(?:[-a-z\u00a1-\uffff0-9._~%!$&'()*+,;=:]+"
     r"(?::[-a-z0-9._~%!$&'()*+,;=:]*)?@)?"

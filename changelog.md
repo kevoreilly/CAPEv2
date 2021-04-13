@@ -1,3 +1,6 @@
+### [13-04-2021]
+* Add example how to add custom auth, see `web/web/middleware.py`
+
 ### [06-04-2021] Small performance improvements
 * New dependecy `ujson`
     * __REQUIRED ACTION:__ -> `pip3 install ujson -U`

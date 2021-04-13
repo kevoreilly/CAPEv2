@@ -194,6 +194,8 @@ MIDDLEWARE = [
     #'web.middleware.ExceptionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
+    # in case you want custom auth, place logic in web/web/middleware.py
+    # "web.middleware.CustoAuth",
 ]
 
 OTP_TOTP_ISSUER = 'CAPE Sandbox'

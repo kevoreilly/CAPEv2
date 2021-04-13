@@ -6,7 +6,6 @@ rule Emotet
         cape_type = "Emotet Payload"
     strings:
         $snippet1 = {FF 15 [4] 83 C4 0C 68 40 00 00 F0 6A 18}
-        $snippet2 = {6A 13 68 01 00 01 00 FF 15 [4] 85 C0}
         $snippet3 = {83 3D [4] 00 C7 05 [8] C7 05 [8] 74 0A 51 E8 [4] 83 C4 04 C3 33 C0 C3}
         $snippet4 = {33 C0 C7 05 [8] C7 05 [8] A3 [4] A3 [19] 00 40 A3 [4] 83 3C C5 [4] 00 75 F0 51 E8 [4] 83 C4 04 C3}
         $snippet5 = {8B E5 5D C3 B8 [4] A3 [4] A3 [4] 33 C0 21 05 [4] A3 [4] 39 05 [4] 74 18 40 A3 [4] 83 3C C5 [4] 00 75 F0 51 E8 [4] 59 C3}

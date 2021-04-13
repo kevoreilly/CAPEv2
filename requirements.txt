@@ -19,7 +19,7 @@ future
 python-dateutil
 requests_file
 gevent==20.4.0
-ujson
+simplejson
 pyvmomi
 pyinstaller
 maec

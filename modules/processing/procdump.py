@@ -96,7 +96,7 @@ class ProcDump(Processing):
                     file_info["data"] = convert_to_printable(filedata)
 
             if file_info["pid"]:
-                cape_name_from_yara(file_info, file_info["pid"], self.results)
+                _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             if HAVE_FLARE_CAPA:
                 pretime = datetime.now()

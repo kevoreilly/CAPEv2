@@ -412,9 +412,10 @@ def load_files(request, task_id, category):
     """
     # ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
+        data = dict()
         bingraph = False
         debugger_logs = dict()
-        bingraph_dict_content = {}
+        bingraph_dict_content = dict()
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):

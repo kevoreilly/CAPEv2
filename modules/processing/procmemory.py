@@ -148,14 +148,9 @@ class ProcessMemory(Processing):
                 procdump.close()
                 results.append(proc)
 
-                cape_name_from_yara(proc, process_id, self.results)
-                if "cape_yara" in proc:
-                    cape_name = ""
-                    for hit in proc["cape_yara"]:
-                        if "name" in hit:
-                            if not cape_name:
-                                cape_name = hit["name"]
-                    if cape_name:
-                        if "detections" not in self.results:
-                            self.results["detections"] = cape_name
+                tmp_cape_name = cape_name_from_yara(proc, process_id, self.results)
+                if not cape_name and tmp_cape_name:
+                    cape_name = tmp_cape_name
+                    if "detections" not in self.results:
+                        self.results["detections"] = cape_name
         return results

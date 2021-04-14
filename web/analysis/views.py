@@ -1722,8 +1722,8 @@ def vtupload(request, category, task_id, filename, dlfile):
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)}
                     )
-                else:
-                    return render(request, "error.html", {"error": "Response code: {}".format(response.json())})
+            else:
+                return render(request, "error.html", {"error": "Response code: {} - {}".format(response.status_code, response.reason)})
         except Exception as err:
             return render(request, "error.html", {"error": err})
     else:

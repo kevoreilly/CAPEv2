@@ -277,4 +277,5 @@ def cape_name_from_yara(details, pid, results):
             results["detections2pid"].setdefault(str(pid), list())
             name = hit["name"].replace("_", " ")
             if name not in results["detections2pid"][str(pid)]:
-                results["detections2pid"][str(pid)].append(hit["name"].replace("_", " "))
+                results["detections2pid"][str(pid)].append(name)
+            return name

@@ -42,6 +42,7 @@
               </div>
             </li>
             {% endif %}
+            <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/"><span class="fas fa-info"></span> Documentation</a></li>
           </ul>
           <form class="form-inline" style="margin:0px;" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
             <input class="form-control" type="text" id="form_search" name="search" placeholder="Search term as regex">

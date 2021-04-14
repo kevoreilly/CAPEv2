@@ -149,7 +149,7 @@ def upload_files(folder):
 
 
 class Analyzer:
-    """Cuckoo Windows Analyzer.
+    """CAPE Windows Analyzer.
 
     This class handles the initialization and execution of the analysis
     procedure, including handling of the pipe server, the auxiliary modules and
@@ -550,7 +550,7 @@ class Analyzer:
 
         while self.do_run:
             self.time_counter = datetime.now() - time_start
-            if self.time_counter.total_seconds() >= int(self.config.timeout):
+            if self.time_counter.total_seconds() < 0 or self.time_counter.total_seconds() >= int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis.")
                 ANALYSIS_TIMED_OUT = True
                 break
@@ -1089,9 +1089,6 @@ class CommandPipeHandler(object):
                 else:
                     log.error("Unable to monitor service %s" % (servname))
 
-    # For now all we care about is bumping up our LASTINJECT_TIME to account for long delays between
-    # injection and actual resume time where the DLL would have a chance to load in the new process
-    # and report back to have its pid added to the list of monitored processes
     def _handle_resume(self, data):
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = datetime.now()
@@ -1241,7 +1238,7 @@ class CommandPipeHandler(object):
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()
             else:
-                log.warning("Received request to inject Cuckoo " "process with pid %d, skip", process_id)
+                log.warning("Received request to inject process with pid %d, skipped", process_id)
         # return self._inject_process(int(data), None, 0)
         return
 

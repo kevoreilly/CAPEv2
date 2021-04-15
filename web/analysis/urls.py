@@ -22,6 +22,7 @@ urlpatterns = [
     url(r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$", views.filtered_chunk, name="filtered_chunk",),
     url(r"^file_nl/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", views.file_nl, name="file_nl"),
     url(r"^search/(?P<task_id>\d+)/$", views.search_behavior, name="search_behavior"),
+    url(r"^search/(?P<searched>[\w\d\s:\-_]+)/$", views.search, name="search"),
     url(r"^search/$", views.search, name="search"),
     url(r"^pending/$", views.pending, name="pending"),
     url(r"^procdump/(?P<task_id>\d+)/(?P<process_id>\d+)/(?P<start>\w+)/(?P<end>\w+)/$", views.procdump, name="procdump"),

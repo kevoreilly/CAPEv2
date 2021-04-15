@@ -1,3 +1,6 @@
+### [15-04-2021]
+* Allow pass search patter in url: `analysis/search/detections:<family>/`
+
 ### [13-04-2021]
 * Add example how to add custom auth, see `web/web/middleware.py`
 

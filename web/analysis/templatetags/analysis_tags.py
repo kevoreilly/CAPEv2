@@ -47,16 +47,21 @@ def is_dict(value):
 def get_item(dictionary, key):
     return dictionary.get(key, "")
 
-@register.filter
+malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}"><span style="color:#EE1B2F;font-weight: bold;">{malware_name}</span></a>"""
+@register.filter("get_detection_by_pid")
 def get_detection_by_pid(dictionary, key):
     if not dictionary:
         return
     detections = dictionary.get(str(key), "")
     if detections:
+
         if len(detections) > 1:
-            return " -> ".join(detections)
+            output = " -> ".join([malware_name_url_pattern.format(malware_name=name) for name in detections])
         else:
-            return detections[0]
+            output = malware_name_url_pattern.format(malware_name=detections[0])
+
+        return mark_safe(output)
+
 
 @register.filter(name="dehex")
 def dehex(value):

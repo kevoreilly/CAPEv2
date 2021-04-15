@@ -15,7 +15,7 @@
 # Updates to handle stage 1 Based on initial work referenced here and modified to work with python3
 # https://sysopfb.github.io/malware,/icedid/2020/04/28/IcedIDs-updated-photoloader.html
 # https://gist.github.com/sysopfb/93eb0090ef47c08e4e516cb045b48b96
-#https://www.group-ib.com/blog/icedid
+# https://www.group-ib.com/blog/icedid
 
 import os
 import struct
@@ -99,11 +99,23 @@ def iced_decode(data, key, l):
         output += chr(struct.unpack("B", data[i : i + 1])[0] ^ (key & 0xFF))
     return output
 
+def new_decode(data):
+    n = 0
+    new = []
+    for x in data:
+        k = data[n] ^ data[n+64]
+        new.append(k)
+        if n > 32:
+            break
+        n += 1
+    gads, d = struct.unpack("I30s", bytes(new))
+    hostname = d.split(b"\00")[0]
+    return hostname
 
 class IcedIDStage1(Parser):
 
     DESCRIPTION = "IcedID configuration parser."
-    AUTHOR = "kevoreilly,threathive,sysopfb"
+    AUTHOR = "kevoreilly,threathive,sysopfb,enzo"
 
     def run(self):
         filebuf = self.file_object.file_data
@@ -117,11 +129,13 @@ class IcedIDStage1(Parser):
                         config_section = bytearray(section.get_data())
                         cfg = decode_stage1_config(config_section[256:])
                         (f,r) = parse_stage_1_domains(cfg)
-                        self.reporter.add_metadata("other", {"Version": "Stage 1/Photo Loader" })
-
                         if r:
                             for cnc in r:
                                 self.reporter.add_metadata("other", {"CNC": cnc })
                         if f:
                             for decoy in f:
                                 self.reporter.add_metadata("other", {"Decoy": decoy })
+                    elif section.Name == b'.data\x00\x00\x00':
+                        config_section = bytearray(section.get_data())
+                        cfg = new_decode(config_section)
+                        self.reporter.add_metadata("address", cfg)

@@ -1,3 +1,6 @@
+### [18-04-2021]
+* Move MITRE ATT&CK from tab to collapse table after signatures
+
 ### [15-04-2021]
 * Allow pass search patter in url: `analysis/search/detections:<family>/`
 

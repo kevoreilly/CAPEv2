@@ -119,7 +119,6 @@ $(function() {
             <li class="nav-item"><a class="nav-link" href="#misp" data-toggle="tab">MISP</a></li>
     {% endif %}
     {% if analysis.backscatter %}<li class="nav-item"><a class="nav-link" href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
-    {% if analysis.mitre_attck %}<li class="nav-item"><a class="nav-link" href="#mitre" data-toggle="tab">Mitre ATT&CK</a></li>{% endif %}
     {% if analysis.classification%}<li class="nav-item"><a class="nav-link" href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
     {% if analysis.curtain%}<li class="nav-item"> <a class="nav-link" href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
     <li class="nav-item"><a class="nav-link" href="#statistics" data-toggle="tab">Statistics</a></li>
@@ -199,11 +198,6 @@ $(function() {
     {% if analysis.classification %}
     <div class="tab-pane fade" id="classification">
         {% include "analysis/classification.html" %}
-    </div>
-    {% endif %}
-    {% if analysis.mitre_attck %}
-    <div class="tab-pane fade" id="mitre">
-        {% include "analysis/mitre.html" %}
     </div>
     {% endif %}
     {% if analysis.curtain %}

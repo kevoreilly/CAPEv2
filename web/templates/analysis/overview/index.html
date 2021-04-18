@@ -34,6 +34,12 @@
 {% endif %}
 <hr/>
 {% include "analysis/overview/_signatures.html" %}
+
+{% if analysis.mitre_attck %}
+    <hr />
+    {% include "analysis/overview/_mitre.html" %}
+{% endif %}
+
 {% if analysis.info.category != "pcap" %}
     {% if analysis.usage %}
     <hr />

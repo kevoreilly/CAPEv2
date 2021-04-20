@@ -217,7 +217,7 @@ def flare_capa_details(file_path, category=False, on_demand=False):
         and (processing_conf.flare_capa.on_demand is False or on_demand is True)
     ):
         try:
-            extractor = capa.main.get_extractor(file_path, "auto", disable_progress=True)
+            extractor = capa.main.get_extractor(file_path, "auto", backend="smda", disable_progress=True)
             meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
             meta["analysis"].update(counts)

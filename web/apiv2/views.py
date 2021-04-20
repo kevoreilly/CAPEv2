@@ -249,7 +249,7 @@ def tasks_create_file(request):
         details = {
             "errors": [],
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -352,7 +352,7 @@ def tasks_create_file(request):
                 else:
                     details["task_ids"] = task_ids_tmp
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
@@ -550,7 +550,7 @@ def tasks_create_dlnexec(request):
             "errors": [],
             "content": content,
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -568,7 +568,7 @@ def tasks_create_dlnexec(request):
         else:
             details["task_ids"] = task_ids_tmp
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
@@ -654,7 +654,7 @@ def tasks_vtdl(request):
             "errors": [],
             "content": False,
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -668,7 +668,7 @@ def tasks_vtdl(request):
 
         details = download_from_vt(hashes, details, opt_filename, settings)
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0

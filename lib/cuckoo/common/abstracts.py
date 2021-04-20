@@ -70,9 +70,9 @@ if repconf.mitre.enabled:
             HAVE_MITRE = True
         else:
             HAVE_MITRE = False
-            log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
+            print("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
     except (ImportError, ModuleNotFoundError):
-        log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
+        print("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
         HAVE_MITRE = False
 else:
     HAVE_MITRE = False

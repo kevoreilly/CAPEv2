@@ -30,6 +30,7 @@ from submission import urls as submission
 from apiv2 import urls as apiv2
 
 handler403 = 'web.views.handler403'
+handler404 = 'web.views.handler404'
 
 urlpatterns = [
     path('accounts/', include('allauth.urls')),

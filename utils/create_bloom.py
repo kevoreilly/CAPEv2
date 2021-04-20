@@ -35,7 +35,7 @@ API_USER = ""
 API_PW = ""
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger(__name__).setLevel(logging.DEBUG)
     if not HAVE_FLOR:
         logging.error("Python library 'flor' is not installed -> pip3 install flor")
         sys.exit(-1)

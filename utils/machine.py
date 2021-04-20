@@ -73,7 +73,7 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig()
-    log = logging.getLogger()
+    log = logging.getLogger(__name__)
 
     if args.debug:
         log.setLevel(logging.DEBUG)

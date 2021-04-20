@@ -21,6 +21,10 @@ from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLo
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 
+# Sflock does a good filetype recon
+from sflock.abstracts import File as SflockFile
+from sflock.ident import identify as sflock_identify
+
 try:
     from sqlalchemy import create_engine, Column, event
     from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_
@@ -32,6 +36,11 @@ try:
     Base = declarative_base()
 except ImportError:
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
+
+
+sandbox_packages = (
+    "nsis", "cpl", "regsvr", "dll", "exe", "pdf", "pub", "doc", "xls", "ppt", "jar", "zip", "rar", "swf", "python", "msi", "ps1", "msg", "eml", "js", "html", "hta", "xps", "wsf", "mht", "doc", "vbs", "lnk", "chm", "hwp", "inp", "vbs", "js", "vbejse",
+)
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -1391,6 +1400,16 @@ class Database(object, metaclass=Singleton):
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
+
+                if not package:
+                    f = SflockFile.from_path(file)
+                    tmp_package = sflock_identify(f)
+                    if tmp_package and tmp_package in sandbox_packages:
+                        package = tmp_package
+                    else:
+                        log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
+                    del f
+
                 task_id = self.add_path(
                     file_path=file.decode(),
                     timeout=timeout,

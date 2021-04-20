@@ -2,7 +2,7 @@ import logging
 from django.shortcuts import redirect
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 # You can learn more from those
 # https://docs.djangoproject.com/en/dev/topics/http/middleware/#process-request

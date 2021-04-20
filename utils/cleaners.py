@@ -37,7 +37,7 @@ from lib.cuckoo.core.database import (
 )
 
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 cuckoo = Config()
 rep_config = Config("reporting")

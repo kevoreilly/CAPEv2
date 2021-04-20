@@ -16,7 +16,7 @@ try:
 except ImportError:
     HAVE_YARA = False
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 

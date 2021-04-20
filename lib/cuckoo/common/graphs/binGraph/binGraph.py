@@ -189,7 +189,7 @@ def generate_graphs(args_dict):
 
     # # Set logging
     if args_dict.get("verbose", False):
-        logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger(__name__).setLevel(logging.DEBUG)
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
     # # Detect if all graphs are being requested

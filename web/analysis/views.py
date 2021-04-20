@@ -1453,7 +1453,7 @@ def full_memory_dump_strings(request, analysis_number):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def search(request, searched=False):
     if "search" in request.POST or searched:
-        term = False
+        term = ""
         if not searched and request.POST.get("search"):
             searched = request.POST["search"]
 

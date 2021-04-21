@@ -13,13 +13,13 @@ class Dll(Package):
     """DLL analysis package."""
 
     PATHS = [
-        ("SystemRoot", "system32", "rundll32.exe"),
+        ("SystemRoot", "System32", "rundll32.exe"),
     ]
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")
-        function = self.options.get("function", "#1")
-        arguments = self.options.get("arguments")
+        function = self.options.get("function") or "#1"
+        arguments = self.options.get("arguments") or ""
         dllloader = self.options.get("dllloader")
 
         # Check file extension.
@@ -32,13 +32,22 @@ class Dll(Package):
             os.rename(path, new_path)
             path = new_path
 
-        args = '"{0}",{1}'.format(path, function)
-        if arguments:
-            args += " {0}".format(arguments)
-
         if dllloader:
             newname = os.path.join(os.path.dirname(rundll32), dllloader)
             shutil.copy(rundll32, newname)
             rundll32 = newname
+
+        try:
+            start, end = (int(_.lstrip("#")) for _ in function.replace("..", "-").split("-", 1))
+            assert start < end
+            args = '/c for /l %i in ({start},1,{end}) do @{rundll32} "{path}",#%i {arguments}'.format(**locals())
+            # if there are multiple functions launch them by their ordinal number in a for loop via cmd.exe calling rundll32.exe
+            return self.execute("C:\\Windows\\System32\\cmd.exe", args.strip(), path)
+        except (ValueError, AssertionError):
+            pass
+
+        args = '"{0}",{1}'.format(path, function)
+        if arguments:
+            args += " {0}".format(arguments)
 
         return self.execute(rundll32, args, path)

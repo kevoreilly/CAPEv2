@@ -1,3 +1,6 @@
+### [23-04-2021]
+* Pyattck v3.0.1 support
+
 ### [18-04-2021]
 * Move MITRE ATT&CK from tab to collapse table after signatures
 

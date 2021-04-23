@@ -16,8 +16,8 @@
       {% endif %}
       {% if detections2pid|get_detection_by_pid:process.pid %}
         <i style="color:red">{{ detections2pid|get_detection_by_pid:process.pid }}</i>
-      </li>
       {% endif %}
+     </li>
     {% endif %}
 {% endfor %}
 </ul>

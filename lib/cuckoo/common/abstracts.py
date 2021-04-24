@@ -54,37 +54,32 @@ try:
 except ImportError:
     HAVE_TLDEXTRACT = False
 
+HAVE_MITRE = False
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
-        from pyattck.version import __version_info__ as pyattck_version
-
-        # Version check is broken, fix when merged https://github.com/swimlane/pyattck/pull/57
-        if pyattck_version[0] == 2:
-            attack_file = repconf.mitre.get("local_file", False)
-            if attack_file:
-                attack_file = os.path.join(CUCKOO_ROOT, attack_file)
-            else:
-                attack_file = False
-            try:
-                # V3
-                mitre = Attck()
-                if hasattr(mitre, "__ENTERPRISE_GENERATED_DATA_JSON"):
-                    mitre.__ENTERPRISE_GENERATED_DATA_JSON = attack_file
-                else:
-                    # V2
-                    mitre = Attck(dataset_json=attack_file)
-            except TypeError:
-                mitre = Attck(dataset_json=attack_file)
-            HAVE_MITRE = True
+        attack_file = repconf.mitre.get("local_file", False)
+        if attack_file:
+            attack_file = os.path.join(CUCKOO_ROOT, attack_file)
         else:
-            HAVE_MITRE = False
-            print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
+            attack_file = False
+        try:
+            # V3
+            mitre = Attck(
+                data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+                config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+            )
+            if not hasattr(mitre, "__ENTERPRISE_GENERATED_DATA_JSON"):
+                # V2 mitre = Attck(dataset_json=attack_file)
+                mitre = Attck(dataset_json=attack_file)
+        except TypeError:
+            # V2
+            mitre = Attck(dataset_json=attack_file)
+        HAVE_MITRE = True
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
         HAVE_MITRE = False
-else:
-    HAVE_MITRE = False
+
 
 
 myresolver = dns.resolver.Resolver()

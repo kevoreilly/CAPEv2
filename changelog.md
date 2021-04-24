@@ -1,5 +1,7 @@
 ### [23-04-2021]
 * Pyattck v3.0.1 support
+* If you are using alternative location to `/opt/CAPEv2` and wants to use `MITRE TTPs` next action is required:
+    * you need to update value of `data_path` in config `data/mitre/config.yml`
 
 ### [18-04-2021]
 * Move MITRE ATT&CK from tab to collapse table after signatures

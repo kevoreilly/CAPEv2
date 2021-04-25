@@ -67,9 +67,13 @@ if repconf.mitre.enabled:
                 data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
                 config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
             )
+
             if not hasattr(mitre, "_Attck__ENTERPRISE_GENERATED_DATA_JSON"):
                 # V2 mitre = Attck(dataset_json=attack_file)
                 mitre = Attck(dataset_json=attack_file)
+                HAVE_MITRE = True
+            else:
+                HAVE_MITRE = True
         except TypeError:
             # V2
             mitre = Attck(dataset_json=attack_file)

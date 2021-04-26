@@ -127,12 +127,10 @@ class MongoDB(Report):
         keys.remove("info")
 
         for key in keys:
-            print(key)
             try:
-                self.db.analysis.update_one({"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
             except InvalidDocument as e:
-                import code;code.interact(local=dict(locals(), **globals()))
-                #log.info("Investigate your key: {} - {}".format(key, str(key)))
+                log.info("Investigate your key: {} - {}".format(key, str(key)))
 
     def run(self, results):
         """Writes report.

@@ -11,7 +11,7 @@ import six
 
 from lib.cuckoo.common.abstracts import Processing
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 class Deduplicate(Processing):

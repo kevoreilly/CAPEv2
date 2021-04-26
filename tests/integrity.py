@@ -21,7 +21,7 @@ sys.path.append(CUCKOO_ROOT)
 from lib.cuckoo.core.database import Database
 from cuckoo import cuckoo_init, cuckoo_main
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 class TestIntegrity(unittest.TestCase):

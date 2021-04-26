@@ -16,7 +16,7 @@ from lib.cuckoo.common.misc import getuser
 
 cuckoo_conf = Config()
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 def temppath():

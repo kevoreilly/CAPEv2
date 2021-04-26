@@ -82,4 +82,4 @@ djangorestframework
 volatility3
 yara-python>=4.0.0
 netstruct
-pymongo>=3.9.0
+pymongo>=3.11.3

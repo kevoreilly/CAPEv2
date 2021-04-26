@@ -34,7 +34,7 @@ from lib.cuckoo.core.database import Database, TASK_RUNNING, TASK_FAILED_ANALYSI
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 cuckoo = Config()
 routing = Config("routing")

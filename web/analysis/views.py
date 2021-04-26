@@ -1107,8 +1107,17 @@ def report(request, task_id):
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
 
+    domainlookups = dict()
+    iplookups = dict()
     if network_report.get("network", {}):
         report["network"] = network_report["network"]
+
+        if "domains" in network_report["network"]:
+            domainlookups = dict((i["domain"], i["ip"]) for i in network_report["network"]["domains"])
+            iplookups = dict((i["ip"], i["domain"]) for i in network_report["network"]["domains"])
+            for i in network_report["network"]["dns"]:
+                for a in i["answers"]:
+                    iplookups[a["data"]] = i["request"]
 
     return render(
         request,
@@ -1116,8 +1125,8 @@ def report(request, task_id):
         {
             "analysis": report,
             "children": children,
-            "domainlookups": network_report.get("network", {}).get("domainlookups", {}),
-            "iplookups": network_report.get("network", {}).get("iplookups", {}),
+            "domainlookups": domainlookups,
+            "iplookups": iplookups,
             "settings": settings,
             "config": enabledconf,
             "reports_exist": reports_exist,

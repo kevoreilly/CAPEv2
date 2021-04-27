@@ -31,10 +31,8 @@ class CAPEExtractedContent(Signature):
             yara = cape.get("cape_yara", "") or cape.get("cape_type", "")
             process = cape.get("process_name", "")
             if yara and process:
-                self.data.append({process: yara})
+                self.data.append({process.replace(".", "_"): yara})
                 ret = True
-                if yara:
-                    self.data.append({process: yara})
 
         return ret
 

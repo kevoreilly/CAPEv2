@@ -106,7 +106,7 @@ Some extra security TIP(s)
 * Example of `fail2ban` rule to ban by path::
 
     # This will ban any host that trying to access /api/ for 3 times in 1 minute
-    # Goes to /etc/fail2ban/filters.d/nginx-cape-api.conf folder
+    # Goes to /etc/fail2ban/filters.d/nginx-cape-api.conf
     [Definition]
     failregex = ^<HOST> -.*"(GET|POST|HEAD) /api/.*HTTP.*"
     ignoreregex =
@@ -118,6 +118,22 @@ Some extra security TIP(s)
     filter  = nginx-cape-api
     logpath = /var/log/nginx/access.log
     maxretry = 3
+    findtime = 60
+    bantime = -1
+
+    # This will ban any host that trying to access kinda bruteforce login or unauthorized requests for 5 times in 1 minute
+    # Goes to /etc/fail2ban/filters.d/filter.d/nginx-cape-login.conf
+    [Definition]
+    failregex = ^<HOST> -.*"(GET|POST|HEAD) /accounts/login/\?next=.*HTTP.*"
+    ignoreregex =
+
+    # goes to /etc/fail2ban/jail.local
+    [cape-login]
+    enabled = true
+    port    = http,https
+    filter  = nginx-cape-login
+    logpath = /var/log/nginx/access.log
+    maxretry = 5
     findtime = 60
     bantime = -1
 

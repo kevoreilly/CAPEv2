@@ -662,7 +662,7 @@ search_term_map = {
     "payloads": "CAPE.payloads.",
 }
 
-
+# ToDo verify if still working
 def perform_ttps_search(value):
     if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
         return results_db.analysis.find({"ttps." + value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])

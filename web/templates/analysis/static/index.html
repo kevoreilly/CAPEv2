@@ -3,10 +3,9 @@
     <ul class="nav nav-tabs" style="margin-bottom: 0;">
         {% if analysis.info.category in "file,static" %}
             <li class="nav-item active"><a class="nav-link" href="#static_analysis_tab" data-toggle="tab">Static Analysis</a></li>
-        {% if analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
-            <li class="nav-item"><a class="nav-link" href="#static_dotnet_tab" data-toggle="tab">.NET Static Analysis</a></li>
-        {% endif %}
-            <li class="nav-item"><a class="nav-link" href="#static_strings_tab" data-toggle="tab">Strings</a></li>
+            {% if analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
+                <li class="nav-item"><a class="nav-link" href="#static_dotnet_tab" data-toggle="tab">.NET Static Analysis</a></li>
+            {% endif %}
         {% endif %}
         {% if analysis.info.category == "url" %}
             <li class="nav-item active"><a class="nav-link" href="#static_url_tab" data-toggle="tab">URL Analysis</a></li>
@@ -40,11 +39,6 @@
         {% if analysis.info.category in "file,static" and analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
             <div class="tab-pane fade show" id="static_dotnet_tab">
                 {% include "analysis/static/_dotnet.html" %}
-            </div>
-        {% endif %}
-        {% if analysis.info.category in "file,static" %}
-            <div class="tab-pane fade show" id="static_strings_tab">
-                {% include "analysis/static/_strings.html" %}
             </div>
         {% endif %}
         {% if analysis.info.category == "url" %}

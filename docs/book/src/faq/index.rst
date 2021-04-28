@@ -5,7 +5,6 @@ FAQ
 Frequently Asked Questions:
 
     * :ref:`analyze_urls`
-    * :ref:`general_volatility`
     * :ref:`esxi_reqs`
     * :ref:`troubles_upgrade`
     * :ref:`troubles_problem`
@@ -20,15 +19,6 @@ Can I analyze URLs with CAPE?
 -------------------------------
 
 Yes you can. But modern browsers has a lot of problems
-
-.. _general_volatility:
-
-Can I use Volatility v3 with CAPE?
----------------------------------
-
-SOON ;)
-
-.. _`Volatility`: https://github.com/volatilityfoundation/volatility3/
 
 .. _esxi_reqs:
 

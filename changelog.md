@@ -1,3 +1,6 @@
+### [28-04-2021]
+* Strings tab are under the file info on main page
+
 ### [23-04-2021]
 * Pyattck v3.0.1 support
 * If you are using alternative location to `/opt/CAPEv2` and wants to use `MITRE TTPs` next action is required:

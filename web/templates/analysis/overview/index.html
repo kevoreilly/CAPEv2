@@ -32,6 +32,11 @@
         {% include "analysis/overview/_url.html" %}
     {% endif %}
 {% endif %}
+{% if analysis.strings %}
+    <hr />
+    {% include "analysis/overview/_strings.html" %}
+{% endif %}
+<hr/>
 <hr/>
 {% include "analysis/overview/_signatures.html" %}
 

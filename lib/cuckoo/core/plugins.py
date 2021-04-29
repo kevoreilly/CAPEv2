@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.utils import get_vt_consensus
 from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
 from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
@@ -426,15 +425,8 @@ class RunProcessing(object):
                             self.results["malfamily_tag"] = "Suricata"
                             self.results["detections"] = family
 
-            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("results"):
-                detectnames = []
-                for res in self.results["virustotal"]["results"]:
-                    if res["sig"] and "Trojan.Heur." not in res["sig"]:
-                        # weight Microsoft's detection, they seem to be more accurate than the rest
-                        if res["vendor"] == "Microsoft":
-                            detectnames.append(res["sig"])
-                        detectnames.append(res["sig"])
-                family = get_vt_consensus(detectnames)
+            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("detection"):
+                family = self.results["virustotal"]["detection"]
                 self.results["malfamily_tag"] = "VirusTotal"
 
             # fall back to ClamAV detection

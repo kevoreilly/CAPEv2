@@ -10,9 +10,6 @@
         {% if analysis.info.category == "url" %}
             <li class="nav-item active"><a class="nav-link" href="#static_url_tab" data-toggle="tab">URL Analysis</a></li>
         {% endif %}
-        {% if config.virustotal %}
-            <li class="nav-item"><a class="nav-link" href="#static_antivirus_tab" data-toggle="tab">VirusTotal</a></li>
-        {% endif %}
     </ul>
     <div class="tab-content">
         {% if analysis.info.category in "file,static" %}
@@ -44,11 +41,6 @@
         {% if analysis.info.category == "url" %}
             <div class="tab-pane fade show active" id="static_url_tab">
                 {% include "analysis/static/_url.html" %}
-            </div>
-        {% endif %}
-        {% if config.virustotal %}
-            <div class="tab-pane fade show" id="static_antivirus_tab">
-                {% include "analysis/static/_antivirus.html" %}
             </div>
         {% endif %}
     </div>

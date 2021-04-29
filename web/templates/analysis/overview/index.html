@@ -32,18 +32,25 @@
         {% include "analysis/overview/_url.html" %}
     {% endif %}
 {% endif %}
-{% if analysis.strings %}
-    <hr />
-    {% include "analysis/overview/_strings.html" %}
+
+{% if analysis.virustotal %}
+<hr/>
+<tr>
+    {% include "analysis/overview/_antivirus.html" %}
+</tr>
 {% endif %}
-<hr/>
-<hr/>
-{% include "analysis/overview/_signatures.html" %}
 
 {% if analysis.mitre_attck %}
     <hr />
     {% include "analysis/overview/_mitre.html" %}
 {% endif %}
+
+{% if analysis.strings %}
+    <hr />
+    {% include "analysis/overview/_strings.html" %}
+{% endif %}
+<hr/>
+{% include "analysis/overview/_signatures.html" %}
 
 {% if analysis.info.category != "pcap" %}
     {% if analysis.usage %}

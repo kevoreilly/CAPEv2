@@ -109,8 +109,6 @@ def vt_lookup(category, target, on_demand=False):
                             detectnames.append(block["result"])
 
                     virustotal["detection"] = get_vt_consensus(detectnames)
-                    print(virustotal["detection"])
-                    import code;code.interact(local=dict(locals(), **globals()))
                     return virustotal
                 else:
                     return dict()

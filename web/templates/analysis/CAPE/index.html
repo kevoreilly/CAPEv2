@@ -130,11 +130,13 @@
                 {% if file.cape_yara %}
                     <ul style="margin-bottom: 0;">
                     {% for sign in file.cape_yara %}
-                        <li>{{sign.name}} - 
+                        <li>{{sign.name}} -
                         {% if sign.meta.cape_type %}
                             {{sign.meta.cape_type}}
                         {% elif sign.meta.description %}
                             {{sign.meta.description}}
+                        {% else %}
+                            {{sign.name}}
                         {% endif %}
                         {% if sign.meta.author %}
                             - Author: {{sign.meta.author}}

@@ -101,6 +101,8 @@
                                 {{sign.meta.cape_type}}
                             {% elif sign.meta.description %}
                                 {{sign.meta.description}}
+                            {% else %}
+                                {{sign.name}}
                             {% endif %}
                             {% if sign.meta.author %}
                                 - Author: {{sign.meta.author}}

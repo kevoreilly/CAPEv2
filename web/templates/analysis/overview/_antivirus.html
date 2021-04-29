@@ -1,6 +1,6 @@
 {% if analysis.virustotal %}
 <div class="card-header">
-    <a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal</a>
+    <a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{analysis.virustotal.possitive}}/{{analysis.virustotal.total}}) {% if analysis.virustotal.detection %} - {{analysis.virustotal.detection}} {% endif %}</a>
 </div>
 
 <div class="collapse" id="virustotal_binary">

@@ -36,7 +36,6 @@ passlib
 pyzipper
 git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP.git
 git+https://github.com/kevthehermit/RATDecoders.git
-halo==0.0.30 # till won't be pinned in capa
 git+https://github.com/fireeye/capa.git
 greenlet==0.4.16
 cython

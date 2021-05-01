@@ -31,8 +31,7 @@ try:
     from scp import SCPClient
     from paramiko.ssh_exception import BadHostKeyException
 except ImportError:
-    print("pip3 install -U paramiko scp")
-    sys.exit()
+    sys.exit("pip3 install -U paramiko scp")
 
 try:
     from admin_conf import (
@@ -52,7 +51,7 @@ except ModuleNotFoundError:
 urllib3.disable_warnings()
 NUM_THREADS = 5
 
-POSTPROCESS = "systemctl restart cuckoo-processor; systemctl status cuckoo-processor"
+POSTPROCESS = "systemctl restart cape-processor; systemctl status cape-processor"
 
 # ToDo ? https://asyncssh.readthedocs.io/en/latest/#scp-client
 log = logging.getLogger("Cluster admin")

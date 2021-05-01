@@ -1,3 +1,6 @@
+### [01-05-2021]
+* Dirty cluster admin utils helper -> `admin/admin.py`, see `-h`
+
 ### [28-04-2021]
 * Strings tab are under the file info on main page
 * VirusTotal tab are also under the file info on main page

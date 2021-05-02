@@ -26,13 +26,19 @@
         </tr>
         <tr>
             <th></th>
-            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-small">Delete</a></td>
+            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-small">Delete task</a></td>
         </tr>
         {% if analysis.info.user_id %}
         <tr>
-            <th>Task submitted by user id:</th>
-            <td>{{analysis.info.user_id}}</td>
+            <th>Task cretated by user id: {{analysis.info.user_id}}</th>
+            <td>
+                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-small">Ban this user</a>
+                or
+                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-small">Ban all pending user tasks</a>
+
+            </td>
         </tr>
+
         {% endif %}
     </table>
 </div>

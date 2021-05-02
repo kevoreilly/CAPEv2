@@ -18,8 +18,9 @@ from urllib.parse import quote
 
 from django.conf import settings
 from wsgiref.util import FileWrapper
-from django.http import HttpResponse, StreamingHttpResponse, JsonResponse
+from django.http import HttpResponse, StreamingHttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
+from django.contrib.auth.models import User
 from django.views.decorators.http import require_safe
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -37,6 +38,7 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     perform_ttps_search,
     statistics,
+    disable_user,
 )
 import modules.processing.network as network
 
@@ -1834,3 +1836,22 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         del details
 
     return redirect("report", task_id=task_id)
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def ban_all_user_tasks(request, user_id: int):
+    if request.user.is_staff or request.user.is_superuser:
+        db.ban_user_tasks(user_id)
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+    else:
+        return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def ban_user(request, user_id: int):
+    if request.user.is_staff or request.user.is_superuser:
+        success = disable_user(user_id)
+        if success:
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+        else:
+            return render(request, "error.html", {"error": f"Can't ban user id {user_id}"})
+    else:
+        return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})

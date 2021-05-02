@@ -54,7 +54,8 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.db,
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "6ab863a3b510"
+SCHEMA_VERSION = "703266a6bbc5"
+TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"
@@ -308,6 +309,7 @@ class Task(Base):
     completed_on = Column(DateTime(timezone=False), nullable=True)
     status = Column(
         Enum(
+            TASK_BANNED,
             TASK_PENDING,
             TASK_RUNNING,
             TASK_COMPLETED,
@@ -2207,3 +2209,16 @@ class Database(object, metaclass=Singleton):
             session.close()
 
         return source_url
+
+    @classlock
+    def ban_user_tasks(self, user_id: int):
+        """
+            Ban all tasks submitted by user_id
+            @param user_id: user id
+        """
+
+        session = self.Session()
+        _ = session.query(Task).filter(Task.user_id == int(user_id)).filter(Task.status == TASK_PENDING).update(
+           {Task.status: TASK_BANNED}, synchronize_session=False)
+        session.commit()
+        session.close()

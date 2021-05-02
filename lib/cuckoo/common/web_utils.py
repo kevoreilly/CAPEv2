@@ -10,6 +10,8 @@ from random import choice
 from datetime import datetime, timedelta
 from collections import OrderedDict
 
+from django.contrib.auth.models import User
+
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
@@ -813,3 +815,12 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+# admin utils
+def disable_user(user_id: int):
+    user = User.objects.get(id = user_id)
+    if user:
+        user.is_active = False
+        user.save()
+        return True
+    return False

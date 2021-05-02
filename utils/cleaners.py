@@ -107,8 +107,8 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             except Exception as e:
                 log.info(e)
 
-            if db.delete_tasks(ids_tmp):
-                for id in ids_tmp:
+            for id in ids_tmp:
+                if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
                         if os.path.isdir(path):

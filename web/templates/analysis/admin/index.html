@@ -30,7 +30,7 @@
         </tr>
         {% if analysis.info.user_id %}
         <tr>
-            <th>Task cretated by user id: {{analysis.info.user_id}}</th>
+            <th>Task cretated by user id: <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}">{{analysis.info.user_id}}</a></th>
             <td>
                 <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm">Ban this user</a>
                 or

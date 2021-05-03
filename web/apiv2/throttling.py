@@ -1,6 +1,6 @@
 from rest_framework.throttling import UserRateThrottle
 
-# https://www.django-rest-framework.org/api-guide/throttling/
+# https://www.django-rest-framework.org/api-guide/throttling/
 # https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0
 # For function-based views you can use the decorator: @throttle_classes([UserRateThrottle])
 

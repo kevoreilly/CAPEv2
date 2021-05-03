@@ -361,7 +361,7 @@ def tmp_clean_before_day(args):
     It deletes all items in tmp folder before now - days.
     """
     if not args.delete_tmp_items_older_than_days:
-        log.info("No days argument provided bailing")
+        log.info("Must provide argument delete_tmp_items_older_than_days")
         return
 
     days = args.delete_tmp_items_older_than_days
@@ -379,11 +379,11 @@ def tmp_clean_before_day(args):
             if file_time.days > days:
                 try:
                     if os.path.isdir(path):
-                        log.info("Delete file: {0}".format(path))
+                        log.info("Delete folder: {0}".format(path))
                         delete_folder(path)
                     else:
                         if os.path.exists(path):
-                            log.info("Delete folder: {0}".format(path))
+                            log.info("Delete file: {0}".format(path))
                             os.remove(path)
                 except Exception as e:
                     log.error(e)

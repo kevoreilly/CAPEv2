@@ -433,7 +433,7 @@ def cuckoo_clean_before_day(args):
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
     delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
-    # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
+    #resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -516,8 +516,7 @@ def cuckoo_dedup_cluster_queue():
     dist_session = create_session(rep_config.distributed.db, echo=False)
     dist_db = dist_session()
     hash_dict = dict()
-    duplicated = session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id,
-                                                               Task.status == "pending").order_by(Sample.sha256)
+    duplicated = session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
 
     for sample, task in duplicated:
         try:

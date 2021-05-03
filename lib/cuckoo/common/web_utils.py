@@ -433,6 +433,12 @@ def download_file(**kwargs):
         if package == "Emotet":
             return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
 
+        if package.endswith("_x64"):
+            if tags:
+                if "x64" not in tags:
+                    tags += ",x64"
+            else:
+                tags = "x64"
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}

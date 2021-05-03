@@ -297,7 +297,7 @@ if __name__ == "__main__":
             # k = RSAKey.from_private_key_file(ssh_key_filename, password="")
             jumpbox = SSHClient()
             jumpbox.set_missing_host_key_policy(AutoAddPolicy())
-            jumpbox.connect(JUMP_BOX, username=JUMP_BOX_USERNAME, look_for_keys=False) # pkey=k
+            jumpbox.connect(JUMP_BOX, username=JUMP_BOX_USERNAME, look_for_keys=False)  # pkey=k
 
     if args.debug:
         log.setLevel(logging.DEBUG)

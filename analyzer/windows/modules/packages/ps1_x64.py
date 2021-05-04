@@ -10,7 +10,7 @@ from lib.common.abstracts import Package
 # Originally proposed by David Maciejak.
 
 
-class PS1(Package):
+class PS1_x64(Package):
     """PowerShell analysis package."""
 
     PATHS = [

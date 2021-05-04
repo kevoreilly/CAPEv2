@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 REMOTE_SERVER_USER = "root"
 CAPE_PATH = "/opt/CAPEv2/"
 VOL_PATH = "/usr/local/lib/python3.8/dist-packages/volatility/plugins/"
@@ -7,3 +9,6 @@ CAPE_DIST_URL = f"http://{MASTER_NODE}:9003/node"
 JUMP_BOX_USERNAME = ""
 JUMP_BOX_PORT = 22
 SERVERS_STATIC_LIST = []
+REMOTE_REPO = ""
+# Jenkins - gitlabBranch
+BRANCH_NAME_FROM_ENV = ""

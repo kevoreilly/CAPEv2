@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright (C) 2021- doomedraven
 #
 # This program is free software: you can redistribute it and/or modify
@@ -13,25 +15,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#!/usr/bin/env python3
+
 import os
 import sys
 import json
-import urllib3
 import shutil
+import tempfile
+import urllib3
 import logging
 import argparse
 import subprocess
+import tempfile
 from hashlib import sha256
 from queue import Queue
 from threading import Thread
 
 try:
-    from paramiko import SSHClient, AutoAddPolicy
+    from paramiko import SSHClient, AutoAddPolicy, RSAKey, Agent
     from scp import SCPClient
     from paramiko.ssh_exception import BadHostKeyException
+    import git
 except ImportError:
-    sys.exit("pip3 install -U paramiko scp")
+    print("pip3 install -U paramiko scp GitPython")
+    sys.exit()
 
 try:
     from admin_conf import (
@@ -44,6 +50,8 @@ try:
         JUMP_BOX_USERNAME,
         JUMP_BOX_PORT,
         SERVERS_STATIC_LIST,
+        REMOTE_REPO,
+        BRANCH_NAME_FROM_ENV,
     )
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
@@ -53,14 +61,18 @@ NUM_THREADS = 5
 
 POSTPROCESS = "systemctl restart cape-processor; systemctl status cape-processor"
 
-# ToDo ? https://asyncssh.readthedocs.io/en/latest/#scp-client
 log = logging.getLogger("Cluster admin")
 log.setLevel(logging.INFO)
 logging.info("-")
-
+servers = []
+jumpbox_used = False
+CI = False
+ssh = SSHClient()
+ssh.load_system_host_keys()
+ssh.set_missing_host_key_policy(AutoAddPolicy())
 
 def color(text, color_code):
-    if sys.platform == "win32" and os.getenv("TERM") != "xterm":
+    if sys.platform == "win32" and os.getenv("TERM") != "xterm" or CI:
         return text
     return "\x1b[%dm%s\x1b[0m" % (color_code, text)
 
@@ -73,49 +85,62 @@ def green(text):
     return color(text, 32)
 
 
+
 def file_recon(file, yara_category="CAPE"):
     if not os.path.exists(file):
         return
+
     OWNER = "cape:cape"
+    global POSTPROCESS
     LOCAL_SHA256 = False
     filename = os.path.basename(file)
-    with open(file, "rt") as ff:
+    # with open(file, "rt") as ff:
+    #    f = ff.read()
+
+    # Requires read as Bytes due to different hashes if encodes
+    with open(file, "rb") as ff:
         f = ff.read()
 
-    LOCAL_SHA256 = sha256(f.encode("utf-8")).hexdigest()
-    if "(TcrSignature):" in f or "(Signature)" in f:
+    LOCAL_SHA256 = sha256(f).hexdigest()
+
+
+    if b"(TcrSignature):" in f or b"(Signature)" in f:
         TARGET = f"{CAPE_PATH}modules/signatures/{filename}"
     elif filename in ("loader.exe", "loader_x64.exe"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
         POSTPROCESS = False
-    elif "def calculate(self" in f:
+    elif b"def calculate(self" in f:
         TARGET = f"{VOL_PATH}{filename}"
         OWNER = "root:staff"
-    elif "class .*(Report):" in f:
+    elif b"class .*(Report):" in f:
         TARGET = f"{CAPE_PATH}/modules/reporting/{filename}"
-    elif "class .*(Processing):" in f:
+    elif b"class .*(Processing):" in f:
         TARGET = f"{CAPE_PATH}/modules/processing/{filename}"
-    elif filename.endswith(".yar") and "rule " in f and "condition:" in f:
+    elif filename.endswith(".yar") and b"rule " in f and b"condition:" in f:
         # capemon yara
         if "/analyzer/" in file:
+            TEXT = "Deploying Monitor Yara rule {filename}..."
             TARGET = f"{CAPE_PATH}analyzer/windows/data/yara/{filename}"
         else:
             # server side rule
             TARGET = f"{CAPE_PATH}data/yara/{yara_category}/{filename}"
-    elif "class .*(Package):" in f:
+    elif b"class .*(Package):" in f:
         TARGET = f"{CAPE_PATH}/analyzer/windows/modules/packages/{filename}"
-    elif "def choose_package(file_type, file_name, exports, target)" in f:
+    elif b"def choose_package(file_type, file_name, exports, target)" in f:
         TARGET = f"{CAPE_PATH}/analyzer/windows/lib/core/{filename}"
-    elif "class Signature(object):" in f and "class Processing(object):" in f:
+    elif b"class Signature(object):" in f and "class Processing(object):" in f:
         TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
-    elif "class Analyzer:" in f and "class PipeHandler(Thread):" in f and "class PipeServer(Thread):" in f:
+    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and "class PipeServer(Thread):" in f:
         TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
+        POSTPROCESS = False
+    elif filename in ("cuckoomon.dll", "cuckoomon_x64.dll"):
+        TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
         POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):
         TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
         POSTPROCESS = False
-    # generic deployer of CAPE file
-    elif filename.startswith("CAPE"):
+    # generic deployer of files
+    elif file.startswith("CAPE/"):
         # Remove CAPE/ from path to build new path
         TARGET = f"{CAPE_PATH}" + file[5:]
     elif filename.endswith(".service"):
@@ -139,16 +164,29 @@ def _connect_via_jump_box(server):
     ssh.set_missing_host_key_policy(AutoAddPolicy())
 
     try:
+        """
+            This is SSH pivoting it ssh to host Y via host X, can be used due to different networks
+            We doing direct-tcpip channel and pasing it as socket to be used
+        """
         if jumpbox_used and JUMP_BOX_USERNAME:
-            # jump box
             jumpbox_transport = jumpbox.get_transport()
             src_addr = (JUMP_BOX, JUMP_BOX_PORT)
-            dest_addr = (server, 22)
+            dest_addr = (server, JUMP_BOX_PORT)
             jumpbox_channel = jumpbox_transport.open_channel("direct-tcpip", dest_addr, src_addr)
-        if jumpbox_used and JUMP_BOX_USERNAME:
-            ssh.connect(server, username=REMOTE_SERVER_USER, look_for_keys=False, sock=jumpbox_channel)
+            if tmp_pub_key_obj:
+                ssh.connect(
+                    server,
+                    username=REMOTE_SERVER_USER,
+                    look_for_keys=True,
+                    allow_agent=True,
+                    sock=jumpbox_channel,
+                    key_filename=tmp_pub_key_obj.name,
+                    passphrase="",
+                )
+            else:
+                ssh.connect(server, username=REMOTE_SERVER_USER, look_for_keys=True, allow_agent=True, sock=jumpbox_channel)
         else:
-            ssh.connect(server, username=REMOTE_SERVER_USER, look_for_keys=False)
+            ssh.connect(server, username=REMOTE_SERVER_USER, look_for_keys=True, allow_agent=True)
     except BadHostKeyException as e:
         sys.exit(str(e))
     return ssh
@@ -159,7 +197,7 @@ def execute_command_on_all(remote_command):
         try:
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
-            log.info(green(ssh_stdout.read().strip()))
+            log.info(green("[+] {} - {}".format(server, ssh_stdout.read().strip())))
         except TimeoutError as e:
             log.debug(e)
         print("\n")
@@ -181,7 +219,6 @@ def bulk_deploy(files, yara_category):
     queue.join()
 
 
-# def deploy_file(servers, local_file, remote_file, local_sha256, remote_command=False):
 def deploy_file(queue):
     error_list = list()
 
@@ -228,6 +265,20 @@ def deploy_file(queue):
 
     return error_list
 
+def list_files_CI():
+
+    files = list()
+    try:
+        branch_name = os.getenv(BRANCH_NAME_FROM_ENV)
+        cape_dst = os.path.join(tempfile.gettempdir(), "CAPE")
+        repo = git.Repo.clone_from(REMOTE_REPO, cape_dst, branch=branch_name)
+        for file in repo.index.diff("HEAD~1") or []:
+            files.append(file.a_path)
+        os.removedirs(cape_dst)
+    except Exception as e:
+        print(e)
+
+    return files
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -240,6 +291,23 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         required=False,
+    )
+    parser.add_argument(
+        "-ci",
+        "--continues-integration",
+        help="Clone repo and get changes from HEAD~1 instead of local git repo",
+        action="store_true",
+        default=False,
+        required=False,
+    )
+
+    parser.add_argument(
+        "-pk",
+        "--private-ssh-key",
+        help="Path to ssh key file to use",
+        action="store",
+        required=False,
+        default=False,
     )
     parser.add_argument(
         "-jb", "--jump-box", help="Use jump box to reach servers", action="store_true", default=False, required=False
@@ -288,16 +356,39 @@ if __name__ == "__main__":
     args = parser.parse_args()
     files = list()
 
-    jumpbox_used = False
-    if args.jump_box:
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.set_missing_host_key_policy(AutoAddPolicy())
+
+    # adds system/CI ssh pub file to auth
+    agent = Agent()
+    agent_keys = agent.get_keys()
+
+    pub_key = ""
+    tmp_pub_key_obj = tempfile.NamedTemporaryFile()
+    if JUMP_BOX_USERNAME and args.jump_box:
         jumpbox_used = True
-        if JUMP_BOX_USERNAME:
-            # https://gist.github.com/tintoy/443c42ea3865680cd624039c4bb46219
-            # ssh_key_filename = os.getenv("HOME") + "/.ssh/id_rsa"
-            # k = RSAKey.from_private_key_file(ssh_key_filename, password="")
-            jumpbox = SSHClient()
-            jumpbox.set_missing_host_key_policy(AutoAddPolicy())
-            jumpbox.connect(JUMP_BOX, username=JUMP_BOX_USERNAME, look_for_keys=False)  # pkey=k
+        jumpbox = SSHClient()
+        jumpbox.set_missing_host_key_policy(AutoAddPolicy())
+        if args.private_ssh_key:
+            for key in agent_keys:
+                try:
+                    tmp_pub_key_obj.write(key.get_fingerprint())
+                    jumpbox.connect(
+                        JUMP_BOX,
+                        username=JUMP_BOX_USERNAME,
+                        look_for_keys=True,
+                        allow_agent=True,
+                        key_filename=tmp_pub_key_obj.name,
+                        passphrase="",
+                    )
+                    pub_key = key.get_fingerprint()
+                    break
+                except Exception as e:
+                    print(e, 1)
+        else:
+            jumpbox_transport = jumpbox.get_transport()
+            jumpbox.connect(JUMP_BOX, username=JUMP_BOX_USERNAME, look_for_keys=True, allow_agent=True)
 
     if args.debug:
         log.setLevel(logging.DEBUG)
@@ -317,9 +408,14 @@ if __name__ == "__main__":
         parameters = file_recon(args.deploy_file, args.yara_category)
         if not parameters:
             sys.exit()
-
         queue = Queue()
-        queue.put([servers, args.deploy_file] + list(parameters))
+        queue.put(
+            [
+                servers,
+                args.deploy_file,
+            ]
+            + list(parameters)
+        )
         _ = deploy_file(queue)
     elif args.execute_command:
         execute_command_on_all(args.execute_command)
@@ -333,9 +429,13 @@ if __name__ == "__main__":
         _ = deploy_file(queue)
 
     elif args.deploy_local_changes:
-        # to not use external deps https://www.enricozini.org/blog/2019/debian/gitpython-list-all-files-in-a-git-commit/
-        out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-        files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        if args.continues_integration:
+            files = list_files_CI()
+            CI = True
+        else:
+            out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
+            files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+
         if "Scripts/admin.py" in files:
             files.remove("Scripts/admin.py")
     elif args.deploy_remote_changes:
@@ -361,5 +461,7 @@ if __name__ == "__main__":
             sys.exit()
         bulk_deploy(files, args.yara_category)
 
+
     if args.restart_service and POSTPROCESS:
         execute_command_on_all(POSTPROCESS)
+    tmp_pub_key_obj.close()

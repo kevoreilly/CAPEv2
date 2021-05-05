@@ -60,6 +60,7 @@ try:
     # from malduck import procmem, procmempe
     from malduck.extractor import ExtractorModules, ExtractManager
     malduck_modules = ExtractorModules(modules_path=os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
+    malduck_modules_names = [module.family for module in malduck_modules.extractors]
     HAVE_MALDUCK = True
 except ImportError:
     HAVE_MALDUCK = False
@@ -210,12 +211,14 @@ def static_config_parsers(yara_hit, file_data):
                     if isinstance(value, map):
                         value = list(value)
                     cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
             elif isinstance(cape_configraw, dict):
                 for (key, value) in cape_configraw.items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.
                     if isinstance(value, map):
                         value = list(value)
                     cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
         except Exception as e:
             logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
@@ -238,6 +241,16 @@ def static_config_parsers(yara_hit, file_data):
 
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
+
+    elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
+        ext = ExtractManager(modules=malduck_modules)
+        tmp_file = tempfile.NamedTemporaryFile(delete=False)
+        tmp_file.write(file_data)
+        ext.push_file(tmp_file.name)
+        tmp_file.close()
+
+        cape_config[cape_name] = ext.config
+        del ext
 
     return cape_config
 

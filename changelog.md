@@ -1,3 +1,6 @@
+### [05-05-2021] [Malduck]()
+* Integration of [mwcfg-modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules) by [@c3rb3ru5d3d53c](https://github.com/c3rb3ru5d3d53c)
+
 ### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
 * Add button to ban user and their pending tasks on admin tab
     * __ACTION REQUIRED!__

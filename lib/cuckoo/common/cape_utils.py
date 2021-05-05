@@ -15,8 +15,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 
-log = logging.getLogger(__name__)
-
 malware_parsers = dict()
 cape_malware_parsers = dict()
 
@@ -44,7 +42,7 @@ try:
     HAS_MWCP = True
 except ImportError as e:
     HAS_MWCP = False
-    log.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
+    logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
 try:
     from malwareconfig import fileparser
@@ -53,20 +51,20 @@ try:
     HAS_MALWARECONFIGS = True
 except ImportError:
     HAS_MALWARECONFIGS = False
-    log.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+    logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
 except Exception as e:
-    log.error(e, exc_info=True)
-"""
+    logging.error(e, exc_info=True)
+
 try:
     # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
-    from malduck import procmem, procmempe
+    # from malduck import procmem, procmempe
     from malduck.extractor import ExtractorModules, ExtractManager
-    malduck_modules = ExtractorModules(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
+    malduck_modules = ExtractorModules(modules_path=os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
     HAVE_MALDUCK = True
 except ImportError:
     HAVE_MALDUCK = False
-    log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
-"""
+    logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+
 
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
@@ -78,8 +76,8 @@ for name in CAPE_DECODERS:
         cape_malware_parsers[name] = module
     except (ImportError, IndexError) as e:
         if "datadirs" in str(e):
-            log.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
-        log.warning("CAPE parser: No module named {} - {}".format(name, e))
+            logging.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
+        logging.warning("CAPE parser: No module named {} - {}".format(name, e))
 
 parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 if parser_path not in sys.path:
@@ -91,7 +89,7 @@ try:
     plugx_parser = plugx.PlugXConfig()
 except ImportError as e:
     plugx_parser = False
-    log.error(e)
+    logging.error(e)
 
 processing_conf = Config("processing")
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
@@ -128,7 +126,7 @@ def upx_harness(raw_data):
     try:
         ret = subprocess.call("(upx -d %s)" % upxfile.name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
-        log.error("CAPE: UPX Error %s", e)
+        logging.error("CAPE: UPX Error %s", e)
         os.unlink(upxfile.name)
         return
 
@@ -136,16 +134,16 @@ def upx_harness(raw_data):
         sha256 = hash_file(hashlib.sha256, upxfile.name)
         newname = os.path.join(os.path.dirname(upxfile.name), sha256)
         os.rename(upxfile.name, newname)
-        log.info("CAPE: UPX - Statically unpacked binary %s.", upxfile.name)
+        logging.info("CAPE: UPX - Statically unpacked binary %s.", upxfile.name)
         return newname
     elif ret == 127:
-        log.error("CAPE: Error - UPX not installed.")
+        logging.error("CAPE: Error - UPX not installed.")
     elif ret == 1:
-        log.error("CAPE: Error - UPX CantUnpackException")
+        logging.error("CAPE: Error - UPX CantUnpackException")
     elif ret == 2:
-        log.error("CAPE: Error - UPX 'not packed' exception.")
+        logging.error("CAPE: Error - UPX 'not packed' exception.")
     else:
-        log.error("CAPE: Unknown error - check UPX is installed and working.")
+        logging.error("CAPE: Unknown error - check UPX is installed and working.")
 
     os.unlink(upxfile.name)
     return
@@ -189,18 +187,18 @@ def static_config_parsers(yara_hit, file_data):
 
                 tmp_dict.update(reporter.metadata)
                 cape_config[cape_name] = convert(tmp_dict)
-                log.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
+                logging.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
-                        log.debug("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
+                        logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
             reporter._Reporter__cleanup()
             del reporter
         except pefile.PEFormatError:
-            log.error("pefile PEFormatError")
+            logging.error("pefile PEFormatError")
         except Exception as e:
-            log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
+            logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
     if not parser_loaded and cape_name in cape_malware_parsers:
         try:
@@ -219,7 +217,7 @@ def static_config_parsers(yara_hit, file_data):
                         value = list(value)
                     cape_config[cape_name].update({key: [value]})
         except Exception as e:
-            log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
+            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         try:
@@ -236,7 +234,7 @@ def static_config_parsers(yara_hit, file_data):
                 for (key, value) in malwareconfig_config.items():
                     cape_config[cape_name].update({key: [value]})
         except Exception as e:
-            log.warning("malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e,)
+            logging.warning("malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e,)
 
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
@@ -265,7 +263,7 @@ def static_extraction(path):
                 return config
         return False
     except Exception as e:
-        log.error(e)
+        logging.error(e)
 
     return False
 

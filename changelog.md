@@ -1,3 +1,8 @@
+### [06-05-2021] Docs about throttling and yara categories
+* __ACTION REQUIRED!__
+    * Update sflock library - we suggest you to keep an eye on this repo!
+        * `pip3 install --force-reinstall -U git+https://github.com/doomedraven/sflock/`
+
 ### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
 * Add button to ban user and their pending tasks on admin tab
     * __ACTION REQUIRED!__

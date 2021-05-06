@@ -19,6 +19,7 @@ malware_parsers = dict()
 cape_malware_parsers = dict()
 
 # Config variables
+process_cfg = Config("processing")
 repconf = Config("reporting")
 
 if repconf.mongodb.enabled:
@@ -32,57 +33,64 @@ except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
 
+HAS_MWCP = False
+if process_cfg.mwcp.enabled:
 # Import All config parsers
-try:
-    import mwcp
-
-    logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-    mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp"))
-    malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
-    HAS_MWCP = True
-except ImportError as e:
-    HAS_MWCP = False
-    logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
-
-try:
-    from malwareconfig import fileparser
-    from malwareconfig.modules import __decoders__, __preprocessors__
-
-    HAS_MALWARECONFIGS = True
-except ImportError:
-    HAS_MALWARECONFIGS = False
-    logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
-except Exception as e:
-    logging.error(e, exc_info=True)
-
-try:
-    # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
-    # from malduck import procmem, procmempe
-    from malduck.extractor import ExtractorModules, ExtractManager
-    malduck_modules = ExtractorModules(modules_path=os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
-    malduck_modules_names = [module.family for module in malduck_modules.extractors]
-    HAVE_MALDUCK = True
-except ImportError:
-    HAVE_MALDUCK = False
-    logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
-
-
-cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
-
-for name in CAPE_DECODERS:
     try:
-        file, pathname, description = imp.find_module(name, [cape_decoders])
-        module = imp.load_module(name, file, pathname, description)
-        cape_malware_parsers[name] = module
-    except (ImportError, IndexError) as e:
-        if "datadirs" in str(e):
-            logging.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
-        logging.warning("CAPE parser: No module named {} - {}".format(name, e))
+        import mwcp
+        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
+        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
+        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
+        HAS_MWCP = True
+    except ImportError as e:
+        logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
-parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-if parser_path not in sys.path:
-    sys.path.append(parser_path)
+HAS_MALWARECONFIGS = False
+if process_cfg.ratdecoders.enabled:
+    try:
+        from malwareconfig import fileparser
+        from malwareconfig.modules import __decoders__, __preprocessors__
+        HAS_MALWARECONFIGS = True
+        if process_cfg.ratdecoders.modules_path:
+            from ratdecoders_utils import load_decoders as ratdecoders_loadmodules
+            ratdecoders_local_modules = ratdecoders_load(process_cfg.ratdecoders.modules_path)
+            __decoders__.update(ratdecoders_local_modules)
+    except ImportError:
+        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+    except Exception as e:
+        logging.error(e, exc_info=True)
+
+HAVE_MALDUCK = False
+if process_cfg.malduck.enabled:
+    try:
+        # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
+        # from malduck import procmem, procmempe
+        from malduck.extractor import ExtractorModules, ExtractManager
+        malduck_modules = ExtractorModules(modules_path=os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+        malduck_modules_names = [module.family for module in malduck_modules.extractors]
+        HAVE_MALDUCK = True
+    except ImportError:
+        logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+
+HAVE_CAPE_EXTRACTORS = False
+if process_cfg.CAPE_extractors.enabled:
+    cape_decoders = os.path.join(CUCKOO_ROOT, process_cfg.CAPE_extractors.modules_path)
+    CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
+
+    for name in CAPE_DECODERS:
+        try:
+            file, pathname, description = imp.find_module(name, [cape_decoders])
+            module = imp.load_module(name, file, pathname, description)
+            cape_malware_parsers[name] = module
+        except (ImportError, IndexError) as e:
+            if "datadirs" in str(e):
+                logging.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
+            logging.warning("CAPE parser: No module named {} - {}".format(name, e))
+    HAVE_CAPE_EXTRACTORS = True
+
+    parser_path = os.path.join(CUCKOO_ROOT, CAPE_extractors)
+    if parser_path not in sys.path:
+        sys.path.append(parser_path)
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
@@ -92,7 +100,6 @@ except ImportError as e:
     plugx_parser = False
     logging.error(e)
 
-processing_conf = Config("processing")
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
 
 pe_map = {
@@ -170,7 +177,7 @@ def static_config_parsers(yara_hit, file_data):
     # Attempt to import a parser for the hit
     # DC3-MWCP
 
-    if cape_name and HAS_MWCP and cape_name in malware_parsers:
+    if HAS_MWCP and cape_name and cape_name in malware_parsers:
         try:
             reporter = mwcp.Reporter()
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
@@ -201,7 +208,7 @@ def static_config_parsers(yara_hit, file_data):
         except Exception as e:
             logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
-    if not parser_loaded and cape_name in cape_malware_parsers:
+    if HAVE_CAPE_EXTRACTORS and not parser_loaded and cape_name in cape_malware_parsers:
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
             cape_configraw = cape_malware_parsers[cape_name].config(file_data)

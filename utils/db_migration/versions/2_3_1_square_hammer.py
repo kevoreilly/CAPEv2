@@ -25,10 +25,14 @@ def upgrade():
     )
     op.execute("ALTER TABLE tasks ALTER COLUMN status TYPE status_type USING status::text::status_type")
     op.execute("ALTER TABLE tasks ALTER status set default 'pending'::status_type")
-    # op.execute("DROP TYPE status_type_old;")
+    op.execute("DROP TYPE status_type_old;")
 
 
 def downgrade():
+    try:
+        op.execute("DROP TYPE status_type_old;")
+    except Exception as e:
+        pass
     op.execute("ALTER TABLE tasks alter status drop default")
     op.execute("ALTER TYPE status_type RENAME TO status_type_old;")
     op.execute(
@@ -36,4 +40,4 @@ def downgrade():
     )
     op.execute("ALTER TABLE tasks ALTER COLUMN status TYPE status_type USING status::text::status_type")
     op.execute("ALTER TABLE tasks ALTER status set default 'pending'::status_type")
-    # op.execute("DROP TYPE status_type_old;")
+    op.execute("DROP TYPE status_type_old;")

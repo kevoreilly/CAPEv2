@@ -19,7 +19,7 @@ try:
     from lib.cuckoo.common.exceptions import CuckooDependencyError
     from lib.cuckoo.core.startup import check_working_directory, check_configs
     from lib.cuckoo.core.startup import create_structure
-    from lib.cuckoo.core.startup import init_logging, init_modules, check_webgui_mongo
+    from lib.cuckoo.core.startup import init_logging, init_modules, check_webgui_mongo, check_linux_dist
     from lib.cuckoo.core.startup import init_tasks, init_yara
     from lib.cuckoo.core.scheduler import Scheduler
     from lib.cuckoo.core.resultserver import ResultServer
@@ -34,6 +34,7 @@ except (CuckooDependencyError, ImportError) as e:
 
 log = logging.getLogger()
 
+check_linux_dist()
 
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     cur_path = os.getcwd()

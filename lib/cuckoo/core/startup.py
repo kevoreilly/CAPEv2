@@ -8,6 +8,7 @@ import os
 import sys
 import copy
 import socket
+import platform
 import logging
 import logging.handlers
 
@@ -146,6 +147,12 @@ class ConsoleHandler(logging.StreamHandler):
 
         logging.StreamHandler.emit(self, colored)
 
+
+def check_linux_dist():
+    ubuntu_versison = "20.04"
+    platform_details = platform.dist()
+    if platform_details[0] != "Ubuntu" and platform_details[1] != ubuntu_versison:
+        print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu {ubuntu_versison}")
 
 def init_logging():
     """Initializes logging."""

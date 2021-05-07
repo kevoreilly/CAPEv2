@@ -150,9 +150,12 @@ class ConsoleHandler(logging.StreamHandler):
 
 def check_linux_dist():
     ubuntu_versison = "20.04"
-    platform_details = platform.dist()
-    if platform_details[0] != "Ubuntu" and platform_details[1] != ubuntu_versison:
-        print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu {ubuntu_versison}")
+    try:
+        platform_details = platform.dist()
+        if platform_details[0] != "Ubuntu" and platform_details[1] != ubuntu_versison:
+            print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu {ubuntu_versison}")
+    except AttributeError:
+        pass
 
 def init_logging():
     """Initializes logging."""

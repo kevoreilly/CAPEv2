@@ -132,9 +132,9 @@ class IcedIDStage1(Parser):
                         if r:
                             for cnc in r:
                                 self.reporter.add_metadata("other", {"CNC": cnc })
-                        if f:
-                            for decoy in f:
-                                self.reporter.add_metadata("other", {"Decoy": decoy })
+                            if f:
+                                for decoy in f:
+                                    self.reporter.add_metadata("other", {"Decoy": decoy })
                     elif section.Name == b'.data\x00\x00\x00':
                         config_section = bytearray(section.get_data())
                         cfg = new_decode(config_section)

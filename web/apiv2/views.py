@@ -1733,7 +1733,7 @@ def file(request, stype, value):
 
     else:
         resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
-        return Response(file_hash)
+        return Response(resp)
 
 
 @csrf_exempt

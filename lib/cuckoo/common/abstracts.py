@@ -58,29 +58,13 @@ HAVE_MITRE = False
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
-        attack_file = repconf.mitre.get("local_file", False)
-        if attack_file:
-            attack_file = os.path.join(CUCKOO_ROOT, attack_file)
-        try:
-            # V3
-            mitre = Attck(
-                data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-                config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
-            )
 
-            if not hasattr(mitre, "_Attck__ENTERPRISE_GENERATED_DATA_JSON"):
-                # V2 mitre = Attck(dataset_json=attack_file)
-                mitre = Attck(dataset_json=attack_file)
-                HAVE_MITRE = True
-            else:
-                HAVE_MITRE = True
-        except TypeError:
-            # V2
-            mitre = Attck(dataset_json=attack_file)
-            HAVE_MITRE = True
+        mitre = Attck(
+            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        )
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
-
 
 
 myresolver = dns.resolver.Resolver()

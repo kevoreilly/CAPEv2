@@ -69,7 +69,7 @@ def pwd_calc(buffer_size, number, shifts, subtract_val):
 class Retefe(Parser):
 
     DESCRIPTION = "Retefe configuration parser."
-    AUTHOR = "kevoreilly"
+    AUTHOR = "Tomasuh"
 
     def run(self):
         filebuf = self.file_object.file_data

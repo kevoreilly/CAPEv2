@@ -24,7 +24,8 @@ class CustomUserAdmin(UserAdmin):
     inlines = (ProfileInline, )
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_suscription')
     list_select_related = ('userprofile', )
-    actions = [make_active, make_deactivated]
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups', 'emailaddress__verified')
+    actions = (make_active, make_deactivated)
 
     def get_suscription(self, instance):
         return instance.userprofile.suscription

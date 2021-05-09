@@ -1,3 +1,8 @@
+### [06-05-2021] Docs about throttling and yara categories
+* __ACTION REQUIRED!__
+    * Update sflock library - we suggest you to keep an eye on this repo!
+        * `pip3 install --force-reinstall -U git+https://github.com/doomedraven/sflock/`
+
 ### [05-05-2021] [Malduck]()
 * Integration of [mwcfg-modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules) by [@c3rb3ru5d3d53c](https://github.com/c3rb3ru5d3d53c)
 

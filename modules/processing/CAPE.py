@@ -357,16 +357,6 @@ class CAPE(Processing):
                     ConfigItem = "Gate URL " + str(index + 1)
                     config[cape_name].update({ConfigItem: [value]})
                 append_file = False
-            # QakBot
-            if file_info["cape_type_code"] == QAKBOT_CONFIG:
-                file_info["cape_type"] = "QakBot Config"
-                cape_name = "QakBot"
-                config[cape_name] = dict()
-                config[cape_name]["cape_type"] = "QakBot Config"
-                config_tmp = static_config_parsers(cape_name, file_data)
-                if config_tmp and config_tmp[cape_name]:
-                    config.update(config_tmp)
-                append_file = False
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:
                 data = file_data.decode("utf-16").replace("\x00", "")
@@ -452,7 +442,7 @@ class CAPE(Processing):
             if hit["name"] in suppress_parsing_list:
                 continue
 
-            tmp_config = static_config_parsers(hit["name"].replace("_", " "), file_data)
+            tmp_config = static_config_parsers(hit, file_data)
             if tmp_config and tmp_config[hit["name"].replace("_", " ")]:
                 config.update(tmp_config)
 

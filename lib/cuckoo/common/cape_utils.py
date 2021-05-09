@@ -63,11 +63,14 @@ if process_cfg.ratdecoders.enabled:
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:
     try:
-        # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
-        # from malduck import procmem, procmempe
         from malduck.extractor import ExtractorModules, ExtractManager
-        malduck_modules = ExtractorModules(modules_path=os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
-        malduck_modules_names = [module.family for module in malduck_modules.extractors]
+        from malduck.extractor.extractor import Extractor
+        from malduck.extractor.loaders import load_modules
+        from malduck.yara import Yara
+        malduck_rules = Yara.__new__(Yara)
+        malduck_modules = ExtractorModules.__new__(ExtractorModules)
+        malduck_modules.modules_path = os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path)
+        malduck_modules_names = [os.path.basename(decoder)[:-3] for decoder in glob.glob(malduck_modules.modules_path + "/[!_]*.py")]
         HAVE_MALDUCK = True
     except ImportError:
         logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
@@ -88,9 +91,8 @@ if process_cfg.CAPE_extractors.enabled:
             logging.warning("CAPE parser: No module named {} - {}".format(name, e))
     HAVE_CAPE_EXTRACTORS = True
 
-    parser_path = os.path.join(CUCKOO_ROOT, CAPE_extractors)
-    if parser_path not in sys.path:
-        sys.path.append(parser_path)
+    if cape_decoders not in sys.path:
+        sys.path.append(cape_decoders)
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
@@ -167,10 +169,9 @@ def convert(data):
     else:
         return data
 
-
 def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
-    cape_name = yara_hit.replace("_", " ")
+    cape_name = yara_hit["name"].replace("_", " ")
     cape_config = dict()
     cape_config[cape_name] = dict()
     parser_loaded = False
@@ -249,8 +250,13 @@ def static_config_parsers(yara_hit, file_data):
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
 
-    elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
-        ext = ExtractManager(modules=malduck_modules)
+    elif HAVE_MALDUCK and not parser_loaded and cape_name in malduck_modules_names:
+        ext = ExtractManager.__new__(ExtractManager)
+        ext.configs: Dict[str, Config] = {}
+        malduck_rules.rules = File.yara_rules["CAPE"]
+        malduck_modules.rules = malduck_rules
+        malduck_modules.extractors: List[Type[Extractor]] = Extractor.__subclasses__()
+        ext.modules = malduck_modules
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
         tmp_file.write(file_data)
         ext.push_file(tmp_file.name)
@@ -278,7 +284,7 @@ def static_extraction(path):
         with open(path, "rb") as file_open:
             file_data = file_open.read()
         for hit in hits:
-            config = static_config_parsers(hit["name"], file_data)
+            config = static_config_parsers(hit, file_data)
             if config:
                 return config
         return False

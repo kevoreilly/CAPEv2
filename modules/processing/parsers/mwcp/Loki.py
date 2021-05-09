@@ -167,7 +167,7 @@ def decoder(data):
 class Loki(Parser):
 
     DESCRIPTION = "Loki configuration parser."
-    AUTHOR = "kevoreilly"
+    AUTHOR = "sysopfb"
 
     def run(self):
         urls = decoder(self.file_object.file_data)

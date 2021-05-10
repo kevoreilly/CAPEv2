@@ -53,7 +53,7 @@ if process_cfg.ratdecoders.enabled:
         HAS_MALWARECONFIGS = True
         if process_cfg.ratdecoders.modules_path:
             from ratdecoders_utils import load_decoders as ratdecoders_loadmodules
-            ratdecoders_local_modules = ratdecoders_load(process_cfg.ratdecoders.modules_path)
+            ratdecoders_local_modules = ratdecoders_loadmodules(process_cfg.ratdecoders.modules_path)
             __decoders__.update(ratdecoders_local_modules)
     except ImportError:
         logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")

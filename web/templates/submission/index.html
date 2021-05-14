@@ -93,12 +93,7 @@ $(document).ready( function() {
                     {% else %}
                         <div class="tab-pane fade show active" id="file">
                             <div class="input-group">
-                                <span class="input-group-append">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="sample" multiple="multiple">
-                                    </span>
-                                </span>
+                                <input class="form-control" type="file" id="file" multiple="multiple">
                             </div>
                         </div>
 
@@ -112,12 +107,7 @@ $(document).ready( function() {
                         {% endif %}
                         <div class="tab-pane fade show" id="quarantine">
                             <div class="input-group col-md-6">
-                                <span class="input-group-append">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="quarantine" multiple="multiple">
-                                    </span>
-                                </span>
+                                <input class="form-control" type="file" id="quarantine" multiple="multiple">
                             </div>
                         </div>
                         <div class="tab-pane fade show" id="url">
@@ -136,22 +126,12 @@ $(document).ready( function() {
                         {% endif %}
                         <div class="tab-pane fade show" id="pcap">
                             <div class="input-group col-md-6">
-                                <span class="input-group-append">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="pcap" multiple="multiple">
-                                    </span>
-                                </span>
+                                <input class="form-control" type="file" id="pcap" multiple="multiple">
                             </div>
                         </div>
                         <div class="tab-pane fade show" id="static">
                             <div class="input-group col-md-6">
-                                <span class="input-group-append">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="static" multiple="multiple">
-                                    </span>
-                                </span>
+                                <input class="form-control" type="file" id="static" multiple="multiple">
                             </div>
                         </div>
                     {% endif %}
@@ -583,7 +563,7 @@ $(document).ready( function() {
                     </div>
                 </div>
             </div>
-            <center><div style="margin-top: 20px;"><button type="submit" class="btn btn-secondary btn-lg">Analyze</button></div></center>
+            <center><div style="margin-top: 20px;"><button type="submit" class="btn btn-secondary">Analyze</button></div></center>
         </form>
     </div>
 </div>

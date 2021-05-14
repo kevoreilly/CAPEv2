@@ -16,7 +16,12 @@ To generate user autorization token:
 
 .. code-block:: python
 
-    # By hand
+    # To create super user aka admin
+    python3 manage.py createsuperuser
+
+    # To Create normal user, use web interface /admin/ (in case if you not changed path)
+
+    # By hand, only required if auth enabled and user MUST exist
     python3 manage.py drf_create_token <your_user>
 
     # Auto generation

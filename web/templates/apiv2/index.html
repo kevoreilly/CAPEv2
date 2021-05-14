@@ -6,12 +6,11 @@
     <h3 class="panel-title">API - <a href=https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api>Authentification example</a></h3>
   </div>
   {% if config %}
-  <table class="table table-striped table-hover table-dark table-hover table-dark" style="table-layout: fixed;">
+  <table class="table table-striped table-hover table-dark" style="table-layout: fixed;">
     <thead>
       <tr>
         <th width="10%">API Node</th>
         <th width="10%">Enabled</th>
-        <th width="15%">Rate Limits</th>
         <th width="55%">Description</th>
         <th width="10%">Example</th>
       </tr>
@@ -24,20 +23,14 @@
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.filecreate.rps }}</li>
-            <li>RPM: {{ config.filecreate.rpm }}</li>
-          </ul>
-        </td>
         <td>Submit a file task to be analyzed by CAPE. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#filecreate" aria-expanded="false" aria-controls="#filecreate">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="filecreate">
-          <td colspan="5">
-            <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/file/
-  Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
+          <td colspan="4">
+            <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/file/
+  Note: machine is optional.</pre>
           </td>
       </tr>
       <tr>
@@ -47,21 +40,29 @@
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.vtdl.rps }}</li>
-            <li>RPM: {{ config.vtdl.rpm }}</li>
-          </ul>
-        </td>
         <td>Download a file from VT for analysis. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#vtdl" aria-expanded="false" aria-controls="#vtdl">Example</a></td>
       </tr>
       <tr class="collapse" id="vtdl">
-        <td colspan="5">
-          <pre>curl -F vtdl=hash -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" -F apikey="[VT API key]" {{ config.api.url }}/apiv2/tasks/create/vtdl/
-Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
+        <td colspan="4">
+          <pre>curl -F vtdl=hash -F machine="VM-Name" -F apikey="[VT API key]" {{ config.api.url }}/api/tasks/create/vtdl/
+Note: machine is optional.</pre>
         </td>
       </tr>
+      <tr>
+        <td>Snowball download and analyze</td>
+        {% if config.snowball.enabled %}
+        <td><span class="badge bg-success">Yes</span></td>
+        {% else %}
+        <td><span class="badge bg-danger">No</span></td>
+        {% endif %}
+        <td>Search file with SnowBall, than download a file from SNOWBALL for analysis. Return object will be JSON.</td>
+        <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#snowballdl" aria-expanded="false" aria-controls="#snowballdl">Example</a></td>
+    </tr>
+    <tr class="collapse" id="snowballdl">
+        <td colspan="4"><pre>curl -F snowballdl=hash -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/snowball/
+Note: machine is optional.</pre></td>
+    </tr>
       <tr>
         <td>URL Create</td>
         {% if config.urlcreate.enabled %}
@@ -69,19 +70,13 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.urlcreate.rps }}</li>
-            <li>RPM: {{ config.urlcreate.rpm }}</li>
-          </ul>
-        </td>
         <td>Submit a URL task to be analyzed by CAPE. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#urlcreate" aria-expanded="false" aria-controls="#urlcreate">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="urlcreate">
-        <td colspan="5">
-          <pre>curl -F url="somebadness.tld" {{ config.api.url }}/apiv2/tasks/create/url/</pre>
+        <td colspan="4">
+          <pre>curl -F url="somebadness.tld" {{ config.api.url }}/api/tasks/create/url/</pre>
         </td>
       </tr>
       <tr>
@@ -91,18 +86,12 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.dlnexeccreate.rps }}</li>
-            <li>RPM: {{ config.dlnexeccreate.rpm }}</li>
-          </ul>
-        </td>
         <td>Submit a URL it will download and add as file task to be analyzed by CAPE. Return object will be JSON.</td>
         <td><a cclass="accordion-toggle" data-toggle="collapse" href="#dlnexeccreate" aria-expanded="false" aria-controls="#dlnexeccreate">Example</a></td>
       </tr>
       <tr class="collapse" id="dlnexeccreate">
-        <td colspan="5">
-          <pre>curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/apiv2/tasks/create/dlnexec/</pre>
+        <td colspan="4">
+          <pre>curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/api/tasks/create/dlnexec/</pre>
         </td>
       </tr>
       <tr>
@@ -112,19 +101,13 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.staticextraction.rps }}</li>
-            <li>RPM: {{ config.staticextraction.rpm }}</li>
-          </ul>
-        </td>
         <td>Submit a file to try static extractors on it, file won't be submited to Virtual Machine. Return object will
           be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#staticextraction" aria-expanded="false" aria-controls="#staticextraction">Example</a></td>
       </tr>
       <tr class="collapse" id="staticextraction">
-        <td colspan="5">
-          <pre>curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/static/
+        <td colspan="4">
+          <pre>curl -F file=@/path/to/file -F machine="VM-Name" {{ config.api.url }}/api/tasks/create/static/
         </td>
       </tr>
             <tr>
@@ -134,16 +117,14 @@ Note: machine is optional. Header depends of the config if Token auth is enabled
                 {% else %}
                 <td><span class="badge bg-danger">No</span></td>
                 {% endif %}
-                <td><ul><li>RPS: {{ config.fileview.rps }}</li>
-                        <li>RPM: {{ config.fileview.rpm }}</li></ul></td>
                 <td>View information about a specific sample that it's CAPE's database. Return object will be JSON.</td>
                 <td><a class="accordion-toggle" data-toggle="collapse" href="#fileview" aria-expanded="false" aria-controls="#fileview">Example</a></td>
             </tr>
             <tr class="collapse" id="fileview">
-              <td colspan="5"><pre>curl {{ config.api.url }}/apiv2/files/view/md5/[md5 hash]/
-curl {{ config.api.url }}/apiv2/files/view/sha1/[sha1 hash]/
-curl {{ config.api.url }}/apiv2/files/view/sha256/[sha256 hash]/
-curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
+              <td colspan="4"><pre>curl {{ config.api.url }}/api/files/view/md5/[md5 hash]/
+curl {{ config.api.url }}/api/files/view/sha1/[sha1 hash]/
+curl {{ config.api.url }}/api/files/view/sha256/[sha256 hash]/
+curl {{ config.api.url }}/api/files/view/id/[sample id]/</pre>
         </td>
       </tr>
       <tr>
@@ -153,22 +134,16 @@ curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.tasksearch.rps }}</li>
-            <li>RPM: {{ config.tasksearch.rpm }}</li>
-          </ul>
-        </td>
         <td>View information about a specific Task that's in CAPE's database by Hash or ID. Return object will be JSON.
         </td>
         <td><a cclass="accordion-toggle" data-toggle="collapse" href="#tasksearch" aria-expanded="false" aria-controls="#tasksearch">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasksearch">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/search/md5/[md5 hash]/
-curl {{ config.api.url }}/apiv2/tasks/search/sha1/[sha1 hash]/
-curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/search/md5/[md5 hash]/
+curl {{ config.api.url }}/api/tasks/search/sha1/[sha1 hash]/
+curl {{ config.api.url }}/api/tasks/search/sha256/[sha256 hash]/</pre>
         </td>
       </tr>
       <tr>
@@ -178,18 +153,12 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.extendedtasksearch.rps }}</li>
-            <li>RPM: {{ config.extendedtasksearch.rpm }}</li>
-          </ul>
-        </td>
         <td>Search for Task ID's that's in MongoDB by various options. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#extendedtasksearch" aria-expanded="false" aria-controls="#extendedtasksearch">Example</a></td>
       </tr>
       <tr class="collapse" id="extendedtasksearch">
-        <td colspan="5">
-          <pre>curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/apiv2/tasks/extendedsearch/
+        <td colspan="4">
+          <pre>curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/api/tasks/extendedsearch/
 
 Searchable Options List:
 id : Task id
@@ -234,21 +203,15 @@ TTP: TTP number
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.tasklist.rps }}</li>
-            <li>RPM: {{ config.tasklist.rpm }}</li>
-          </ul>
-        </td>
         <td>View information about a range of Task ID's. Return object will be JSON</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#tasklist" aria-expanded="false" aria-controls="#tasklist">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasklist">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/list/
-curl {{ config.api.url }}/apiv2/tasks/list/[limit]/ (specify a limit of tasks to return)
-curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/list/
+curl {{ config.api.url }}/api/tasks/list/[limit]/ (specify a limit of tasks to return)
+curl {{ config.api.url }}/api/tasks/list/[limit]/[offset]/ (specify a limit of tasks to return, offset by a specific amount)
 Acepts as params status to check for status and/or option to search by option LIKE</pre>
         </td>
       </tr>
@@ -259,20 +222,14 @@ Acepts as params status to check for status and/or option to search by option LI
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskview.rps }}</li>
-            <li>RPM: {{ config.taskview.rpm }}</li>
-          </ul>
-        </td>
         <td>View information about a specific task including VM, sample, and error information. Return object will be
           JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskview" aria-expanded="false" aria-controls="#taskview">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskview">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/view/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/view/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -282,19 +239,13 @@ Acepts as params status to check for status and/or option to search by option LI
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskresched.rps }}</li>
-            <li>RPM: {{ config.taskresched.rpm }}</li>
-          </ul>
-        </td>
         <td>Reschedule an analysis task to run again. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskresched" aria-expanded="false" aria-controls="#taskresched">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskresched">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/reschedule/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/reschedule/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -304,19 +255,13 @@ Acepts as params status to check for status and/or option to search by option LI
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskdelete.rps }}</li>
-            <li>RPM: {{ config.taskdelete.rpm }}</li>
-          </ul>
-        </td>
         <td>Delete a task from the database. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskdelete" aria-expanded="false" aria-controls="#taskdelete">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskdelete">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/delete/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/delete/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -326,19 +271,14 @@ Acepts as params status to check for status and/or option to search by option LI
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskstatus.rps }}</li>
-            <li>RPM: {{ config.taskstatus.rpm }}</li>
-          </ul>
         </td>
         <td>Query the status of a Task by ID. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskstatus" aria-expanded="false" aria-controls="#taskstatus">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskstatus">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/status/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/status/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -348,21 +288,15 @@ Acepts as params status to check for status and/or option to search by option LI
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskreport.rps }}</li>
-            <li>RPM: {{ config.taskreport.rpm }}</li>
-          </ul>
-        </td>
         <td>Download a report generated for a specific task. Return object will be JSON, XML, or octet-stream (tar.bz2).
         </td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskreport" aria-expanded="false" aria-controls="#taskreport">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskreport">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/
-curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/report/[task id]/
+curl {{ config.api.url }}/api/tasks/get/report/[task id]/[format]/
 Note: Format can be json/maec/maec5/metadata/all.</pre>
         </td>
       </tr>
@@ -373,20 +307,14 @@ Note: Format can be json/maec/maec5/metadata/all.</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskiocs.rps }}</li>
-            <li>RPM: {{ config.taskiocs.rpm }}</li>
-          </ul>
-        </td>
         <td>View objects of the task report that may contain potential IOCs. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskiocs" aria-expanded="false" aria-controls="#taskiocs">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskiocs">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/
-curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/
+curl {{ config.api.url }}/api/tasks/get/iocs/[task id]/detailed/</pre>
         </td>
       </tr>
       <tr>
@@ -396,20 +324,14 @@ curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskscreenshot.rps }}</li>
-            <li>RPM: {{ config.taskscreenshot.rpm }}</li>
-          </ul>
-        </td>
         <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or octet-stream. (.jpg or
           .tar.bz2)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskscreenshot" aria-expanded="false" aria-controls="#taskscreenshot">Example</a></td>
       </tr>
       <tr class="collapse" id="taskscreenshot">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/    (Downloads all screenshots)
-curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot number]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/    (Downloads all screenshots)
+curl {{ config.api.url }}/api/tasks/get/screenshot/[task id]/[screenshot number]/</pre>
         </td>
       </tr>
       <tr>
@@ -419,19 +341,13 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskpcap.rps }}</li>
-            <li>RPM: {{ config.taskpcap.rpm }}</li>
-          </ul>
-        </td>
         <td>Download the PCAP dump of a Task by ID. Return object will be application/vnd.tcpdump.pcap. (.pcap)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskpcap" aria-expanded="false" aria-controls="#taskpcap">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskpcap">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/pcap/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/pcap/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -441,19 +357,13 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskdropped.rps }}</li>
-            <li>RPM: {{ config.taskdropped.rpm }}</li>
-          </ul>
-        </td>
         <td>Download the dropped files associated with a Task by ID. Return object will be octet-stream. (.tar.bz2)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskdropped" aria-expanded="false" aria-controls="#taskdropped">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="taskdropped">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/dropped/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/dropped/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -463,20 +373,14 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.tasksurifile.rps }}</li>
-            <li>RPM: {{ config.tasksurifile.rpm }}</li>
-          </ul>
-        </td>
         <td>Download the Suricata captured files associated with a Task by ID. Return object will be octet-stream.
           (.zip)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#tasksurifile" aria-expanded="false" aria-controls="#tasksurifile">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="tasksurifile">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/surifile/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/surifile/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -486,20 +390,14 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskprocmemory.rps }}</li>
-            <li>RPM: {{ config.taskprocmemory.rpm }}</li>
-          </ul>
-        </td>
         <td>Download a process memory dump from a Task by ID and PID. Return object will be octet-stream. (.dmp or
           .tar.bz2)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskprocmemory" aria-expanded="false" aria-controls="#taskprocmemory">Example</a></td>
       </tr>
       <tr class="collapse" id="taskprocmemory">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/    (Downloads all process memory dumps)
-curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/    (Downloads all process memory dumps)
+curl {{ config.api.url }}/api/tasks/get/procmemory/[task id]/[pid]/</pre>
         </td>
       </tr>
       <tr>
@@ -509,18 +407,12 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.taskfullmemory.rps }}</li>
-            <li>RPM: {{ config.taskfullmemory.rpm }}</li>
-          </ul>
-        </td>
         <td>Download a full memory dump of a Task by ID. Return object will be octet-stream. (.dmp)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskfullmemory" aria-expanded="false" aria-controls="#taskfullmemory">Example</a></td>
       </tr>
       <tr class="collapse" id="taskfullmemory">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/fullmemory/[task id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/fullmemory/[task id]/</pre>
         </td>
       </tr>
       <tr>
@@ -530,22 +422,16 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.sampledl.rps }}</li>
-            <li>RPM: {{ config.sampledl.rpm }}</li>
-          </ul>
-        </td>
         <td>Download a sample from a Task by Task ID/MD5/SHA1/SHA256. Return object will be octet-stream. (.bin)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#sampledl" aria-expanded="false" aria-controls="#sampledl">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="sampledl">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/files/get/task/[task id]/
-curl {{ config.api.url }}/apiv2/files/get/md5/[md5 hash]/
-curl {{ config.api.url }}/apiv2/files/get/sha1/[sha1 hash]/
-curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/files/get/task/[task id]/
+curl {{ config.api.url }}/api/files/get/md5/[md5 hash]/
+curl {{ config.api.url }}/api/files/get/sha1/[sha1 hash]/
+curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
         </td>
       </tr>
       <tr>
@@ -555,19 +441,13 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.machinelist.rps }}</li>
-            <li>RPM: {{ config.machinelist.rpm }}</li>
-          </ul>
-        </td>
         <td>View basic statistics of available/total virtual machines. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#machinelist" aria-expanded="false" aria-controls="#machinelist">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="machinelist">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/machines/list/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/machines/list/</pre>
         </td>
       </tr>
       <tr>
@@ -577,19 +457,13 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.machineview.rps }}</li>
-            <li>RPM: {{ config.machineview.rpm }}</li>
-          </ul>
-        </td>
         <td>View information about a specific virtual machine. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#machineview" aria-expanded="false" aria-controls="#machineview">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="machineview">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/machines/view/[vm-name]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/machines/view/[vm-name]/</pre>
         </td>
       </tr>
       <tr>
@@ -599,19 +473,13 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.latests.rps }}</li>
-            <li>RPM: {{ config.latests.rpm }}</li>
-          </ul>
-        </td>
         <td>View ids of tasks finished on latest X hours.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#latests_ids" aria-expanded="false" aria-controls="#latests_ids">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="latests_ids">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/latests/1/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/latests/1/</pre>
         </td>
       </tr>
       <tr>
@@ -621,19 +489,13 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.cuckoostatus.rps }}</li>
-            <li>RPM: {{ config.cuckoostatus.rpm }}</li>
-          </ul>
-        </td>
         <td>View the current status of the CAPE host. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#capestatus" aria-expanded="false" aria-controls="#capestatus">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="capestatus">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/cuckoo/status/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/cuckoo/status/</pre>
         </td>
       </tr>
       <tr>
@@ -643,19 +505,13 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.capeconfig.rps }}</li>
-            <li>RPM: {{ config.capeconfig.rpm }}</li>
-          </ul>
-        </td>
         <td>View the CAPE extracted sample config associated with a task by ID. Return object will be JSON.</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#capeconfig" aria-expanded="false" aria-controls="#capeconfig">Example</a>
         </td>
       </tr>
       <tr class="collapse" id="capeconfig">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/config/[task_id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/config/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -665,18 +521,12 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.payloadfiles.rps }}</li>
-            <li>RPM: {{ config.payloadfiles.rpm }}</li>
-          </ul>
-        </td>
         <td>Download the Cape payload files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#capepayloadfiles" aria-expanded="false" aria-controls="#capepayloadfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capepayloadfiles">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/payloadfiles/[task_id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/payloadfiles/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -686,18 +536,12 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.configfiles.rps }}</li>
-            <li>RPM: {{ config.configfiles.rpm }}</li>
-          </ul>
-        </td>
         <td>Download the procdump files associated with a task by ID. Return object will be octet-stream. (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#capeprocdumpfiles" aria-expanded="false" aria-controls="#capeprocdumpfiles">Example</a></td>
       </tr>
       <tr class="collapse" id="capeprocdumpfiles">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/get/procdumpfiles/[task_id]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/get/procdumpfiles/[task_id]/</pre>
         </td>
       </tr>
       <tr>
@@ -707,18 +551,12 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
         {% else %}
         <td><span class="badge bg-danger">No</span></td>
         {% endif %}
-        <td>
-          <ul>
-            <li>RPS: {{ config.statistics.rps }}</li>
-            <li>RPM: {{ config.statistics.rpm }}</li>
-          </ul>
-        </td>
         <td>Details about tasks and time spend on different modules(TOP 30)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#statistircs" aria-expanded="false" aria-controls="#statistircs">Example</a></td>
       </tr>
       <tr class="collapse" id="statistircs">
-        <td colspan="5">
-          <pre>curl {{ config.api.url }}/apiv2/tasks/[days]/</pre>
+        <td colspan="4">
+          <pre>curl {{ config.api.url }}/api/tasks/statistics/[days]/</pre>
         </td>
       </tr>
     </tbody>

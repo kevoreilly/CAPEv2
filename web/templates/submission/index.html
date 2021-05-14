@@ -523,76 +523,65 @@ $(document).ready( function() {
                                 <label for="form_custom">Custom</label>
                                 <input type="text" class="form-control" id="form_custom" name="custom" />
                             </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="process_dump" /> Disable process dumps
-                                </label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="process_dump">
+                                <label class="form-check-label" for="process_dump"> Disable process dumps</label>
                             </div>
-                            {% if config.procmemory %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="process_memory"/> Full process memory dumps
-                                </label>
-                            </div>
-                            {% endif %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="import_reconstruction" /> Enable import reconstruction in process dumps
-                                </label>
-                            </div>
-                            {% if config.memory %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="memory" /> Full Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span>
-                                </label>
-                            </div>
-                            {% endif %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="enforce_timeout" /> Enforce Timeout
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="free" /> Run without monitoring <span class="text-muted"><small>(disables many capabilities)</small></span>
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="disable_cape" /> Disable automatic job submission </small></span>
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="norefer" /> No Fake Referrer for URL Tasks
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="nohuman" /> Disable automated interaction
-                                </label>
-                            </div>
-                            {% if config.kernel %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="kernel_analysis" /> Enable zer0m0n kernel-based behavioral analysis
-                                </label>
-                            </div>
-                            {% endif %}
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="static"/> Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <label>
-                                    <input type="checkbox" name="oldloader" /> Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span>
-                                </label>
+                                {% if config.procmemory %}
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="process_memory">
+                                    <label class="form-check-label" for="process_memory"> Full process memory dumps</label>
+                                </div>
+                                {% endif %}
+                                <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="fleximport_reconstructionSwitchCheckDefault">
+                                <label class="form-check-label" for="import_reconstruction"> Enable import reconstruction in process dumps</label>
+                                </div>
+                                {% if config.memory %}
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="memory">
+                                    <label class="form-check-label" for="memory"> Full Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span></label>
+                                </div>
+                                    {% endif %}
+                                <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enforce_timeout">
+                                <label class="form-check-label" for="enforce_timeout"> Enforce Timeout</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="free">
+                                <label class="form-check-label" for="free"> Run without monitoring <span class="text-muted"><small>(disables many capabilities)</small></span></label>
+                                </div>
+                                <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="disable_cape">
+                                <label class="form-check-label" for="disable_cape"> Disable automatic job submission</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="norefer">
+                                <label class="form-check-label" for="norefer">  No Fake Referrer for URL Tasks</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="nohuman">
+                                    <label class="form-check-label" for="nohuman">  Disable automated interaction</label>
+                                </div>
+                                {% if config.kernel %}
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="kernel_analysis">
+                                    <label class="form-check-label" for="kernel_analysis">  Enable zer0m0n kernel-based behavioral analysis</label>
+                                </div>
+                                {% endif %}
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="static">
+                                    <label class="form-check-label" for="static">  Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span></label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="oldloader">
+                                    <label class="form-check-label" for="oldloader">  Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span></label>
+
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
             </div>
             <center><div style="margin-top: 20px;"><button type="submit" class="btn btn-secondary btn-lg">Analyze</button></div></center>
         </form>

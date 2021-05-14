@@ -9,7 +9,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
-                    <h5 style="text-align:center; font-size: 16px%;font-weight-bold";><a href="/analysis/search/detections:{{analysis.detections}}"><span class="badge badge-danger">{{analysis.detections}}</span></a></h5>
+                    <h5 style="text-align:center; font-size: 16px%;font-weight-bold";><a href="/analysis/search/detections:{{analysis.detections}}"><span class="badge bg-danger">{{analysis.detections}}</span></a></h5>
                 </div>
               </div>
 
@@ -44,7 +44,7 @@
         <div class="panel-heading">
             <h4 class="panel-title">Analysis</h4>
         </div>
-        <table class="table table-striped">
+        <table class="table table-striped table-hover table-dark">
             <thead>
                 <tr>
                     <th>Category</th>
@@ -81,11 +81,11 @@
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}
-                           <span class="label badge-danger">{{analysis.malscore|floatformat:1}}</span>
+                           <span class="label bg-danger">{{analysis.malscore|floatformat:1}}</span>
                             {% elif analysis.malscore > 2.0 %}
-                            <span class="label badge-warning">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="label bg-warning">{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                            <span class="label badge-success">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="label bg-success">{{analysis.malscore|floatformat:1}}</span>
                         {% endif %}
                     </td>
                     {% endif %}

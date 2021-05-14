@@ -90,7 +90,7 @@ def vt_lookup(category, target, on_demand=False):
                     virustotal["sha1"] = vt_response.get("data", {}).get("attributes", {}).get("sha1")
                     virustotal["sha256"] = vt_response.get("data", {}).get("attributes", {}).get("sha256")
                     virustotal["tlsh"] = vt_response.get("data", {}).get("attributes", {}).get("tlsh")
-                    virustotal["possitive"] = (
+                    virustotal["positive"] = (
                         vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious")
                     )
                     virustotal["total"] = len(engines.keys())

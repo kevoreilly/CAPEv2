@@ -104,9 +104,6 @@ $(function() {
         {% if analysis.debugger_logs %}
             <li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">Debugger</a></li>
         {% endif %}
-        {% if reports_exist %}
-            <li class="nav-item"><a class="nav-link" href="#reports" data-toggle="tab">Reports</a></li>
-        {% endif %}
     {% endif %}
     {% if settings.COMMENTS %}
         {% if analysis.info.comments|length %}
@@ -172,9 +169,6 @@ $(function() {
         </div>
         {% endif %}
     {% endif %}
-    <div class="tab-pane fade" id="reports">
-        {% include "analysis/reports/index.html" %}
-    </div>
     {% if settings.COMMENTS %}
     <div class="tab-pane fade" id="comments">
         {% include "analysis/comments/index.html" %}

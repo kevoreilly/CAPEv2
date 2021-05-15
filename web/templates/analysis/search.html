@@ -3,11 +3,12 @@
 <div class="row">
     <div class="col-md-0 mx-auto">
         <form class="form-inline" role="form" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
-            <div class="form-group">
-                <label class="sr-only" for="form_search">Search term</label>
-                <input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term as regex" />
+            <div class="input-group mb-3">
+            <input type="text" class="form-control" placeholder="Search term as regex" id="form_search" name="search" aria-describedby="basic-addon2">
+            <div class="input-group-append">
+                <button class="btn btn-outline-danger" type="button">Search</button>
             </div>
-            <button type="submit" class="btn btn-secondary">Search</button>
+            </div>
         </form>
         <p class="text-muted" style="margin-top: 5px;">For details on how to perform searches, get some <a href="#help" aria-expanded="false" aria-controls="#help" data-toggle="collapse">help</a>.</p>
         <div id="help" class="collapse">

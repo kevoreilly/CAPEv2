@@ -32,24 +32,32 @@
         {% include "analysis/overview/_url.html" %}
     {% endif %}
 {% endif %}
-
-{% if analysis.virustotal %}
-<hr/>
-<tr>
-    {% include "analysis/overview/_antivirus.html" %}
-</tr>
-{% endif %}
+<div class="container">
+    <div class="row">
+        {% if analysis.strings %}
+        <div class="col-sm">
+            {% include "analysis/overview/_strings.html" %}
+        </div>
+        {% endif %}
+        {% if analysis.virustotal %}
+        <div class="col-sm">
+            {% include "analysis/overview/_antivirus.html" %}
+        </div>
+        {% endif %}
+        {% if reports_exist %}
+        <div class="col-sm">
+            {% include "analysis/overview/_reports.html" %}
+        </div>
+        {% endif %}
+    </div>
+</div>
 
 {% if analysis.mitre_attck %}
     <hr />
     {% include "analysis/overview/_mitre.html" %}
+    <hr />
 {% endif %}
 
-{% if analysis.strings %}
-    <hr />
-    {% include "analysis/overview/_strings.html" %}
-{% endif %}
-<hr/>
 {% include "analysis/overview/_signatures.html" %}
 
 {% if analysis.info.category != "pcap" %}
@@ -57,7 +65,7 @@
     <hr />
     {% include "analysis/overview/_usage.html" %}
 {% endif %}
-<hr />
+
 {% include "analysis/overview/_screenshots.html" %}
 <hr />
 {% endif %}

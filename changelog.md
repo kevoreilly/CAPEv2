@@ -1,3 +1,6 @@
+### [15-05-2021]
+* Reports download moved to main mage, under file info as Strings, VirusTotal, Mitre
+
 ### [06-05-2021] Docs about throttling and yara categories
 * __ACTION REQUIRED!__
     * Update sflock library - we suggest you to keep an eye on this repo!

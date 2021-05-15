@@ -33,6 +33,11 @@
     {% endif %}
 {% endif %}
 
+{% if reports_exist %}
+    <hr />
+    {% include "analysis/overview/_reports.html" %}
+{% endif %}
+
 {% if analysis.virustotal %}
 <hr/>
 <tr>
@@ -57,7 +62,7 @@
     <hr />
     {% include "analysis/overview/_usage.html" %}
 {% endif %}
-<hr />
+
 {% include "analysis/overview/_screenshots.html" %}
 <hr />
 {% endif %}

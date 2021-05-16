@@ -1,5 +1,5 @@
 ### [15-05-2021]
-* Reports download moved to main mage, under file info as Strings, VirusTotal, Mitre
+* Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
 
 ### [06-05-2021] Docs about throttling and yara categories
 * __ACTION REQUIRED!__

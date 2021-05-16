@@ -22,9 +22,9 @@
         </div>
         {% endfor %}
     {% endfor %}
+<hr />
 {% endif %}
 
-<hr />
 {% if analysis.info.category != "pcap" %}
     {% if analysis.info.category in "file,static" and analysis.target %}
         {% include "analysis/overview/_file.html" %}

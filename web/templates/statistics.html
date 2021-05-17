@@ -45,6 +45,31 @@
     </tbody>
   </table>
 
+{% if statistics.custom_signatures %}
+  <h4>Custom Signatures data only for Volatility/static extraction</h4>
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Total time in minutes</th>
+        <th scope="col">Runs</th>
+        <th scope="col">Extracted </th>
+        <th scope="col">Average time in minutes(Total/runs)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for name, time in statistics.custom_signatures.items %}
+        <tr>
+            <td>{{name}}</td>
+            <td>{{time.total}}</td>
+            <td>{{time.runs}}</td>
+            <td>{{time.successful}}</td>
+            <td>{{time.average}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
 
 {% if statistics.distributed_tasks %}
 <h4>Cluster details</h4>

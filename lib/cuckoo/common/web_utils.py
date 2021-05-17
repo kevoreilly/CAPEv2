@@ -213,6 +213,7 @@ def statistics(s_days: int) -> dict:
         "detections": {},
     }
 
+    tmp_custom = dict()
     tmp_data = dict()
     results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
     data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
@@ -221,6 +222,26 @@ def statistics(s_days: int) -> dict:
             if type_entry not in tmp_data:
                 tmp_data.setdefault(type_entry, dict())
             for entry in analysis["statistics"][type_entry]:
+                if entry["name"] in analysis.get("custom_statistics", {}):
+                    if entry["name"] not in tmp_custom:
+                        tmp_custom.setdefault(entry["name"], dict())
+                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
+                            tmp_custom[entry["name"]]["successful"] = 0
+                        else:
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
+                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                        tmp_custom[entry["name"]]["runs"] = 1
+
+                    else:
+                        tmp_custom.setdefault(entry["name"], dict())
+                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
+                            tmp_custom[entry["name"]]["successful"] += 0
+                        else:
+                            tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
+                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                        tmp_custom[entry["name"]]["runs"] += 1
                 if entry["name"] not in tmp_data[type_entry]:
                     tmp_data[type_entry].setdefault(entry["name"], dict())
                     tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
@@ -245,6 +266,16 @@ def statistics(s_days: int) -> dict:
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
             details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
+
+    # custom average
+    for entry in tmp_custom:
+        times_in_mins = tmp_custom[entry]["time"] / 60
+        if not times_in_mins:
+            continue
+        tmp_custom[entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
+        tmp_custom[entry]["average"] = float("{:.2f}".format(round(times_in_mins / tmp_custom[entry]["runs"], 2)))
+
+    details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
 
     top_samples = dict()
     session = db.Session()

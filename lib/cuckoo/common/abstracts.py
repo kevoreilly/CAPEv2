@@ -737,6 +737,20 @@ class Signature(object):
         self.hostname2ips = dict()
         self.machinery_conf = machinery_conf
 
+    def statistics_custom(self, pretime, extracted=False):
+        """
+        Aux function for custom stadistics on signatures
+        @param pretime: start time as datetime object
+        @param extracted: conf extraction from inside signature to count success extraction vs sig run
+        """
+        timediff = datetime.datetime.now() - pretime
+        self.results["custom_statistics"] = dict()
+        self.results["custom_statistics"][self.name] = dict()
+        self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        if extracted:
+            self.results["custom_statistics"][self.name]["extracted"] = 1
+
+
     def set_path(self, analysis_path):
         """Set analysis folder path.
         @param analysis_path: analysis folder path.

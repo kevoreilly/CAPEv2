@@ -634,10 +634,8 @@ class LibVirtMachinery(Machinery):
 
                 # No current snapshot, try to get the last one from config file.
                 all_snapshots = vm.listAllSnapshots(flags=0)
-                if not all_snapshots:
-                    raise CuckooMachineError("Virtual machine {0}, doesn't has any snapshot".format(label))
-
-                snapshot = sorted(all_snapshots, key=_extract_creation_time, reverse=True)[0]
+                if all_snapshots:
+                    snapshot = sorted(all_snapshots, key=_extract_creation_time, reverse=True)[0]
         except libvirt.libvirtError:
             raise CuckooMachineError("Unable to get snapshot for " "virtual machine {0}".format(label))
         finally:

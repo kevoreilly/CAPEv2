@@ -110,10 +110,14 @@ class Zip(Package):
             raise CuckooPackageError("Invalid Zip file")
 
     def start(self, path):
-        root = os.environ["TEMP"]
         password = self.options.get("password")
         if password is None:
             password = b""
+        appdata = self.options.get("appdata")
+        if appdata:
+            root = os.environ["APPDATA"]
+        else:
+            root = os.environ["TEMP"]
         exe_regex = re.compile('(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
@@ -166,4 +170,8 @@ class Zip(Package):
             args = "-NoProfile -ExecutionPolicy bypass -File \"{0}\"".format(path)
             return self.execute(powershell, args, file_path)
         else:
+            if "." not in os.path.basename(file_path):
+                new_path = file_path + ".exe"
+                os.rename(file_path, new_path)
+                file_path = new_path
             return self.execute(file_path, self.options.get("arguments"), file_path)

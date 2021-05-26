@@ -464,15 +464,16 @@ class File(object):
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
+                            gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             # Emulate magic for now
                             if is_dll and is_x64:
                                 self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
                             elif is_dll:
                                 self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
                             elif is_x64:
-                                self.file_type = "PE32+ executable (GUI) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable ({gui_type}) x86-64, for MS Windows"
                             else:
-                                self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386, for MS Windows"
             except Exception as e:
                 log.error(e, exc_info=True)
 
@@ -486,7 +487,7 @@ class File(object):
         try:
             new = s  # .encode("utf-8")
         except UnicodeDecodeError:
-            s = s.lstrip("uU").encode("hex").upper()
+            s = binascii.hexlify(s.lstrip("uU")).upper()
             s = " ".join(s[i : i + 2] for i in range(0, len(s), 2))
             new = "{ %s }" % s
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+# Copyright (C) 2010-2015 Cuckoo Foundation.
+# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
+# See the file 'docs/LICENSE' for copying permission.
+
 """
 Checks the integrity of one or more virtual machine(s). In order to ensure
 that there are no remaining tasks in the queue this utility will clean the
@@ -21,7 +26,7 @@ sys.path.append(CUCKOO_ROOT)
 from lib.cuckoo.core.database import Database
 from cuckoo import cuckoo_init, cuckoo_main
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 class TestIntegrity(unittest.TestCase):

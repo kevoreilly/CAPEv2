@@ -203,7 +203,7 @@ class BsonParser(object):
             try:
                 dec = bson_decode(data)
             except Exception as e:
-                log.warning("BsonParser decoding problem {0} on " "data[:50] {1}".format(e, repr(data[:50])))
+                log.warning("BsonParser decoding problem {0} on data[:50] {1}".format(e, repr(data[:50])))
                 return False
 
             mtype = dec.get("type", "none")

@@ -529,11 +529,11 @@ def mse_unquarantine(f):
 def mbam_ksa():
     # hardcoded key obtained from mbamcore.dll
     m = hashlib.md5()
-    m.update("XBXM8362QIXD9+637HCB02/VN0JF6Z3)cB9UFZMdF3I.*c.,c5SbO7)WNZ8CY1(XMUDb")
+    m.update(b"XBXM8362QIXD9+637HCB02/VN0JF6Z3)cB9UFZMdF3I.*c.,c5SbO7)WNZ8CY1(XMUDb")
     key = bytearray(m.digest())
-    sbox = range(256)
+    sbox = list(range(256))
     j = 0
-    for i in range(256):
+    for i in list(range(256)):
         j = (j + sbox[i] + key[i % len(key)]) % 256
         tmp = sbox[i]
         sbox[i] = sbox[j]
@@ -750,7 +750,7 @@ func_map = {
 
 
 def unquarantine(f):
-    f = f.decode("utf8")
+    f = f.decode("utf8") if type(f) is bytes else f
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 

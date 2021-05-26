@@ -38,10 +38,10 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     perform_ttps_search,
     statistics,
-    disable_user,
 )
 import modules.processing.network as network
 
+from lib.cuckoo.common.admin_utils import disable_user
 try:
     import re2 as re
 except ImportError:

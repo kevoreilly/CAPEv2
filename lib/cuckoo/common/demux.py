@@ -201,13 +201,13 @@ def demux_sflock(filename, options, package):
     return list(filter(None, retlist))
 
 
-def demux_sample(filename, package, options):
+def demux_sample(filename, package, options, use_sflock=True):
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
     # sflock requires filename to be bytes object for Py3
-    if isinstance(filename, str):
+    if isinstance(filename, str) and use_sflock:
         filename = filename.encode("utf8")
     # if a package was specified, then don't do anything special
     if package:
@@ -237,8 +237,9 @@ def demux_sample(filename, package, options):
 
     retlist = list()
     if HAS_SFLOCK:
-        # all in one unarchiver
-        retlist = demux_sflock(filename, options, package)
+        if use_sflock:
+            # all in one unarchiver
+            retlist = demux_sflock(filename, options, package)
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:

@@ -854,7 +854,7 @@ class Signature(object):
             pids += [str(block["pid"]) for block in self.results["procdump"]]
 
         log.info(list(set(pids)))
-        return ",".join(list(set(pids)))
+        return list(set(pids))
 
     def advanced_url_parse(self, url):
         if HAVE_TLDEXTRACT:

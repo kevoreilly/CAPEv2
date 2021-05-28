@@ -55,6 +55,7 @@ except ImportError:
     HAVE_TLDEXTRACT = False
 
 HAVE_MITRE = False
+
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
@@ -63,9 +64,10 @@ if repconf.mitre.enabled:
             data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
             config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
         )
+        HAVE_MITRE = True
+
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
-
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0

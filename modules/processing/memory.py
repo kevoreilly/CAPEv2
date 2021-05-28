@@ -15,8 +15,6 @@ try:
 except ImportError:
     import re
 
-from urllib.request import pathname2url
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -89,6 +87,9 @@ bridge = vapi.init("windows.pony.Pony", "pony.dmp")
 
 class VolatilityAPI(object):
     def __init__(self, memdump):
+        """
+        @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
+        """
         self.context = None
         self.automagics = None
         self.base_config_path = "plugins"
@@ -102,11 +103,13 @@ class VolatilityAPI(object):
         else:
             self.memdump = memdump
 
-    def run(self, plugin_class):
+    def run(self, plugin_class, pids=[], round=1):
         """ Module which initialize all volatility 3 internals
         https://github.com/volatilityfoundation/volatility3/blob/stable/doc/source/using-as-a-library.rst
         @param plugin_class: plugin class. Ex. windows.pslist.PsList
-        @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
+        @param plugin_class: plugin class. Ex. windows.pslist.PsList
+        @param pids: pid list -> abstrats.py -> get_pids(), for custom scripts
+        @param round: read -> https://github.com/volatilityfoundation/volatility3/pull/504
         @return: Volatility3 interface.
 
         """
@@ -124,10 +127,14 @@ class VolatilityAPI(object):
                 seen_automagics.add(amagic)
 
             base_config_path = "plugins"
-            single_location = self.memdump #"file:" + pathname2url(path)
+            single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
             if os.path.exists(yara_rules_path):
                 self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
+
+        if pids:
+            self.ctx.config["sandbox_pids"] = pids
+            self.ctx.config["sandbox_round"] = round
 
         plugin = self.plugin_list.get(plugin_class)
         automagics = automagic.choose_automagic(self.automagics, plugin)

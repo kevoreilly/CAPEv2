@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import mmap
 import time
 import copy
@@ -767,15 +768,12 @@ class ProcDump(object):
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
     yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # We divide yara rules in three categories.
-    # CAPE adds a fourth
 
     # Loop through all categories.
     for category in categories:
@@ -790,39 +788,43 @@ def init_yara():
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
                     continue
-
                 filepath = os.path.join(category_root, filename)
-
-                try:
-                    # TODO Once Yara obtains proper Unicode filepath support we
-                    # can remove this check. See also this Github issue:
-                    # https://github.com/VirusTotal/yara-python/issues/48
-                    assert len(str(filepath)) == len(filepath)
-                except (UnicodeEncodeError, AssertionError):
-                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
-                    continue
-
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
 
             # Need to define each external variable that will be used in the
         # future. Otherwise Yara will complain.
-        externals = {
-            "filename": "",
-        }
+        externals = {"filename": ""}
 
-        try:
-            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-        except yara.Error as e:
-            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+        while True:
+            try:
+                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                break
+            except yara.SyntaxError as e:
+                bad_rule = str(e).split(".yar")[0]+".yar"
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                if os.path.basename(bad_rule) in indexed:
+                    for k,v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
+                else:
+                    break
+            except yara.Error as e:
+                print(e, sys.exc_info())
+                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                break
 
-        # ToDo for Volatility3 yarascan
-        # The memory.py processing module requires a yara file with all of its
-        # rules embedded in it, so create this file to remain compatible.
-        # if category == "memory":
-        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-        #    for filename in sorted(indexed):
-        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+        if category == "memory":
+            mem_rules = yara.compile(filepaths=rules, externals=externals)
+            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            """
+            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
+                for filename in sorted(indexed):
+                    f.write('include "%s"\n' % os.path.join(category_root, filename))
+            """
 
         indexed = sorted(indexed)
         for entry in indexed:
@@ -830,6 +832,7 @@ def init_yara():
                 log.debug("\t `-- %s %s", category, entry)
             else:
                 log.debug("\t |-- %s %s", category, entry)
+
 
 
 init_yara()

@@ -890,10 +890,12 @@ class Signature(object):
                     ips.append(rdata.address)
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
+        except dns.name.NeedAbsoluteNameOrOrigin:
+            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
-            log.info(e)
+            log.info(str(e))
 
         return ips
 

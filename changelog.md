@@ -1,3 +1,9 @@
+### [31-05-2021]
+* Monitor updates:
+    * Fixes for NtCreateProcessEx hook, regsvr32 arg parsing, branch tracing (debugger)
+    * Remove instruction filtering from ntdll protection
+    * Add more debug logging to YaraHarness
+
 ### [15-05-2021]
 * Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
 

@@ -621,17 +621,13 @@ def validate_task(tid):
 
 perform_search_filters = {
     "info": 1,
-    "info.id": 1,
     "virustotal_summary": 1,
     "detections": 1,
     "malfamily_tag": 1,
-    "info.custom": 1,
-    "info.shrike_msg": 1,
     "malscore": 1,
     "network.pcap_sha256": 1,
     "mlist_cnt": 1,
     "f_mlist_cnt": 1,
-    "info.package": 1,
     "target.file.clamav": 1,
     "target.file.sha256": 1,
     "suri_tls_cnt": 1,

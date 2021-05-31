@@ -1,7 +1,7 @@
 #!/bin/bash
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 
-# Copyright (C) 2011-2020 DoomedRaven.
+# Copyright (C) 2011-2021 DoomedRaven.
 # This file is part of Tools - https://github.com/doomedraven/Tools
 # See the file 'LICENSE.md' for copying permission.
 
@@ -22,6 +22,8 @@ prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
 guacamole_version=1.2.0
+
+TOR_SOCKET_TIMEOUT="60"
 
 function issues() {
 cat << EOI
@@ -63,6 +65,7 @@ cat << EndOfHelp
         Suricata - Install latest suricata with performance boost
         PostgreSQL - Install latest PostgresSQL
         Yara - Install latest yara
+        Volatility3 - Install Volatility3 and windows symbols
         Mongo - Install latest mongodb
         LetsEncrypt - Install dependencies and retrieves certificate
         Dist - will install CAPE distributed stuff
@@ -75,6 +78,8 @@ cat << EndOfHelp
             Details: https://zapier.com/engineering/celery-python-jemalloc/
         crowdsecurity - Install CrowdSecurity for NGINX and webgui
         docker - install docker
+        osslsigncode - Linux alternative to Windows signtool.exe
+        modsecurity - install Nginx ModSecurity plugin
         Issues - show some known possible bugs/solutions
 
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
@@ -93,8 +98,8 @@ function install_crowdsecurity() {
         curl -s https://api.github.com/repos/crowdsecurity/crowdsec/releases/latest | grep browser_download_url| cut -d '"' -f 4  | wget -i -
     fi
     tar xvzf crowdsec-release.tgz
-    directory=`ls | grep "crowdsec-v*"`
-    cd $directory || return
+    directory=$(ls | grep "crowdsec-v*")
+    cd "$directory" || return
     sudo ./wizard.sh -i
     sudo cscli collections install crowdsecurity/nginx
     sudo systemctl reload crowdsec
@@ -103,8 +108,8 @@ function install_crowdsecurity() {
 
     wget https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v0.0.4/cs-nginx-bouncer.tgz
     tar xvzf cs-nginx-bouncer.tgz
-    directory=`ls | grep "cs-nginx-bouncer*"`
-    cd $directory || return
+    directory=$(ls | grep "cs-nginx-bouncer*")
+    cd "$directory" || return
     sudo ./install.sh
 }
 
@@ -121,28 +126,66 @@ function install_docker() {
 function install_jemalloc() {
 
     # https://zapier.com/engineering/celery-python-jemalloc/
-    cd /tmp || return
-    jelloc_info=$(curl -s https://api.github.com/repos/jemalloc/jemalloc/releases/latest)
-    jelloc_version=$(echo $jelloc_info |jq .tag_name|sed "s/\"//g")
-    jelloc_repo_url=$(echo $jelloc_info | jq ".zipball_url" | sed "s/\"//g")
-    if [ ! -f $jelloc_version ]; then
-        wget -q $jelloc_repo_url
-        unzip -q $jelloc_version
+    if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
+        apt install -f checkinstall curl build-essential jq autoconf libjemalloc-dev -y
+    fi
+}
+
+function install_modsecurity() {
+    # Tested on nginx 1.(16|18).X Based on https://www.nginx.com/blog/compiling-and-installing-modsecurity-for-open-source-nginx/ with fixes
+    apt-get install -y apt-utils autoconf automake build-essential git libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre++-dev libtool libxml2-dev libyajl-dev pkgconf wget zlib1g-dev
+    git clone --depth 1 -b v3/master --single-branch https://github.com/SpiderLabs/ModSecurity
+    cd ModSecurity || return
+    git submodule init
+    git submodule update
+    ./build.sh
+    ./configure
+    make -j"$(nproc)"
+    checkinstall -D --pkgname="ModSecurity" --default
+
+    cd .. || return
+    git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git
+
+    # this step is required to install plugin for existing setup
+    if [ ! -d nginx-"$nginx_version" ]; then
+        wget http://nginx.org/download/nginx-"$nginx_version".tar.gz
+        wget http://nginx.org/download/nginx-"$nginx_version".tar.gz.asc
+        gpg --verify "nginx-$nginx_version.tar.gz.asc"
+        tar zxf nginx-"$nginx_version".tar.gz
     fi
 
-    directory=`ls | grep "jemalloc-jemalloc-*"`
-    cd $directory || return
-    ./autogen.sh
-    make -j$(nproc)
-    checkinstall -D --pkgname="jemalloc-$jelloc_version" --pkgversion="$jelloc_version" --default
-    ln -s /usr/local/lib/libjemalloc.so /usr/lib/x86_64-linux-gnu/libjemalloc.so
+    cd nginx-"$nginx_version" || return
+    ./configure --with-compat --add-dynamic-module=../ModSecurity-nginx
+    make modules
+    cp objs/ngx_http_modsecurity_module.so /usr/share/nginx/modules/ngx_http_modsecurity_module.so
+    cd .. || return
+
+    mkdir /etc/nginx/modsec
+    wget -P /etc/nginx/modsec/ https://raw.githubusercontent.com/SpiderLabs/ModSecurity/v3/master/modsecurity.conf-recommended
+    mv /etc/nginx/modsec/modsecurity.conf-recommended /etc/nginx/modsec/modsecurity.conf
+    cp ModSecurity/unicode.mapping /etc/nginx/modsec
+    sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/nginx/modsec/modsecurity.conf
+    echo 'Include "/etc/nginx/modsec/modsecurity.conf"' >/etc/nginx/modsec/main.conf
+
+    echo '''
+
+    1. Add next line to the top of /etc/nginx/nginx.conf
+        * load_module modules/ngx_http_modsecurity_module.so;
+    2. Add next 2 rules to enabled-site under server section
+        modsecurity on;
+        modsecurity_rules_file /etc/nginx/modsec/main.conf;
+    '''
+
 }
 
 function install_nginx() {
-    wget http://nginx.org/download/nginx-$nginx_version.tar.gz
-    wget http://nginx.org/download/nginx-$nginx_version.tar.gz.asc
-    gpg --verify "nginx-$nginx_version.tar.gz.asc"
-    tar xfz nginx-$nginx_version.tar.gz
+
+    if [ ! -d nginx-$nginx_version ]; then
+        wget http://nginx.org/download/nginx-$nginx_version.tar.gz
+        wget http://nginx.org/download/nginx-$nginx_version.tar.gz.asc
+        gpg --verify "nginx-$nginx_version.tar.gz.asc"
+        tar zvf nginx-$nginx_version.tar.gz
+    fi
 
     # PCRE version 8.42
     wget https://ftp.pcre.org/pub/pcre/pcre-8.42.tar.gz && tar xzvf pcre-8.42.tar.gz
@@ -157,7 +200,7 @@ function install_nginx() {
     sudo apt update && sudo apt upgrade -y
     sudo apt install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
 
-    cd nginx-$nginx_version
+    cd nginx-$nginx_version || return
 
     sudo cp man/nginx.8 /usr/share/man/man8
     sudo gzip /usr/share/man/man8/nginx.8
@@ -204,7 +247,6 @@ function install_nginx() {
                 --with-http_sub_module \
                 --with-http_stub_status_module \
                 --with-http_v2_module \
-                #--with-http_v3_module \
                 --with-http_secure_link_module \
                 --with-mail \
                 --with-mail_ssl_module \
@@ -215,18 +257,21 @@ function install_nginx() {
                 --with-debug \
                 --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2' \
                 --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
+                 #--with-http_v3_module \
 
-    make -j$(nproc)
+    make -j"$(nproc)"
     checkinstall -D --pkgname="nginx-$nginx_version" --pkgversion="$nginx_version" --default
     sudo ln -s /usr/lib/nginx/modules /etc/nginx/modules
     sudo adduser --system --home /nonexistent --shell /bin/false --no-create-home --disabled-login --disabled-password --gecos "nginx user" --group nginx
+
+    install_modsecurity
 
     sudo mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/proxy_temp /var/cache/nginx/scgi_temp /var/cache/nginx/uwsgi_temp
     sudo chmod 700 /var/cache/nginx/*
     sudo chown nginx:root /var/cache/nginx/*
 
     if [ ! -f /lib/systemd/system/nginx.service ]; then
-        sudo cat >> /lib/systemd/system/nginx.service << EOF
+        cat >> /lib/systemd/system/nginx.service << EOF
 [Unit]
 Description=nginx - high performance web server
 Documentation=https://nginx.org/en/docs/
@@ -256,7 +301,7 @@ EOF
 
 
     if [ ! -f /etc/logrotate.d/nginx ]; then
-        sudo cat >> /etc/logrotate.d/nginx << EOF
+        cat >> /etc/logrotate.d/nginx << EOF
 /var/log/nginx/*.log {
     daily
     missingok
@@ -268,14 +313,14 @@ EOF
     sharedscripts
     postrotate
     if [ -f /tmp/nginx.pid ]; then
-            kill -USR1 `cat /tmp/nginx.pid`
+            kill -USR1 $(cat /tmp/nginx.pid)
     fi
     endscript
 }
 EOF
 fi
 
-    sudo ln -s /etc/nginx/sites-available/$1 /etc/nginx/sites-enabled/
+    sudo ln -s /etc/nginx/sites-available/"$1" /etc/nginx/sites-enabled/
     #sudo wget https://support.cloudflare.com/hc/en-us/article_attachments/201243967/origin-pull-ca.pem -O
 
     if [ ! -f /etc/nginx/sites-enabled/capesandbox ]; then
@@ -357,16 +402,14 @@ function install_letsencrypt(){
     sudo add-apt-repository ppa:certbot/certbot -y
     sudo apt update
     sudo apt install python3-certbot-nginx -y
-    sudo echo "server_name $1 www.$1;" > /etc/nginx/sites-available/$1
-    sudo certbot --nginx -d $1 -d www.$1
+    echo "server_name $1 www.$1;" > /etc/nginx/sites-available/"$1"
+    sudo certbot --nginx -d "$1" -d www."$1"
 }
 
 function install_fail2ban() {
     sudo apt install fail2ban -y
-
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
     sudo sed -i /etc/fail2ban/jail.local
-
     systemctl start fail2ban
     systemctl enable fail2ban
 
@@ -410,8 +453,8 @@ function redsocks2() {
     sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev
     sudo apt install -y libssl1.0-dev 2>/dev/null
     sudo apt install -y libssl-dev 2>/dev/null
-    git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2
-    DISABLE_SHADOWSOCKS=true make -j$(nproc) #ENABLE_STATIC=true
+    git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
+    DISABLE_SHADOWSOCKS=true make -j"$(nproc)" #ENABLE_STATIC=true
     sudo cp redsocks2 /usr/bin/
 }
 
@@ -478,17 +521,6 @@ function install_suricata() {
     apt install suricata -y
     touch /etc/suricata/threshold.config
 
-    """
-    You can now start suricata by running as root something like '/usr/bin/suricata -c /etc/suricata//suricata.yaml -i eth0'.
-
-    If a library like libhtp.so is not found, you can run suricata with:
-    LD_LIBRARY_PATH=/usr/lib /usr/bin/suricata -c /etc/suricata//suricata.yaml -i eth0
-
-    While rules are installed now, its highly recommended to use a rule manager for maintaining rules.
-    The two most common are Oinkmaster and Pulledpork. For a guide see:
-    https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Rule_Management_with_Oinkmaster
-    """
-
     # Download etupdate to update Emerging Threats Open IDS rules:
     pip3 install suricata-update
     mkdir -p "/etc/suricata/rules"
@@ -504,6 +536,7 @@ function install_suricata() {
 
     #change suricata yaml
     sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
+    sed -i 's|default-rule-path: /var/lib/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/suricata/suricata.yaml
     sed -i 's/#rule-files:/rule-files:/g' /etc/suricata/suricata.yaml
     sed -i 's/# - suricata.rules/ - suricata.rules/g' /etc/suricata/suricata.yaml
     sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
@@ -539,15 +572,15 @@ function install_yara() {
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
-    yara_version=$(echo $yara_info |jq .tag_name|sed "s/\"//g")
-    yara_repo_url=$(echo $yara_info | jq ".zipball_url" | sed "s/\"//g")
-    if [ ! -f $yara_version ]; then
-        wget -q $yara_repo_url
-        unzip -q $yara_version
+    yara_version=$(echo "$yara_info" |jq .tag_name|sed "s/\"//g")
+    yara_repo_url=$(echo "$yara_info" | jq ".zipball_url" | sed "s/\"//g")
+    if [ ! -f "$yara_version" ]; then
+        wget -q "$yara_repo_url"
+        unzip -q "$yara_version"
         #wget "https://github.com/VirusTotal/yara/archive/v$yara_version.zip" && unzip "v$yara_version.zip"
     fi
-    directory=`ls | grep "VirusTotal-yara-*"`
-    cd $directory || return
+    directory=$(ls | grep "VirusTotal-yara-*")
+    cd "$directory" || return
     ./bootstrap.sh
     ./configure --enable-cuckoo --enable-magic --enable-dotnet --enable-profiling
     make -j"$(getconf _NPROCESSORS_ONLN)"
@@ -625,12 +658,25 @@ function install_postgresql() {
     echo "[+] Installing PostgreSQL"
 
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-    echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+    echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 
     sudo apt update -y
     sudo apt -y install libpq-dev postgresql postgresql-client
 
     pip3 install psycopg2-binary
+}
+
+function install_osslsigncode(){
+    sudo apt-get update && sudo apt-get install build-essential autoconf libtool libssl-dev python3-pkgconfig libcurl4-gnutls-dev -y
+    cd /tmp || return
+    if [ ! -f osslsigncode-2.1.0.tar.gz ]; then
+        wget https://github.com/mtrojnar/osslsigncode/releases/download/2.1/osslsigncode-2.1.0.tar.gz
+        tar xf osslsigncode-2.1.0.tar.gz
+    fi
+    cd osslsigncode-2.1.0
+    ./configure
+    make -j"$(getconf _NPROCESSORS_ONLN)"
+    sudo checkinstall -D --pkgname=osslsigncode --default
 }
 
 function dependencies() {
@@ -648,7 +694,7 @@ function dependencies() {
     apt install python3-pip -y
     apt install iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
     apt install upx-ucl libssl-dev wget zip unzip p7zip-full rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
-    apt install ssdeep uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
+    apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
     # if broken sudo python -m pip uninstall pip && sudo apt install python-pip --reinstall
@@ -688,11 +734,12 @@ function dependencies() {
     # ToDo check if user exits
 
     if id "${USER}" &>/dev/null; then
-        echo 'user ${USER} already exist'
+        echo "user ${USER} already exist"
     else
-        useradd -s /bin/bash -d /home/${USER}/ -m ${USER}
+        groupadd ${USER}
+        useradd --system -g ${USER} -d /home/${USER}/ -m ${USER}
     fi
-    usermod -G ${USER} -a ${USER}
+    # ToDo add current user to ${USER} group
     groupadd pcap
     usermod -a -G pcap ${USER}
     chgrp pcap /usr/sbin/tcpdump
@@ -715,6 +762,9 @@ function dependencies() {
 TransPort ${IFACE_IP}:9040
 DNSPort ${IFACE_IP}:5353
 NumCPUs $(getconf _NPROCESSORS_ONLN)
+SocksTimeout ${TOR_SOCKET_TIMEOUT}
+ControlPort 9051
+HashedControlPassword 16:D14CC89AD7848B8C60093105E8284A2D3AB2CF3C20D95FECA0848CFAD2
 EOF
 
     #Then restart Tor:
@@ -724,54 +774,38 @@ EOF
     #Edit the Privoxy configuration
     #sudo sed -i 's/R#        forward-socks5t             /     127.0.0.1:9050 ./        forward-socks5t             /     127.0.0.1:9050 ./g' /etc/privoxy/config
     #service privoxy restart
+    {
+        echo "* soft nofile 1048576";
+        echo "* hard nofile 1048576";
+        echo "root soft nofile 1048576";
+        echo "root hard nofile 1048576";
+    } >>  /etc/security/limits.conf
 
-    echo "* soft nofile 1048576" >> /etc/security/limits.conf
-    echo "* hard nofile 1048576" >> /etc/security/limits.conf
-    echo "root soft nofile 1048576" >> /etc/security/limits.conf
-    echo "root hard nofile 1048576" >> /etc/security/limits.conf
-    echo "fs.file-max = 100000" >> /etc/sysctl.conf
-    echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
-    echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
-    echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> /etc/sysctl.conf
-    echo "net.bridge.bridge-nf-call-ip6tables = 0" >> /etc/sysctl.conf
-    echo "net.bridge.bridge-nf-call-iptables = 0" >> /etc/sysctl.conf
-    echo "net.bridge.bridge-nf-call-arptables = 0" >> /etc/sysctl.conf
+    {
+        echo "fs.file-max = 100000";
+        echo "net.ipv6.conf.all.disable_ipv6 = 1";
+        echo "net.ipv6.conf.default.disable_ipv6 = 1";
+        echo "net.ipv6.conf.lo.disable_ipv6 = 1";
+        echo "net.bridge.bridge-nf-call-ip6tables = 0";
+        echo "net.bridge.bridge-nf-call-iptables = 0";
+        echo "net.bridge.bridge-nf-call-arptables = 0";
+    } >> /etc/sysctl.conf
 
     sudo sysctl -p
 
     ### PDNS
     sudo apt install git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl -y
     cd /tmp || return
-    git clone git://github.com/gamelinux/passivedns.git
+    git clone https://github.com/gamelinux/passivedns.git
     cd passivedns/ || return
     autoreconf --install
     ./configure
     make -j"$(getconf _NPROCESSORS_ONLN)"
     sudo checkinstall -D --pkgname=passivedns --default
 
-    #Depricated as py2 only
-    :"
-    #ToDo move to py3
-    cd /usr/local/lib/python2.7/dist-packages/volatility || return
-    mkdir resources
-    cd resources || return
-    touch "__init__.py"
-    git clone https://github.com/nemequ/lzmat
-    cd lzmat || return
-    gcc -Wall -fPIC -c lzmat_dec.c
-    gcc -shared -Wl,-soname,lzmat_dec.so.1 -o lzmat_dec.so.1.0 lzmat_dec.o
-    mv "$(ls)" ..
-    cd .. && rm -r lzmat
-
-    cd /tmp || return
-    git clone https://github.com/unicorn-engine/unicorn.git
-    sudo apt install libglib2.0-dev -y
-    cd unicorn || return
-    ./make.sh
-    sudo ./make.sh install
-    "
-
     pip3 install unicorn capstone
+
+    install_osslsigncode
 }
 
 function install_clamav() {
@@ -911,9 +945,9 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    chown ${USER}:${USER} -R "/opt/CAPEv2/"
+    chown ${USER}:${USER} -R "/opt/CAPEv2/*"
 
-    pip3 install -r /opt/CAPEv2/requirements.txt
+    CRYPTOGRAPHY_DONT_BUILD_RUST=1 pip3 install -r /opt/CAPEv2/requirements.txt
 
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" /opt/CAPEv2/conf/cuckoo.conf
     sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" /opt/CAPEv2/conf/routing.conf
@@ -1183,12 +1217,12 @@ EOF
 function install_prometheus_grafana() {
 
     # install only on master only master
-    wget https://github.com/prometheus/prometheus/releases/download/v$prometheus_version/prometheus-$prometheus_version.linux-amd64.tar.gz && tar xf prometheus-$prometheus_version.linux-amd64.tar.gz
+    wget https://github.com/prometheus/prometheus/releases/download/v"$prometheus_version"/prometheus-"$prometheus_version".linux-amd64.tar.gz && tar xf prometheus-"$prometheus_version".linux-amd64.tar.gz
     cd prometheus-$prometheus_version.linux-amd6 && ./prometheus --config.file=prometheus.yml &
 
     sudo apt-get install -y adduser libfontconfig1
-    wget https://dl.grafana.com/oss/release/grafana_$grafana_version_amd64.deb
-    sudo dpkg -i grafana_$grafana_version_amd64.deb
+    wget https://dl.grafana.com/oss/release/grafana_"$grafana_version"_amd64.deb
+    sudo dpkg -i grafana_"$grafana_version"_amd64.deb
 
     systemctl enable grafana
     cat << EOL
@@ -1201,8 +1235,17 @@ EOL
 
 function install_node_exporter() {
     # deploy on all all monitoring servers
-    wget https://github.com/prometheus/node_exporter/releases/download/v$node_exporter_version/node_exporter-$node_exporter_version.linux-amd64.tar.gz && tar xf node_exporter-$node_exporter_version.linux-amd64.tar.gz
-    cd node_exporter-$node_exporter_version.linux-amd64 && ./node_exporter &
+    wget https://github.com/prometheus/node_exporter/releases/download/v"$node_exporter_version"/node_exporter-"$node_exporter_version".linux-amd64.tar.gz && tar xf node_exporter-"$node_exporter_version".linux-amd64.tar.gz
+    cd node_exporter-"$node_exporter_version".linux-amd6 && ./node_exporter &
+}
+
+function install_volatility3() {
+    sudo apt install unzip
+    sudo pip3 install git+https://github.com/volatilityfoundation/volatility3
+    vol_path=$(python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    cd $vol_path || return
+    wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
+    unzip windows.zip
 }
 
 function install_guacamole() {
@@ -1210,19 +1253,19 @@ function install_guacamole() {
     sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp2-2 #libfreerdp-dev
     sudo apt install freerdp2-dev libssh2-1-dev libvncserver-dev libpulse-dev  libssl-dev libvorbis-dev libwebp-dev libpango1.0-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
     # https://downloads.apache.org/guacamole/$guacamole_version/source/
-    mkdir /tmp/guac-build && cd /tmp/guac-build
-    wget https://downloads.apache.org/guacamole/$guacamole_version/source/guacamole-server-$guacamole_version.tar.gz
-    wget https://downloads.apache.org/guacamole/$guacamole_version/source/guacamole-server-$guacamole_version.tar.gz.asc
+    mkdir /tmp/guac-build && cd /tmp/guac-build || return
+    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz
+    wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz.asc
     ./configure --with-systemd-dir=/lib/systemd/system
     make -j"$(getconf _NPROCESSORS_ONLN)"
-    sudo checkinstall -D --pkgname=guacamole-server-$guacamole --pkgversion="$guacamole_version" --default
+    sudo checkinstall -D --pkgname=guacamole-server-guacamole --pkgversion="$guacamole_version" --default
     sudo ldconfig
     sudo systemctl enable guacd
     sudo systemctl start guacd
 
 }
 # Doesn't work ${$1,,}
-COMMAND=$(echo "$1"|tr "[A-Z]" "[a-z]")
+COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
 case $COMMAND in
     '-h')
@@ -1233,22 +1276,18 @@ esac
 if [ $# -eq 3 ]; then
     sandbox_version=$2
     IFACE_IP=$3
-elif [ $# -eq 2 ]; then
-    cuckoo_version=$2
 elif [ $# -eq 0 ]; then
     echo "[-] check --help"
     exit 1
 fi
 
-sandbox_version=$(echo "$sandbox_version"|tr "[A-Z]" "[a-z]")
+sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
 if [ "$EUID" -ne 0 ]; then
    echo 'This script must be run as root'
    exit 1
 fi
-
-OS="$(uname -s)"
 
 case "$COMMAND" in
 'base')
@@ -1264,7 +1303,10 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules and community every 3 hours
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 */3 * * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 */3 * * * cd /opt/CAPEv2/utils/ && python3 community.py -waf -cr && pip3 install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    fi
+    if ! crontab -l | grep -q 'echo signal newnym'; then
+        crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
     fi
 
 
@@ -1302,15 +1344,12 @@ case "$COMMAND" in
     install_suricata;;
 'yara')
     install_yara;;
+'volatility3')
+    install_volatility3;;
 'postgresql')
     install_postgresql;;
 'sandbox')
-    if [ "$sandbox_version" = "upstream" ]; then
-        pip3 install cuckoo
-        print "[*] run cuckoo under cuckoo user, NEVER RUN IT AS ROOT!"
-    else
-        install_CAPE
-    fi;;
+    install_CAPE;;
 'dist')
     distributed;;
 'fail2ban')
@@ -1341,8 +1380,12 @@ case "$COMMAND" in
     install_guacamole;;
 'docker')
     install_docker;;
+'modsecurity')
+    install_modsecurity;;
 'crowdsecurity')
     install_crowdsecurity;;
+'osslsigncode')
+    install_osslsigncode;;
 *)
     usage;;
 esac

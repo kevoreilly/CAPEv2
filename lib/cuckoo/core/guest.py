@@ -165,7 +165,7 @@ class GuestManager(object):
 
             if time.time() > end:
                 raise CuckooGuestCriticalTimeout(
-                    "Machine %s: the guest initialization hit the critical " "timeout, analysis aborted." % self.vmid
+                    "Machine %s: the guest initialization hit the critical timeout, analysis aborted." % self.vmid
                 )
 
     def query_environ(self):
@@ -368,10 +368,10 @@ class GuestManager(object):
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
-                log.warning("Virtual Machine /status failed. This can indicate the " "guest losing network connectivity")
+                log.warning(f"Virtual Machine: {self.vmid} /status failed. This can indicate the guest losing network connectivity")
                 continue
             except Exception as e:
-                log.error("Virtual machine /status failed. %s", e, exc_info=True)
+                log.error(f"Virtual machine: {self.vmid} /status failed. %s", e, exc_info=True)
                 continue
 
             if status["status"] == "complete":

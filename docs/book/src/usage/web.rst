@@ -94,3 +94,49 @@ To get rid of many bots/scrappers so we suggest to deploy this amazing project `
 .. _`Nginx Ultimate bad bot blocker`: https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/
 .. _`ReCaptcha`: https://www.google.com/recaptcha/admin/
 
+
+Some extra security TIP(s)
+==========================
+* `ModSecurity tutorial`_ - rejects requests
+* `Fail2ban tutorial`_ - ban hosts
+
+.. _`ModSecurity tutorial`: https://malware.expert/tutorial/writing-modsecurity-rules/
+.. _`Fail2ban tutorial`: https://www.digitalocean.com/community/tutorials/how-to-protect-an-nginx-server-with-fail2ban-on-ubuntu-14-04
+
+* Example of `fail2ban` rule to ban by path::
+
+    # This will ban any host that trying to access /api/ for 3 times in 1 minute
+    # Goes to /etc/fail2ban/filters.d/nginx-cape-api.conf
+    [Definition]
+    failregex = ^<HOST> -.*"(GET|POST|HEAD) /api/.*HTTP.*"
+    ignoreregex =
+
+    # goes to /etc/fail2ban/jail.local
+    [cape-api]
+    enabled = true
+    port    = http,https
+    filter  = nginx-cape-api
+    logpath = /var/log/nginx/access.log
+    maxretry = 3
+    findtime = 60
+    bantime = -1
+
+    # This will ban any host that trying to access kinda bruteforce login or unauthorized requests for 5 times in 1 minute
+    # Goes to /etc/fail2ban/filters.d/filter.d/nginx-cape-login.conf
+    [Definition]
+    failregex = ^<HOST> -.*"(GET|POST|HEAD) /accounts/login/\?next=.*HTTP.*"
+    ignoreregex =
+
+    # goes to /etc/fail2ban/jail.local
+    [cape-login]
+    enabled = true
+    port    = http,https
+    filter  = nginx-cape-login
+    logpath = /var/log/nginx/access.log
+    maxretry = 5
+    findtime = 60
+    bantime = -1
+
+* To check banned hosts::
+
+    $ sudo fail2ban-client status cape-api

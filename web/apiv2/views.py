@@ -20,24 +20,16 @@ from django.views.decorators.http import require_safe
 
 
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view
 
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
-try:
-    from django_ratelimit.decorators import ratelimit
-except ImportError:
-    try:
-        from ratelimit.decorators import ratelimit
-    except ImportError:
-        print("missed dependency: pip3 install django-ratelimit -U")
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from utils.cleaners import delete_mongo_data
-from lib.cuckoo.core.database import TASK_REPORTED
+from lib.cuckoo.core.database import TASK_RUNNING
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
@@ -45,12 +37,28 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
-from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, jsonize, validate_task, my_rate_minutes, my_rate_seconds, apilimiter, apiconf, rateblock, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import (
+    perform_malscore_search,
+    perform_search,
+    perform_ttps_search,
+    search_term_map,
+    get_file_content,
+    statistics,
+)
+from lib.cuckoo.common.web_utils import download_file, validate_task, apiconf, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
 
 try:
+    import psutil
+
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
+    print("Missed psutil dependency: pip3 install -U psutil")
+
+try:
     import pyzipper
+
     HAVE_PYZIPPER = True
 except ImportError:
     HAVE_PYZIPPER = False
@@ -66,7 +74,14 @@ web_conf = Config("web")
 
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient(settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB)[settings.MONGO_DB]
+
+    results_db = pymongo.MongoClient(
+        settings.MONGO_HOST,
+        port=settings.MONGO_PORT,
+        username=settings.MONGO_USER,
+        password=settings.MONGO_PASS,
+        authSource=settings.MONGO_DB,
+    )[settings.MONGO_DB]
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -75,7 +90,15 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es_as_db = True
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
+    es = Elasticsearch(
+        hosts=[
+            {
+                "host": repconf.elasticsearchdb.host,
+                "port": repconf.elasticsearchdb.port,
+            }
+        ],
+        timeout=60,
+    )
 
 db = Database()
 
@@ -89,6 +112,7 @@ class conditional_login_required(object):
         if not self.condition:
             return func
         return self.decorator(func)
+
 
 def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
@@ -141,10 +165,9 @@ def index(request):
 
     return render(request, "apiv2/index.html", {"config": parsed})
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def tasks_create_static(request):
     resp = {}
     # Check if this API function is enabled
@@ -153,7 +176,6 @@ def tasks_create_static(request):
     # Check if files are actually provided
     if request.FILES.getlist("file") == []:
         return Response({"error": True, "error_value": "No file was submitted"})
-
 
     options = request.data.get("options", "")
     priority = force_int(request.data.get("priority"))
@@ -165,7 +187,9 @@ def tasks_create_static(request):
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0)
+            task_id, extra_details = db.demux_sample_and_add_to_db(
+                tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0
+            )
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
             resp = {"error": True, "error_value": e}
@@ -180,7 +204,7 @@ def tasks_create_static(request):
         if len(task_ids) == 1:
             resp["data"]["message"] = "Task ID(s) {0} has been submitted".format(task_ids[0])
             if callback:
-                resp["url"] = [ "{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
+                resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
         else:
             resp["data"] = {}
             resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
@@ -194,10 +218,8 @@ def tasks_create_static(request):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def tasks_create_file(request):
     resp = {}
     if request.method == "POST":
@@ -227,7 +249,7 @@ def tasks_create_file(request):
         details = {
             "errors": [],
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -256,7 +278,10 @@ def tasks_create_file(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {
+                    "error": True,
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                }
                 return Response(resp)
         # Parse a max file size to be uploaded
         max_file_size = settings.MAX_UPLOAD_SIZE
@@ -283,7 +308,9 @@ def tasks_create_file(request):
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             details["path"] = tmp_path
 
-            if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours):
+            if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(
+                File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours
+            ):
                 details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
                 continue
             if pcap:
@@ -315,7 +342,7 @@ def tasks_create_file(request):
                 try:
                     File(path).get_type()
                 except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path):"Error submitting file - bad file type"})
+                    details["errors"].append({os.path.basename(tmp_path): "Error submitting file - bad file type"})
                     continue
             else:
                 details["content"] = get_file_content(tmp_path)
@@ -325,7 +352,7 @@ def tasks_create_file(request):
                 else:
                     details["task_ids"] = task_ids_tmp
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
@@ -349,10 +376,9 @@ def tasks_create_file(request):
 
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def tasks_create_url(request):
     if not apiconf.urlcreate.get("enabled"):
         resp = {"error": True, "error_value": "URL Create API is Disabled"}
@@ -363,8 +389,30 @@ def tasks_create_url(request):
         resp["error"] = False
 
         url = request.data.get("url", None)
-        static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-            shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp, tags_tasks, route, cape = parse_request_arguments(request)
+        (
+            static,
+            package,
+            timeout,
+            priority,
+            options,
+            machine,
+            platform,
+            tags,
+            custom,
+            memory,
+            clock,
+            enforce_timeout,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+        ) = parse_request_arguments(request)
 
         task_ids = []
         task_machines = []
@@ -388,7 +436,10 @@ def tasks_create_url(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {
+                    "error": True,
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                }
                 return Response(resp)
 
         if referrer:
@@ -437,10 +488,8 @@ def tasks_create_url(request):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def tasks_create_dlnexec(request):
     resp = {}
     if request.method == "POST":
@@ -501,7 +550,7 @@ def tasks_create_dlnexec(request):
             "errors": [],
             "content": content,
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -519,7 +568,7 @@ def tasks_create_dlnexec(request):
         else:
             details["task_ids"] = task_ids_tmp
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
@@ -540,10 +589,8 @@ def tasks_create_dlnexec(request):
 
 
 # Download a file from VT for analysis
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def tasks_vtdl(request):
     resp = {}
     if request.method == "POST":
@@ -552,7 +599,7 @@ def tasks_vtdl(request):
             resp = {"error": True, "error_value": "VTDL Create API is Disabled"}
             return Response(resp)
 
-        hashes = request.data.get("vtdl".strip(),None)
+        hashes = request.data.get("vtdl".strip(), None)
         if not hashes:
             hashes = request.data.get("hashes".strip(), None)
 
@@ -575,7 +622,10 @@ def tasks_vtdl(request):
             opt_apikey = opts.get("apikey", False)
 
         if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
-            resp = {"error": True, "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"}
+            resp = {
+                "error": True,
+                "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory",
+            }
             return Response(resp)
 
         for vm in db.list_machines():
@@ -593,16 +643,18 @@ def tasks_vtdl(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {
+                    "error": True,
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                }
                 return Response(resp)
-
 
         details = {
             "apikey": settings.VTDL_KEY or opt_apikey,
             "errors": [],
             "content": False,
             "request": request,
-            "task_id": [],
+            "task_ids": [],
             "url": False,
             "params": {},
             "headers": {},
@@ -616,7 +668,7 @@ def tasks_vtdl(request):
 
         details = download_from_vt(hashes, details, opt_filename, settings)
 
-        if details.get("task_ids"):
+        if details["task_ids"]:
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
@@ -637,10 +689,8 @@ def tasks_vtdl(request):
 
 
 # Return Sample information.
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
 
     if not apiconf.fileview.get("enabled"):
@@ -683,10 +733,8 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
 
 
 # Return Task ID's and data that match a hash.
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_search(request, md5=None, sha1=None, sha256=None):
     resp = {}
 
@@ -735,10 +783,8 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
 
 
 # Return Task ID's and data that match a hash.
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['POST'])
+@api_view(["POST"])
 def ext_tasks_search(request):
     resp = {}
 
@@ -811,10 +857,8 @@ def ext_tasks_search(request):
 
 
 # Return Task ID's and data within a range of Task ID's
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_list(request, offset=None, limit=None, window=None):
 
     if not apiconf.tasklist.get("enabled", None):
@@ -882,10 +926,8 @@ def tasks_list(request, offset=None, limit=None, window=None):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_view(request, task_id):
 
     if not apiconf.taskview.get("enabled"):
@@ -919,10 +961,8 @@ def tasks_view(request, task_id):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_reschedule(request, task_id):
 
     if not apiconf.taskresched.get("enabled"):
@@ -942,18 +982,16 @@ def tasks_reschedule(request, task_id):
 
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
-@permission_classes((IsAuthenticated, IsAdminUser))
+@api_view(["GET"])
 def tasks_delete(request, task_id):
     """
-        task_id: int or string if many
-        example: 1 or 1,2,3,4
+    task_id: int or string if many
+    example: 1 or 1,2,3,4
 
     """
-    if not apiconf.taskdelete.get("enabled"):
+    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
         resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
         return Response(resp)
 
@@ -989,10 +1027,9 @@ def tasks_delete(request, task_id):
 
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_status(request, task_id):
 
     if not apiconf.taskstatus.get("enabled"):
@@ -1007,10 +1044,9 @@ def tasks_status(request, task_id):
 
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_report(request, task_id, report_format="json"):
 
     if not apiconf.taskreport.get("enabled"):
@@ -1125,10 +1161,8 @@ def tasks_report(request, task_id, report_format="json"):
         return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):
 
     if not apiconf.taskiocs.get("enabled"):
@@ -1353,10 +1387,8 @@ def tasks_iocs(request, task_id, detail=None):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_screenshot(request, task_id, screenshot="all"):
 
     if not apiconf.taskscreenshot.get("enabled"):
@@ -1391,17 +1423,16 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         if os.path.exists(shot):
             resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
-            return
+            resp["Content-Disposition"] = "attachment; filename=" + os.path.basename(shot)
+            return resp
 
         else:
             resp = {"error": True, "error_value": "Screenshot does not exist"}
             return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_pcap(request, task_id):
 
     if not apiconf.taskpcap.get("enabled"):
@@ -1425,10 +1456,8 @@ def tasks_pcap(request, task_id):
         return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_dropped(request, task_id):
 
     if not apiconf.taskdropped.get("enabled"):
@@ -1453,16 +1482,24 @@ def tasks_dropped(request, task_id):
             tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
         tar.close()
         s.seek(0)
+
+        # in Mb
+        dropped_max_size_limit = request.GET.get("max_size", False)
+        # convert to MB
+        size = len(s.getvalue())
+        size_in_mb = int(size/1024/1024)
+        if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
+            resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
+            return Response(resp)
+
         resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_surifile(request, task_id):
 
     if not apiconf.taskdropped.get("enabled"):
@@ -1487,10 +1524,8 @@ def tasks_surifile(request, task_id):
         return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_rollingsuri(request, window=60):
     window = int(window)
 
@@ -1517,10 +1552,8 @@ def tasks_rollingsuri(request, window=60):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_rollingshrike(request, window=60, msgfilter=None):
     window = int(window)
 
@@ -1566,10 +1599,8 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_procmemory(request, task_id, pid="all"):
 
     if not apiconf.taskprocmemory.get("enabled"):
@@ -1628,10 +1659,8 @@ def tasks_procmemory(request, task_id, pid="all"):
     return resp
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_fullmemory(request, task_id):
 
     if not apiconf.taskfullmemory.get("enabled"):
@@ -1672,10 +1701,9 @@ def tasks_fullmemory(request, task_id):
         resp = {"error": True, "error_value": "Memory dump not found for task " + task_id}
         return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def file(request, stype, value):
 
     if not apiconf.sampledl.get("enabled"):
@@ -1705,13 +1733,11 @@ def file(request, stype, value):
 
     else:
         resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
-        return Response(file_hash)
+        return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def machines_list(request):
 
     if not apiconf.machinelist.get("enabled"):
@@ -1727,10 +1753,8 @@ def machines_list(request):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def machines_view(request, name=None):
 
     if not apiconf.machineview.get("enabled"):
@@ -1747,9 +1771,12 @@ def machines_view(request, name=None):
         resp["error_value"] = "Machine not found"
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-@api_view(['GET'])
+
+def _bytes2gb(size):
+    return int(size / 1024 / 1024 / 1024)
+
+
+@api_view(["GET"])
 def cuckoo_status(request):
     # get
     # print(request.query_params)
@@ -1773,17 +1800,37 @@ def cuckoo_status(request):
                 reported=db.count_tasks("reported"),
             ),
         )
+
+        if HAVE_PSUTIL:
+            du = psutil.disk_usage("/")
+            hdd_free = _bytes2gb(du.free)
+            hdd_total = _bytes2gb(du.total)
+            hdd_used = _bytes2gb(du.used)
+            hdd_percent_used = du.percent
+
+            vu = psutil.virtual_memory()
+            ram_free = _bytes2gb(vu.free)
+            ram_total = _bytes2gb(vu.total)
+            ram_used = _bytes2gb(vu.used)
+
+            # add more from https://pypi.org/project/psutil/
+            resp["data"]["server"] = {
+                "storage": {"free": hdd_free, "total": hdd_total, "used": hdd_used, "used_by": "{}%".format(hdd_percent_used)},
+                "ram": {"free": ram_free, "total": ram_total, "used": ram_used},
+            }
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def task_x_hours(request):
 
     session = db.Session()
-    res = session.query(Task).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1))).all()
+    res = (
+        session.query(Task)
+        .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
+        .all()
+    )
     results = dict()
     if res:
         for date, samples in res:
@@ -1792,10 +1839,9 @@ def task_x_hours(request):
     resp = {"error": False, "stats": results}
     return Response(resp)
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_latest(request, hours):
 
     resp = {}
@@ -1806,10 +1852,8 @@ def tasks_latest(request, hours):
     return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_payloadfiles(request, task_id):
 
     if not apiconf.payloadfiles.get("enabled"):
@@ -1831,14 +1875,13 @@ def tasks_payloadfiles(request, task_id):
         if not HAVE_PYZIPPER:
             return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
         mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
             for fname in next(os.walk(capepath))[2]:
                 if len(fname) == 64:
                     filepath = os.path.join(capepath, fname)
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
-
 
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
@@ -1849,10 +1892,8 @@ def tasks_payloadfiles(request, task_id):
         return Response({"error": True, "error_value": f"No CAPE file(s) for task {task_id}."})
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_procdumpfiles(request, task_id):
 
     if not apiconf.procdumpfiles.get("enabled"):
@@ -1872,12 +1913,12 @@ def tasks_procdumpfiles(request, task_id):
 
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
 
-    #ToDo check bad rturn
+    # ToDo check bad rturn
     if os.path.exists(procdumppath):
         if not HAVE_PYZIPPER:
             return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
         mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
             for fname in next(os.walk(procdumppath))[2]:
                 if len(fname) == 64:
@@ -1895,10 +1936,8 @@ def tasks_procdumpfiles(request, task_id):
         return Response(resp)
 
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def tasks_config(request, task_id, cape_name=False):
 
     if not apiconf.capeconfig.get("enabled"):
@@ -1956,8 +1995,7 @@ def tasks_config(request, task_id, cape_name=False):
 
 
 """
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
 @api_view(['POST'])
 #should be securized by checking category, this is just an example how easy to extend webgui with external tools
@@ -1979,10 +2017,9 @@ def post_processing(request, category, task_id):
     return Response(resp)
 """
 
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+
 @csrf_exempt
-@api_view(['GET'])
+@api_view(["GET"])
 def statistics_data(requests, days):
     resp = {}
     if days.isdigit():
@@ -1991,6 +2028,29 @@ def statistics_data(requests, days):
     else:
         resp = {"Error": True, "error_value": "Provide days as number"}
     return Response(resp)
+
+
+@api_view(["POST"])
+def tasks_delete_many(request):
+    response = {}
+    for task_id in request.POST.get("ids", "").split(",") or []:
+        task_id = int(task_id)
+        task = db.view_task(task_id)
+        if task:
+            if task.status == TASK_RUNNING:
+                response.setdefault(task_id, "running")
+                continue
+            if db.delete_task(task_id):
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+            task = results_db.analysis.find_one({"info.id": task_id})
+            if task is not None:
+                for processes in task.get("behavior", {}).get("processes", []):
+                    [results_db.calls.remove(call) for call in processes.get("calls", [])]
+                results_db.analysis.remove({"info.id": task_id})
+        else:
+            response.setdefault(task_id, "not exists")
+    response["status"] = "OK"
+    return Response(response)
 
 
 def limit_exceeded(request, exception):

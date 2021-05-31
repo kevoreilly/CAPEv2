@@ -3,13 +3,19 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import *
-
-BYTE = c_ubyte
-WORD = c_ushort
-DWORD = c_uint
-LONG = c_int
-
+from ctypes import (
+    Structure,
+    sizeof,
+    create_string_buffer,
+    string_at,
+    c_ubyte as BYTE,
+    c_ushort as WORD,
+    c_uint as DWORD,
+    cast,
+    pointer,
+    POINTER,
+    byref,
+)
 
 class GRPICONDIR(Structure):
     _pack_ = 1
@@ -56,24 +62,6 @@ class ICONDIRENTRY(Structure):
         ("wBitCount", WORD),
         ("dwBytesInRes", DWORD),
         ("dwImageOffset", DWORD),
-    ]
-
-
-class BITMAPINFOHEADER(Structure):
-    _pack_ = 1
-    _fields_ = [
-        ("biSize", DWORD),  # size of this structure
-        ("biWidth", LONG),
-        ("biHeight", LONG),
-        ("biPlanes", WORD),
-        ("biBitCount", WORD),
-        ("biCompression", DWORD),
-        ("biSizeImage", DWORD),
-        ("biXPelsPerMeter", LONG),
-        ("biYPelsPerMeter", LONG),
-        ("biClrUsed", DWORD),
-        ("biClrImportant", DWORD),
-        # an ICONIMAGE follows this by arrays of RGBQUAD icColors, byte icXOR, and byte icAND
     ]
 
 

@@ -1,10 +1,7 @@
-from ratelimit.exceptions import Ratelimited
-from django.shortcuts import redirect, render
-from django.conf import settings
-from django.contrib.auth import login, authenticate, logout
-from django.contrib import messages
+from django.shortcuts import render, redirect
 
 def handler403(request, exception=None):
-    if isinstance(exception, Ratelimited):
-        return render(request, "error.html", {"error": settings.RATELIMIT_ERROR_MSG}, status=429)
     return render(request, "error.html", {"error": 'Forbidden'}, status=403)
+
+def handler404(request, exception=None):
+    return redirect("/")

@@ -11,16 +11,3 @@ rule Ursnif3
     condition:
         ($timing_trap) and any of ($crypto32*)
 }
-
-rule UrsnifLoader
-{
-    meta:
-        author = "kevoreilly"
-        description = "Ursnif Loader"
-        cape_options = "bp0=$timing_trap-6,action0=setesi,count=1"
-    strings:
-        $timing_trap = {C1 E6 05 56 89 [2-3] FF 15 [4] 8B [2-3] 83 F8 0C 74}
-        $snippet1    = {81 E3 FF 0F 00 00 F7 DB 1B DB C1 E8 0C F7 DB 03 D8 8B 45 ?? 03 F0 6A 04 68 00 30 00 00 8B C3 C1 E0 0C 50 6A 00}
-    condition:
-        ($timing_trap) and any of ($snippet*)
-}

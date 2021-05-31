@@ -1,3 +1,53 @@
+### [15-05-2021]
+* Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
+
+### [06-05-2021] Docs about throttling and yara categories
+* __ACTION REQUIRED!__
+    * Update sflock library - we suggest you to keep an eye on this repo!
+        * `pip3 install --force-reinstall -U git+https://github.com/doomedraven/sflock/`
+
+### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
+* Add button to ban user and their pending tasks on admin tab
+    * __ACTION REQUIRED!__
+        * `cd utils/db_migration/ && alembic upgrade head`
+        * `sudo systemctl restart cape.service cape-web.service`
+
+### [01-05-2021]
+* Dirty cluster admin utils helper -> `admin/admin.py`, see `-h`
+
+### [28-04-2021]
+* Strings tab are under the file info on main page
+* VirusTotal tab are also under the file info on main page
+* VT apiv3 integrated
+
+### [23-04-2021]
+* Pyattck v3.0.1 support
+* If you are using alternative location to `/opt/CAPEv2` and wants to use `MITRE TTPs` next action is required:
+    * you need to update value of `data_path` in config `data/mitre/config.yml`
+
+### [18-04-2021]
+* Move MITRE ATT&CK from tab to collapse table after signatures
+
+### [15-04-2021]
+* Allow pass search patter in url: `analysis/search/detections:<family>/`
+
+### [13-04-2021]
+* Add example how to add custom auth, see `web/web/middleware.py`
+
+### [06-04-2021] Small performance improvements
+* New dependecy `ujson`
+    * __REQUIRED ACTION:__ -> `pip3 install ujson -U`
+
+
+### [23-03-2021] API Suscription
+* Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
+* This was done with huge help from those writeups
+    - [How to add susctiption based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
+    - [How to add custom fields to user profile](https://simpleisbetterthancomplex.com/tutorial/2016/11/23/how-to-add-user-profile-to-django-admin.html)
+
+* __REQUIRED ACTION:__ -> `cd web && python3 manage.py migrate`
+
+
 ### [09-02-2021] Registration more configrations
 * Allow enable/disable all new users to activate them by hand
 * Disable new users after email verification if set `manual_approve` in `conf/web.conf`

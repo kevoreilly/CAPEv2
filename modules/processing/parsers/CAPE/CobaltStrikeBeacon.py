@@ -164,21 +164,21 @@ class packedSetting:
                         ret_arr.append("%s:%s" % (string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
-            if self.is_transform:
+            elif self.is_transform:
                 if conf_data == bytes(len(conf_data)):
                     return "Empty"
 
                 ret_arr = []
                 prepend_length = unpack(">I", conf_data[0:4])[0]
-                prepend = conf_data[4 : 4 + prepend_length]
+                prepend = conf_data[4 : 4 + prepend_length].hex()
                 append_length_offset = prepend_length + 4
                 append_length = unpack(">I", conf_data[append_length_offset : append_length_offset + 4])[0]
-                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length]
+                append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length].hex()
                 ret_arr.append(prepend)
                 ret_arr.append(append if append_length < 256 and append != bytes(append_length) else "Empty")
                 return ret_arr
 
-            if self.is_malleable_stream:
+            elif self.is_malleable_stream:
                 prog = []
                 fh = io.BytesIO(conf_data)
                 while True:
@@ -203,6 +203,9 @@ class packedSetting:
                         prog.append("XOR mask w/ random key")
 
                 conf_data = prog
+
+            else:
+                conf_data = conf_data.hex()
 
             return conf_data
 

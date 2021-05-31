@@ -28,6 +28,11 @@ a {
     display: block !important;
 }
 
+.alert-primary
+{
+    background-color: #303030
+}
+
 .nav-link {
     padding: .5rem 1rem;
 }
@@ -54,6 +59,10 @@ a:hover {
 
 .page-link {
     background-color: #444
+}
+
+.page-link:hover {
+    background-color: #EE1B2F
 }
 
 .page-link-active {

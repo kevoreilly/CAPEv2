@@ -192,9 +192,10 @@ MIDDLEWARE = [
     # Cuckoo headers.
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
-    #'ratelimit.middleware.RatelimitMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
+    # in case you want custom auth, place logic in web/web/middleware.py
+    # "web.middleware.CustoAuth",
 ]
 
 OTP_TOTP_ISSUER = 'CAPE Sandbox'
@@ -207,8 +208,6 @@ ROOT_URLCONF = "web.urls"
 
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = "web.wsgi.application"
-
-RATELIMIT_VIEW = "api.views.limit_exceeded"
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -223,8 +222,8 @@ INSTALLED_APPS = [
     # 'django.contrib.admindocs',
     "analysis",
     "compare",
-    "api",
-    "ratelimit",
+    "apiv2",
+    "users",
 
     'django_extensions',
     'django_otp',
@@ -346,14 +345,22 @@ INSTALLED_APPS = [
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
-            'DEFAULT_AUTHENTICATION_CLASSES': [
-                'rest_framework.authentication.TokenAuthentication',
-                'rest_framework.authentication.SessionAuthentication',
-            ],
-            'DEFAULT_PERMISSION_CLASSES': (
-                'rest_framework.permissions.IsAuthenticated',
-            ),
+        'DEFAULT_AUTHENTICATION_CLASSES': [
+            'rest_framework.authentication.TokenAuthentication',
+            'rest_framework.authentication.SessionAuthentication',
+        ],
+        'DEFAULT_PERMISSION_CLASSES': (
+            'rest_framework.permissions.IsAuthenticated',
+        ),
+        'DEFAULT_THROTTLE_CLASSES': [
+            'rest_framework.throttling.UserRateThrottle',
+            'apiv2.throttling.SubscriptionRateThrottle'
+        ],
+        'DEFAULT_THROTTLE_RATES': {
+            'user': '5/m',
+            'subscription': '5/m',
         }
+    }
 
 else:
     REST_FRAMEWORK = {
@@ -453,9 +460,6 @@ ALLOWED_HOSTS = ["*"]
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
-
-# Don't forget to give some love to @doomedraven ;)
-RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
 
 SECURE_REFERRER_POLICY = "same-origin" # "no-referrer-when-downgrade"
 

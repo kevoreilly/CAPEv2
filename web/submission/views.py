@@ -138,10 +138,10 @@ def index(request, resubmit_hash=False):
         options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
         opt_filename = get_user_filename(options, custom)
 
-        if priority and web_conf.public.enabled and web_conf.public.priority:
+        if priority and web_conf.public.enabled and web_conf.public.priority and not request.user.is_staff:
             priority = web_conf.public.priority
 
-        if timeout and web_conf.public.enabled and web_conf.public.timeout:
+        if timeout and web_conf.public.enabled and web_conf.public.timeout and not request.user.is_staff:
             timeout = web_conf.public.timeout
 
         if options:
@@ -259,7 +259,7 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
                 sha256 = File(path).get_sha256()
-                if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
+                if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
                     details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
                     continue
 
@@ -488,13 +488,13 @@ def index(request, resubmit_hash=False):
         vpn_random = ""
 
         if routing.socks5.random_socks5 and socks5s:
-            socks5s_random = random.choice(socks5s.values()).get("description", False)
+            socks5s_random = random.choice(socks5s.values()).get("name", False)
 
         if routing.vpn.random_vpn:
-            vpn_random =  random.choice(list(vpns.values())).get("description", False)
+            vpn_random =  random.choice(list(vpns.values())).get("name", False)
 
         if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("description", False)
+            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
 
         random_route = False
         if vpn_random and socks5s_random:

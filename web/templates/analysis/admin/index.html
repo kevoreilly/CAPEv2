@@ -1,6 +1,6 @@
 {% load analysis_tags %}
-<div class="card ">
-    <table class="table table-striped">
+<div class="panel panel-default">
+    <table class="table table-striped table-bordered">
         <tr>
             <th>Task ID</th>
             <td>{{analysis.info.id}}</td>
@@ -26,7 +26,19 @@
         </tr>
         <tr>
             <th></th>
-            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-small">Delete</a></td>
+            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm">Delete task</a></td>
         </tr>
+        {% if analysis.info.user_id %}
+        <tr>
+            <th>Task cretated by user id: <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}">{{analysis.info.user_id}}</a></th>
+            <td>
+                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm">Ban this user</a>
+                or
+                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm">Ban all pending user tasks</a>
+
+            </td>
+        </tr>
+
+        {% endif %}
     </table>
 </div>

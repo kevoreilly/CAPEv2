@@ -28,14 +28,23 @@ import imp
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, flare_capa_details
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
 
 try:
     import pydeep
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
+
+
+processing_conf = Config("processing")
+
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
 
 ssdeep_threshold = 90
 
@@ -66,6 +75,7 @@ ICEDID_LOADER = 0x40
 ICEDID_BOT = 0x41
 SCRIPT_DUMP = 0x65
 DATADUMP = 0x66
+REGDUMP = 0x67
 MOREEGGSJS_PAYLOAD = 0x68
 MOREEGGSBIN_PAYLOAD = 0x69
 UPX = 0x1000
@@ -118,9 +128,13 @@ qakbot_id_map = {
     b"26": "#5",
 }
 
-
 class CAPE(Processing):
     """CAPE output file processing."""
+
+    def detect2pid(self, pid, cape_name):
+        self.results.setdefault("detections2pid", {})
+        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"][str(pid)].append(cape_name)
 
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
@@ -129,7 +143,6 @@ class CAPE(Processing):
                 if unpacked_hit["name"] == "UPX":
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
-                    os.unlink(unpacked_file)
                     break
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)
@@ -414,12 +427,12 @@ class CAPE(Processing):
                 self.upx_unpack(file_data)
 
             # Check for a payload or config hit
-            extraction_types = ["payload", "config", "loader"]
+            extraction_types = ("payload", "config", "loader")
+
             try:
-                for type in extraction_types:
-                    if type in hit["meta"].get("cape_type", "").lower():
-                        file_info["cape_type"] = hit["meta"]["cape_type"]
-                        cape_name = hit["name"].replace("_", " ")
+                if any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in extraction_types]):
+                    file_info["cape_type"] = hit["meta"]["cape_type"]
+                    cape_name = hit["name"].replace("_", " ")
             except Exception as e:
                 print("Cape type error: {}".format(e))
             type_strings = file_info["type"].split()
@@ -433,6 +446,9 @@ class CAPE(Processing):
 
             suppress_parsing_list = ["Cerber", "Ursnif"]
 
+            if hit["name"] == "GuLoader":
+                self.detect2pid(file_info["pid"], "GuLoader")
+
             if hit["name"] in suppress_parsing_list:
                 continue
 
@@ -445,6 +461,8 @@ class CAPE(Processing):
                 if cape_name != "UPX":
                     #ToDo list of keys
                     self.results["detections"] = cape_name
+            if file_info.get("pid"):
+                self.detect2pid(file_info["pid"], cape_name)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:
@@ -463,11 +481,12 @@ class CAPE(Processing):
                         append_file = False
 
         if append_file is True:
-            pretime = datetime.now()
-            capa_details = flare_capa_details(file_path, "cape")
-            if capa_details:
-                file_info["flare_capa"] = capa_details
-            self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
+            if HAVE_FLARE_CAPA:
+                pretime = datetime.now()
+                capa_details = flare_capa_details(file_path, "cape")
+                if capa_details:
+                    file_info["flare_capa"] = capa_details
+                self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:

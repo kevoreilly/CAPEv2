@@ -6,9 +6,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import sys
-import shutil
 import copy
 import socket
+import platform
 import logging
 import logging.handlers
 
@@ -25,13 +25,13 @@ import modules.reporting
 import modules.feeds
 
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.colors import red, green, yellow, cyan
+from lib.cuckoo.common.colors import red, yellow, cyan
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooStartupError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
-from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_FAILED_ANALYSIS
+from lib.cuckoo.common.utils import create_folders
+from lib.cuckoo.core.database import Database, TASK_RUNNING, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
@@ -47,7 +47,7 @@ def check_python_version():
     @raise CuckooStartupError: if version is not supported.
     """
     if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version " "of Python, please use >= 3.5")
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.5")
 
 
 def check_working_directory():
@@ -55,11 +55,11 @@ def check_working_directory():
     @raise CuckooStartupError: if directories are not properly configured.
     """
     if not os.path.exists(CUCKOO_ROOT):
-        raise CuckooStartupError("You specified a non-existing root " "directory: {0}".format(CUCKOO_ROOT))
+        raise CuckooStartupError("You specified a non-existing root directory: {0}".format(CUCKOO_ROOT))
 
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
-        raise CuckooStartupError("You are not running Cuckoo from it's " "root directory")
+        raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
 
 def check_webgui_mongo():
@@ -97,7 +97,7 @@ def check_configs():
 
     for config in configs:
         if not os.path.exists(config):
-            raise CuckooStartupError("Config file does not exist at " "path: {0}".format(config))
+            raise CuckooStartupError("Config file does not exist at path: {0}".format(config))
 
     return True
 
@@ -148,13 +148,22 @@ class ConsoleHandler(logging.StreamHandler):
         logging.StreamHandler.emit(self, colored)
 
 
+def check_linux_dist():
+    ubuntu_versions = ("18.04", "20.04")
+    try:
+        platform_details = platform.dist()
+        if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
+            print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}")
+    except AttributeError:
+        pass
+
 def init_logging():
     """Initializes logging."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if cuckoo.logging.enabled:
-        days = cuckoo.logging.backup_count
-        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=days)
+        days = cuckoo.logging.backup_count or 7
+        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days))
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -194,7 +203,7 @@ def init_tasks():
     for task in tasks:
         if cuckoo.cuckoo.reschedule:
             db.reschedule(task.id)
-            log.info("Rescheduled task with ID {0} and " "target {1}".format(task.id, task.target))
+            log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
         else:
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
@@ -253,18 +262,7 @@ def init_yara():
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
                     continue
-
                 filepath = os.path.join(category_root, filename)
-
-                try:
-                    # TODO Once Yara obtains proper Unicode filepath support we
-                    # can remove this check. See also this Github issue:
-                    # https://github.com/VirusTotal/yara-python/issues/48
-                    assert len(str(filepath)) == len(filepath)
-                except (UnicodeEncodeError, AssertionError):
-                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
-                    continue
-
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
 
@@ -278,12 +276,14 @@ def init_yara():
                 break
             except yara.SyntaxError as e:
                 bad_rule = str(e).split(".yar")[0]+".yar"
-                if bad_rule in indexed:
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                if os.path.basename(bad_rule) in indexed:
                     for k,v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
                             print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
                 else:
                     break
             except yara.Error as e:
@@ -292,9 +292,13 @@ def init_yara():
                 break
 
         if category == "memory":
-            with open(os.path.join(yara_root, "index_memory.yar"), "w") as f:
+            mem_rules = yara.compile(filepaths=rules, externals=externals)
+            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            """
+            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
                 for filename in sorted(indexed):
                     f.write('include "%s"\n' % os.path.join(category_root, filename))
+            """
 
         indexed = sorted(indexed)
         for entry in indexed:
@@ -433,7 +437,7 @@ def init_routing():
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
         if not rooter("nic_available", routing.tor.interface):
-            raise CuckooStartupError("The network interface that has been configured as tor " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as tor line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -450,7 +454,7 @@ def init_routing():
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
-            raise CuckooStartupError("The network interface that has been configured as inetsim " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as inetsim line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

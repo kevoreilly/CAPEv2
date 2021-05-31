@@ -23,12 +23,6 @@ from alembic import op
 import sqlalchemy as sa
 
 
-try:
-    from alembic import op
-except ImportError:
-    print("Unable to import alembic (install with `pip3 install alembic`)")
-    sys.exit()
-
 def upgrade():
     op.add_column("tasks", sa.Column("user_id", sa.Integer, nullable=True))
 

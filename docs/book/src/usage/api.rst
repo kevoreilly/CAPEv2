@@ -1,6 +1,6 @@
-===================
-Current REST API v2
-===================
+===========
+REST API v2
+===========
 
 To see current REST api see ``/apiv2/`` you will find all endpoints and details how to do requests
 
@@ -16,7 +16,12 @@ To generate user autorization token:
 
 .. code-block:: python
 
-    # By hand
+    # To create super user aka admin
+    python3 manage.py createsuperuser
+
+    # To Create normal user, use web interface /admin/ (in case if you not changed path)
+
+    # By hand, only required if auth enabled and user MUST exist
     python3 manage.py drf_create_token <your_user>
 
     # Auto generation
@@ -29,9 +34,18 @@ To generate user autorization token:
     headers = {'Authorization': 'Token <YOUR_TOKEN>'}
     r = requests.get(url, headers=headers)
 
-===========
-REST API v1
-===========
+`CAPE throttling`_, aka request per minute/hour/day.
+====================================================
+
+* Requires authentication enabled in ``web.conf``
+* Default 5/m
+* To change user limit go to django admin ``/admin/`` if you didn't change path, and set limit per user in user profile at the bottom.
+
+.. _`CAPE throttling`: https://github.com/kevoreilly/CAPEv2/blob/master/web/apiv2/throttling.py
+
+======================
+REST API v1 DEPRICATED
+======================
 
 To see current REST api see ``/api/`` you will find all endpoints and details how to do requests
 

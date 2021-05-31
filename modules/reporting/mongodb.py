@@ -116,6 +116,22 @@ class MongoDB(Report):
                     if isinstance(d, dict):
                         self.fix_int2str(d, ".".join([current_key_tree, k]))
 
+    def loop_saver(self, report):
+        keys = list(report.keys())
+        if "info" not in keys:
+            return
+        if "_id" in keys:
+            keys.remove("_id")
+
+        obj_id = self.db.analysis.insert_one(report["info"])
+        keys.remove("info")
+
+        for key in keys:
+            try:
+                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+            except InvalidDocument as e:
+                log.info("Investigate your key: {} - {}".format(key, str(key)))
+
     def run(self, results):
         """Writes report.
         @param results: analysis results dictionary.
@@ -134,7 +150,7 @@ class MongoDB(Report):
             if self.db.cuckoo_schema.find_one()["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
-            self.db.cuckoo_schema.save({"version": self.SCHEMA_VERSION})
+            self.db.cuckoo_schema.insert_one({"version": self.SCHEMA_VERSION})
 
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
@@ -233,8 +249,11 @@ class MongoDB(Report):
 
         # Store the report and retrieve its object id.
         try:
-            self.db.analysis.save(report, check_keys=False)
+            self.db.analysis.insert_one(report)
         except InvalidDocument as e:
+            if str(e).startswith("cannot encode object") or str(e).endswith("must not contain '.'"):
+                self.loop_saver(report)
+                return
             parent_key, psize = self.debug_dict_size(report)[0]
             if not self.options.get("fix_large_docs", False):
                 # Just log the error and problem keys
@@ -260,7 +279,7 @@ class MongoDB(Report):
                                 log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
                                 del report[parent_key][child_key]
                         try:
-                            self.db.analysis.save(report, check_keys=False)
+                            self.db.analysis.insert_one(report)
                             error_saved = False
                         except InvalidDocument as e:
                             if str(e).startswith("documents must have only string keys"):

@@ -33,7 +33,7 @@ from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLET
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
 from lib.cuckoo.core.plugins import RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
-from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
+from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_linux_dist
 from concurrent.futures import TimeoutError
 
 cfg = Config()
@@ -49,6 +49,8 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     fullidx = baseidx + "-*"
     es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port, }],
                        timeout=60)
+
+check_linux_dist()
 
 pending_future_map = {}
 pending_task_id_map = {}
@@ -173,9 +175,9 @@ def init_logging(auto=False, tid=0, debug=False):
             os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
             if cfg.logging.enabled:
-                days = cfg.logging.backup_count
+                days = cfg.logging.backup_count or 7
                 fh = logging.handlers.TimedRotatingFileHandler(
-                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=days
+                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
                 )
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))

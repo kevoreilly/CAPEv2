@@ -105,17 +105,6 @@ def vpn_status(name):
 
     return ret
 
-
-def vpn_enable(name):
-    """Start a VPN."""
-    run(settings.systemctl, "start", "openvpn@{}.service".format(name))
-
-
-def vpn_disable(name):
-    """Stop a running VPN."""
-    run(settings.systemctl, "stop", "openvpn@{}.service".format(name))
-
-
 def forward_drop():
     """Disable any and all forwarding unless explicitly said so."""
     run_iptables("-P", "FORWARD", "DROP")
@@ -404,8 +393,6 @@ handlers = {
     "nic_available": nic_available,
     "rt_available": rt_available,
     "vpn_status": vpn_status,
-    "vpn_enable": vpn_enable,
-    "vpn_disable": vpn_disable,
     "forward_drop": forward_drop,
     "state_enable": state_enable,
     "state_disable": state_disable,

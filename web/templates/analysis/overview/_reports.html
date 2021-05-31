@@ -1,0 +1,33 @@
+<div class="card-header">
+    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#reports"><i class="far fa-file-alt"></i> Reports</a></center>
+</div>
+<div id="reports" class="collapse">
+    <div class="container">
+        <div class="row">
+            {% if config.jsondump %}
+                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
+            {% endif %}
+            {% if config.reporthtml %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
+            {% endif %}
+            {% if config.reporthtmlsummary %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsumary" %}">HTML summary report</a></div>
+            {% endif %}
+            {% if config.reportpdf %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "pdf" %}">PDF report</a></div>
+            {% endif %}
+            {% if config.maec41 %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "maec" %}">MAEC report</a></div>
+            {% endif %}
+            {% if config.maec5 %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5 report</a></div>
+            {% endif %}
+            {% if config.mmdef %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata report</a></div>
+            {% endif %}
+            {% if config.misp %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "misp" %}">MISP Report</a></div>
+            {% endif %}
+        </div>
+    </div>
+</div>

@@ -1,16 +1,23 @@
 ## CAPE: Malware Configuration And Payload Extraction
 
-CAPE is a malware sandbox. It is derived from Cuckoo and is designed to automate the process of malware analysis with the goal of extracting payloads and configuration from malware. This allows CAPE to detect malware based on payload signatures, as well as automating many of the goals of malware reverse engineering and threat intelligence.
+CAPE is a malware sandbox. It was derived from Cuckoo with the goal of adding automated malware unpacking and config extraction - hence its name is an acronym: 'Config And Payload Extraction'. Automated unpacking allows classification based on Yara signatures to complement network (Suricata) and behavior (API) signatures.
 
-There is a community version online which is free for anyone to try:
+There is a free community instance online which anyone can use:
 
-https://capesandbox.com/submit
+https://capesandbox.com
 
-CAPE can detect a number of malware techniques or behaviours, as well as specific malware families, from its initial run on a sample. This detection may then trigger a further run with a specific package, in order to extract the malware payload and possibly its configuration, for further analysis.
+Although config and payload extraction was the original stated goal, it was the development of the debugger in CAPE which first inspired the project: in order to extract configs or unpacked payloads from arbitrary malware families without relying on process dumps (which sooner or later the bad guys will thwart), instruction-level monitoring and control is necessary. The novel debugger in CAPE follows the principle of maximising use of processor hardware and minimising (almost completely) use of Windows debugging interfaces, allowing malware to be stealthily instrumented and manipulated from the entry point with hardware breakpoints programmatically set during detonation by Yara signatures or API calls. This allows instruction traces to be captured, or actions to be performed such as control flow manipulation or dumping of a memory region.
 
-CAPE works by controlling malware via a bespoke debugger and API hooks. Detection to trigger a CAPE package can be based on API or Yara signatures. The debugger uses Yara signatures or API hooks to allow breakpoints to be set on individual instructions, memory regions or function calls. Once a region of interest is reached, it can be manipulated and dumped for processing and analysis, and possibly configuration parsing.
+The debugger has allowed CAPE to continue to evolve beyond its original capabilities, which now include dynamic anti-evasion bypasses. Since modern malware commonly tries to evade analysis within sandboxes, for example by using timing traps for virtualisation or API hook detection, CAPE allows dynamic countermeasures to be developed combining debugger actions within Yara signatures to detect evasive malware as it detonates, and perform control-flow manipulation to force the sample to detonate fully or skip evasive actions. The list of dynamic bypasses in CAPE is growing but includes:
+- Guloader
+- Ursnif
+- Dridex
+- Zloader
+- Formbook
+- BuerLoader
+- Pafish
 
-The techniques or behaviours that CAPE detects and has packages for include:
+CAPE takes advantage of many malware techniques or behaviours to allow for unpacked payload capture:
 - Process injection
     - Shellcode injection
     - DLL injection
@@ -19,24 +26,25 @@ The techniques or behaviours that CAPE detects and has packages for include:
 - Decompression of executable modules in memory
 - Extraction of executable modules or shellcode in memory
 
-Packages for these behaviours will dump the payloads being injected, extracted or decompressed for further analysis. This is often the malware payload in unpacked form.
+These behaviours will result in the capture of payloads being injected, extracted or decompressed for further analysis. In addition CAPE automatically creates a process dump for each process, or, in the case of a DLL, the DLL's module image in memory. This is useful for samples packed with simple packers, where often the module image dump is fully unpacked.
 
-CAPE automatically creates a process dump for each process, or, in the case of a DLL, the DLL's module image in memory. This is useful for samples packed with simple packers, where often the module image dump is fully unpacked. Yara signatures may trigger on the process dumps, possibly resulting in submission with a specific package or configuration parsing.
+Quick access to the debugger is made possible with the breakpoint options 'bp0' through 'bp3' accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output, governed by 'count' and 'depth' options (e.g. bp0=0x1234,depth=1,count=100). To set a breakpoint at the module entry point, 'ep' is used instead of an address (e.g. bp0=ep). Alternatively 'break-on-return' allows for a breakpoint on the return address of a hooked API (e.g. break-on-return=NtGetContextThread). An optional 'base-on-api' parameter allows the image base for RVA breakpoints to be set by API call (e.g. base-on-api=NtReadFile,bp0=0x2345).
 
-CAPE also has a package which can dynamically unpack samples that use 'hacked' (modified) UPX, very popular with malware authors. These samples are run in CAPE's debugger until their OEP (original entry point), whereupon they are dumped, fixed and their imports are automatically reconstructed, ready for analysis.
+Options 'action0' - 'action3' allow actions to be performed when breakpoints are hit, such as dumping memory regions (e.g. action0=dumpebx) or changing the execution control flow (e.g. action1=skip). CAPE's documentation contains further examples of such actions.
 
-Currently CAPE has specific packages dumping configuration and payloads for the following malware families:
-- PlugX
-- EvilGrab
-- Sedreco
-- Cerber
+'dump-on-api' allows a module to be dumped when it calls a specific API function which can be specified in the web interface which can be useful for quickly unpacking/dumping novel samples (e.g. dump-on-api=DnsQuery_A).
+
+CAPE also has an option 'upx=1' which can dynamically unpack samples that use 'hacked' (modified) UPX, very popular with malware authors. These samples are run in CAPE's debugger until their OEP (original entry point), whereupon they are dumped, fixed and their imports are automatically reconstructed, ready for analysis.
+
+CAPE is constantly growing in malware family coverage, but has config parsers for the following examples:
+- Emotet
 - TrickBot
+- QakBot
 - Hancitor
 - Ursnif
-- QakBot
-
-CAPE has config parsers/decoders for the following malware families, whose payloads are automatically extracted by a behavioural package:
-- Emotet
+- Dridex
+- SmokeLoader
+- IcedID
 - RedLeaf
 - ChChes
 - HttpBrowser
@@ -44,23 +52,17 @@ CAPE has config parsers/decoders for the following malware families, whose paylo
 - PoisonIvy
 - Screech
 - TSCookie
-- Dridex
-- SmokeLoader
 
-Many other malware families have their payloads automatically extracted by behavioural packages, for which CAPE uses Yara signatures to detect the payloads. This list is growing, and includes:
+CAPE uses Yara signatures as its principal classification method to detect unpacked payloads. This list is constantly growing, and includes:
 - Azorult, Formbook, Ryuk, Hermes, Shade, Remcos, Ramnit, Gootkit, QtBot, ZeroT, WanaCry, NetTraveler, Locky, BadRabbit, Magniber, Redsip, Kronos, PetrWrap, Kovter, Azer, Petya, Dreambot, Atlas, NanoLocker, Mole, Codoso, Cryptoshield, Loki, Jaff, IcedID, Scarab, Cutlet, RokRat, OlympicDestroyer, Gandcrab, Fareit, ZeusPanda, AgentTesla, Imminent, Arkei, Sorgu, tRat, T5000, TClient, TreasureHunter.
 
-Configuration data may be output from either family packages, or in payloads resulting from behavioural packages. Configuration parsing may then be performed on this by virtue of Yara-based detection, and config parsing based on either of CAPE's config parsing frameworks, the RATDecoders framework from malwareconfig.com and DC3-MWCP (Defense Cyber Crime Center - Malware Configuration Parser). The many parsers/decoders from malwareconfig.com are also included, comprising among many others: Sakula, DarkComet, PredatorPain and PoisonIvy. Thanks to Kevin Breen/TechAnarchy for this framework and parsers (https://github.com/kevthehermit/RATDecoders), and to DC3 for their framework (https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP). Special thanks to Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
+There is a community repository of signatures containing several hundred signatures developed by the CAPE community: https://github.com/kevoreilly/community
 
-Utility features are also included: 'DumpOnAPI' allows a module to be dumped when it calls a specific API function which can be specified in the web interface. 'DumpConfigRegion' allows the memory region containing C2 information or other config data to be dumped for commonly used API calls. These options can be useful for quickly unpacking/dumping novel samples or configs. The breakpoint options 'bp0' through 'bp3' allow quick access to the debugger by accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output. Alternatively 'break-on-return' allows for a breakpoint on the return address of a hooked API. An optional 'base-on-api' parameter allows the image base to be set by API call.
+Config parsing can be done using either of CAPE's config parsing frameworks, the RATDecoders framework from malwareconfig.com and DC3-MWCP (Defense Cyber Crime Center - Malware Configuration Parser). The many parsers/decoders from malwareconfig.com are also included, comprising among many others: Sakula, DarkComet, PredatorPain and PoisonIvy. Thanks to Kevin Breen/TechAnarchy for this framework and parsers (https://github.com/kevthehermit/RATDecoders), and to DC3 for their framework (https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP). Special thanks to Jason Reaves (@sysopfb) for the TrickBot parser and Fabien Perigaud for the PlugX parser.
 
-The CAPE debugger allows breakpoints to be set on read, write or execute of a memory address or region, as well as single-step mode. This allows fine control over malware execution until it is possible to dump the memory regions of interest, containing code or configuration data. Breakpoints can be set dynamically by package code, API hooks or Yara signatures. Thanks to the embedded distorm library the debugger can output the disassembly of instructions during single-step mode or when breakpoints are hit, resulting in instruction traces.
+The repository containing the code for the monitor DLLs is a distinct one: https://github.com/kevoreilly/capemon.
 
-Processes, modules and memory regions can variously be dumped by CAPE through use of a simple API. These dumps can then be scanned and parsed for configuration information. Executable modules are fixed on being dumped, and may also have their imports automatically reconstructed (based on Scylla: https://github.com/NtQuery/Scylla). Packages can be written based on API hooks, the CAPE debugger, or a combination of both. There are a number of other behavioural and malware family packages and parsers currently in the works, so watch this space.
-
-The repository containing the code for the monitor DLLs which form the basis of these packages is a distinct one: https://github.com/kevoreilly/capemon. This repository is organised in branches for the various packages.
-
-Please contribute to this project by helping create new packages for further malware families, packers, techniques or configuration parsers.
+Please contribute to this project by helping create new signatures, parsers or bypasses for further malware families. There are many in the works currently, so watch this space.
 
 ## CAPEv2!
 

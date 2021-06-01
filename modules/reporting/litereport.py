@@ -28,7 +28,9 @@ class LiteReport(Report):
             "dropped",
             "static",
             "target",
-            "network"
+            "network",
+            "malscore",
+            "ttps"
         }
 
         # lite report report only has the specific keys

@@ -36,7 +36,7 @@ def download(user, password):
     name_start = "%s/%s" % (directory, 'signatures')
 
     for member in members:
-        filepath = os.path.join(CUCKOO_ROOT, 'signatures', member.name[len(name_start) + 1:])
+        filepath = os.path.join(CUCKOO_ROOT, 'modules/signatures', member.name[len(name_start) + 1:])
 
         if not member.name.startswith(name_start) or name_start == member.name:
             continue

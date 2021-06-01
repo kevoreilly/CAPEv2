@@ -1072,12 +1072,24 @@ def tasks_report(request, task_id, report_format="json"):
         "maec": "report.maec-4.1.xml",
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
+        "litereport": "../lite/lite-report.json"
     }
 
     bz_formats = {
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
+        "lite": {
+            "type": "+",
+            "files": [
+                "files.json",
+                "CAPE",
+                "files",
+                "procdump",
+                "macros",
+                "lite",
+            ]
+        }
     }
 
     tar_formats = {
@@ -1089,7 +1101,7 @@ def tasks_report(request, task_id, report_format="json"):
     if report_format.lower() in formats:
         report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
         if os.path.exists(report_path):
-            if report_format in ("json", "maec5"):
+            if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
                 ext = "json"
             elif report_format.startswith("html"):

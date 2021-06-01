@@ -21,6 +21,7 @@ malware_parsers = dict()
 cape_malware_parsers = dict()
 
 # Config variables
+cfg = Config()
 repconf = Config("reporting")
 processing_conf = Config("processing")
 
@@ -100,7 +101,7 @@ pe_map = {
     "PE32": ": 32-bit ",
 }
 
-cfg = Config()
+
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 

@@ -106,7 +106,7 @@ Some extra security TIP(s)
 .. _`Fail2ban + CloudFlare`: https://guides.wp-bullet.com/integrate-fail2ban-cloudflare-api-v4-guide/
 
 
-* Example of cloudflare action ban
+* Example of cloudflare action ban::
 
     # Author: Mike Andreasen from https://guides.wp-bullet.com
     # Adapted Source: https://github.com/fail2ban/fail2ban/blob/master/config/action.d/cloudflare.conf

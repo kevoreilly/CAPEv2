@@ -1,3 +1,6 @@
+## About accounts on [capesandbox.com](https://capesandbox.com/)
+* Issues isn't the way to ask for account acctivation. Ping capesandbox in [Twitter](https://twitter.com/capesandbox) with your username
+
 ## This is opensource and you getting __free__ support so be friendly!
 * Free support from doomedraven ended, no whiskey no support. For something he updated the documentation :)
 

@@ -33,7 +33,7 @@ def download(user, password):
 
     members = tar.getmembers()
     directory = members[0].name.split("/")[0]
-    name_start = "%s/%s" % (directory, 'signatures')
+    name_start = f'{directory}/signatures'
 
     for member in members:
         filepath = os.path.join(CUCKOO_ROOT, 'modules/signatures', member.name[len(name_start) + 1:])

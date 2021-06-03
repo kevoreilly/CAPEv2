@@ -2570,7 +2570,7 @@ class EncodedScriptFile(object):
         while o < end:
             ch = source[o]
             print(ch, "ch")
-            if source[o] == 64 # b"@":
+            if source[o] == 64: # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1

@@ -108,7 +108,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             )
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
-            if analyses.count() > 0:
+            if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis["behavior"].get("processes", []):

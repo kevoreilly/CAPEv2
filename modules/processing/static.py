@@ -2548,7 +2548,7 @@ class EncodedScriptFile(object):
     def run(self):
         results = {}
         try:
-            source = open(self.filepath, "r").read()
+            source = open(self.filepath, "rb").read()
         except UnicodeDecodeError as e:
             return results
         source = self.decode(source)
@@ -2559,19 +2559,19 @@ class EncodedScriptFile(object):
             results["encscript"] += "\r\n<truncated>"
         return results
 
-    def decode(self, source, start="#@~^", end="^#~@"):
+    def decode(self, source, start=b"#@~^", end=b"^#~@"):
         if start not in source or end not in source:
             return
 
         o = source.index(start) + len(start) + 8
         end = source.index(end) - 8
-
         c, m, r = 0, 0, []
 
         while o < end:
-            ch = ord(source[o])
-            if source[o] == "@":
-                r.append(ord(self.unescape.get(source[o + 1], "?")))
+            ch = source[o]
+            print(ch, "ch")
+            if source[o] == 64 # b"@":
+                r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
             elif ch < 128:
@@ -2580,10 +2580,10 @@ class EncodedScriptFile(object):
                 m = m + 1
             else:
                 r.append(ch)
-
             o = o + 1
 
-        if (c % 2 ** 32) != base64.b64decode(struct.unpack("I", source[o : o + 8]))[0]:
+        #if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 8]))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)

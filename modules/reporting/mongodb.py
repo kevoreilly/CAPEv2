@@ -235,7 +235,7 @@ class MongoDB(Report):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 
         analyses = self.db.analysis.find({"info.id": int(report["info"]["id"])})
-        if analyses.count() > 0:
+        if analyses:
             log.debug("Deleting analysis data for Task %s" % report["info"]["id"])
             for analysis in analyses:
                 for process in analysis["behavior"].get("processes", []) or []:

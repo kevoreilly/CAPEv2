@@ -61,7 +61,7 @@ def memory_limit(percentage: float = 0.8):
         print('Only works on linux!')
         return
     _, hard = resource.getrlimit(resource.RLIMIT_AS)
-    resource.setrlimit(resource.RLIMIT_AS, (get_memory() * 1024 * percentage, hard))
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
 
 def get_memory():
     with open('/proc/meminfo', 'r') as mem:

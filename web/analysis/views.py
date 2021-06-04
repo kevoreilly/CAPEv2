@@ -138,7 +138,7 @@ db = Database()
 anon_not_viewable_func_list = (
     "file",
     "remove",
-    "search",
+    # "search",
     "pending",
     "filtered_chunk",
     "search_behavior",

@@ -813,7 +813,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(e, sys.exc_info())
+                print("There was a syntax error in one or more Yara rules: %s" % e)
                 log.error("There was a syntax error in one or more Yara rules: %s" % e)
                 break
 

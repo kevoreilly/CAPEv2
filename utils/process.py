@@ -112,9 +112,11 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis["behavior"].get("processes", []):
+                        calls = list()
                         for call in process["calls"]:
-                            mdata.calls.remove({"_id": ObjectId(call)})
-                    mdata.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                            calls.append(ObjectId(call))
+                        mdata.calls.delete_many({"_id": {"$in": calls}})
+                    mdata.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
             conn.close()
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 

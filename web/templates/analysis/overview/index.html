@@ -57,7 +57,11 @@
     {% include "analysis/overview/_mitre.html" %}
     <hr />
 {% endif %}
-
+{% if analysis.statistics %}
+    <hr />
+    {% include "analysis/overview/_statistics.html" %}
+    <hr />
+{% endif %}
 {% include "analysis/overview/_signatures.html" %}
 
 {% if analysis.info.category != "pcap" %}
@@ -73,7 +77,6 @@
     <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts_not_ajax.html" %}</div>
     <div class="col-md-6 mx-auto">{% include "analysis/network/_dns_not_ajax.html" %}</div>
 </div>
-<hr />
 {% if analysis.info.category != "pcap" %}
     {% include "analysis/overview/_summary.html" %}
 {% endif %}

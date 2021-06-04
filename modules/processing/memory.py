@@ -79,11 +79,6 @@ class ReturnJsonRenderer(JsonRenderer):
         error = grid.populate(visitor, final_output, fail_on_errors=True)
         return final_output[1], error
 
-"""
-from modules.processing.memory import VolatilityAPI
-vapi = VolatilityAPI()
-bridge = vapi.init("windows.pony.Pony", "pony.dmp")
-"""
 
 class VolatilityAPI(object):
     def __init__(self, memdump):

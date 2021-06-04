@@ -1,0 +1,51 @@
+{% if analysis.statistics %}
+    {% load analysis_tags %}
+    <div class="card-header">
+        <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#stadistics"><i class="fas fa-stopwatch"></i> Statistics</a></center>
+    </div>
+    <div id="stadistics" class="collapse">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm">
+                    <h4>Processing&emsp;( {{ analysis.statistics.processing|stats_total }} seconds )</h4>
+                    <ul class="list-group">
+                        {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
+                            {% if stat.time %}
+                            <li class="list-group-item">
+                                <span class="badge.badge-pill">{{stat.time}}</span>
+                                {{stat.name}}
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-sm">
+                <h4>Signatures&emsp;( {{ analysis.statistics.signatures|stats_total }} seconds )</h4>
+                    <ul class="list-group">
+                        {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
+                            {% if stat.time %}
+                            <li class="list-group-item">
+                                <span class="badge.badge-pill">{{stat.time}}</span>
+                                {{stat.name}}
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-sm">
+                    <h4>Reporting&emsp;( {{ analysis.statistics.reporting|stats_total }} seconds )</h4>
+                <ul class="list-group">
+                    {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
+                        {% if stat.time %}
+                        <li class="list-group-item">
+                            <span class="badge.badge-pill">{{stat.time}}</span>
+                            {{stat.name}}
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}

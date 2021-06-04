@@ -74,7 +74,7 @@ def stats_total(value):
     for item in value:
         total += item["time"]
 
-    return total
+    return "{:.2f}".format(total)
 
 
 @register.filter(name="sort")

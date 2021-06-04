@@ -439,9 +439,7 @@ def load_files(request, task_id, category):
                 if os.path.exists(bingraph_path):
                     if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
                         for block in data.get(category, []):
-                            print(block)
                             if not block.get("sha256"):
-                                print("missed sha256", block)
                                 continue
                             tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
                             if os.path.exists(tmp_file):
@@ -1552,8 +1550,8 @@ def search(request, searched=False):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remove(request, task_id):
     """Remove an analysis."""
-    if not enabledconf["delete"] or not request.user.is_staff:
-        return render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
+    if enabledconf["delete"] is False and  request.user.is_staff is False:
+        return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
         analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})

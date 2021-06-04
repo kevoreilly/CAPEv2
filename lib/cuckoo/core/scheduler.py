@@ -230,8 +230,8 @@ class AnalysisManager(threading.Thread):
         return options
 
     def category_checks(self):
-        sha256 = File(self.task.target).get_sha256()
         if self.task.category in ["file", "pcap", "static"]:
+            sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):

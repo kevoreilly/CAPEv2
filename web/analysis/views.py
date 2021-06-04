@@ -135,6 +135,15 @@ if enabledconf["elasticsearchdb"]:
 
 db = Database()
 
+anon_not_viewable_func_list = (
+    "file",
+    "remove",
+    "search",
+    "filtered_chunk",
+    "search_behavior",
+    "statistics_data",
+)
+
 # Conditional decorator for web authentication
 class conditional_login_required(object):
     def __init__(self, dec, condition):
@@ -142,6 +151,8 @@ class conditional_login_required(object):
         self.condition = condition
 
     def __call__(self, func):
+        if settings.ANON_VIEW and func.__name__ not in anon_not_viewable_func_list:
+            return func
         if not self.condition:
             return func
         return self.decorator(func)

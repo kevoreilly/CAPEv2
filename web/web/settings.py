@@ -79,6 +79,7 @@ OPT_ZER0M0N = False
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
+ANON_VIEW = web_cfg.general.anon_viewable
 
 # If false run next command
 # python3 manage.py runserver 0.0.0.0:8000 --insecure

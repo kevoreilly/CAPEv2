@@ -139,6 +139,7 @@ anon_not_viewable_func_list = (
     "file",
     "remove",
     "search",
+    "pending",
     "filtered_chunk",
     "search_behavior",
     "statistics_data",

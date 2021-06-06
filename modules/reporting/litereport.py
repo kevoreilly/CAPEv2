@@ -20,7 +20,7 @@ class LiteReport(Report):
 
         encoding = self.options.get("encoding", "utf-8")
 
-        keys_to_copy = {
+        keys_to_copy = (
             "CAPE",
             "procdump",
             "info",
@@ -29,10 +29,18 @@ class LiteReport(Report):
             "static",
             "target",
             "network"
-        }
+        )
 
         # lite report report only has the specific keys
         lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
+
+        # add specific keys from behavior
+        behavior_keys_to_copy = (
+            "processtree",
+            "summary"
+        )
+        behavior = {k: results["behavior"][k] for k in results["behavior"].keys() & behavior_keys_to_copy}
+        lite_report["behavior"] = behavior
 
         try:
             os.makedirs(f"{self.analysis_path}/lite/", exist_ok=True)

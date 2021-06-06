@@ -477,6 +477,8 @@ CSP_FONT_SRC = ["https://fonts.googleapis.com"]
 CSP_STYLE_SRC = ["'self'"]
 CSP_IMG_SRC = ["'self'"]
 
+RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free request per minute for anon users. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
+
 # Hack to import local settings.
 try:
     LOCAL_SETTINGS

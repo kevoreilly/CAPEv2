@@ -1,3 +1,6 @@
+### [06-06-2021] Ratelimit strikes again
+* Reintroduce ratelimit to control abuses
+
 ### [04-06-2021]
 * Allow anon users list reports and view them
     * `conf/web.conf ->  general -> anon_viewable`

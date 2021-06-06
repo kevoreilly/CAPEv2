@@ -32,6 +32,10 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
 
+rateblock = web_cfg.ratelimit.get("enabled", False)
+rps = web_cfg.ratelimit.get("rps", 1)
+rpm = web_cfg.ratelimit.get("rpm", 5)
+
 db = Database()
 
 HAVE_DIST = False
@@ -124,6 +128,21 @@ try:
 except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
+
+# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
+def my_rate_seconds(group, request):
+    # RateLimits not enabled
+    if rateblock is False or request.user.is_authenticated:
+        return "99999999999999/s"
+    else:
+        return rps
+
+def my_rate_minutes(group, request):
+    # RateLimits not enabled
+    if rateblock is False or request.user.is_authenticated:
+        return "99999999999999/m"
+    else:
+        return rpm
 
 def load_vms_tags():
     all_tags = list()

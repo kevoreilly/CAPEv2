@@ -34,6 +34,14 @@ class LiteReport(Report):
         # lite report report only has the specific keys
         lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
 
+        # add specific keys from behavior
+        behavior_keys_to_copy = {
+            "processtree",
+            "summary"
+        }
+        behavior = {k: results["behavior"][k] for k in results["behavior"].keys() & behavior_keys_to_copy}
+        lite_report["behavior"] = behavior
+
         try:
             os.makedirs(f"{self.analysis_path}/lite/", exist_ok=True)
             path = os.path.join(self.analysis_path, "lite", "lite-report.json")

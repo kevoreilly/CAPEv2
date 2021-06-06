@@ -33,8 +33,8 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 apiconf = Config("api")
 
 rateblock = web_cfg.ratelimit.get("enabled", False)
-rps = web_cfg.ratelimit.get("rps", 1)
-rpm = web_cfg.ratelimit.get("rpm", 5)
+rps = web_cfg.ratelimit.get("rps", "1/rps")
+rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
 
@@ -132,6 +132,7 @@ except Exception as e:
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
+    print(rateblock, request.user.is_authenticated)
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/s"
     else:
@@ -139,6 +140,7 @@ def my_rate_seconds(group, request):
 
 def my_rate_minutes(group, request):
     # RateLimits not enabled
+    print(rateblock, request.user.is_authenticated)
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/m"
     else:

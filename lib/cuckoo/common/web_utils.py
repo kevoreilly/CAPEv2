@@ -132,7 +132,6 @@ except Exception as e:
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
-    print(rateblock, request.user.is_authenticated)
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/s"
     else:
@@ -140,7 +139,6 @@ def my_rate_seconds(group, request):
 
 def my_rate_minutes(group, request):
     # RateLimits not enabled
-    print(rateblock, request.user.is_authenticated)
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/m"
     else:

@@ -100,13 +100,14 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
 
     if report:
         if repconf.mongodb.enabled:
-            host = repconf.mongodb.host
-            port = repconf.mongodb.port
-            db = repconf.mongodb.db
             conn = MongoClient(
-                host, port=port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=db
+                host = repconf.mongodb.get("host", "127.0.0.1"),
+                port = repconf.mongodb.get("port", 27017),
+                username = repconf.mongodb.get("username", None),
+                password = repconf.mongodb.get("password", None),
+                authSource = repconf.mongodb.get("authSource", "admin"),
             )
-            mdata = conn[db]
+            mdata = conn[repconf.mongodb.get("db", "cuckoo")]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)

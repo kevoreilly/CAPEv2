@@ -1,3 +1,5 @@
+### [07-06-2021] MongoDB auth fixed
+
 ### [06-06-2021] Ratelimit strikes again
 * Reintroduce ratelimit to control abuses
 

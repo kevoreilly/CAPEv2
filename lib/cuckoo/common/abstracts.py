@@ -51,6 +51,7 @@ except ImportError:
 try:
     from tldextract import TLDExtract
     HAVE_TLDEXTRACT = True
+    logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
     HAVE_TLDEXTRACT = False
 

@@ -107,7 +107,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                 password = repconf.mongodb.get("password", None),
                 authSource = repconf.mongodb.get("authSource", "admin"),
             )
-            mdata = conn[db]
+            mdata = conn[repconf.mongodb.get("db", "cuckoo")]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)

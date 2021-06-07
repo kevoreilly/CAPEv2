@@ -14,6 +14,8 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import get_options
 
+
+sf_version = ""
 try:
     from sflock import unpack, __version__ as sf_version
     from sflock.unpack.office import OfficeFile

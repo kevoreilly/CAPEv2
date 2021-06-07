@@ -75,7 +75,8 @@ def check_webgui_mongo():
                 password=repconf.mongodb.get("password", None),
                 authSource = repconf.mongodb.get("authSource", "admin"),
             )
-            conn.server_info()
+            # ToDo check how to give user permission to read this without admin
+            # conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
             log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
             bad = True

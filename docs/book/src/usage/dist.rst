@@ -251,11 +251,11 @@ the Distributed CAPE script::
 
 without htaccess::
 
-    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/api/
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/
 
 with htaccess::
 
-    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8000/api/ \
+    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8000/apiv2/ \
       -F username=user -F password=password
 
 Having registered the CAPE nodes all that's left to do now is to submit
@@ -311,7 +311,7 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
         plugins = python
         callable = app
         ;change this patch if is different
-        chdir = /opt/CAPE/utils
+        chdir = /opt/CAPEv2/utils
         master = true
         mount = /=dist.py
         threads = 5
@@ -495,7 +495,38 @@ Administration and some useful commands::
     To migrate data ensure:
     $ sh.setBalancerState(true)
 
+
+User authentication and roles::
+
+    # To create ADMIN
+    use admin
+    db.createUser(
+        {
+            user: "ADMIN_USERNAME",
+            pwd: passwordPrompt(), // or cleartext password
+            roles: [ { role: "userAdminAnyDatabase", db: "admin" }, "readWriteAnyDatabase" ]
+        }
+    )
+
+    # To create user to read/write on specific database
+    se cuckoo
+    db.createUser(
+        {
+            user: "WORKER_USERNAME",
+            pwd:  passwordPrompt(),   // or cleartext password
+            roles: [ { role: "readWrite", db: "cuckoo" }]
+        }
+    )
+
+
+    # To enable auth in ``/etc/mongod.conf``, add next lines
+    security:
+        authorization: enabled
+
 Online:
+
+    Mongo Auth:
+        https://docs.mongodb.com/manual/tutorial/enable-authentication/
 
     Help about UWSGI:
         http://vladikk.com/2013/09/12/serving-flask-with-nginx-on-ubuntu/

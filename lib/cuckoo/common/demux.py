@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import sys
 import tempfile
 import logging
 
@@ -14,7 +15,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import get_options
 
 try:
-    from sflock import unpack
+    from sflock import unpack, __version__ as sf_version
     from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
@@ -23,6 +24,10 @@ try:
 except ImportError:
     print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U git+https://github.com/doomedraven/sflock")
     HAS_SFLOCK = False
+
+if sf_version != "0.3.13":
+    print("You using old version of sflock! Upgrade: pip3 install -U git+https://github.com/doomedraven/sflock")
+    sys.exit()
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()

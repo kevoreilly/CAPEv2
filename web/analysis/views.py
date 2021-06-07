@@ -122,7 +122,7 @@ if enabledconf["mongodb"]:
         port=settings.MONGO_PORT,
         username=settings.MONGO_USER,
         password=settings.MONGO_PASS,
-        authSource=settings.MONGO_DB,
+        authSource=settings.MONGO_AUTHSOURCE,
     )[settings.MONGO_DB]
 es_as_db = False
 essearch = False

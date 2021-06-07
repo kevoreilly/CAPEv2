@@ -27,7 +27,7 @@ if repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.db,
+        authSource=repconf.mongodb.get("authSource", "admin"),
     )[repconf.mongodb.db]
     FULL_DB = True
 

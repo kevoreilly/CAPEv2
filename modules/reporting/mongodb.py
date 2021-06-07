@@ -39,15 +39,15 @@ class MongoDB(Report):
         """Connects to Mongo database, loads options and set connectors.
         @raise CuckooReportError: if unable to connect.
         """
-        host = self.options.get("host", "127.0.0.1")
-        port = self.options.get("port", 27017)
-        db = self.options.get("db", "cuckoo")
-
         try:
             self.conn = MongoClient(
-                host, port=port, username=self.options.get("username", None), password=self.options.get("password", None), authSource=db
+                self.options.get("host", "127.0.0.1"),
+                port = self.options.get("port", 27017),
+                username = self.options.get("username", None),
+                password = self.options.get("password", None),
+                authSource = self.options.get("authSource", "admin"),
             )
-            self.db = self.conn[db]
+            self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:
             raise CuckooReportError("Mongo connection port must be integer")
         except ConnectionFailure:

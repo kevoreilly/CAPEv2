@@ -408,7 +408,7 @@ Add clients, execute on master mongo server::
     cfg.members[0].priority = 0.5
     cfg.members[1].priority = 0.5
     cfg.members[2].priority = 1
-    rs.reconfig(cfg)
+    rs.reconfig(cfg, {"force": true})
 
     # Add arbiter only
     rs.addArb("192.168.1.51:27017")

@@ -142,11 +142,7 @@ Some extra security TIP(s)
     #            unix timestamp of the ban time
     # Values:  CMD
 
-    actionban = curl -s -X POST "https://api.cloudflare.com/client/v4/user/firewall/access_rules/rules" \
-                -H "X-Auth-Email: <cfuser>" \
-                -H "X-Auth-Key: <cftoken>" \
-                -H "Content-Type: application/json" \
-                --data '{"mode":"block","configuration":{"target":"ip","value":"<ip>"},"notes":"Fail2ban"}'
+    actionban = curl -s -X POST "https://api.cloudflare.com/client/v4/user/firewall/access_rules/rules" -H "X-Auth-Email: <cfuser>" -H "X-Auth-Key: <cftoken>" -H "Content-Type: application/json" --data '{"mode":"block","configuration":{"target":"ip","value":"<ip>"},"notes":"Fail2ban"}'
 
     # Option:  actionunban
     # Notes.:  command executed when unbanning an IP. Take care that the

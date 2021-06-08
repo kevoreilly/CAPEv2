@@ -413,6 +413,9 @@ Add clients, execute on master mongo server::
     # Add arbiter only
     rs.addArb("192.168.1.51:27017")
 
+    # Add replica set member, secondary
+    rs.add({"host": "192.168.1.50:27017", "priority": 0.5})
+
     # add shards
     mongo --port 27020
 

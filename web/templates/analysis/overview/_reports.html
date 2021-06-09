@@ -5,28 +5,28 @@
     <div class="container">
         <div class="row">
             {% if config.jsondump %}
-                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
+                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "html" %}">JSON</a></div>
             {% endif %}
             {% if config.reporthtml %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML</a></div>
             {% endif %}
             {% if config.reporthtmlsummary %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsumary" %}">HTML summary report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsumary" %}">HTML summary</a></div>
             {% endif %}
             {% if config.reportpdf %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "pdf" %}">PDF report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "pdf" %}">PDF</a></div>
             {% endif %}
             {% if config.maec41 %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "maec" %}">MAEC report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "maec" %}">MAEC</a></div>
             {% endif %}
             {% if config.maec5 %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5 report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5</a></div>
             {% endif %}
             {% if config.mmdef %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata</a></div>
             {% endif %}
             {% if config.misp %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "misp" %}">MISP Report</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "misp" %}">MISP</a></div>
             {% endif %}
         </div>
     </div>

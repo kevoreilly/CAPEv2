@@ -169,7 +169,6 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
     data = False
-    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
 
     aggregation_command = [
         {"$match": {"detections": {"$exists":True}}},
@@ -187,8 +186,6 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     if data:
         data = list(data)
 
-    # ToDo verify
-    #results_db.close()
     return data
 
 # ToDo extend this to directly extract per day
@@ -232,7 +229,6 @@ def statistics(s_days: int) -> dict:
 
     tmp_custom = dict()
     tmp_data = dict()
-    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
     data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
     for analysis in data or []:
         for type_entry in analysis.get("statistics", []) or []:
@@ -271,6 +267,8 @@ def statistics(s_days: int) -> dict:
         return details
 
     for module_name in [u'signatures', u'processing', u'reporting']:
+        if module_name not in tmp_data:
+            continue
         # module_data = get_stats_per_category(module_name)
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
 
@@ -353,7 +351,6 @@ def statistics(s_days: int) -> dict:
 
     details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
-    #ToDo missed results_db.close()
     session.close()
     return details
 

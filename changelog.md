@@ -1,6 +1,18 @@
 ### [09-06-2021] RAMFS renamed to TMPFS
 * As TMPFS is better and modernish, and it was a naming typo
 
+```
+# only if you using volatility to speedup IO
+mkdir -p /mnt/tmpfs
+mount -t ramfs -o size=50g ramfs /mnt/ramfs
+chown cuckoo:cuckoo /mnt/ramfs
+vim /etc/fstab
+ramfs       /mnt/ramfs ramfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
+```
+
+* [ORJson](https://pypi.org/project/orjson/) library is now used for json report if installed
+    * orjson is a fast JSON library for Python. It benchmarks as the fastest Python library for JSON. Its serialization performance is 2x to 3x the nearest other library and 4.5x to 11.5x the standard library.
+
 ### [07-06-2021] MongoDB auth fixed
 * [Example of user/role creation](https://pymongo.readthedocs.io/en/stable/examples/authentication.html)
 ```

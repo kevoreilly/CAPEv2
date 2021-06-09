@@ -1,4 +1,15 @@
 ### [07-06-2021] MongoDB auth fixed
+* [Example of user/role creation](https://pymongo.readthedocs.io/en/stable/examples/authentication.html)
+```
+use admin
+db.createUser(
+    {
+        user: "WORKER_USERNAME",
+        pwd:  passwordPrompt(),   // or cleartext password
+        roles: [{ role: "readWrite", db: "cuckoo" }]
+    }
+)
+```
 
 ### [06-06-2021] Ratelimit strikes again
 * Reintroduce ratelimit to control abuses

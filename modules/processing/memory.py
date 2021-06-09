@@ -338,24 +338,24 @@ class Memory(Processing):
         self.voptions = Config("memory")
 
         results = {}
-        if HAVE_VOLATILITY:
-            if self.memory_path and os.path.exists(self.memory_path):
-                try:
-                    vol = VolatilityManager(self.memory_path)
-                    # only the memory dump and memory dump string paths are returned until vol3 is complete, strings output will be written if configured
-                    # memory dump file will be handled as configured
-                    results = vol.run()
-                except Exception:
-                    log.exception("Generic error executing volatility")
-                    if self.voptions.basic.delete_memdump_on_exception:
-                        try:
-                            os.remove(self.memory_path)
-                        except OSError:
-                            log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
-            else:
-                log.error("Memory dump not found: to run volatility you have to enable memory_dump")
-        else:
+        if not HAVE_VOLATILITY:
             log.error("Cannot run volatility module: volatility library not available")
+            return results
+
+        if self.memory_path and os.path.exists(self.memory_path):
+            try:
+                vol = VolatilityManager(self.memory_path)
+                results = vol.run()
+            except Exception:
+                log.exception("Generic error executing volatility")
+                if self.voptions.basic.delete_memdump_on_exception:
+                    try:
+                        os.remove(self.memory_path)
+                    except OSError:
+                        log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
+        else:
+            log.error("Memory dump not found: to run volatility you have to enable memory_dump")
+
 
         return results
 

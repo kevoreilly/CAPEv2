@@ -5,7 +5,8 @@
         {% for family, config in config_block.items %}
 
         <div class="card-header">
-            <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a></div>
+            <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a>
+        </div>
         <div id="{{family}}_config" class="collapse show">
             <table class="table table-striped table-bordered" style="table-layout: fixed;">
                 <tr>

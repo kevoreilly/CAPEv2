@@ -33,3 +33,5 @@ class TMPFSCLEAN(Report):
             log.debug("Storing memdump: {}".format(dest))
             if os.path.exists(src):
                 shutil.move(src, dest)
+            if os.path.exists(src + ".strings"):
+                shutil.move(src + ".strings", dest + ".strings")

@@ -29,7 +29,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import Dictionary
-from lib.cuckoo.common.utils import create_folder
+from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.url_validate import url as url_validator
 
@@ -675,7 +675,8 @@ class Processing(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
 
@@ -768,7 +769,8 @@ class Signature(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
 
         try:
             create_folder(folder=self.reports_path)
@@ -1565,7 +1567,8 @@ class Report(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:

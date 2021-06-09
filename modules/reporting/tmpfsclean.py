@@ -7,10 +7,10 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.utils import get_memdump_path
 
 log = logging.getLogger(__name__)
-reporting_conf = Config("reporting")
+repconf = Config("reporting")
 
 
-class RAMFSCLEAN(Report):
+class TMPFSCLEAN(Report):
     "Remove/save memdump"
     order = 9998
 
@@ -20,8 +20,8 @@ class RAMFSCLEAN(Report):
         if "store_memdump" in results["info"]["options"]:
             action  = "store"
 
-        if reporting_conf.ramfsclean.key in results:
-            if any(["checkme" in block for block in results[reporting_conf.ramfsclean.key]]):
+        if repconf.tmpfsclean.key in results:
+            if any(["checkme" in block for block in results[repconf.tmpfsclean.key]]):
                 action = "store"
 
         if action == "delete":

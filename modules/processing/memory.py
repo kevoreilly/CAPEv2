@@ -125,7 +125,7 @@ class VolatilityAPI(object):
             single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
             if os.path.exists(yara_rules_path):
-                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
+                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = "file:///" + yara_rules_path
 
         if pids:
             self.ctx.config["sandbox_pids"] = pids

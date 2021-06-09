@@ -48,12 +48,11 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 
-# it called ramfs, but it is tmpfs
-if hasattr(config, "ramfs"):
-    ramfs = config.ramfs
-    HAVE_RAMFS = True
+if hasattr(config, "tmpfs"):
+    tmpfs = config.tmpfs
+    HAVE_TMPFS = True
 else:
-    HAVE_RAMFS = False
+    HAVE_TMPFS = False
 
 log = logging.getLogger(__name__)
 
@@ -63,9 +62,9 @@ def free_space_monitor(path=False, RAM=False, return_value=False):
     while True:
         try:
             # Calculate the free disk space in megabytes.
-            if RAM and HAVE_RAMFS and ramfs.enabled:
-                space_available = shutil.disk_usage(ramfs.path).free >> 20
-                need_space = space_available < ramfs.freespace
+            if RAM and HAVE_TMPFS and tmpfs.enabled:
+                space_available = shutil.disk_usage(tmpfs.path).free >> 20
+                need_space = space_available < tmpfs.freespace
             else:
                 space_available = shutil.disk_usage(path).free >> 20
                 need_space = space_available < config.cuckoo.freespace
@@ -90,8 +89,8 @@ def get_memdump_path(id, analysis_folder=False):
     analysis_folder: force to return default analysis folder
     """
     id = str(id)
-    if HAVE_RAMFS and ramfs.enabled and analysis_folder is False:
-        memdump_path = os.path.join(ramfs.path, id + ".dmp")
+    if HAVE_TMPFS and tmpfs.enabled and analysis_folder is False:
+        memdump_path = os.path.join(tmpfs.path, id + ".dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
     return memdump_path

@@ -59,7 +59,7 @@ def connect_to_mongo():
                 port = repconf.mongodb.get("port", 27017),
                 username = repconf.mongodb.get("username", None),
                 password = repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authSource", "admin")
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
             )
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))

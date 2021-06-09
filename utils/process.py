@@ -105,7 +105,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                 port = repconf.mongodb.get("port", 27017),
                 username = repconf.mongodb.get("username", None),
                 password = repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authSource", "admin"),
+                authSource = repconf.mongodb.get("authsource", "admin"),
             )
             mdata = conn[repconf.mongodb.get("db", "cuckoo")]
             analyses = mdata.analysis.find({"info.id": int(task_id)})

@@ -51,7 +51,7 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource = repconf.mongodb.get("authSource", "admin")
+    authSource = repconf.mongodb.get("authsource", "cuckoo")
 )[repconf.mongodb.db]
 
 SCHEMA_VERSION = "703266a6bbc5"

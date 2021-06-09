@@ -72,7 +72,7 @@ if repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.get("authSource", "admin"),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
     )[repconf.mongodb.get("db", "cuckoo")]
 
 es_as_db = False

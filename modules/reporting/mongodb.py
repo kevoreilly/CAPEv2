@@ -45,7 +45,7 @@ class MongoDB(Report):
                 port = self.options.get("port", 27017),
                 username = self.options.get("username", None),
                 password = self.options.get("password", None),
-                authSource = self.options.get("authSource", "admin"),
+                authSource = self.options.get("authsource", "cuckoo"),
             )
             self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:

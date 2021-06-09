@@ -34,7 +34,7 @@ if repconf.mongodb and repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.get("authSource", "admin"),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
     )[repconf.mongodb.get("db", "cuckoo")]
 
 if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:

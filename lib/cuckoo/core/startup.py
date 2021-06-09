@@ -73,7 +73,7 @@ def check_webgui_mongo():
                 port=repconf.mongodb.port,
                 username=repconf.mongodb.get("username", None),
                 password=repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authSource", "admin"),
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
             )
             # ToDo check how to give user permission to read this without admin
             # conn.server_info()

@@ -33,6 +33,7 @@ if sys.maxsize > 2 ** 32:
 AGENT_VERSION = "0.11"
 AGENT_FEATURES = [
     "execpy",
+    "execute",
     "pinning",
     "logs",
     "largefile",

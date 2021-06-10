@@ -64,7 +64,7 @@ machines are returned::
                     }
                 ],
                 "name": "localhost",
-                "url": "http://0:8090/"
+                "url": "http://0:8000/apiv2/"
             }
         }
     }
@@ -77,8 +77,7 @@ POST /node
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
 if your Node API is behing htaccess authentication::
 
-    $ curl http://localhost:9003/node -F name=localhost \
-        -F url=http://localhost:8090/ -F apikey=apikey
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey
     {
         "machines": [
             {
@@ -100,7 +99,7 @@ Get basic information about a particular CAPE node::
     $ curl http://localhost:9003/node/localhost
     {
         "name": "localhost",
-        "url": "http://localhost:8090/"
+        "url": "http://localhost:8000/apiv2/"
     }
 
 .. _node_put:
@@ -111,7 +110,7 @@ PUT /node/<name>
 Update basic information of a CAPE node::
 
     $ curl -XPUT http://localhost:9003/node/localhost -F name=newhost \
-        -F url=http://1.2.3.4:8090/
+        -F url=http://1.2.3.4:8000/apiv2/
     null
 
     Additional Arguments:
@@ -142,7 +141,7 @@ For practical usage the following few commands will be most interesting.
 Register a CAPE node - a CAPE REST API running on the same machine in this
 case::
 
-    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8090/
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/
     Master server must be called master, the rest of names we don't care
 
 

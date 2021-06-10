@@ -114,13 +114,13 @@ def node_status(url, name, apikey):
     return {}
 
 
-def node_fetch_tasks(status, url, action="fetch", since=0):
+def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
     try:
         url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, verify=False)
+        r = requests.get(url, params=params, headers = {'Authorization': f'Token {apikey}'}, verify=False)
         if not r.ok:
             log.error(f"Error fetching task list. Status code: {r.status_code}")
             return []

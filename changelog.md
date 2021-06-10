@@ -1,13 +1,18 @@
+### [10-06-2021] dist.py
+* Migrates from ht_user/ht_pass to apikey for proper apiv2 integration
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration_dist && alembic upgrade head`
+
 ### [09-06-2021] RAMFS renamed to TMPFS
 * As TMPFS is better and modernish, and it was a naming typo
 
 ```
 # only if you using volatility to speedup IO
 mkdir -p /mnt/tmpfs
-mount -t ramfs -o size=50g ramfs /mnt/ramfs
-chown cuckoo:cuckoo /mnt/ramfs
+mount -t tmpfs -o size=50g tmpfs /mnt/tmpfs
+chown cape:cape /mnt/tmpfs
 vim /etc/fstab
-ramfs       /mnt/ramfs ramfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
+tmpfs       /mnt/tmpfs tmpfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
 ```
 
 * [ORJson](https://pypi.org/project/orjson/) library is now used for json report if installed
@@ -17,6 +22,18 @@ ramfs       /mnt/ramfs ramfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
 * [Example of user/role creation](https://pymongo.readthedocs.io/en/stable/examples/authentication.html)
 ```
 use admin
+
+# To Create root user
+use admin
+db.createUser(
+      {
+          user: "username",
+          pwd:  passwordPrompt(),   // or cleartext password
+          roles: [ "root" ]
+      }
+  )
+
+# To create user with perm RW on db
 db.createUser(
     {
         user: "WORKER_USERNAME",

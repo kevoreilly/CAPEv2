@@ -74,15 +74,15 @@ machines are returned::
 POST /node
 ----------
 
-Register a new CAPE node by providing the name and the URL. Optionally the ht_user and ht_pass,
+Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=localhost \
-        -F url=http://localhost:8090/ -F ht_user=username -F ht_pass=password
+        -F url=http://localhost:8090/ -F apikey=apikey
     {
         "machines": [
             {
-                "name": "cuckoo1",
+                "name": "cape1",
                 "platform": "windows",
                 "tags": []
             }
@@ -118,10 +118,8 @@ Update basic information of a CAPE node::
 
     * enabled
         False=0 or True=1 to activate or deactivate worker node
-    * ht_user
-        Username of htaccess authentication
-    * ht_pass
-        Passford of htaccess authentication
+    * apikey
+        apikey for authorization
 
 .. _node_delete:
 
@@ -210,39 +208,6 @@ and few more values
 
 Activate "[compression]" to compress dump by "process.py" and save time with retrieve
 
-
-conf/virtualbox.conf
-^^^^^^^^^^^^^^^^^^^^
-
-Assuming ``VirtualBox`` is the Virtual Machine manager of choice, the ``mode``
-will have to be changed to ``headless`` or you will have some restless nights.
-
-Setup Cuckoo
-------------
-
-On each machine the following three scripts should be ran::
-
-    ./cuckoo.py
-    cd web/ && python3 manage.py runserver 8000  # IP accessible by the Distributed script.
-    ./utils/process.py auto
-
-One way to do this is by placing each script in its own ``screen(1)`` session
-as follows, this allows one to check back on each script to ensure it's
-(still) running successfully::
-
-    $ screen -S cuckoo  ./cuckoo.py
-    $ screen -S web     cd web/ && python3 manage.py runserver 8000
-    $ screen -S process ./utils/process.py auto
-
-Setup Distributed Cuckoo
-------------------------
-
-On the first machine start a separate ``screen(1)`` session for the
-Distributed CAPE script with all the required parameters (see the rest of
-the documentation on the parameters for this script)::
-
-    $ screen -S distributed ./utils/dist.py
-
 Register CAPE nodes
 ---------------------
 
@@ -308,7 +273,7 @@ Is better if you run "web" and "dist.py" as uwsgi application
 uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
     [uwsgi]
-        plugins = python
+        plugins = python36
         callable = app
         ;change this patch if is different
         chdir = /opt/CAPEv2/utils
@@ -325,21 +290,23 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
         lazy = true
         timeout = 600
         chmod-socket = 664
-        chown-socket = cuckoo:cuckoo
-        gui = cuckoo
-        uid = cuckoo
+        chown-socket = cape:cape
+        gui = cape
+        uid = cape
+        harakiri = 30
+        hunder-lock = True
         stats = 127.0.0.1:9191
 
 
 To run your api with config just execute as::
 
     # WEBGUI is started by systemd as cape-web.service
-    $ uwsgi --ini /opt/cuckoo/utils/dist.ini
+    $ uwsgi --ini /opt/CAPEv2/utils/dist.ini
 
 To add your application to auto start after boot, move your config file to::
 
-    mv /opt/cuckoo/utils/dist.ini /etc/uwsgi/apps-available/cuckoo_dist.ini
-    ln -s /etc/uwsgi/apps-available/cuckoo_dist.ini /etc/uwsgi/apps-enabled
+    mv /opt/CAPEv2/utils/dist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     service uwsgi restart
 

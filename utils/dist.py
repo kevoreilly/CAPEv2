@@ -149,10 +149,13 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 
 def _delete_many(node, ids, nodes, db):
+
+    if nodes[node.id].name == "master":
+        return
     try:
-        url = os.path.join(nodes[node].url, "tasks", "delete_many/")
-        apikey = nodes[node].apikey
-        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        url = os.path.join(nodes[node.id].url, "tasks", "delete_many/")
+        apikey = nodes[node.id].apikey
+        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node.id].name))
         res = requests.post(
             url,
             headers = {'Authorization': f'Token {apikey}'},
@@ -163,7 +166,7 @@ def _delete_many(node, ids, nodes, db):
             log.info("{} - {}".format(res.status_code, res.content))
             db.rollback()
     except Exception as e:
-        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
+        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node.id].name, e)
         db.rollback()
 
 
@@ -594,7 +597,7 @@ class Retriever(threading.Thread):
 
             node = nodes[node_id]
             if node and details[node_id]:
-                ids = ",".join(details[node])
+                ids = ",".join(details[node_id])
                 _delete_many(node, ids, nodes, db)
 
             db.commit()
@@ -1080,7 +1083,7 @@ def cron_cleaner(clean_x_hours=False):
             if node and not details[node]:
                 continue
 
-            ids = ",".join(details[node])
+            ids = ",".join(details[node.id])
             _delete_many(node, ids, nodes, db)
 
     db.commit()

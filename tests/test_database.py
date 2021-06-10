@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 import os
-import tempfile
+from tempfile import NamedTemporaryFile
 
 from lib.cuckoo.core.database import Database, Task
 

@@ -1120,7 +1120,8 @@ def report(request, task_id):
     vba2graph = processing_cfg.vba2graph.enabled
     vba2graph_svg_content = ""
     vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
-    if os.path.exists(vba2graph_svg_path):
+
+    if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
         vba2graph_svg_content = open(vba2graph_svg_path, "rb").read().decode("utf8")
 
     bingraph = reporting_cfg.bingraph.enabled
@@ -1314,6 +1315,9 @@ def file(request, category, task_id, dlfile):
         else:
             if not os.path.exists(path):
                 return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
+
+            if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+                return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = os.path.getsize(path)
         resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
@@ -1342,6 +1346,10 @@ def procdump(request, task_id, process_id, start, end):
         analysis = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]["_source"]
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
+
+    if not os.path.normpath(dumpfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(dumpfile))})
+
     if not os.path.exists(dumpfile):
         dumpfile += ".zip"
         if not os.path.exists(dumpfile):
@@ -1411,6 +1419,9 @@ def filereport(request, task_id, category):
         file_name = str(task_id) + "_" + formats[category]
         content_type = "application/octet-stream"
 
+        if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
+            return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
+
         if os.path.exists(file_path):
             response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
             response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
@@ -1419,7 +1430,7 @@ def filereport(request, task_id, category):
 
         """
         elif enabledconf["distributed"]:
-            # check for memdump on slave
+            # check for memdump on workers
             try:
                 res = requests.get("http://127.0.0.1:9003/task/{task_id}".format(task_id=task_id), verify=False, timeout=30)
                 if res and res.ok and res.json()["status"] == 1:
@@ -1452,6 +1463,8 @@ def full_memory_dump_file(request, analysis_number):
                 return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             print(e)
+    if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
@@ -1473,6 +1486,8 @@ def full_memory_dump_strings(request, analysis_number):
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings.zip")
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
+    if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
     if filename:
         content_type = "application/octet-stream"
         response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
@@ -1685,8 +1700,11 @@ def pcapstream(request, task_id, conntuple):
         # This will check if we have a sorted PCAP
         test_pcap = conndata["network"]["sorted_pcap_sha256"]
         # if we do, build out the path to it
-        pcap_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
-        fobj = open(pcap_path, "rb")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
+        if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+            return render(request, "standalone_error.html", {"error": "File not found".format(os.path.basename(path))})
+
+        fobj = open(path, "rb")
     except Exception as e:
         # print str(e)
         return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
@@ -1749,6 +1767,8 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
+            if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+                return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
             headers = {"x-apikey": settings.VTDL_PRIV_KEY}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)

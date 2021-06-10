@@ -180,7 +180,7 @@ def node_submit_task(task_id, node_id):
         if task.tags:
             if task.tags[-1] == ",":
                 task.tags = task.tags[:-1]
-
+        apikey = node.apikey
         data = dict(
             package=task.package,
             timeout=task.timeout,

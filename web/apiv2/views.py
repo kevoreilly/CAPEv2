@@ -1193,7 +1193,7 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        if os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
     if not buf:
@@ -1972,7 +1972,7 @@ def tasks_config(request, task_id, cape_name=False):
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        if os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
     if es_as_db and not buf:

@@ -151,6 +151,7 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 def _delete_many(node, ids, nodes, db):
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
+        apikey = nodes[node].apikey
         log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
         res = requests.post(
             url,

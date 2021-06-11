@@ -169,6 +169,9 @@ class conditional_login_required(object):
             return func
         return self.decorator(func)
 
+def get_tags_tasks(task_ids: list) -> str:
+    for analysis in db.list_tasks(task_ids=task_ids):
+        return analysis.tags_tasks
 
 def get_analysis_info(db, id=-1, task=None):
     if not task:
@@ -181,6 +184,8 @@ def get_analysis_info(db, id=-1, task=None):
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
+
+    new.update({"user_task_tags": get_tags_tasks([new["id"]])})
 
     if "machine" in new and new["machine"]:
         machine = new["machine"]

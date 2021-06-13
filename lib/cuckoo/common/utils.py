@@ -48,25 +48,34 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 
+HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
     tmpfs = config.tmpfs
     HAVE_TMPFS = True
-else:
-    HAVE_TMPFS = False
 
 log = logging.getLogger(__name__)
 
 
-def free_space_monitor(path=False, RAM=False, return_value=False):
+def free_space_monitor(path=False, RAM=False, return_value=False, processing=False):
+    """
+    @param path: path to check
+    @param RAM: use TMPFS check
+    @param return_value: return available size
+    @param processing: check if half of the size from cuckoo.conf -> freespace available.
+    """
     need_space, space_available = False, 0
     while True:
         try:
             # Calculate the free disk space in megabytes.
             if RAM and HAVE_TMPFS and tmpfs.enabled:
                 space_available = shutil.disk_usage(tmpfs.path).free >> 20
+                if processing:
+                    space_available = int(space_available / 2)
                 need_space = space_available < tmpfs.freespace
             else:
                 space_available = shutil.disk_usage(path).free >> 20
+                if processing:
+                    space_available = int(space_available / 2)
                 need_space = space_available < config.cuckoo.freespace
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")

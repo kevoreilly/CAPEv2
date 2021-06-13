@@ -31,8 +31,9 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLETED
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
-from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
+from lib.cuckoo.core.plugins import RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
+from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_linux_dist
 from concurrent.futures import TimeoutError
 
@@ -226,6 +227,20 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
+
+            # If not enough free disk space is available, then we print an
+            # error message and wait another round (this check is ignored
+            # when the freespace configuration variable is set to zero).
+            if cfg.cuckoo.freespace:
+                # Resolve the full base path to the analysis folder, just in
+                # case somebody decides to make a symbolic link out of it.
+                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                need_space, space_available = free_space_monitor(dir_path, return_value=True)
+                if need_space:
+                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                    time.sleep(60)
+                    continue
+
             # If still full, don't add more (necessary despite pool).
             if len(pending_task_id_map) >= parallel:
                 time.sleep(5)

@@ -597,7 +597,7 @@ class Retriever(threading.Thread):
 
             node = nodes[node_id]
             if node and details[node_id]:
-                ids = ",".join(details[node_id])
+                ids = ",".join(list(set(details[node_id])))
                 _delete_many(node, ids, nodes, db)
 
             db.commit()

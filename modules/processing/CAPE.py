@@ -128,6 +128,10 @@ qakbot_id_map = {
     b"26": "#5",
 }
 
+special_parsing_list = (
+    "Strrat",
+)
+
 class CAPE(Processing):
     """CAPE output file processing."""
 
@@ -466,12 +470,9 @@ class CAPE(Processing):
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
 
-        special_parsing_list = ["Strrat", ]
-
-        if "detections" in self.results and submitted_file:
-            if self.results["detections"] in special_parsing_list:
-                cape_name = self.results["detections"].replace("_", " ")
-                tmp_config = static_config_parsers(cape_name, file_data)
+        if self.results.get("detections") in special_parsing_list and submitted_file:
+            cape_name = self.results["detections"].replace("_", " ")
+            tmp_config = static_config_parsers(cape_name, file_data)
                 if tmp_config and tmp_config[cape_name]:
                     config.update(tmp_config)
 

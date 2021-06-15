@@ -473,8 +473,8 @@ class CAPE(Processing):
         if self.results.get("detections") in special_parsing_list and submitted_file:
             cape_name = self.results["detections"].replace("_", " ")
             tmp_config = static_config_parsers(cape_name, file_data)
-                if tmp_config and tmp_config[cape_name]:
-                    config.update(tmp_config)
+            if tmp_config and tmp_config[cape_name]:
+                config.update(tmp_config)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:

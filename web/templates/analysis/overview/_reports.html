@@ -5,7 +5,7 @@
     <div class="container">
         <div class="row">
             {% if config.jsondump %}
-                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "html" %}">JSON</a></div>
+                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "json" %}">JSON</a></div>
             {% endif %}
             {% if config.reporthtml %}
                 <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML</a></div>

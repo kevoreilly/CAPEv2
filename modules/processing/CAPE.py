@@ -206,9 +206,11 @@ class CAPE(Processing):
                     cape_name = name_mapping[file_info["cape_type_code"]]
                 append_file = True
 
+                """
                 ConfigData = format(file_data)
                 if ConfigData:
                     config[cape_name].update({ConfigItem: [ConfigData]})
+                """
                 append_file = False
 
             # PlugX

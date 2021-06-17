@@ -25,7 +25,7 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category="", dupl
         log.warning("File {} doesn't exist anymore".format(file_path))
         return
     file_size = Path(file_path).stat().st_size
-    log.info((f"File {file_path} size is {file_size}, Max size: {config.upload_max_size}")
+    log.info(f"File {file_path} size is {file_size}, Max size: {config.upload_max_size}")
     if int(config.upload_max_size) < int(file_size) and config.do_upload_max_size is False:
         log.warning("File {} size is too big: {}, ignoring".format(file_path, file_size))
         return

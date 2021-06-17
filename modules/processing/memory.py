@@ -36,6 +36,8 @@ except Exception as e:
     print("Missed dependency: pip3 install volatility3 -U")
     HAVE_VOLATILITY = False
 
+mem_cfg = Config("memory")
+
 log = logging.getLogger()
 yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 
@@ -335,7 +337,7 @@ class Memory(Processing):
         @return: volatility results dict.
         """
         self.key = "memory"
-        self.voptions = Config("memory")
+        self.voptions = mem_cfg
 
         results = {}
         if not HAVE_VOLATILITY:

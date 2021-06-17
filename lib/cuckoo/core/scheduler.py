@@ -190,6 +190,9 @@ class AnalysisManager(threading.Thread):
         options["enforce_timeout"] = self.task.enforce_timeout
         options["clock"] = self.task.clock
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
+        options["upload_max_size"] = self.cfg.resultserver.upload_max_size
+        options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
+
 
         if not self.task.timeout or self.task.timeout == 0:
             options["timeout"] = self.cfg.timeouts.default

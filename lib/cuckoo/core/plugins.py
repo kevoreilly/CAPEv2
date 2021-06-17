@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.utils import get_vt_consensus
 from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
 from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
@@ -34,6 +33,13 @@ log = logging.getLogger(__name__)
 db = Database()
 _modules = defaultdict(dict)
 
+processing_cfg = Config("processing")
+reporting_cfg = Config("reporting")
+
+config_mapper = {
+    "processing": processing_cfg,
+    "reporting": reporting_cfg,
+}
 
 def import_plugin(name):
     try:
@@ -54,6 +60,12 @@ def import_package(package):
     for _, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         if ispkg:
             continue
+
+        # Disable initialization of disabled plugins, performance++
+        _, category, module_name = name.split(".")
+        if category in config_mapper and module_name in config_mapper[category].fullconfig and config_mapper[category].get(module_name).get("enabled", False) is False:
+            continue
+
         try:
             import_plugin(name)
         except Exception as e:
@@ -413,15 +425,8 @@ class RunProcessing(object):
                             self.results["malfamily_tag"] = "Suricata"
                             self.results["detections"] = family
 
-            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("results"):
-                detectnames = []
-                for res in self.results["virustotal"]["results"]:
-                    if res["sig"] and "Trojan.Heur." not in res["sig"]:
-                        # weight Microsoft's detection, they seem to be more accurate than the rest
-                        if res["vendor"] == "Microsoft":
-                            detectnames.append(res["sig"])
-                        detectnames.append(res["sig"])
-                family = get_vt_consensus(detectnames)
+            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("detection"):
+                family = self.results["virustotal"]["detection"]
                 self.results["malfamily_tag"] = "VirusTotal"
 
             # fall back to ClamAV detection
@@ -444,7 +449,7 @@ class RunSignatures(object):
     def __init__(self, task, results):
         self.task = task
         self.results = results
-        self.ttps = dict()
+        self.ttps = list()
         self.cfg_processing = Config("processing")
 
     def _load_overlay(self):
@@ -653,7 +658,7 @@ class RunSignatures(object):
                 else:
                     if result is True:
                         if hasattr(sig, "ttp"):
-                            [self.ttps.setdefault(ttp, sig.name) for ttp in sig.ttp]
+                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttp]
                         log.debug('Analysis matched signature "%s"', sig.name)
                         matched.append(sig.as_result())
                         if sig in complete_list:
@@ -679,7 +684,7 @@ class RunSignatures(object):
                     # If the signature is matched, add it to the list.
                     if match:
                         if hasattr(signature, "ttp"):
-                            [self.ttps.setdefault(ttp, signature.name) for ttp in signature.ttp]
+                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttp]
                         matched.append(match)
 
         # Sort the matched signatures by their severity level.

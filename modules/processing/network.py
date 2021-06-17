@@ -837,19 +837,6 @@ class Pcap:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
 
-        domainlookups = dict()
-        iplookups = dict()
-        # Creating dns information dicts by domain and ip.
-        if self.unique_domains:
-            domainlookups = dict((i["domain"], i["ip"]) for i in self.unique_domains)
-            iplookups = dict((i["ip"], i["domain"]) for i in self.unique_domains)
-            for i in self.results["dns"]:
-                for a in i["answers"]:
-                    iplookups[a["data"]] = i["request"]
-
-        self.results["domainlookups"] = domainlookups
-        self.results["iplookups"] = iplookups
-
         return self.results
 
 class Pcap2(object):
@@ -1084,8 +1071,9 @@ class NetworkAnalysis(Processing):
 
         if os.path.exists(pcap_path) and HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path)
-                results.update(p2.run())
+                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path).run()
+                if p2:
+                    results.update(p2)
             except:
                 log.exception("Error running httpreplay-based PCAP analysis")
 

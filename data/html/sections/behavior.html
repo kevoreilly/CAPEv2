@@ -3,7 +3,7 @@
         <div class="section-title">
             <h4>Anomalies</h4>
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <ul>
                 {% for anomaly in results.behavior.anomaly %}
                 <li><span class="mono">
@@ -19,7 +19,7 @@
         <div class="section-title">
             <h4>Behavior Summary</h4>
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Mutexes</b>
             {% if results.behavior.summary.mutexes %}
                 <ul>
@@ -31,7 +31,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Executed Commands</b>
             {% if results.behavior.summary.executed_commands %}
                 <ul>
@@ -43,7 +43,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Created Services</b>
             {% if results.behavior.summary["created_services"] %}
                 <ul>
@@ -55,7 +55,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Started Services</b>
             {% if results.behavior.summary["started_services"] %}
                 <ul>
@@ -150,7 +150,7 @@
         Nothing to display.
     {% endif %}
     {% endif %}
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Accessed Files</b>
             {% if results.behavior.summary.files %}
                 <ul>
@@ -162,7 +162,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Read Files</b>
             {% if results.behavior.summary.read_files %}
                 <ul>
@@ -174,7 +174,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Modified Files</b>
             {% if results.behavior.summary.write_files %}
                 <ul>
@@ -186,7 +186,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Deleted Files</b>
             {% if results.behavior.summary.delete_files %}
                 <ul>
@@ -198,7 +198,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Registry Keys</b>
             {% if results.behavior.summary["keys"] %}
                 <ul>
@@ -210,7 +210,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Read Registry Keys</b>
             {% if results.behavior.summary["read_keys"] %}
                 <ul>
@@ -222,7 +222,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Modified Registry Keys</b>
             {% if results.behavior.summary["write_keys"] %}
                 <ul>
@@ -234,7 +234,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Deleted Registry Keys</b>
             {% if results.behavior.summary["delete_keys"] %}
                 <ul>
@@ -246,7 +246,7 @@
                 Nothing to display.
             {% endif %}
         </div>
-        <div class="well well-small">
+        <div class="card card-body">
             <b>Resolved APIs</b>
             {% if results.behavior.summary.resolved_apis %}
                 <ul>

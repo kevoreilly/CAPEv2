@@ -93,12 +93,10 @@ $(document).ready( function() {
                     {% else %}
                         <div class="tab-pane fade show active" id="file">
                             <div class="input-group">
-                                <span class="input-group-append">
                                     <input type="text" class="form-control" readonly>
                                     <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="sample" multiple="multiple">
                                     </span>
-                                </span>
                             </div>
                         </div>
 
@@ -111,12 +109,10 @@ $(document).ready( function() {
                         </div>
                         {% endif %}
                         <div class="tab-pane fade show" id="quarantine">
-                            <div class="input-group col-md-6">
-                                <span class="input-group-append">
+                            <div class="input-group">
                                     <input type="text" class="form-control" readonly>
                                     <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="quarantine" multiple="multiple">
-                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -135,22 +131,18 @@ $(document).ready( function() {
                         </div>
                         {% endif %}
                         <div class="tab-pane fade show" id="pcap">
-                            <div class="input-group col-md-6">
-                                <span class="input-group-append">
+                            <div class="input-group">
                                     <input type="text" class="form-control" readonly>
                                     <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="pcap" multiple="multiple">
                                     </span>
-                                </span>
                             </div>
                         </div>
                         <div class="tab-pane fade show" id="static">
-                            <div class="input-group col-md-6">
-                                <span class="input-group-append">
+                            <div class="input-group">
                                     <input type="text" class="form-control" readonly>
                                     <span class="btn btn-secondary btn-file">
                                         Select <input type="file" name="static" multiple="multiple">
-                                    </span>
                                 </span>
                             </div>
                         </div>
@@ -232,6 +224,9 @@ $(document).ready( function() {
                                     <select class="form-control" id="form_route" name="route">
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
+                                        {% endif %}}
+                                        {% if random_route %}
+                                            <option value="{{random_route}}" selected>{{random_route}}</option>
                                         {% endif %}
                                         {% if inetsim %}
                                             <option value="inetsim">inetsim/fakenet-ng</option>
@@ -240,14 +235,12 @@ $(document).ready( function() {
                                             <option value="tor">tor</option>
                                         {% endif %}
                                         {% for vpn in vpns %}
-                                            <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
+                                            <option value="{{ vpn.name }}">{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
                                         {% endfor %}
+
                                         {% for socks5 in socks5s|dictsort:"0.lower" %}
-                                            <option value="{{ socks5.name }}"{% if route == socks5.name %} selected{% endif %}>{{ socks5.description }} (socks5)</option>
+                                            <option value="{{ socks5.name }}">{{ socks5.description }} (socks5)</option>
                                         {% endfor %}
-                                        {% if socks5s_random %}
-                                            <option value="{{socks5s_random}}" selected>{{socks5s_random}} (socks5)</option>
-                                        {% endif %}
                                         <option value="none" >Drop all VM traffic</option>
                                     </select>
                                 </div>
@@ -378,6 +371,10 @@ $(document).ready( function() {
                                                     <td>Exclude the colon-separated list of DLLs from being hooked</td>
                                                 </tr>
                                                 <tr>
+                                                    <td><code>dropped-limit</code></td>
+                                                    <td>Override the default dropped file limit of 100 files</td>
+                                                </tr>
+                                                <tr>
                                                     <td><code>compression</code></td>
                                                     <td>When set to 1 this will enable CAPE's extraction of compressed payloads</td>
                                                 </tr>
@@ -395,7 +392,7 @@ $(document).ready( function() {
                                                 </tr>
                                                 <tr>
                                                     <td><code>dump-on-api</code></td>
-                                                    <td>Dump the calling module when a function from the colon-separated list of APIs is used (requires DumpOnAPI package)</td>
+                                                    <td>Dump the calling module when a function from the colon-separated list of APIs is used</td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>bp0</code></td>
@@ -513,10 +510,6 @@ $(document).ready( function() {
                             <div class="form-group">
                                 <label for="form_tags_tasks">Tasks Tags(allows set "tag" for your jobs)</label>
                                 <input type="text" class="form-control" id="form_tags_tasks" name="tags_tasks" />
-                            </div>
-                            <div class="form-group">
-                                <label for="form_cape">CAPE options</label>
-                                <input type="text" class="form-control" id="form_cape" name="cape" />
                             </div>
                             <div class="form-group">
                                 <label for="form_custom">Custom</label>

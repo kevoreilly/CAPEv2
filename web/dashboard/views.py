@@ -16,6 +16,7 @@ from lib.cuckoo.core.database import Database, TASK_PENDING, TASK_RUNNING, TASK_
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_RECOVERED
 from lib.cuckoo.core.database import TASK_REPORTED, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING
+from lib.cuckoo.common.web_utils import top_detections
 
 # Conditional decorator for web authentication
 class conditional_login_required(object):
@@ -24,6 +25,8 @@ class conditional_login_required(object):
         self.condition = condition
 
     def __call__(self, func):
+        if settings.ANON_VIEW:
+            return func
         if not self.condition:
             return func
         return self.decorator(func)
@@ -68,5 +71,6 @@ def index(request):
 
         report["estimate_hour"] = int(hourly)
         report["estimate_day"] = int(24 * hourly)
+        report["top_detections"] = top_detections()
 
     return render(request, "dashboard/index.html", {"report": report})

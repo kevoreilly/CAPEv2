@@ -10,7 +10,6 @@ import sys
 import logging
 import tempfile
 import random
-import datetime
 
 try:
     import re2 as re
@@ -28,8 +27,8 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
+from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
+from lib.cuckoo.common.web_utils import download_file, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
 
 
 # this required for hash searches
@@ -56,12 +55,12 @@ if repconf.mongodb.enabled:
     import pymongo
 
     results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.db,
-    )[repconf.mongodb.db]
+        settings.MONGO_HOST,
+        port=settings.MONGO_PORT,
+        username=settings.MONGO_USER,
+        password=settings.MONGO_PASS,
+        authSource=settings.MONGO_AUTHSOURCE,
+    )[settings.MONGO_DB]
     FULL_DB = True
 
 def get_form_data(platform):
@@ -139,10 +138,10 @@ def index(request, resubmit_hash=False):
         options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
         opt_filename = get_user_filename(options, custom)
 
-        if priority and web_conf.public.enabled and web_conf.public.priority:
+        if priority and web_conf.public.enabled and web_conf.public.priority and not request.user.is_staff:
             priority = web_conf.public.priority
 
-        if timeout and web_conf.public.enabled and web_conf.public.timeout:
+        if timeout and web_conf.public.enabled and web_conf.public.timeout and not request.user.is_staff:
             timeout = web_conf.public.timeout
 
         if options:
@@ -260,7 +259,7 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
                 sha256 = File(path).get_sha256()
-                if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
+                if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
                     details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
                     continue
 
@@ -484,9 +483,27 @@ def index(request, resubmit_hash=False):
         packages, machines = get_form_data("windows")
 
         socks5s = _load_socks5_operational()
+
         socks5s_random = ""
+        vpn_random = ""
+
+        if routing.socks5.random_socks5 and socks5s:
+            socks5s_random = random.choice(socks5s.values()).get("name", False)
+
+        if routing.vpn.random_vpn:
+            vpn_random =  random.choice(list(vpns.values())).get("name", False)
+
         if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("description", False)
+            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
+
+        random_route = False
+        if vpn_random and socks5s_random:
+            random_route = random.choice((vpn_random, socks5s_random))
+        elif vpn_random:
+            random_route = vpn_random
+        elif socks5s_random:
+            random_route = socks5s_random
+
 
         existent_tasks = dict()
         if resubmit_hash:
@@ -502,8 +519,8 @@ def index(request, resubmit_hash=False):
                 "packages": sorted(packages),
                 "machines": machines,
                 "vpns": list(vpns.values()),
+                "random_route": random_route,
                 "socks5s": list(socks5s.values()),
-                "socks5s_random": socks5s_random,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

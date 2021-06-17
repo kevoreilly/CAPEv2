@@ -45,7 +45,7 @@ def choose_package(file_type, file_name, exports, target):
         or "Microsoft Office Word" in file_type
         or "Microsoft OOXML" in file_type
         or "MIME entity" in file_type
-        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso"))
+        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk"))
     ):
         return "doc"
     elif (

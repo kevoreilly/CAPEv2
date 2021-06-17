@@ -21,6 +21,10 @@ from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLo
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 
+# Sflock does a good filetype recon
+from sflock.abstracts import File as SflockFile
+from sflock.ident import identify as sflock_identify
+
 try:
     from sqlalchemy import create_engine, Column, event
     from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_
@@ -33,6 +37,11 @@ try:
 except ImportError:
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `pip3 install sqlalchemy`)")
 
+
+sandbox_packages = (
+    "nsis", "cpl", "regsvr", "dll", "exe", "pdf", "pub", "doc", "xls", "ppt", "jar", "zip", "rar", "swf", "python", "msi", "ps1", "msg", "eml", "js", "html", "hta", "xps", "wsf", "mht", "doc", "vbs", "lnk", "chm", "hwp", "inp", "vbs", "js", "vbejse",
+)
+
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 repconf = Config("reporting")
@@ -42,10 +51,11 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource=repconf.mongodb.db,
+    authSource = repconf.mongodb.get("authsource", "cuckoo")
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "6ab863a3b510"
+SCHEMA_VERSION = "6dc79a3ee6e4"
+TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"
@@ -299,6 +309,7 @@ class Task(Base):
     completed_on = Column(DateTime(timezone=False), nullable=True)
     status = Column(
         Enum(
+            TASK_BANNED,
             TASK_PENDING,
             TASK_RUNNING,
             TASK_COMPLETED,
@@ -1092,6 +1103,7 @@ class Database(object, metaclass=Singleton):
         cape = False,
         tags_tasks = False,
         user_id = 0,
+        username = False,
 
     ):
         """Add a task to database.
@@ -1115,6 +1127,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user if auth enabled
+        @param username: username for custom auth
         @return: cursor or None.
         """
         session = self.Session()
@@ -1198,8 +1211,9 @@ class Database(object, metaclass=Singleton):
         task.tags_tasks = tags_tasks
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
-            for tag in tags.replace(" ", "").split(","):
-                task.tags.append(self._get_or_create(session, Tag, name=tag))
+            for tag in tags.split(","):
+                if tag.strip():
+                    task.tags.append(self._get_or_create(session, Tag, name=tag))
 
         if clock:
             if isinstance(clock, str):
@@ -1215,6 +1229,7 @@ class Database(object, metaclass=Singleton):
             task.clock = datetime.utcfromtimestamp(0)
 
         task.user_id = user_id
+        task.username = username
 
         session.add(task)
 
@@ -1257,6 +1272,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
+        username=False
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1278,6 +1294,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
+        @username: username from custom auth
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1315,6 +1332,7 @@ class Database(object, metaclass=Singleton):
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id,
+            username=username,
         )
 
     def demux_sample_and_add_to_db(
@@ -1345,6 +1363,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         user_id=0,
+        username=False
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1386,10 +1405,20 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id)
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
+
+                if not package:
+                    f = SflockFile.from_path(file)
+                    tmp_package = sflock_identify(f)
+                    if tmp_package and tmp_package in sandbox_packages:
+                        package = tmp_package
+                    else:
+                        log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
+                    del f
+
                 task_id = self.add_path(
                     file_path=file.decode(),
                     timeout=timeout,
@@ -1415,6 +1444,7 @@ class Database(object, metaclass=Singleton):
                     tags_tasks=tags_tasks,
                     cape=cape,
                     user_id=user_id,
+                    username=username,
                 )
             if task_id:
                 task_ids.append(task_id)
@@ -1447,6 +1477,7 @@ class Database(object, metaclass=Singleton):
         parent_id=None,
         tlp=None,
         user_id=0,
+        username=False,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1468,6 +1499,7 @@ class Database(object, metaclass=Singleton):
             parent_id,
             tlp,
             user_id,
+            username,
         )
 
     @classlock
@@ -1493,6 +1525,7 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=True,
         user_id=0,
+        username=False,
     ):
         return self.add(
             Static(file_path.decode()),
@@ -1515,6 +1548,7 @@ class Database(object, metaclass=Singleton):
             tlp,
             static,
             user_id = user_id,
+            username = username,
         )
 
     @classlock
@@ -1542,6 +1576,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
+        username = False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1560,6 +1595,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user
+        @param username: username for custom auth
         @return: cursor or None.
         """
 
@@ -1592,6 +1628,7 @@ class Database(object, metaclass=Singleton):
             cape = cape,
             tags_tasks = tags_tasks,
             user_id = user_id,
+            username = username,
         )
 
     @classlock
@@ -2188,3 +2225,16 @@ class Database(object, metaclass=Singleton):
             session.close()
 
         return source_url
+
+    @classlock
+    def ban_user_tasks(self, user_id: int):
+        """
+            Ban all tasks submitted by user_id
+            @param user_id: user id
+        """
+
+        session = self.Session()
+        _ = session.query(Task).filter(Task.user_id == int(user_id)).filter(Task.status == TASK_PENDING).update(
+           {Task.status: TASK_BANNED}, synchronize_session=False)
+        session.commit()
+        session.close()

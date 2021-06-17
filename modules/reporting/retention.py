@@ -21,30 +21,28 @@ from lib.cuckoo.core.database import Database, Task, TASK_REPORTED
 from bson.objectid import ObjectId
 
 log = logging.getLogger(__name__)
-cfg = Config("reporting")
+repconf = Config("reporting")
 db = Database()
 lock = Lock()
 
 # Global connections
-if cfg.mongodb and cfg.mongodb.enabled:
+if repconf.mongodb and repconf.mongodb.enabled:
     from pymongo import MongoClient
 
-    host = cfg.mongodb.get("host", "127.0.0.1")
-    port = cfg.mongodb.get("port", 27017)
-    mdb = cfg.mongodb.get("db", "cuckoo")
-    try:
-        results_db = MongoClient(
-            host, port=port, username=cfg.mongodb.get("username", None), password=cfg.mongodb.get("password", None), authSource=mdb
-        )[mdb]
-    except Exception as e:
-        log.warning("Unable to connect to MongoDB: %s", str(e))
+    results_db = MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
+    )[repconf.mongodb.get("db", "cuckoo")]
 
-if cfg.elasticsearchdb and cfg.elasticsearchdb.enabled and not cfg.elasticsearchdb.searchonly:
+if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
 
-    idx = cfg.elasticsearchdb.index + "-*"
+    idx = repconf.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(hosts=[{"host": cfg.elasticsearchdb.host, "port": cfg.elasticsearchdb.port,}], timeout=60,)
+        es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60,)
     except Exception as e:
         log.warning("Unable to connect to ElasticSearch: %s", str(e))
 
@@ -188,11 +186,11 @@ class Retention(Report):
                         if item != "mongo" and item != "elastic":
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
-                            if cfg.mongodb and cfg.mongodb.enabled:
+                            if repconf.mongodb and repconf.mongodb.enabled:
                                 delete_mongo_data(curtask, lastTask)
                         """
                         elif item == "elastic":
-                            if cfg.elasticsearchdb and cfg.elasticsearchdb.enabled and not cfg.elasticsearchdb.searchonly:
+                            if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)
                         """
                     saveTaskLogged[item] = int(lastTask)

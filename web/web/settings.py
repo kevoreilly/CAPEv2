@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import sys
 import os
 
+from pathlib import Path
+
 try:
     import re2 as re
 except ImportError:
@@ -13,6 +15,9 @@ except ImportError:
 # Cuckoo path.
 CUCKOO_PATH = os.path.join(os.getcwd(), "..")
 sys.path.append(CUCKOO_PATH)
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 from lib.cuckoo.common.config import Config
 
 # In case we have VPNs enabled we need to initialize through the following
@@ -45,6 +50,7 @@ MONGO_PORT = cfg.mongodb.get("port", 27017)
 MONGO_DB = cfg.mongodb.get("db", "cuckoo")
 MONGO_USER = cfg.mongodb.get("username", None)
 MONGO_PASS = cfg.mongodb.get("password", None)
+MONGO_AUTHSOURCE = cfg.mongodb.get("authsource", "cuckoo")
 
 ELASTIC_HOST = cfg.elasticsearchdb.get("host", "127.0.0.1")
 ELASTIC_PORT = cfg.elasticsearchdb.get("port", 9200)
@@ -52,7 +58,7 @@ ELASTIC_INDEX = cfg.elasticsearchdb.get("index", "cuckoo")
 
 moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl
-zip_cfg = aux_cfg.zipped_download
+zip_cfg = web_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
@@ -74,6 +80,7 @@ OPT_ZER0M0N = False
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
+ANON_VIEW = web_cfg.general.anon_viewable
 
 # If false run next command
 # python3 manage.py runserver 0.0.0.0:8000 --insecure
@@ -117,7 +124,7 @@ except ImportError:
 
 try:
     from captcha.fields import ReCaptchaField
-    from captcha.widgets import ReCaptchaV3
+    from captcha.widgets import ReCaptchaV2Checkbox
 except ImportError:
     sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
 
@@ -187,9 +194,10 @@ MIDDLEWARE = [
     # Cuckoo headers.
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
-    #'ratelimit.middleware.RatelimitMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
+    # in case you want custom auth, place logic in web/web/middleware.py
+    # "web.middleware.CustoAuth",
 ]
 
 OTP_TOTP_ISSUER = 'CAPE Sandbox'
@@ -203,9 +211,7 @@ ROOT_URLCONF = "web.urls"
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = "web.wsgi.application"
 
-RATELIMIT_VIEW = "api.views.limit_exceeded"
-
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -218,8 +224,8 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     "analysis",
     "compare",
-    "api",
-    "ratelimit",
+    "apiv2",
+    "users",
 
     'django_extensions',
     'django_otp',
@@ -337,18 +343,26 @@ INSTALLED_APPS = (
 
     "rest_framework",
     'rest_framework.authtoken',
-)
+]
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
-            'DEFAULT_AUTHENTICATION_CLASSES': [
-                'rest_framework.authentication.TokenAuthentication',
-                'rest_framework.authentication.SessionAuthentication',
-            ],
-            'DEFAULT_PERMISSION_CLASSES': (
-                'rest_framework.permissions.IsAuthenticated',
-            ),
+        'DEFAULT_AUTHENTICATION_CLASSES': [
+            'rest_framework.authentication.TokenAuthentication',
+            'rest_framework.authentication.SessionAuthentication',
+        ],
+        'DEFAULT_PERMISSION_CLASSES': (
+            'rest_framework.permissions.IsAuthenticated',
+        ),
+        'DEFAULT_THROTTLE_CLASSES': [
+            'rest_framework.throttling.UserRateThrottle',
+            'apiv2.throttling.SubscriptionRateThrottle'
+        ],
+        'DEFAULT_THROTTLE_RATES': {
+            'user': '5/m',
+            'subscription': '5/m',
         }
+    }
 
 else:
     REST_FRAMEWORK = {
@@ -449,9 +463,6 @@ ALLOWED_HOSTS = ["*"]
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
 
-# Don't forget to give some love to @doomedraven ;)
-RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
-
 SECURE_REFERRER_POLICY = "same-origin" # "no-referrer-when-downgrade"
 
 # https://django-csp.readthedocs.io/en/latest/configuration.html
@@ -466,6 +477,8 @@ CSP_REPORT_PERCENTAGE = 0.6
 CSP_FONT_SRC = ["https://fonts.googleapis.com"]
 CSP_STYLE_SRC = ["'self'"]
 CSP_IMG_SRC = ["'self'"]
+
+RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free request per minute for anon users. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
 
 # Hack to import local settings.
 try:

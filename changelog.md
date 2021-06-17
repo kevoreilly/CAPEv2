@@ -1,3 +1,119 @@
+### [17-06-2021]
+* add `username` field to be used for custom auth
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration && alembic upgrade head`
+
+### [13-06-2021]
+* Introdiced checker of available space in process.py to prevent system run out of memory and generate a lot of troubles
+
+### [10-06-2021] dist.py
+* Migrates from ht_user/ht_pass to apikey for proper apiv2 integration
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration_dist && alembic upgrade head`
+
+### [09-06-2021] RAMFS renamed to TMPFS
+* As TMPFS is better and modernish, and it was a naming typo
+
+```
+# only if you using volatility to speedup IO
+mkdir -p /mnt/tmpfs
+mount -t tmpfs -o size=50g tmpfs /mnt/tmpfs
+chown cape:cape /mnt/tmpfs
+vim /etc/fstab
+tmpfs       /mnt/tmpfs tmpfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
+```
+
+* [ORJson](https://pypi.org/project/orjson/) library is now used for json report if installed
+    * orjson is a fast JSON library for Python. It benchmarks as the fastest Python library for JSON. Its serialization performance is 2x to 3x the nearest other library and 4.5x to 11.5x the standard library.
+
+### [07-06-2021] MongoDB auth fixed
+* [Example of user/role creation](https://pymongo.readthedocs.io/en/stable/examples/authentication.html)
+```
+use admin
+
+# To Create root user
+use admin
+db.createUser(
+      {
+          user: "username",
+          pwd:  passwordPrompt(),   // or cleartext password
+          roles: [ "root" ]
+      }
+  )
+
+# To create user with perm RW on db
+db.createUser(
+    {
+        user: "WORKER_USERNAME",
+        pwd:  passwordPrompt(),   // or cleartext password
+        roles: [{ role: "readWrite", db: "cuckoo" }]
+    }
+)
+```
+
+### [06-06-2021] Ratelimit strikes again
+* Reintroduce ratelimit to control abuses
+
+### [04-06-2021]
+* Allow anon users list reports and view them
+    * `conf/web.conf ->  general -> anon_viewable`
+
+### [31-05-2021]
+* Monitor updates:
+    * Fixes for NtCreateProcessEx hook, regsvr32 arg parsing, branch tracing (debugger)
+    * Remove instruction filtering from ntdll protection
+    * Add more debug logging to YaraHarness
+
+### [15-05-2021]
+* Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
+
+### [06-05-2021] Docs about throttling and yara categories
+* __ACTION REQUIRED!__
+    * Update sflock library - we suggest you to keep an eye on this repo!
+        * `pip3 install --force-reinstall -U git+https://github.com/doomedraven/sflock/`
+
+### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
+* Add button to ban user and their pending tasks on admin tab
+    * __ACTION REQUIRED!__
+        * `cd utils/db_migration/ && alembic upgrade head`
+        * `sudo systemctl restart cape.service cape-web.service`
+
+### [01-05-2021]
+* Dirty cluster admin utils helper -> `admin/admin.py`, see `-h`
+
+### [28-04-2021]
+* Strings tab are under the file info on main page
+* VirusTotal tab are also under the file info on main page
+* VT apiv3 integrated
+
+### [23-04-2021]
+* Pyattck v3.0.1 support
+* If you are using alternative location to `/opt/CAPEv2` and wants to use `MITRE TTPs` next action is required:
+    * you need to update value of `data_path` in config `data/mitre/config.yml`
+
+### [18-04-2021]
+* Move MITRE ATT&CK from tab to collapse table after signatures
+
+### [15-04-2021]
+* Allow pass search patter in url: `analysis/search/detections:<family>/`
+
+### [13-04-2021]
+* Add example how to add custom auth, see `web/web/middleware.py`
+
+### [06-04-2021] Small performance improvements
+* New dependecy `ujson`
+    * __REQUIRED ACTION:__ -> `pip3 install ujson -U`
+
+
+### [23-03-2021] API Suscription
+* Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
+* This was done with huge help from those writeups
+    - [How to add susctiption based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
+    - [How to add custom fields to user profile](https://simpleisbetterthancomplex.com/tutorial/2016/11/23/how-to-add-user-profile-to-django-admin.html)
+
+* __REQUIRED ACTION:__ -> `cd web && python3 manage.py migrate`
+
+
 ### [09-02-2021] Registration more configrations
 * Allow enable/disable all new users to activate them by hand
 * Disable new users after email verification if set `manual_approve` in `conf/web.conf`

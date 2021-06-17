@@ -6,9 +6,7 @@
     </br></br>
     {% else %}
         {% if graphs.bingraph.enabled %}
-        <h4>BinGraph
             <p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
-        </h4>
         {% endif %}
     {% endif %}
     {% if analysis.static.flare_capa %}

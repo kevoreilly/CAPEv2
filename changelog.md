@@ -1,3 +1,8 @@
+### [17-06-2021]
+* add `username` field to be used for custom auth
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration && alembic upgrade head`
+
 ### [13-06-2021]
 * Introdiced checker of available space in process.py to prevent system run out of memory and generate a lot of troubles
 

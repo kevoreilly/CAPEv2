@@ -453,6 +453,13 @@ def download_file(**kwargs):
             tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
+    username = False
+    """
+    put here your custom username assignation from your custom auth, Ex:
+    request_url = kwargs["request"].build_absolute_uri()
+    if "yourdomain.com/submit/" in request_url:
+        username = kwargs["request"].COOKIES.get("X-user")
+    """
 
     # in case if user didn't specify routing, and we have enabled random route
     if not route:
@@ -573,6 +580,7 @@ def download_file(**kwargs):
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
+            username = username,
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )

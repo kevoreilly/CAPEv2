@@ -61,22 +61,23 @@ def free_space_monitor(path=False, RAM=False, return_value=False, processing=Fal
     @param path: path to check
     @param RAM: use TMPFS check
     @param return_value: return available size
-    @param processing: check if half of the size from cuckoo.conf -> freespace available.
+    @param processing: size from cuckoo.conf -> freespace_processing.
     """
     need_space, space_available = False, 0
     while True:
         try:
             # Calculate the free disk space in megabytes.
-            if RAM and HAVE_TMPFS and tmpfs.enabled:
-                space_available = shutil.disk_usage(tmpfs.path).free >> 20
-                if processing:
-                    space_available = int(space_available / 2)
-                need_space = space_available < tmpfs.freespace
+            # Check main FS if processing
+            if processing:
+                free_space = config.cuckoo.freespace_processing
+            elif RAM and HAVE_TMPFS and tmpfs.enabled:
+                path = tmpfs.path
+                free_space = tmpfs.freespace
             else:
-                space_available = shutil.disk_usage(path).free >> 20
-                if processing:
-                    space_available = int(space_available / 2)
-                need_space = space_available < config.cuckoo.freespace
+                free_space = config.cuckoo.freespace
+
+            space_available = shutil.disk_usage(path).free >> 20
+            need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
             os.makedirs(path)

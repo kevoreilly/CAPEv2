@@ -1,3 +1,6 @@
+### [13-06-2021]
+* Introdiced checker of available space in process.py to prevent system run out of memory and generate a lot of troubles
+
 ### [10-06-2021] dist.py
 * Migrates from ht_user/ht_pass to apikey for proper apiv2 integration
 * __ACTION REQUIRED__ if you using dist.py

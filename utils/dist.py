@@ -807,7 +807,12 @@ class StatusThread(threading.Thread):
             # HACK: This exception handling here is a big hack as well as db should check if the
             # there is any issue with the current session (expired or database is down.).
             try:
-                # Request a status update on all Cuckoo nodes.
+                # Remove disabled nodes
+                for node in db.query(Node).filter_by(enabled=False).all() or []:
+                    if node.name in STATUSES:
+                        del STATUSES[node.name]
+
+                # Request a status update on all CAPE nodes.
                 for node in db.query(Node).filter_by(enabled=True).all():
                     status = node_status(node.url, node.name, node.apikey)
                     if not status:
@@ -818,7 +823,8 @@ class StatusThread(threading.Thread):
                             log.info("[-] {} dead".format(node.name))
                             #node.enabled = False
                             db.commit()
-                            #STATUSES[node.name]["enabled"] = False
+                            if node.name in STATUSES:
+                                del STATUSES[node.name]
                         continue
                     failed_count[node.name] = 0
                     log.info("Status.. %s -> %s", node.name, status["tasks"])

@@ -58,7 +58,7 @@ ELASTIC_INDEX = cfg.elasticsearchdb.get("index", "cuckoo")
 
 moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl
-zip_cfg = aux_cfg.zipped_download
+zip_cfg = web_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)

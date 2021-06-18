@@ -1,36 +1,5 @@
 <section id="static_analysis">
     {% load key_tags %}
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
-        {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
-    </br></br>
-    {% else %}
-        {% if graphs.bingraph.enabled %}
-            <p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
-        {% endif %}
-    {% endif %}
-    {% if analysis.static.flare_capa %}
-    <p><a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a></p>
-        <div class="collapse" id="flare_capa">
-            <div class="card card-body">
-            <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-            {% if analysis.static.flare_capa.CAPABILITY %}
-                {{analysis.static.flare_capa|flare_capa_capability}}
-            {% endif %}
-
-            {% if analysis.static.flare_capa.ATTCK %}
-                {{analysis.static.flare_capa|flare_capa_attck}}
-            {% endif %}
-
-            {% if analysis.static.flare_capa.MBC %}
-                {{analysis.static.flare_capa|flare_capa_mbc}}
-            {% endif %}
-            </div>
-        </div>
-    </br>
-    {% else %}
-        <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate CAPA</a></p>
-    {% endif %}
     {% if analysis.static and analysis.static.pe %}
             <div>
                 <h4>PE Information</h4>

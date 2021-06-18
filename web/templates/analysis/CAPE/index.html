@@ -163,7 +163,7 @@
                     <a href="{% url "file" "CAPEZIP" id file.sha256 %}" class="btn btn-secondary btn-sm">Download zip</a>
                     <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate CAPA</a>
-                    {% if config.bingraph and bingraph.enabled and not bingraph.content|getkey:file.sha256%}
+                    {% if config.bingraph and not bingraph.content|getkey:file.sha256%}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a>
                     {% endif %}
                 </td>

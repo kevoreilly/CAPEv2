@@ -82,7 +82,10 @@ reporting_cfg = Config("reporting")
 # On demand features
 HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    try:
+        from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    except Exception as e:
+        print("CAPA - ", e)
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:

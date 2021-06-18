@@ -1831,9 +1831,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         and HAVE_BINGRAPH
         and reporting_cfg.bingraph.enabled
         and reporting_cfg.bingraph.on_demand
-        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256 + "-ent.svg"))
+        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph", sha256 + "-ent.svg"))
     ):
-        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")
+        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph")
         if not os.path.exists(bingraph_path):
             os.makedirs(bingraph_path)
         try:

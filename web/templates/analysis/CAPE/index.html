@@ -162,6 +162,10 @@
                     <a href="{% url "file" "CAPE" id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
                     <a href="{% url "file" "CAPEZIP" id file.sha256 %}" class="btn btn-secondary btn-sm">Download zip</a>
                     <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate CAPA</a>
+                    {% if config.bingraph and bingraph.enabled and not bingraph.content|getkey:file.sha256%}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endif %}
@@ -188,24 +192,12 @@
             </td>
         </tr>
         </br>
-        {% else %}
-        <tr>
-            <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate CAPA</a></p></th>
-            <td></td>
-        </tr>
         {% endif %}
-        {% if config.bingraph %}
-            {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
+        {% if config.bingraph and bingraph.enabled and bingraph.content|getkey:file.sha256 %}
             <tr>
                 <th><p><a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a></p></th>
                 <td>{{ bingraph.content|getkey:file.sha256|safe }} </td>
             </tr>
-            {% else %}
-            <tr>
-                <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
-                <td></td>
-            </tr>
-            {% endif %}
         {% endif %}
         </table>
     </div>

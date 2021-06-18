@@ -1812,9 +1812,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
-        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "binary")
+        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
     else:
-        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), category, sha256)
+        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
 
     if path and (not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH) or not os.path.exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})

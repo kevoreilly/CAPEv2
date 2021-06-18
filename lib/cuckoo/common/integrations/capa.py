@@ -24,13 +24,17 @@ if processing_conf.flare_capa.enabled:
         from capa.engine import *
         import capa.render.utils as rutils
         from capa.main import UnsupportedRuntimeError
+        from capa.rules import InvalidRuleWithPath
 
         rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
         if os.path.exists(rules_path):
             capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-            rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
-            rules = capa.rules.RuleSet(rules)
-            HAVE_FLARE_CAPA = True
+            try:
+                rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+                rules = capa.rules.RuleSet(rules)
+                HAVE_FLARE_CAPA = True
+            except InvalidRuleWithPath:
+                print("FLARE_CAPA InvalidRuleWithPath")
         else:
             print("FLARE CAPA rules missed! You can download them using python community.py -cr")
             HAVE_FLARE_CAPA = False

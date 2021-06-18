@@ -43,6 +43,7 @@ from lib.cuckoo.common.web_utils import (
     my_rate_minutes,
 )
 import modules.processing.network as network
+from modules.processing.virustotal import vt_lookup
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -1806,7 +1807,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
         "on_demand"
     ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
@@ -1825,6 +1826,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, str(task_id), on_demand=True)
+
+    elif service == "virustotal":
+        details = vt_lookup("file", path, on_demand=True)
 
     elif (
         service == "bingraph"
@@ -1855,13 +1859,19 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
         elif category == "static":
             if buf.get(category, {}):
-                buf["static"][service] = details
+                if service == "virustotal":
+                    buf[service] = details
+                else:
+                    buf["static"][service] = details
 
         elif category == "procdump":
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
+
+        if service == "virustotal" and category == "static":
+            category = "virustotal"
 
         results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details

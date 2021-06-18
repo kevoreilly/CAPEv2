@@ -193,6 +193,10 @@
                                 <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a>
                             {% endif %}
                         {% endif %}
+                        {% if config.virustotal and not analysis.virustotal %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VirusTotal</a>
+                        {% endif %}
+
                     {% endif %}
                 </td>
                 {% if config.vtupload %}

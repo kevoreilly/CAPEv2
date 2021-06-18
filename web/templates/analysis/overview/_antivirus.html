@@ -64,12 +64,4 @@
         </table>
     </div>
 </div>
-{% else %}
-    {% if config.virustotal %}
-        <h4>
-            <p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VirusTotal</a></p>
-        </h4>
-    {% else %}
-    No antivirus signatures available.
-    {% endif %}
 {% endif %}

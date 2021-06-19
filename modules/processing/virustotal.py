@@ -34,8 +34,13 @@ remove_empty = processing_conf.virustotal.remove_empty
 
 headers = {"x-apikey": key}
 
+"""
+from modules.processing.virustotal import vt_lookup
+res = vt_lookup("file", "d17f3c491d68d8cb37c37752689bdca8c2664a2bc305530e2e2beb3704fcca4b", on_demand=True)
+"""
+
 # https://developers.virustotal.com/v3.0/reference#file-info
-def vt_lookup(category, target, on_demand=False):
+def vt_lookup(category: str, target: str, on_demand: bool = False):
     if processing_conf.virustotal.enabled and (processing_conf.virustotal.get("on_demand", False) is False or on_demand is True):
 
         if category not in ("file", "url"):
@@ -44,10 +49,13 @@ def vt_lookup(category, target, on_demand=False):
         if category == "file":
             if not do_file_lookup:
                 return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
-            if not os.path.exists(target):
+            if not os.path.exists(target) and len(target) != 64:
                 return {"error": True, "msg": "File doesn't exist"}
 
-            sha256 = File(target).get_sha256()
+            if len(target) == 64:
+                sha256 = target
+            else:
+                sha256 = File(target).get_sha256()
             url = VIRUSTOTAL_FILE_URL.format(id=sha256)
 
         elif category == "url":

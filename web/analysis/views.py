@@ -1828,7 +1828,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         vba2graph_func(path, str(task_id), on_demand=True)
 
     elif service == "virustotal":
-        details = vt_lookup("file", path, on_demand=True)
+        details = vt_lookup("file", sha256, on_demand=True)
 
     elif (
         service == "bingraph"

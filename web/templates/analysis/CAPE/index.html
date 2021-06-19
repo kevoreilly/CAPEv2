@@ -209,6 +209,12 @@
                 <td>{{ bingraph.content|getkey:file.sha256|safe }} </td>
             </tr>
         {% endif %}
+        {% if file.virustotal %}
+            <tr>
+                <th></th>
+                <td>{% include "analysis/generic/_virustotal.html" %}</td>
+            </tr>
+        {% endif %}
         </table>
     </div>
     {% endfor %}

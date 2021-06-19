@@ -196,16 +196,11 @@
                         {% if config.virustotal and not analysis.virustotal %}
                             <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VirusTotal</a>
                         {% endif %}
-
+                    {% endif %}
+                    {% if config.vtupload and analysis.info.tlp != "Red" %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> Submit to VirusTotal</a>
                     {% endif %}
                 </td>
-                {% if config.vtupload %}
-                    {% if analysis.info.tlp != "Red" %}
-                    <td>
-                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
-                    </td>
-                    {% endif %}
-                {% endif %}
             </tr>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
                 <tr><th></th>

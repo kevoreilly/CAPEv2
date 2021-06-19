@@ -508,6 +508,7 @@ def load_files(request, task_id, category):
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             "config": enabledconf,
+            "tab_name": category,
 
         }
 
@@ -1748,18 +1749,26 @@ def comments(request, task_id):
 def vtupload(request, category, task_id, filename, dlfile):
     if enabledconf["vtupload"] and settings.VTDL_PRIV_KEY:
         try:
+            folder_name = False
+            path = False
             if category == "sample":
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
-                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+                folder_name = "files"
+            elif category in ("CAPE", "procdump"):
+                folder_name = category
+
+            if folder_name:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, folder_name, filename)
+
+            if not path or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
                 return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
+
             headers = {"x-apikey": settings.VTDL_PRIV_KEY}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)
             if response.ok:
-                data = response.json().get("data", {})
-                id = data.get("id")
+                id = response.json().get("data", {}).get("id")
                 if id:
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)}

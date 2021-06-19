@@ -175,37 +175,32 @@
             <tr>
                 <th></th>
                 <td>
-                    <a class="btn btn-secondary btn-sm" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}">Download</a>
-                    <a class="btn btn-secondary btn-sm" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}">Download ZIP</a>
-                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="fa fa-refresh" aria-hidden="true"></span> Resubmit sample</a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-download"></span></a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-download"></span> ZIP</a>
+                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="fa fa-sync"></span> File</a>
                     {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
                         {% if config.flare_capa %}
                             {% if not analysis.static.flare_capa %}
-                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate CAPA</a>
+                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> CAPA</a>
                             {% else %}
                                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a>
                             {% endif %}
                         {% endif %}
                         {% if graphs.bingraph.enabled %}
                             {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a>
+                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Bingraph</a>
                             {% else %}
-                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a>
+                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Graph</a>
                             {% endif %}
                         {% endif %}
                         {% if config.virustotal and not analysis.virustotal %}
-                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VirusTotal</a>
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> VirusTotal</a>
                         {% endif %}
-
+                    {% endif %}
+                    {% if config.vtupload and analysis.info.tlp != "Red" %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
                     {% endif %}
                 </td>
-                {% if config.vtupload %}
-                    {% if analysis.info.tlp != "Red" %}
-                    <td>
-                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
-                    </td>
-                    {% endif %}
-                {% endif %}
             </tr>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
                 <tr><th></th>

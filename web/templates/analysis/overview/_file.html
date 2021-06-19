@@ -176,7 +176,7 @@
                 <th></th>
                 <td>
                     <a class="btn btn-secondary btn-sm" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-download"></span></a>
-                    <a class="btn btn-secondary btn-sm" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-download"></span> ZIP</a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                     <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="fa fa-sync"></span> File</a>
                     {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
                         {% if config.flare_capa %}

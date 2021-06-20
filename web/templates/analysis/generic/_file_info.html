@@ -193,7 +193,7 @@
             <th></th>
             <td>
                 <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
-                <a href="{% url "file" "procdumpzip" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                 <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fas fa-sync"></span> File</a>
                 {% if config.flare_capa %}
                     {% if not file.flare_capa %}

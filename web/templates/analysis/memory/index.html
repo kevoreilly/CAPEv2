@@ -1,7 +1,7 @@
 {% if memory %}
     <div class="alert alert-primary center">
-        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_file" id %}">Download Full Memory Dump</a>
-        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_strings" id %}">Download Full Memory Dump Strings</a>
+        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_file" id %}"><span class="fas fa-download"></span> Full Memory Dump</a>
+        <a class="btn btn-secondary btn-sm" href="{% url "full_memory_dump_strings" id %}"><span class="fas fa-download"></span> Full Memory Dump Strings</a>
     </div>
     <div class="tabbable tabs">
         <ul class="nav nav-tabs" style="margin-bottom: 0;">

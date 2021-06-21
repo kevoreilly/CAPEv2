@@ -1203,7 +1203,7 @@ def file(request, category, task_id, dlfile):
         "dropped",
         "droppedzip",
         "CAPE",
-        "CAPEZIP",
+        "CAPEzip",
         "procdump",
         "procdumpzip",
         "memdumpzip",
@@ -1232,7 +1232,7 @@ def file(request, category, task_id, dlfile):
             file_name += ".dmp"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
@@ -1295,7 +1295,7 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
-        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if mem_zip:
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)

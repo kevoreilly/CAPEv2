@@ -192,12 +192,10 @@
         <tr>
             <th></th>
             <td>
-                <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
-                {% if tab_name == "CAPE" %}
-                    <a href="{% url "file" tab_name|add:"ZIP" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                {% else %}
-                    <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                {% if not config.zipped_download %}
+                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
                 {% endif %}
+                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                 <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fas fa-sync"></span> File</a>
                 {% if config.flare_capa %}
                     {% if not file.flare_capa %}

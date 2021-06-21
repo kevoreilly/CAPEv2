@@ -1088,6 +1088,7 @@ def tasks_report(request, task_id, report_format="json"):
                 "procdump",
                 "macros",
                 "lite",
+                "shots",
             ]
         }
     }

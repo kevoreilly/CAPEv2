@@ -717,6 +717,7 @@ class Signature(object):
     enabled = True
     minimum = None
     maximum = None
+    testing = False
 
     # Higher order will be processed later (only for non-evented signatures)
     # this can be used for having meta-signatures that check on other lower-
@@ -1534,6 +1535,7 @@ class Signature(object):
             new_data=self.new_data,
             alert=self.alert,
             families=self.families,
+            testing=self.testing,
         )
 
 

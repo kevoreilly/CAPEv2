@@ -443,8 +443,6 @@ def load_files(request, task_id, category):
     # ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
         data = dict()
-        bingraph = False
-        vba2graph = False
         debugger_logs = dict()
         bingraph_dict_content = dict()
         vba2graph_dict_content = dict()
@@ -504,10 +502,6 @@ def load_files(request, task_id, category):
                                     with open(tmp_file, "r") as f:
                                         vba2graph_dict_content.setdefault(block["sha256"], f.read())
 
-                    if bingraph_dict_content:
-                        bingraph = True
-                    if vba2graph_dict_content:
-                        vba2graph = True
             if category == "debugger":
                 debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
                 if os.path.exists(debugger_log_path):
@@ -525,8 +519,8 @@ def load_files(request, task_id, category):
             "tlp": data.get("info").get("tlp", ""),
             "id": task_id,
             "graphs": {
-                "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
-                "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
+                "bingraph": {"enabled": enabledconf["bingraph"], "content": bingraph_dict_content},
+                "vba2graph": {"enabled": enabledconf["vba2graph"], "content": vba2graph_dict_content},
             },
             "config": enabledconf,
             "tab_name": category,

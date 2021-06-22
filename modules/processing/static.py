@@ -905,9 +905,9 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier":
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier)
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
                     elif extension.oid._name == "subjectKeyIdentifier":
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest)
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
@@ -927,7 +927,7 @@ class PortableExecutable(object):
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value)
+                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value).decode("utf-8")
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()

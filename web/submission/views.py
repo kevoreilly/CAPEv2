@@ -10,7 +10,6 @@ import sys
 import logging
 import tempfile
 import random
-import datetime
 
 try:
     import re2 as re
@@ -28,8 +27,8 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import download_file, disable_x64, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt
+from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
+from lib.cuckoo.common.web_utils import download_file, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
 
 
 # this required for hash searches
@@ -56,12 +55,12 @@ if repconf.mongodb.enabled:
     import pymongo
 
     results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.db,
-    )[repconf.mongodb.db]
+        settings.MONGO_HOST,
+        port=settings.MONGO_PORT,
+        username=settings.MONGO_USER,
+        password=settings.MONGO_PASS,
+        authSource=settings.MONGO_AUTHSOURCE,
+    )[settings.MONGO_DB]
     FULL_DB = True
 
 def get_form_data(platform):
@@ -133,16 +132,16 @@ def index(request, resubmit_hash=False):
 
         static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp = parse_request_arguments(request)
+            tlp, tags_tasks, route, cape = parse_request_arguments(request)
 
         # This is done to remove spaces in options but not breaks custom paths
         options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
         opt_filename = get_user_filename(options, custom)
 
-        if priority and web_conf.public.enabled and web_conf.public.priority:
+        if priority and web_conf.public.enabled and web_conf.public.priority and not request.user.is_staff:
             priority = web_conf.public.priority
 
-        if timeout and web_conf.public.enabled and web_conf.public.timeout:
+        if timeout and web_conf.public.enabled and web_conf.public.timeout and not request.user.is_staff:
             timeout = web_conf.public.timeout
 
         if options:
@@ -159,9 +158,6 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("tor"):
             options += "tor=yes,"
-
-        if request.POST.get("route", None):
-            options += "route={0},".format(request.POST.get("route", None))
 
         if request.POST.get("process_dump"):
             options += "procdump=0,"
@@ -196,7 +192,7 @@ def index(request, resubmit_hash=False):
 
         status = "ok"
         task_ids_tmp = list()
-
+        existent_tasks = dict()
         details = {
             "errors": [],
             "content": False,
@@ -210,6 +206,7 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
+            "user_id": request.user.id or 0,
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
@@ -235,6 +232,10 @@ def index(request, resubmit_hash=False):
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
+                    records = perform_search("sha256", resubmission_hash)
+                    for record in records:
+                        existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
@@ -257,8 +258,10 @@ def index(request, resubmit_hash=False):
                     filename = sanitize_filename(sample.name)
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
-                if unique and db.check_file_uniq(File(path).get_sha256()):
-                    return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
+                sha256 = File(path).get_sha256()
+                if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
+                    details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
+                    continue
 
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
@@ -269,6 +272,11 @@ def index(request, resubmit_hash=False):
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
+                    records = perform_search("sha256", sha256)
+                    for record in records:
+                        if record.get("target").get("file", {}).get("sha256"):
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                            existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:
@@ -351,7 +359,7 @@ def index(request, resubmit_hash=False):
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp)
+                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -366,14 +374,13 @@ def index(request, resubmit_hash=False):
                 machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine)
-                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
+                if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
                     return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                 else:
                     machines = [machine]
 
             else:
                 machines = [None]
-
             for entry in machines:
                 task_id = db.add_url(
                     url=url,
@@ -392,6 +399,10 @@ def index(request, resubmit_hash=False):
                     shrike_msg=shrike_msg,
                     shrike_sid=shrike_sid,
                     shrike_refer=shrike_refer,
+                    route=route,
+                    cape=cape,
+                    tags_tasks=tags_tasks,
+                    user_id=request.user.id or 0,
                 )
                 details["task_ids"].append(task_id)
 
@@ -431,7 +442,7 @@ def index(request, resubmit_hash=False):
         else:
             tasks_count = 0
         if tasks_count > 0:
-            data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"]}
+            data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"], "existent_tasks": existent_tasks}
             return render(request, "submission/complete.html", data)
         else:
             return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
@@ -447,6 +458,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
+        enabledconf["timeout"] = cfg.timeouts.default
 
         if all_vms_tags:
             enabledconf["tags"] = True
@@ -471,9 +483,34 @@ def index(request, resubmit_hash=False):
         packages, machines = get_form_data("windows")
 
         socks5s = _load_socks5_operational()
+
         socks5s_random = ""
+        vpn_random = ""
+
+        if routing.socks5.random_socks5 and socks5s:
+            socks5s_random = random.choice(socks5s.values()).get("name", False)
+
+        if routing.vpn.random_vpn:
+            vpn_random =  random.choice(list(vpns.values())).get("name", False)
+
         if socks5s:
-            socks5s_random = random.choice(list(socks5s.values())).get("description", False)
+            socks5s_random = random.choice(list(socks5s.values())).get("name", False)
+
+        random_route = False
+        if vpn_random and socks5s_random:
+            random_route = random.choice((vpn_random, socks5s_random))
+        elif vpn_random:
+            random_route = vpn_random
+        elif socks5s_random:
+            random_route = socks5s_random
+
+
+        existent_tasks = dict()
+        if resubmit_hash:
+            records = perform_search("sha256", resubmit_hash)
+            for record in records:
+                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
             request,
@@ -482,8 +519,8 @@ def index(request, resubmit_hash=False):
                 "packages": sorted(packages),
                 "machines": machines,
                 "vpns": list(vpns.values()),
+                "random_route": random_route,
                 "socks5s": list(socks5s.values()),
-                "socks5s_random": socks5s_random,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,
@@ -491,6 +528,7 @@ def index(request, resubmit_hash=False):
                 "config": enabledconf,
                 "resubmit": resubmit_hash,
                 "tags": sorted(list(set(all_vms_tags))),
+                "existent_tasks": existent_tasks,
             },
         )
 

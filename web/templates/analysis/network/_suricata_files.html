@@ -1,7 +1,7 @@
-{% if analysis.suricata.files|length > 0 %}
-    <div class="alert alert-info center"><a class="btn btn-default btn-small" href="{% url "file" "zip" analysis.info.id "files" %}">Download Suri Extracted</a></div>
-    {% for file in analysis.suricata.files %}
-        <div class="panel panel-default">
+{% if suricata.files|length > 0 %}
+    <div class="alert alert-info center"><a class="btn btn-secondary btn-small" href="{% url "file" "zip" id "files" %}">Download Suri Extracted</a></div>
+    {% for file in suricata.files %}
+        <div class="card ">
             <table class="table table-striped">
                 <tr>
                     <th style="border-top: 0;" width="15%">File name</th>
@@ -25,7 +25,7 @@
                 </tr>
                 <tr>
                     <th>File URI</th>
-                    <td>{{file.http_uri}} 
+                    <td>{{file.http_uri}}
                         {% if file.moloch_uri_url %}
                             <a href={{file.moloch_uri_url}} target="_blank">[MLCH]</a>
                         {% endif %}
@@ -33,7 +33,7 @@
                 </tr>
                 <tr>
                     <th>Host</th>
-                    <td>{{file.http_host}} 
+                    <td>{{file.http_host}}
                         {% if file.moloch_host_url %}
                             <a href={{file.moloch_host_url}} target="_blank">[MLCH]</a>
                         {% endif %}
@@ -58,7 +58,7 @@
                 <tr>
                     <th>SHA256</th>
                     <td>{{file.sha256}}
-                        {% if file.moloch_sha256_url %} 
+                        {% if file.moloch_sha256_url %}
                             <a href={{file.moloch_sha256_url}} target="_blank">[MLCH]</a>
                         {% endif %}
                     </td>
@@ -90,7 +90,7 @@
                     {% if file.yara %}
                         <ul style="margin-bottom: 0;">
                         {% for sign in file.file_info.yara %}
-                            <li>{{sign.name}} - {{sign.meta.description}} 
+                            <li>{{sign.name}} - {{sign.meta.description}}
                                 {% if sign.moloch_yara_url %}
                                     <a href={{file.moloch_yara_url}} target="_blank">[MLCH]</a>
                                 {% endif %}
@@ -114,9 +114,9 @@
                 {% endif %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "suricata" analysis.info.id file.sha256 %}" class="btn btn-default btn-small">Download</a>
+                    <td><a href="{% url "file" "suricata" info.id file.sha256 %}" class="btn btn-secondary btn-small">Download</a>
                     {% if file.file_info.data %}
-                    &emsp;<a class="btn btn-default btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                    &emsp;<a class="btn btn-secondary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                     {% endif %}
                     </td>
                 </tr>

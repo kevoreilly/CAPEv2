@@ -20,7 +20,7 @@ import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
-from datetime import datetime, date, time
+from datetime import datetime
 
 try:
     import bs4
@@ -38,7 +38,6 @@ except ImportError:
 
 try:
     import pefile
-    import peutils
 
     HAVE_PEFILE = True
 except ImportError:
@@ -64,17 +63,9 @@ except ImportError:
 
 try:
     from whois import whois
-
     HAVE_WHOIS = True
 except:
     HAVE_WHOIS = False
-
-try:
-    from lib.cuckoo.common.office.vba2graph import vba2graph_from_vba_object, vba2graph_gen
-
-    HAVE_VBA2GRAPH = True
-except ImportError:
-    HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
@@ -84,7 +75,6 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -98,12 +88,7 @@ except ImportError:
 try:
     from oletools import oleobj
     from oletools.oleid import OleID
-    from oletools.olevba import detect_autoexec
-    from oletools.olevba import detect_hex_strings
-    from oletools.olevba import detect_patterns
-    from oletools.olevba import detect_suspicious
-    from oletools.olevba import filter_vba
-    from oletools.olevba import VBA_Parser
+    from oletools.olevba import detect_autoexec, detect_hex_strings, detect_patterns, detect_suspicious, filter_vba, VBA_Parser, UnexpectedDataError
     from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
 
@@ -149,13 +134,27 @@ try:
 except ImportError:
     ELFFile = False
 
-log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
-userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-userdb_signatures = peutils.SignatureDatabase()
-if os.path.exists(userdb_path):
-    userdb_signatures.load(userdb_path)
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
+HAVE_VBA2GRAPH = False
+if processing_conf.vba2graph.on_demand is False:
+    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+
+log = logging.getLogger(__name__)
+
+HAVE_USERDB = False
+if processing_conf.static.get("userdb_signature", False):
+    import peutils
+    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+    userdb_signatures = peutils.SignatureDatabase()
+    if os.path.exists(userdb_path):
+        userdb_signatures.load(userdb_path)
+        HAVE_USERDB = True
 
 # Obtained from
 # https://github.com/erocarrera/pefile/blob/master/pefile.py
@@ -350,21 +349,33 @@ class PortableExecutable(object):
         self.results = results
 
     def add_statistic(self, name, field, value):
-        self.results["statistics"]["processing"].append(
-            {"name": name, field: value,}
-        )
+        self.results["statistics"]["processing"].append({"name": name, field: value})
+
+    def add_statistic_tmp(self, name, field, pretime):
+        posttime = datetime.now()
+        timediff = posttime - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+
+        if name not in self.results["temp_processing_stats"]:
+            self.results["temp_processing_stats"][name] = {}
+
+        # To be able to add yara/capa and others time summary over all processing modules
+        if field in self.results["temp_processing_stats"][name]:
+           self.results["temp_processing_stats"][name][field] += value
+        else:
+           self.results["temp_processing_stats"][name][field] = value
 
     def _get_peid_signatures(self):
         """Gets PEID signatures.
         @return: matched signatures or None.
         """
-        if not self.pe:
+        if not self.pe or not HAVE_USERDB:
             return None
 
         try:
             result = userdb_signatures.match_all(self.pe, ep_only=True)
             if result:
-                return result
+                return list(result)
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -721,7 +732,12 @@ class PortableExecutable(object):
                         bigidx = icon.nID
                         iconidx = idx
 
-            rt_icon_idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_ICON"])
+            rt_icon_idx = False
+            rt_icon_idx_tmp = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
+            if pefile.RESOURCE_TYPE["RT_ICON"] in rt_icon_idx_tmp:
+                rt_icon_idx = rt_icon_idx_tmp.index(pefile.RESOURCE_TYPE["RT_ICON"])
+            if not rt_icon_idx:
+                return None, None, None
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:
@@ -898,8 +914,11 @@ class PortableExecutable(object):
                 "not_before": cert.not_valid_before.isoformat(),
                 "not_after": cert.not_valid_after.isoformat(),
             }
-            for attribute in cert.subject:
-                cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
+            try:
+                for attribute in cert.subject:
+                    cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
+            except ValueError as e:
+                log.warning(e)
             for attribute in cert.issuer:
                 cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
             try:
@@ -962,9 +981,9 @@ class PortableExecutable(object):
 
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
-        posttime = datetime.now()
-        timediff = posttime - pretime
-        self.add_statistic("peid", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+        timediff = datetime.now() - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        self.add_statistic("peid", "time", value)
 
         peresults["imagebase"] = self._get_imagebase()
         peresults["entrypoint"] = self._get_entrypoint()
@@ -987,6 +1006,13 @@ class PortableExecutable(object):
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+
+        if HAVE_FLARE_CAPA:
+            pretime = datetime.now()
+            capa_details = flare_capa_details(self.file_path, "static")
+            if capa_details:
+                results["flare_capa"] = capa_details
+            self.add_statistic_tmp("flare_capa", "time", pretime)
 
         return results
 
@@ -1374,9 +1400,9 @@ class Office(object):
             # must be left this way or we won't see the results
             officeresults["Metadata"] = self._get_meta(meta)
             metares = officeresults["Metadata"]
-            if metares["SummaryInformation"]["create_time"]:
+            if metares.get("SummaryInformation", {}).get("create_time", ""):
                 metares["SummaryInformation"]["create_time"] = metares["SummaryInformation"]["create_time"]
-            if metares["SummaryInformation"]["last_saved_time"]:
+            if metares.get("SummaryInformation", {}).get("last_saved_time", ""):
                 metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
         if vba and vba.detect_vba_macros():
@@ -1393,44 +1419,46 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            for (_, _, vba_filename, vba_code) in vba.extract_macros():
-                vba_code = filter_vba(vba_code)
-                if vba_code.strip() != "":
-                    # Handle all macros
-                    ctr += 1
-                    outputname = "Macro" + str(ctr)
-                    macrores["Code"][outputname] = list()
-                    macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
-                    autoexec = detect_autoexec(vba_code)
-                    if not os.path.exists(macro_folder):
-                        os.makedirs(macro_folder)
-                    macro_file = os.path.join(macro_folder, outputname)
-                    with open(macro_file, "w") as f:
-                        f.write(convert_to_printable(vba_code))
-                    macrores["info"][outputname] = dict()
-                    macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                    macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
+            try:
+                for (_, _, vba_filename, vba_code) in vba.extract_macros():
+                    vba_code = filter_vba(vba_code)
+                    if vba_code.strip() != "":
+                        # Handle all macros
+                        ctr += 1
+                        outputname = "Macro" + str(ctr)
+                        macrores["Code"][outputname] = list()
+                        macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
+                        autoexec = detect_autoexec(vba_code)
+                        if not os.path.exists(macro_folder):
+                            os.makedirs(macro_folder)
+                        macro_file = os.path.join(macro_folder, outputname)
+                        with open(macro_file, "w") as f:
+                            f.write(convert_to_printable(vba_code))
+                        macrores["info"][outputname] = dict()
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                        macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
-                    suspicious = detect_suspicious(vba_code)
-                    iocs = False
-                    try:
-                        iocs = vbadeobf.parse_macro(vba_code)
-                    except Exception as e:
-                        log.error(e, exc_info=True)
-                    hex_strs = detect_hex_strings(vba_code)
-                    if autoexec:
-                        for keyword, description in autoexec:
-                            macrores["Analysis"]["AutoExec"].append((keyword.replace(".", "_"), description))
-                    if suspicious:
-                        for keyword, description in suspicious:
-                            macrores["Analysis"]["Suspicious"].append((keyword.replace(".", "_"), description))
-                    if iocs:
-                        for pattern, match in iocs:
-                            macrores["Analysis"]["IOCs"].append((pattern, match))
-                    if hex_strs:
-                        for encoded, decoded in hex_strs:
-                            macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-
+                        suspicious = detect_suspicious(vba_code)
+                        iocs = False
+                        try:
+                            iocs = vbadeobf.parse_macro(vba_code)
+                        except Exception as e:
+                            log.error(e, exc_info=True)
+                        hex_strs = detect_hex_strings(vba_code)
+                        if autoexec:
+                            for keyword, description in autoexec:
+                                macrores["Analysis"]["AutoExec"].append((keyword.replace(".", "_"), description))
+                        if suspicious:
+                            for keyword, description in suspicious:
+                                macrores["Analysis"]["Suspicious"].append((keyword.replace(".", "_"), description))
+                        if iocs:
+                            for pattern, match in iocs:
+                                macrores["Analysis"]["IOCs"].append((pattern, match))
+                        if hex_strs:
+                            for encoded, decoded in hex_strs:
+                                macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
+            except (AssertionError, UnexpectedDataError) as e:
+                log.warning(("Macros in static.py", e))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1442,16 +1470,9 @@ class Office(object):
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
 
-            if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
-                try:
-                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "vba2graph")
-                    if not os.path.exists(vba2graph_path):
-                        os.makedirs(vba2graph_path)
-                    vba_code = vba2graph_from_vba_object(filepath)
-                    if vba_code:
-                        vba2graph_gen(vba_code, vba2graph_path)
-                except Exception as e:
-                    log.error(e, exc_info=True)
+            if HAVE_VBA2GRAPH:
+                vba2graph_func(filepath, str(self.results["info"]["id"]), self.results["target"]["file"]["sha256"])
+
         else:
             metares["HasMacros"] = "No"
 
@@ -1493,7 +1514,10 @@ class Office(object):
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except Exception as e:
-                log.error(e, exc_info=True)
+                if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
+                    log.info("Workbook not found. Probably not an Excel file.")
+                else:
+                    log.error(e, exc_info=True)
 
         return results
 
@@ -2524,7 +2548,7 @@ class EncodedScriptFile(object):
     def run(self):
         results = {}
         try:
-            source = open(self.filepath, "r").read()
+            source = open(self.filepath, "rb").read()
         except UnicodeDecodeError as e:
             return results
         source = self.decode(source)
@@ -2535,19 +2559,19 @@ class EncodedScriptFile(object):
             results["encscript"] += "\r\n<truncated>"
         return results
 
-    def decode(self, source, start="#@~^", end="^#~@"):
+    def decode(self, source, start=b"#@~^", end=b"^#~@"):
         if start not in source or end not in source:
             return
 
         o = source.index(start) + len(start) + 8
         end = source.index(end) - 8
-
         c, m, r = 0, 0, []
 
         while o < end:
-            ch = ord(source[o])
-            if source[o] == "@":
-                r.append(ord(self.unescape.get(source[o + 1], "?")))
+            ch = source[o]
+            print(ch, "ch")
+            if source[o] == 64: # b"@":
+                r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
             elif ch < 128:
@@ -2556,10 +2580,10 @@ class EncodedScriptFile(object):
                 m = m + 1
             else:
                 r.append(ch)
-
             o = o + 1
 
-        if (c % 2 ** 32) != struct.unpack("I", source[o : o + 8].decode("base64"))[0]:
+        #if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 8]))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)

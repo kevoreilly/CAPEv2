@@ -1,24 +1,23 @@
 <section id="summary">
     <h4>Summary</h4>
-    <div class="tabbable tabs">
-        <ul class="nav nav-pills" style="margin-bottom: 0;">
-            <li class="active"><a href="#summary_files" data-toggle="tab">Accessed Files</a></li>
-            <li><a href="#summary_read_files" data-toggle="tab">Read Files</a></li>
-            <li><a href="#summary_write_files" data-toggle="tab">Modified Files</a></li>
-            <li><a href="#summary_delete_files" data-toggle="tab">Deleted Files</a></li>
-            <li><a href="#summary_keys" data-toggle="tab">Registry Keys</a></li>
-            <li><a href="#summary_read_keys" data-toggle="tab">Read Registry Keys</a></li>
-            <li><a href="#summary_write_keys" data-toggle="tab">Modified Registry Keys</a></li>
-            <li><a href="#summary_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>
-            <li><a href="#summary_resolved_apis" data-toggle="tab">Resolved APIs</a></li>
-            <li><a href="#summary_executed_commands" data-toggle="tab">Executed Commands</a></li>
-            <li><a href="#summary_mutexes" data-toggle="tab">Mutexes</a></li>
-            <li><a href="#summary_created_services" data-toggle="tab">Created Services</a></li>
-            <li><a href="#summary_started_services" data-toggle="tab">Started Services</a></li>
+        <ul class="nav nav-tabs flex-column flex-sm-row">
+            <li class="nav-item active"><a class="nav-link" href="#summary_files" data-toggle="tab">Accessed Files</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_read_files" data-toggle="tab">Read Files</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_write_files" data-toggle="tab">Modified Files</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_delete_files" data-toggle="tab">Deleted Files</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_keys" data-toggle="tab">Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_read_keys" data-toggle="tab">Read Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_write_keys" data-toggle="tab">Modified Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_resolved_apis" data-toggle="tab">Resolved APIs</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_executed_commands" data-toggle="tab">Executed Commands</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_mutexes" data-toggle="tab">Mutexes</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_created_services" data-toggle="tab">Created Services</a></li>
+            <li class="nav-item"><a class="nav-link" href="#summary_started_services" data-toggle="tab">Started Services</a></li>
         </ul>
         <div class="tab-content">
-            <div class="tab-pane fade in active" id="summary_files">
-                <div class="well mono">
+            <div class="tab-pane fade show active" id="summary_files">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.files %}
                     {% for file in analysis.behavior.summary.files %}
                         {{file}}<br />
@@ -27,7 +26,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_read_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.read_files %}
                     {% for file in analysis.behavior.summary.read_files %}
                         {{file}}<br />
@@ -36,7 +35,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_write_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.write_files %}
                     {% for file in analysis.behavior.summary.write_files %}
                         {{file}}<br />
@@ -45,7 +44,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_delete_files">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.delete_files %}
                     {% for file in analysis.behavior.summary.delete_files %}
                         {{file}}<br />
@@ -54,7 +53,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.keys %}
                     {% for key in analysis.behavior.summary.keys %}
                         {{key}}<br />
@@ -63,7 +62,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_read_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.read_keys %}
                     {% for key in analysis.behavior.summary.read_keys %}
                         {{key}}<br />
@@ -72,7 +71,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_write_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.write_keys %}
                     {% for key in analysis.behavior.summary.write_keys %}
                         {{key}}<br />
@@ -81,7 +80,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_delete_keys">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.delete_keys %}
                     {% for key in analysis.behavior.summary.delete_keys %}
                         {{key}}<br />
@@ -90,7 +89,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_resolved_apis">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.resolved_apis %}
                     {% for api in analysis.behavior.summary.resolved_apis %}
                         {{api}}<br />
@@ -99,7 +98,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_executed_commands">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.executed_commands %}
                     {% for cmd in analysis.behavior.summary.executed_commands %}
                         {{cmd}}<br />
@@ -108,7 +107,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_mutexes">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.mutexes %}
                     {% for mutex in analysis.behavior.summary.mutexes %}
                         {{mutex}}<br />
@@ -117,7 +116,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_created_services">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.created_services %}
                     {% for service in analysis.behavior.summary.created_services %}
                         {{service}}<br />
@@ -126,7 +125,7 @@
                 </div>
             </div>
             <div class="tab-pane fade" id="summary_started_services">
-                <div class="well mono">
+                <div class="card card-body">
                 {% if analysis.behavior.summary.started_services %}
                     {% for service in analysis.behavior.summary.started_services %}
                         {{service}}<br />
@@ -135,5 +134,4 @@
                 </div>
             </div>
         </div>
-    </div>
 </section>

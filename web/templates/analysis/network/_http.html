@@ -1,17 +1,65 @@
 <h4>HTTP Requests</h4>
-{% if analysis.network.http %}
+{% if network.http_ex or network.https_ex %}
 <table class="table table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>URI</th>
-        <th>Data</th>
+        <th>Details</th>
     </tr>
-    {% for request in analysis.network.http %}
+    {% for http in network.http_ex|add:network.https_ex %}
     <tr>
-        <td style="word-wrap: break-word;">{{request.uri}}</td>
-        <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+        <td style="word-wrap: break-word;">{{http.protocol }}://{{http.host}}{{http.uri}}</td>
+        <td style="word-wrap: break-word;">
+            <table class="table table-striped table-bordered">
+            {% if http.request %}
+                <tr><td>
+                    {% if http.req.sha256 %}
+                        <a href="{% url "file" "networkzip" id http.req.sha256 %}" class="btn btn-secondary btn-sm">Download Request content</a>
+                    {% else %}
+                        Request:
+                    {% endif %}
+                    {% for value in http.request|network_rn %}
+                        <li>{{value}}</li>
+                    {% endfor %}
+                </td></tr>
+            {% endif %}
+            <tr><td>
+            {% if http.response %}
+                {% if http.resp.sha256 %}
+                    <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm">Download Response content</a>
+                {% else %}
+                    Response:
+                {% endif %}
+                {% for value in http.response|network_rn %}
+                    <li>{{value}}</li>
+                {% endfor %}
+                </br>Response preview:
+                {% if http.resp.preview %}
+                    {% for line in http.resp.preview %}
+                        <li>{{line}}</li>
+                    {% endfor %}
+                {% endif %}
+            {% else %}
+                No response
+            {% endif %}
+            </td></tr>
+            </table>
+        </td>
     </tr>
     {% endfor %}
 </table>
+{% elif network.http %}
+    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+        <tr>
+            <th>URI</th>
+            <th>Data</th>
+        </tr>
+        {% for request in network.http %}
+        <tr>
+            <td style="word-wrap: break-word;">{{request.uri}}</td>
+            <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+        </tr>
+        {% endfor %}
+    </table>
 {% else %}
-<p>No HTTP requests performed.</p>
+    <p>No HTTP(s) requests performed.</p>
 {% endif %}

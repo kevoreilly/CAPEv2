@@ -29,13 +29,13 @@
                {% if event.level %}
                    <td><p>
                         {% if event.level == "4" %}
-                            <span class="label label-default">4</span>
+                            <span class="badge badge-secondary">4</span>
                         {% elif event.level == "3" %}
-                            <span class="label label-success">3</span>
+                            <span class="badge badge-success">3</span>
                         {% elif event.level == "2" %}
-                            <span class="label label-warning">2</span>
+                            <span class="badge badge-warning">2</span>
                         {% elif event.level == "1"  %}
-                            <span class="label label-danger">1</span>
+                            <span class="badge badge-danger">1</span>
                         {% endif %}
                    </td>
                {% endif %}

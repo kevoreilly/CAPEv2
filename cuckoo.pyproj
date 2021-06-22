@@ -409,6 +409,7 @@
     <Compile Include="lib\cuckoo\common\defines.py" />
     <Compile Include="lib\cuckoo\common\dns.py" />
     <Compile Include="lib\cuckoo\common\exceptions.py" />
+    <Compile Include="lib\cuckoo\common\fraunhofer_helper.py" />
     <Compile Include="lib\cuckoo\common\irc.py" />
     <Compile Include="lib\cuckoo\common\logo.py" />
     <Compile Include="lib\cuckoo\common\logtbl.py" />

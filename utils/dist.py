@@ -21,21 +21,20 @@ import argparse
 import threading
 from io import BytesIO
 from zipfile import ZipFile
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import combinations
 import distutils.util
-from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, DateTime, or_, and_, desc
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file, get_options
-from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_session
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.dist_db import Node, Task, Machine, create_session
 from lib.cuckoo.core.database import (
     Database,
-    TASK_COMPLETED,
     TASK_REPORTED,
     TASK_RUNNING,
     TASK_PENDING,
@@ -43,6 +42,7 @@ from lib.cuckoo.core.database import (
     TASK_DISTRIBUTED_COMPLETED,
     TASK_DISTRIBUTED,
 )
+from lib.cuckoo.core.database import Task as MD_Task
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
@@ -80,7 +80,6 @@ failed_clean_enabled = False
 def required(package):
     sys.exit("The %s package is required: pip3 install %s" % (package, package))
 
-
 try:
     from flask import Flask, request, make_response, jsonify
 except ImportError:
@@ -106,22 +105,25 @@ except ImportError:
 session = create_session(reporting_conf.distributed.db, echo=False)
 
 
-def node_status(url, name, ht_user, ht_pass):
+def node_status(url, name, apikey):
     try:
-        r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
-        return r.json().get("data", {})["tasks"]
+        r = requests.get(os.path.join(url, "cuckoo", "status/"), headers = {'Authorization': f'Token {apikey}'}, verify=False, timeout=200)
+        return r.json().get("data", {})
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}
 
 
-def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
+def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
     try:
         url = os.path.join(url, "tasks", "list/")
-        params = dict(status=status, ids=True, username=ht_user, password=ht_pass)
+        params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, verify=False)
+        r = requests.get(url, params=params, headers = {'Authorization': f'Token {apikey}'}, verify=False)
+        if not r.ok:
+            log.error(f"Error fetching task list. Status code: {r.status_code}")
+            return []
         return r.json().get("data", [])
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
@@ -129,24 +131,47 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
     return []
 
 
-def node_list_machines(url, ht_user, ht_pass):
+def node_list_machines(url, apikey):
     try:
-        r = requests.get(os.path.join(url, "machines", "list/"), params={"username": ht_user, "password": ht_pass}, verify=False)
+        r = requests.get(os.path.join(url, "machines", "list/"), headers = {'Authorization': f'Token {apikey}'}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
-        abort(404, message="Invalid Cuckoo node (%s): %s" % (url, e))
+        abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
 
 
-def node_get_report(task_id, fmt, url, ht_user, ht_pass, stream=False):
+def node_get_report(task_id, fmt, url, apikey, stream=False):
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
-        return requests.get(url, stream=stream, params={"username": ht_user, "password": ht_pass}, verify=False, timeout=300)
+        return requests.get(url, stream=stream, headers = {'Authorization': f'Token {apikey}'}, verify=False, timeout=300)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
+def _delete_many(node, ids, nodes, db):
+
+    if nodes[node.id].name == "master":
+        return
+    try:
+        url = os.path.join(nodes[node.id].url, "tasks", "delete_many/")
+        apikey = nodes[node.id].apikey
+        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node.id].name))
+        res = requests.post(
+            url,
+            headers = {'Authorization': f'Token {apikey}'},
+            data={"ids": ids},
+            verify=False,
+        )
+        if res and res.status_code != 200:
+            log.info("{} - {}".format(res.status_code, res.content))
+            db.rollback()
+    except Exception as e:
+        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node.id].name, e)
+        db.rollback()
+
+
 def node_submit_task(task_id, node_id):
+
     db = session()
     node = db.query(Node).filter_by(id=node_id).first()
     task = db.query(Task).filter_by(id=task_id).first()
@@ -159,26 +184,26 @@ def node_submit_task(task_id, node_id):
         if task.tags:
             if task.tags[-1] == ",":
                 task.tags = task.tags[:-1]
+        apikey = node.apikey
+        data = dict(
+            package=task.package,
+            timeout=task.timeout,
+            priority=task.priority,
+            options=task.options,
+            machine=task.machine,
+            platform=task.platform,
+            tags=task.tags,
+            custom=task.custom,
+            clock=task.clock,
+            memory=task.memory,
+            enforce_timeout=task.enforce_timeout,
+            route=task.route,
+
+        )
 
         if task.category in ("file", "pcap"):
             if task.category == "pcap":
                 data = {"pcap": 1}
-            else:
-                data = dict(
-                    package=task.package,
-                    timeout=task.timeout,
-                    priority=task.priority,
-                    options=task.options,
-                    machine=task.machine,
-                    platform=task.platform,
-                    tags=task.tags,
-                    custom=task.custom,
-                    clock=task.clock,
-                    memory=task.memory,
-                    enforce_timeout=task.enforce_timeout,
-                    username=node.ht_user,
-                    password=node.ht_pass,
-                )
 
             url = os.path.join(node.url, "tasks", "create", "file/")
             # If the file does not exist anymore, ignore it and move on
@@ -197,7 +222,10 @@ def node_submit_task(task_id, node_id):
             r = requests.post(url, data=data, files=files, verify=False)
         elif task.category == "url":
             url = os.path.join(node.url, "tasks", "create", "url/")
-            r = requests.post(url, data={"url": task.path, "options": task.options, "username": node.ht_user, "password": node.ht_pass}, verify=False)
+            r = requests.post(url, data={"url": task.path, "options": task.options}, headers = {'Authorization': f'Token {apikey}'}, verify=False)
+        elif task.category == "static":
+            url = os.path.join(node.url, "tasks", "create", "static/")
+            log.info("Static isn't finished")
         else:
             log.debug("Target category is: {}".format(task.category))
             db.close()
@@ -222,21 +250,32 @@ def node_submit_task(task_id, node_id):
 
         elif r.status_code == 500:
             log.debug((r.status_code, r.text))
+
+        elif r.status_code == 429:
+            log.info((r.status_code, "see api auth for more details"))
+
         else:
             log.info("Node: {} - Task submit to worker failed: {} - {}".format(node.id, r.status_code, r.content))
 
         if check:
             task.node_id = node.id
 
+
             # We have to refresh() the task object because otherwise we get
             # the unmodified object back in further sql queries..
             # TODO Commit once, refresh() all at once. This could potentially
             # become a bottleneck.
-            db.commit()
-            db.refresh(task)
+            try:
+                db.commit()
+                db.refresh(task)
+            except Exception as e:
+                print(e)
+                db.rollback()
+
     except Exception as e:
         log.exception(e)
         log.critical("Error submitting task (task #%d, node %s): %s", task.id, node.name, e)
+
 
     db.commit()
     db.close()
@@ -244,6 +283,7 @@ def node_submit_task(task_id, node_id):
 
 
 class Retriever(threading.Thread):
+
     def run(self):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
@@ -266,7 +306,7 @@ class Retriever(threading.Thread):
             thread.start()
 
         # Delete the task and all its associated files.
-        # (It will still remain in the nodes' database, though.)
+        # (It will still remain in the nodes" database, though.)
         if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
             thread = threading.Thread(target=self.remove_from_worker, args=())
             thread.daemon = True
@@ -363,7 +403,7 @@ class Retriever(threading.Thread):
             for node in db.query(Node).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
                 for status in ("failed_analysis", "failed_processing"):
-                    for task in node_fetch_tasks(status, node.url, node.ht_user, node.ht_pass, action="delete"):
+                    for task in node_fetch_tasks(status, node.url, node.apikey, action="delete"):
                         t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
                             log.info("Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
@@ -404,7 +444,7 @@ class Retriever(threading.Thread):
                     last_check = 0
                     last_checks[node.name] = 0
                 limit = 0
-                for task in node_fetch_tasks("reported", node.url, node.ht_user, node.ht_pass, "fetch", last_check):
+                for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check):
                     tasker = (
                         db.query(Task)
                         .filter_by(finished=False, retrieved=False, task_id=task["id"], node_id=node.id, deleted=False)
@@ -448,7 +488,7 @@ class Retriever(threading.Thread):
             self.current_queue.setdefault(node_id, list()).append(task["id"])
 
             try:
-                # In the case that a Cuckoo node has been reset over time it's
+                # In the case that a Cuckoo node has been reset over time it"s
                 # possible that there are multiple combinations of
                 # node-id/task-id, in this case we take the last one available.
                 # (This makes it possible to re-setup a Cuckoo node).
@@ -484,7 +524,7 @@ class Retriever(threading.Thread):
 
                 # Fetch each requested report.
                 node = db.query(Node).filter_by(id=node_id).first()
-                report = node_get_report(t.task_id, "dist", node.url, node.ht_user, node.ht_pass, stream=True)
+                report = node_get_report(t.task_id, "dist", node.url, node.apikey, stream=True)
 
                 if report is None:
                     log.info("dist report retrieve failed NONE: task_id: {} from node: {}".format(t.task_id, node_id))
@@ -497,7 +537,7 @@ class Retriever(threading.Thread):
                     continue
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
-                if not os.path.isdir(report_path):
+                if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
                     fileobj = BytesIO(report.content)
@@ -557,15 +597,8 @@ class Retriever(threading.Thread):
 
             node = nodes[node_id]
             if node and details[node_id]:
-                try:
-                    url = os.path.join(node.url, "tasks", "delete_many")
-                    log.debug("Removing task id(s): {0} - from node: {1}".format(",".join(details[node_id]), node.name))
-                    res = requests.post(url, auth=HTTPBasicAuth(node.ht_user, node.ht_pass), data={"ids": ",".join(details[node_id])}, verify=False)
-                    if res and res.status_code != 200:
-                        log.info("{} - {}".format(res.status_code, res.content))
-                    details[node_id] = list()
-                except Exception as e:
-                    log.critical("Error deleting task (task #%d, node %s): %s", task_id, node.name, e)
+                ids = ",".join(list(set(details[node_id])))
+                _delete_many(node, ids, nodes, db)
 
             db.commit()
             time.sleep(20)
@@ -573,6 +606,7 @@ class Retriever(threading.Thread):
 
 
 class StatusThread(threading.Thread):
+
     def submit_tasks(self, node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None):
         # HACK do not create a new session if the current one (passed as parameter) is still valid.
         try:
@@ -580,6 +614,11 @@ class StatusThread(threading.Thread):
         except (OperationalError, SQLAlchemyError) as e:
             log.warning("Got an operational Exception when trying to submit tasks: {}".format(e))
             return False
+
+        if node.name not in SERVER_TAGS:
+            self.load_vm_tags(db, node.id, node.name)
+
+        limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
         bad_tasks = db.query(Task).filter(Task.node_id==None, Task.task_id==None, Task.main_task_id != None).all()
@@ -589,18 +628,16 @@ class StatusThread(threading.Thread):
                 db.commit()
                 main_db.set_status(task.main_task_id, TASK_PENDING)
 
-        limit = 0
         if node.name != "master":
-            # don't do nothing if nothing in pending
+            # don"t do nothing if nothing in pending
             # Get tasks from main_db submitted through web interface
-            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, order_by=desc("priority"), options_like=options_like, limit=pend_tasks_num)
+            main_db_tasks = main_db.list_tasks(status=TASK_PENDING, options_like=options_like, limit=pend_tasks_num, order_by=MD_Task.priority.desc())
             if not main_db_tasks:
                 return True
             if main_db_tasks:
                 for t in main_db_tasks:
                     force_push = False
                     try:
-                        # convert the options string to a dict, e.g. {'opt1': 'val1', 'opt2': 'val2', 'opt3': 'val3'}
                         options = get_options(t.options)
                         # check if node exist and its correct
                         if "node=" in t.options:
@@ -612,20 +649,20 @@ class StatusThread(threading.Thread):
                                 # otherwise keep looping
                                 continue
                         if "timeout=" in t.options:
-                            t.timeout = options["timeout"]
+                            t.timeout = options.get("timeout", 0)
                     except Exception as e:
-                        log.error(e)
+                        log.error(e, exc_info=True)
                     # wtf are you doing in pendings?
                     tasks = db.query(Task).filter_by(main_task_id=t.id).all()
                     if tasks:
                         for task in tasks:
-                            # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
-                            # db.delete(task)
-                            # db.commit()
+                            #log.info("Deleting incorrectly uploaded file from dist db, main_task_id: {}".format(t.id))
                             if node.name == "master":
                                 main_db.set_status(t.id, TASK_RUNNING)
                             else:
                                 main_db.set_status(t.id, TASK_DISTRIBUTED)
+                            #db.delete(task)
+                        db.commit()
                         continue
 
                     # Check if file exist, if no wipe from db and continue, rare cases
@@ -633,6 +670,7 @@ class StatusThread(threading.Thread):
                         log.info("Task id: {} - File doesn't exist: {}".format(t.id, t.target))
                         main_db.delete_task(t.id)
                         continue
+
                     # Convert array of tags into comma separated list
                     tags = ",".join([tag.name for tag in t.tags])
                     # Append a comma, to make LIKE searches more precise
@@ -642,25 +680,14 @@ class StatusThread(threading.Thread):
                     #sanity check
                     if "x86" in tags and "x64" in tags:
                         tags = tags.replace("x86,", "")
-
                     if "msoffice-crypt-tmp" in t.target and "password=" in t.options:
                         t.options = t.options.replace("password=", "pwd=")
-                    args = dict(
-                        package=t.package,
-                        category=t.category,
-                        timeout=t.timeout,
-                        priority=t.priority,
-                        options=t.options + ",main_task_id={}".format(t.id),
-                        machine=t.machine,
-                        platform=t.platform,
-                        tags=tags,
-                        custom=t.custom,
-                        memory=t.memory,
-                        clock=t.clock,
-                        enforce_timeout=t.enforce_timeout,
-                        main_task_id=t.id,
-                    )
+                    args = dict(package=t.package, category=t.category, timeout=t.timeout, priority=t.priority,
+                                options=t.options+",main_task_id={}".format(t.id), machine=t.machine, platform=t.platform,
+                                tags=tags, custom=t.custom, memory=t.memory, clock=t.clock,
+                                enforce_timeout=t.enforce_timeout, main_task_id=t.id, route=t.route)
                     task = Task(path=t.target, **args)
+
                     db.add(task)
                     try:
                         db.commit()
@@ -682,10 +709,11 @@ class StatusThread(threading.Thread):
                         limit += 1
                         if limit == pend_tasks_num or limit == len(main_db_tasks):
                             db.commit()
+                            log.info("Pushed all tasks")
                             return True
 
                 # Only get tasks that have not been pushed yet.
-                q = db.query(Task).filter(or_(Task.node_id == None, Task.task_id == None), Task.finished == False)
+                q = db.query(Task).filter(or_(Task.node_id==None, Task.task_id==None), Task.finished==False)
                 if q is None:
                     db.commit()
                     return True
@@ -700,7 +728,7 @@ class StatusThread(threading.Thread):
                             tags.append(getattr(Task, "tags") == (tg + ","))
                         else:
                             tg = tg.split(",")
-                            # ie. LIKE '%,%,%,'
+                            # ie. LIKE "%,%,%,"
                             t_combined = [getattr(Task, "tags").like("%s" % ("%," * len(tg)))]
                             for tag in tg:
                                 t_combined.append(getattr(Task, "tags").like("%%%s%%" % (tag + ",")))
@@ -709,6 +737,8 @@ class StatusThread(threading.Thread):
                     q = q.filter(or_(*tags))
                 to_upload = q.limit(pend_tasks_num).all()
                 if not to_upload:
+                    db.commit()
+                    log.info("nothing to upload? How? o_O")
                     return True
                 # Submit appropriate tasks to node
                 log.debug("going to upload {} tasks to node {}".format(pend_tasks_num, node.name))
@@ -730,11 +760,23 @@ class StatusThread(threading.Thread):
         db.commit()
         return True
 
+    def load_vm_tags(self, db, node_id, node_name):
+        global SERVER_TAGS
+        # Get available node tags
+        machines = db.query(Machine).filter_by(node_id=node_id).all()
+
+        # Get available tag combinations
+        ta = set()
+        for m in machines:
+            for i in range(1, len(m.tags) + 1):
+                for tag in combinations(m.tags, i):
+                    ta.add(','.join(tag))
+        SERVER_TAGS[node_name] = list(ta)
+
     def run(self):
         global main_db
         global retrieve
         global STATUSES
-        global SERVER_TAGS
         MINIMUMQUEUE = dict()
 
         # handle another user case,
@@ -751,57 +793,56 @@ class StatusThread(threading.Thread):
             master_storage_only = True
         db.close()
 
-        # MINIMUMQUEUE but per Node depending of number vms
+        #MINIMUMQUEUE but per Node depending of number vms
         for node in db.query(Node).filter_by(enabled=True).all():
             MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
             ID2NAME[node.id] = node.name
-            # Get available node tags
-            machines = db.query(Machine).filter_by(node_id=node.id).all()
+            self.load_vm_tags(db, node.id, node.name)
 
-            # Get available tag combinations
-            ta = set()
-            for m in machines:
-                for i in range(1, len(m.tags) + 1):
-                    for tag in combinations(m.tags, i):
-                        ta.add(",".join(tag))
-
-            SERVER_TAGS[node.name] = list(ta)
+        db.commit()
         statuses = {}
         while True:
+
 
             # HACK: This exception handling here is a big hack as well as db should check if the
             # there is any issue with the current session (expired or database is down.).
             try:
-                # Request a status update on all Cuckoo nodes.
+                # Remove disabled nodes
+                for node in db.query(Node).filter_by(enabled=False).all() or []:
+                    if node.name in STATUSES:
+                        del STATUSES[node.name]
+
+                # Request a status update on all CAPE nodes.
                 for node in db.query(Node).filter_by(enabled=True).all():
-                    status = node_status(node.url, node.name, node.ht_user, node.ht_pass)
+                    status = node_status(node.url, node.name, node.apikey)
                     if not status:
                         failed_count.setdefault(node.name, 0)
                         failed_count[node.name] += 1
                         # This will declare worker as dead after X failed connections checks
                         if failed_count[node.name] == dead_count:
                             log.info("[-] {} dead".format(node.name))
-                            # node.enabled = False
+                            #node.enabled = False
                             db.commit()
-                            # STATUSES[node.name]["enabled"] = False
+                            if node.name in STATUSES:
+                                del STATUSES[node.name]
                         continue
                     failed_count[node.name] = 0
-                    log.info("Status.. %s -> %s", node.name, status)
+                    log.info("Status.. %s -> %s", node.name, status["tasks"])
                     statuses[node.name] = status
                     statuses[node.name]["enabled"] = True
                     STATUSES = statuses
-
                     try:
-                        # first submit tasks with specified node
-                        res = self.submit_tasks(node.name, MINIMUMQUEUE[node.name], "node={}".format(node.name), force_push_push=True, db=db)
+                        #first submit tasks with specified node
+                        res = self.submit_tasks(node.name, MINIMUMQUEUE[node.name], options_like="node={}".format(node.name), force_push_push=True, db=db)
                         if not res:
                             continue
                         # Balance the tasks, works fine if no tags are set
-                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
+
+                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["tasks"]["completed"] + STATUSES[k]["tasks"]["pending"] + STATUSES[k]["tasks"]["running"])
                         if node_name != node.name:
                             node = db.query(Node).filter_by(name=node_name).first()
 
-                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["pending"] + STATUSES[node.name]["running"])
+                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"])
                     except KeyError:
                         # servers hotplug
                         MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
@@ -816,16 +857,16 @@ class StatusThread(threading.Thread):
                         if not res:
                             continue
 
-                    elif (
-                        statuses.get("master", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0)
-                        and status["pending"] < MINIMUMQUEUE[node.name]
-                    ):
+                    elif statuses.get("master", {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]:
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)
                         if not res:
                             continue
+                db.commit()
             except Exception as e:
                 log.error("Got an exception when trying to check nodes status and submit tasks: {}.".format(e), exc_info=True)
 
+                #ToDo hard test this rollback, this normally only happens on db restart and similar
+                db.rollback()
             time.sleep(INTERVAL)
 
         db.close()
@@ -844,8 +885,7 @@ class NodeBaseApi(RestResource):
         self._parser = reqparse.RequestParser()
         self._parser.add_argument("name", type=str)
         self._parser.add_argument("url", type=str)
-        self._parser.add_argument("ht_user", type=str, default="")
-        self._parser.add_argument("ht_pass", type=str, default="")
+        self._parser.add_argument("apikey", type=str, default="")
         self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
 
 
@@ -865,14 +905,14 @@ class NodeRootApi(NodeBaseApi):
     def post(self):
         db = session()
         args = self._parser.parse_args()
-        node = Node(name=args["name"], url=args["url"], ht_user=args["ht_user"], ht_pass=args["ht_pass"])
+        node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
 
         if db.query(Node).filter_by(name=args["name"]).first():
             return dict(success=False, message="Node called %s already exists" % args["name"])
 
         machines = []
-        for machine in node_list_machines(args["url"], args["ht_user"], args["ht_pass"]):
-            machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags,))
+        for machine in node_list_machines(args["url"], args["apikey"]):
+            machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags))
             node.machines.append(machine)
             db.add(machine)
 
@@ -971,7 +1011,7 @@ def update_machine_table(node_name):
     node = db.query(Node).filter_by(name=node_name).first()
 
     # get new vms
-    new_machines = node_list_machines(node.url, node.ht_user, node.ht_pass)
+    new_machines = node_list_machines(node.url, node.apikey)
 
     # delete all old vms
     _ = db.query(Machine).filter_by(node_id=node.id).delete()
@@ -1013,8 +1053,7 @@ def node_enabled(node_name, status):
     db.commit()
     db.close()
 
-
-def cron_cleaner():
+def cron_cleaner(clean_x_hours=False):
     """ Method that runs forever """
 
     # Check if we are not runned
@@ -1033,7 +1072,11 @@ def cron_cleaner():
     for node in db.query(Node).all():
         nodes.setdefault(node.id, node)
 
-    tasks = db.query(Task).filter_by(notificated=True, deleted=False).order_by(Task.id.desc()).all()
+    # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
+    if clean_x_hours:
+        tasks = db.query(Task).filter(Task.notificated==True, Task.clock >= datetime.now()-timedelta(hours=clean_x_hours)).order_by(Task.id.desc()).all()
+    else:
+        tasks = db.query(Task).filter_by(notificated=True, deleted=False).order_by(Task.id.desc()).all()
     if tasks is not None:
         for task in tasks:
             node = nodes[task.node_id]
@@ -1045,16 +1088,9 @@ def cron_cleaner():
         for node in details:
             if node and not details[node]:
                 continue
-            try:
-                url = os.path.join(nodes[node].url, "tasks", "delete_many")
-                log.info("Removing task id(s): {0} - from node: {1}".format(",".join(details[node]), nodes[node].name))
-                res = requests.post(url, auth=HTTPBasicAuth(nodes[node].ht_user, nodes[node].ht_pass), data={"ids": ",".join(details[node])}, verify=False)
-                if res and res.status_code != 200:
-                    log.info("{} - {}".format(res.status_code, res.content))
-                    db.rollback()
-            except Exception as e:
-                log.critical("Error deleting task (tasks #%s, node %s): %s", ",".join(details[node]), nodes[node].name, e)
-                db.rollback()
+
+            ids = ",".join(details[node.id])
+            _delete_many(node, ids, nodes, db)
 
     db.commit()
     db.close()
@@ -1064,7 +1100,7 @@ def cron_cleaner():
 def create_app(database_connection):
     # http://flask-sqlalchemy.pocoo.org/2.1/config/
     # https://github.com/tmeryu/flask-sqlalchemy/blob/master/flask_sqlalchemy/__init__.py#L787
-    app = Flask("Distributed Cuckoo")
+    app = Flask("Distributed CAPE")
     # app.config["SQLALCHEMY_DATABASE_URI"] = database_connection
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
     app.config["SQLALCHEMY_POOL_SIZE"] = int(reporting_conf.distributed.dist_threads) + 5
@@ -1099,20 +1135,6 @@ def init_logging(debug=False):
 
     return log
 
-#ToDo find where is race condition that generates this problem
-
-
-def sync_tasks_reported():
-    db = session()
-    main_db_tasks = main_db.list_tasks(status=TASK_DISTRIBUTED)
-    for t in main_db_tasks:
-        task = db.query(Task).filter_by(main_task_id=t.id, retrieved=True, notificated=True).first()
-        if task is not None:
-            main_db.set_status(t.id, TASK_REPORTED)
-            print("Setting:", t.id, "as reported")
-    db.close()
-
-
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("host", nargs="?", default="0.0.0.0", help="Host to listen on")
@@ -1124,15 +1146,23 @@ if __name__ == "__main__":
     p.add_argument("--disable", action="store_true", help="Disable Node provided in --node")
     p.add_argument("--enable", action="store_true", help="Enable Node provided in --node")
     p.add_argument("--clean-workers", action="store_true", help="Delete reported and notificated tasks from workers")
-    p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist",)
-    p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist",)
+    p.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist")
+    p.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist")
     p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
+    p.add_argument(
+        "-ch",
+        "--clean-hours",
+        action="store",
+        type=int,
+        default=0,
+        help="Clean tasks for last X hours",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
 
     if args.enable_clean:
-        cron_cleaner()
+        cron_cleaner(args.clean_hours)
         sys.exit()
 
     if args.force_reported:
@@ -1142,8 +1172,8 @@ if __name__ == "__main__":
         main_db.set_status(args.force_reported, TASK_REPORTED)
         sys.exit()
 
-    failed_clean_enabled = args.enable_failed_clean
     delete_enabled = args.enable_clean
+    failed_clean_enabled = args.enable_failed_clean
     if args.node:
         if args.delete_vm:
             delete_vm_on_node(args.node, args.delete_vm)
@@ -1166,7 +1196,7 @@ if __name__ == "__main__":
         retrieve.daemon = True
         retrieve.start()
 
-        app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
+        app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
 
 else:
     app = create_app(database_connection=reporting_conf.distributed.db)

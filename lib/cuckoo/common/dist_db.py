@@ -5,12 +5,13 @@ from datetime import datetime
 from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, Index, DateTime, or_, and_, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 
+schema = 'b0fa23c3c9c0'
 
 class Node(Base):
     """Cuckoo node database model."""
@@ -20,8 +21,7 @@ class Node(Base):
     name = Column(Text, nullable=False)
     url = Column(Text, nullable=True)
     enabled = Column(Boolean, default=False)
-    ht_user = Column(String(255), nullable=False)
-    ht_pass = Column(String(255), nullable=False)
+    apikey = Column(String(255), nullable=False)
     last_check = Column(DateTime(timezone=False))
     machines = relationship("Machine", backref="node", lazy="dynamic")
 
@@ -62,6 +62,7 @@ class Task(Base):
     options = Column(Text)
     machine = Column(Text)
     platform = Column(Text)
+    route = Column(Text)
     tags = Column(Text)
     custom = Column(Text)
     memory = Column(Text)
@@ -98,6 +99,7 @@ class Task(Base):
         enforce_timeout,
         main_task_id=None,
         retrieved=False,
+        route=None,
     ):
         self.path = path
         self.category = category
@@ -117,10 +119,12 @@ class Task(Base):
         self.main_task_id = main_task_id
         self.finished = False
         self.retrieved = False
+        self.route = route
 
 
 def create_session(db_connectionn, echo=False):
-    engine = create_engine(db_connectionn, pool_size=40, max_overflow=0, echo=echo)
+    # ToDo add chema version check
+    engine = create_engine(db_connectionn, echo=echo) # pool_size=40, max_overflow=0,
     Base.metadata.create_all(engine)
     session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
     return session

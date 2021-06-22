@@ -1,8 +1,9 @@
 from __future__ import absolute_import
 import os
-import imp
 import sys
 import glob
+import json
+import importlib
 import logging
 import tempfile
 import hashlib
@@ -20,11 +21,19 @@ malware_parsers = dict()
 cape_malware_parsers = dict()
 
 # Config variables
+cfg = Config()
 repconf = Config("reporting")
+processing_conf = Config("processing")
 
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient(repconf.mongodb.host, port=repconf.mongodb.port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=repconf.mongodb.db)[repconf.mongodb.db]
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
+    )[repconf.mongodb.db]
 
 try:
     import pefile
@@ -55,15 +64,25 @@ except ImportError:
     log.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
 except Exception as e:
     log.error(e, exc_info=True)
+"""
+try:
+    # https://github.com/CERT-Polska/malduck/blob/master/tests/test_extractor.py
+    from malduck import procmem, procmempe
+    from malduck.extractor import ExtractorModules, ExtractManager
+    malduck_modules = ExtractorModules(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck"))
+    HAVE_MALDUCK = True
+except ImportError:
+    HAVE_MALDUCK = False
+    log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+"""
 
+cape_module_path = "modules.processing.parsers.CAPE."
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
 
 for name in CAPE_DECODERS:
     try:
-        file, pathname, description = imp.find_module(name, [cape_decoders])
-        module = imp.load_module(name, file, pathname, description)
-        cape_malware_parsers[name] = module
+        cape_malware_parsers[name] = importlib.import_module(cape_module_path + name)
     except (ImportError, IndexError) as e:
         if "datadirs" in str(e):
             log.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
@@ -88,7 +107,7 @@ pe_map = {
     "PE32": ": 32-bit ",
 }
 
-cfg = Config()
+
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 
@@ -255,3 +274,14 @@ def static_extraction(path):
         log.error(e)
 
     return False
+
+def cape_name_from_yara(details, pid, results):
+    for hit in details.get("cape_yara", []) or []:
+        if "meta" in hit and any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]):
+            if "detections2pid" not in results:
+                results.setdefault("detections2pid", {})
+            results["detections2pid"].setdefault(str(pid), list())
+            name = hit["name"].replace("_", " ")
+            if name not in results["detections2pid"][str(pid)]:
+                results["detections2pid"][str(pid)].append(name)
+            return name

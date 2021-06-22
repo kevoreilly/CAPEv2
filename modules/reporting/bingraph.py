@@ -7,17 +7,21 @@ import os
 import logging
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-try:
-    from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
 
-    HAVE_BINGRAPH = True
-except ImportError:
-    HAVE_BINGRAPH = False
+reporting_conf = Config("reporting")
+
+HAVE_BINGRAPH = False
+if reporting_conf.bingraph.on_demand is False:
+    try:
+        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+
+        HAVE_BINGRAPH = True
+    except ImportError:
+        HAVE_BINGRAPH = False
 
 log = logging.getLogger(__name__)
-reporting_conf = Config("reporting")
+
 
 bingraph_args_dict = {
     "recurse": False,
@@ -48,7 +52,7 @@ class BinGraph(Report):
     "Generate bingraphs"
 
     def run(self, results):
-        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled:
+        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled and reporting_conf.bingraph.on_demand is False:
             bingraph_path = os.path.join(self.analysis_path, "bingraph")
             if not os.path.exists(bingraph_path):
                 os.makedirs(bingraph_path)

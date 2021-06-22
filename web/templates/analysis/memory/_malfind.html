@@ -4,16 +4,20 @@
             <th>PID</th>
             <th>Process Name</th>
             <th>Start</th>
+            <th>End</th>
             <th>Tag</th>
+            <th>Protection</th>
         </tr>
     </thead>
     <tbody>
-    {% for mal in analysis.memory.malfind.data %}
+    {% for mal in memory.malfind %}
         <tr>
-            <td>{{mal.process_id}}</td>
-            <td>{{mal.process_name}}</td>
-            <td><span class="mono">{{mal.vad_start}}</span></td>
-            <td>{{mal.vad_tag}}</td>
+            <td>{{mal.PID}}</td>
+            <td>{{mal.Process}}</td>
+            <td><span class="mono">ToDo</span></td>
+            <td><span class="mono">ToDo</span></td>
+            <td>{{mal.Tag}}</td>
+            <td>{{mal.Protection}}</td>
         </tr>
     {% endfor %}
     </tbody>

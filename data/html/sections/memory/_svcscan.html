@@ -1,0 +1,28 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Display Name</th>
+            <th>Binary Path</th>
+            <th>PID</th>
+            <th>Type</th>
+            <th>Order</th>
+            <th>Offset</th>
+            <th>State</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for service in results.memory.svcscan %}
+        <tr>
+            <td>{{service.Name}}</td>
+            <td>{{service.Display}}</td>
+            <td>{{service.Binary}}</td>
+            <td>{{service.Pid}}</td>
+            <td>{{service.Type}}</td>
+            <td>{{service.Order}}</td>
+            <td><span class="mono">{{service.Offset}}</span></td>
+            <td>{{service.State}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

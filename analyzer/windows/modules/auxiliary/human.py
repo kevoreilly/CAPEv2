@@ -26,6 +26,7 @@ RESOLUTION = {"x": USER32.GetSystemMetrics(0), "y": USER32.GetSystemMetrics(1)}
 INITIAL_HWNDS = []
 
 CLOSED_OFFICE = False
+OFFICE_CLICK_AROUND = False
 
 
 def foreach_child(hwnd, lparam):
@@ -176,13 +177,63 @@ def move_mouse():
 
 
 def click_mouse():
-    # Move mouse to top-middle position.
-    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
     # Mouse down.
     USER32.mouse_event(2, 0, 0, 0, None)
     KERNEL32.Sleep(50)
     # Mouse up.
     USER32.mouse_event(4, 0, 0, 0, None)
+
+
+def get_office_window_click_around(hwnd, lparm):
+    global OFFICE_CLICK_AROUND
+    if USER32.IsWindowVisible(hwnd):
+        text = create_unicode_buffer(1024)
+        USER32.GetWindowTextW(hwnd, text, 1024)
+        if any([value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")]):
+            USER32.SetForegroundWindow(hwnd)
+            # first click the middle
+            USER32.SetCursorPos(int(RESOLUTION["x"] / 2), int(RESOLUTION["y"] / 2))
+            click_mouse()
+            KERNEL32.Sleep(50)
+            click_mouse()
+            KERNEL32.Sleep(500)
+            # click through the middle with offset for cell position on side and scroll bar
+            x = 80
+            while x < RESOLUTION["x"] - 40:
+                # make sure the window still exists
+                if USER32.IsWindowVisible(hwnd):
+                    USER32.SetForegroundWindow(hwnd)
+                    USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2))
+                    click_mouse()
+                    KERNEL32.Sleep(50)
+                    click_mouse()
+                    KERNEL32.Sleep(50)
+                    if USER32.IsWindowVisible(hwnd):
+                        USER32.SetForegroundWindow(hwnd)
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) + random.randint(80, 200))
+                        click_mouse()
+                        KERNEL32.Sleep(50)
+                        click_mouse()
+                        KERNEL32.Sleep(50)
+                    else:
+                        break
+                    if USER32.IsWindowVisible(hwnd):
+                        USER32.SetForegroundWindow(hwnd)
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) - random.randint(80, 200))
+                        click_mouse()
+                        KERNEL32.Sleep(50)
+                        click_mouse()
+                        KERNEL32.Sleep(50)
+                    else:
+                        break
+                    x = x + random.randint(150, 200)
+                    KERNEL32.Sleep(50)
+                else:
+                    log.info("Breaking out of office click loop as our window went away")
+                    break
+            KERNEL32.Sleep(20000)
+            OFFICE_CLICK_AROUND = True
+    return True
 
 
 # Callback procedure invoked for every enumerated window.
@@ -191,7 +242,7 @@ def get_office_window(hwnd, lparam):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)  # create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any([value in text.value for value in (b"- Microsoft", b"- Word", b"- Excel", b"- PowerPoint")]):
+        if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             # send ALT+F4 equivalent
             log.info("Closing Office window.")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
@@ -211,6 +262,7 @@ class Human(Auxiliary, Thread):
         self.do_run = False
 
     def run(self):
+        global OFFICE_CLICK_AROUND
         try:
             seconds = 0
             randoff = random.randint(0, 10)
@@ -263,11 +315,13 @@ class Human(Auxiliary, Thread):
             USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
 
             while self.do_run:
-                if officedoc and (seconds % 30) == 0 and not CLOSED_OFFICE:
+                if officedoc and seconds > 45 and (seconds % 30) == 0 and not OFFICE_CLICK_AROUND and not CLOSED_OFFICE:
+                    USER32.EnumWindows(EnumWindowsProc(get_office_window_click_around), 0)
                     USER32.EnumWindows(EnumWindowsProc(get_office_window), 0)
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
                 if random.randint(0, 7) > 1:
+                    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
                     click_mouse()
                     move_mouse()
 

@@ -1,10 +1,11 @@
+{% load key_tags %}
 <section id="file">
     <h4>File Details</h4>
     {% if analysis.info.parent_sample %}
     <div class="form-group">
         <label for="parent_file"><a href="#parent_file" data-toggle="collapse">Parent file</a></label>
         <div id="parent_file" class="collapse">
-            <table class="table table-striped" style="table-layout: fixed;">
+            <table class="table table-striped table-dark" style="table-layout: fixed;">
                 <tr>
                     <th style="border-top: 0; width: 15%;">File Size</th>
                     <td style="border-top: 0; word-wrap: break-word;">{{analysis.info.parent_sample.file_size}} bytes</td>
@@ -44,8 +45,7 @@
     </div>
     {% endif %}
 
-    <div class="panel panel-default">
-        <table class="table table-striped" style="table-layout: fixed;">
+        <table class="table table-striped table-dark" style="table-layout: fixed;">
             {% if analysis.info.source_url %}
             <tr>
                 <th style="border-top: 0; width: 15%;">File downloaded from</th>
@@ -86,10 +86,23 @@
                 <th>SHA512</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.sha512}}</td>
             </tr>
+            {% if analysis.target.file.sha3_384 %}
+            <tr>
+                <th>SHA3-384</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha3_384}}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <th>CRC32</th>
                 <td>{{analysis.target.file.crc32}}</td>
             </tr>
+            {% if analysis.target.file.tlsh %}
+            <tr>
+                <th>TLSH</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.tlsh}}</td>
+            </tr>
+            {% endif %}
+
             {% if analysis.target.file.ssdeep %}
             <tr>
                 <th>Ssdeep</th>
@@ -143,6 +156,7 @@
                     <ul style="margin-bottom: 0;">
                         {% for sign in analysis.target.file.cape_yara %}
                         <li>
+                            {{sign.name}} -
                             {% if sign.meta.cape_type %}
                                 {{sign.meta.cape_type}}
                             {% elif sign.meta.description %}
@@ -157,21 +171,77 @@
                 </td>
             </tr>
             {% endif %}
+
             <tr>
                 <th></th>
                 <td>
-                    <a class="btn btn-default btn-small" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}">Download</a>
-                    <a class="btn btn-default btn-small" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}">Download ZIP</a>
-                    <a class="btn btn-default btn-small" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Resubmit sample</a>
+                    {% if not config.zipped_download %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "file" "sample" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-download"></span></a>
+                    {% endif %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "file" "samplezip" analysis.info.id analysis.target.file.sha256 %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{analysis.target.file.sha256 }}"><span class="fa fa-sync"></span> File</a>
+                    {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
+                        {% if config.flare_capa %}
+                            {% if not analysis.static.flare_capa %}
+                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> CAPA</a>
+                            {% else %}
+                                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if graphs.bingraph.enabled %}
+                            {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
+                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Bingraph</a>
+                            {% else %}
+                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if graphs.vba2graph.enabled and analysis.static.office %}
+                            {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                            {% else %}
+                                <a href="{% url "file_nl" "vba2graph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if config.virustotal and not analysis.virustotal %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> VirusTotal</a>
+                        {% endif %}
+                    {% endif %}
+                    {% if config.vtupload and analysis.info.tlp != "Red" %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
+                    {% endif %}
                 </td>
-                {% if config.vtupload %}
-                {% if analysis.info.tlp != "Red" %}
-                <td>
-                    <a class="btn btn-default btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
-                </td>
-                {% endif %}
-                {% endif %}
             </tr>
+            {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
+                <tr><th></th>
+                    <td>{{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}</td>
+                </tr>
+            {% endif %}
+            {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                <tr><th></th>
+                    <td>{{ graphs.vba2graph.content|getkey:analysis.target.file.sha256|safe }}</td>
+                </tr>
+            {% endif %}
+
+            {% if analysis.static.flare_capa %}
+                <tr><th></th><td>
+                <div class="collapse" id="flare_capa_{{analysis.target.file.sha256}}">
+                    <div class="card card-body">
+                    <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
+                    {% if analysis.static.flare_capa.CAPABILITY %}
+                        {{analysis.static.flare_capa|flare_capa_capability}}
+                    {% endif %}
+
+                    {% if analysis.static.flare_capa.ATTCK %}
+                        {{analysis.static.flare_capa|flare_capa_attck}}
+                    {% endif %}
+
+                    {% if analysis.static.flare_capa.MBC %}
+                        {{analysis.static.flare_capa|flare_capa_mbc}}
+                    {% endif %}
+                    </div>
+                </div>
+                </td>
+            </tr>
+            {% endif %}
         </table>
-    </div>
 </section>

@@ -4,6 +4,7 @@
 import os
 import sys
 import struct
+import socket
 import pefile
 import hashlib
 import datetime
@@ -66,6 +67,45 @@ def parse_controllers(data):
     return controllers
 
 """
+    Parses the binary CNC block format introduced Nov'20
+"""
+def parse_binary_c2(data):
+    controllers = []
+    c2_offset = 0
+    length = len(data)
+    while c2_offset < length:
+        ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset+1:c2_offset+5])[0]))
+        port = str(struct.unpack(">H", data[c2_offset+5:c2_offset+7])[0])
+        c2_offset += 7
+        controllers.append('{}:{}'.format(ip,port))
+    return controllers
+
+"""
+    Parses the binary CNC block format introduced April'21
+"""
+def parse_binary_c2_2(data):
+    controllers = []
+    c2_offset = 0
+    c2_data = data
+
+    expected_sha1 = c2_data[:0x14]
+    c2_data = c2_data[0x14:]
+    actual_sha1 = hashlib.sha1(c2_data).digest()
+
+    if actual_sha1 != expected_sha1:
+        log.error(f'Expected sha1: {expected_sha1} actual: {actual_sha1}')
+        return
+
+    length = len(c2_data)
+
+    while c2_offset < length:
+        ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", c2_data[c2_offset+1:c2_offset+5])[0]))
+        port = str(struct.unpack(">H", c2_data[c2_offset+5:c2_offset+7])[0])
+        c2_offset += 7
+        controllers.append('{}:{}'.format(ip, port))
+    return controllers
+
+"""
     Decompress data with blzpack decompression
 """
 def decompress(data):
@@ -90,9 +130,22 @@ def decrypt_data(data):
 
     return decrypted_data[0x14:]
 
+def decrypt_data2(data):
+    if not data:
+        return
+
+    hash_obj = hashlib.sha1(b'\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+    rc4_key = hash_obj.digest()
+    decrypted_data = ARC4.new(rc4_key).decrypt(data)
+
+    if not decrypted_data:
+        return
+
+    return decrypted_data
+
 class QakBot(Parser):
     DESCRIPTION = "Qakbot configuration parser."
-    AUTHOR = "threathive"
+    AUTHOR = "threathive, r1n9w0rm"
 
     def run(self):
         filebuf = self.file_object.file_data
@@ -123,19 +176,45 @@ class QakBot(Parser):
                                             config = parse_config(dec_bytes)
                                             #log.info("qbot_config:{}".format(config))
                                             self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe2).decode("utf-8") })
-                                    
+
                                             for k,v in config.items():
                                                 #log.info( { k.decode("utf-8"): v.decode("utf-8") })
                                                 self.reporter.add_metadata("other", {k:v})
-                                 
+
                                         elif entry.name.__str__() == '311':
                                             dec_bytes = decrypt_data(res_data)
                                             controllers = parse_controllers(dec_bytes)
-                                            
+
                                             #log.info("controllers:{}".format(controllers))
                                             for controller in controllers:
                                                 self.reporter.add_metadata("address", controller)
+                            #log.info("meta data:{}".format(self.reporter.metadata))
 
+                        elif entry.name.__str__() == '308':
+                            dec_bytes = decrypt_data(res_data)
+                            config = parse_config(dec_bytes)
+                            #log.info("qbot_config:{}".format(config))
+                            self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe)})
+
+                            for k,v in config.items():
+                                #log.info({k:v})
+                                self.reporter.add_metadata("other", {k:v})
+
+                        elif entry.name.__str__() == '311':
+                            dec_bytes = decrypt_data(res_data)
+                            controllers = parse_binary_c2(dec_bytes)
+
+                        elif entry.name.__str__() == '118':
+                            dec_bytes = decrypt_data2(res_data)
+                            controllers = parse_binary_c2_2(dec_bytes)
+
+                        elif entry.name.__str__() == '524':
+                            dec_bytes = decrypt_data2(res_data)
+                            config = parse_config(dec_bytes)
+
+                            #log.info("controllers:{}".format(controllers))
+                            for controller in controllers:
+                                self.reporter.add_metadata("address", controller)
                             #log.info("meta data:{}".format(self.reporter.metadata))
 
         except Exception as e:

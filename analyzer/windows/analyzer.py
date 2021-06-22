@@ -149,7 +149,7 @@ def upload_files(folder):
 
 
 class Analyzer:
-    """Cuckoo Windows Analyzer.
+    """CAPE Windows Analyzer.
 
     This class handles the initialization and execution of the analysis
     procedure, including handling of the pipe server, the auxiliary modules and
@@ -295,6 +295,9 @@ class Analyzer:
         # Copy the debugger log.
         upload_files("debugger")
 
+        # TLS secrets (if any)
+        upload_files("tlsdump")
+
         # Stop the Pipe Servers.
         if hasattr(self, "command_pipe"):
             self.command_pipe.stop()
@@ -391,6 +394,52 @@ class Analyzer:
         if self.config.category == "file":
             self.target = self.package.move_curdir(self.target)
 
+        # Set the DLL to that specified by package
+        if "dll" in self.package.options and self.package.options["dll"] is not None:
+            MONITOR_DLL = self.package.options["dll"]
+            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a DLL option", package_name)
+
+        # Set the DLL_64 to that specified by package
+        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
+            MONITOR_DLL_64 = self.package.options["dll_64"]
+            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
+
+        # Set the loader to that specified by package
+        if "loader" in self.package.options and self.package.options["loader"] is not None:
+            LOADER32 = self.package.options["loader"]
+            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader option", package_name)
+
+        # Set the loader_64 to that specified by package
+        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
+            LOADER64 = self.package.options["loader_64"]
+            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
+
+        # randomize monitor DLL and loader executable names
+        if MONITOR_DLL is not None:
+            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
+        else:
+            copy("dll\\capemon.dll", CAPEMON32_NAME)
+        if MONITOR_DLL_64 is not None:
+            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
+        else:
+            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
+        if LOADER32 is not None:
+            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
+        else:
+            copy("bin\\loader.exe", LOADER32_NAME)
+        if LOADER64 is not None:
+            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
+        else:
+            copy("bin\\loader_x64.exe", LOADER64_NAME)
+
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = auxiliary.__name__ + "."
@@ -450,52 +499,6 @@ class Analyzer:
         zer0m0n.dumpint(int(self.options.get("dumpint", "0")))
         """
 
-        # Set the DLL to that specified by package
-        if "dll" in self.package.options and self.package.options["dll"] is not None:
-            MONITOR_DLL = self.package.options["dll"]
-            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL option", package_name)
-
-        # Set the DLL_64 to that specified by package
-        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
-            MONITOR_DLL_64 = self.package.options["dll_64"]
-            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
-
-        # Set the loader to that specified by package
-        if "loader" in self.package.options and self.package.options["loader"] is not None:
-            LOADER32 = self.package.options["loader"]
-            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader option", package_name)
-
-        # Set the loader_64 to that specified by package
-        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
-            LOADER64 = self.package.options["loader_64"]
-            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
-
-        # randomize monitor DLL and loader executable names
-        if MONITOR_DLL is not None:
-            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
-        else:
-            copy("dll\\capemon.dll", CAPEMON32_NAME)
-        if MONITOR_DLL_64 is not None:
-            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
-        else:
-            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
-        if LOADER32 is not None:
-            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
-        else:
-            copy("bin\\loader.exe", LOADER32_NAME)
-        if LOADER64 is not None:
-            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
-        else:
-            copy("bin\\loader_x64.exe", LOADER64_NAME)
-
         si = subprocess.STARTUPINFO()
         # STARTF_USESHOWWINDOW
         si.dwFlags = 1
@@ -547,7 +550,7 @@ class Analyzer:
 
         while self.do_run:
             self.time_counter = datetime.now() - time_start
-            if self.time_counter.total_seconds() >= int(self.config.timeout):
+            if self.time_counter.total_seconds() < 0 or self.time_counter.total_seconds() >= int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis.")
                 ANALYSIS_TIMED_OUT = True
                 break
@@ -688,7 +691,6 @@ class Analyzer:
             except Exception as e:
                 log.warning("Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e)
 
-        # Let's invoke the completion procedure.
         log.info("Shutting down pipe server and dumping dropped files.")
 
         return True
@@ -753,11 +755,12 @@ class Files(object):
             log.warning("File at path %r does not exist, skip.", filepath)
             return False
 
+        duplicated = False
         # Check whether we've already dumped this file - in that case skip it.
         try:
             sha256 = hash_file(hashlib.sha256, filepath)
             if sha256 in self.dumped:
-                return
+                duplicated = True
         except IOError as e:
             log.info('Error dumping file from path "%s": %s', filepath, e)
             return
@@ -783,7 +786,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category)
+            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -1086,9 +1089,6 @@ class CommandPipeHandler(object):
                 else:
                     log.error("Unable to monitor service %s" % (servname))
 
-    # For now all we care about is bumping up our LASTINJECT_TIME to account for long delays between
-    # injection and actual resume time where the DLL would have a chance to load in the new process
-    # and report back to have its pid added to the list of monitored processes
     def _handle_resume(self, data):
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = datetime.now()
@@ -1238,7 +1238,7 @@ class CommandPipeHandler(object):
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()
             else:
-                log.warning("Received request to inject Cuckoo " "process with pid %d, skip", process_id)
+                log.warning("Received request to inject process with pid %d, skipped", process_id)
         # return self._inject_process(int(data), None, 0)
         return
 

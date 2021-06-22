@@ -29,7 +29,7 @@ from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import convert_to_printable, get_options
+from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
@@ -124,15 +124,11 @@ class AnalysisManager(threading.Thread):
         if os.path.exists(self.binary):
             log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, self.binary))
         else:
-            # TODO: do we really need to abort the analysis in case we are not
-            # able to store a copy of the file?
+            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
-                log.error(
-                    "Task #{0}: Unable to store file from '{1}' to '{2}', "
-                    "analysis aborted".format(self.task.id, self.task.target, self.binary)
-                )
+                log.error("Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(self.task.id, self.task.target, self.binary))
                 return False
 
         try:
@@ -143,7 +139,7 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to " "'{2}': {3}".format(self.task.id, self.binary, self.storage, e))
+            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to '{2}': {3}".format(self.task.id, self.binary, self.storage, e))
 
         return True
 
@@ -167,16 +163,13 @@ class AnalysisManager(threading.Thread):
             # used or machine tags acquire the machine accordingly.
             machine = machinery.acquire(machine_id=self.task.machine, platform=self.task.platform, tags=self.task.tags)
 
-            # If no machine is available at this moment, wait for one second
-            # and try again.
+            # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #{0}: no machine available yet".format(self.task.id))
+                log.debug("Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(self.task.id))
                 time.sleep(1)
             else:
-                log.info(
-                    "Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform)
-                )
+                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform))
                 break
 
         self.machine = machine
@@ -197,6 +190,9 @@ class AnalysisManager(threading.Thread):
         options["enforce_timeout"] = self.task.enforce_timeout
         options["clock"] = self.task.clock
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
+        options["upload_max_size"] = self.cfg.resultserver.upload_max_size
+        options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
+
 
         if not self.task.timeout or self.task.timeout == 0:
             options["timeout"] = self.cfg.timeouts.default
@@ -227,6 +223,7 @@ class AnalysisManager(threading.Thread):
 
                         options["exports"] = ",".join(exports)
                 except Exception as e:
+                    log.error("PE type not recognised")
                     log.error(e, exc_info=True)
 
         # options from auxiliar.conf
@@ -235,30 +232,18 @@ class AnalysisManager(threading.Thread):
 
         return options
 
-    def launch_analysis(self):
-        """Start analysis."""
-        succeeded = False
-        dead_machine = False
-        self.socks5s = _load_socks5_operational()
-
-        log.info(
-            "Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target))
-        )
-
-        # Initialize the analysis folders.
-        if not self.init_storage():
-            log.debug("Failed to initialize the analysis folder")
-            return False
-
+    def category_checks(self):
         if self.task.category in ["file", "pcap", "static"]:
             sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
+                log.debug("check file")
                 return False
 
             # Store a copy of the original file.
             if not self.store_file(sha256):
+                log.debug("store file")
                 return False
 
         if self.task.category in ("pcap", "static"):
@@ -276,6 +261,23 @@ class AnalysisManager(threading.Thread):
                 except:
                     pass
             return True
+
+    def launch_analysis(self):
+        """Start analysis."""
+        succeeded = False
+        dead_machine = False
+        self.socks5s = _load_socks5_operational()
+
+        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
+
+        # Initialize the analysis folders.
+        if not self.init_storage():
+            log.debug("Failed to initialize the analysis folder")
+            return False
+
+        category_early_escape = self.category_checks()
+        if isinstance(category_early_escape, bool):
+            return category_early_escape
 
         # Acquire analysis machine.
         try:
@@ -466,11 +468,8 @@ class AnalysisManager(threading.Thread):
         # Determine the desired routing strategy (none, internet, VPN).
         self.route = routing.routing.route
 
-        # Allow overwrite default conf value
-        if self.task.options:
-            options = get_options(self.task.options)
-            if options.get("route"):
-                self.route = options.get("route")
+        if self.task.route:
+            self.route = self.task.route
 
         if self.route in ("none", "None", "drop"):
             self.interface = None
@@ -488,7 +487,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in self.socks5s:
             self.interface = ""
         else:
-            log.warning("Unknown network routing destination specified, " "ignoring routing for this analysis: %r", self.route)
+            log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %r", self.route)
             self.interface = None
             self.rt_table = None
 
@@ -552,10 +551,6 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
 
-        if self.route in vpns:
-            self.rooter_response = rooter("vpn_disable", self.route)
-            time.sleep(1)
-
         if self.route == "inetsim":
             self.rooter_response = rooter(
                 "inetsim_disable",
@@ -616,7 +611,8 @@ class Scheduler:
 
         max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
         if max_vmstartup_count:
-            machine_lock = threading.Semaphore(max_vmstartup_count)
+            # machine_lock = threading.Semaphore(max_vmstartup_count)
+            machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
         else:
             machine_lock = threading.Lock()
 
@@ -638,9 +634,7 @@ class Scheduler:
         conf = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery_name)
 
         if not os.path.exists(conf):
-            raise CuckooCriticalError(
-                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
-            )
+            raise CuckooCriticalError("The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf))
 
         # Provide a dictionary with the configuration options to the
         # machine manager instance.
@@ -737,7 +731,7 @@ class Scheduler:
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
                 need_space, space_available = free_space_monitor(dir_path, return_value=True)
                 if need_space:
-                    log.error("Not enough free disk space! (Only %d MB!)", space_available)
+                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
                     continue
 
             # Have we limited the number of concurrently executing machines?

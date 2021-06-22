@@ -18,7 +18,7 @@ except ImportError:
 import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File, ProcDump
-from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 
 log = logging.getLogger(__name__)
 
@@ -46,9 +46,13 @@ class ProcessMemory(Processing):
             with open(path, "wb") as f:
                 f.write(data)
 
-            res.append(File(path).get_all())
+            data, pefile_object = File(path).get_all()
+            if pefile_object:
+                self.results.setdefault("pefiles", {})
+                self.results["pefiles"].setdefault(data["sha256"], pefile_object)
+            res.append(data)
         return res
-    
+
     def get_yara_memblock(self, addr_space, yaraoffset):
         lastoffset = 0
         lastmemmap = addr_space[0]
@@ -105,14 +109,14 @@ class ProcessMemory(Processing):
                     cape_yara=dmp_file.get_yara(category="CAPE"),
                     address_space=procdump.pretty_print(),
                 )
-                
+
                 for hit in proc["cape_yara"]:
                     hit["memblocks"] = dict()
                     for item in hit["addresses"]:
                         memblock = self.get_yara_memblock(proc["address_space"], hit["addresses"][item])
                         if memblock:
                             hit["memblocks"][item] = memblock
-                
+
                 # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
 
@@ -143,13 +147,8 @@ class ProcessMemory(Processing):
 
                 procdump.close()
                 results.append(proc)
-                if "cape_yara" in proc:
-                    cape_name = ""
-                    for hit in proc["cape_yara"]:
-                        if "name" in hit:
-                            if not cape_name:
-                                cape_name = hit["name"]
-                    if cape_name:
-                        if "detections" not in self.results:
-                            self.results["detections"] = cape_name
+
+                cape_name = cape_name_from_yara(proc, process_id, self.results)
+                if  cape_name and "detections" not in self.results:
+                    self.results["detections"] = cape_name
         return results

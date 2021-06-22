@@ -14,6 +14,7 @@ def main():
     vpns = list()
     template = """
 [vpn_{id}]
+# rename this to something different, you will use thil field to see in webgui or set in routing.conf
 name = {vpn_path}
 description = {description}
 interface = tun{id}
@@ -36,11 +37,17 @@ rt_table = {rt}
                 rt = rt[0]
 
             # add read login data from conf file
-            if tmp.find("auth-user-pass pass.txt") == -1:
-                if tmp.find("auth-user-pass login.conf") == -1 and tmp.find("auth-user-pass") != -1:
+            if tmp.find("auth-user-pass /etc/openvpn/login.creds") == -1:
+                if tmp.find("auth-user-pass /etc/openvpn/login.conf") == -1 and tmp.find("auth-user-pass") != -1:
                     tmp = tmp.replace("auth-user-pass", "")
 
-                tmp += "\nauth-user-pass login.conf"
+                tmp += "\nauth-user-pass /etc/openvpn/login.creds"
+                tmp += "\nscript-security 2"
+                tmp += "\nroute-noexec"
+                tmp += "\nroute-up /opt/CAPEv2/utils/route.py"
+                tmp += "\nping 10"
+                tmp += "\nping-restart 60"
+                tmp += "\npull-filter ignore auth-token"
                 write = 1
 
             # check device

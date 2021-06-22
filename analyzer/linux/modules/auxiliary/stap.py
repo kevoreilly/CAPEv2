@@ -37,6 +37,8 @@ class STAP(Auxiliary):
             path = path_cfg
         elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
             path = has_stap("/root/.cuckoo")
+        elif os.path.exists("/root/.cape") and has_stap("/root/.cape"):
+            path = has_stap("root/.cape")
         else:
             log.warning("Could not find STAP LKM, aborting systemtap analysis.")
             return False
@@ -46,6 +48,9 @@ class STAP(Auxiliary):
 
         while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode("utf8"):
             pass
+
+        self.proc.terminate()
+        self.proc.wait()
 
         stap_stop = time.time()
         log.info("STAP aux module startup took %.2f seconds" % (stap_stop - stap_start))

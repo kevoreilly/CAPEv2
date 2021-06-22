@@ -12,6 +12,8 @@ import logging
 import argparse
 import signal
 import multiprocessing
+import platform
+import resource
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -29,9 +31,10 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLETED
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
-from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
+from lib.cuckoo.core.plugins import RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
-from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
+from lib.cuckoo.common.utils import free_space_monitor
+from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_linux_dist
 from concurrent.futures import TimeoutError
 
 cfg = Config()
@@ -48,9 +51,28 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     fullidx = baseidx + "-*"
     es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
 
+check_linux_dist()
+
 pending_future_map = {}
 pending_task_id_map = {}
 
+# https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
+def memory_limit(percentage: float = 0.8):
+    if platform.system() != "Linux":
+        print('Only works on linux!')
+        return
+    _, hard = resource.getrlimit(resource.RLIMIT_AS)
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
+
+def get_memory():
+    with open('/proc/meminfo', 'r') as mem:
+        free_memory = 0
+        for i in mem:
+            sline = i.split()
+            if str(sline[0]) == 'MemAvailable:':
+                free_memory = int(sline[1])
+                break
+    return free_memory
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
@@ -79,21 +101,24 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
 
     if report:
         if repconf.mongodb.enabled:
-            host = repconf.mongodb.host
-            port = repconf.mongodb.port
-            db = repconf.mongodb.db
             conn = MongoClient(
-                host, port=port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=db
+                host = repconf.mongodb.get("host", "127.0.0.1"),
+                port = repconf.mongodb.get("port", 27017),
+                username = repconf.mongodb.get("username", None),
+                password = repconf.mongodb.get("password", None),
+                authSource = repconf.mongodb.get("authsource", "admin"),
             )
-            mdata = conn[db]
+            mdata = conn[repconf.mongodb.get("db", "cuckoo")]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
-            if analyses.count() > 0:
+            if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis["behavior"].get("processes", []):
+                        calls = list()
                         for call in process["calls"]:
-                            mdata.calls.remove({"_id": ObjectId(call)})
-                    mdata.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                            calls.append(ObjectId(call))
+                        mdata.calls.delete_many({"_id": {"$in": calls}})
+                    mdata.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
             conn.close()
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 
@@ -150,9 +175,9 @@ def init_logging(auto=False, tid=0, debug=False):
             os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
             if cfg.logging.enabled:
-                days = cfg.logging.backup_count
+                days = cfg.logging.backup_count or 7
                 fh = logging.handlers.TimedRotatingFileHandler(
-                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=days
+                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
                 )
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
@@ -191,77 +216,85 @@ def processing_finished(future):
     del pending_future_map[future]
     del pending_task_id_map[task_id]
 
-
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
-
+    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
     try:
+        memory_limit()
         log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
+
+            # If not enough free disk space is available, then we print an
+            # error message and wait another round (this check is ignored
+            # when the freespace configuration variable is set to zero).
+            if cfg.cuckoo.freespace:
+                # Resolve the full base path to the analysis folder, just in
+                # case somebody decides to make a symbolic link out of it.
+                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
+                if need_space:
+                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                    time.sleep(60)
+                    continue
 
             # If still full, don't add more (necessary despite pool).
             if len(pending_task_id_map) >= parallel:
                 time.sleep(5)
                 continue
-
-            with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
-                # If we're here, getting parallel tasks should at least
-                # have one we don't know.
-                if failed_processing:
-                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
+            if failed_processing:
+                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
+            else:
+                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+            added = False
+            # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
+            for task in tasks:
+                # Not-so-efficient lock.
+                if pending_task_id_map.get(task.id):
+                    continue
+                log.info("Processing analysis data for Task #%d", task.id)
+                if task.category == "file":
+                    sample = db.view_sample(task.sample_id)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                 else:
-                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-                added = False
-                # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
-                for task in tasks:
-                    # Not-so-efficient lock.
-                    if pending_task_id_map.get(task.id):
-                        continue
-                    log.info("Processing analysis data for Task #%d", task.id)
-                    if task.category == "file":
-                        sample = db.view_sample(task.sample_id)
-                        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
-                    else:
-                        copy_path = None
-                    args = task.target, copy_path
-                    kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-                    if memory_debugging:
-                        gc.collect()
-                        log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-
-                    # result = pool.apply_async(process, args, kwargs)
-                    future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                    pending_future_map[future] = task.id
-                    pending_task_id_map[task.id] = future
-                    future.add_done_callback(processing_finished)
-                    if memory_debugging:
-                        gc.collect()
-                        log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-
-                    count += 1
-                    added = True
-                    break
-
-                if not added:
-                    # don't hog cpu
-                    time.sleep(5)
-
+                    copy_path = None
+                args = task.target, copy_path
+                kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
+                if memory_debugging:
+                    gc.collect()
+                    log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                # result = pool.apply_async(process, args, kwargs)
+                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                pending_future_map[future] = task.id
+                pending_task_id_map[task.id] = future
+                future.add_done_callback(processing_finished)
+                if memory_debugging:
+                    gc.collect()
+                    log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                count += 1
+                added = True
+                break
+            if not added:
+                # don't hog cpu
+                time.sleep(5)
     except KeyboardInterrupt:
         # ToDo verify in finally
         # pool.terminate()
         raise
-    except:
+    except MemoryError:
+        mem = get_memory() / 1024 /1024
+        print('Remain: %.2f GB' % mem)
+        sys.stderr.write('\n\nERROR: Memory Exception\n')
+        sys.exit(1)
+    except Exception as e:
         import traceback
-
         traceback.print_exc()
     finally:
         pool.close()
         pool.join()
-
 
 def main():
     parser = argparse.ArgumentParser()

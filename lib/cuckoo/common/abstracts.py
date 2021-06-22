@@ -14,8 +14,6 @@ import threading
 import logging
 import time
 
-from urllib.parse import urlparse
-
 try:
     import re2 as re
 except ImportError:
@@ -31,14 +29,17 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import Dictionary
-from lib.cuckoo.common.utils import create_folder
+from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database
-from django.core.validators import URLValidator
+from lib.cuckoo.common.url_validate import url as url_validator
 
 log = logging.getLogger(__name__)
 cfg = Config()
 repconf = Config("reporting")
 machinery_conf = Config(cfg.cuckoo.machinery)
+
+# from django.core.validators import URLValidator
+# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
 try:
     import libvirt
@@ -48,35 +49,26 @@ except ImportError:
     HAVE_LIBVIRT = False
 
 try:
-    import tldextract
-
+    from tldextract import TLDExtract
     HAVE_TLDEXTRACT = True
+    logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
     HAVE_TLDEXTRACT = False
+
+HAVE_MITRE = False
 
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
-        from pyattck.version import __version_info__ as pyattck_version
 
-        if pyattck_version[0] == 2:
+        mitre = Attck(
+            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        )
+        HAVE_MITRE = True
 
-            attack_file = repconf.mitre.get("local_file", False)
-            if attack_file:
-                attack_file = os.path.join(CUCKOO_ROOT, attack_file)
-            else:
-                attack_file = False
-            mitre = Attck(dataset_json=attack_file)
-            HAVE_MITRE = True
-        else:
-            HAVE_MITRE = False
-            log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
     except (ImportError, ModuleNotFoundError):
-        log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
-        HAVE_MITRE = False
-else:
-    HAVE_MITRE = False
-
+        print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0
@@ -683,13 +675,24 @@ class Processing(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.network_path = os.path.join(self.analysis_path, "network")
+        self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
 
-    def add_statistic(self, name, field, value):
-        if name not in self.results["statistics"]["processing"]:
-            self.results["statistics"]["processing"][name] = {}
+    def add_statistic_tmp(self, name, field, pretime):
+        posttime = datetime.datetime.now()
+        timediff = posttime - pretime
+        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
 
-        self.results["statistics"]["processing"][name][field] = value
+        if name not in self.results["temp_processing_stats"]:
+            self.results["temp_processing_stats"][name] = {}
+
+        # To be able to add yara/capa and others time summary over all processing modules
+        if field in self.results["temp_processing_stats"][name]:
+            self.results["temp_processing_stats"][name][field] += value
+        else:
+            self.results["temp_processing_stats"][name][field] = value
 
     def run(self):
         """Start processing.
@@ -738,6 +741,20 @@ class Signature(object):
         self.hostname2ips = dict()
         self.machinery_conf = machinery_conf
 
+    def statistics_custom(self, pretime, extracted=False):
+        """
+        Aux function for custom stadistics on signatures
+        @param pretime: start time as datetime object
+        @param extracted: conf extraction from inside signature to count success extraction vs sig run
+        """
+        timediff = datetime.datetime.now() - pretime
+        self.results["custom_statistics"] = dict()
+        self.results["custom_statistics"][self.name] = dict()
+        self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        if extracted:
+            self.results["custom_statistics"][self.name]["extracted"] = 1
+
+
     def set_path(self, analysis_path):
         """Set analysis folder path.
         @param analysis_path: analysis folder path.
@@ -752,7 +769,8 @@ class Signature(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
 
         try:
             create_folder(folder=self.reports_path)
@@ -772,11 +790,13 @@ class Signature(object):
             for sub_keyword in ("yara", "cape_yara"):
                 for sub_block in block.get(sub_keyword, []):
                     if re.findall(name, sub_block["name"], re.I):
-                        yield keyword, block["path"], sub_block
+                        yield sub_keyword, block["path"], sub_block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if keyword in self.results and self.results[keyword] is not None:
                 for block in self.results.get(keyword, []):
+                    if not isinstance(block, dict):
+                        continue
                     for sub_keyword in ("yara", "cape_yara"):
                         for sub_block in block.get(sub_keyword, []):
                             if re.findall(name, sub_block["name"], re.I):
@@ -812,8 +832,6 @@ class Signature(object):
                 if re.findall(name, sub_block["name"], re.I):
                     yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
 
-        yield False, False, False
-
     def add_statistic(self, name, field, value):
         if name not in self.results["statistics"]["signatures"]:
             self.results["statistics"]["signatures"][name] = {}
@@ -832,21 +850,21 @@ class Signature(object):
         if os.path.exists(logs):
             pids += [pidb.replace(".bson", "") for pidb in os.listdir(logs) if ".bson" in pidb]
 
-        #  in case if injection not follows
+        #  in case if injection not follows
         if "procmemory" in self.results and self.results["procmemory"] is not None:
             pids += [str(block["pid"]) for block in self.results["procmemory"]]
         if "procdump" in self.results and self.results["procdump"] is not None:
             pids += [str(block["pid"]) for block in self.results["procdump"]]
 
         log.info(list(set(pids)))
-        return ",".join(list(set(pids)))
+        return list(set(pids))
 
     def advanced_url_parse(self, url):
         if HAVE_TLDEXTRACT:
             EXTRA_SUFFIXES = ("bit",)
             parsed = False
             try:
-                parsed = tldextract.TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
+                parsed = TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
             except Exception as e:
                 log.error(e)
             return parsed
@@ -875,10 +893,12 @@ class Signature(object):
                     ips.append(rdata.address)
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
+        except dns.name.NeedAbsoluteNameOrOrigin:
+            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
-            log.info(e)
+            log.info(str(e))
 
         return ips
 
@@ -891,18 +911,16 @@ class Signature(object):
             return False
 
     def _check_valid_url(self, url, all_checks=False):
-        """ Checks if url is correct and can be parsed by tldextract/urlparse
+        """ Checks if url is correct
         @param url: string
         @return: url or None
         """
 
-        val = URLValidator(schemes=["http", "https", "udp", "tcp"])
-
         try:
-            val(url)
-            return url
-        except:
-            pass
+            if url_validator(url):
+                return url
+        except Exception as e:
+            print(e)
 
         if all_checks:
             last = url.rfind("://")
@@ -910,10 +928,10 @@ class Signature(object):
                 url = url[last + 3 :]
 
         try:
-            val("http://%s" % url)
-            return "http://%s" % url
-        except:
-            pass
+            if url_validator("http://%s" % url):
+                return "http://%s" % url
+        except Exception as e:
+            print(e)
 
     def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
         """Checks a pattern against a given subject.
@@ -1105,6 +1123,19 @@ class Signature(object):
                       matched items or the first matched item
         """
         subject = self.results["behavior"]["summary"]["started_services"]
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
+
+    def check_created_service(self, pattern, regex=False, all=False):
+        """Checks for a service being created.
+        @param pattern: string or expression to check for.
+        @param regex: boolean representing if the pattern is a regular
+                      expression or not and therefore should be compiled.
+        @param all: boolean representing if all results should be returned
+                      in a set or not
+        @return: depending on the value of param 'all', either a set of
+                      matched items or the first matched item
+        """
+        subject = self.results["behavior"]["summary"]["created_services"]
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=True)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
@@ -1536,7 +1567,8 @@ class Report(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:

@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import json
 import pkgutil
 import inspect
@@ -12,7 +13,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.utils import get_vt_consensus
 from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
 from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
@@ -33,19 +33,26 @@ log = logging.getLogger(__name__)
 db = Database()
 _modules = defaultdict(dict)
 
+processing_cfg = Config("processing")
+reporting_cfg = Config("reporting")
+
+config_mapper = {
+    "processing": processing_cfg,
+    "reporting": reporting_cfg,
+}
 
 def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"])
-    except ImportError as e:
-        log.warning('Unable to import plugin "{0}": {1}'.format(name, e))
+    except (ImportError, SyntaxError) as e:
+        print('Unable to import plugin "{0}": {1}'.format(name, e))
         return
     else:
         # ToDo remove for release
         try:
             load_plugins(module)
         except Exception as e:
-            print(e)
+            print(e, sys.exc_info())
 
 
 def import_package(package):
@@ -53,6 +60,12 @@ def import_package(package):
     for _, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         if ispkg:
             continue
+
+        # Disable initialization of disabled plugins, performance++
+        _, category, module_name = name.split(".")
+        if category in config_mapper and module_name in config_mapper[category].fullconfig and config_mapper[category].get(module_name).get("enabled", False) is False:
+            continue
+
         try:
             import_plugin(name)
         except Exception as e:
@@ -332,9 +345,7 @@ class RunProcessing(object):
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
-            )
+            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))})
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -353,6 +364,8 @@ class RunProcessing(object):
         @return: processing results.
         """
 
+        # Used for cases where we need to add time of execution between modules
+        self.results["temp_processing_stats"] = {}
         # Order modules using the user-defined sequence number.
         # If none is specified for the modules, they are selected in
         # alphabetical order.
@@ -371,6 +384,13 @@ class RunProcessing(object):
                     self.results.update(result)
         else:
             log.info("No processing modules loaded")
+
+        # Add temp_processing stats to global processing stats
+        if self.results["temp_processing_stats"]:
+            for plugin_name in self.results["temp_processing_stats"]:
+                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)})
+
+        del self.results["temp_processing_stats"]
 
         # For correct error log on webgui
         logs = os.path.join(self.analysis_path, "logs")
@@ -397,7 +417,7 @@ class RunProcessing(object):
             if self.results.get("detections", False) and self.cfg.detections.yara:
                 family = self.results["detections"]
                 self.results["malfamily_tag"] = "Yara"
-            elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+            elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
                 for alert in self.results["suricata"]["alerts"]:
                     if alert.get("signature", "") and alert["signature"].startswith((et_categories)):
                         family = get_suricata_family(alert["signature"])
@@ -405,30 +425,12 @@ class RunProcessing(object):
                             self.results["malfamily_tag"] = "Suricata"
                             self.results["detections"] = family
 
-            elif (
-                self.cfg.detections.virustotal and not family
-                and self.results["info"]["category"] == "file"
-                and "virustotal" in self.results
-                and "results" in self.results["virustotal"]
-                and self.results["virustotal"]["results"]
-            ):
-                detectnames = []
-                for res in self.results["virustotal"]["results"]:
-                    if res["sig"] and "Trojan.Heur." not in res["sig"]:
-                        # weight Microsoft's detection, they seem to be more accurate than the rest
-                        if res["vendor"] == "Microsoft":
-                            detectnames.append(res["sig"])
-                        detectnames.append(res["sig"])
-                family = get_vt_consensus(detectnames)
+            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("detection"):
+                family = self.results["virustotal"]["detection"]
                 self.results["malfamily_tag"] = "VirusTotal"
 
             # fall back to ClamAV detection
-            elif (
-                self.cfg.detections.clamav and not family
-                and self.results["info"]["category"] == "file"
-                and "clamav" in self.results.get("target", {}).get("file", {})
-                and self.results["target"]["file"]["clamav"]
-            ):
+            elif self.cfg.detections.clamav and not family and self.results["info"]["category"] == "file" and self.results.get("target", {}).get("file", {}).get("clamav"):
                 for detection in self.results["target"]["file"]["clamav"]:
                     if detection.startswith("Win.Trojan."):
                         words = re.findall(r"[A-Za-z0-9]+", detection)
@@ -447,7 +449,7 @@ class RunSignatures(object):
     def __init__(self, task, results):
         self.task = task
         self.results = results
-        self.ttps = dict()
+        self.ttps = list()
         self.cfg_processing = Config("processing")
 
     def _load_overlay(self):
@@ -656,7 +658,7 @@ class RunSignatures(object):
                 else:
                     if result is True:
                         if hasattr(sig, "ttp"):
-                            [self.ttps.setdefault(ttp, sig.name) for ttp in sig.ttp]
+                            [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttp]
                         log.debug('Analysis matched signature "%s"', sig.name)
                         matched.append(sig.as_result())
                         if sig in complete_list:
@@ -682,7 +684,7 @@ class RunSignatures(object):
                     # If the signature is matched, add it to the list.
                     if match:
                         if hasattr(signature, "ttp"):
-                            [self.ttps.setdefault(ttp, signature.name) for ttp in signature.ttp]
+                            [self.ttps.append({"ttp": ttp, "signature": signature.name}) for ttp in signature.ttp]
                         matched.append(match)
 
         # Sort the matched signatures by their severity level.
@@ -723,6 +725,10 @@ class RunReporting:
     def __init__(self, task, results, reprocess=False):
         """@param analysis_path: analysis folder path."""
         self.task = task
+
+        if results.get("pefiles"):
+            del results["pefiles"]
+
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
             process["calls"].begin_reporting()

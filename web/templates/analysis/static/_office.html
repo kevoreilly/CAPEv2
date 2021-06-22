@@ -1,9 +1,5 @@
 <section id="static_analysis">
     {% load key_tags %}
-    {% if graphs.bingraph.enabled %}
-        <h4>Binary Entropy</h4>
-        {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
-    {% endif %}
     {% if analysis.static %}
         {% if analysis.static.office %}
             {% if analysis.mmbot %}
@@ -158,7 +154,7 @@
                         {% for detection in analysis.static.office.Macro.Analysis %}
                         <div>
                             <div class="panel" id="accordion" style="margin-top: 20px;">
-                            <div class="panel-heading">
+                            <div class="card-header">
                                 <a class="accordion-toggle" data-parent="#analysis_sigs" data-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="icon icon-cog"></i>{{detection}}</a>
                             </div>
                             <div id="{{detection}}" class="panel-collapse collapse" style="text-align: left;">
@@ -182,7 +178,7 @@
                 </div>
                 <hr />
                 {% endif %}
-                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator%}
+                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator %}
                 <div>
                     <div id="macro">
                     <h4>Extracted Macros</h4>
@@ -205,11 +201,6 @@
                     {% endfor %}
                     </div>
                 </div>
-                <hr />
-                {% endif %}
-                {% if graphs.vba2graph.enabled %}
-                    <h4>Vba2Graph</h4>
-                    {{ graphs.vba2graph.content|safe }}
                 {% endif %}
             {% endif %}
         {% endif %}
@@ -231,7 +222,7 @@
                             {% for block in value %}
                                 <tr>
                                     {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-default btn-small">{{block.filename}}</a></td>
+                                        <td><a href={% url "file" "rtf" analysis.info.id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
                                     {% else %}
                                         <td>{{block.filename}}</td>
                                     {% endif %}

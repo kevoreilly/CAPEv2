@@ -53,14 +53,15 @@ RESULT_UPLOADABLE = (
     b"aux",
     b"buffer",
     b"curtain",
+    b"debugger",
+    b"tlsdump",
     b"extracted",
     b"files",
     b"memory",
+    b"procdump",
     b"shots",
     b"sysmon",
     b"stap",
-    b"procdump",
-    b"debugger",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -172,7 +173,7 @@ class WriteLimiter(object):
             self.remain -= write
         if size and size != write:
             if not self.warned:
-                log.warning("Uploaded file length larger than upload_max_size, " "stopping upload.")
+                log.warning("Uploaded file length larger than upload_max_size, stopping upload.")
                 self.fd.write(b"... (truncated)")
                 self.warned = True
 
@@ -199,21 +200,24 @@ class FileUpload(ProtocolHandler):
             pids = list(map(int, self.handler.read_newline().split()))
             metadata = self.handler.read_newline()
             category = self.handler.read_newline()
+            duplicated = int(self.handler.read_newline()) or 0
         else:
-            filepath, pids, metadata, category = None, [], b"", b""
+            filepath, pids, metadata, category, duplicated = None, [], b"", b"", False
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
-        file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
+        if not duplicated:
+            file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
 
-        try:
-            self.fd = open_exclusive(file_path)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
-            raise
+            try:
+                self.fd = open_exclusive(file_path)
+            except OSError as e:
+                log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
+                if e.errno == errno.EEXIST:
+                    raise CuckooOperationalError(f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}")
+                raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(
@@ -230,11 +234,12 @@ class FileUpload(ProtocolHandler):
                     file=f,
                 )
 
-        self.handler.sock.settimeout(None)
-        try:
-            return self.handler.copy_to_fd(self.fd, self.upload_max_size)
-        finally:
-            log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
+        if not duplicated:
+            self.handler.sock.settimeout(None)
+            try:
+                return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+            finally:
+                log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):
@@ -326,7 +331,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger")
+        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger", "tlsdump")
 
         for folder in folders:
             try:

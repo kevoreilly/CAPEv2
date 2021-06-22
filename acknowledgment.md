@@ -1,4 +1,4 @@
-### Thanks to:
+### Thanks to:
 
 * CAPE was originally developed at Context Information Security so a huge thanks to Mark Raeburn and everyone else at ContextIS for giving life to this project.
 * A massive thank you to doomedraven (@D00m3dR4v3n) for porting CAPE to Python 3 and for his huge contributions and tireless support.
@@ -31,6 +31,7 @@
     * Will Metcalf
     * firmianay
     * hariomenkel
+    * themanifold
     * And many others <3
 * Special thank you to Paul Royal and [Georgia Tech](https://www.cc.gatech.edu/)
 * Finally a massive debt of gratitude to Gabor Kiss, for teaching me everything I know, and setting me on the path to enlightenment.

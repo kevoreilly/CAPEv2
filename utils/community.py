@@ -3,9 +3,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import shutil
 import os
 import sys
-
+import zipfile
+from io import BytesIO
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 import logging
@@ -22,6 +24,18 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
+def flare_capa_rules():
+    try:
+        http = urllib3.PoolManager()
+        data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
+        dest_folder = os.path.join(CUCKOO_ROOT, "data")
+        shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
+        shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
+        zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
+        os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
+        print("[+] FLARE CAPA rules installed")
+    except Exception as e:
+        print(e)
 
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
@@ -115,6 +129,7 @@ def main():
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
     parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
+    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)
@@ -122,6 +137,7 @@ def main():
 
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
+        flare_capa_rules()
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -138,6 +154,11 @@ def main():
         if args.data:
             enabled.append("data")
 
+    if args.capa_rules:
+        flare_capa_rules()
+        if not enabled:
+            return
+
     if not enabled:
         print(colors.red("You need to enable a category!\n"))
         parser.print_help()
@@ -151,3 +172,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
+

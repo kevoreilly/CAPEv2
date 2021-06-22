@@ -1,0 +1,36 @@
+<section id="hosts">
+    <h4>Hosts</h4>
+    {% if analysis.network.hosts %}
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th width="10%">Direct</th>
+                <th>IP</th>
+                <th>Country Name</th>
+            </tr>
+            {% for host in analysis.network.hosts %}
+            <tr>
+                {% if host.ip|slice:":7" != "192.168" %}
+                    {% if "hostname" in host and host.hostname == "" %}
+                        <td>Y</td>
+                    {% elif "hostname" in host %}
+                        <td>N</td>
+                    {% else %}
+                        <td>N/A</td>
+                    {% endif %}
+                    <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/detection">[VT]</a>
+                    {% if config.display_et_portal %}
+                    <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
+                    {% endif %}
+                    {% if config.display_pt_portal %}
+                    <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
+                    {% endif %}
+                    </td>
+                    <td>{{host.country_name}}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No hosts contacted.</p>
+    {% endif %}
+</section>

@@ -66,26 +66,38 @@ rule AgentTeslaV2 {
         (uint16(0) == 0x5a4d and 6 of ($s*)) or (6 of ($s*) and 2 of ($cl*))
 }
 
-
 rule AgentTeslaV3 {
     meta:
       author = "ditekshen"
       description = "AgentTeslaV3 infostealer payload"
       cape_type = "AgentTeslaV3 payload"
     strings:
-      $s1 = "get_kbok" fullword ascii
-      $s2 = "get_CHoo" fullword ascii
-      $s3 = "set_passwordIsSet" fullword ascii
-      $s4 = "get_enableLog" fullword ascii
-      $s5 = "bot%telegramapi%" wide
-      $s6 = "KillTorProcess" fullword ascii
-      $s7 = "GetMozilla" ascii
-      $s8 = "torbrowser" wide
-      $s9 = "%chatid%" wide
-      $s10 = "logins" fullword wide
-      $s11 = "credential" fullword wide
-      $s12 = "AccountConfiguration+" wide
-      $s13 = "<a.+?href\\s*=\\s*([\"'])(?<href>.+?)\\1[^>]*>" fullword wide
+        $s1 = "get_kbok" fullword ascii
+        $s2 = "get_CHoo" fullword ascii
+        $s3 = "set_passwordIsSet" fullword ascii
+        $s4 = "get_enableLog" fullword ascii
+        $s5 = "bot%telegramapi%" wide
+        $s6 = "KillTorProcess" fullword ascii
+        $s7 = "GetMozilla" ascii
+        $s8 = "torbrowser" wide
+        $s9 = "%chatid%" wide
+        $s10 = "logins" fullword wide
+        $s11 = "credential" fullword wide
+        $s12 = "AccountConfiguration+" wide
+        $s13 = "<a.+?href\\s*=\\s*([\"'])(?<href>.+?)\\1[^>]*>" fullword wide
+
+        $g1 = "get_Clipboard" fullword ascii
+        $g2 = "get_Keyboard" fullword ascii
+        $g3 = "get_Password" fullword ascii
+        $g4 = "get_CtrlKeyDown" fullword ascii
+        $g5 = "get_ShiftKeyDown" fullword ascii
+        $g6 = "get_AltKeyDown" fullword ascii
+
+        $m1 = "yyyy-MM-dd hh-mm-ssCookieapplication/zipSCSC_.jpegScreenshotimage/jpeg/log.tmpKLKL_.html<html></html>Logtext/html[]Time" ascii
+        $m2 = "%image/jpg:Zone.Identifier\\tmpG.tmp%urlkey%-f \\Data\\Tor\\torrcp=%PostURL%127.0.0.1POST+%2B" ascii
+        $m3 = ">{CTRL}</font>Windows RDPcredentialpolicyblobrdgchrome{{{0}}}CopyToComputeHashsha512CopySystemDrive\\WScript.ShellRegReadg401" ascii
+        $m4 = "%startupfolder%\\%insfolder%\\%insname%/\\%insfolder%\\Software\\Microsoft\\Windows\\CurrentVersion\\Run%insregname%SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\RunTruehttp" ascii
+        $m5 = "\\WindowsLoad%ftphost%/%ftpuser%%ftppassword%STORLengthWriteCloseGetBytesOpera" ascii
     condition:
-      uint16(0) == 0x5a4d and 8 of them
+        (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($*) and all of ($g*)))) or (2 of ($m*))
 }

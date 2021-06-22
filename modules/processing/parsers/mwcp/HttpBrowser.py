@@ -78,7 +78,7 @@ def unicode_from_va(pe, offset):
     return string
 
 
-class evilgrab(Parser):
+class HttpBrowser(Parser):
 
     DESCRIPTION = "HttpBrowser configuration parser."
     AUTHOR = "kevoreilly"

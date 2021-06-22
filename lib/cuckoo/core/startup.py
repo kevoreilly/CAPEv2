@@ -5,14 +5,19 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import shutil
 import sys
 import copy
 import socket
+import platform
 import logging
 import logging.handlers
 
-import yara
+try:
+    import yara
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
+except ImportError:
+    print("Missed library: pip3 install yara-python>=4.0.0 -U")
 import modules.auxiliary
 import modules.processing
 import modules.signatures
@@ -20,13 +25,13 @@ import modules.reporting
 import modules.feeds
 
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.colors import red, green, yellow, cyan
+from lib.cuckoo.common.colors import red, yellow, cyan
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooStartupError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
-from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_FAILED_ANALYSIS
+from lib.cuckoo.common.utils import create_folders
+from lib.cuckoo.core.database import Database, TASK_RUNNING, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
@@ -42,7 +47,7 @@ def check_python_version():
     @raise CuckooStartupError: if version is not supported.
     """
     if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version " "of Python, please use >= 3.5")
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.5")
 
 
 def check_working_directory():
@@ -50,11 +55,11 @@ def check_working_directory():
     @raise CuckooStartupError: if directories are not properly configured.
     """
     if not os.path.exists(CUCKOO_ROOT):
-        raise CuckooStartupError("You specified a non-existing root " "directory: {0}".format(CUCKOO_ROOT))
+        raise CuckooStartupError("You specified a non-existing root directory: {0}".format(CUCKOO_ROOT))
 
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
-        raise CuckooStartupError("You are not running Cuckoo from it's " "root directory")
+        raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
 
 def check_webgui_mongo():
@@ -68,9 +73,10 @@ def check_webgui_mongo():
                 port=repconf.mongodb.port,
                 username=repconf.mongodb.get("username", None),
                 password=repconf.mongodb.get("password", None),
-                authSource=repconf.mongodb.db,
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
             )
-            conn.server_info()
+            # ToDo check how to give user permission to read this without admin
+            # conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
             log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
             bad = True
@@ -92,7 +98,7 @@ def check_configs():
 
     for config in configs:
         if not os.path.exists(config):
-            raise CuckooStartupError("Config file does not exist at " "path: {0}".format(config))
+            raise CuckooStartupError("Config file does not exist at path: {0}".format(config))
 
     return True
 
@@ -143,13 +149,22 @@ class ConsoleHandler(logging.StreamHandler):
         logging.StreamHandler.emit(self, colored)
 
 
+def check_linux_dist():
+    ubuntu_versions = ("18.04", "20.04")
+    try:
+        platform_details = platform.dist()
+        if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
+            print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}")
+    except AttributeError:
+        pass
+
 def init_logging():
     """Initializes logging."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if cuckoo.logging.enabled:
-        days = cuckoo.logging.backup_count
-        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=days)
+        days = cuckoo.logging.backup_count or 7
+        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days))
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -189,8 +204,9 @@ def init_tasks():
     for task in tasks:
         if cuckoo.cuckoo.reschedule:
             db.reschedule(task.id)
-            log.info("Rescheduled task with ID {0} and " "target {1}".format(task.id, task.target))
+            log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
         else:
+            # ToDo here?
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
 
@@ -228,15 +244,12 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
     yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # We divide yara rules in three categories.
-    # CAPE adds a fourth
 
     # Loop through all categories.
     for category in categories:
@@ -251,41 +264,43 @@ def init_yara():
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
                     continue
-
                 filepath = os.path.join(category_root, filename)
-
-                try:
-                    # TODO Once Yara obtains proper Unicode filepath support we
-                    # can remove this check. See also this Github issue:
-                    # https://github.com/VirusTotal/yara-python/issues/48
-                    assert len(str(filepath)) == len(filepath)
-                except (UnicodeEncodeError, AssertionError):
-                    log.warning(
-                        "Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath
-                    )
-                    continue
-
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
 
             # Need to define each external variable that will be used in the
         # future. Otherwise Yara will complain.
-        externals = {
-            "filename": "",
-        }
+        externals = {"filename": ""}
 
-        try:
-            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-        except yara.Error as e:
-            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+        while True:
+            try:
+                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                break
+            except yara.SyntaxError as e:
+                bad_rule = str(e).split(".yar")[0]+".yar"
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                if os.path.basename(bad_rule) in indexed:
+                    for k,v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
+                else:
+                    break
+            except yara.Error as e:
+                print("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                break
 
-        # ToDo for Volatility3 yarascan
-        # The memory.py processing module requires a yara file with all of its
-        # rules embedded in it, so create this file to remain compatible.
-        # if category == "memory":
-        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-        #    for filename in sorted(indexed):
-        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+        if category == "memory":
+            mem_rules = yara.compile(filepaths=rules, externals=externals)
+            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            """
+            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
+                for filename in sorted(indexed):
+                    f.write('include "%s"\n' % os.path.join(category_root, filename))
+            """
 
         indexed = sorted(indexed)
         for entry in indexed:
@@ -293,7 +308,6 @@ def init_yara():
                 log.debug("\t `-- %s %s", category, entry)
             else:
                 log.debug("\t |-- %s %s", category, entry)
-
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can
@@ -318,9 +332,7 @@ def init_rooter():
             raise CuckooStartupError(
                 "The rooter is required but it is either not running or it "
                 "has been configured to a different Unix socket path. "
-                "(In order to disable the use of rooter, please set route "
-                "and internet to none in cuckoo.conf and enabled to no in "
-                "routing.conf)."
+                "python3 utils/rooter.py -h or systemctl status cape-rooter"
             )
 
         if e.strerror == "Connection refused":
@@ -385,7 +397,7 @@ def init_routing():
             # )
             #    add = 0
             if not rooter("rt_available", entry.rt_table):
-                raise CuckooStartupError("The routing table that has been configured for " "VPN %s is not available." % entry.name)
+                raise CuckooStartupError("The routing table that has been configured for VPN %s is not available." % entry.name)
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -401,20 +413,18 @@ def init_routing():
     # Check whether the default VPN exists if specified.
     if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
         if not routing.vpn.enabled:
-            raise CuckooStartupError(
-                "A VPN has been configured as default routing interface for " "VMs, but VPNs have not been enabled in vpn.conf"
-            )
+            raise CuckooStartupError("A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in vpn.conf")
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
-            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been " "configured in routing.conf.")
+            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field")
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
         if not rooter("nic_available", routing.routing.internet):
-            raise CuckooStartupError("The network interface that has been configured as dirty " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as dirty line is not available.")
 
         if not rooter("rt_available", routing.routing.rt_table):
-            raise CuckooStartupError("The routing table that has been configured for dirty " "line interface is not available.")
+            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -429,7 +439,7 @@ def init_routing():
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
         if not rooter("nic_available", routing.tor.interface):
-            raise CuckooStartupError("The network interface that has been configured as tor " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as tor line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -446,7 +456,7 @@ def init_routing():
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
-            raise CuckooStartupError("The network interface that has been configured as inetsim " "line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as inetsim line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

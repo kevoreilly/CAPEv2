@@ -39,15 +39,15 @@ class MongoDB(Report):
         """Connects to Mongo database, loads options and set connectors.
         @raise CuckooReportError: if unable to connect.
         """
-        host = self.options.get("host", "127.0.0.1")
-        port = self.options.get("port", 27017)
-        db = self.options.get("db", "cuckoo")
-
         try:
             self.conn = MongoClient(
-                host, port=port, username=self.options.get("username", None), password=self.options.get("password", None), authSource=db
+                self.options.get("host", "127.0.0.1"),
+                port = self.options.get("port", 27017),
+                username = self.options.get("username", None),
+                password = self.options.get("password", None),
+                authSource = self.options.get("authsource", "cuckoo"),
             )
-            self.db = self.conn[db]
+            self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:
             raise CuckooReportError("Mongo connection port must be integer")
         except ConnectionFailure:
@@ -103,6 +103,35 @@ class MongoDB(Report):
             else:
                 cls.ensure_valid_utf8(v)
 
+    # use this function to hunt down non string key
+    def fix_int2str(self, dictionary, current_key_tree=""):
+        for k, v in dictionary.iteritems():
+            if not isinstance(k, str):
+                log.error("BAD KEY: {}".format(".".join([current_key_tree, str(k)])))
+                dictionary[str(k)] = dictionary.pop(k)
+            elif isinstance(v, dict):
+                self.fix_int2str(v, ".".join([current_key_tree, k]))
+            elif isinstance(v, list):
+                for d in v:
+                    if isinstance(d, dict):
+                        self.fix_int2str(d, ".".join([current_key_tree, k]))
+
+    def loop_saver(self, report):
+        keys = list(report.keys())
+        if "info" not in keys:
+            return
+        if "_id" in keys:
+            keys.remove("_id")
+
+        obj_id = self.db.analysis.insert_one(report["info"])
+        keys.remove("info")
+
+        for key in keys:
+            try:
+                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+            except InvalidDocument as e:
+                log.info("Investigate your key: {} - {}".format(key, str(key)))
+
     def run(self, results):
         """Writes report.
         @param results: analysis results dictionary.
@@ -121,7 +150,7 @@ class MongoDB(Report):
             if self.db.cuckoo_schema.find_one()["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
-            self.db.cuckoo_schema.save({"version": self.SCHEMA_VERSION})
+            self.db.cuckoo_schema.insert_one({"version": self.SCHEMA_VERSION})
 
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
@@ -206,10 +235,10 @@ class MongoDB(Report):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 
         analyses = self.db.analysis.find({"info.id": int(report["info"]["id"])})
-        if analyses.count() > 0:
+        if analyses:
             log.debug("Deleting analysis data for Task %s" % report["info"]["id"])
             for analysis in analyses:
-                for process in analysis["behavior"]["processes"]:
+                for process in analysis["behavior"].get("processes", []) or []:
                     for call in process["calls"]:
                         self.db.calls.remove({"_id": ObjectId(call)})
                 self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
@@ -220,13 +249,16 @@ class MongoDB(Report):
 
         # Store the report and retrieve its object id.
         try:
-            self.db.analysis.save(report, check_keys=False)
+            self.db.analysis.insert_one(report)
         except InvalidDocument as e:
+            if str(e).startswith("cannot encode object") or str(e).endswith("must not contain '.'"):
+                self.loop_saver(report)
+                return
             parent_key, psize = self.debug_dict_size(report)[0]
             if not self.options.get("fix_large_docs", False):
                 # Just log the error and problem keys
-                log.error(str(e))
-                log.error("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                #log.error(str(e))
+                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
             else:
                 # Delete the problem keys and check for more
                 error_saved = True
@@ -247,13 +279,18 @@ class MongoDB(Report):
                                 log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
                                 del report[parent_key][child_key]
                         try:
-                            self.db.analysis.save(report, check_keys=False)
+                            self.db.analysis.insert_one(report)
                             error_saved = False
                         except InvalidDocument as e:
-                            parent_key, psize = self.debug_dict_size(report)[0]
-                            log.error(str(e))
-                            log.error("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
-                            size_filter = size_filter - MEGABYTE
+                            if str(e).startswith("documents must have only string keys"):
+                                log.error("Search bug in your modifications - you got an dictionary key as int, should be string")
+                                log.error(str(e))
+                                return
+                            else:
+                                parent_key, psize = self.debug_dict_size(report)[0]
+                                log.error(str(e))
+                                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                                size_filter = size_filter - MEGABYTE
                     except Exception as e:
                         log.error("Failed to delete child key: %s" % str(e))
                         error_saved = False

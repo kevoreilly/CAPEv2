@@ -7,8 +7,8 @@
 # Updated by NaxoneZ 20.12.2019 for the rest of the world :)
 
 import os
-import logging
 import json
+import logging
 from io import BytesIO
 from collections import deque
 from lib.cuckoo.common.config import Config
@@ -25,8 +25,9 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 try:
     from pymisp import MISPEvent, PyMISP, MISPObject
-
+    from pymisp import logger as pymisp_logger
     HAVE_PYMISP = True
+    pymisp_logger.setLevel(logging.ERROR)
 except ImportError:
     HAVE_PYMISP = True
     print("pip3 install pymisp")
@@ -55,6 +56,26 @@ name_update_shema = {
     "Agenttesla": "Agent Tesla",
     "AgentTeslaV2": "Agent Tesla",
     "WarzoneRAT": "Ave Maria",
+    "Nanocore":"Nanocore RAT",
+    "Netwire":"Netwire RC",
+    "Redline":"RedLine Stealer",
+    "Predatorthethief":"Predator The Thief",
+    "Njrat":"NjRAT",
+    "Revil":"REvil",
+    "Asyncrat":"AsyncRAT",
+    "Poullight":"Poulight Stealer",
+    "Lokibot":"Loki Password Stealer (PWS)",
+    "Loki":"Loki Password Stealer (PWS)",  
+    "Hawkeye":"HawkEye Keylogger",
+    "HawkEyev9":"HawkEye Keylogger",
+    "Oski":"Oski Stealer",
+    "DridexV4":"Dridex",
+    "Phoenix":"Phoenix Keylogger",
+    "Ursnif":"Gozi",
+    "Ursnif3":"Gozi",
+    "Extreme":"Extreme RAT",
+    "DridexLoader":"Dridex",
+    "Fareit":"Pony",
 }
 
 

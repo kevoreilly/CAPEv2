@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load socialaccount %}
+{% load crispy_forms_tags %}
+{% block title %}Sign Up{% endblock title %}
+{% block content %}
+
+<center>
+    <div class="container mx-5">
+        <div style="margin-top:60px" class="container">
+            <h2>Sign Up</h2>
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <button class="btn btn-secondary" type="submit">Register</button>
+            </form>
+        </div>
+        {% if settings.WEB_OAUTH.enabled %}
+        </br>
+        <div style="width: 100%; height: 15px; border-bottom: 1px solid lightgray; text-align: center">
+            <span class="text-muted" style="margin-top:-15% !important; font-size: 11px; background-color: white; padding: 0px 10px;">OR</span>
+        </div>
+        </br></br>
+        <div class=" signin text-center">
+            {% if settings.WEB_OAUTH.agave %}<a class="btn btn-social-icon btn-lg btn-agave" href="{% provider_login_url 'agave' %}" ><span class="fab fa-agave"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.amazon %}<a class="btn btn-social-icon btn-lg btn-amazon" href="{% provider_login_url 'amazon' %}"><span class="fab fa-amazon"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.amazon_cognito %}<a class="btn btn-social-icon btn-lg btn-amazon_cognito" href="{% provider_login_url 'amazon_cognito' %}"><span class="fab fa-amazon_cognito"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.angellist %}<a class="btn btn-social-icon btn-lg btn-angellist" href="{% provider_login_url 'angellist' %}"><span class="fab fa-angellist"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.apple %}<a class="btn btn-social-icon btn-lg btn-apple" href="{% provider_login_url 'apple' %}"><span class="fab fa-apple"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.asana %}<a class="btn btn-social-icon btn-lg btn-asana" href="{% provider_login_url 'asana' %}"><span class="fab fa-asana"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.auth0 %}<a class="btn btn-social-icon btn-lg btn-auth0" href="{% provider_login_url 'auth0' %}"><span class="fab fa-auth0"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.authentiq %}<a class="btn btn-social-icon btn-lg btn-authentiq" href="{% provider_login_url 'authentiq' %}"><span class="fab fa-authentiq"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.azure %}<a class="btn btn-social-icon btn-lg btn-azure" href="{% provider_login_url 'azure' %}"><span class="fab fa-azure"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.baidu %}<a class="btn btn-social-icon btn-lg btn-baidu" href="{% provider_login_url 'baidu' %}"><span class="fab fa-baidu"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.basecamp %}<a class="btn btn-social-icon btn-lg btn-basecamp" href="{% provider_login_url 'basecamp' %}"><span class="fab fa-basecamp"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.battlenet %}<a class="btn btn-social-icon btn-lg btn-battlenet" href="{% provider_login_url 'battlenet' %}"><span class="fab fa-battlenet"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.bitbucket %}<a class="btn btn-social-icon btn-lg btn-bitbucket" href="{% provider_login_url 'bitbucket' %}"><span class="fab fa-bitbucket"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.bitbucket_oauth2 %}<a class="btn btn-social-icon btn-lg btn-bitbucket_oauth2" href="{% provider_login_url 'bitbucket_oauth2' %}"><span class="fab fa-bitbucket_oauth2"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.bitly %}<a class="btn btn-social-icon btn-lg btn-bitly" href="{% provider_login_url 'bitly' %}"><span class="fab fa-bitly"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.box %}<a class="btn btn-social-icon btn-lg btn-box" href="{% provider_login_url 'box' %}"><span class="fab fa-box"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.cern %}<a class="btn btn-social-icon btn-lg btn-cern" href="{% provider_login_url 'cern' %}"><span class="fab fa-cern"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.coinbase %}<a class="btn btn-social-icon btn-lg btn-coinbase" href="{% provider_login_url 'coinbase' %}"><span class="fab fa-coinbase"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.dataporten %}<a class="btn btn-social-icon btn-lg btn-dataporten" href="{% provider_login_url 'dataporten' %}"><span class="fab fa-dataporten"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.daum %}<a class="btn btn-social-icon btn-lg btn-daum" href="{% provider_login_url 'daum' %}"><span class="fab fa-daum"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.digitalocean %}<a class="btn btn-social-icon btn-lg btn-digitalocean" href="{% provider_login_url 'digitalocean' %}"><span class="fab fa-digitalocean"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.discord %}<a class="btn btn-social-icon btn-lg btn-discord" href="{% provider_login_url 'discord' %}"><span class="fab fa-discord"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.disqus %}<a class="btn btn-social-icon btn-lg btn-disqus" href="{% provider_login_url 'disqus' %}"><span class="fab fa-disqus"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.douban %}<a class="btn btn-social-icon btn-lg btn-douban" href="{% provider_login_url 'douban' %}"><span class="fab fa-douban"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.doximity %}<a class="btn btn-social-icon btn-lg btn-doximity" href="{% provider_login_url 'doximity' %}"><span class="fab fa-doximity"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.draugiem %}<a class="btn btn-social-icon btn-lg btn-draugiem" href="{% provider_login_url 'draugiem' %}"><span class="fab fa-draugiem"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.dropbox %}<a class="btn btn-social-icon btn-lg btn-dropbox" href="{% provider_login_url 'dropbox' %}"><span class="fab fa-dropbox"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.dwolla %}<a class="btn btn-social-icon btn-lg btn-dwolla" href="{% provider_login_url 'dwolla' %}"><span class="fab fa-dwolla"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.edmodo %}<a class="btn btn-social-icon btn-lg btn-edmodo" href="{% provider_login_url 'edmodo' %}"><span class="fab fa-edmodo"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.edx %}<a class="btn btn-social-icon btn-lg btn-edx" href="{% provider_login_url 'edx' %}"><span class="fab fa-edx"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.eventbrite %}<a class="btn btn-social-icon btn-lg btn-eventbrite" href="{% provider_login_url 'eventbrite' %}"><span class="fab fa-eventbrite"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.eveonline %}<a class="btn btn-social-icon btn-lg btn-eveonline" href="{% provider_login_url 'eveonline' %}"><span class="fab fa-eveonline"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.evernote %}<a class="btn btn-social-icon btn-lg btn-evernote" href="{% provider_login_url 'evernote' %}"><span class="fab fa-evernote"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.exist %}<a class="btn btn-social-icon btn-lg btn-exist" href="{% provider_login_url 'exist' %}"><span class="fab fa-exist"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.facebook %}<a class="btn btn-social-icon btn-lg btn-facebook" href="{% provider_login_url 'facebook' %}"><span class="fab fa-facebook"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.feedly %}<a class="btn btn-social-icon btn-lg btn-feedly" href="{% provider_login_url 'feedly' %}"><span class="fab fa-feedly"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.figma %}<a class="btn btn-social-icon btn-lg btn-figma" href="{% provider_login_url 'figma' %}"><span class="fab fa-figma"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.fivehundredpx %}<a class="btn btn-social-icon btn-lg btn-fivehundredpx" href="{% provider_login_url 'fivehundredpx' %}"><span class="fab fa-fivehundredpx"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.flickr %}<a class="btn btn-social-icon btn-lg btn-flickr" href="{% provider_login_url 'flickr' %}"><span class="fab fa-flickr"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.foursquare %}<a class="btn btn-social-icon btn-lg btn-foursquare" href="{% provider_login_url 'foursquare' %}"><span class="fab fa-foursquare"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.fxa %}<a class="btn btn-social-icon btn-lg btn-fxa" href="{% provider_login_url 'fxa' %}"><span class="fab fa-fxa"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.github %}<a class="btn btn-social-icon btn-lg btn-github" href="{% provider_login_url 'github' %}"><span class="fab fa-github"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.gitlab %}<a class="btn btn-social-icon btn-lg btn-gitlab" href="{% provider_login_url 'gitlab' %}"><span class="fab fa-gitlab"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.globus %}<a class="btn btn-social-icon btn-lg btn-globus" href="{% provider_login_url 'globus' %}"><span class="fab fa-globus"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.google %}<a class="btn btn-social-icon btn-lg btn-google" href="{% provider_login_url 'google' %}"><span class="fab fa-google"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.hubic %}<a class="btn btn-social-icon btn-lg btn-hubic" href="{% provider_login_url 'hubic' %}"><span class="fab fa-hubic"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.instagram %}<a class="btn btn-social-icon btn-lg btn-instagram" href="{% provider_login_url 'instagram' %}"><span class="fab fa-instagram"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.jupyterhub %}<a class="btn btn-social-icon btn-lg btn-jupyterhub" href="{% provider_login_url 'jupyterhub' %}"><span class="fab fa-jupyterhub"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.kakao %}<a class="btn btn-social-icon btn-lg btn-kakao" href="{% provider_login_url 'kakao' %}"><span class="fab fa-kakao"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.keycloak %}<a class="btn btn-social-icon btn-lg btn-keycloak" href="{% provider_login_url 'keycloak' %}"><span class="fab fa-keycloak"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.line %}<a class="btn btn-social-icon btn-lg btn-line" href="{% provider_login_url 'line' %}"><span class="fab fa-line"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.linkedin %}<a class="btn btn-social-icon btn-lg btn-linkedin" href="{% provider_login_url 'linkedin' %}"><span class="fab fa-linkedin"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.linkedin_oauth2 %}<a class="btn btn-social-icon btn-lg btn-linkedin_oauth2" href="{% provider_login_url 'linkedin_oauth2' %}"><span class="fab fa-linkedin"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.mailchimp %}<a class="btn btn-social-icon btn-lg btn-mailchimp" href="{% provider_login_url 'mailchimp' %}"><span class="fab fa-mailchimp"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.mailru %}<a class="btn btn-social-icon btn-lg btn-mailru" href="{% provider_login_url 'mailru' %}"><span class="fab fa-mailru"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.meetup %}<a class="btn btn-social-icon btn-lg btn-meetup" href="{% provider_login_url 'meetup' %}"><span class="fab fa-meetup"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.microsoft %}<a class="btn btn-social-icon btn-lg btn-microsoft" href="{% provider_login_url 'microsoft' %}"><span class="fab fa-microsoft"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.naver %}<a class="btn btn-social-icon btn-lg btn-naver" href="{% provider_login_url 'naver' %}"><span class="fab fa-naver"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.nextcloud %}<a class="btn btn-social-icon btn-lg btn-nextcloud" href="{% provider_login_url 'nextcloud' %}"><span class="fab fa-nextcloud"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.odnoklassniki %}<a class="btn btn-social-icon btn-lg btn-odnoklassniki" href="{% provider_login_url 'odnoklassniki' %}"><span class="fab fa-odnoklassniki"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.openid %}<a class="btn btn-social-icon btn-lg btn-openid" href="{% provider_login_url 'openid' %}"><span class="fab fa-openid"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.openstreetmap %}<a class="btn btn-social-icon btn-lg btn-openstreetmap" href="{% provider_login_url 'openstreetmap' %}"><span class="fab fa-openstreetmap"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.orcid %}<a class="btn btn-social-icon btn-lg btn-orcid" href="{% provider_login_url 'orcid' %}"><span class="fab fa-orcid"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.patreon %}<a class="btn btn-social-icon btn-lg btn-patreon" href="{% provider_login_url 'patreon' %}"><span class="fab fa-patreon"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.paypal %}<a class="btn btn-social-icon btn-lg btn-paypal" href="{% provider_login_url 'paypal' %}"><span class="fab fa-paypal"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.persona %}<a class="btn btn-social-icon btn-lg btn-persona" href="{% provider_login_url 'persona' %}"><span class="fab fa-persona"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.pinterest %}<a class="btn btn-social-icon btn-lg btn-pinterest" href="{% provider_login_url 'pinterest' %}"><span class="fab fa-pinterest"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.quickbooks %}<a class="btn btn-social-icon btn-lg btn-quickbooks" href="{% provider_login_url 'quickbooks' %}"><span class="fab fa-quickbooks"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.reddit %}<a class="btn btn-social-icon btn-lg btn-reddit" href="{% provider_login_url 'reddit' %}"><span class="fab fa-reddit"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.robinhood %}<a class="btn btn-social-icon btn-lg btn-robinhood" href="{% provider_login_url 'robinhood' %}"><span class="fab fa-robinhood"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.salesforce %}<a class="btn btn-social-icon btn-lg btn-salesforce" href="{% provider_login_url 'salesforce' %}"><span class="fab fa-salesforce"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.sharefile %}<a class="btn btn-social-icon btn-lg btn-sharefile" href="{% provider_login_url 'sharefile' %}"><span class="fab fa-sharefile"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.shopify %}<a class="btn btn-social-icon btn-lg btn-shopify" href="{% provider_login_url 'shopify' %}"><span class="fab fa-shopify"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.slack %}<a class="btn btn-social-icon btn-lg btn-slack" href="{% provider_login_url 'slack' %}"><span class="fab fa-slack"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.soundcloud %}<a class="btn btn-social-icon btn-lg btn-soundcloud" href="{% provider_login_url 'soundcloud' %}"><span class="fab fa-soundcloud"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.spotify %}<a class="btn btn-social-icon btn-lg btn-spotify" href="{% provider_login_url 'spotify' %}"><span class="fab fa-spotify"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.stackexchange %}<a class="btn btn-social-icon btn-lg btn-stackexchange" href="{% provider_login_url 'stackexchange' %}"><span class="fab fa-stackexchange"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.steam %}<a class="btn btn-social-icon btn-lg btn-steam" href="{% provider_login_url 'steam' %}"><span class="fab fa-steam"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.stocktwits %}<a class="btn btn-social-icon btn-lg btn-stocktwits" href="{% provider_login_url 'stocktwits' %}"><span class="fab fa-stocktwits"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.strava %}<a class="btn btn-social-icon btn-lg btn-strava" href="{% provider_login_url 'strava' %}"><span class="fab fa-strava"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.stripe %}<a class="btn btn-social-icon btn-lg btn-stripe" href="{% provider_login_url 'stripe' %}"><span class="fab fa-stripe"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.telegram %}<a class="btn btn-social-icon btn-lg btn-telegram" href="{% provider_login_url 'telegram' %}"><span class="fab fa-telegram"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.trello %}<a class="btn btn-social-icon btn-lg btn-trello" href="{% provider_login_url 'trello' %}"><span class="fab fa-trello"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.tumblr %}<a class="btn btn-social-icon btn-lg btn-tumblr" href="{% provider_login_url 'tumblr' %}"><span class="fab fa-tumblr"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.twentythreeandme %}<a class="btn btn-social-icon btn-lg btn-twentythreeandme" href="{% provider_login_url 'twentythreeandme' %}"><span class="fab fa-twentythreeandme"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.twitch %}<a class="btn btn-social-icon btn-lg btn-twitch" href="{% provider_login_url 'twitch' %}"><span class="fab fa-twitch"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.twitter %}<a class="btn btn-social-icon btn-lg btn-twitter" href="{% provider_login_url 'twitter' %}"><span class="fab fa-twitter"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.untappd %}<a class="btn btn-social-icon btn-lg btn-untappd" href="{% provider_login_url 'untappd' %}"><span class="fab fa-untappd"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.vimeo %}<a class="btn btn-social-icon btn-lg btn-vimeo" href="{% provider_login_url 'vimeo' %}"><span class="fab fa-vimeo"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.vimeo_oauth2 %}<a class="btn btn-social-icon btn-lg btn-vimeo_oauth2" href="{% provider_login_url 'vimeo_oauth2' %}"><span class="fab fa-vimeo"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.vk %}<a class="btn btn-social-icon btn-lg btn-vk" href="{% provider_login_url 'vk' %}"><span class="fab fa-vk"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.weibo %}<a class="btn btn-social-icon btn-lg btn-weibo" href="{% provider_login_url 'weibo' %}"><span class="fab fa-weibo"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.weixin %}<a class="btn btn-social-icon btn-lg btn-weixin" href="{% provider_login_url 'weixin' %}"><span class="fab fa-weixin"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.windowslive %}<a class="btn btn-social-icon btn-lg btn-windowslive" href="{% provider_login_url 'windowslive' %}"><span class="fab fa-windowslive"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.xing %}<a class="btn btn-social-icon btn-lg btn-xing" href="{% provider_login_url 'xing' %}"><span class="fab fa-xing"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.yahoo %}<a class="btn btn-social-icon btn-lg btn-yahoo" href="{% provider_login_url 'yahoo' %}"><span class="fab fa-yahoo"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.yandex %}<a class="btn btn-social-icon btn-lg btn-yandex" href="{% provider_login_url 'yandex' %}"><span class="fab fa-yandex"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.ynab %}<a class="btn btn-social-icon btn-lg btn-ynab" href="{% provider_login_url 'ynab' %}"><span class="fab fa-ynab"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.zoho %}<a class="btn btn-social-icon btn-lg btn-zoho" href="{% provider_login_url 'zoho' %}"><span class="fab fa-zoho"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.zoom %}<a class="btn btn-social-icon btn-lg btn-zoom" href="{% provider_login_url 'zoom' %}"><span class="fab fa-zoom"></span></a>{% endif %}
+            {% if settings.WEB_OAUTH.okta %}<a class="btn btn-social-icon btn-lg btn-okta" href="{% provider_login_url 'okta' %}"><span class="fab fa-okta"></span></a>{% endif %}
+
+        </div>
+        {% endif %}
+    </div>
+    </center>
+{% endblock content %}

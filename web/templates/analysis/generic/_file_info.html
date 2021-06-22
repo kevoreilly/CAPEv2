@@ -211,7 +211,8 @@
                         <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
                     {% endif %}
                 {% endif %}
-                {% if graphs.vba2graph.enabled and analysis.static.office %}
+                <!--add type check-->
+                {% if graphs.vba2graph.enabled %}
                     {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Vba2Graph</a>
                     {% else %}

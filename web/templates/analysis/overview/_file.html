@@ -192,7 +192,14 @@
                             {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
                                 <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Bingraph</a>
                             {% else %}
-                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Graph</a>
+                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if graphs.vba2graph.enabled and analysis.static.office %}
+                            {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                            {% else %}
+                                <a href="{% url "file_nl" "vba2graph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
                             {% endif %}
                         {% endif %}
                         {% if config.virustotal and not analysis.virustotal %}
@@ -209,6 +216,12 @@
                     <td>{{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}</td>
                 </tr>
             {% endif %}
+            {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                <tr><th></th>
+                    <td>{{ graphs.vba2graph.content|getkey:analysis.target.file.sha256|safe }}</td>
+                </tr>
+            {% endif %}
+
             {% if analysis.static.flare_capa %}
                 <tr><th></th><td>
                 <div class="collapse" id="flare_capa_{{analysis.target.file.sha256}}">

@@ -1471,7 +1471,7 @@ class Office(object):
                 del macrores["Analysis"]["HexStrings"]
 
             if HAVE_VBA2GRAPH:
-                vba2graph_func(filepath, str(self.results["info"]["id"]))
+                vba2graph_func(filepath, str(self.results["info"]["id"]), self.results["target"]["file"]["sha256"])
 
         else:
             metares["HasMacros"] = "No"

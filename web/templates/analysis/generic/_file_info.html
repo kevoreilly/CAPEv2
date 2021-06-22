@@ -208,7 +208,14 @@
                     {% if not bingraph.content|getkey:file.sha256 %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Bingraph</a>
                     {% else %}
-                        <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Graph</a>
+                        <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
+                    {% endif %}
+                {% endif %}
+                {% if graphs.vba2graph.enabled and analysis.static.office %}
+                    {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                    {% else %}
+                        <a href="{% url "file_nl" "vba2graph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
                     {% endif %}
                 {% endif %}
                 {% if config.virustotal and not file.virustotal %}
@@ -246,12 +253,17 @@
             <th></th>
             <td>{{ bingraph.content|getkey:file.sha256|safe }}</td>
         </tr>
+        {% endif %}
+        {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
+            <tr><th></th>
+                <td>{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</td>
+            </tr>
+        {% endif %}
         {% if file.virustotal %}
         <tr>
             <th></th>
             <td>{% include "analysis/generic/_virustotal.html" %}</td>
         </tr>
         {% endif %}
-    {% endif %}
     </table>
 </div>

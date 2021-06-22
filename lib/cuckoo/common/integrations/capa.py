@@ -13,6 +13,12 @@ log = logging.getLogger(__name__)
 
 processing_conf = Config("processing")
 
+"""
+from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+path = "/opt/CAPEv2/storage/binaries/da034c11f0c396f6cd11d22f833f9501dc75a33047ba3bd5870ff79e479bc004"
+details = flare_capa_details(path, "static", on_demand=True)
+"""
+
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:

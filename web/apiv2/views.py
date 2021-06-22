@@ -1082,14 +1082,8 @@ def tasks_report(request, task_id, report_format="json"):
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
     }
 
-    tar_formats = {
-        "bz2": "w:bz2",
-        "gz": "w:gz",
-        "tar": "w",
-    }
-
     if report_format.lower() in formats:
-        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
+        report_path = os.path.join(srcdir, formats[report_format.lower()])
         if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": "File not found".format(os.path.basename(report_path))})
         if os.path.exists(report_path):
@@ -1138,9 +1132,6 @@ def tasks_report(request, task_id, report_format="json"):
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
                 return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
         s = BytesIO()
-
-        # By default go for bz2 encoded tar files (for legacy reasons.)
-        # tarmode = tar_formats.get("tar", "w:bz2")
 
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         if not os.path.exists(srcdir):

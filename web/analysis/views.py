@@ -1104,11 +1104,12 @@ def report(request, task_id):
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
     vba2graph = processing_cfg.vba2graph.enabled
-    vba2graph_svg_content = ""
-    vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
+    vba2graph_dict_content = ""
+    vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph",  report["target"]["file"]["sha256"]+".svg")
 
     if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
-        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read().decode("utf8")
+        with open(vba2graph_svg_path, "rb") as f:
+            vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1143,7 +1144,7 @@ def report(request, task_id):
             "config": enabledconf,
             "reports_exist": reports_exist,
             "graphs": {
-                "vba2graph": {"enabled": vba2graph, "content": vba2graph_svg_content},
+                "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             },
         },
@@ -1166,6 +1167,12 @@ def file_nl(request, category, task_id, dlfile):
         path = os.path.join(base_path, str(task_id), "bingraph", file_name + "-ent.svg")
         file_name = file_name + "-ent.svg"
         cd = "image/svg+xml"
+
+    elif category == "vba2graph":
+        path = os.path.join(base_path, str(task_id), "vba2graph", f"{file_name}.svg")
+        file_name = f"{file_name}.svg"
+        cd = "image/svg+xml"
+
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -1836,7 +1843,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         details = flare_capa_details(path, category.lower(), on_demand=True)
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, str(task_id), on_demand=True)
+        vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)

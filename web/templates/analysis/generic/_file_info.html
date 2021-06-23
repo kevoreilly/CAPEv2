@@ -193,20 +193,20 @@
             <th></th>
             <td>
                 {% if not config.zipped_download %}
-                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
+                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
                 {% endif %}
-                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fas fa-sync"></span> File</a>
+                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
                 {% if config.flare_capa %}
                     {% if not file.flare_capa %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}" role="button"><span class="fas fa-cogs"></span> CAPA</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
                     {% else %}
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
                     {% endif %}
                 {% endif %}
                 {% if config.bingraph %}
                     {% if not graphs.bingraph.content|getkey:file.sha256 %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Bingraph</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
                     {% else %}
                         <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
                     {% endif %}
@@ -214,13 +214,13 @@
                 <!--add type check-->
                 {% if graphs.vba2graph.enabled %}
                     {% if not graphs.vba2graph.content|getkey:file.sha256 %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" id "static" file.sha256 %}" role="button"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
                     {% else %}
                         <a href="{% url "file_nl" "vba2graph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
                     {% endif %}
                 {% endif %}
                 {% if config.virustotal and not file.virustotal %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}" role="button"><span class="fas fa-cogs"></span> VirusTotal</a>
+                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
                 {% endif %}
                 {% if config.vtupload and tlp != "Red" %}
                 <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>

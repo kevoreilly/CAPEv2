@@ -362,6 +362,7 @@ class Task(Base):
     tlp = Column(String(255), nullable=True)
 
     user_id = Column(Integer(), nullable=True)
+    username = Column(String(256), nullable=True)
 
     __table_args__ = (
         Index("category_index", "category"),

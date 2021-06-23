@@ -27,12 +27,12 @@
                             <th>Yara</th>
                             <td>
                                 {% for match in proc.yara %}
-                                    <p>Match: {{match.name}} - {{match.meta.description}}
+                                    <li>Match: {{match.name}} - {{match.meta.description}}
                                     {% if match.meta.author %}
                                         - Author: {{match.meta.author}}
                                     {% endif %}
                                     <!--{% for string in match.strings %} <div>{{string}}</div> {% endfor %}-->
-                                    </p>
+                                    </li>
                                 {% endfor %}
                             </td>
                         </tr>
@@ -42,12 +42,13 @@
                             <th>CAPE Yara</th>
                             <td>
                                 {% for match in proc.cape_yara %}
-                                <p>Match: {{match.name}} - {{match.meta.description}} - Author: {{match.meta.author}}
-                                    <!--{% for string in match.strings %} <div>{{string}}</div> {% endfor %}-->
+                                <li>Match: {{match.name}} - {{match.meta.description}} - Author: {{match.meta.author}}
+                                    <!--
                                     {% for key, value in match.memblocks.items %}
                                         <div span style="padding-left: 16px;">'{{key}}' in address space {{value}}</div>
                                     {% endfor %}
-                                </p>
+                                    -->
+                                </li>
                                 {% endfor %}
                             </td>
                         </tr>
@@ -57,7 +58,7 @@
                                 <th>Full Dump</th>
                                 <td>
                                     <a class="btn btn-secondary btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}"><span class="fas fa-download"></a>
-                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></a>
+                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                                 </td>
                             </tr>
                         {% endif %}

@@ -14,6 +14,9 @@ redirect_url = "https://your_custom_auth_server?redirrect="
 
 class CustoAuth(object):
 
+    def __init__(self, get_response):
+        self.get_response = get_response
+
     def check_auth(self, request):
         """Place custom auth logic here
         Return True on authentificated user

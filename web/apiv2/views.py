@@ -1192,8 +1192,10 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
 
     data = {}
-    # if "certs" in buf:
-    #    data["certs"] = buf["certs"]
+    if "tr_extractor" in buf:
+        data["tr_extractor"] = buf["tr_extractor"]
+    if "certs" in buf:
+        data["certs"] = buf["certs"]
     data["detections"] = buf.get("detections")
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]

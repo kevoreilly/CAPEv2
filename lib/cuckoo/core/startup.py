@@ -18,6 +18,7 @@ try:
         raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
 except ImportError:
     print("Missed library: pip3 install yara-python>=4.0.0 -U")
+
 import modules.auxiliary
 import modules.processing
 import modules.signatures
@@ -46,8 +47,8 @@ def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
-    if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.5")
+    if sys.version_info[:2] < (3, 6):
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.6")
 
 
 def check_working_directory():
@@ -60,6 +61,11 @@ def check_working_directory():
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
+
+    # Check permission for tmpfs if enabled
+    if cuckoo.tmpfs.enabled and not os.access(cuckoo.tmpfs.path, os.W_OK):
+        username = os.getlogin()
+        raise CuckooStartupError(f"Fix permission on tmpfs path: chown {username}:{username} {cuckoo.tmpfs.path}")
 
 
 def check_webgui_mongo():

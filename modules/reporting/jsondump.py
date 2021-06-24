@@ -19,9 +19,9 @@ class JsonDump(Report):
     """Saves analysis results in JSON format."""
     
     def default(self, obj):
-    if isinstance(obj, bytes):
-        return obj.decode('utf8')
-    raise TypeError
+        if isinstance(obj, bytes):
+            return obj.decode('utf8')
+        raise TypeError
 
     def run(self, results):
         """Writes report.

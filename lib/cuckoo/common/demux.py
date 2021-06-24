@@ -27,7 +27,7 @@ except ImportError:
     print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U git+https://github.com/doomedraven/sflock")
     HAS_SFLOCK = False
 
-if sf_version != "0.3.13":
+if sf_version != "0.3.14":
     print("You using old version of sflock! Upgrade: pip3 install -U git+https://github.com/doomedraven/sflock")
     sys.exit()
 

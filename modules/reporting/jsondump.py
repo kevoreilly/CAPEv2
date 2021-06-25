@@ -17,6 +17,11 @@ from lib.cuckoo.common.exceptions import CuckooReportError
 
 class JsonDump(Report):
     """Saves analysis results in JSON format."""
+    
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode('utf8')
+        raise TypeError
 
     def run(self, results):
         """Writes report.
@@ -28,7 +33,7 @@ class JsonDump(Report):
             path = os.path.join(self.reports_path, "report.json")
             if HAVE_ORJSON:
                 with open(path, "wb") as report:
-                    report.write(orjson.dumps(results, option=orjson.OPT_INDENT_2)) # orjson.OPT_SORT_KEYS |
+                    report.write(orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default)) # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)

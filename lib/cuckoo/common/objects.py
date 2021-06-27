@@ -483,14 +483,15 @@ class File(object):
 
         return self.file_type
 
-    def _yara_encode_string(self, s):
+    def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
         try:
-            new = s  # .encode("utf-8")
-        except UnicodeDecodeError:
-            s = binascii.hexlify(s.lstrip("uU")).upper()
-            s = " ".join(s[i : i + 2] for i in range(0, len(s), 2))
-            new = "{ %s }" % s
+            new = yara_string.decode("utf-8")
+        except UnicodeDecodeError as e:
+            # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
+            yara_string = binascii.hexlify(yara_string).upper()
+            yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
+            new = "{ %s }" % yara_string.decode("utf-8")
 
         return new
 
@@ -507,16 +508,6 @@ class File(object):
 
         if not os.path.getsize(self.file_path):
             return results
-        """
-        try:
-            # TODO Once Yara obtains proper Unicode filepath support we can
-            # remove this check. See also the following Github issue:
-            # https://github.com/VirusTotal/yara-python/issues/48
-            assert len(str(self.file_path)) == len(self.file_path)
-        except (UnicodeEncodeError, AssertionError):
-            log.warning("Can't run Yara rules on %r as Unicode paths are currently not supported in combination with Yara!", self.file_path)
-            return results
-        """
 
         try:
             results, rule = [], File.yara_rules[category]
@@ -813,7 +804,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(e, sys.exc_info())
+                print("There was a syntax error in one or more Yara rules: %s" % e)
                 log.error("There was a syntax error in one or more Yara rules: %s" % e)
                 break
 

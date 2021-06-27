@@ -21,13 +21,13 @@ if processing_conf.vba2graph.enabled:
         HAVE_VBA2GRAPH = False
 
 
-def vba2graph_func(file_path, id, on_demand=False):
+def vba2graph_func(file_path, id, sha256, on_demand=False):
     if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled and (processing_conf.vba2graph.on_demand is False or on_demand is True):
         try:
-            vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "vba2graph", "svg", "vba2graph.svg")
+            vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "vba2graph")
+            vba2graph_svg_path = os.path.join(vba2graph_path, f"{sha256}.svg")
             if os.path.exists(vba2graph_svg_path):
                 return
-            vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "vba2graph")
             if not os.path.exists(vba2graph_path):
                 os.makedirs(vba2graph_path)
             vba_code = vba2graph_from_vba_object(file_path)

@@ -34,7 +34,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import (
@@ -80,7 +80,7 @@ if repconf.mongodb.enabled:
         port=settings.MONGO_PORT,
         username=settings.MONGO_USER,
         password=settings.MONGO_PASS,
-        authSource=settings.MONGO_DB,
+        authSource=settings.MONGO_AUTHSOURCE,
     )[settings.MONGO_DB]
 
 es_as_db = False
@@ -1059,6 +1059,8 @@ def tasks_report(request, task_id, report_format="json"):
 
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
     # Report validity check
     if os.path.exists(srcdir) and len(os.listdir(srcdir)) == 0:
@@ -1093,14 +1095,10 @@ def tasks_report(request, task_id, report_format="json"):
         }
     }
 
-    tar_formats = {
-        "bz2": "w:bz2",
-        "gz": "w:gz",
-        "tar": "w",
-    }
-
     if report_format.lower() in formats:
-        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
+        report_path = os.path.join(srcdir, formats[report_format.lower()])
+        if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
+            return render(request, "error.html", {"error": "File not found".format(os.path.basename(report_path))})
         if os.path.exists(report_path):
             if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
@@ -1144,10 +1142,9 @@ def tasks_report(request, task_id, report_format="json"):
     elif report_format.lower() in bz_formats:
         bzf = bz_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
+        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+                return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
         s = BytesIO()
-
-        # By default go for bz2 encoded tar files (for legacy reasons.)
-        # tarmode = tar_formats.get("tar", "w:bz2")
 
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         if not os.path.exists(srcdir):
@@ -1200,15 +1197,18 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+            with open(jfile, "r") as jdata:
+                buf = json.load(jdata)
     if not buf:
         resp = {"error": True, "error_value": "Unable to retrieve report to parse for IOCs"}
         return Response(resp)
 
     data = {}
-    # if "certs" in buf:
-    #    data["certs"] = buf["certs"]
+    if "tr_extractor" in buf:
+        data["tr_extractor"] = buf["tr_extractor"]
+    if "certs" in buf:
+        data["certs"] = buf["certs"]
     data["detections"] = buf.get("detections")
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
@@ -1413,6 +1413,8 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return Response(check)
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "shots")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
     if len(os.listdir(srcdir)) == 0:
         resp = {"error": True, "error_value": "No screenshots created for task %s" % task_id}
@@ -1457,6 +1459,8 @@ def tasks_pcap(request, task_id):
         return Response(check)
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
     if os.path.exists(srcfile):
         fname = "%s_dump.pcap" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
@@ -1482,6 +1486,8 @@ def tasks_dropped(request, task_id):
         return Response(check)
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "files")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
     if not os.path.exists(srcdir) or not len(os.listdir(srcdir)):
         resp = {"error": True, "error_value": "No files dropped for task %s" % task_id}
@@ -1524,7 +1530,8 @@ def tasks_surifile(request, task_id):
         return Response(check)
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
-
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
     if os.path.exists(srcfile):
         fname = "%s_surifiles.zip" % task_id
         resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type="application/octet-stream;")
@@ -1884,6 +1891,9 @@ def tasks_payloadfiles(request, task_id):
 
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
+    if not os.path.normpath(capepath).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(capepath))})
+
     if os.path.exists(capepath):
         if not HAVE_PYZIPPER:
             return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
@@ -1936,6 +1946,8 @@ def tasks_procdumpfiles(request, task_id):
             for fname in next(os.walk(procdumppath))[2]:
                 if len(fname) == 64:
                     filepath = os.path.join(procdumppath, fname)
+                    if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+                        continue
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
@@ -1966,8 +1978,9 @@ def tasks_config(request, task_id, cape_name=False):
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+            with open(jfile, "r") as jdata:
+                buf = json.load(jdata)
     if es_as_db and not buf:
         tmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % str(task_id))["hits"]["hits"]
         if len(tmp) > 1:

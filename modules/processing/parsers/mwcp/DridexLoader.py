@@ -94,6 +94,7 @@ class DridexLoader(Parser):
         if line == "$c2parse_6":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 44 : c2va_offset + 48])[0] - image_base
             botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7 : c2va_offset - 3])[0] - image_base
+            num_ips_rva = c2_rva - 1
         elif line == "$c2parse_5":
             c2_rva = struct.unpack("i", filebuf[c2va_offset + 75 : c2va_offset + 79])[0] - image_base
             botnet_rva = struct.unpack("i", filebuf[c2va_offset + 3 : c2va_offset + 7])[0] - image_base

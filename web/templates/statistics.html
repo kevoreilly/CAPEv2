@@ -8,18 +8,15 @@
 <h4>Top 20 detections</h4>
   <table class="table table-striped table-bordered">
     {% for block in statistics.detections %}
-        <td>{{block.total}}: <span class="text-danger">{{block.family}}</span></td>
-          <!--<form action="{% url "search" %}" method="post">
-          <input type="hidden" id="search" type="text" name="search" value="malfamily:{{name}}">
-          <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-link btn-sm" type="submit" value="{{name}}">
-        </form>
-        -->
-
+      {% if block.family %}
+        <td>{{block.total}}: <a href="/analysis/search/detections:{{block.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{block.family}}</span></a></td>
+      {% endif %}
       {% if forloop.counter|divisibleby:"4" %}
           </tr>
       {% elif forloop.last %}
           </tr>
       {% endif %}
+
     {% endfor %}
 </table>
 {% endif %}
@@ -73,99 +70,103 @@
 
 {% if statistics.distributed_tasks %}
 <h4>Cluster details</h4>
-<table class="table table-striped table-hover">
-  <thead>
-    <tr>
-      <th scope="col">Day</th>
-      <th scope="col">Node - Tasks</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for day, block in statistics.distributed_tasks.items %}
-      <tr>
-          <th scope="row">{{day}}</th>
-          <td>
+<div class="container">
+    <div class="row">
+        {% for day, block in statistics.distributed_tasks.items %}
+        <div class="col-sm">
+            <th scope="row">{{day}}</th>
+            <td>
             {% for name, tasks in block.items %}
               <li>Node: {{name}} - Tasks {{tasks}}</li>
             {% endfor %}
           </td>
-      </tr>
-  {% endfor %}
-  </tbody>
-</table>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endif %}
 
-  {% if statistics.processing %}
-    <h4>Processing</h4>
-    <table class="table table-striped table-hover">
-      <thead>
-        <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Total time in minutes</th>
-          <th scope="col">Runs</th>
-          <th scope="col">Average time in minutes(Total/runs)</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for name, time in statistics.processing.items %}
-          <tr>
-              <td>{{name}}</td>
-              <td>{{time.total}}</td>
-              <td>{{time.runs}}</td>
-              <td>{{time.average}}</td>
-          </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
+<div class="container">
+    <div class="row">
+        {% if statistics.processing %}
+        <div class="col-sm">
+            <h4>Processing</h4>
+            <table class="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Total time in minutes</th>
+                  <th scope="col">Runs</th>
+                  <th scope="col">Average time in minutes(Total/runs)</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for name, time in statistics.processing.items %}
+                  <tr>
+                      <td>{{name}}</td>
+                      <td>{{time.total}}</td>
+                      <td>{{time.runs}}</td>
+                      <td>{{time.average}}</td>
+                  </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if statistics.signatures %}
+        <div class="col-sm">
+            <h4>Signatures</h4>
+            <table class="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Total time in minutes</th>
+                  <th scope="col">Runs</th>
+                  <th scope="col">Average time in minutes(Total/runs)</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for name, time in statistics.signatures.items %}
+                  <tr>
+                      <td>{{name}}</td>
+                      <td>{{time.total}}</td>
+                      <td>{{time.runs}}</td>
+                      <td>{{time.average}}</td>
+                  </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if statistics.reporting %}
+        <div class="col-sm">
+            <h4>Reporting</h4>
+            <table class="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Total time in minutes</th>
+                  <th scope="col">Runs</th>
+                  <th scope="col">Average time in minutes(Total/runs)</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for name, time in statistics.reporting.items %}
+                  <tr>
+                      <td>{{name}}</td>
+                      <td>{{time.total}}</td>
+                      <td>{{time.runs}}</td>
+                      <td>{{time.average}}</td>
+                  </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
 
-  {% if statistics.signatures %}
-    <h4>Signatures</h4>
-    <table class="table table-striped table-hover">
-      <thead>
-        <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Total time in minutes</th>
-          <th scope="col">Runs</th>
-          <th scope="col">Average time in minutes(Total/runs)</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for name, time in statistics.signatures.items %}
-          <tr>
-              <td>{{name}}</td>
-              <td>{{time.total}}</td>
-              <td>{{time.runs}}</td>
-              <td>{{time.average}}</td>
-          </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
-
-  {% if statistics.reporting %}
-    <h4>Reporting</h4>
-    <table class="table table-striped table-hover">
-      <thead>
-        <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Total time in minutes</th>
-          <th scope="col">Runs</th>
-          <th scope="col">Average time in minutes(Total/runs)</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for name, time in statistics.reporting.items %}
-          <tr>
-              <td>{{name}}</td>
-              <td>{{time.total}}</td>
-              <td>{{time.runs}}</td>
-              <td>{{time.average}}</td>
-          </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
 {% else %}
     <div class="alert alert-primary">No statistics found.</div>
 {% endif %}

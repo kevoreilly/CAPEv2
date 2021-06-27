@@ -19,7 +19,7 @@ future
 python-dateutil
 requests_file
 gevent==20.4.0
-simplejson
+orjson
 pyvmomi
 pyinstaller
 maec
@@ -34,7 +34,7 @@ git+https://github.com/volatilityfoundation/volatility3
 git+https://github.com/DissectMalware/XLMMacroDeobfuscator
 passlib
 pyzipper
-git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP.git
+mwcp==3.2.1
 git+https://github.com/kevthehermit/RATDecoders.git
 git+https://github.com/fireeye/capa.git
 greenlet==0.4.16
@@ -82,3 +82,4 @@ volatility3
 yara-python>=4.0.0
 netstruct
 pymongo>=3.11.3
+django-ratelimit

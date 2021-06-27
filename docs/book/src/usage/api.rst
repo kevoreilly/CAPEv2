@@ -68,9 +68,9 @@ Once you have enabled it, you can just specify ``username`` and ``password`` as 
     requests.get(URL, data={"username":"<your_username>", "password": "<your apikey>"})
 
 
-==============================================================
-REST API deprecated, used only by dist.py aka distributed CAPE
-==============================================================
+==============================
+REST API deprecated aka api.py
+==============================
 
 As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
 API server implemented in `Bottle.py`_, therefore in order to make the service

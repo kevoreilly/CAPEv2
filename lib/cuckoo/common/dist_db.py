@@ -11,7 +11,7 @@ from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 
-schema = '431b7f0b3240'
+schema = 'b0fa23c3c9c0'
 
 class Node(Base):
     """Cuckoo node database model."""
@@ -21,8 +21,7 @@ class Node(Base):
     name = Column(Text, nullable=False)
     url = Column(Text, nullable=True)
     enabled = Column(Boolean, default=False)
-    ht_user = Column(String(255), nullable=False)
-    ht_pass = Column(String(255), nullable=False)
+    apikey = Column(String(255), nullable=False)
     last_check = Column(DateTime(timezone=False))
     machines = relationship("Machine", backref="node", lazy="dynamic")
 

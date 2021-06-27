@@ -32,6 +32,10 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
 
+rateblock = web_cfg.ratelimit.get("enabled", False)
+rps = web_cfg.ratelimit.get("rps", "1/rps")
+rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
+
 db = Database()
 
 HAVE_DIST = False
@@ -68,7 +72,7 @@ if repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.get("db", "cuckoo"),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
     )[repconf.mongodb.get("db", "cuckoo")]
 
 es_as_db = False
@@ -125,6 +129,21 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
+# https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
+def my_rate_seconds(group, request):
+    # RateLimits not enabled
+    if rateblock is False or request.user.is_authenticated:
+        return "99999999999999/s"
+    else:
+        return rps
+
+def my_rate_minutes(group, request):
+    # RateLimits not enabled
+    if rateblock is False or request.user.is_authenticated:
+        return "99999999999999/m"
+    else:
+        return rpm
+
 def load_vms_tags():
     all_tags = list()
     if HAVE_DIST and repconf.distributed.enabled:
@@ -150,7 +169,6 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
     data = False
-    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
 
     aggregation_command = [
         {"$match": {"detections": {"$exists":True}}},
@@ -168,8 +186,6 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     if data:
         data = list(data)
 
-    # ToDo verify
-    #results_db.close()
     return data
 
 # ToDo extend this to directly extract per day
@@ -213,7 +229,6 @@ def statistics(s_days: int) -> dict:
 
     tmp_custom = dict()
     tmp_data = dict()
-    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
     data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
     for analysis in data or []:
         for type_entry in analysis.get("statistics", []) or []:
@@ -252,6 +267,8 @@ def statistics(s_days: int) -> dict:
         return details
 
     for module_name in [u'signatures', u'processing', u'reporting']:
+        if module_name not in tmp_data:
+            continue
         # module_data = get_stats_per_category(module_name)
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
 
@@ -314,7 +331,7 @@ def statistics(s_days: int) -> dict:
             day = task.clock.strftime("%Y-%m-%d")
             if day not in details["distributed_tasks"]:
                 details["distributed_tasks"].setdefault(day, {})
-            if id2name[task.node_id] not in details["distributed_tasks"][day]:
+            if task.node_id in id2name and id2name[task.node_id] not in details["distributed_tasks"][day]:
                 details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
         dist_db.close()
@@ -334,7 +351,6 @@ def statistics(s_days: int) -> dict:
 
     details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
-    #ToDo missed results_db.close()
     session.close()
     return details
 
@@ -437,6 +453,13 @@ def download_file(**kwargs):
             tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
+    username = False
+    """
+    put here your custom username assignation from your custom auth, Ex:
+    request_url = kwargs["request"].build_absolute_uri()
+    if "yourdomain.com/submit/" in request_url:
+        username = kwargs["request"].COOKIES.get("X-user")
+    """
 
     # in case if user didn't specify routing, and we have enabled random route
     if not route:
@@ -557,6 +580,7 @@ def download_file(**kwargs):
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
+            username = username,
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )

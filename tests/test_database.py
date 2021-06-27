@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 import os
-import tempfile
+from tempfile import NamedTemporaryFile
 
 from lib.cuckoo.core.database import Database, Task
 
@@ -15,9 +15,9 @@ class TestDatabaseEngine(object):
     URI = None
 
     def setup_method(self):
-        self.temp = tempfile.mktemp()
-        with open(self.temp, "w") as f:
+        with NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write("hehe")
+        self.temp = f.name
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()

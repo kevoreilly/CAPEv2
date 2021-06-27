@@ -13,6 +13,12 @@ log = logging.getLogger(__name__)
 
 processing_conf = Config("processing")
 
+"""
+from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+path = "/opt/CAPEv2/storage/binaries/da034c11f0c396f6cd11d22f833f9501dc75a33047ba3bd5870ff79e479bc004"
+details = flare_capa_details(path, "static", on_demand=True)
+"""
+
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:
@@ -24,13 +30,17 @@ if processing_conf.flare_capa.enabled:
         from capa.engine import *
         import capa.render.utils as rutils
         from capa.main import UnsupportedRuntimeError
+        from capa.rules import InvalidRuleWithPath
 
         rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
         if os.path.exists(rules_path):
             capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-            rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
-            rules = capa.rules.RuleSet(rules)
-            HAVE_FLARE_CAPA = True
+            try:
+                rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+                rules = capa.rules.RuleSet(rules)
+                HAVE_FLARE_CAPA = True
+            except InvalidRuleWithPath:
+                print("FLARE_CAPA InvalidRuleWithPath")
         else:
             print("FLARE CAPA rules missed! You can download them using python community.py -cr")
             HAVE_FLARE_CAPA = False

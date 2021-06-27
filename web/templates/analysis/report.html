@@ -97,10 +97,6 @@ $(function() {
         {% if analysis.CAPE %}
             <li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">Payloads ({{analysis.CAPE}})</a></li>
         {% endif%}
-        <!--ToDo remove in CAPEv3-->
-        {% if analysis.CAPE_old %}
-            <li class="nav-item"><a class="nav-link" href="#CAPE_old" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE_old/" data-toggle="tab">CAPE ({{analysis.CAPE_old}})</a></li>
-        {% endif%}
         {% if analysis.debugger_logs %}
             <li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">Debugger</a></li>
         {% endif %}
@@ -118,8 +114,7 @@ $(function() {
     {% if analysis.backscatter %}<li class="nav-item"><a class="nav-link" href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
     {% if analysis.classification%}<li class="nav-item"><a class="nav-link" href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
     {% if analysis.curtain%}<li class="nav-item"> <a class="nav-link" href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
-    <li class="nav-item"><a class="nav-link" href="#statistics" data-toggle="tab">Statistics</a></li>
-    {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
+     {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
     {% if settings.ADMIN or user.is_staff %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
 <div class="tab-content">
@@ -141,12 +136,6 @@ $(function() {
     {% if analysis.CAPE %}
         <div class="tab-pane fade" id="CAPE">
         {% include "analysis/CAPE/index.html" %}
-        </div>
-    {% endif %}
-    <!--ToDo remve in CAPEv3-->
-    {% if analysis.CAPE_old %}
-        <div class="tab-pane fade" id="CAPE_old">
-        {% include "analysis/CAPE/index_old.html" %}
         </div>
     {% endif %}
     <div class="tab-pane fade" id="procdump">
@@ -199,9 +188,6 @@ $(function() {
         {% include "analysis/curtain.html" %}
     </div>
     {% endif %}
-    <div class="tab-pane fade" id="statistics">
-        {% include "analysis/statistics/index.html" %}
-    </div>
     {% if settings.ADMIN or user.is_staff %}
     <div class="tab-pane fade" id="admin">
         {% include "analysis/admin/index.html" %}

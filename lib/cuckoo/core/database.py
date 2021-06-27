@@ -51,10 +51,10 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource=repconf.mongodb.db,
+    authSource = repconf.mongodb.get("authsource", "cuckoo")
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "703266a6bbc5"
+SCHEMA_VERSION = "6dc79a3ee6e4"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -362,6 +362,7 @@ class Task(Base):
     tlp = Column(String(255), nullable=True)
 
     user_id = Column(Integer(), nullable=True)
+    username = Column(String(256), nullable=True)
 
     __table_args__ = (
         Index("category_index", "category"),
@@ -1102,6 +1103,7 @@ class Database(object, metaclass=Singleton):
         cape = False,
         tags_tasks = False,
         user_id = 0,
+        username = False,
 
     ):
         """Add a task to database.
@@ -1125,6 +1127,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user if auth enabled
+        @param username: username for custom auth
         @return: cursor or None.
         """
         session = self.Session()
@@ -1226,6 +1229,7 @@ class Database(object, metaclass=Singleton):
             task.clock = datetime.utcfromtimestamp(0)
 
         task.user_id = user_id
+        task.username = username
 
         session.add(task)
 
@@ -1268,6 +1272,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
+        username=False
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1289,6 +1294,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
+        @username: username from custom auth
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
@@ -1326,6 +1332,7 @@ class Database(object, metaclass=Singleton):
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id,
+            username=username,
         )
 
     def demux_sample_and_add_to_db(
@@ -1356,6 +1363,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         user_id=0,
+        username=False
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1397,7 +1405,7 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id)
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
@@ -1436,6 +1444,7 @@ class Database(object, metaclass=Singleton):
                     tags_tasks=tags_tasks,
                     cape=cape,
                     user_id=user_id,
+                    username=username,
                 )
             if task_id:
                 task_ids.append(task_id)
@@ -1468,6 +1477,7 @@ class Database(object, metaclass=Singleton):
         parent_id=None,
         tlp=None,
         user_id=0,
+        username=False,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1489,6 +1499,7 @@ class Database(object, metaclass=Singleton):
             parent_id,
             tlp,
             user_id,
+            username,
         )
 
     @classlock
@@ -1514,6 +1525,7 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=True,
         user_id=0,
+        username=False,
     ):
         return self.add(
             Static(file_path.decode()),
@@ -1536,6 +1548,7 @@ class Database(object, metaclass=Singleton):
             tlp,
             static,
             user_id = user_id,
+            username = username,
         )
 
     @classlock
@@ -1563,6 +1576,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
+        username = False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1581,6 +1595,7 @@ class Database(object, metaclass=Singleton):
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user
+        @param username: username for custom auth
         @return: cursor or None.
         """
 
@@ -1613,6 +1628,7 @@ class Database(object, metaclass=Singleton):
             cape = cape,
             tags_tasks = tags_tasks,
             user_id = user_id,
+            username = username,
         )
 
     @classlock

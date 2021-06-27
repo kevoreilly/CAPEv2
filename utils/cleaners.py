@@ -10,13 +10,14 @@ import sys
 import shutil
 import argparse
 import logging
-from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+from bson.objectid import ObjectId
+from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.config import Config
@@ -38,26 +39,27 @@ from lib.cuckoo.core.database import (
 log = logging.getLogger()
 
 cuckoo = Config()
-rep_config = Config("reporting")
+repconf = Config("reporting")
 resolver_pool = ThreadPool(50)
 
 # Initialize the database connection.
 db = Database()
-mdb = rep_config.mongodb.get("db", "cuckoo")
+mdb = repconf.mongodb.get("db", "cuckoo")
 
 
 def connect_to_mongo():
     conn = False
     # Check if MongoDB reporting is enabled and drop that if it is.
-    if rep_config.mongodb and rep_config.mongodb.enabled:
+    if repconf.mongodb and repconf.mongodb.enabled:
         from pymongo import MongoClient
-
-        host = rep_config.mongodb.get("host", "127.0.0.1")
-        port = rep_config.mongodb.get("port", 27017)
-        user = rep_config.mongodb.get("username", None)
-        password = rep_config.mongodb.get("password", None)
         try:
-            conn = MongoClient(host=host, port=port, username=user, password=password, authSource=mdb)
+            conn = MongoClient(
+                host = repconf.mongodb.get("host", "127.0.0.1"),
+                port = repconf.mongodb.get("port", 27017),
+                username = repconf.mongodb.get("username", None),
+                password = repconf.mongodb.get("password", None),
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
+            )
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))
 
@@ -70,9 +72,9 @@ def connect_to_es():
     # Check if ElasticSearch is enabled and delete that data if it is.
     from elasticsearch import Elasticsearch
 
-    delidx = rep_config.elasticsearchdb.index + "-*"
+    delidx = repconf.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(hosts=[{"host": rep_config.elasticsearchdb.host, "port": rep_config.elasticsearchdb.port,}], timeout=60)
+        es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
     except:
         log.warning("Unable to connect to ElasticSearch")
 
@@ -203,7 +205,7 @@ def cuckoo_clean():
     except:
         log.warning("Unable to drop MongoDB database: %s", mdb)
 
-    if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
+    if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         es = False
         es, delidx = connect_to_es()
         if not es:
@@ -513,7 +515,7 @@ def cuckoo_dedup_cluster_queue():
     """
 
     session = db.Session()
-    dist_session = create_session(rep_config.distributed.db, echo=False)
+    dist_session = create_session(repconf.distributed.db, echo=False)
     dist_db = dist_session()
     hash_dict = dict()
     duplicated = session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)

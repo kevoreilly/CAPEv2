@@ -88,7 +88,6 @@ __requirements.txt is decprecated now in favour of the script__
 * [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
 
 ## Virtual machine core dependecy
-* First install offline installer of [choco](https://community.chocolatey.org/courses/installation/installing?method=completely-offline-install#cmd)
 * [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
 
 ## How to update

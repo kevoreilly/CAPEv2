@@ -1089,7 +1089,7 @@ def cron_cleaner(clean_x_hours=False):
             if node and not details[node]:
                 continue
 
-            ids = ",".join(details[node.id])
+            ids = ",".join(details[node])
             _delete_many(node, ids, nodes, db)
 
     db.commit()

@@ -1091,7 +1091,7 @@ def tasks_report(request, task_id, report_format="json"):
                 "macros",
                 "lite",
                 "shots",
-                "pcap.dump"
+                "dump.pcap"
             ]
         }
     }

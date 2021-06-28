@@ -34,7 +34,7 @@ volatility3==1.0.1
 https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/refs/heads/master.zip
 passlib
 pyzipper
-mwcp==3.2.1
+mwcp==3.3.1
 malwareconfig==1.0.4
 flare-capa==1.6.3
 greenlet==0.4.16

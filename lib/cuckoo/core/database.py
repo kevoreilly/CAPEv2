@@ -1392,7 +1392,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode("utf8")
+                runfile = runfile.encode("utf-8")
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1406,7 +1406,7 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username)
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:

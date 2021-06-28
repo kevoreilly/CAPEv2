@@ -219,13 +219,14 @@ def node_submit_task(task_id, node_id):
                     db.rollback()
                 return
             files = dict(file=open(task.path, "rb"))
-            r = requests.post(url, data=data, files=files, verify=False)
+            r = requests.post(url, data=data, files=files,  headers={"Authorization": f"Token {apikey}"}, verify=False)
         elif task.category == "url":
             url = os.path.join(node.url, "tasks", "create", "url/")
             r = requests.post(url, data={"url": task.path, "options": task.options}, headers = {'Authorization': f'Token {apikey}'}, verify=False)
         elif task.category == "static":
             url = os.path.join(node.url, "tasks", "create", "static/")
-            log.info("Static isn't finished")
+            files = dict(file=open(task.path, "rb"))
+            r = requests.post(url, data=data, files=files, headers={"Authorization": f"Token {apikey}"}, verify=False)
         else:
             log.debug("Target category is: {}".format(task.category))
             db.close()

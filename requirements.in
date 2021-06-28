@@ -25,22 +25,22 @@ pyinstaller
 maec
 regex
 xmltodict
-git+https://github.com/doomedraven/sflock.git
-git+https://github.com/doomedraven/socks5man.git
+https://github.com/doomedraven/sflock/archive/refs/heads/master.zip
+https://github.com/doomedraven/socks5man/archive/refs/heads/master.zip
 pyattck==3.0.1
 distorm3
 openpyxl
-git+https://github.com/volatilityfoundation/volatility3
-git+https://github.com/DissectMalware/XLMMacroDeobfuscator
+volatility3==1.0.1
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/refs/heads/master.zip
 passlib
 pyzipper
 mwcp==3.2.1
-git+https://github.com/kevthehermit/RATDecoders.git
-git+https://github.com/fireeye/capa.git
+malwareconfig==1.0.4
+flare-capa==1.6.3
 greenlet==0.4.16
 cython
-git+https://github.com/andreasvc/pyre2.git
-git+https://github.com/CAPESandbox/peepdf.git
+pyre2==0.3.6
+https://github.com/CAPESandbox/peepdf/archive/refs/heads/master.zip
 matplotlib>=2.2.2
 numpy>=1.15.0
 six>=1.12.0
@@ -65,7 +65,7 @@ java-random
 python-whois
 bs4
 pype32-py3
-git+https://github.com/kbandla/pydeep.git
+pydeep==0.4
 pyvmomi
 https://github.com/CAPESandbox/httpreplay/archive/refs/tags/0.3.0.zip
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
@@ -78,7 +78,6 @@ django-extensions
 qrcode
 python-tlsh
 djangorestframework
-volatility3
 yara-python>=4.0.0
 netstruct
 pymongo>=3.11.3

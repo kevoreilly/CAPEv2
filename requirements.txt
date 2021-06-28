@@ -204,9 +204,9 @@ cryptography==3.3.2 \
     #   pyopenssl
     #   requests
     #   sflock
-cxxfilt==0.2.2 \
-    --hash=sha256:ab1f47c19520359ac921948bb8d42f731f04fdc0178ded6617622ceb9b1077f6 \
-    --hash=sha256:ef6810e76d16c95c11b96371e2d8eefd1d270ec03f9bcd07590e8dcc2c69e92b
+cxxfilt==0.2.1 \
+    --hash=sha256:cd5b2f7679209866f1f22251d015b7268f0e23424eb719bd7b49aebc08911973 \
+    --hash=sha256:d846472835a02bc144e3c7630677102a46d25cb52bc4fbeac12183098fd475b9
     # via vivisect
 cybox==2.1.0.21 \
     --hash=sha256:19a588bcdce8f3a088f7d5edd3e8862c11b701bb3d64257b18f3092deb9c3b7a \
@@ -353,9 +353,9 @@ filelock==3.0.12 \
 fire==0.3.1 \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
     # via pyattck
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/fireeye/capa.git
+flare-capa==1.6.3 \
+    --hash=sha256:04e86a51add2ed140101dafc7d530e347bc1e47c173ef73081254508b1e80da7 \
+    --hash=sha256:737917eac11c158c4d1835dc4ed805c1000ac2474075facc33571466e25aee62
     # via -r requirements.in
 flask==1.1.4 \
     --hash=sha256:0fbeb6180d383a9186d0d6ed954e0042ad9f18e0e8de088b2b419d526927d196 \
@@ -624,9 +624,8 @@ mako==1.1.4 \
     --hash=sha256:17831f0b7087c313c0ffae2bcbbd3c1d5ba9eeac9c38f2eb7b50e8c99fe9d5ab \
     --hash=sha256:aea166356da44b9b830c8023cd9b557fa856bd8b4035d6de771ca027dfc5cc6e
     # via alembic
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/kevthehermit/RATDecoders.git
+malwareconfig==1.0.4 \
+    --hash=sha256:18bc09084a9033da46efd1dd4407d68253ed5aa1b63a8c1418c162c78a538993
     # via -r requirements.in
 markupsafe==2.0.1 \
     --hash=sha256:01a9b8ea66f1658938f65b93a85ebe8bc016e6769611be228d797c9d998dd298 \
@@ -704,35 +703,25 @@ mixbox==1.0.5 \
     #   -r requirements.in
     #   cybox
     #   maec
-msgpack==1.0.2 \
-    --hash=sha256:0cb94ee48675a45d3b86e61d13c1e6f1696f0183f0715544976356ff86f741d9 \
-    --hash=sha256:1026dcc10537d27dd2d26c327e552f05ce148977e9d7b9f1718748281b38c841 \
-    --hash=sha256:26a1759f1a88df5f1d0b393eb582ec022326994e311ba9c5818adc5374736439 \
-    --hash=sha256:2a5866bdc88d77f6e1370f82f2371c9bc6fc92fe898fa2dec0c5d4f5435a2694 \
-    --hash=sha256:31c17bbf2ae5e29e48d794c693b7ca7a0c73bd4280976d408c53df421e838d2a \
-    --hash=sha256:497d2c12426adcd27ab83144057a705efb6acc7e85957a51d43cdcf7f258900f \
-    --hash=sha256:5a9ee2540c78659a1dd0b110f73773533ee3108d4e1219b5a15a8d635b7aca0e \
-    --hash=sha256:8521e5be9e3b93d4d5e07cb80b7e32353264d143c1f072309e1863174c6aadb1 \
-    --hash=sha256:87869ba567fe371c4555d2e11e4948778ab6b59d6cc9d8460d543e4cfbbddd1c \
-    --hash=sha256:8ffb24a3b7518e843cd83538cf859e026d24ec41ac5721c18ed0c55101f9775b \
-    --hash=sha256:92be4b12de4806d3c36810b0fe2aeedd8d493db39e2eb90742b9c09299eb5759 \
-    --hash=sha256:9ea52fff0473f9f3000987f313310208c879493491ef3ccf66268eff8d5a0326 \
-    --hash=sha256:a4355d2193106c7aa77c98fc955252a737d8550320ecdb2e9ac701e15e2943bc \
-    --hash=sha256:a99b144475230982aee16b3d249170f1cccebf27fb0a08e9f603b69637a62192 \
-    --hash=sha256:ac25f3e0513f6673e8b405c3a80500eb7be1cf8f57584be524c4fa78fe8e0c83 \
-    --hash=sha256:b28c0876cce1466d7c2195d7658cf50e4730667196e2f1355c4209444717ee06 \
-    --hash=sha256:b55f7db883530b74c857e50e149126b91bb75d35c08b28db12dcb0346f15e46e \
-    --hash=sha256:b6d9e2dae081aa35c44af9c4298de4ee72991305503442a5c74656d82b581fe9 \
-    --hash=sha256:c747c0cc08bd6d72a586310bda6ea72eeb28e7505990f342552315b229a19b33 \
-    --hash=sha256:d6c64601af8f3893d17ec233237030e3110f11b8a962cb66720bf70c0141aa54 \
-    --hash=sha256:d8167b84af26654c1124857d71650404336f4eb5cc06900667a493fc619ddd9f \
-    --hash=sha256:de6bd7990a2c2dabe926b7e62a92886ccbf809425c347ae7de277067f97c2887 \
-    --hash=sha256:e36a812ef4705a291cdb4a2fd352f013134f26c6ff63477f20235138d1d21009 \
-    --hash=sha256:e89ec55871ed5473a041c0495b7b4e6099f6263438e0bd04ccd8418f92d5d7f2 \
-    --hash=sha256:f3e6aaf217ac1c7ce1563cf52a2f4f5d5b1f64e8729d794165db71da57257f0c \
-    --hash=sha256:f484cd2dca68502de3704f056fa9b318c94b1539ed17a4c784266df5d6978c87 \
-    --hash=sha256:fae04496f5bc150eefad4e9571d1a76c55d021325dcd484ce45065ebbdd00984 \
-    --hash=sha256:fe07bc6735d08e492a327f496b7850e98cb4d112c56df69b0c844dbebcbb47f6
+msgpack==1.0.0 \
+    --hash=sha256:002a0d813e1f7b60da599bdf969e632074f9eec1b96cbed8fb0973a63160a408 \
+    --hash=sha256:25b3bc3190f3d9d965b818123b7752c5dfb953f0d774b454fd206c18fe384fb8 \
+    --hash=sha256:271b489499a43af001a2e42f42d876bb98ccaa7e20512ff37ca78c8e12e68f84 \
+    --hash=sha256:39c54fdebf5fa4dda733369012c59e7d085ebdfe35b6cf648f09d16708f1be5d \
+    --hash=sha256:4233b7f86c1208190c78a525cd3828ca1623359ef48f78a6fea4b91bb995775a \
+    --hash=sha256:5bea44181fc8e18eed1d0cd76e355073f00ce232ff9653a0ae88cb7d9e643322 \
+    --hash=sha256:5dba6d074fac9b24f29aaf1d2d032306c27f04187651511257e7831733293ec2 \
+    --hash=sha256:7a22c965588baeb07242cb561b63f309db27a07382825fc98aecaf0827c1538e \
+    --hash=sha256:908944e3f038bca67fcfedb7845c4a257c7749bf9818632586b53bcf06ba4b97 \
+    --hash=sha256:9534d5cc480d4aff720233411a1f765be90885750b07df772380b34c10ecb5c0 \
+    --hash=sha256:aa5c057eab4f40ec47ea6f5a9825846be2ff6bf34102c560bad5cad5a677c5be \
+    --hash=sha256:b3758dfd3423e358bbb18a7cccd1c74228dffa7a697e5be6cb9535de625c0dbf \
+    --hash=sha256:c901e8058dd6653307906c5f157f26ed09eb94a850dddd989621098d347926ab \
+    --hash=sha256:cec8bf10981ed70998d98431cd814db0ecf3384e6b113366e7f36af71a0fca08 \
+    --hash=sha256:db685187a415f51d6b937257474ca72199f393dad89534ebbdd7d7a3b000080e \
+    --hash=sha256:e35b051077fc2f3ce12e7c6a34cf309680c63a842db3a0616ea6ed25ad20d272 \
+    --hash=sha256:e7bbdd8e2b277b77782f3ce34734b0dfde6cbe94ddb74de8d733d603c7f9e2b1 \
+    --hash=sha256:ea41c9219c597f1d2bf6b374d951d310d58684b5de9dc4bd2976db9e1e22c140
     # via vivisect
 msoffcrypto-tool==4.12.0 \
     --hash=sha256:234f85ef59945fa1ebb618ca029f31f0cb43a637344dbda5c1bb8578b2d96a68 \
@@ -862,15 +851,13 @@ pebble==4.6.1 \
     --hash=sha256:556de0f4c65f943b73ba85ab4621f18000864d42a9d562c470ce7bf396d96424 \
     --hash=sha256:b0abdc8830c21307038d63454584f71c2943e542e4e9d4c86d67aebc06c3519b
     # via -r requirements.in
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/CAPESandbox/peepdf.git
+https://github.com/CAPESandbox/peepdf/archive/refs/heads/master.zip \
+    --hash=sha256:ad74c66f00ae5c111a5097af86ae9a3334a7d5acd3a9d85411aae03ddea31c48
     # via -r requirements.in
 pefile==2021.5.24 \
     --hash=sha256:ed79b2353daa58421459abf4d685953bde0adf9f6e188944f97ba9795f100246
     # via
     #   -r requirements.in
-    #   flare-capa
     #   malwareconfig
     #   mwcp
     #   viv-utils
@@ -942,15 +929,15 @@ ptyprocess==0.7.0 \
     --hash=sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35 \
     --hash=sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220
     # via pexpect
-pyasn1==0.4.8 \
-    --hash=sha256:39c7e2ec30515947ff4e87fb6f456dfc6e84857d34be479c9d4a4ba4bf46aa5d \
-    --hash=sha256:aef77c9fb94a3ac588e87841208bdec464471d9871bd5050a287cc9a475cd0ba
+pyasn1==0.4.5 \
+    --hash=sha256:da2420fe13a9452d8ae97a0e478adde1dee153b11ba832a95b223a2ba01c10f7 \
+    --hash=sha256:da6b43a8c9ae93bc80e2739efb38cc776ba74a886e3e9318d65fe81a8b8a2c6e
     # via
     #   pyasn1-modules
     #   vivisect
-pyasn1-modules==0.2.8 \
-    --hash=sha256:905f84c712230b2c592c19470d3ca8d552de726050d1d1716282a1f6146be65e \
-    --hash=sha256:a50b808ffeb97cb3601dd25981f6b016cbb3d31fbf57a8b8a87428e6158d0c74
+pyasn1-modules==0.2.4 \
+    --hash=sha256:79580acf813e3b7d6e69783884e6e83ac94bf4617b36a135b85c599d8a818a7b \
+    --hash=sha256:a52090e8c5841ebbf08ae455146792d9ef3e8445b21055d3a3b7ed9c712b7c7c
     # via vivisect
 pyattck==3.0.1 \
     --hash=sha256:7d3c93dc0e819d90f43b7f2bd21b37ce22ba558c5f8ac8715f76efd530dee751 \
@@ -1000,9 +987,8 @@ pycryptodomex==3.10.1 \
     --hash=sha256:f933ecf4cb736c7af60a6a533db2bf569717f2318b265f92907acff1db43bc34 \
     --hash=sha256:fc9c55dc1ed57db76595f2d19a479fc1c3a1be2c9da8de798a93d286c5f65f38
     # via pyzipper
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/kbandla/pydeep.git
+pydeep==0.4 \
+    --hash=sha256:22866eb422d1d5907f8076ee792da65caecb172425d27576274e2a8eacf6afc1
     # via -r requirements.in
 pydot==1.4.2 \
     --hash=sha256:248081a39bcb56784deb018977e428605c1c758f10897a339fce1dd728ff007d \
@@ -1124,9 +1110,24 @@ pyparsing==2.3.0 \
 pype32-py3==0.2 \
     --hash=sha256:7e0cf20a9e7a2f3139a80c54ef10690ce60eb309a851fe3432b88ba4e9ad21eb
     # via -r requirements.in
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/andreasvc/pyre2.git
+pyre2==0.3.6 \
+    --hash=sha256:18cd5d76973ee57232a5d851489c202105e4752aee6dcbd38742c0475f3f1c4e \
+    --hash=sha256:1efec117f2543b38adcbe038a2ae156eb91b6ed8a73c998c3752a766d6241075 \
+    --hash=sha256:225784d7bd905bc3e87d4bbcc6ac4087ccea8905dd657273fd71bfb113e50e82 \
+    --hash=sha256:310d5c98495114692940ffa020aaeef1341427755b6ca5a17c63092060ed93dc \
+    --hash=sha256:608558276d3539002ad6300d0b0a2b0941577fdea009715ff4d31052e05cb409 \
+    --hash=sha256:617c4d75b41b34afe7590e144efad1c564a8b49a1e0827872afc2243b24beada \
+    --hash=sha256:6d8e550899886ee01f1b8149ba1c336e1c749cec2e33414815a76fb5649cdf67 \
+    --hash=sha256:6fe972c0cadec49a5a055690e5aa29f8aebaed0fa9b7d8d3530e33719b61f91c \
+    --hash=sha256:7c398942c3467fe23b2dd4a11dd78da8aee774d0b481e84b1b208819ee724cca \
+    --hash=sha256:961020835a3b805eed51a082e5effdccb51979c4efef2a17f17122967cb4749a \
+    --hash=sha256:97de5d4cf7d8b9be7dbe0dc0941c4a6c1395fc598722d9644adc55427d3dd083 \
+    --hash=sha256:b87e9aeee74376210bd82c8328eb007b93378f3cd61fa6176161c3b9037e8474 \
+    --hash=sha256:c3b45f789374d0f95866330fcd34bb6b93705e8f5c276d9d70d318a227ba5954 \
+    --hash=sha256:cc180989186f05b75020b53c79059c338e9e1940d325fc945c84aab2b5c57525 \
+    --hash=sha256:ebe92a3222f2f6f176eeb3859638734e4f9a82d5940ad7d6f0c1288153c70ce2 \
+    --hash=sha256:f3467dd9a4c8100f6406bc6277d945a13b7fd7c4426d2415564de1324b5db94f \
+    --hash=sha256:f3ae7b087abcbc4b910d535c2fb877ef452b61d2514a63fd15b8b020b51fe4b5
     # via -r requirements.in
 pyrsistent==0.17.3 \
     --hash=sha256:2e636185d9eb976a18a8a8e96efce62f2905fea90041958d8cc2a189756ebf3e
@@ -1154,20 +1155,6 @@ python-editor==1.0.4 \
     --hash=sha256:51fda6bcc5ddbbb7063b2af7509e43bd84bfc32a4ff71349ec7847713882327b \
     --hash=sha256:5f98b069316ea1c2ed3f67e7f5df6c0d8f10b689964a4a811ff64f0106819ec8
     # via alembic
-python-flirt==0.6.3 \
-    --hash=sha256:052cd55ef73411be0f5d7eaaaffcd62b8e943f5b7f6e1f5420cb43eb47f003f1 \
-    --hash=sha256:7302b3479f2594feaab6148daa301616bb2785a5fdda1fafeabe4d56aa58ff56 \
-    --hash=sha256:7dc639e3b4d8b03fd5a3808efaa76f46bc7fffce07daa2f792b168b8c2c4761a \
-    --hash=sha256:7e2dddcc3ba744e48cf90d963e3b5132634c56d48cb93c997fc4fa470b456e92 \
-    --hash=sha256:827fb4318367d974337b62fe5f3146d7fa5da7f3724fb3dd2b80b4a33f6c9d2e \
-    --hash=sha256:89b507fb83fc676d71ec50daa32e9760e31f73ecfc4bf022fbaf06e2ee525115 \
-    --hash=sha256:8d7f82210cb76f7990bdd3fbe3b408a0bb1614d687943f6b9ae835b597a95445 \
-    --hash=sha256:9fbd8572721950eafca9076cf08a99b374ae5bf552b76c609b09de480d5666db \
-    --hash=sha256:a15b1a87c8cd9350b5a2e5ea5549231c3b432799b8bf68905cd1729bda2060fa \
-    --hash=sha256:be46df1558ecfece1d0111a53251586b89ecc29347e8f75d762121de6a53d6a0 \
-    --hash=sha256:be6faef1c106016d441c25b9d2a3ec3b0444b006f0e1e995b2d7279e505ac4d9 \
-    --hash=sha256:e3e5523bace10b5a9bbb599cc33c94722b44c1454525191da59025dc186b4f42
-    # via viv-utils
 python-magic==0.4.24 \
     --hash=sha256:4fec8ee805fea30c07afccd1592c0f17977089895bdfaae5fec870a84e997626 \
     --hash=sha256:de800df9fb50f8ec5974761054a708af6e4246b03b4bdaee993f948947b0ebcf
@@ -1350,9 +1337,9 @@ requests-oauthlib==1.3.0 \
     --hash=sha256:7f71572defaecd16372f9006f33c2ec8c077c3cfa6f5911a9a90202beb513f3d \
     --hash=sha256:b4261601a71fd721a8bd6d7aa1cc1d6a8a93b4a9f5e96626f8e4d91e8beeaa6a
     # via django-allauth
-ruamel.yaml==0.17.9 \
-    --hash=sha256:374373b4743aee9f6d9f40bea600fe020a7ac7ae36b838b4a6a93f72b584a14c \
-    --hash=sha256:8873a6f5516e0d848c92418b0b006519c0566b6cd0dcee7deb9bf399e2bd204f
+ruamel.yaml==0.17.0 \
+    --hash=sha256:3572505e63dd35b5dea62cd0386d03c4f2a53da29a3af09f428114cc85c564aa \
+    --hash=sha256:3a41b30235cc6ff7baee0321ffa99e7f94bbc7c7e0f2cac1d75b6b24fc24f202
     # via
     #   flare-capa
     #   mwcp
@@ -1400,19 +1387,19 @@ scipy==1.7.0 \
     --hash=sha256:c5d012cb82cc1dcfa72609abaabb4a4ed8113e3e8ac43464508a418c146be57d \
     --hash=sha256:e7b733d4d98e604109715e11f2ab9340eb45d53f803634ed730039070fc3bc11
     # via imagehash
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/doomedraven/sflock.git
+https://github.com/doomedraven/sflock/archive/refs/heads/master.zip \
+    --hash=sha256:4edab0b0c635adde280db029ece069bb6071dae65062713db934b7c7f9d1f232
     # via -r requirements.in
-six==1.16.0 \
-    --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
-    --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
+six==1.15.0 \
+    --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
+    --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced
     # via
     #   -r requirements.in
     #   cryptography
     #   cycler
     #   ecdsa
     #   fire
+    #   flare-capa
     #   halo
     #   ida-netnode
     #   ida-settings
@@ -1426,12 +1413,11 @@ six==1.16.0 \
     #   qrcode
     #   requests-file
     #   sqlalchemy-utils
-smda==1.5.18 \
-    --hash=sha256:e543467eeb249ffc224429cdaad3f09564446fadfac67b46177e930f9960d953
+smda==1.5.13 \
+    --hash=sha256:1b9b5fe724947c1e57ac01fa62181e5c716a2ed5361da50aacb792676aef272e
     # via flare-capa
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/doomedraven/socks5man.git
+https://github.com/doomedraven/socks5man/archive/refs/heads/master.zip \
+    --hash=sha256:2b9d40e0de92f49ff2f0e81121f4ef2da431cd600fce2e6c8cb332c8bc309f9e
     # via -r requirements.in
 sortedcontainers==2.4.0 \
     --hash=sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88 \
@@ -1511,9 +1497,9 @@ tldextract==3.1.0 \
 tlslite-ng==0.7.6 \
     --hash=sha256:6ab56f0e9629ce3d807eb528c9112defa9f2e00af2b2961254e8429ca5c1ff00
     # via httpreplay
-tqdm==4.61.1 \
-    --hash=sha256:24be966933e942be5f074c29755a95b315c69a91f839a29139bf26ffffe2d3fd \
-    --hash=sha256:aa0c29f03f298951ac6318f7c8ce584e48fa22ec26396e6411e43d038243bdb2
+tqdm==4.60.0 \
+    --hash=sha256:daec693491c52e9498632dfbe9ccfc4882a557f5fa08982db1b4d3adbe0887c3 \
+    --hash=sha256:ebdebdb95e3477ceea267decfc0784859aa3df3e27e22d23b83e9b272bf157ae
     # via flare-capa
 traitlets==5.0.5 \
     --hash=sha256:178f4ce988f69189f7e523337a3e11d91c786ded9360174a3d9ca83e79bc5396 \
@@ -1521,10 +1507,6 @@ traitlets==5.0.5 \
     # via
     #   ipython
     #   matplotlib-inline
-typing==3.7.4.3 \
-    --hash=sha256:1187fb9c82fd670d10aa07bbb6cfcfe4bdda42d6fab8d5134f04e8c4d0b71cc9 \
-    --hash=sha256:283d868f5071ab9ad873e5e52268d611e851c870a2ba354193026f2dfb29d8b5
-    # via flare-capa
 tzlocal==2.1 \
     --hash=sha256:643c97c5294aedc737780a49d9df30889321cbe1204eac2c2ec6134035a92e44 \
     --hash=sha256:e2cb6c6b5b604af38597403e9852872d7f534962ae2954c7f35efcb1ccacf4a4
@@ -1536,19 +1518,19 @@ urllib3==1.26.6 \
     --hash=sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4 \
     --hash=sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f
     # via requests
-viv-utils[flirt]==0.6.5 \
-    --hash=sha256:348201d0a5871b58c470e526ad0da1fe810f000dd3005637f57d429fdd94ef9d \
-    --hash=sha256:c6ef342f4e270d4d9d4cb3a7cccb0cc08ce3bb3455536d013a0ebd0af21f69b7
+viv-utils==0.6.0 \
+    --hash=sha256:29711cb9e742d99230459c0924ddd748952fb17bc2196fba6fdeb2aabfdf5aa4 \
+    --hash=sha256:3e8e590aa180b02060873acd900bcc4e83675f0405d7afcd8a86d60c54db02e6
     # via flare-capa
-vivisect==1.0.3 \
-    --hash=sha256:33dfd5c904f3ae4c6a73e37f8061cd16c213219efe60056b1f37793c4c45376b \
-    --hash=sha256:f055a299b080f83ba030c98574e853cf41c25185b0b13e2134cdb9110ce74d9b
+vivisect==1.0.1 \
+    --hash=sha256:86941fccb0f843579c92650579b3eac6cc4821d65e4be550cf07aa25d6e1c521 \
+    --hash=sha256:b8700ec66551219673c6a5d122c9f19c4b022b13a4c38b983bbb162cd1c03592
     # via
     #   flare-capa
     #   viv-utils
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/volatilityfoundation/volatility3
+volatility3==1.0.1 \
+    --hash=sha256:1bb5590eb8447c5f1243913b286899f43a8a06f647f91e796ab7ef746d721e1f \
+    --hash=sha256:dadefadb6d11db3473f96c8cacd5829181a436b573a84faeb585bc4230a903da
     # via -r requirements.in
 voluptuous==0.12.1 \
     --hash=sha256:663572419281ddfaf4b4197fd4942d181630120fb39b333e3adad70aeb56444b \
@@ -1570,9 +1552,8 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-# WARNING: pip install will require the following package to be hashed.
-# Consider using a hashable URL like https://github.com/jazzband/pip-tools/archive/SOMECOMMIT.zip
-git+https://github.com/DissectMalware/XLMMacroDeobfuscator
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/refs/heads/master.zip \
+    --hash=sha256:d202b0c72a1768e318b081f26260d5ed1865cf93342096e40360a15160ec7a24
     # via -r requirements.in
 xlrd2==1.2.6 \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \

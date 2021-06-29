@@ -215,7 +215,7 @@ class MongoDB(Report):
                     report["f_mlist_cnt"] = len(entry["data"])
 
         # Other info we want quick access to from the web UI
-        if results.get("virustotal", {}).get("positive") and "total" in results.get("virustotal", {}).get("total"):
+        if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
             report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positive"], results["virustotal"]["total"])
         if results.get("suricata", False):
 

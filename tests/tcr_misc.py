@@ -7,7 +7,6 @@ import os
 import requests
 import logging
 import hashlib
-from tenacity import retry, wait_fixed, stop_after_attempt
 import uuid
 
 SAMPLE_STORAGE = "http://YOUR_MAGIC_REPO/"
@@ -50,7 +49,6 @@ def get_malware_paths(path):
     return get_filepaths(path, starts="malware.", ends=".exe")
 
 
-#@retry(wait=wait_fixed(2), stop=stop_after_attempt(5))
 def get_sample(hash, download_location):
     if os.path.isfile(download_location) and hash == hashlib.sha256(open(download_location, "rb").read()).hexdigest():
         logging.warning(download_location + " already there, skipping!")

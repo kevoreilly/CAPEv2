@@ -591,7 +591,7 @@ class Retriever(threading.Thread):
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
-            details.setdefault(node_id, list())
+            details[node_id] = list()
             details[node_id].append(str(task_id))
             if task_id in self.t_is_none.get(node_id, list()):
                 self.t_is_none[node_id].remove(task_id)
@@ -599,7 +599,7 @@ class Retriever(threading.Thread):
             node = nodes[node_id]
             if node and details[node_id]:
                 ids = ",".join(list(set(details[node_id])))
-                _delete_many(node, ids, nodes, db)
+                _delete_many(node_id, ids, nodes, db)
 
             db.commit()
             time.sleep(20)

@@ -1,3 +1,6 @@
+### [20-06-2021] [enter the sandman](https://www.youtube.com/watch?v=CD-E-LDc384) @doomedraven moved to CAPEv2
+* Expect more fixes :)
+
 ### [17-06-2021]
 * Updates to processing module & monitor to allow type strings to replace old type codes
 * Updates to 'dump' Debugger action

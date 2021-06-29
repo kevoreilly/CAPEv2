@@ -919,8 +919,11 @@ class PortableExecutable(object):
                     cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
             except ValueError as e:
                 log.warning(e)
-            for attribute in cert.issuer:
-                cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            try:
+                for attribute in cert.issuer:
+                    cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            except ValueError as e:
+                log.warning(e)
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:

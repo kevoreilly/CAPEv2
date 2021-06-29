@@ -16,6 +16,10 @@ androguard==3.3.5 \
     --hash=sha256:e2d87b7952ccc61d541e8a86b1e5a5eea8a28d90037afe9ab4406cae3e69e115 \
     --hash=sha256:f0655ca3a5add74c550951e79bd0bebbd1c5b239178393d30d8db0bd3202cda2
     # via malwareconfig
+anytree==2.8.0 \
+    --hash=sha256:14c55ac77492b11532395049a03b773d14c7e30b22aa012e337b1e983de31521 \
+    --hash=sha256:3f0f93f355a91bc3e6245319bf4c1d50e3416cc7a35cc1133c1ff38306bbccab
+    # via mwcp
 appdirs==1.4.4 \
     --hash=sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41 \
     --hash=sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128
@@ -35,7 +39,11 @@ asn1crypto==1.4.0 \
 attrs==21.2.0 \
     --hash=sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1 \
     --hash=sha256:ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb
-    # via jsonschema
+    # via
+    #   cattrs
+    #   jsonschema
+    #   mwcp
+    #   pytest
 backcall==0.2.0 \
     --hash=sha256:5cbdbf27be5e7cfadb448baf0aa95508f91f2bbc6c6437cd9cd06e2a4c215e1e \
     --hash=sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255
@@ -96,6 +104,10 @@ capstone==4.0.2 \
     # via
     #   -r requirements.in
     #   smda
+cattrs==1.7.1 \
+    --hash=sha256:95265b8aaa45e6de75b5f52ae081e021a2a7a688babdb711e4174e6b18920d08 \
+    --hash=sha256:d69bd4a3239e189f0740c3c41178dd0f00e4eac3bcb806937e49942fa83adfee
+    # via mwcp
 certifi==2021.5.30 \
     --hash=sha256:2bbf76fd432960138b3ef6dda3dde0544f27cbf8546c458e60baf371917ba9ee \
     --hash=sha256:50b1e4f8446b06f41be7dd6338db18e0990601dce795c2b1686458aa7e8fa7d8
@@ -346,6 +358,10 @@ et-xmlfile==1.1.0 \
     --hash=sha256:8eb9e2bc2f8c97e37a2dc85a09ecdcdec9d8a396530a6d5a33b30b9a92da0c5c \
     --hash=sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada
     # via openpyxl
+execnet==1.9.0 \
+    --hash=sha256:8f694f3ba9cc92cab508b152dcfe322153975c29bda272e2fd7f3f00f36e47c5 \
+    --hash=sha256:a295f7cc774947aac58dde7fdc85f4aa00c42adf5d8f5468fc630c1acf30a142
+    # via pytest-xdist
 filelock==3.0.12 \
     --hash=sha256:18d82244ee114f543149c66a6e0c14e9c4f8a1044b5cdaadd0f82159d6a6ff59 \
     --hash=sha256:929b7d63ec5b7d6b71b0fa5ac14e030b3f70b75747cef1b10da9b879fef15836
@@ -459,6 +475,10 @@ imagehash==4.2.0 \
     --hash=sha256:a969a806cb704a1a88a459a2c53adf87c01b477604b4f25d565cf0f7a49ef14d \
     --hash=sha256:ce6c97695810f1a78da68f9e422cee8a5ed986b73398149bb015741495add656
     # via -r requirements.in
+iniconfig==1.1.1 \
+    --hash=sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3 \
+    --hash=sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32
+    # via pytest
 intervaltree==3.1.0 \
     --hash=sha256:902b1b88936918f9b2a19e0e5eb7ccb430ae45cde4f39ea4b36932920d33952d
     # via viv-utils
@@ -703,6 +723,10 @@ mixbox==1.0.5 \
     #   -r requirements.in
     #   cybox
     #   maec
+mock==4.0.3 \
+    --hash=sha256:122fcb64ee37cfad5b3f48d7a7d51875d7031aaf3d8be7c42e2bee25044eee62 \
+    --hash=sha256:7d3fbbde18228f4ff2f1f119a45cdffa458b4c0dee32eb4d2bb2f82554bac7bc
+    # via pytest-console-scripts
 msgpack==1.0.0 \
     --hash=sha256:002a0d813e1f7b60da599bdf969e632074f9eec1b96cbed8fb0973a63160a408 \
     --hash=sha256:25b3bc3190f3d9d965b818123b7752c5dfb953f0d774b454fd206c18fe384fb8 \
@@ -729,9 +753,8 @@ msoffcrypto-tool==4.12.0 \
     # via
     #   oletools
     #   xlmmacrodeobfuscator
-mwcp==3.2.1 \
-    --hash=sha256:2a890d41d42c1f602c6d12671faa23def7f7db4420785516db1c18d3fb285a17 \
-    --hash=sha256:69208fcbcdabfd9f92e88f77d72d21ac0dd4a2880442dfdeb69a3ac1a1ce805b
+mwcp==3.3.1 \
+    --hash=sha256:6179e8a722571af073ff151196c01e0b3e5a72b84e94e247e507e28132cbbbcd
     # via -r requirements.in
 netstruct==1.1.2 \
     --hash=sha256:70b6a5c73f5bbc7ab57b019369642adfb34dd8af41b948c400ce95f952b7df9a
@@ -781,6 +804,7 @@ numpy==1.21.0 \
     #   -r requirements.in
     #   imagehash
     #   matplotlib
+    #   pandas
     #   pywavelets
     #   scipy
 oauthlib==3.1.1 \
@@ -832,6 +856,30 @@ orjson==3.5.3 \
     --hash=sha256:f22e2b3a1686a0f90aca920a522033b326cb2f945c8ed8fd8effa9f302672627 \
     --hash=sha256:f697b8e3dceb787c173184cd4ec8331c27e0af7cc75d43759abcb5d2464d1ade
     # via -r requirements.in
+packaging==20.9 \
+    --hash=sha256:5b327ac1320dc863dca72f4514ecc086f31186744b84a230374cc1fd776feae5 \
+    --hash=sha256:67714da7f7bc052e064859c05c595155bd1ee9f69f76557e21f051443c20947a
+    # via pytest
+pandas==1.2.5 \
+    --hash=sha256:0c34b89215f984a9e4956446e0a29330d720085efa08ea72022387ee37d8b373 \
+    --hash=sha256:0dbd125b0e44e5068163cbc9080a00db1756a5e36309329ae14fd259747f2300 \
+    --hash=sha256:1102d719038e134e648e7920672188a00375f3908f0383fd3b202fbb9d2c3a95 \
+    --hash=sha256:14abb8ea73fce8aebbb1fb44bec809163f1c55241bcc1db91c2c780e97265033 \
+    --hash=sha256:25fc8ef6c6beb51c9224284a1ad89dfb591832f23ceff78845f182de35c52356 \
+    --hash=sha256:38e7486410de23069392bdf1dc7297ae75d2d67531750753f3149c871cd1c6e3 \
+    --hash=sha256:4bfbf62b00460f78a8bc4407112965c5ab44324f34551e8e1f4cac271a07706c \
+    --hash=sha256:78de96c1174bcfdbe8dece9c38c2d7994e407fd8bb62146bb46c61294bcc06ef \
+    --hash=sha256:7b09293c7119ab22ab3f7f086f813ac2acbfa3bcaaaeb650f4cddfb5b9fa9be4 \
+    --hash=sha256:821d92466fcd2826656374a9b6fe4f2ec2ba5e370cce71d5a990577929d948df \
+    --hash=sha256:9244fb0904512b074d8c6362fb13aac1da6c4db94372760ddb2565c620240264 \
+    --hash=sha256:94ca6ea3f46f44a979a38a4d5a70a88cee734f7248d7aeeed202e6b3ba485af1 \
+    --hash=sha256:a67227e17236442c6bc31c02cb713b5277b26eee204eac14b5aecba52492e3a3 \
+    --hash=sha256:c862cd72353921c102166784fc4db749f1c3b691dd017fc36d9df2c67a9afe4e \
+    --hash=sha256:d9e6edddeac9a8e473391d2d2067bb3c9dc7ad79fd137af26a39ee425c2b4c78 \
+    --hash=sha256:e36515163829e0e95a6af10820f178dd8768102482c01872bff8ae592e508e58 \
+    --hash=sha256:f20e4b8a7909f5a0c0a9e745091e3ea18b45af9f73496a4d498688badbdac7ea \
+    --hash=sha256:fc9215dd1dd836ff26b896654e66b2dfcf4bbb18aa4c1089a79bab527b665a90
+    # via mwcp
 parso==0.8.2 \
     --hash=sha256:12b83492c6239ce32ff5eed6d3639d6a536170723c6f3f1506869f1ace413398 \
     --hash=sha256:a8c4922db71e4fdb90e0d0bc6e50f9b273d3397925e5e60a717e719201778d22
@@ -921,14 +969,54 @@ pillow==8.2.0 \
     #   matplotlib
     #   peepdf
     #   pyattck
+pluggy==0.13.1 \
+    --hash=sha256:15b2acde666561e1298d71b523007ed7364de07029219b604cf808bfa1c765b0 \
+    --hash=sha256:966c145cd83c96502c3c3868f50408687b38434af77734af1e9ca461a4081d2d
+    # via pytest
 prompt-toolkit==3.0.19 \
     --hash=sha256:08360ee3a3148bdb5163621709ee322ec34fc4375099afa4bbf751e9b7b7fa4f \
     --hash=sha256:7089d8d2938043508aa9420ec18ce0922885304cddae87fb96eebca942299f88
     # via ipython
+psutil==5.8.0 \
+    --hash=sha256:0066a82f7b1b37d334e68697faba68e5ad5e858279fd6351c8ca6024e8d6ba64 \
+    --hash=sha256:02b8292609b1f7fcb34173b25e48d0da8667bc85f81d7476584d889c6e0f2131 \
+    --hash=sha256:0ae6f386d8d297177fd288be6e8d1afc05966878704dad9847719650e44fc49c \
+    --hash=sha256:0c9ccb99ab76025f2f0bbecf341d4656e9c1351db8cc8a03ccd62e318ab4b5c6 \
+    --hash=sha256:0dd4465a039d343925cdc29023bb6960ccf4e74a65ad53e768403746a9207023 \
+    --hash=sha256:12d844996d6c2b1d3881cfa6fa201fd635971869a9da945cf6756105af73d2df \
+    --hash=sha256:1bff0d07e76114ec24ee32e7f7f8d0c4b0514b3fae93e3d2aaafd65d22502394 \
+    --hash=sha256:245b5509968ac0bd179287d91210cd3f37add77dad385ef238b275bad35fa1c4 \
+    --hash=sha256:28ff7c95293ae74bf1ca1a79e8805fcde005c18a122ca983abf676ea3466362b \
+    --hash=sha256:36b3b6c9e2a34b7d7fbae330a85bf72c30b1c827a4366a07443fc4b6270449e2 \
+    --hash=sha256:52de075468cd394ac98c66f9ca33b2f54ae1d9bff1ef6b67a212ee8f639ec06d \
+    --hash=sha256:5da29e394bdedd9144c7331192e20c1f79283fb03b06e6abd3a8ae45ffecee65 \
+    --hash=sha256:61f05864b42fedc0771d6d8e49c35f07efd209ade09a5afe6a5059e7bb7bf83d \
+    --hash=sha256:6223d07a1ae93f86451d0198a0c361032c4c93ebd4bf6d25e2fb3edfad9571ef \
+    --hash=sha256:6323d5d845c2785efb20aded4726636546b26d3b577aded22492908f7c1bdda7 \
+    --hash=sha256:6ffe81843131ee0ffa02c317186ed1e759a145267d54fdef1bc4ea5f5931ab60 \
+    --hash=sha256:74f2d0be88db96ada78756cb3a3e1b107ce8ab79f65aa885f76d7664e56928f6 \
+    --hash=sha256:74fb2557d1430fff18ff0d72613c5ca30c45cdbfcddd6a5773e9fc1fe9364be8 \
+    --hash=sha256:90d4091c2d30ddd0a03e0b97e6a33a48628469b99585e2ad6bf21f17423b112b \
+    --hash=sha256:90f31c34d25b1b3ed6c40cdd34ff122b1887a825297c017e4cbd6796dd8b672d \
+    --hash=sha256:99de3e8739258b3c3e8669cb9757c9a861b2a25ad0955f8e53ac662d66de61ac \
+    --hash=sha256:c6a5fd10ce6b6344e616cf01cc5b849fa8103fbb5ba507b6b2dee4c11e84c935 \
+    --hash=sha256:ce8b867423291cb65cfc6d9c4955ee9bfc1e21fe03bb50e177f2b957f1c2469d \
+    --hash=sha256:d225cd8319aa1d3c85bf195c4e07d17d3cd68636b8fc97e6cf198f782f99af28 \
+    --hash=sha256:ea313bb02e5e25224e518e4352af4bf5e062755160f77e4b1767dd5ccb65f876 \
+    --hash=sha256:ea372bcc129394485824ae3e3ddabe67dc0b118d262c568b4d2602a7070afdb0 \
+    --hash=sha256:f4634b033faf0d968bb9220dd1c793b897ab7f1189956e1aa9eae752527127d3 \
+    --hash=sha256:fcc01e900c1d7bee2a37e5d6e4f9194760a93597c97fee89c4ae51701de03563
+    # via -r requirements.in
 ptyprocess==0.7.0 \
     --hash=sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35 \
     --hash=sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220
     # via pexpect
+py==1.10.0 \
+    --hash=sha256:21b81bda15b66ef5e1a777a21c4dcd9c20ad3efd0b3f817e7a809035269e1bd3 \
+    --hash=sha256:3b80836aa6d1feeaa108e046da6423ab8f6ceda6468545ae8d02d9d58d18818a
+    # via
+    #   pytest
+    #   pytest-forked
 pyasn1==0.4.5 \
     --hash=sha256:da2420fe13a9452d8ae97a0e478adde1dee153b11ba832a95b223a2ba01c10f7 \
     --hash=sha256:da6b43a8c9ae93bc80e2739efb38cc776ba74a886e3e9318d65fe81a8b8a2c6e
@@ -1106,6 +1194,7 @@ pyparsing==2.3.0 \
     #   matplotlib
     #   mwcp
     #   oletools
+    #   packaging
     #   pydot
 pype32-py3==0.2 \
     --hash=sha256:7e0cf20a9e7a2f3139a80c54ef10690ce60eb309a851fe3432b88ba4e9ad21eb
@@ -1139,6 +1228,25 @@ pysocks==1.7.1 \
     # via
     #   requests
     #   socks5man
+pytest==6.2.4 \
+    --hash=sha256:50bcad0a0b9c5a72c8e4e7c9855a3ad496ca6a881a3641b4260605450772c54b \
+    --hash=sha256:91ef2131a9bd6be8f76f1f08eac5c5317221d6ad1e143ae03894b862e8976890
+    # via
+    #   mwcp
+    #   pytest-console-scripts
+    #   pytest-forked
+    #   pytest-xdist
+pytest-console-scripts==1.2.0 \
+    --hash=sha256:4a2138d7d567bc581fe081b6a5975849a2a36b3925cb0f066d2380103e13741c
+    # via mwcp
+pytest-forked==1.3.0 \
+    --hash=sha256:6aa9ac7e00ad1a539c41bec6d21011332de671e938c7637378ec9710204e37ca \
+    --hash=sha256:dc4147784048e70ef5d437951728825a131b81714b398d5d52f17c7c144d8815
+    # via pytest-xdist
+pytest-xdist==2.3.0 \
+    --hash=sha256:e8ecde2f85d88fbcadb7d28cb33da0fa29bca5cf7d5967fa89fc0e97e5299ea5 \
+    --hash=sha256:ed3d7da961070fce2a01818b51f6888327fb88df4379edeb6b9d990e789d9c8d
+    # via mwcp
 python-dateutil==2.8.1 \
     --hash=sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c \
     --hash=sha256:75bb3f31ea686f1197762692a9ee6a7550b59fc6ca3a1f4b5d7e32fb98e2da2a
@@ -1148,6 +1256,7 @@ python-dateutil==2.8.1 \
     #   cybox
     #   matplotlib
     #   mixbox
+    #   pandas
     #   pendulum
     #   pymisp
 python-editor==1.0.4 \
@@ -1180,6 +1289,7 @@ pytz==2021.1 \
     # via
     #   -r requirements.in
     #   django
+    #   pandas
     #   tzlocal
 pytzdata==2020.1 \
     --hash=sha256:3efa13b335a00a8de1d345ae41ec78dd11c9f8807f522d39850f2dd828681540 \
@@ -1395,6 +1505,7 @@ six==1.15.0 \
     --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced
     # via
     #   -r requirements.in
+    #   anytree
     #   cryptography
     #   cycler
     #   ecdsa
@@ -1497,6 +1608,10 @@ tldextract==3.1.0 \
 tlslite-ng==0.7.6 \
     --hash=sha256:6ab56f0e9629ce3d807eb528c9112defa9f2e00af2b2961254e8429ca5c1ff00
     # via httpreplay
+toml==0.10.2 \
+    --hash=sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b \
+    --hash=sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f
+    # via pytest
 tqdm==4.60.0 \
     --hash=sha256:daec693491c52e9498632dfbe9ccfc4882a557f5fa08982db1b4d3adbe0887c3 \
     --hash=sha256:ebdebdb95e3477ceea267decfc0784859aa3df3e27e22d23b83e9b272bf157ae
@@ -1542,6 +1657,7 @@ wcwidth==0.2.5 \
     # via
     #   flare-capa
     #   prompt-toolkit
+    #   tabulate
 weakrefmethod==1.0.3 \
     --hash=sha256:37bc1fbb5575acf82172d4eb7b6fc4412d77d5a1d70dff2c1f8a4574301cda66
     # via mixbox

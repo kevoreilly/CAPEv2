@@ -3,11 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
+import os
 import pytest
+import pathlib
 
 from tcr_misc import get_sample
 from lib.cuckoo.common.icon import PEGroupIconDir
+
 
 @pytest.fixture
 def sample():
@@ -16,7 +18,7 @@ def sample():
             return f.read()
 
     def _grab_sample(sample_hash):
-        sample_location = "CAPEv2/tests/test_objects/" + sample_hash
+        sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         get_sample(hash=sample_hash, download_location=sample_location)
         return get_binary_data(sample_location)
 

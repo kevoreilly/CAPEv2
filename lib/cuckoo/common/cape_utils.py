@@ -9,7 +9,7 @@ import tempfile
 import hashlib
 import subprocess
 from io import BytesIO
-from collections import Mapping, Iterable
+from collections.abc import Mapping, Iterable
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

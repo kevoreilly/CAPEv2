@@ -105,86 +105,126 @@
                         <col width="250" />
                         <col width="*" />
                     </colgroup>
-                    <tr>
-                        <th>Certificate Common Name</th>
-                        <td>{{cert.subject_commonName}}</td>
-                    </tr>
+                    {% if cert.subject_commonName %}
+                        <tr>
+                            <th>Certificate Common Name</th>
+                            <td>{{cert.subject_commonName}}</td>
+                        </tr>
+                    {% endif %}
+                    {% if cert.subject_commonName %}
                     <tr>
                         <th>Subject Organization Name</th>
                         <td>{{cert.subject_commonName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_organizationalUnitName %}
                     <tr>
                         <th>Subject Organization Unit Name</th>
                         <td>{{cert.subject_organizationalUnitName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_streetAddress %}
                     <tr>
                         <th>Subject Street Address</th>
                         <td>{{cert.subject_streetAddress}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_localityName %}
                     <tr>
                         <th>Subject Locality</th>
                         <td>{{cert.subject_localityName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_stateOrProvinceName %}
                     <tr>
                         <th>Subject State or Province</th>
                         <td>{{cert.subject_stateOrProvinceName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_postalCode %}
                     <tr>
                         <th>Subject Postal Code</th>
                         <td>{{cert.subject_postalCode}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_countryName %}
                     <tr>
                         <th>Subject Country</th>
                         <td>{{cert.subject_countryName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_commonName %}
                     <tr>
                         <th>Issuer Common Name</th>
                         <td>{{cert.issuer_commonName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_organizationName %}
                     <tr>
                         <th>Issuer Organization Name</th>
                         <td>{{cert.issuer_organizationName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_organizationalUnitName %}
                     <tr>
                         <th>Issuer Organization Unit Name</th>
                         <td>{{cert.issuer_organizationalUnitName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_localityName %}
                     <tr>
                         <th>Issuer Locality</th>
                         <td>{{cert.issuer_localityName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_stateOrProvinceName %}
                     <tr>
                         <th>Issuer State or Province</th>
                         <td>{{cert.issuer_stateOrProvinceName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_countryName %}
                     <tr>
                         <th>Issuer Country</th>
                         <td>{{cert.issuer_countryName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.serial_number %}
                     <tr>
                         <th>Serial Number</th>
                         <td>{{cert.serial_number}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.sha256_fingerprint %}
                     <tr>
                         <th>SHA256 Fingerprint</th>
                         <td>{{cert.sha256_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.sha1_fingerprint %}
                     <tr>
                         <th>SHA1 Fingerprint</th>
                         <td>{{cert.sha1_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.md5_fingerprint %}
                     <tr>
                         <th>MD5 Fingerprint</th>
                         <td>{{cert.md5_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.not_before %}
                     <tr>
                         <th>Not valid before</th>
                         <td>{{cert.not_before}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.not_after %}
                     <tr>
                         <th>Not valid after</th>
                         <td>{{cert.not_after}}</td>
                     </tr>
+                    {% endif %}
                 {% endfor %}
                 </table>
             </div>

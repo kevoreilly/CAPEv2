@@ -12,6 +12,7 @@ import httpretty
 
 from lib.cuckoo.common.web_utils import get_file_content, _download_file, parse_request_arguments, force_int
 
+
 @pytest.fixture
 def paths():
     path_list = []

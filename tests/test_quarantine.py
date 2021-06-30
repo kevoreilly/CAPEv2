@@ -3,17 +3,18 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import pytest
 import tempfile
+import pathlib
 
 from tcr_misc import get_sample
 from lib.cuckoo.common.quarantine import unquarantine, mbam_unquarantine, xorff_unquarantine
 
+
 @pytest.fixture
 def grab_sample():
     def _grab_sample(sample_hash):
-        sample_location = os.getcwd() + "/tests/test_objects/" + sample_hash
+        sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         get_sample(hash=sample_hash, download_location=sample_location)
         return sample_location
 

@@ -103,7 +103,10 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                     )
                     virustotal["total"] = len(engines.keys())
                     virustotal["permalink"] = vt_response.get("data", {}).get("links", {}).get("self")
-                    virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items() if remove_empty and block["result"])
+                    if remove_empty:
+                        virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items() if block["result"])
+                    else:
+                        virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items())
                     virustotal["resource"] = sha256
 
                     virustotal["results"] = list()

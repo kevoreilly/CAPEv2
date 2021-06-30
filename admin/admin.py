@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import os
 import sys
 import json
@@ -104,9 +105,9 @@ def file_recon(file, yara_category="CAPE"):
     elif b"def calculate(self" in f:
         TARGET = f"{VOL_PATH}{filename}"
         OWNER = "root:staff"
-    elif b"class .*(Report):" in f:
+    elif re.findall(br"class .*\(Report\):", f):
         TARGET = f"{CAPE_PATH}/modules/reporting/{filename}"
-    elif b"class .*(Processing):" in f:
+    elif re.findall(br"class .*\(Processing\):", f):
         TARGET = f"{CAPE_PATH}/modules/processing/{filename}"
     elif filename.endswith(".yar") and b"rule " in f and b"condition:" in f:
         # capemon yara
@@ -115,20 +116,20 @@ def file_recon(file, yara_category="CAPE"):
         else:
             # server side rule
             TARGET = f"{CAPE_PATH}data/yara/{yara_category}/{filename}"
-    elif b"class .*(Package):" in f:
+    elif re.findall(br"class .*\(Package\):", f):
         TARGET = f"{CAPE_PATH}/analyzer/windows/modules/packages/{filename}"
     elif b"def choose_package(file_type, file_name, exports, target)" in f:
         TARGET = f"{CAPE_PATH}/analyzer/windows/lib/core/{filename}"
-    elif b"class Signature(object):" in f and "class Processing(object):" in f:
+    elif b"class Signature(object):" in f and b"class Processing(object):" in f:
         TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
-    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and "class PipeServer(Thread):" in f:
+    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
         TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
         POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):
         TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
         POSTPROCESS = False
     # generic deployer of files
-    elif file.startswith("CAPE/"):
+    elif file.startswith("CAPEv2/"):
         # Remove CAPE/ from path to build new path
         TARGET = f"{CAPE_PATH}" + file[5:]
     elif filename.endswith(".service"):
@@ -349,6 +350,8 @@ if __name__ == "__main__":
                 servers = [res[server]["url"].split("://")[1].split(":")[0] for server in res] + [MASTER_NODE]
         except (urllib3.exceptions.NewConnectionError, urllib3.exceptions.MaxRetryError):
             sys.exit("Can't retrieve list of servers")
+    if args.continues_integration:
+        CI = True
     if args.deploy_file:
         parameters = file_recon(args.deploy_file, args.yara_category)
         if not parameters:
@@ -372,12 +375,9 @@ if __name__ == "__main__":
         queue = Queue()
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)
-
     elif args.deploy_local_changes:
-        if args.continues_integration:
-            CI = True
-            out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-            files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
+        files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
     elif args.deploy_remote_changes:
         out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
         files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
@@ -393,7 +393,6 @@ if __name__ == "__main__":
             dest_file = os.path.join(destiny_folder, file)
             files.append(dest_file)
             shutil.copyfile(os.path.join(community_folder, file), dest_file)
-
     else:
         parser.print_help()
     if args.deploy_local_changes or args.deploy_remote_changes or args.sync_community:

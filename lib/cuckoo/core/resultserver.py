@@ -173,7 +173,7 @@ class WriteLimiter(object):
             self.remain -= write
         if size and size != write:
             if not self.warned:
-                log.warning("Uploaded file length larger than upload_max_size, " "stopping upload.")
+                log.warning("Uploaded file length larger than upload_max_size, stopping upload.")
                 self.fd.write(b"... (truncated)")
                 self.warned = True
 
@@ -214,7 +214,7 @@ class FileUpload(ProtocolHandler):
             except OSError as e:
                 log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError("Analyzer for task #%s tried to " "overwrite an existing file" % self.task_id)
+                    raise CuckooOperationalError(f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}")
                 raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon

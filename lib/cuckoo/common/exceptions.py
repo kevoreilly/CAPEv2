@@ -69,6 +69,12 @@ class CuckooGuestError(CuckooOperationalError):
     pass
 
 
+class CuckooNetworkError(CuckooOperationalError):
+    """ Network issues """
+
+    pass
+
+
 class CuckooGuestCriticalTimeout(CuckooGuestError):
     """The Host was unable to connect to the Guest."""
 

@@ -28,5 +28,12 @@ class KVM(LibVirtMachinery):
     def start(self, label):
         super(KVM, self).start(label)
         machine = self.db.view_machine_by_label(label)
-        if machine and not hasattr(machine, "interface"):
-            self.db.set_machine_interface(label, self._get_interface(label))
+        if machine:
+            if hasattr(machine, "interface"):
+                iface = machine.interface
+            else:
+                iface = self._get_interface(label)
+            if iface:
+                self.db.set_machine_interface(label, iface)
+            else:
+                print("Can't get iface for {}".format(label))

@@ -17,6 +17,7 @@ import platform
 import tempfile
 import argparse
 import subprocess
+import socket
 from io import BytesIO, StringIO
 from zipfile import ZipFile
 
@@ -33,6 +34,7 @@ if sys.maxsize > 2 ** 32:
 AGENT_VERSION = "0.11"
 AGENT_FEATURES = [
     "execpy",
+    "execute",
     "pinning",
     "logs",
     "largefile",
@@ -374,6 +376,11 @@ def do_remove():
 
 @app.route("/execute", methods=["POST"])
 def do_execute():
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    
+    if request.client_ip == "127.0.0.1" or request.client_ip == local_ip:
+        return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:
         return json_error(400, "No command has been provided")
 

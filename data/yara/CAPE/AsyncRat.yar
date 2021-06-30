@@ -12,5 +12,5 @@ rule AsyncRat
         $string2 = "Pong" wide
         $string3 = "Stub.exe" ascii wide
     condition:
-        uint16(0) == 0x5A4D and ($salt and (2 of ($s*) or 1 of ($b*))) or (all of ($b*) and 2 of ($s*))
+        uint16(0) == 0x5A4D and ($salt and (2 of ($str*) or 1 of ($b*))) or (all of ($b*) and 2 of ($str*))
 }

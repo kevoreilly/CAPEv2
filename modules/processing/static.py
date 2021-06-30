@@ -20,7 +20,7 @@ import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
-from datetime import datetime, date, time
+from datetime import datetime
 
 try:
     import bs4
@@ -38,7 +38,6 @@ except ImportError:
 
 try:
     import pefile
-    import peutils
 
     HAVE_PEFILE = True
 except ImportError:
@@ -64,17 +63,9 @@ except ImportError:
 
 try:
     from whois import whois
-
     HAVE_WHOIS = True
 except:
     HAVE_WHOIS = False
-
-try:
-    from lib.cuckoo.common.office.vba2graph import vba2graph_from_vba_object, vba2graph_gen
-
-    HAVE_VBA2GRAPH = True
-except ImportError:
-    HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
@@ -84,7 +75,6 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.cape_utils import vba2graph_func
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -109,7 +99,6 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
-from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     from peepdf.PDFCore import PDFParser
@@ -145,13 +134,27 @@ try:
 except ImportError:
     ELFFile = False
 
-log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
-userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
-userdb_signatures = peutils.SignatureDatabase()
-if os.path.exists(userdb_path):
-    userdb_signatures.load(userdb_path)
+HAVE_FLARE_CAPA = False
+# required to not load not enabled dependencies
+if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
+HAVE_VBA2GRAPH = False
+if processing_conf.vba2graph.on_demand is False:
+    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+
+log = logging.getLogger(__name__)
+
+HAVE_USERDB = False
+if processing_conf.static.get("userdb_signature", False):
+    import peutils
+    userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
+    userdb_signatures = peutils.SignatureDatabase()
+    if os.path.exists(userdb_path):
+        userdb_signatures.load(userdb_path)
+        HAVE_USERDB = True
 
 # Obtained from
 # https://github.com/erocarrera/pefile/blob/master/pefile.py
@@ -366,7 +369,7 @@ class PortableExecutable(object):
         """Gets PEID signatures.
         @return: matched signatures or None.
         """
-        if not self.pe:
+        if not self.pe or not HAVE_USERDB:
             return None
 
         try:
@@ -921,9 +924,9 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier":
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier)
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
                     elif extension.oid._name == "subjectKeyIdentifier":
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest)
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
@@ -943,7 +946,7 @@ class PortableExecutable(object):
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value)
+                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value).decode("utf-8")
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()
@@ -1004,11 +1007,12 @@ class PortableExecutable(object):
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
-        pretime = datetime.now()
-        capa_details = flare_capa_details(self.file_path, "static")
-        if capa_details:
-            results["flare_capa"] = capa_details
-        self.add_statistic_tmp("flare_capa", "time", pretime)
+        if HAVE_FLARE_CAPA:
+            pretime = datetime.now()
+            capa_details = flare_capa_details(self.file_path, "static")
+            if capa_details:
+                results["flare_capa"] = capa_details
+            self.add_statistic_tmp("flare_capa", "time", pretime)
 
         return results
 
@@ -1396,9 +1400,9 @@ class Office(object):
             # must be left this way or we won't see the results
             officeresults["Metadata"] = self._get_meta(meta)
             metares = officeresults["Metadata"]
-            if metares["SummaryInformation"]["create_time"]:
+            if metares.get("SummaryInformation", {}).get("create_time", ""):
                 metares["SummaryInformation"]["create_time"] = metares["SummaryInformation"]["create_time"]
-            if metares["SummaryInformation"]["last_saved_time"]:
+            if metares.get("SummaryInformation", {}).get("last_saved_time", ""):
                 metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
         if vba and vba.detect_vba_macros():
@@ -1466,7 +1470,8 @@ class Office(object):
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
 
-            vba2graph_func(filepath, str(self.results["info"]["id"]))
+            if HAVE_VBA2GRAPH:
+                vba2graph_func(filepath, str(self.results["info"]["id"]), self.results["target"]["file"]["sha256"])
 
         else:
             metares["HasMacros"] = "No"
@@ -2543,7 +2548,7 @@ class EncodedScriptFile(object):
     def run(self):
         results = {}
         try:
-            source = open(self.filepath, "r").read()
+            source = open(self.filepath, "rb").read()
         except UnicodeDecodeError as e:
             return results
         source = self.decode(source)
@@ -2554,19 +2559,19 @@ class EncodedScriptFile(object):
             results["encscript"] += "\r\n<truncated>"
         return results
 
-    def decode(self, source, start="#@~^", end="^#~@"):
+    def decode(self, source, start=b"#@~^", end=b"^#~@"):
         if start not in source or end not in source:
             return
 
         o = source.index(start) + len(start) + 8
         end = source.index(end) - 8
-
         c, m, r = 0, 0, []
 
         while o < end:
-            ch = ord(source[o])
-            if source[o] == "@":
-                r.append(ord(self.unescape.get(source[o + 1], "?")))
+            ch = source[o]
+            print(ch, "ch")
+            if source[o] == 64: # b"@":
+                r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
             elif ch < 128:
@@ -2575,10 +2580,10 @@ class EncodedScriptFile(object):
                 m = m + 1
             else:
                 r.append(ch)
-
             o = o + 1
 
-        if (c % 2 ** 32) != base64.b64decode(struct.unpack("I", source[o : o + 8]))[0]:
+        #if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 8]))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)

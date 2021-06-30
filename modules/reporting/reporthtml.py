@@ -21,6 +21,7 @@ try:
 except ImportError:
     HAVE_JINJA2 = False
 
+from web.analysis.templatetags.analysis_tags import malware_config
 
 class ReportHTML(Report):
     """Stores report in HTML format."""
@@ -59,6 +60,7 @@ class ReportHTML(Report):
             results["shots"] = []
 
         env = Environment(autoescape=True)
+        env.globals['malware_config'] = malware_config
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
 
         try:

@@ -37,11 +37,16 @@
                 <tr>
                     <th width="5%">ID</th>
                     <th width="10%">Timestamp</th>
-                    <th width="7%">Machine</th>
+                    <th width="10%">Machine</th>
                     <th width="8%">Package</th>
                     <th width="33%">Filename</th>
                     <th width="18%">MD5</th>
                     <th width="7%">Detections</th>
+
+                    {% if config.display_task_tags %}
+                    <th width="7%">Task tags</th>
+                    {% endif %}
+
                     {% if config.expanded_dashboard %}
                     <th width="2.5%">PKG</th>
                     {% endif %}
@@ -113,12 +118,18 @@
                         </td>
                         <td>
                             {% if analysis.detections %}
-                                <form action="{% url "search" %}" method="post">
-                                    <input type="hidden" id="search" type="text" name="search" value="detections:{{analysis.detections}}">
-                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary btn-sm" type="submit" value="{{analysis.detections}}">
-                                </form>
+                                <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
                             {% endif %}
                         </td>
+
+                        {% if config.display_task_tags %}
+                        <td>
+                            {% if analysis.user_task_tags %}
+                                <span style="color:#00b8e6;font-weight: bold;">{{analysis.user_task_tags}}</span></a>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+
                         {% if config.expanded_dashboard %}
                         <td>
                             {% if analysis.package %}

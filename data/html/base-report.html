@@ -22,77 +22,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Cuckoo Sandbox</title>
+<title>CAPE Sandbox</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="">
-<meta name="author" content="">
+<meta name="description" content="CAPE Sandbox">
+<meta name="author" content="CAPE Sandbox">
 <style>
 {% include "css/bootstrap.min.css" %}
-{% include "css/bootstrap-responsive.min.css" %}
-body {
-    margin-top: 20px;
-}
-@page {
-    size: A3;
-    margin: 1cm;
-}
-.footer {
-    margin-top: 45px;
-    padding: 35px 0 36px;
-    border-top: 1px solid #e5e5e5;
-}
-.footer p {
-    margin-bottom: 0;
-    color: #555;
-}
-.mono {
-    font-family: monospace;
-}
-.signature {
-    padding: 6px;
-    margin-bottom: 3px;
-}
-img.fade {
-    opacity:0.4;
-    filter:alpha(opacity=40);
-}
-img.fade:hover {
-    opacity:1.0;
-    filter:alpha(opacity=100);
-}
-.section-title {
-    border-bottom: 1px solid #eee;
-    margin-bottom: 15px;
-    margin-top: 20px;
-    padding-bottom: 3px;
-}
-.filesystem {
-    background-color: #ffe3c5; {# Light Orange #}
-}
-.registry {
-    background-color: #ffc5c5; {# Light Red #}
-}
-.process {
-    background-color: #c5e0ff; {# Light Blue #}
-}
-.services {
-    background-color: #ccc5ff;
-}
-.device {
-    background-color: #ccc5ff;
-}
-.network {
-    background-color: #d3ffc5; {# Light Green #}
-}
-.socket {
-    background-color: #d3ffc5;
-}
-.synchronization {
-    background-color: #f9c5ff;
-}
-.browser {
-    background-color: #dfffdf;
-}
+{% include "css/style.css" %}
+
 </style>
 </head>
 <body>
@@ -103,26 +40,23 @@ img.fade:hover {
         <div class="navbar-inner">
             <div class="container-fluid">
                 <div class="nav-collapse">
-                    <ul class="nav">
-                        <li><a href="#info">Info</a></li>
+                    <nav class="nav">
+                        <a style="margin-right: 20px" href="#info">Info</a>
                         {% if results.info.category == "file" %}
-                        <li><a href="#file">File</a></li>
+                            <a style="margin-right: 20px" href="#file">File</a>
                         {% elif results.info.category == "url" %}
-                        <li><a href="#url">URL</a></li>
+                            <a style="margin-right: 20px" href="#url">URL</a>
                         {% endif %}
-                        <li><a href="#signatures">Signatures</a></li>
-                        <li><a href="#screenshots">Screenshots</a></li>
-                        <li><a href="#network">Network</a></li>
+                        <a style="margin-right: 20px" href="#signatures">Signatures</a>
+                        <a style="margin-right: 20px" href="#screenshots">Screenshots</a>
+                        <a style="margin-right: 20px" href="#network">Network</a>
                         {% if results.info.category == "file" %}
-                        <li><a href="#static">Static</a></li>
+                            <a style="margin-right: 20px" href="#static">Static</a>
                         {% endif %}
-                        <li><a href="#dropped">Dropped</a></li>
-                        <li><a href="#behavior">Behavior</a></li>
-                        <li><a href="#volatility">Volatility</a></li>
-                        <!-- BOTTLEREMOVEME <li><a href="/pcap/{{results.info.id}}">PCAP</a></li> BOTTLEREMOVEME -->
-                        <!-- BOTTLEREMOVEME <li><a href="/view/{{results.info.id}}/download">Download Report</a></li> BOTTLEREMOVEME -->
-                        <!-- BOTTLEREMOVEME <li><li><a href="/files/{{results.info.id}}">Download Files</a></li>  BOTTLEREMOVEME -->
-                    </ul>
+                        <a style="margin-right: 20px" href="#dropped">Dropped</a>
+                        <a style="margin-right: 20px" href="#behavior">Behavior</a>
+                        <a style="margin-right: 20px" href="#volatility">Volatility</a>
+                    </nav>
                 </div>
             </div>
         </div>
@@ -132,9 +66,9 @@ img.fade:hover {
 
     <footer class="footer">
         {% if not summary_report %}
-        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p class="float-right"><a href="#">Back to top</a></p>
         {% endif %}
-        <p>&copy;2010-2015 <a href="http://www.cuckoosandbox.org">Cuckoo Sandbox</a>, Optiv, Inc.</p>
+        <p class="text-center"><a href="https://github.com/kevoreilly/CAPEv2">CAPE Sandbox on Github</a></p>
     </footer>
 </div>
 <script>

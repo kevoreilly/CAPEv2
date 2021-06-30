@@ -3,35 +3,38 @@ from __future__ import print_function
 import os
 import sys
 import json
-import magic
 import logging
-import requests
 import hashlib
 import tempfile
-from datetime import datetime, timedelta
 from random import choice
+from datetime import datetime, timedelta
 from collections import OrderedDict
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
 
+import magic
+import requests
 from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
-from lib.cuckoo.core.rooter import _load_socks5_operational
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
 
 cfg = Config("cuckoo")
+web_cfg = Config("web")
 repconf = Config("reporting")
-socks5_conf = Config("socks5")
 routing_conf = Config("routing")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
-rateblock = apiconf.api.get("ratelimit", False)
+
+rateblock = web_cfg.ratelimit.get("enabled", False)
+rps = web_cfg.ratelimit.get("rps", "1/rps")
+rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
 
@@ -69,7 +72,7 @@ if repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource=repconf.mongodb.get("db", "cuckoo"),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
     )[repconf.mongodb.get("db", "cuckoo")]
 
 es_as_db = False
@@ -85,6 +88,13 @@ if repconf.elasticsearchdb.enabled:
     es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+
+hash_len = {
+    32: "md5",
+    40: "sha1",
+    64: "sha256",
+    128: "sha512",
+}
 
 hashes = {
     32: hashlib.md5,
@@ -119,103 +129,20 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
-apilimiter = {
-    "tasks_create_file": apiconf.filecreate,
-    "tasks_create_url": apiconf.urlcreate,
-    "tasks_create_static": apiconf.staticextraction,
-    "tasks_create_dlnexec": apiconf.dlnexeccreate,
-    "tasks_vtdl": apiconf.vtdl,
-    "files_view": apiconf.fileview,
-    "tasks_search": apiconf.tasksearch,
-    "ext_tasks_search": apiconf.extendedtasksearch,
-    "tasks_list": apiconf.tasklist,
-    "tasks_view": apiconf.taskview,
-    "tasks_reschedule": apiconf.taskresched,
-    "tasks_delete": apiconf.taskdelete,
-    "tasks_status": apiconf.taskstatus,
-    "tasks_report": apiconf.taskreport,
-    "tasks_iocs": apiconf.taskiocs,
-    "tasks_screenshot": apiconf.taskscreenshot,
-    "tasks_pcap": apiconf.taskpcap,
-    "tasks_dropped": apiconf.taskdropped,
-    "tasks_surifile": apiconf.tasksurifile,
-    "tasks_rollingsuri": apiconf.rollingsuri,
-    "tasks_rollingshrike": apiconf.rollingshrike,
-    "task_procdump": apiconf.taskprocdump,
-    "tasks_procmemory": apiconf.taskprocmemory,
-    "tasks_fullmemory": apiconf.taskprocmemory,
-    "get_files": apiconf.sampledl,
-    "machines_list": apiconf.machinelist,
-    "machines_view": apiconf.machineview,
-    "cuckoo_status": apiconf.cuckoostatus,
-    "task_x_hours": apiconf.task_x_hours,
-    "tasks_latest": apiconf.tasks_latest,
-    # "post_processing":
-    "tasks_payloadfiles": apiconf.payloadfiles,
-    "tasks_procdumpfiles": apiconf.procdumpfiles,
-    "tasks_config": apiconf.capeconfig,
-    "file": apiconf.download_file,
-    "filereport": apiconf.filereport,
-    "statistics": apiconf.statistics,
-    "full_memory_dump_file": apiconf.full_memory_dump_file,
-    "full_memory_dump_file_strings": apiconf.full_memory_dump_file_strings,
-    "comments": apiconf.comments,
-    "search": apiconf.web_search,
-}
-
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
-    if rateblock is False:
+    if rateblock is False or request.user.is_authenticated:
         return "99999999999999/s"
-
-    username = False
-    password = False
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        elif apilimiter[group].get("auth_only"):
-            return "0/s"
-        else:
-            return apilimiter[group].get("rps")
-
-    return "0/s"
+    else:
+        return rps
 
 def my_rate_minutes(group, request):
     # RateLimits not enabled
-    if rateblock is False:
+    if rateblock is False or request.user.is_authenticated:
         return "99999999999999/m"
-
-    group = group.split(".")[-1]
-    if group in apilimiter and apilimiter[group].get("enabled"):
-        username = False
-        password = False
-
-        # better way to handle this?
-        if request.method == "POST":
-            username = request.POST.get("username", "")
-            password = request.POST.get("password", "")
-        elif request.method == "GET":
-            username = request.GET.get("username", "")
-            password = request.GET.get("password", "")
-
-        if username and password and HAVE_PASSLIB and ht and ht.check_password(username, password):
-            return None
-        elif apilimiter[group].get("auth_only"):
-            return "0/m"
-        else:
-            return apilimiter[group].get("rpm")
-
-    return "0/m"
+    else:
+        return rpm
 
 def load_vms_tags():
     all_tags = list()
@@ -237,6 +164,56 @@ def load_vms_tags():
 
 all_vms_tags = load_vms_tags()
 
+def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
+    """function that gets detection: count
+    based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    """
+    data = False
+
+    aggregation_command = [
+        {"$match": {"detections": {"$exists":True}}},
+        {"$group": {"_id": "$detections", "total":{"$sum":1}}},
+        {"$sort": {"total": -1}},
+        {"$addFields": {"family": "$_id"}},
+        {"$project": {"_id": 0}},
+        {"$limit": results_limit},
+    ]
+
+    if date_since:
+        aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
+
+    data = results_db.analysis.aggregate(aggregation_command)
+    if data:
+        data = list(data)
+
+    return data
+
+# ToDo extend this to directly extract per day
+def get_stats_per_category(date_since, date_to, category):
+    aggregation_command = [
+        {"$match": {
+            "info.started": {
+                "$gte": date_since.isoformat(),
+                "$lt": date_to.isoformat(),
+            },
+            "statistics.{}".format(category): {"$exists": True},
+            }
+        },
+        {"$unwind":"$statistics.{}".format(category)},
+        {"$group": {
+            "_id": "$statistics.{}.name".format(category),
+            "total_time": {"$sum": "$statistics.{}.time".format(category)},
+            "total_run": {"$sum": 1}}
+        },
+        {"$addFields": {"name": "$_id"}},
+        {"$project": {"_id": 0}},
+        {"day": { "$dayOfMonth": "$info.started" }},
+        {"$sort": {"total_time": -1}},
+    ]
+    data = results_db.analysis.aggregate(aggregation_command)
+    if data:
+        return data
+
 
 def statistics(s_days: int) -> dict:
     date_since = datetime.now()-timedelta(days=s_days)
@@ -250,24 +227,34 @@ def statistics(s_days: int) -> dict:
         "detections": {},
     }
 
+    tmp_custom = dict()
     tmp_data = dict()
-    results_db = pymongo.MongoClient(repconf.mongodb.host, repconf.mongodb.port)[repconf.mongodb.db]
-    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "malfamily": 1, "detections":1, "_id": 0})
+    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
     for analysis in data or []:
-
-        malfamily = False
-        if "detections" in analysis:
-            malfamily = analysis["detections"]
-        elif "malfamily" in analysis:
-            malfamily = analysis["malfamily"]
-        if malfamily:
-            details["detections"].setdefault(malfamily, 0)
-            details["detections"][malfamily] += 1
-
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
                 tmp_data.setdefault(type_entry, dict())
             for entry in analysis["statistics"][type_entry]:
+                if entry["name"] in analysis.get("custom_statistics", {}):
+                    if entry["name"] not in tmp_custom:
+                        tmp_custom.setdefault(entry["name"], dict())
+                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
+                            tmp_custom[entry["name"]]["successful"] = 0
+                        else:
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
+                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                        tmp_custom[entry["name"]]["runs"] = 1
+
+                    else:
+                        tmp_custom.setdefault(entry["name"], dict())
+                        if isinstance(analysis["custom_statistics"][entry["name"]], float):
+                            tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
+                            tmp_custom[entry["name"]]["successful"] += 0
+                        else:
+                            tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
+                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                        tmp_custom[entry["name"]]["runs"] += 1
                 if entry["name"] not in tmp_data[type_entry]:
                     tmp_data[type_entry].setdefault(entry["name"], dict())
                     tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
@@ -276,8 +263,15 @@ def statistics(s_days: int) -> dict:
                     tmp_data[type_entry][entry["name"]]["time"] += entry["time"]
                     tmp_data[type_entry][entry["name"]]["runs"] += 1
 
+    if not data:
+        return details
+
     for module_name in [u'signatures', u'processing', u'reporting']:
+        if module_name not in tmp_data:
+            continue
+        # module_data = get_stats_per_category(module_name)
         s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
+
         for entry in s:
             times_in_mins = tmp_data[module_name][entry]["time"]/60
             if not times_in_mins:
@@ -286,8 +280,17 @@ def statistics(s_days: int) -> dict:
             details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
             details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
-
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
+
+    # custom average
+    for entry in tmp_custom:
+        times_in_mins = tmp_custom[entry]["time"] / 60
+        if not times_in_mins:
+            continue
+        tmp_custom[entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
+        tmp_custom[entry]["average"] = float("{:.2f}".format(round(times_in_mins / tmp_custom[entry]["runs"], 2)))
+
+    details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
 
     top_samples = dict()
     session = db.Session()
@@ -328,7 +331,7 @@ def statistics(s_days: int) -> dict:
             day = task.clock.strftime("%Y-%m-%d")
             if day not in details["distributed_tasks"]:
                 details["distributed_tasks"].setdefault(day, {})
-            if id2name[task.node_id] not in details["distributed_tasks"][day]:
+            if task.node_id in id2name and id2name[task.node_id] not in details["distributed_tasks"][day]:
                 details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
         dist_db.close()
@@ -346,8 +349,7 @@ def statistics(s_days: int) -> dict:
         details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
     details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
 
-    # top 15 detections
-    details["detections"] = OrderedDict(sorted(details["detections"].items(), key=lambda x: x[1], reverse=True)[:20])
+    details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
     session.close()
     return details
@@ -451,10 +453,44 @@ def download_file(**kwargs):
             tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
+    username = False
     """
+    put here your custom username assignation from your custom auth, Ex:
+    request_url = kwargs["request"].build_absolute_uri()
+    if "yourdomain.com/submit/" in request_url:
+        username = kwargs["request"].COOKIES.get("X-user")
+    """
+
+    # in case if user didn't specify routing, and we have enabled random route
+    if not route:
+        socks5s = _load_socks5_operational()
+
+        socks5s_random = ""
+        vpn_random = ""
+
+        if routing_conf.socks5.random_socks5 and socks5s:
+            socks5s_random = choice(socks5s.values()).get("name", False)
+
+        if routing_conf.vpn.random_vpn:
+            vpn_random = choice(list(vpns.values())).get("name", False)
+
+        if vpn_random and socks5s_random:
+            route = choice((vpn_random, socks5s_random))
+        elif vpn_random:
+            route = vpn_random
+        elif socks5s_random:
+            route = socks5s_random
+
     if package:
-        # Reject jobs with bad packages
-    """
+        if package == "Emotet":
+            return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
+
+        if package.endswith("_x64"):
+            if tags:
+                if "x64" not in tags:
+                    tags += ",x64"
+            else:
+                tags = "x64"
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
@@ -543,6 +579,8 @@ def download_file(**kwargs):
             tags_tasks=tags_tasks,
             route=route,
             cape=cape,
+            user_id=kwargs.get("user_id"),
+            username = username,
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )
@@ -607,17 +645,13 @@ def validate_task(tid):
 
 perform_search_filters = {
     "info": 1,
-    "info.id": 1,
     "virustotal_summary": 1,
     "detections": 1,
     "malfamily_tag": 1,
-    "info.custom": 1,
-    "info.shrike_msg": 1,
     "malscore": 1,
     "network.pcap_sha256": 1,
     "mlist_cnt": 1,
     "f_mlist_cnt": 1,
-    "info.package": 1,
     "target.file.clamav": 1,
     "target.file.sha256": 1,
     "suri_tls_cnt": 1,
@@ -680,9 +714,12 @@ search_term_map = {
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
     "tlp": "info.tlp",
+    "ja3_hash": "suricata.tls.ja3.hash",
+    "ja3_string": "suricata.tls.ja3.string",
+    "payloads": "CAPE.payloads.",
 }
 
-
+# ToDo verify if still working
 def perform_ttps_search(value):
     if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
         return results_db.analysis.find({"ttps." + value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
@@ -731,8 +768,11 @@ def perform_search(term, value):
     if term not in search_term_map:
         return None
 
+    if term == "payloads" and len(value) in (32, 40, 64, 128):
+        search_term_map[term] = search_term_map[term]+hash_len.get(len(value))
+
     if repconf.mongodb.enabled and query_val:
-        return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]])
+        return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]]).limit(web_cfg.general.get("search_limit", 50))
     if es_as_db:
         return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]
 
@@ -772,7 +812,7 @@ def parse_request_arguments(request):
     unique = bool(request.POST.get("unique", False))
     tlp = request.POST.get("tlp", None)
     lin_options = request.POST.get("lin_options", "")
-    route = request.POST.get("route", routing_conf.routing.route)
+    route = request.POST.get("route")
     cape = request.POST.get("cape", "")
     # Linux options
     if lin_options:

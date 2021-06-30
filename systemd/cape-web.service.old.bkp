@@ -1,0 +1,17 @@
+[Unit]
+Description=CAPE WSGI app
+Documentation=https://github.com/kevoreilly/CAPEv2
+Wants=cape-rooter.service
+After=cape-rooter.service
+
+[Service]
+WorkingDirectory=/opt/CAPEv2/web
+ExecStart=/usr/bin/python3 manage.py runserver 0.0.0.0:8000
+#ExecStart=/opt/CAPEv2/venv/bin/gunicorn -b 127.0.0.1:8000 web.wsgi
+User=cape
+Group=cape
+Restart=always
+RestartSec=5m
+
+[Install]
+WantedBy=multi-user.target

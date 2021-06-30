@@ -4,16 +4,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
-import bs4
 import struct
 import logging
-import re
 import requests
 import socket
-import subprocess
-import time
-import wakeonlan
-import xmlrpc.client
 import json
 from time import sleep
 
@@ -21,7 +15,6 @@ from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooMachineError
-from lib.cuckoo.common.utils import TimeoutServer
 
 log = logging.getLogger(__name__)
 
@@ -42,12 +35,6 @@ class Physical(Machinery):
             one or more physical machines are offline.
         """
         # TODO This should be moved to a per-machine thing.
-        if not self.options.physical.user or not self.options.physical.password:
-            raise CuckooCriticalError(
-                "Physical machine credentials are missing, please add it to "
-                "the Physical machinery configuration file."
-            )
-
         global headers
         headers = {
         "fog-api-token": self.options.fog.apikey,
@@ -151,6 +138,13 @@ class Physical(Machinery):
                                  "wol": 'true'}).encode('utf8')
 
                     r_deploy = requests.post("http://" + self.options.fog.hostname + "/fog/host/" + hostID + "/task", headers=headers, data=payload)
+                    
+                    try:
+                        requests.post("http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT) + "/execute", data={"command" : "shutdown -r -f -t 0"})
+                    except:
+                        # The reboot will start immediately which may kill our socket so we just ignore this exception
+                        log.debug("Socket killed from analysis machine due to reboot")
+
 
         # We are waiting until we are able to connect to the agent again since we dont know how long it will take to restore the machine
         while not self.isTaskigDone(hostID):

@@ -162,6 +162,14 @@
                         <td>Search for Suricata HTTP</td>
                     </tr>
                     <tr>
+                        <td><code>ja3_string:</code></td>
+                        <td>Search for ja3 string</td>
+                    </tr>
+                    <tr>
+                        <td><code>ja3_hash:</code></td>
+                        <td>Search for ja3 hash</td>
+                    </tr>
+                    <tr>
                         <td><code>clamav:</code></td>
                         <td>Local ClamAV detections</td>
                     </tr>
@@ -220,6 +228,10 @@
                     <tr>
                         <td><code>ttp:</code></td>
                         <td>TTP id, ex: T1053</td>
+                    </tr>
+                    <tr>
+                        <td><code>payloads:</code></td>
+                        <td>md5/sha1/sha256/sha512</td>
                     </tr>
                 </tbody>
             </table>
@@ -318,10 +330,7 @@
                         </td>
                         <td>
                             {% if analysis.detections %}
-                                <form action="{% url "search" %}" method="post">
-                                    <input type="hidden" id="search" type="text" name="search" value="malfamily:{{analysis.detections}}">
-                                    <input style="color:#EE1B2F;font-weight: bold;" class="btn btn-secondary btn-sm" type="submit" value="{{analysis.detections}}">
-                                </form>
+                                <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}

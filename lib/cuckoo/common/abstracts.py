@@ -14,8 +14,6 @@ import threading
 import logging
 import time
 
-from urllib.parse import urlparse
-
 try:
     import re2 as re
 except ImportError:
@@ -31,14 +29,17 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import Dictionary
-from lib.cuckoo.common.utils import create_folder
+from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database
-from django.core.validators import URLValidator
+from lib.cuckoo.common.url_validate import url as url_validator
 
 log = logging.getLogger(__name__)
 cfg = Config()
 repconf = Config("reporting")
 machinery_conf = Config(cfg.cuckoo.machinery)
+
+# from django.core.validators import URLValidator
+# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
 try:
     import libvirt
@@ -48,35 +49,26 @@ except ImportError:
     HAVE_LIBVIRT = False
 
 try:
-    import tldextract
-
+    from tldextract import TLDExtract
     HAVE_TLDEXTRACT = True
+    logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
     HAVE_TLDEXTRACT = False
+
+HAVE_MITRE = False
 
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
-        from pyattck.version import __version_info__ as pyattck_version
 
-        if pyattck_version[0] == 2:
+        mitre = Attck(
+            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        )
+        HAVE_MITRE = True
 
-            attack_file = repconf.mitre.get("local_file", False)
-            if attack_file:
-                attack_file = os.path.join(CUCKOO_ROOT, attack_file)
-            else:
-                attack_file = False
-            mitre = Attck(dataset_json=attack_file)
-            HAVE_MITRE = True
-        else:
-            HAVE_MITRE = False
-            log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
     except (ImportError, ModuleNotFoundError):
-        log.error("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
-        HAVE_MITRE = False
-else:
-    HAVE_MITRE = False
-
+        print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0
@@ -633,7 +625,9 @@ class LibVirtMachinery(Machinery):
                 log.debug("No current snapshot, using latest snapshot")
 
                 # No current snapshot, try to get the last one from config file.
-                snapshot = sorted(vm.listAllSnapshots(flags=0), key=_extract_creation_time, reverse=True)[0]
+                all_snapshots = vm.listAllSnapshots(flags=0)
+                if all_snapshots:
+                    snapshot = sorted(all_snapshots, key=_extract_creation_time, reverse=True)[0]
         except libvirt.libvirtError:
             raise CuckooMachineError("Unable to get snapshot for " "virtual machine {0}".format(label))
         finally:
@@ -683,7 +677,8 @@ class Processing(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
 
@@ -724,6 +719,7 @@ class Signature(object):
     enabled = True
     minimum = None
     maximum = None
+    testing = False
 
     # Higher order will be processed later (only for non-evented signatures)
     # this can be used for having meta-signatures that check on other lower-
@@ -748,6 +744,20 @@ class Signature(object):
         self.hostname2ips = dict()
         self.machinery_conf = machinery_conf
 
+    def statistics_custom(self, pretime, extracted=False):
+        """
+        Aux function for custom stadistics on signatures
+        @param pretime: start time as datetime object
+        @param extracted: conf extraction from inside signature to count success extraction vs sig run
+        """
+        timediff = datetime.datetime.now() - pretime
+        self.results["custom_statistics"] = dict()
+        self.results["custom_statistics"][self.name] = dict()
+        self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        if extracted:
+            self.results["custom_statistics"][self.name]["extracted"] = 1
+
+
     def set_path(self, analysis_path):
         """Set analysis folder path.
         @param analysis_path: analysis folder path.
@@ -762,7 +772,8 @@ class Signature(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
 
         try:
             create_folder(folder=self.reports_path)
@@ -849,14 +860,14 @@ class Signature(object):
             pids += [str(block["pid"]) for block in self.results["procdump"]]
 
         log.info(list(set(pids)))
-        return ",".join(list(set(pids)))
+        return list(set(pids))
 
     def advanced_url_parse(self, url):
         if HAVE_TLDEXTRACT:
             EXTRA_SUFFIXES = ("bit",)
             parsed = False
             try:
-                parsed = tldextract.TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
+                parsed = TLDExtract(extra_suffixes=EXTRA_SUFFIXES, suffix_list_urls=None)(url)
             except Exception as e:
                 log.error(e)
             return parsed
@@ -885,10 +896,12 @@ class Signature(object):
                     ips.append(rdata.address)
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
+        except dns.name.NeedAbsoluteNameOrOrigin:
+            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
-            log.info(e)
+            log.info(str(e))
 
         return ips
 
@@ -901,18 +914,16 @@ class Signature(object):
             return False
 
     def _check_valid_url(self, url, all_checks=False):
-        """ Checks if url is correct and can be parsed by tldextract/urlparse
+        """ Checks if url is correct
         @param url: string
         @return: url or None
         """
 
-        val = URLValidator(schemes=["http", "https", "udp", "tcp"])
-
         try:
-            val(url)
-            return url
-        except:
-            pass
+            if url_validator(url):
+                return url
+        except Exception as e:
+            print(e)
 
         if all_checks:
             last = url.rfind("://")
@@ -920,10 +931,10 @@ class Signature(object):
                 url = url[last + 3 :]
 
         try:
-            val("http://%s" % url)
-            return "http://%s" % url
-        except:
-            pass
+            if url_validator("http://%s" % url):
+                return "http://%s" % url
+        except Exception as e:
+            print(e)
 
     def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
         """Checks a pattern against a given subject.
@@ -1527,6 +1538,7 @@ class Signature(object):
             new_data=self.new_data,
             alert=self.alert,
             families=self.families,
+            testing=self.testing,
         )
 
 
@@ -1559,7 +1571,8 @@ class Report(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
+        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:

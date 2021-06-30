@@ -39,3 +39,22 @@ ALLOWED_HOSTS = ["*"]
 # Uncomment for deployment with NGINX
 #STATIC_ROOT = ""
 #STATIC_ROOT = os.path.join(os.getcwd(), "static")
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    },
+    'github': {
+        'SCOPE': [
+            'user',
+            'repo',
+            'read:org',
+        ],
+    },
+}

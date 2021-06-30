@@ -10,13 +10,13 @@ import sys
 import shutil
 import argparse
 import logging
-from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+from bson.objectid import ObjectId
 from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask
@@ -27,7 +27,6 @@ from lib.cuckoo.core.database import (
     Database,
     Task,
     Sample,
-    TASK_RUNNING,
     TASK_PENDING,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
@@ -40,26 +39,27 @@ from lib.cuckoo.core.database import (
 log = logging.getLogger()
 
 cuckoo = Config()
-rep_config = Config("reporting")
+repconf = Config("reporting")
 resolver_pool = ThreadPool(50)
 
 # Initialize the database connection.
 db = Database()
-mdb = rep_config.mongodb.get("db", "cuckoo")
+mdb = repconf.mongodb.get("db", "cuckoo")
 
 
 def connect_to_mongo():
     conn = False
     # Check if MongoDB reporting is enabled and drop that if it is.
-    if rep_config.mongodb and rep_config.mongodb.enabled:
+    if repconf.mongodb and repconf.mongodb.enabled:
         from pymongo import MongoClient
-
-        host = rep_config.mongodb.get("host", "127.0.0.1")
-        port = rep_config.mongodb.get("port", 27017)
-        user = rep_config.mongodb.get("username", None)
-        password = rep_config.mongodb.get("password", None)
         try:
-            conn = MongoClient(host=host, port=port, username=user, password=password, authSource=mdb)
+            conn = MongoClient(
+                host = repconf.mongodb.get("host", "127.0.0.1"),
+                port = repconf.mongodb.get("port", 27017),
+                username = repconf.mongodb.get("username", None),
+                password = repconf.mongodb.get("password", None),
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
+            )
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))
 
@@ -72,20 +72,20 @@ def connect_to_es():
     # Check if ElasticSearch is enabled and delete that data if it is.
     from elasticsearch import Elasticsearch
 
-    delidx = rep_config.elasticsearchdb.index + "-*"
+    delidx = repconf.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(hosts=[{"host": rep_config.elasticsearchdb.host, "port": rep_config.elasticsearchdb.port,}], timeout=60)
+        es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
     except:
         log.warning("Unable to connect to ElasticSearch")
 
     return es, delidx
 
-def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
+def delete_bulk_tasks_n_folders(tids: list, dont_delete_mongo: bool):
     results_db = connect_to_mongo()[mdb]
     ids = [tid["info.id"] for tid in tids]
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i:i+10]
-        if delete_mongo:
+        if dont_delete_mongo is False:
             try:
                 analyses_tmp = list()
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))
@@ -107,8 +107,8 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             except Exception as e:
                 log.info(e)
 
-            if db.delete_tasks(ids_tmp):
-                for id in ids_tmp:
+            for id in ids_tmp:
+                if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
                         if os.path.isdir(path):
@@ -205,7 +205,7 @@ def cuckoo_clean():
     except:
         log.warning("Unable to drop MongoDB database: %s", mdb)
 
-    if rep_config.elasticsearchdb and rep_config.elasticsearchdb.enabled and not rep_config.elasticsearchdb.searchonly:
+    if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         es = False
         es, delidx = connect_to_es()
         if not es:
@@ -358,6 +358,39 @@ def cuckoo_clean_lower_score(args):
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
+def tmp_clean_before_day(args):
+    """Clean up tmp folder
+    It deletes all items in tmp folder before now - days.
+    """
+    if not args.delete_tmp_items_older_than_days:
+        log.info("Must provide argument delete_tmp_items_older_than_days")
+        return
+
+    days = args.delete_tmp_items_older_than_days
+    init_console_logging()
+
+    today = datetime.today()
+    tmp_folder_path = cuckoo.cuckoo.get("tmppath")
+
+    for root, directories, files in os.walk(tmp_folder_path, topdown=True):
+        for name in files + directories:
+            path = os.path.join(root, name)
+            last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
+            file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
+
+            if file_time.days > days:
+                try:
+                    if os.path.isdir(path):
+                        log.info("Delete folder: {0}".format(path))
+                        delete_folder(path)
+                    else:
+                        if os.path.exists(path):
+                            log.info("Delete file: {0}".format(path))
+                            os.remove(path)
+                except Exception as e:
+                    log.error(e)
+
+
 def cuckoo_clean_before_day(args):
     """Clean up failed tasks
     It deletes all stored data from file system and configured databases (SQL
@@ -401,7 +434,7 @@ def cuckoo_clean_before_day(args):
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr}, {"info.id": 1, "_id": 0}))
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.dont_delete_mongo)
+    delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
     #resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -477,13 +510,12 @@ def cuckoo_clean_range_tasks(start, end):
 
 
 def cuckoo_dedup_cluster_queue():
-
     """
     Cleans duplicated pending tasks from cluster queue
     """
 
     session = db.Session()
-    dist_session = create_session(rep_config.distributed.db, echo=False)
+    dist_session = create_session(repconf.distributed.db, echo=False)
     dist_db = dist_session()
     hash_dict = dict()
     duplicated = session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
@@ -500,7 +532,6 @@ def cuckoo_dedup_cluster_queue():
 
 
 def cape_clean_tlp():
-
     create_structure()
     init_console_logging()
 
@@ -528,7 +559,8 @@ if __name__ == "__main__":
     parser.add_argument("--pending-clean", help="Remove all tasks marked as pending", required=False, action="store_true")
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
-    parser.add_argument("-ddm", "--dont-delete-mongo", help="Keep mongo data but remove the rest", required=False, default=False, action="store_true")
+    parser.add_argument("--delete-tmp-items-older-than-days", help="Remove all items in tmp folder older than X number of days", type=int, required=False)
+    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo", required=False, default=False, action="store_true")
     parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False,)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False )
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False )
@@ -576,4 +608,8 @@ if __name__ == "__main__":
 
     if args.deduplicated_cluster_queue:
         cuckoo_dedup_cluster_queue()
+        sys.exit(0)
+
+    if args.delete_tmp_items_older_than_days:
+        tmp_clean_before_day(args)
         sys.exit(0)

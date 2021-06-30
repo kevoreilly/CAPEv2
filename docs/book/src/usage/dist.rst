@@ -64,7 +64,7 @@ machines are returned::
                     }
                 ],
                 "name": "localhost",
-                "url": "http://0:8090/"
+                "url": "http://0:8000/apiv2/"
             }
         }
     }
@@ -74,15 +74,14 @@ machines are returned::
 POST /node
 ----------
 
-Register a new CAPE node by providing the name and the URL. Optionally the ht_user and ht_pass,
+Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
 if your Node API is behing htaccess authentication::
 
-    $ curl http://localhost:9003/node -F name=localhost \
-        -F url=http://localhost:8090/ -F ht_user=username -F ht_pass=password
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey
     {
         "machines": [
             {
-                "name": "cuckoo1",
+                "name": "cape1",
                 "platform": "windows",
                 "tags": []
             }
@@ -100,7 +99,7 @@ Get basic information about a particular CAPE node::
     $ curl http://localhost:9003/node/localhost
     {
         "name": "localhost",
-        "url": "http://localhost:8090/"
+        "url": "http://localhost:8000/apiv2/"
     }
 
 .. _node_put:
@@ -111,17 +110,15 @@ PUT /node/<name>
 Update basic information of a CAPE node::
 
     $ curl -XPUT http://localhost:9003/node/localhost -F name=newhost \
-        -F url=http://1.2.3.4:8090/
+        -F url=http://1.2.3.4:8000/apiv2/
     null
 
     Additional Arguments:
 
     * enabled
         False=0 or True=1 to activate or deactivate worker node
-    * ht_user
-        Username of htaccess authentication
-    * ht_pass
-        Passford of htaccess authentication
+    * apikey
+        apikey for authorization
 
 .. _node_delete:
 
@@ -144,7 +141,7 @@ For practical usage the following few commands will be most interesting.
 Register a CAPE node - a CAPE REST API running on the same machine in this
 case::
 
-    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8090/
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/
     Master server must be called master, the rest of names we don't care
 
 
@@ -210,39 +207,6 @@ and few more values
 
 Activate "[compression]" to compress dump by "process.py" and save time with retrieve
 
-
-conf/virtualbox.conf
-^^^^^^^^^^^^^^^^^^^^
-
-Assuming ``VirtualBox`` is the Virtual Machine manager of choice, the ``mode``
-will have to be changed to ``headless`` or you will have some restless nights.
-
-Setup Cuckoo
-------------
-
-On each machine the following three scripts should be ran::
-
-    ./cuckoo.py
-    cd web/ && python3 manage.py runserver 8000  # IP accessible by the Distributed script.
-    ./utils/process.py auto
-
-One way to do this is by placing each script in its own ``screen(1)`` session
-as follows, this allows one to check back on each script to ensure it's
-(still) running successfully::
-
-    $ screen -S cuckoo  ./cuckoo.py
-    $ screen -S web     cd web/ && python3 manage.py runserver 8000
-    $ screen -S process ./utils/process.py auto
-
-Setup Distributed Cuckoo
-------------------------
-
-On the first machine start a separate ``screen(1)`` session for the
-Distributed CAPE script with all the required parameters (see the rest of
-the documentation on the parameters for this script)::
-
-    $ screen -S distributed ./utils/dist.py
-
 Register CAPE nodes
 ---------------------
 
@@ -251,11 +215,11 @@ the Distributed CAPE script::
 
 without htaccess::
 
-    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/api/
+    $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/
 
 with htaccess::
 
-    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8000/api/ \
+    $ curl http://localhost:9003/node -F name=worker -F url=http://1.2.3.4:8000/apiv2/ \
       -F username=user -F password=password
 
 Having registered the CAPE nodes all that's left to do now is to submit
@@ -308,10 +272,10 @@ Is better if you run "web" and "dist.py" as uwsgi application
 uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
     [uwsgi]
-        plugins = python
+        plugins = python36
         callable = app
         ;change this patch if is different
-        chdir = /opt/CAPE/utils
+        chdir = /opt/CAPEv2/utils
         master = true
         mount = /=dist.py
         threads = 5
@@ -319,27 +283,29 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
         manage-script-name = true
         ; if you will use with nginx, comment next line
         socket = 0.0.0.0:9003
-        pidfile = /tmp/dist.pid
+        safe-pidfile = /tmp/dist.pid
         protocol=http
         enable-threads = true
         lazy = true
         timeout = 600
         chmod-socket = 664
-        chown-socket = cuckoo:cuckoo
-        gui = cuckoo
-        uid = cuckoo
+        chown-socket = cape:cape
+        gui = cape
+        uid = cape
+        harakiri = 30
+        hunder-lock = True
         stats = 127.0.0.1:9191
 
 
 To run your api with config just execute as::
 
     # WEBGUI is started by systemd as cape-web.service
-    $ uwsgi --ini /opt/cuckoo/utils/dist.ini
+    $ uwsgi --ini /opt/CAPEv2/utils/dist.ini
 
 To add your application to auto start after boot, move your config file to::
 
-    mv /opt/cuckoo/utils/dist.ini /etc/uwsgi/apps-available/cuckoo_dist.ini
-    ln -s /etc/uwsgi/apps-available/cuckoo_dist.ini /etc/uwsgi/apps-enabled
+    mv /opt/CAPEv2/utils/dist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     service uwsgi restart
 
@@ -408,7 +374,13 @@ Add clients, execute on master mongo server::
     cfg.members[0].priority = 0.5
     cfg.members[1].priority = 0.5
     cfg.members[2].priority = 1
-    rs.reconfig(cfg)
+    rs.reconfig(cfg, {"force": true})
+
+    # Add arbiter only
+    rs.addArb("192.168.1.51:27017")
+
+    # Add replica set member, secondary
+    rs.add({"host": "192.168.1.50:27017", "priority": 0.5})
 
     # add shards
     mongo --port 27020
@@ -492,7 +464,38 @@ Administration and some useful commands::
     To migrate data ensure:
     $ sh.setBalancerState(true)
 
+
+User authentication and roles::
+
+    # To create ADMIN
+    use admin
+    db.createUser(
+        {
+            user: "ADMIN_USERNAME",
+            pwd: passwordPrompt(), // or cleartext password
+            roles: [ { role: "userAdminAnyDatabase", db: "admin" }, "readWriteAnyDatabase" ]
+        }
+    )
+
+    # To create user to read/write on specific database
+    se cuckoo
+    db.createUser(
+        {
+            user: "WORKER_USERNAME",
+            pwd:  passwordPrompt(),   // or cleartext password
+            roles: [ { role: "readWrite", db: "cuckoo" }]
+        }
+    )
+
+
+    # To enable auth in ``/etc/mongod.conf``, add next lines
+    security:
+        authorization: enabled
+
 Online:
+
+    Mongo Auth:
+        https://docs.mongodb.com/manual/tutorial/enable-authentication/
 
     Help about UWSGI:
         http://vladikk.com/2013/09/12/serving-flask-with-nginx-on-ubuntu/

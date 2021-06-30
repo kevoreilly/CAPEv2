@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import sys
 import tempfile
 import logging
 
@@ -13,8 +14,10 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import get_options
 
+
+sf_version = ""
 try:
-    from sflock import unpack
+    from sflock import unpack, __version__ as sf_version
     from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
@@ -23,6 +26,10 @@ try:
 except ImportError:
     print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U git+https://github.com/doomedraven/sflock")
     HAS_SFLOCK = False
+
+if sf_version != "0.3.14":
+    print("You using old version of sflock! Upgrade: pip3 install -U git+https://github.com/doomedraven/sflock")
+    sys.exit()
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
@@ -97,7 +104,7 @@ blacklist_extensions = ("apk", "dmg")
 
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python", "MS Windows shortcut"]
 
 
 def options2passwd(options):
@@ -115,7 +122,7 @@ def demux_office(filename, password):
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
     if not os.path.exists(target_path):
-        os.mkdir(target_path)
+        os.makedirs(target_path)
     decrypted_name = os.path.join(target_path, basename)
 
     if HAS_SFLOCK:
@@ -201,13 +208,13 @@ def demux_sflock(filename, options, package):
     return list(filter(None, retlist))
 
 
-def demux_sample(filename, package, options):
+def demux_sample(filename, package, options, use_sflock=True):
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
     # sflock requires filename to be bytes object for Py3
-    if isinstance(filename, str):
+    if isinstance(filename, str) and use_sflock:
         filename = filename.encode("utf8")
     # if a package was specified, then don't do anything special
     if package:
@@ -237,8 +244,9 @@ def demux_sample(filename, package, options):
 
     retlist = list()
     if HAS_SFLOCK:
-        # all in one unarchiver
-        retlist = demux_sflock(filename, options, package)
+        if use_sflock:
+            # all in one unarchiver
+            retlist = demux_sflock(filename, options, package)
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:

@@ -1,15 +1,5 @@
 <section id="static_analysis">
     {% load key_tags %}
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>Binary Entropy <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
-        {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
-    </br></br>
-    {% else %}
-        {% if graphs.bingraph.enabled %}
-        <h4>BinGraph</h4>
-            <p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
-        {% endif %}
-    {% endif %}
     {% if analysis.static %}
         {% if analysis.static.office %}
             {% if analysis.mmbot %}
@@ -211,17 +201,6 @@
                     {% endfor %}
                     </div>
                 </div>
-                <hr />
-                {% if graphs.vba2graph.enabled %}
-                    {% if graphs.vba2graph.content %}
-                        <h4>Vba2Graph</h4>
-                        {{ graphs.vba2graph.content|safe }}
-                        </br>
-                    {% else %}
-                        <h4>Vba2Graph</h4>
-                        <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VBA2Graph</a></p>
-                    {% endif %}
-                {% endif %}
                 {% endif %}
             {% endif %}
         {% endif %}

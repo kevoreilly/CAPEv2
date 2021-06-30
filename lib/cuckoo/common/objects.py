@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import mmap
 import time
 import copy
@@ -58,6 +59,12 @@ try:
 except ImportError:
     HAVE_PEFILE = False
 
+try:
+    import tlsh
+    HAVE_TLSH = True
+except ImportError:
+    print("Missed dependency: pip3 install python-tlsh")
+    HAVE_TLSH = False
 
 log = logging.getLogger(__name__)
 
@@ -276,6 +283,10 @@ class File(object):
         sha1 = hashlib.sha1()
         sha256 = hashlib.sha256()
         sha512 = hashlib.sha512()
+        sha3_384 = hashlib.sha3_384()
+
+        if HAVE_TLSH:
+            tlsh_hash = tlsh.Tlsh()
 
         for chunk in self.get_chunks():
             crc = binascii.crc32(chunk, crc)
@@ -283,12 +294,23 @@ class File(object):
             sha1.update(chunk)
             sha256.update(chunk)
             sha512.update(chunk)
+            sha3_384.update(chunk)
+            if HAVE_TLSH:
+                tlsh_hash.update(chunk)
 
         self._crc32 = "".join("%02X" % ((crc >> i) & 0xFF) for i in [24, 16, 8, 0])
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
         self._sha512 = sha512.hexdigest()
+        self._sha3_384 = sha3_384.hexdigest()
+        if HAVE_TLSH:
+            try:
+                tlsh_hash.final()
+                self._tlsh_hash = tlsh_hash.hexdigest()
+            except ValueError:
+                pass
+                #print("TLSH: less than 50 of input, ignoring")
 
     @property
     def file_data(self):
@@ -345,6 +367,15 @@ class File(object):
         if not self._sha512:
             self.calc_hashes()
         return self._sha512
+
+    def get_sha3_384(self):
+        """
+        Get SHA3_384.
+        @return: SHA3_384.
+        """
+        if not self._sha3_384:
+            self.calc_hashes()
+        return self._sha3_384
 
     def get_ssdeep(self):
         """Get SSDEEP.
@@ -434,15 +465,16 @@ class File(object):
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
+                            gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             # Emulate magic for now
                             if is_dll and is_x64:
                                 self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
                             elif is_dll:
                                 self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
                             elif is_x64:
-                                self.file_type = "PE32+ executable (GUI) x86-64, for MS Windows"
+                                self.file_type = f"PE32+ executable ({gui_type}) x86-64, for MS Windows"
                             else:
-                                self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
+                                self.file_type = f"PE32 executable ({gui_type}) Intel 80386, for MS Windows"
             except Exception as e:
                 log.error(e, exc_info=True)
 
@@ -451,14 +483,15 @@ class File(object):
 
         return self.file_type
 
-    def _yara_encode_string(self, s):
+    def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
         try:
-            new = s  # .encode("utf-8")
-        except UnicodeDecodeError:
-            s = s.lstrip("uU").encode("hex").upper()
-            s = " ".join(s[i : i + 2] for i in range(0, len(s), 2))
-            new = "{ %s }" % s
+            new = yara_string.decode("utf-8")
+        except UnicodeDecodeError as e:
+            # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
+            yara_string = binascii.hexlify(yara_string).upper()
+            yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
+            new = "{ %s }" % yara_string.decode("utf-8")
 
         return new
 
@@ -475,16 +508,6 @@ class File(object):
 
         if not os.path.getsize(self.file_path):
             return results
-        """
-        try:
-            # TODO Once Yara obtains proper Unicode filepath support we can
-            # remove this check. See also the following Github issue:
-            # https://github.com/VirusTotal/yara-python/issues/48
-            assert len(str(self.file_path)) == len(self.file_path)
-        except (UnicodeEncodeError, AssertionError):
-            log.warning("Can't run Yara rules on %r as Unicode paths are currently not supported in combination with Yara!", self.file_path)
-            return results
-        """
 
         try:
             results, rule = [], File.yara_rules[category]
@@ -540,6 +563,18 @@ class File(object):
                 return matches
         return matches
 
+    def get_tlsh(self):
+        """
+        Get TLSH.
+        @return: TLSH.
+        """
+        if hasattr(self, "_tlsh_hash"):
+            if not self._tlsh_hash:
+                self.calc_hashes()
+            return self._tlsh_hash
+        else:
+            return False
+
     def get_all(self):
         """Get all information available.
         @return: information dict.
@@ -560,6 +595,8 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
+        infos["tlsh"] = self.get_tlsh()
+        infos["sha3_384"] = self.get_sha3_384()
 
         if self.pe:
             infos["entrypoint"] = self.get_entrypoint(self.pe)
@@ -722,15 +759,12 @@ class ProcDump(object):
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = ("binaries", "urls", "memory", "CAPE", "macro")
+    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
     log.debug("Initializing Yara...")
 
     # Generate root directory for yara rules.
     yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # We divide yara rules in three categories.
-    # CAPE adds a fourth
 
     # Loop through all categories.
     for category in categories:
@@ -745,39 +779,43 @@ def init_yara():
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
                     continue
-
                 filepath = os.path.join(category_root, filename)
-
-                try:
-                    # TODO Once Yara obtains proper Unicode filepath support we
-                    # can remove this check. See also this Github issue:
-                    # https://github.com/VirusTotal/yara-python/issues/48
-                    assert len(str(filepath)) == len(filepath)
-                except (UnicodeEncodeError, AssertionError):
-                    log.warning("Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath)
-                    continue
-
                 rules["rule_%s_%d" % (category, len(rules))] = filepath
                 indexed.append(filename)
 
             # Need to define each external variable that will be used in the
         # future. Otherwise Yara will complain.
-        externals = {
-            "filename": "",
-        }
+        externals = {"filename": ""}
 
-        try:
-            File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-        except yara.Error as e:
-            raise CuckooStartupError("There was a syntax error in one or more Yara rules: %s" % e)
+        while True:
+            try:
+                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                break
+            except yara.SyntaxError as e:
+                bad_rule = str(e).split(".yar")[0]+".yar"
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                if os.path.basename(bad_rule) in indexed:
+                    for k,v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
+                else:
+                    break
+            except yara.Error as e:
+                print("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                break
 
-        # ToDo for Volatility3 yarascan
-        # The memory.py processing module requires a yara file with all of its
-        # rules embedded in it, so create this file to remain compatible.
-        # if category == "memory":
-        #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
-        #    for filename in sorted(indexed):
-        #        f.write('include "%s"\n' % os.path.join(category_root, filename))
+        if category == "memory":
+            mem_rules = yara.compile(filepaths=rules, externals=externals)
+            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            """
+            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
+                for filename in sorted(indexed):
+                    f.write('include "%s"\n' % os.path.join(category_root, filename))
+            """
 
         indexed = sorted(indexed)
         for entry in indexed:
@@ -785,6 +823,7 @@ def init_yara():
                 log.debug("\t `-- %s %s", category, entry)
             else:
                 log.debug("\t |-- %s %s", category, entry)
+
 
 
 init_yara()

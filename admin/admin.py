@@ -102,7 +102,7 @@ def file_recon(file, yara_category="CAPE"):
     elif filename in ("loader.exe", "loader_x64.exe"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
         POSTPROCESS = False
-    elif b"def calculate(self" in f:
+    elif b"def _generator(self" in f:
         TARGET = f"{VOL_PATH}{filename}"
         OWNER = "root:staff"
     elif re.findall(br"class .*\(Report\):", f):

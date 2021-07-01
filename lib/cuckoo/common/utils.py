@@ -66,10 +66,9 @@ referrer_url_re = re.compile(
     re.IGNORECASE,
 )
 
-def free_space_monitor(path=False, RAM=False, return_value=False, processing=False):
+def free_space_monitor(path=False, return_value=False, processing=False):
     """
     @param path: path to check
-    @param RAM: use TMPFS check
     @param return_value: return available size
     @param processing: size from cuckoo.conf -> freespace_processing.
     """
@@ -80,7 +79,7 @@ def free_space_monitor(path=False, RAM=False, return_value=False, processing=Fal
             # Check main FS if processing
             if processing:
                 free_space = config.cuckoo.freespace_processing
-            elif RAM and HAVE_TMPFS and tmpfs.enabled:
+            elif HAVE_TMPFS and tmpfs.enabled:
                 path = tmpfs.path
                 free_space = tmpfs.freespace
             else:

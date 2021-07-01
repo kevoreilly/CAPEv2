@@ -18,6 +18,7 @@ import shutil
 import json
 import logging
 from datetime import datetime
+
 try:
     import re2 as re
 except ImportError:
@@ -33,6 +34,7 @@ from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_co
 
 try:
     import pydeep
+
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
@@ -87,6 +89,7 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
+
 class CAPE(Processing):
     """CAPE output file processing."""
 
@@ -135,16 +138,12 @@ class CAPE(Processing):
         buf = self.options.get("buffer", BUFSIZE)
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
         if pefile_object:
-                self.results.setdefault("pefiles", {})
-                self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+            self.results.setdefault("pefiles", {})
+            self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
         # Get the file data
-        try:
-            with open(file_info["path"], "rb") as file_open:
-                file_data = file_open.read()
-        except UnicodeDecodeError as e:
-            with open(file_info["path"], "rb") as file_open:
-                file_data = file_open.read()
+        with open(file_info["path"], "rb") as file_open:
+            file_data = file_open.read()
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -161,11 +160,8 @@ class CAPE(Processing):
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
-        if metastrings != "":
-            try:
-                file_info["cape_type_code"] = int(metastrings[0])
-            except Exception as e:
-                pass
+        if metastrings and metastrings[0] and metastrings[0].isdigit():
+            file_info["cape_type_code"] = int(metastrings[0])
 
             if file_info["cape_type_code"] == TYPE_STRING:
                 if len(metastrings) > 4:
@@ -226,6 +222,7 @@ class CAPE(Processing):
                     else:
                         log.error("CAPE: PlugX config parsing failure - size many not be handled.")
                     append_file = False
+
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:
                 data = file_data.decode("utf-16").replace("\x00", "")
@@ -312,16 +309,16 @@ class CAPE(Processing):
 
         if type_string != "":
             log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(' ')[0], file_data)
+            tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
             if tmp_config != {}:
-                cape_name = type_string.split(' ')[0]
+                cape_name = type_string.split(" ")[0]
                 log.info("CAPE: config returned for: %s", cape_name)
                 config.update(tmp_config)
 
         if cape_name:
             if not "detections" in self.results:
                 if cape_name != "UPX":
-                    #ToDo list of keys
+                    # ToDo list of keys
                     self.results["detections"] = cape_name
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
@@ -334,7 +331,8 @@ class CAPE(Processing):
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if (file_info.get("entrypoint")
+                    if (
+                        file_info.get("entrypoint")
                         and file_info["entrypoint"] == cape_file["entrypoint"]
                         and file_info["cape_type_code"] == cape_file["cape_type_code"]
                         and file_info["ep_bytes"] == cape_file["ep_bytes"]

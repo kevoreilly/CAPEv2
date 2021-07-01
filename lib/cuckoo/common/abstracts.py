@@ -844,19 +844,19 @@ class Signature(object):
         processes = self.results.get("behavior", {}).get("processtree", [])
         if processes:
             for pid in processes:
-                pids.append(str(pid.get("pid", "")))
-                pids += [str(cpid["pid"]) for cpid in pid.get("children", []) if "pid" in cpid]
+                pids.append(int(pid.get("pid", "")))
+                pids += [int(cpid["pid"]) for cpid in pid.get("children", []) if "pid" in cpid]
         # in case if bsons too big
         if os.path.exists(logs):
-            pids += [pidb.replace(".bson", "") for pidb in os.listdir(logs) if ".bson" in pidb]
+            pids += [int(pidb.replace(".bson", "")) for pidb in os.listdir(logs) if ".bson" in pidb]
 
         #  in case if injection not follows
         if "procmemory" in self.results and self.results["procmemory"] is not None:
-            pids += [str(block["pid"]) for block in self.results["procmemory"]]
+            pids += [int(block["pid"]) for block in self.results["procmemory"]]
         if "procdump" in self.results and self.results["procdump"] is not None:
-            pids += [str(block["pid"]) for block in self.results["procdump"]]
+            pids += [int(block["pid"]) for block in self.results["procdump"]]
 
-        log.info(list(set(pids)))
+        log.debug(list(set(pids)))
         return list(set(pids))
 
     def advanced_url_parse(self, url):

@@ -355,7 +355,7 @@ class AnalysisManager(threading.Thread):
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
-                    log.error("The memory dump functionality is not available " "for the current machine manager.")
+                    log.error("The memory dump functionality is not available for the current machine manager.")
 
                 except CuckooMachineError as e:
                     log.error(e, exc_info=True)
@@ -729,7 +729,7 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True)
+                need_space, space_available = free_space_monitor(dir_path,  return_value=True, analysis=True)
                 if need_space:
                     log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
                     continue

@@ -7,6 +7,14 @@
                 <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_type}}</b></td>
             </tr>
         {% endif %}
+        <tr>
+            <th style="border-top: 0; width: 15%;">Filename</th>
+            <td>
+                {% for name in file.name|str2list %}
+                <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
+                {% endfor %}
+            </td>
+        </tr>
         {% if file.guest_paths and tab_name == "dropped" %}
             <tr>
                 <th style="border-top: 0; width: 15%;">Associated Filenames</th>
@@ -174,14 +182,6 @@
             </td>
         </tr>
         {% endif %}
-        <tr>
-            <th style="border-top: 0; width: 15%;">Filename</th>
-            <td>
-                {% for name in file.name|str2list %}
-                <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
-                {% endfor %}
-            </td>
-        </tr>
         {% if file.dropdir %}
         <tr>
             <th></th>

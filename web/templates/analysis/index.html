@@ -171,17 +171,17 @@
                                 {% if analysis.suri_http_cnt %}
                                 -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
                                 {% else %}
-                                -->/0<!--
+                                -->/-<!--
                                 {% endif %}
                                 {% if analysis.suri_tls_cnt %}
                                 -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
                                 {% else %}
-                                -->/0<!--
+                                -->/-<!--
                                 {% endif %}
                                 {% if analysis.suri_file_cnt %}
                                 -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
                                 {% else %}
-                                -->/0<!--
+                                -->/-<!--
                                 {% endif %}
                             {% endif %}
                             --></span>

@@ -17,9 +17,8 @@ class TMPFSCLEAN(Report):
     def run(self, results):
         action = "delete"
         src = get_memdump_path(results["info"]["id"])
-        dest = get_memdump_path(results["info"]["id"], analysis_folder=True)
         if "store_memdump" in results["info"]["options"]:
-            action  = "store"
+            action = "store"
 
         if repconf.tmpfsclean.key in results:
             if any(["checkme" in block for block in results[repconf.tmpfsclean.key]]):
@@ -30,8 +29,10 @@ class TMPFSCLEAN(Report):
             if os.path.exists(src):
                 os.remove(src)
         else:
+            dest = get_memdump_path(results["info"]["id"], analysis_folder=True)
             log.debug("Storing memdump: {}".format(dest))
-            if os.path.exists(src):
-                shutil.move(src, dest)
-        if os.path.exists(src + ".strings"):
-            shutil.move(src + ".strings", dest + ".strings")
+            if src != dest:
+                if os.path.exists(src):
+                    shutil.move(src, dest)
+                if os.path.exists(src + ".strings"):
+                    shutil.move(src + ".strings", dest + ".strings")

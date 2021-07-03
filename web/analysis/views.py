@@ -181,7 +181,7 @@ def get_analysis_info(db, id=-1, task=None):
         return None
 
     new = task.to_dict()
-    if new["category"] in ["file", "pcap", "static"] and new["sample_id"] != None:
+    if new["category"] in ("file", "pcap", "static") and new["sample_id"] != None:
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
@@ -280,42 +280,54 @@ def index(request, page=1):
         page = 1
     off = (page - 1) * TASK_LIMIT
 
-    tasks_files = db.list_tasks(limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING)
-    tasks_files += db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING)
-    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING)
-    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
     analyses_files = []
     analyses_urls = []
     analyses_pcaps = []
+    analyses_static = []
+
+    tasks_files = db.list_tasks(limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING)
+    tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING)
+    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING)
+    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
 
     # Vars to define when to show Next/Previous buttons
     paging = dict()
     paging["show_file_next"] = "show"
     paging["show_url_next"] = "show"
     paging["show_pcap_next"] = "show"
+    paging["show_static_next"] = "show"
     paging["next_page"] = str(page + 1)
     paging["prev_page"] = str(page - 1)
 
     pages_files_num = 0
     pages_urls_num = 0
     pages_pcaps_num = 0
+    pages_static_num = 0
     tasks_files_number = db.count_matching_tasks(category="file", not_status=TASK_PENDING) or 0
-    tasks_files_number += db.count_matching_tasks(category="static", not_status=TASK_PENDING) or 0
+    tasks_static_number = db.count_matching_tasks(category="static", not_status=TASK_PENDING) or 0
     tasks_urls_number = db.count_matching_tasks(category="url", not_status=TASK_PENDING) or 0
     tasks_pcaps_number = db.count_matching_tasks(category="pcap", not_status=TASK_PENDING) or 0
     if tasks_files_number:
         pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
+    if tasks_static_number:
+        pages_static_num = int(tasks_static_number / TASK_LIMIT + 1)
     if tasks_urls_number:
         pages_urls_num = int(tasks_urls_number / TASK_LIMIT + 1)
     if tasks_pcaps_number:
         pages_pcaps_num = int(tasks_pcaps_number / TASK_LIMIT + 1)
+
     files_pages = []
     urls_pages = []
     pcaps_pages = []
+    static_pages = []
     if pages_files_num < 11 or page < 6:
         files_pages = list(range(1, min(10, pages_files_num) + 1))
     elif page > 5:
         files_pages = list(range(min(page - 5, pages_files_num - 10) + 1, min(page + 5, pages_files_num) + 1))
+    if pages_static_num < 11 or page < 6:
+        static_pages = list(range(1, min(10, pages_static_num) + 1))
+    elif page > 5:
+        static_pages = list(range(min(page - 5, pages_static_num - 10) + 1, min(page + 5, pages_static_num) + 1))
     if pages_urls_num < 11 or page < 6:
         urls_pages = list(range(1, min(10, pages_urls_num) + 1))
     elif page > 5:
@@ -330,6 +342,12 @@ def index(request, page=1):
     if len(buf) == 1:
         first_file = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
         paging["show_file_prev"] = "show"
+    else:
+        paging["show_file_prev"] = "hide"
+    buf = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())
+    if len(buf) == 1:
+        first_static = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
+        paging["show_static_prev"] = "show"
     else:
         paging["show_file_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc())
@@ -359,6 +377,21 @@ def index(request, page=1):
             analyses_files.append(new)
     else:
         paging["show_file_next"] = "hide"
+
+    if tasks_static:
+        for task in tasks_static:
+            new = get_analysis_info(db, task=task)
+            if new["id"] == first_static:
+                paging["show_static_next"] = "hide"
+            if page <= 1:
+                paging["show_static_prev"] = "hide"
+
+            if db.view_errors(task.id):
+                new["errors"] = True
+
+            analyses_static.append(new)
+    else:
+        paging["show_static_next"] = "hide"
 
     if tasks_urls:
         for task in tasks_urls:
@@ -391,6 +424,7 @@ def index(request, page=1):
         paging["show_pcap_next"] = "hide"
 
     paging["files_page_range"] = files_pages
+    paging["static_page_range"] = static_pages
     paging["urls_page_range"] = urls_pages
     paging["pcaps_page_range"] = pcaps_pages
     paging["current_page"] = page
@@ -398,7 +432,14 @@ def index(request, page=1):
     return render(
         request,
         "analysis/index.html",
-        {"files": analyses_files, "urls": analyses_urls, "pcaps": analyses_pcaps, "paging": paging, "config": enabledconf},
+        {
+            "files": analyses_files,
+            "static": analyses_static,
+            "urls": analyses_urls,
+            "pcaps": analyses_pcaps,
+            "paging": paging,
+            "config": enabledconf,
+        },
     )
 
 

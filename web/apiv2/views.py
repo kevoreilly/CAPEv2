@@ -6,7 +6,6 @@ import sys
 import socket
 import tarfile
 import logging
-from binascii import hexlify
 from io import BytesIO
 from datetime import datetime, timedelta
 from zlib import decompress
@@ -1220,9 +1219,6 @@ def tasks_iocs(request, task_id, detail=None):
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
-            for x in data["target"]["file"]["yara"]:
-                for i in range(0, len(x["strings"])):
-                    x["strings"][i] = hexlify(x["strings"][i])
 
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:

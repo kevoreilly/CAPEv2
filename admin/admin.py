@@ -32,7 +32,7 @@ from threading import Thread
 
 try:
     from paramiko import SSHClient, AutoAddPolicy
-    from scp import SCPClient
+    from scp import SCPClient, SCPException
     from paramiko.ssh_exception import BadHostKeyException
 except ImportError:
     print("pip3 install -U paramiko scp")
@@ -213,8 +213,11 @@ def deploy_file(queue):
             try:
                 ssh = _connect_via_jump_box(server)
                 with SCPClient(ssh.get_transport()) as scp:
-                    scp.put(local_file, remote_file)
-
+                    try:
+                        scp.put(local_file, remote_file)
+                    except SCPException as e:
+                        # case when main node is storage only
+                        print(e)
                 if remote_command:
                     _, ssh_stdout, _ = ssh.exec_command(remote_command)
 

@@ -32,6 +32,7 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
 
+linux_enabled = web_cfg.linux.get("enabled", False)
 rateblock = web_cfg.ratelimit.get("enabled", False)
 rps = web_cfg.ratelimit.get("rps", "1/rps")
 rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
@@ -541,6 +542,9 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [None]
 
     platform = get_platform(magic_type)
+    if platform == "linux" and not linux_enabled:
+         return "error", {"error": "Linux binaries analysis isn't enabled"}
+
     if machine.lower() == "all":
         kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
     elif machine:

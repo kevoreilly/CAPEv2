@@ -1,3 +1,6 @@
+### [05-07-2021]
+* Add support for archives in static extraction, so you don't need to submit them one by one
+
 ### [20-06-2021] [enter the sandman](https://www.youtube.com/watch?v=CD-E-LDc384) @doomedraven moved to CAPEv2
 * Expect more fixes :)
 

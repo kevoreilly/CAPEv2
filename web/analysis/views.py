@@ -337,6 +337,10 @@ def index(request, page=1):
     elif page > 5:
         pcaps_pages = list(range(min(page - 5, pages_pcaps_num - 10) + 1, min(page + 5, pages_pcaps_num) + 1))
 
+    first_file = 0
+    first_static = 0
+    first_pcap = 0
+    first_url = 0
     # On a fresh install, we need handle where there are 0 tasks.
     buf = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())
     if len(buf) == 1:

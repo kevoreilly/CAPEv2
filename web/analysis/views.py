@@ -1096,7 +1096,7 @@ def report(request, task_id):
     try:
         report["dropped"] = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]
+                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": { "$ifNull": ["$dropped.sha256", []]}}}}]
             )
         )[0]["dropped_size"]
     except :
@@ -1106,7 +1106,7 @@ def report(request, task_id):
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}}}]
+                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size":  {"$ifNull": ["$CAPE.payloads.sha256", []]}}}}]
             )
         )
         report["CAPE"] = tmp_data[0]["cape_size"] or 0
@@ -1118,7 +1118,7 @@ def report(request, task_id):
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "procdump_size": {"$size": "$procdump.sha256"}}}]
+                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}}]
             )
         )
         report["procdump"] = tmp_data[0]["procdump_size"] or 0

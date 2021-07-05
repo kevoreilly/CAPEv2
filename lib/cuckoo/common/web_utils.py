@@ -51,20 +51,6 @@ if repconf.distributed.enabled:
         print(e)
 
 
-ht = False
-try:
-    """
-        To enable: sudo apt install apache2-utils
-
-    """
-    from passlib.apache import HtpasswdFile
-
-    HAVE_PASSLIB = True
-    if apiconf.api.get("users_db") and os.path.exists(apiconf.api.get("users_db")):
-        ht = HtpasswdFile(apiconf.api.get("users_db"))
-except ImportError:
-    HAVE_PASSLIB = False
-
 if repconf.mongodb.enabled:
     import pymongo
 

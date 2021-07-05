@@ -1,15 +1,15 @@
 from __future__ import absolute_import
 import os
-import imp
 import sys
 import glob
 import json
+import importlib
 import logging
 import tempfile
 import hashlib
 import subprocess
 from io import BytesIO
-from collections import Mapping, Iterable
+from collections.abc import Mapping, Iterable
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -19,12 +19,19 @@ malware_parsers = dict()
 cape_malware_parsers = dict()
 
 # Config variables
-process_cfg = Config("processing")
+cfg = Config()
 repconf = Config("reporting")
+process_cfg = Config("processing")
 
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient(repconf.mongodb.host, port=repconf.mongodb.port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=repconf.mongodb.db)[repconf.mongodb.db]
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource = repconf.mongodb.get("authsource", "cuckoo")
+    )[repconf.mongodb.db]
 
 try:
     import pefile
@@ -94,6 +101,7 @@ if process_cfg.CAPE_extractors.enabled:
     if cape_decoders not in sys.path:
         sys.path.append(cape_decoders)
 
+
 try:
     from modules.processing.parsers.plugxconfig import plugx
 
@@ -109,7 +117,7 @@ pe_map = {
     "PE32": ": 32-bit ",
 }
 
-cfg = Config()
+
 BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 

@@ -7,3 +7,4 @@ __pycache__/
 env/
 .env/
 *.pyc
+tests/test_objects/

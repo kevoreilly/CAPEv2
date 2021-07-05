@@ -15,8 +15,6 @@ try:
 except ImportError:
     import re
 
-from urllib.request import pathname2url
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -37,6 +35,8 @@ try:
 except Exception as e:
     print("Missed dependency: pip3 install volatility3 -U")
     HAVE_VOLATILITY = False
+
+mem_cfg = Config("memory")
 
 log = logging.getLogger()
 yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
@@ -78,17 +78,15 @@ class ReturnJsonRenderer(JsonRenderer):
             acc_map[node.path] = node_dict
             return (acc_map, final_tree)
 
-        error = grid.populate(visitor, final_output, fail_on_errors=False)
+        error = grid.populate(visitor, final_output, fail_on_errors=True)
         return final_output[1], error
 
-"""
-from modules.processing.memory import VolatilityAPI
-vapi = VolatilityAPI()
-bridge = vapi.init("windows.pony.Pony", "pony.dmp")
-"""
 
 class VolatilityAPI(object):
     def __init__(self, memdump):
+        """
+        @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
+        """
         self.context = None
         self.automagics = None
         self.base_config_path = "plugins"
@@ -102,11 +100,13 @@ class VolatilityAPI(object):
         else:
             self.memdump = memdump
 
-    def run(self, plugin_class):
+    def run(self, plugin_class, pids=[], round=1):
         """ Module which initialize all volatility 3 internals
         https://github.com/volatilityfoundation/volatility3/blob/stable/doc/source/using-as-a-library.rst
         @param plugin_class: plugin class. Ex. windows.pslist.PsList
-        @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
+        @param plugin_class: plugin class. Ex. windows.pslist.PsList
+        @param pids: pid list -> abstrats.py -> get_pids(), for custom scripts
+        @param round: read -> https://github.com/volatilityfoundation/volatility3/pull/504
         @return: Volatility3 interface.
 
         """
@@ -124,10 +124,14 @@ class VolatilityAPI(object):
                 seen_automagics.add(amagic)
 
             base_config_path = "plugins"
-            single_location = self.memdump #"file:" + pathname2url(path)
+            single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
             if os.path.exists(yara_rules_path):
-                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = yara_rules_path
+                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = "file:///" + yara_rules_path
+
+        if pids:
+            self.ctx.config["sandbox_pids"] = pids
+            self.ctx.config["sandbox_round"] = round
 
         plugin = self.plugin_list.get(plugin_class)
         automagics = automagic.choose_automagic(self.automagics, plugin)
@@ -333,27 +337,27 @@ class Memory(Processing):
         @return: volatility results dict.
         """
         self.key = "memory"
-        self.voptions = Config("memory")
+        self.voptions = mem_cfg
 
         results = {}
-        if HAVE_VOLATILITY:
-            if self.memory_path and os.path.exists(self.memory_path):
-                try:
-                    vol = VolatilityManager(self.memory_path)
-                    # only the memory dump and memory dump string paths are returned until vol3 is complete, strings output will be written if configured
-                    # memory dump file will be handled as configured
-                    results = vol.run()
-                except Exception:
-                    log.exception("Generic error executing volatility")
-                    if self.voptions.basic.delete_memdump_on_exception:
-                        try:
-                            os.remove(self.memory_path)
-                        except OSError:
-                            log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
-            else:
-                log.error("Memory dump not found: to run volatility you have to enable memory_dump")
-        else:
+        if not HAVE_VOLATILITY:
             log.error("Cannot run volatility module: volatility library not available")
+            return results
+
+        if self.memory_path and os.path.exists(self.memory_path):
+            try:
+                vol = VolatilityManager(self.memory_path)
+                results = vol.run()
+            except Exception:
+                log.exception("Generic error executing volatility")
+                if self.voptions.basic.delete_memdump_on_exception:
+                    try:
+                        os.remove(self.memory_path)
+                    except OSError:
+                        log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
+        else:
+            log.error("Memory dump not found: to run volatility you have to enable memory_dump")
+
 
         return results
 

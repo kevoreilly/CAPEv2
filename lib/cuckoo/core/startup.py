@@ -18,6 +18,7 @@ try:
         raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
 except ImportError:
     print("Missed library: pip3 install yara-python>=4.0.0 -U")
+
 import modules.auxiliary
 import modules.processing
 import modules.signatures
@@ -46,8 +47,8 @@ def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
-    if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.5")
+    if sys.version_info[:2] < (3, 6):
+        raise CuckooStartupError("You are running an incompatible version of Python, please use >= 3.6")
 
 
 def check_working_directory():
@@ -61,6 +62,11 @@ def check_working_directory():
     if not os.path.exists(cwd):
         raise CuckooStartupError("You are not running Cuckoo from it's root directory")
 
+    # Check permission for tmpfs if enabled
+    if cuckoo.tmpfs.enabled and not os.access(cuckoo.tmpfs.path, os.W_OK):
+        username = os.getlogin()
+        raise CuckooStartupError(f"Fix permission on tmpfs path: chown {username}:{username} {cuckoo.tmpfs.path}")
+
 
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
@@ -73,9 +79,10 @@ def check_webgui_mongo():
                 port=repconf.mongodb.port,
                 username=repconf.mongodb.get("username", None),
                 password=repconf.mongodb.get("password", None),
-                authSource=repconf.mongodb.db,
+                authSource = repconf.mongodb.get("authsource", "cuckoo")
             )
-            conn.server_info()
+            # ToDo check how to give user permission to read this without admin
+            # conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
             log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
             bad = True
@@ -205,6 +212,7 @@ def init_tasks():
             db.reschedule(task.id)
             log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
         else:
+            # ToDo here?
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
 
@@ -287,7 +295,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(e, sys.exc_info())
+                print("There was a syntax error in one or more Yara rules: %s" % e)
                 log.error("There was a syntax error in one or more Yara rules: %s" % e)
                 break
 

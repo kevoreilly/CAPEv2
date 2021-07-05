@@ -19,7 +19,7 @@ rule GuloaderB
     meta:
         author = "kevoreilly"
         description = "Guloader bypass 2021 Edition"
-        cape_options = "bp0=$trap0,action0=ret,bp1=$trap1,action1=ret2,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,bp3=$trap2+7,action3=skip"
+        cape_options = "bp0=$trap0,action0=ret,bp1=$trap1,action1=ret:2,bp2=$antihook,action2=goto:ntdll::NtAllocateVirtualMemory,count=0,bp3=$trap2+7,action3=skip"
     strings:
         $trap0 = {81 C6 00 10 00 00 [0-88] 81 FE 00 F0 [2] 0F 84 [2] 00 00}
         $trap1 = {31 FF [0-128] (B9|C7 85 F8 00 00 00) 60 5F A9 00}

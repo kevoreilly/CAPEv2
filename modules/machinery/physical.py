@@ -138,6 +138,13 @@ class Physical(Machinery):
                                  "wol": 'true'}).encode('utf8')
 
                     r_deploy = requests.post("http://" + self.options.fog.hostname + "/fog/host/" + hostID + "/task", headers=headers, data=payload)
+                    
+                    try:
+                        requests.post("http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT) + "/execute", data={"command" : "shutdown -r -f -t 0"})
+                    except:
+                        # The reboot will start immediately which may kill our socket so we just ignore this exception
+                        log.debug("Socket killed from analysis machine due to reboot")
+
 
         # We are waiting until we are able to connect to the agent again since we dont know how long it will take to restore the machine
         while not self.isTaskigDone(hostID):

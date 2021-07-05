@@ -99,5 +99,5 @@ rule AgentTeslaV3 {
         $m4 = "%startupfolder%\\%insfolder%\\%insname%/\\%insfolder%\\Software\\Microsoft\\Windows\\CurrentVersion\\Run%insregname%SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\RunTruehttp" ascii
         $m5 = "\\WindowsLoad%ftphost%/%ftpuser%%ftppassword%STORLengthWriteCloseGetBytesOpera" ascii
     condition:
-        (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($*) and all of ($g*)))) or (2 of ($m*))
+        (uint16(0) == 0x5a4d and (8 of ($s*) or (6 of ($s*) and all of ($g*)))) or (2 of ($m*))
 }

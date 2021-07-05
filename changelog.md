@@ -1,3 +1,83 @@
+### [05-07-2021]
+* Add support for archives in static extraction, so you don't need to submit them one by one
+
+### [20-06-2021] [enter the sandman](https://www.youtube.com/watch?v=CD-E-LDc384) @doomedraven moved to CAPEv2
+* Expect more fixes :)
+
+### [17-06-2021]
+* Updates to processing module & monitor to allow type strings to replace old type codes
+* Updates to 'dump' Debugger action
+* Hit counts added to debugger breakpoints
+
+### [17-06-2021]
+* add `username` field to be used for custom auth
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration && alembic upgrade head`
+
+### [13-06-2021]
+* Introdiced checker of available space in process.py to prevent system run out of memory and generate a lot of troubles
+
+### [10-06-2021] dist.py
+* Migrates from ht_user/ht_pass to apikey for proper apiv2 integration
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration_dist && alembic upgrade head`
+
+### [09-06-2021] RAMFS renamed to TMPFS
+* As TMPFS is better and modernish, and it was a naming typo
+
+```
+# only if you using volatility to speedup IO
+mkdir -p /mnt/tmpfs
+mount -t tmpfs -o size=50g tmpfs /mnt/tmpfs
+chown cape:cape /mnt/tmpfs
+vim /etc/fstab
+tmpfs       /mnt/tmpfs tmpfs   nodev,nosuid,noexec,nodiratime,size=50g   0 0
+```
+
+* [ORJson](https://pypi.org/project/orjson/) library is now used for json report if installed
+    * orjson is a fast JSON library for Python. It benchmarks as the fastest Python library for JSON. Its serialization performance is 2x to 3x the nearest other library and 4.5x to 11.5x the standard library.
+
+### [07-06-2021] MongoDB auth fixed
+* [Example of user/role creation](https://pymongo.readthedocs.io/en/stable/examples/authentication.html)
+```
+use admin
+
+# To Create root user
+use admin
+db.createUser(
+      {
+          user: "username",
+          pwd:  passwordPrompt(),   // or cleartext password
+          roles: [ "root" ]
+      }
+  )
+
+# To create user with perm RW on db
+db.createUser(
+    {
+        user: "WORKER_USERNAME",
+        pwd:  passwordPrompt(),   // or cleartext password
+        roles: [{ role: "readWrite", db: "cuckoo" }]
+    }
+)
+```
+
+### [06-06-2021] Ratelimit strikes again
+* Reintroduce ratelimit to control abuses
+
+### [04-06-2021]
+* Allow anon users list reports and view them
+    * `conf/web.conf ->  general -> anon_viewable`
+
+### [31-05-2021]
+* Monitor updates:
+    * Fixes for NtCreateProcessEx hook, regsvr32 arg parsing, branch tracing (debugger)
+    * Remove instruction filtering from ntdll protection
+    * Add more debug logging to YaraHarness
+
+### [15-05-2021]
+* Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
+
 ### [06-05-2021] Docs about throttling and yara categories
 * __ACTION REQUIRED!__
     * Update sflock library - we suggest you to keep an eye on this repo!

@@ -45,7 +45,7 @@ def choose_package(file_type, file_name, exports, target):
         or "Microsoft Office Word" in file_type
         or "Microsoft OOXML" in file_type
         or "MIME entity" in file_type
-        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso"))
+        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk"))
     ):
         return "doc"
     elif (
@@ -102,6 +102,8 @@ def choose_package(file_type, file_name, exports, target):
         return "inp"
     elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
+    elif b"Set-StrictMode" in file_content[:100]:
+        return "ps1"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:

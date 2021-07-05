@@ -15,7 +15,7 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource=repconf.mongodb.db,
+    authSource=repconf.mongodb.authsource,
 )[repconf.mongodb.db]
 
 # import code;code.interact(local=dict(locals(), **globals()))

@@ -556,7 +556,7 @@ class Analyzer:
                 break
 
             # If the process lock is locked, it means that something is
-            # operatinfg on the list of monitored processes. Therefore we
+            # operating on the list of monitored processes. Therefore we
             # cannot proceed with the checks until the lock is released.
             if self.process_lock.locked():
                 log.info("we are locked")

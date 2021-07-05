@@ -1,6 +1,9 @@
 {% if network.pcap_sha256 %}
-    <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}">Download PCAP</a></div>
-    <!--allow dl tls keys-->
+
+    <div class="alert alert-primary center">
+        <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
+        <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
+    </div>
 {% endif %}
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
         <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>

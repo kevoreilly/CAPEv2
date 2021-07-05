@@ -1,38 +1,5 @@
 <section id="static_analysis">
     {% load key_tags %}
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-        <h4>BinGraph <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></h4>
-        {{ graphs.bingraph.content|getkey:analysis.target.file.sha256|safe }}
-    </br></br>
-    {% else %}
-        {% if graphs.bingraph.enabled %}
-        <h4>BinGraph
-            <p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate Bingraph</a></p>
-        </h4>
-        {% endif %}
-    {% endif %}
-    {% if analysis.static.flare_capa %}
-    <p><a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a></p>
-        <div class="collapse" id="flare_capa">
-            <div class="card card-body">
-            <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-            {% if analysis.static.flare_capa.CAPABILITY %}
-                {{analysis.static.flare_capa|flare_capa_capability}}
-            {% endif %}
-
-            {% if analysis.static.flare_capa.ATTCK %}
-                {{analysis.static.flare_capa|flare_capa_attck}}
-            {% endif %}
-
-            {% if analysis.static.flare_capa.MBC %}
-                {{analysis.static.flare_capa|flare_capa_mbc}}
-            {% endif %}
-            </div>
-        </div>
-    </br>
-    {% else %}
-        <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate CAPA</a></p>
-    {% endif %}
     {% if analysis.static and analysis.static.pe %}
             <div>
                 <h4>PE Information</h4>
@@ -138,86 +105,126 @@
                         <col width="250" />
                         <col width="*" />
                     </colgroup>
-                    <tr>
-                        <th>Certificate Common Name</th>
-                        <td>{{cert.subject_commonName}}</td>
-                    </tr>
+                    {% if cert.subject_commonName %}
+                        <tr>
+                            <th>Certificate Common Name</th>
+                            <td>{{cert.subject_commonName}}</td>
+                        </tr>
+                    {% endif %}
+                    {% if cert.subject_commonName %}
                     <tr>
                         <th>Subject Organization Name</th>
                         <td>{{cert.subject_commonName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_organizationalUnitName %}
                     <tr>
                         <th>Subject Organization Unit Name</th>
                         <td>{{cert.subject_organizationalUnitName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_streetAddress %}
                     <tr>
                         <th>Subject Street Address</th>
                         <td>{{cert.subject_streetAddress}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_localityName %}
                     <tr>
                         <th>Subject Locality</th>
                         <td>{{cert.subject_localityName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_stateOrProvinceName %}
                     <tr>
                         <th>Subject State or Province</th>
                         <td>{{cert.subject_stateOrProvinceName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_postalCode %}
                     <tr>
                         <th>Subject Postal Code</th>
                         <td>{{cert.subject_postalCode}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.subject_countryName %}
                     <tr>
                         <th>Subject Country</th>
                         <td>{{cert.subject_countryName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_commonName %}
                     <tr>
                         <th>Issuer Common Name</th>
                         <td>{{cert.issuer_commonName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_organizationName %}
                     <tr>
                         <th>Issuer Organization Name</th>
                         <td>{{cert.issuer_organizationName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_organizationalUnitName %}
                     <tr>
                         <th>Issuer Organization Unit Name</th>
                         <td>{{cert.issuer_organizationalUnitName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_localityName %}
                     <tr>
                         <th>Issuer Locality</th>
                         <td>{{cert.issuer_localityName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_stateOrProvinceName %}
                     <tr>
                         <th>Issuer State or Province</th>
                         <td>{{cert.issuer_stateOrProvinceName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.issuer_countryName %}
                     <tr>
                         <th>Issuer Country</th>
                         <td>{{cert.issuer_countryName}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.serial_number %}
                     <tr>
                         <th>Serial Number</th>
                         <td>{{cert.serial_number}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.sha256_fingerprint %}
                     <tr>
                         <th>SHA256 Fingerprint</th>
                         <td>{{cert.sha256_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.sha1_fingerprint %}
                     <tr>
                         <th>SHA1 Fingerprint</th>
                         <td>{{cert.sha1_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.md5_fingerprint %}
                     <tr>
                         <th>MD5 Fingerprint</th>
                         <td>{{cert.md5_fingerprint}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.not_before %}
                     <tr>
                         <th>Not valid before</th>
                         <td>{{cert.not_before}}</td>
                     </tr>
+                    {% endif %}
+                    {% if cert.not_after %}
                     <tr>
                         <th>Not valid after</th>
                         <td>{{cert.not_after}}</td>
                     </tr>
+                    {% endif %}
                 {% endfor %}
                 </table>
             </div>

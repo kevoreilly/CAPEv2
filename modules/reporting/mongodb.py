@@ -39,15 +39,15 @@ class MongoDB(Report):
         """Connects to Mongo database, loads options and set connectors.
         @raise CuckooReportError: if unable to connect.
         """
-        host = self.options.get("host", "127.0.0.1")
-        port = self.options.get("port", 27017)
-        db = self.options.get("db", "cuckoo")
-
         try:
             self.conn = MongoClient(
-                host, port=port, username=self.options.get("username", None), password=self.options.get("password", None), authSource=db
+                self.options.get("host", "127.0.0.1"),
+                port = self.options.get("port", 27017),
+                username = self.options.get("username", None),
+                password = self.options.get("password", None),
+                authSource = self.options.get("authsource", "cuckoo"),
             )
-            self.db = self.conn[db]
+            self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:
             raise CuckooReportError("Mongo connection port must be integer")
         except ConnectionFailure:
@@ -215,8 +215,8 @@ class MongoDB(Report):
                     report["f_mlist_cnt"] = len(entry["data"])
 
         # Other info we want quick access to from the web UI
-        if results.get("virustotal", False) and "positives" in results["virustotal"] and "total" in results["virustotal"]:
-            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"])
+        if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
+            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positive"], results["virustotal"]["total"])
         if results.get("suricata", False):
 
             keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
@@ -235,7 +235,7 @@ class MongoDB(Report):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 
         analyses = self.db.analysis.find({"info.id": int(report["info"]["id"])})
-        if analyses.count() > 0:
+        if analyses:
             log.debug("Deleting analysis data for Task %s" % report["info"]["id"])
             for analysis in analyses:
                 for process in analysis["behavior"].get("processes", []) or []:

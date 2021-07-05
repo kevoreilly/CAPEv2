@@ -26,7 +26,7 @@ if len(sys.argv) == 2:
             port=repconf.mongodb.port,
             username=repconf.mongodb.get("username", None),
             password=repconf.mongodb.get("password", None),
-            authSource=repconf.mongodb.db,
+            authSource = repconf.mongodb.get("authsource", "cuckoo"),
         )[repconf.mongodb.db]
         tasks = results_db.analysis.find({"dropped.sha256": sys.argv[1]})
         if tasks:

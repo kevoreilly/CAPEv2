@@ -1,0 +1,284 @@
+{% load key_tags %}
+<div class="panel panel-default">
+    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+        {% if file.cape_type %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">Type</th>
+                <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_type}}</b></td>
+            </tr>
+        {% endif %}
+        <tr>
+            <th style="border-top: 0; width: 15%;">Filename</th>
+            <td>
+                {% for name in file.name|str2list %}
+                <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
+                {% endfor %}
+            </td>
+        </tr>
+        {% if file.guest_paths and tab_name == "dropped" %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">Associated Filenames</th>
+                <td style="border-top: 0; word-wrap: break-word;">
+                    {% for path in file.guest_paths|str2list %}
+                        <div>{{path}}</div>
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endif %}
+        <tr>
+            <th style="border-top: 0; width: 15%;">File Size</th>
+            <td style="border-top: 0; word-wrap: break-word;"><b>{{file.size}} bytes</b></td>
+        </tr>
+        {% if file.module_path and file.process_path != file.module_path %}
+            <tr>
+                <th>Module Path</th>
+                <td>{{file.module_path}}</td>
+            </tr>
+        {% endif %}
+        {% if file.cape_type_code == 8 or file.cape_type_code == 9 %}
+                <tr>
+                    <th>Virtual Address</th>
+                    <td>{{file.virtual_address}}</td>
+                </tr>
+            {% endif %}
+            {% if file.cape_type_code == 5 %}
+                <tr>
+                    <th>Section Handle</th>
+                    <td>{{file.section_handle}}</td>
+                </tr>
+            {% endif %}
+            {% if file.cape_type_code == 3 or file.cape_type_code == 4 %}
+                <tr>
+                    <th>Target Process</th>
+                    <td>{{file.target_process}}</td>
+                </tr>
+                <tr>
+                    <th>Target PID</th>
+                    <td>{{file.target_pid}}</td>
+                </tr>
+                <tr>
+                    <th>Target Path</th>
+                    <td>{{file.target_path}}</td>
+                </tr>
+                <tr>
+                    <th>Injecting Process</th>
+                    <td>{{file.process_name}}</td>
+                </tr>
+                <tr>
+                    <th>Injecting PID</th>
+                    <td>{{file.pid}}</td>
+                </tr>
+                <tr>
+                    <th>Path</th>
+                    <td>{{file.process_path}}</td>
+                </tr>
+            {% else %}
+                {% if file.process_name %}
+                <tr>
+                    <th>Process</th>
+                    <td>{{file.process_name}}</td>
+                </tr>
+                {% endif %}
+                {% if file.pid %}
+                <tr>
+                    <th>PID</th>
+                    <td>{{file.pid}}</td>
+                </tr>
+                {% endif %}
+                {% if file.process_path %}
+                <tr>
+                    <th>Path</th>
+                    <td>{{file.process_path}}</td>
+                </tr>
+                {% endif %}
+            {% endif %}
+        {% if file.timestamp %}
+            <tr>
+                <th>PE timestamp</th>
+                <td style="word-wrap: break-word;">{{file.timestamp}}</td>
+            </tr>
+        {% endif %}
+        <tr>
+            <th>MD5</th>
+            <td style="word-wrap: break-word;">{{file.md5}}</td>
+        </tr>
+        <tr>
+            <th>SHA1</th>
+            <td style="word-wrap: break-word;">{{file.sha1}}</td>
+        </tr>
+        <tr>
+            <th>SHA256</th>
+            <td style="word-wrap: break-word;">{{file.sha256}}</td>
+        </tr>
+        {% if file.sha3_384 %}
+        <tr>
+            <th>SHA3-384</th>
+            <td style="word-wrap: break-word;">{{file.sha3_384}}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th>CRC32</th>
+            <td>{{file.crc32}}</td>
+        </tr>
+        {% if file.tlsh %}
+        <tr>
+            <th>TLSH</th>
+            <td style="word-wrap: break-word;">{{file.tlsh}}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th>Ssdeep</th>
+            <td style="word-wrap: break-word;">{{file.ssdeep}}</td>
+        </tr>
+        {% if file.clamav %}
+        <tr>
+            <th>ClamAV</th>
+            <td>
+                <ul style="margin-bottom: 0;">
+                {% for sign in file.clamav %}
+                    <li>{{sign}}</li>
+                {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        {% endif %}
+        {% if file.yara %}
+        <tr>
+            <th>Yara</th>
+            <td>
+                <ul style="margin-bottom: 0;">
+                {% for sign in file.yara %}
+                    <li>
+                    {{sign.name}} - {{sign.meta.description}}
+                    {% if sign.meta.author %}
+                        - Author: {{sign.meta.author}}
+                    {% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        {% endif %}
+        {% if file.cape_yara %}
+        <tr>
+            <th>CAPE Yara</th>
+            <td>
+                <ul style="margin-bottom: 0;">
+                {% for sign in file.cape_yara %}
+                    <li>
+                    {% if sign.meta.cape_type %}
+                        {{sign.meta.cape_type}}
+                    {% elif sign.meta.description %}
+                        {{sign.meta.description}}
+                    {% else %}
+                        {{sign.name}}
+                    {% endif %}
+                    {% if sign.meta.author %}
+                        - Author: {{sign.meta.author}}
+                    {% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        {% endif %}
+        {% if file.dropdir %}
+        <tr>
+            <th></th>
+            <td><a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <th></th>
+            <td>
+                {% if not config.zipped_download %}
+                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
+                {% endif %}
+                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
+                {% if config.flare_capa %}
+                    {% if not file.flare_capa %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
+                    {% endif %}
+                {% endif %}
+                {% if config.bingraph %}
+                    {% if not graphs.bingraph.content|getkey:file.sha256 %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
+                    {% else %}
+                        <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
+                    {% endif %}
+                {% endif %}
+                <!--add type check-->
+                {% if graphs.vba2graph.enabled %}
+                    {% if not graphs.vba2graph.content|getkey:file.sha256 %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                    {% else %}
+                        <a href="{% url "file_nl" "vba2graph" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
+                    {% endif %}
+                {% endif %}
+                {% if config.virustotal and not file.virustotal %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
+                {% endif %}
+                {% if config.vtupload and tlp != "Red" %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
+                {% endif %}
+                {% if file.data %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endif %}
+        {% if file.flare_capa %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="flare_capa_{{file.sha256}}">
+                    <div class="card card-body">
+                    <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
+                    {% if file.flare_capa.CAPABILITY %}
+                        {{file.flare_capa|flare_capa_capability}}
+                    {% endif %}
+                    {% if file.flare_capa.ATTCK %}
+                        {{file.flare_capa|flare_capa_attck}}
+                    {% endif %}
+                    {% if file.flare_capa.MBC %}
+                        {{file.flare_capa|flare_capa_mbc}}
+                    {% endif %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
+        {% endif %}
+        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
+            <tr>
+                <th></th>
+                <td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td>
+            </tr>
+        {% endif %}
+        {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
+            <tr><th></th>
+                <td>{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</td>
+            </tr>
+        {% endif %}
+        {% if file.virustotal %}
+            <tr>
+                <th></th>
+                <td>{% include "analysis/generic/_virustotal.html" %}</td>
+            </tr>
+        {% endif %}
+        {% if file.data %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="text_{{file.sha256}}">
+                    <div class="card card-body">
+                    {{file.data|safe}}
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+    </table>
+</div>

@@ -1,6 +1,6 @@
 {% if analysis.virustotal %}
 <div class="card-header">
-    <a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{analysis.virustotal.possitive}}/{{analysis.virustotal.total}}) {% if analysis.virustotal.detection %} - {{analysis.virustotal.detection}} {% endif %}</a>
+    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{analysis.virustotal.positive}}/{{analysis.virustotal.total}}) {% if analysis.virustotal.detection %} - {{analysis.virustotal.detection}} {% endif %}</a></center>
 </div>
 
 <div class="collapse" id="virustotal_binary">
@@ -64,12 +64,4 @@
         </table>
     </div>
 </div>
-{% else %}
-    {% if config.virustotal %}
-        <h4>
-            <p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VirusTotal</a></p>
-        </h4>
-    {% else %}
-    No antivirus signatures available.
-    {% endif %}
 {% endif %}

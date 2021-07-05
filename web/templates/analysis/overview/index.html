@@ -5,7 +5,8 @@
         {% for family, config in config_block.items %}
 
         <div class="card-header">
-            <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a></div>
+            <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a>
+        </div>
         <div id="{{family}}_config" class="collapse show">
             <table class="table table-striped table-bordered" style="table-layout: fixed;">
                 <tr>
@@ -22,9 +23,9 @@
         </div>
         {% endfor %}
     {% endfor %}
+<hr />
 {% endif %}
 
-<hr />
 {% if analysis.info.category != "pcap" %}
     {% if analysis.info.category in "file,static" and analysis.target %}
         {% include "analysis/overview/_file.html" %}
@@ -32,24 +33,34 @@
         {% include "analysis/overview/_url.html" %}
     {% endif %}
 {% endif %}
-
-{% if analysis.virustotal %}
-<hr/>
-<tr>
-    {% include "analysis/overview/_antivirus.html" %}
-</tr>
-{% endif %}
+<div class="container">
+    <div class="row">
+        {% if analysis.strings %}
+        <div class="col-sm">
+            {% include "analysis/overview/_strings.html" %}
+        </div>
+        {% endif %}
+        {% if analysis.virustotal %}
+        <div class="col-sm">
+            {% include "analysis/overview/_antivirus.html" %}
+        </div>
+        {% endif %}
+        {% if reports_exist %}
+        <div class="col-sm">
+            {% include "analysis/overview/_reports.html" %}
+        </div>
+        {% endif %}
+    </div>
+</div>
 
 {% if analysis.mitre_attck %}
     <hr />
     {% include "analysis/overview/_mitre.html" %}
 {% endif %}
-
-{% if analysis.strings %}
+{% if analysis.statistics %}
     <hr />
-    {% include "analysis/overview/_strings.html" %}
+    {% include "analysis/overview/_statistics.html" %}
 {% endif %}
-<hr/>
 {% include "analysis/overview/_signatures.html" %}
 
 {% if analysis.info.category != "pcap" %}
@@ -57,7 +68,7 @@
     <hr />
     {% include "analysis/overview/_usage.html" %}
 {% endif %}
-<hr />
+
 {% include "analysis/overview/_screenshots.html" %}
 <hr />
 {% endif %}
@@ -65,7 +76,6 @@
     <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts_not_ajax.html" %}</div>
     <div class="col-md-6 mx-auto">{% include "analysis/network/_dns_not_ajax.html" %}</div>
 </div>
-<hr />
 {% if analysis.info.category != "pcap" %}
     {% include "analysis/overview/_summary.html" %}
 {% endif %}

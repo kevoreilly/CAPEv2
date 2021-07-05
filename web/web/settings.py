@@ -50,6 +50,7 @@ MONGO_PORT = cfg.mongodb.get("port", 27017)
 MONGO_DB = cfg.mongodb.get("db", "cuckoo")
 MONGO_USER = cfg.mongodb.get("username", None)
 MONGO_PASS = cfg.mongodb.get("password", None)
+MONGO_AUTHSOURCE = cfg.mongodb.get("authsource", "cuckoo")
 
 ELASTIC_HOST = cfg.elasticsearchdb.get("host", "127.0.0.1")
 ELASTIC_PORT = cfg.elasticsearchdb.get("port", 9200)
@@ -57,7 +58,7 @@ ELASTIC_INDEX = cfg.elasticsearchdb.get("index", "cuckoo")
 
 moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl
-zip_cfg = aux_cfg.zipped_download
+zip_cfg = web_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
@@ -79,6 +80,7 @@ OPT_ZER0M0N = False
 
 COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
+ANON_VIEW = web_cfg.general.anon_viewable
 
 # If false run next command
 # python3 manage.py runserver 0.0.0.0:8000 --insecure
@@ -475,6 +477,8 @@ CSP_REPORT_PERCENTAGE = 0.6
 CSP_FONT_SRC = ["https://fonts.googleapis.com"]
 CSP_STYLE_SRC = ["'self'"]
 CSP_IMG_SRC = ["'self'"]
+
+RATELIMIT_ERROR_MSG = "Too many request without auth! You have exceed your free request per minute for anon users. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
 
 # Hack to import local settings.
 try:

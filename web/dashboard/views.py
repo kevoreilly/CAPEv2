@@ -25,6 +25,8 @@ class conditional_login_required(object):
         self.condition = condition
 
     def __call__(self, func):
+        if settings.ANON_VIEW:
+            return func
         if not self.condition:
             return func
         return self.decorator(func)

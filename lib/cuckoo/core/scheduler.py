@@ -190,6 +190,9 @@ class AnalysisManager(threading.Thread):
         options["enforce_timeout"] = self.task.enforce_timeout
         options["clock"] = self.task.clock
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
+        options["upload_max_size"] = self.cfg.resultserver.upload_max_size
+        options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
+
 
         if not self.task.timeout or self.task.timeout == 0:
             options["timeout"] = self.cfg.timeouts.default
@@ -220,6 +223,7 @@ class AnalysisManager(threading.Thread):
 
                         options["exports"] = ",".join(exports)
                 except Exception as e:
+                    log.error("PE type not recognised")
                     log.error(e, exc_info=True)
 
         # options from auxiliar.conf
@@ -228,28 +232,18 @@ class AnalysisManager(threading.Thread):
 
         return options
 
-    def launch_analysis(self):
-        """Start analysis."""
-        succeeded = False
-        dead_machine = False
-        self.socks5s = _load_socks5_operational()
-
-        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
-
-        # Initialize the analysis folders.
-        if not self.init_storage():
-            log.debug("Failed to initialize the analysis folder")
-            return False
-
+    def category_checks(self):
         if self.task.category in ["file", "pcap", "static"]:
             sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
+                log.debug("check file")
                 return False
 
             # Store a copy of the original file.
             if not self.store_file(sha256):
+                log.debug("store file")
                 return False
 
         if self.task.category in ("pcap", "static"):
@@ -267,6 +261,23 @@ class AnalysisManager(threading.Thread):
                 except:
                     pass
             return True
+
+    def launch_analysis(self):
+        """Start analysis."""
+        succeeded = False
+        dead_machine = False
+        self.socks5s = _load_socks5_operational()
+
+        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
+
+        # Initialize the analysis folders.
+        if not self.init_storage():
+            log.debug("Failed to initialize the analysis folder")
+            return False
+
+        category_early_escape = self.category_checks()
+        if isinstance(category_early_escape, bool):
+            return category_early_escape
 
         # Acquire analysis machine.
         try:
@@ -344,7 +355,7 @@ class AnalysisManager(threading.Thread):
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
-                    log.error("The memory dump functionality is not available " "for the current machine manager.")
+                    log.error("The memory dump functionality is not available for the current machine manager.")
 
                 except CuckooMachineError as e:
                     log.error(e, exc_info=True)
@@ -718,7 +729,7 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True)
+                need_space, space_available = free_space_monitor(dir_path,  return_value=True, analysis=True)
                 if need_space:
                     log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
                     continue

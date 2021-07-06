@@ -25,13 +25,13 @@ pyinstaller
 maec
 regex
 xmltodict
-https://github.com/doomedraven/sflock/archive/refs/heads/master.zip
-https://github.com/doomedraven/socks5man/archive/refs/heads/master.zip
+https://github.com/doomedraven/sflock/archive/e9fe13a95f229e172375db6d7b9362673f53acca.zip
+https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
 pyattck==3.0.1
 distorm3
 openpyxl
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/refs/heads/master.zip
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/3128c35ebce0cf3ed0ea6b0efad252d4d2e8467a.zip
 passlib
 pyzipper
 mwcp==3.3.1
@@ -40,7 +40,7 @@ flare-capa==1.6.3
 greenlet==0.4.16
 cython
 pyre2==0.3.6
-https://github.com/CAPESandbox/peepdf/archive/refs/heads/master.zip
+https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip
 matplotlib>=2.2.2
 numpy>=1.15.0
 six>=1.12.0

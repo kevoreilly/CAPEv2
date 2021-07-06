@@ -899,8 +899,8 @@ pebble==4.6.1 \
     --hash=sha256:556de0f4c65f943b73ba85ab4621f18000864d42a9d562c470ce7bf396d96424 \
     --hash=sha256:b0abdc8830c21307038d63454584f71c2943e542e4e9d4c86d67aebc06c3519b
     # via -r requirements.in
-https://github.com/CAPESandbox/peepdf/archive/refs/heads/master.zip \
-    --hash=sha256:ad74c66f00ae5c111a5097af86ae9a3334a7d5acd3a9d85411aae03ddea31c48
+https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip \
+    --hash=sha256:7a3cfaf47f7cf8dddf9c768503a1c985eddb7c8b4bc87641a5add789443198b6
     # via -r requirements.in
 pefile==2021.5.24 \
     --hash=sha256:ed79b2353daa58421459abf4d685953bde0adf9f6e188944f97ba9795f100246
@@ -1497,8 +1497,8 @@ scipy==1.7.0 \
     --hash=sha256:c5d012cb82cc1dcfa72609abaabb4a4ed8113e3e8ac43464508a418c146be57d \
     --hash=sha256:e7b733d4d98e604109715e11f2ab9340eb45d53f803634ed730039070fc3bc11
     # via imagehash
-https://github.com/doomedraven/sflock/archive/refs/heads/master.zip \
-    --hash=sha256:4edab0b0c635adde280db029ece069bb6071dae65062713db934b7c7f9d1f232
+https://github.com/doomedraven/sflock/archive/e9fe13a95f229e172375db6d7b9362673f53acca.zip \
+    --hash=sha256:3ab68c2b4975f8022002e08ceecd6cee35770f2622f68508ad1c05938434fcb8
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
@@ -1527,8 +1527,8 @@ six==1.15.0 \
 smda==1.5.13 \
     --hash=sha256:1b9b5fe724947c1e57ac01fa62181e5c716a2ed5361da50aacb792676aef272e
     # via flare-capa
-https://github.com/doomedraven/socks5man/archive/refs/heads/master.zip \
-    --hash=sha256:2b9d40e0de92f49ff2f0e81121f4ef2da431cd600fce2e6c8cb332c8bc309f9e
+https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip \
+    --hash=sha256:5891b0759294e3351fff286bb9239714819dd100edda2f042a8c3c260ac47b06
     # via -r requirements.in
 sortedcontainers==2.4.0 \
     --hash=sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88 \
@@ -1668,8 +1668,8 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/refs/heads/master.zip \
-    --hash=sha256:d202b0c72a1768e318b081f26260d5ed1865cf93342096e40360a15160ec7a24
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/3128c35ebce0cf3ed0ea6b0efad252d4d2e8467a.zip \
+    --hash=sha256:95e789411df25c1dbdd56530e1460d30339d3068084764e13d158c65a893d602
     # via -r requirements.in
 xlrd2==1.2.6 \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \

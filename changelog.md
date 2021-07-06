@@ -1,4 +1,4 @@
-### [06-07-2021] [Malduck]()
+### [06-07-2021] [Malduck](https://github.com/CERT-Polska/malduck)
 * Integration of part of [mwcfg-modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules) by [@c3rb3ru5d3d53c](https://github.com/c3rb3ru5d3d53c)
 
 ### [05-07-2021]

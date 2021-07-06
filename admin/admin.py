@@ -130,8 +130,8 @@ def file_recon(file, yara_category="CAPE"):
         POSTPROCESS = False
     # generic deployer of files
     elif file.startswith("CAPEv2/"):
-        # Remove CAPE/ from path to build new path
-        TARGET = f"{CAPE_PATH}" + file[5:]
+        # Remove CAPEv2/ from path to build new path
+        TARGET = f"{CAPE_PATH}" + file[7:]
     elif filename.endswith(".service"):
         TARGET = "/lib/systemd/system/{filename}"
         OWNER = "root:root"

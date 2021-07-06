@@ -1,19 +1,14 @@
 from __future__ import absolute_import
 import os
-import sys
-import glob
-import json
-import importlib
 import logging
 import tempfile
 import hashlib
 import subprocess
-from io import BytesIO
 from collections.abc import Mapping, Iterable
 
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
 
 malware_parsers = dict()
 cape_malware_parsers = dict()
@@ -59,9 +54,10 @@ if process_cfg.ratdecoders.enabled:
         from malwareconfig.modules import __decoders__, __preprocessors__
         HAS_MALWARECONFIGS = True
         if process_cfg.ratdecoders.modules_path:
-            from ratdecoders_utils import load_decoders as ratdecoders_loadmodules
-            ratdecoders_local_modules = ratdecoders_loadmodules(process_cfg.ratdecoders.modules_path)
-            __decoders__.update(ratdecoders_local_modules)
+            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
+            ratdecoders_local_modules = ratdecodedr_load_decoders([process_cfg.ratdecoders.modules_path])
+            if ratdecoders_local_modules:
+                __decoders__.update(ratdecoders_local_modules)
     except ImportError:
         logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
     except Exception as e:
@@ -76,31 +72,21 @@ if process_cfg.malduck.enabled:
         from malduck.yara import Yara
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
-        malduck_modules.modules_path = os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path)
-        malduck_modules_names = [os.path.basename(decoder)[:-3] for decoder in glob.glob(malduck_modules.modules_path + "/[!_]*.py")]
+        tmp_modules = load_modules(process_cfg.malduck.modules_path)
+        malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        malduck_rules.rules = File.yara_rules["CAPE"]
+        malduck_modules.rules = malduck_rules
+        malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True
+        del tmp_modules
     except ImportError:
         logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
 HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
-    cape_decoders = os.path.join(CUCKOO_ROOT, process_cfg.CAPE_extractors.modules_path)
-    CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
-
-    for name in CAPE_DECODERS:
-        try:
-            file, pathname, description = imp.find_module(name, [cape_decoders])
-            module = imp.load_module(name, file, pathname, description)
-            cape_malware_parsers[name] = module
-        except (ImportError, IndexError) as e:
-            if "datadirs" in str(e):
-                logging.error("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
-            logging.warning("CAPE parser: No module named {} - {}".format(name, e))
+    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
+    cape_malware_parsers = cape_load_decoders(process_cfg.CAPE_extractors.modules_path)
     HAVE_CAPE_EXTRACTORS = True
-
-    if cape_decoders not in sys.path:
-        sys.path.append(cape_decoders)
-
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
@@ -258,12 +244,9 @@ def static_config_parsers(yara_hit, file_data):
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
 
-    elif HAVE_MALDUCK and not parser_loaded and cape_name in malduck_modules_names:
+    elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
         ext = ExtractManager.__new__(ExtractManager)
-        ext.configs: Dict[str, Config] = {}
-        malduck_rules.rules = File.yara_rules["CAPE"]
-        malduck_modules.rules = malduck_rules
-        malduck_modules.extractors: List[Type[Extractor]] = Extractor.__subclasses__()
+        ext.configs = {}
         ext.modules = malduck_modules
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
         tmp_file.write(file_data)
@@ -278,10 +261,11 @@ def static_config_parsers(yara_hit, file_data):
 def static_config_lookup(file_path, sha256=False):
     if not sha256:
         sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
-    cape_tasks = results_db.analysis.find({"target.file.sha256": sha256}, {"CAPE.cape_config":1, "info.id": 1, "_id":0})
-    for task in cape_tasks or []:
-        if task.get("cape_config") and task["cape_config"]:
-            return task
+    cape_tasks = results_db.analysis.find({"target.file.sha256": sha256}, {"CAPE.configs":1, "info.id": 1, "_id":0})
+    if not cape_tasks:
+        return
+    for task in cape_tasks.get("CAPE", {}).get("configs", []) or []:
+        return task["info"]
 
 def static_extraction(path):
     try:

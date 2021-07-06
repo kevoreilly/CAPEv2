@@ -2,18 +2,10 @@ import importlib
 import inspect
 import pkgutil
 
-from malwareconfig.common import Decoder
-from malwareconfig import decoders
 
-"""
->>> from malwareconfig import decoders
->>> decoders.__name__
-'malwareconfig.decoders'
->>> import pkgutil
->>> decoders.__path__
-['/usr/local/lib/python3.8/dist-packages/malwareconfig/decoders']
-"""
-def load_decoders(path):
+def ratdecodedr_load_decoders(path):
+    from malwareconfig.common import Decoder
+    from malwareconfig import decoders
 
     dec_modules = dict()
 
@@ -39,3 +31,19 @@ def load_decoders(path):
                                                                 decoder_author=mod_object.decoder_author
                                                                 )
     return dec_modules
+
+
+def cape_load_decoders(path):
+    cape_modules = dict()
+    for _, module_name, ispkg in pkgutil.iter_modules([path], prefix=path.replace("/", ".")):
+        if ispkg:
+            continue
+        # Try to import the module, otherwise skip.
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError as e:
+            print("Unable to import Module {0}: {1}".format(module_name, e))
+            continue
+
+        cape_modules[module_name.split(".")[-1]] = module
+    return cape_modules

@@ -165,7 +165,8 @@ def convert(data):
 
 def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
-    cape_name = yara_hit["name"].replace("_", " ")
+
+    cape_name = yara_hit.replace("_", " ")
     cape_config = dict()
     cape_config[cape_name] = dict()
     parser_loaded = False
@@ -253,8 +254,11 @@ def static_config_parsers(yara_hit, file_data):
         ext.push_file(tmp_file.name)
         tmp_file.close()
 
-        cape_config[cape_name] = ext.config
+        tmp_config = ext.config
         del ext
+
+        for (key, value) in tmp_config[0].items():
+            cape_config[cape_name].update({key: [value]})
 
     return cape_config
 

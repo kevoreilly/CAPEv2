@@ -451,7 +451,6 @@ class RunSignatures(object):
         self.results = results
         self.ttps = list()
         self.cfg_processing = Config("processing")
-
     def _load_overlay(self):
         """Loads overlay data from a json file.
         See example in data/signature_overlay.json
@@ -567,13 +566,18 @@ class RunSignatures(object):
 
         return None
 
-    def run(self):
-        """Run evented signatures."""
+    def run(self, test_signature: str = False):
+        """Run evented signatures.
+        test_signature: signature name, Ex: cape_detected_threat, to test unique signature
+        """
+
         # This will contain all the matched signatures.
         matched = []
         stats = {}
 
         complete_list = list_plugins(group="signatures") or []
+        if test_signature:
+            complete_list = [sig for sig in complete_list if sig.name == test_signature]
         evented_list = list()
         try:
             evented_list = [

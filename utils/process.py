@@ -321,7 +321,6 @@ def main():
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
-    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", required=False)
     parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1)
     parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
     parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7)
@@ -337,6 +336,9 @@ def main():
         required=False,
         default=300,
     )
+    parser.add_argument("-sig", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", default=False, required=False)
+    parser.add_argument("-sn", "--signature-name", help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat", action="store", default=False, required=False)
+
     args = parser.parse_args()
 
     init_yara()
@@ -369,7 +371,7 @@ def main():
                 else:
                     results = json.load(open(report))
             if results is not None:
-                RunSignatures(task=task.to_dict(), results=results).run()
+                RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
         else:
             process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
 

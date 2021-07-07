@@ -1,3 +1,7 @@
+### [07-07-2021] Signature testing
+* Allow to execute one specific signature, loading data from mongo or json report. Specially useful for signature based extractors.
+    * python3 utils/process.py -r ID -sig -sn cape_detected_threat
+
 ### [06-07-2021] [Malduck](https://github.com/CERT-Polska/malduck)
 * Integration of part of [mwcfg-modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules) by [@c3rb3ru5d3d53c](https://github.com/c3rb3ru5d3d53c)
 

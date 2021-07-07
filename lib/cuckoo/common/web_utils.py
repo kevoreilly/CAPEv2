@@ -323,7 +323,7 @@ def statistics(s_days: int) -> dict:
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
         dist_db.close()
 
-        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[1], reverse=True))
+        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
 
     # Get top15 of samples per day and seen more than once
     for day in top_samples:

@@ -23,6 +23,8 @@ import operator
 from datetime import datetime
 from collections import defaultdict
 
+from typing import Tuple
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
@@ -262,8 +264,28 @@ def bytes2str(convert):
 
     return convert
 
+def wide2str(string: Tuple[str, bytes]):
+    """wide string detection, for strings longer than 11 chars
 
-def convert_to_printable(s, cache=None):
+    Doesn't work:
+        string.decode("utf-16").encode('ascii')
+        ccharted
+    Do you have better solution?
+    """
+    null_byte = "\x00"
+    if type(string) is bytes:
+        null_byte = 0
+
+    if len(string) >= 11 and all([string[char] == null_byte for char in (1,3,5,7,9,11)]) and all([string[char] != null_byte for char in (0,2,4,6,8,10)]):
+        if type(string) is bytes:
+            return string.decode("utf-16")
+        else:
+            return string.encode("utf-8").decode("utf-16")
+    else:
+        return string
+
+
+def convert_to_printable(s: str, cache=None):
     """Convert char to printable.
     @param s: string.
     @param cache: an optional cache
@@ -285,7 +307,7 @@ def convert_to_printable(s, cache=None):
     return cache[s]
 
 
-def sanitize_pathname(s):
+def sanitize_pathname(s: str):
     """Sanitize filename.
     @param s: string.
     @return: sanitized filename.

@@ -25,7 +25,7 @@ pyinstaller
 maec
 regex
 xmltodict
-https://github.com/doomedraven/sflock/archive/e9fe13a95f229e172375db6d7b9362673f53acca.zip
+SFlock2==0.3.15
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
 pyattck==3.0.1
 distorm3

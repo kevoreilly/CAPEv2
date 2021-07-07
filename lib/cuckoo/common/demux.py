@@ -24,12 +24,18 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U git+https://github.com/doomedraven/sflock")
+    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U SFlock2")
     HAS_SFLOCK = False
 
-if sf_version != "0.3.14":
-    print("You using old version of sflock! Upgrade: pip3 install -U git+https://github.com/doomedraven/sflock")
-    sys.exit()
+if sf_version:
+    sf_version_splited = sf_version.split(".")
+    # Before 14 there is core changes that required by CAPE, since exit
+    if int(sf_version_splited[-1]) < 14:
+        print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
+        sys.exit()
+    # Latest release
+    if int(sf_version_splited[-1]) < 15:
+        print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()

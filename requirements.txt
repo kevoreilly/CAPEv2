@@ -177,7 +177,7 @@ click==7.1.2 \
     #   flask
     #   httpreplay
     #   mwcp
-    #   sflock
+    #   sflock2
     #   socks5man
 colorama==0.4.4 \
     --hash=sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b \
@@ -215,7 +215,7 @@ cryptography==3.3.2 \
     #   pyjwt
     #   pyopenssl
     #   requests
-    #   sflock
+    #   sflock2
 cxxfilt==0.2.1 \
     --hash=sha256:cd5b2f7679209866f1f22251d015b7268f0e23424eb719bd7b49aebc08911973 \
     --hash=sha256:d846472835a02bc144e3c7630677102a46d25cb52bc4fbeac12183098fd475b9
@@ -817,7 +817,7 @@ olefile==0.46 \
     #   -r requirements.in
     #   msoffcrypto-tool
     #   oletools
-    #   sflock
+    #   sflock2
 oletools==0.60 \
     --hash=sha256:bad54d3ced34f3475a5bffc0122f8481c66c3f3e09ad946dbda6ec80b75f72cb \
     --hash=sha256:dfad0328ac83b4f8db9f47e706cbd64db739ae4ebf9d98b2dcc465728a35f4a6
@@ -1269,7 +1269,7 @@ python-magic==0.4.24 \
     --hash=sha256:de800df9fb50f8ec5974761054a708af6e4246b03b4bdaee993f948947b0ebcf
     # via
     #   -r requirements.in
-    #   sflock
+    #   sflock2
 python-tlsh==4.5.0 \
     --hash=sha256:55e3df72cabdf48bf576b4580d7fa2feba9c14aacde0a8bd7b1ef40b03cb7969
     # via -r requirements.in
@@ -1497,8 +1497,9 @@ scipy==1.7.0 \
     --hash=sha256:c5d012cb82cc1dcfa72609abaabb4a4ed8113e3e8ac43464508a418c146be57d \
     --hash=sha256:e7b733d4d98e604109715e11f2ab9340eb45d53f803634ed730039070fc3bc11
     # via imagehash
-https://github.com/doomedraven/sflock/archive/e9fe13a95f229e172375db6d7b9362673f53acca.zip \
-    --hash=sha256:3ab68c2b4975f8022002e08ceecd6cee35770f2622f68508ad1c05938434fcb8
+sflock2==0.3.15 \
+    --hash=sha256:30efeeec54a4418cf1cdd8f2d44ce95587b81bdaa4d36cf5a8c4073076d21a1f \
+    --hash=sha256:a823c886c3ba6794992cb5c90c19c8630148a0a10032a28570d727a4f016efc6
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \

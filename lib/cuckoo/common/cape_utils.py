@@ -265,7 +265,7 @@ def static_config_parsers(yara_hit, file_data):
 def static_config_lookup(file_path, sha256=False):
     if not sha256:
         sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
-    cape_tasks = results_db.analysis.find({"target.file.sha256": sha256}, {"CAPE.configs":1, "info.id": 1, "_id":0})
+    cape_tasks = results_db.analysis.find_one({"target.file.sha256": sha256}, {"CAPE.configs":1, "info.id": 1, "_id":0})
     if not cape_tasks:
         return
     for task in cape_tasks.get("CAPE", {}).get("configs", []) or []:

@@ -407,6 +407,9 @@ if __name__ == "__main__":
             if not file.startswith(("CAPE", "Custom", "Extractors")):
                 files.remove(file)
 
+            if file.endswith("admin.py"):
+                continue
+
         if args.dry_run:
             print(files)
             sys.exit(0)

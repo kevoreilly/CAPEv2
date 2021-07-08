@@ -336,9 +336,10 @@ def main():
         required=False,
         default=300,
     )
-    parser.add_argument("-sig", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", default=False, required=False)
-    parser.add_argument("-sn", "--signature-name", help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat", action="store", default=False, required=False)
-
+    testing_args = parser.add_argument_group('Signature testing options')
+    testing_args.add_argument("-sig", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", default=False, required=False)
+    testing_args.add_argument("-sn", "--signature-name", help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat", action="store", default=False, required=False)
+    testing_args.add_argument("-jr", "--json-report", help="Path to json report, only if data not in mongo/default report location", action="store", default=False, required=False)
     args = parser.parse_args()
 
     init_yara()
@@ -367,8 +368,11 @@ def main():
                 # fallback to json
                 report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")
                 if not os.path.exists(report):
-                    sys.exit("File {} doest exist".format(report))
-                else:
+                    if args.json_report and not os.path.exists(args.json_report):
+                        report = args.json_report
+                    else:
+                        sys.exit("File {} doest exist".format(report))
+                if report:
                     results = json.load(open(report))
             if results is not None:
                 RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)

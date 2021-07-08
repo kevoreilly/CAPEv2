@@ -1529,6 +1529,7 @@ class Database(object, metaclass=Singleton):
         username=False,
     ):
         extracted_files = demux_sample(file_path, package, options)
+        sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode("utf-8")

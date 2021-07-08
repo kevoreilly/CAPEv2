@@ -1235,12 +1235,12 @@ def file_nl(request, category, task_id, dlfile):
         cd = "image/jpeg"
 
     elif category == "bingraph":
-        path = os.path.join(base_path, str(task_id), "bingraph", file_name + "-ent.svg")
+        path = os.path.join(base_path, "bingraph", file_name + "-ent.svg")
         file_name = file_name + "-ent.svg"
         cd = "image/svg+xml"
 
     elif category == "vba2graph":
-        path = os.path.join(base_path, str(task_id), "vba2graph", f"{file_name}.svg")
+        path = os.path.join(base_path, "vba2graph", f"{file_name}.svg")
         file_name = f"{file_name}.svg"
         cd = "image/svg+xml"
 

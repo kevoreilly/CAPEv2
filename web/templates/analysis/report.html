@@ -113,7 +113,6 @@ $(function() {
     {% endif %}
     {% if analysis.backscatter %}<li class="nav-item"><a class="nav-link" href="#backscatter" data-toggle="tab">Backscatter</a></li>{% endif %}
     {% if analysis.classification%}<li class="nav-item"><a class="nav-link" href="#classification" data-toggle="tab">Classification</a> </li>{% endif %}
-    {% if analysis.curtain%}<li class="nav-item"> <a class="nav-link" href="#curtain" data-toggle="tab">Curtain</a></li>{% endif %}
      {% if analysis.info.category == "file" and analysis.target %}<li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this analysis to...</a></li>{% endif %}
     {% if settings.ADMIN or user.is_staff %}<li class="nav-item"><a class="nav-link" href="#admin" data-toggle="tab">Admin</a></li>{% endif %}
 </ul>
@@ -181,11 +180,6 @@ $(function() {
     {% if analysis.classification %}
     <div class="tab-pane fade" id="classification">
         {% include "analysis/classification.html" %}
-    </div>
-    {% endif %}
-    {% if analysis.curtain %}
-    <div class="tab-pane fade" id="curtain">
-        {% include "analysis/curtain.html" %}
     </div>
     {% endif %}
     {% if settings.ADMIN or user.is_staff %}

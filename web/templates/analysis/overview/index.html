@@ -53,6 +53,11 @@
     </div>
 </div>
 
+{% if analysis.curtain %}
+    <hr />
+    {% include "analysis/overview/_curtain.html" %}
+{% endif %}
+
 {% if analysis.mitre_attck %}
     <hr />
     {% include "analysis/overview/_mitre.html" %}

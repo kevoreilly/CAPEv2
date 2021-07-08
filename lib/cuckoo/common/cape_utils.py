@@ -256,9 +256,9 @@ def static_config_parsers(yara_hit, file_data):
 
         tmp_config = ext.config
         del ext
-
-        for (key, value) in tmp_config[0].items():
-            cape_config[cape_name].update({key: [value]})
+        if tmp_config:
+            for (key, value) in tmp_config[0].items():
+                cape_config[cape_name].update({key: [value]})
 
     return cape_config
 

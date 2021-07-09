@@ -57,15 +57,15 @@
                             <tr>
                                 <th>Full Dump</th>
                                 <td>
-                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}"><span class="fas fa-download"></a>
-                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdump" analysis.info.id proc.pid %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a>
+                                    <a class="btn btn-secondary btn-small" href="{% url "file" "memdumpzip" analysis.info.id proc.pid %}" data-bs-toggle="tooltip" title="Download password-protected archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                                 </td>
                             </tr>
                         {% endif %}
                         {% if proc.strings_path %}
                             <tr>
                                 <th>Process Strings</th>
-                                <td><a class="btn btn-secondary btn-small" href="{% url "file" "memdumpstrings" analysis.info.id proc.pid %}"><span class="fas fa-download"></a></td>
+                                <td><a class="btn btn-secondary btn-small" href="{% url "file" "memdumpstrings" analysis.info.id proc.pid %}" data-bs-toggle="tooltip" title="Download strings"><span class="fas fa-download"></a></td>
                             </tr>
                         {% endif %}
                     </table>
@@ -96,7 +96,7 @@
                                     <td><span class="badge badge-primary">No</span></td>
                                     {% endif %}
                                     {% if proc.file %}
-                                    <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}"><span class="fas fa-download"></a></td>
+                                    <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
                                     {% endif %}
                                 </tr>
                                 {% if memmap.chunks|length >= 2 %}
@@ -108,7 +108,7 @@
                                         <td>{{chunk.prot}}</td>
                                         <td></td>
                                         {% if proc.file %}
-                                        <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}"><span class="fas fa-download"></a></td>
+                                        <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
                                         {% endif %}
                                     </tr>
                                 {% endfor %}

@@ -1497,9 +1497,9 @@ scipy==1.7.0 \
     --hash=sha256:c5d012cb82cc1dcfa72609abaabb4a4ed8113e3e8ac43464508a418c146be57d \
     --hash=sha256:e7b733d4d98e604109715e11f2ab9340eb45d53f803634ed730039070fc3bc11
     # via imagehash
-sflock2==0.3.15 \
-    --hash=sha256:30efeeec54a4418cf1cdd8f2d44ce95587b81bdaa4d36cf5a8c4073076d21a1f \
-    --hash=sha256:a823c886c3ba6794992cb5c90c19c8630148a0a10032a28570d727a4f016efc6
+sflock2==0.3.17 \
+    --hash=sha256:2a58dc8b539cdd944ae552ec9a5fb779d59053aafa1d831e111be36b5b1c771a \
+    --hash=sha256:5a5aec5d0118359027e545685714d556dfa370f66823a6c4968902328aa62328
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
@@ -1590,7 +1590,7 @@ sqlparse==0.4.1 \
 statistics==1.0.3.5 \
     --hash=sha256:2dc379b80b07bf2ddd5488cad06b2b9531da4dd31edb04dc9ec0dc226486c138
     # via -r requirements.in
-tabulate==0.8.9 \
+tabulate[widechars]==0.8.9 \
     --hash=sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4 \
     --hash=sha256:eb1d13f25760052e8931f2ef80aaf6045a6cceb47514db8beab24cded16f13a7
     # via

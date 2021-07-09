@@ -308,16 +308,16 @@ class CAPE(Processing):
             if tmp_config and tmp_config[hit["name"].replace("_", " ")]:
                 config.update(tmp_config)
 
-        if type_string != "":
+        if type_string :
             log.info("CAPE: type_string: %s", type_string)
             tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
-            if tmp_config != {}:
+            if tmp_config:
                 cape_name = type_string.split(" ")[0]
                 log.info("CAPE: config returned for: %s", cape_name)
                 config.update(tmp_config)
 
         if cape_name:
-            if not "detections" in self.results:
+            if "detections" not in self.results:
                 if cape_name != "UPX":
                     # ToDo list of keys
                     self.results["detections"] = cape_name

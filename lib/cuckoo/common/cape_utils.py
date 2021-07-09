@@ -174,6 +174,7 @@ def static_config_parsers(yara_hit, file_data):
     # DC3-MWCP
 
     if HAS_MWCP and cape_name and cape_name in malware_parsers:
+        logging.debug("Running MWCP")
         try:
             reporter = mwcp.Reporter()
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
@@ -205,6 +206,7 @@ def static_config_parsers(yara_hit, file_data):
             logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
     if HAVE_CAPE_EXTRACTORS and not parser_loaded and cape_name in cape_malware_parsers:
+        logging.debug("Running CAPE")
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
             cape_configraw = cape_malware_parsers[cape_name].config(file_data)
@@ -226,6 +228,7 @@ def static_config_parsers(yara_hit, file_data):
             logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
+        logging.debug("Running Malwareconfigs")
         try:
             file_info = fileparser.FileParser(rawdata=file_data)
             module = __decoders__[file_info.malware_name]["obj"]()
@@ -246,6 +249,7 @@ def static_config_parsers(yara_hit, file_data):
             return {}
 
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
+        logging.debug("Running Malduck")
         ext = ExtractManager.__new__(ExtractManager)
         ext.configs = {}
         ext.modules = malduck_modules

@@ -3,11 +3,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import shutil
+import json
 import os
+import shutil
 import sys
 import zipfile
-from io import BytesIO
+
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 import logging
@@ -23,6 +24,14 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
+
+
+def get_signatures_modification_dict() -> dict:
+    file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'resources',
+                             'signatures_modification_dictionary.json')
+    with open(file_path) as f:
+        return json.load(f)
 
 def flare_capa_rules():
     try:
@@ -63,6 +72,8 @@ def install(enabled, force, rewrite, filepath):
     members = t.getmembers()
     directory = members[0].name.split("/")[0]
 
+    signatures_modification_dict = get_signatures_modification_dict()
+
     for category in enabled:
         folder = folders.get(category, False)
         if not folder:
@@ -92,6 +103,10 @@ def install(enabled, force, rewrite, filepath):
 
             install = False
             dest_file = os.path.basename(filepath)
+
+            if category == 'signatures' and dest_file in signatures_modification_dict['reject_list']:
+                return
+
             if not force:
                 while 1:
                     choice = input('Do you want to install file "{}"? [yes/no] '.format(dest_file))

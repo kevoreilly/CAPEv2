@@ -1467,6 +1467,7 @@ def filereport(request, task_id, category):
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
         "misp": "misp.json",
+        "litereport": "lite.json",
     }
 
     if category in formats:

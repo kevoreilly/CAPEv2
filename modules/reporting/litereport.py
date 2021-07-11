@@ -42,11 +42,11 @@ class LiteReport(Report):
         lite_report = {k: results[k] for k in results.keys() & keys_to_copy}
 
         # add specific keys from behavior
-        behavior_keys_to_copy = repconf.litereport.behaviour_keys_to_copy.split(" ")
+        behavior_keys_to_copy = repconf.litereport.behavior_keys_to_copy.split(" ")
         behavior = {k: results["behavior"][k] for k in results["behavior"].keys() & behavior_keys_to_copy}
         lite_report["behavior"] = behavior
 
-        path = os.path.join(self.reports_path, "lite-report.json")
+        path = os.path.join(self.reports_path, "lite.json")
         try:
             if HAVE_ORJSON:
                 with open(path, "wb") as report:

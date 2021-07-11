@@ -28,6 +28,9 @@
             {% if config.misp %}
                 <div class="column"><a href="{% url "filereport" analysis.info.id "misp" %}">MISP</a></div>
             {% endif %}
+            {% if config.litereport %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "litereport" %}">Lite</a></div>
+            {% endif %}
         </div>
     </div>
 </div>

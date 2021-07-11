@@ -468,16 +468,35 @@ def pending(request):
     return render(request, "analysis/pending.html", {"tasks": pending})
 
 
-ajax_mongo_schema = {
-    "CAPE": "CAPE",
-    "dropped": "dropped",
-    "debugger": "debugger",
-    "behavior": "behavior",
-    "network": "network",
-    "procdump": "procdump",
-    "memory": "memory",
-}
 
+def _load_file(task_id, sha256, existen_details, name):
+    filepath = False
+    if name == "bingraph":
+        filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", sha256 + "-ent.svg")
+
+    elif name == "vba2graph":
+        filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", sha256 + ".svg")
+
+    elif name == "debugger":
+        debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
+        if os.path.exists(debugger_log_path) and os.path.normpath(debugger_log_path).startswith(ANALYSIS_BASE_PATH):
+            for log in os.listdir(debugger_log_path):
+                if not log.endswith(".log"):
+                    continue
+
+                with open(os.path.join(debugger_log_path, log), "r") as f:
+                    existen_details[int(log.strip(".log"))] = f.read()
+    else:
+        return existen_details
+
+    if name in ("bingraph", "vba2graph"):
+        if not filepath or not os.path.exists(filepath) or not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+            return existen_details
+
+        with open(filepath, "r") as f:
+            existen_details.setdefault(sha256, f.read())
+
+    return existen_details
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -485,14 +504,11 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    # ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
         data = dict()
         debugger_logs = dict()
         bingraph_dict_content = dict()
         vba2graph_dict_content = dict()
-        bingraph_path = False
-        vba2graph_path = False
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
@@ -504,63 +520,36 @@ def load_files(request, task_id, category):
                     data["debugger"] = data["behavior"]
             elif category == "network":
                 data = results_db.analysis.find_one(
-                    {"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
+                    {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
                 )
             else:
-                data = results_db.analysis.find_one({"info.id": int(task_id)}, {ajax_mongo_schema[category]: 1, "info.tlp": 1, "_id": 0})
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
 
-            if enabledconf["bingraph"]:
-                bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-            if enabledconf["vba2graph"]:
-                vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph")
+            sha256_blocks = list()
+            if data:
+                if category == "CAPE":
+                    sha256_blocks = data.get("CAPE", {}).get("payloads", [])
+                if category in ("dropped", "procdump"):
+                    sha256_blocks = data.get(category, [])
 
-            if bingraph_path or vba2graph_path:
-                if os.path.exists(bingraph_path):
-                    if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
-                        for block in data.get(category, []):
-                            if not block.get("sha256"):
-                                continue
-                            # TODO clenaup later
-                            if bingraph_path:
-                                tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                                if os.path.exists(tmp_file):
-                                    with open(tmp_file, "r") as f:
-                                        bingraph_dict_content.setdefault(block["sha256"], f.read())
-                            if vba2graph_path:
-                                tmp_file = os.path.join(vba2graph_path, block["sha256"] + ".svg")
-                                if os.path.exists(tmp_file):
-                                    with open(tmp_file, "r") as f:
-                                        vba2graph_dict_content.setdefault(block["sha256"], f.read())
+            if (enabledconf["vba2graph"] or enabledconf["bingraph"]) and sha256_blocks:
 
-                    if ajax_mongo_schema.get(category, "") == "CAPE" and data:
-                        for block in data.get("CAPE", {}).get("payloads", []) or []:
-                            if not block.get("sha256"):
-                                continue
-                            if bingraph_path:
-                                tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                                if os.path.exists(tmp_file):
-                                    with open(tmp_file, "r") as f:
-                                        bingraph_dict_content.setdefault(block["sha256"], f.read())
-                            if vba2graph_path:
-                                tmp_file = os.path.join(vba2graph_path, block["sha256"] + ".svg")
-                                if os.path.exists(tmp_file):
-                                    with open(tmp_file, "r") as f:
-                                        vba2graph_dict_content.setdefault(block["sha256"], f.read())
+                for block in sha256_blocks or []:
+                    if not block.get("sha256"):
+                        continue
+                    if enabledconf["bingraph"]:
+                        bingraph_dict_content = _load_file(task_id, block["sha256"], bingraph_dict_content, name="bingraph")
+                    if enabledconf["vba2graph"]:
+                        vba2graph_dict_content = _load_file(task_id, block["sha256"], vba2graph_dict_content, name="vba2graph")
 
             if category == "debugger":
-                debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
-                if os.path.exists(debugger_log_path):
-                    for log in os.listdir(debugger_log_path):
-                        if not log.endswith(".log"):
-                            continue
-                        with open(os.path.join(debugger_log_path, log), "r") as f:
-                            debugger_logs[int(log.strip(".log"))] = f.read()
+                debugger_logs = _load_file(task_id, "", debugger_logs, name="debugger")
 
         # ES isn't supported
         page = "analysis/{}/index.html".format(category)
 
         ajax_response = {
-            ajax_mongo_schema[category]: data.get(category, {}),
+            category: data.get(category, {}),
             "tlp": data.get("info").get("tlp", ""),
             "id": task_id,
             "graphs": {

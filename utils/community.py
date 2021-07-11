@@ -3,11 +3,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import shutil
 import os
+import json
+import shutil
 import sys
 import zipfile
-from io import BytesIO
+
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 import logging
@@ -24,6 +25,15 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
+
+def get_signatures_modification_dict() -> dict:
+    file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             'resources',
+                             'signatures_modification_dictionary.json')
+    with open(file_path) as f:
+        return json.load(f)
+
+
 def flare_capa_rules():
     try:
         http = urllib3.PoolManager()
@@ -36,6 +46,7 @@ def flare_capa_rules():
         print("[+] FLARE CAPA rules installed")
     except Exception as e:
         print(e)
+
 
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
@@ -63,6 +74,8 @@ def install(enabled, force, rewrite, filepath):
     members = t.getmembers()
     directory = members[0].name.split("/")[0]
 
+    signatures_modification_dict = get_signatures_modification_dict()
+
     for category in enabled:
         folder = folders.get(category, False)
         if not folder:
@@ -76,7 +89,7 @@ def install(enabled, force, rewrite, filepath):
             if not member.name.startswith(name_start) or name_start == member.name:
                 continue
 
-            filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start) + 1 :])
+            filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start) + 1:])
             if member.name.endswith(".gitignore"):
                 continue
 
@@ -92,6 +105,10 @@ def install(enabled, force, rewrite, filepath):
 
             install = False
             dest_file = os.path.basename(filepath)
+
+            if category == 'signatures' and dest_file in signatures_modification_dict['reject_list']:
+                return
+
             if not force:
                 while 1:
                     choice = input('Do you want to install file "{}"? [yes/no] '.format(dest_file))
@@ -123,13 +140,18 @@ def main():
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers", action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
-    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
+    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true",
+                        required=False)
     parser.add_argument("-data", "--data", help="Download data items", action="store_true", required=False)
-    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False)
+    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False,
+                        required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
-    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
-    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
-    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False, required=False)
+    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master",
+                        required=False)
+    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,
+                        required=False)
+    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False,
+                        required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)
@@ -172,4 +194,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-

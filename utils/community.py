@@ -140,18 +140,13 @@ def main():
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers", action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
-    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true",
-                        required=False)
+    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
     parser.add_argument("-data", "--data", help="Download data items", action="store_true", required=False)
-    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False,
-                        required=False)
+    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
-    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master",
-                        required=False)
-    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,
-                        required=False)
-    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False,
-                        required=False)
+    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
+    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,required=False)
+    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)

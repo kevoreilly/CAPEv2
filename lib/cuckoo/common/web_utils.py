@@ -571,6 +571,7 @@ def download_file(**kwargs):
             cape=cape,
             user_id=kwargs.get("user_id"),
             username = username,
+            source_url = kwargs.get("source_url", False)
             #parent_id=kwargs.get("parent_id", None),
             #sample_parent_id=kwargs.get("sample_parent_id", None)
         )

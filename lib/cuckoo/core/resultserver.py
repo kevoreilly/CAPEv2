@@ -198,11 +198,12 @@ class FileUpload(ProtocolHandler):
             # NB: filepath is only used as metadata
             filepath = self.handler.read_newline()
             pids = list(map(int, self.handler.read_newline().split()))
+            ppids = list(map(int, self.handler.read_newline().split()))
             metadata = self.handler.read_newline()
             category = self.handler.read_newline()
             duplicated = int(self.handler.read_newline()) or 0
         else:
-            filepath, pids, metadata, category, duplicated = None, [], b"", b"", False
+            filepath, pids, ppid, metadata, category, duplicated = None, [], [], b"", b"", False
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         if not duplicated:
@@ -226,6 +227,7 @@ class FileUpload(ProtocolHandler):
                             "path": dump_path.decode("utf-8", "replace"),
                             "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                             "pids": pids,
+                            "ppids": ppids,
                             "metadata": metadata.decode("utf-8", "replace"),
                             "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
                         },

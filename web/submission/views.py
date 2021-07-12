@@ -424,6 +424,7 @@ def index(request, resubmit_hash=False):
             details["path"] = path
             details["content"] = get_file_content(path)
             details["service"] = "DLnExec"
+            details["source_url"] = url
             status, task_ids_tmp = download_file(**details)
             if status == "error":
                 details["errors"].append({name: task_ids_tmp})

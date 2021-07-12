@@ -213,71 +213,71 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     count = 0
     db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
-    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
     try:
         memory_limit()
         log.info("Processing analysis data")
-        # CAUTION - big ugly loop ahead.
-        while count < maxcount or not maxcount:
+        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+            # CAUTION - big ugly loop ahead.
+            while count < maxcount or not maxcount:
 
-            # If not enough free disk space is available, then we print an
-            # error message and wait another round (this check is ignored
-            # when the freespace configuration variable is set to zero).
-            if cfg.cuckoo.freespace:
-                # Resolve the full base path to the analysis folder, just in
-                # case somebody decides to make a symbolic link out of it.
-                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
-                if need_space:
-                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
-                    time.sleep(60)
-                    continue
+                # If not enough free disk space is available, then we print an
+                # error message and wait another round (this check is ignored
+                # when the freespace configuration variable is set to zero).
+                if cfg.cuckoo.freespace:
+                    # Resolve the full base path to the analysis folder, just in
+                    # case somebody decides to make a symbolic link out of it.
+                    dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                    need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
+                    if need_space:
+                        log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                        time.sleep(60)
+                        continue
 
-            # If still full, don't add more (necessary despite pool).
-            if len(pending_task_id_map) >= parallel:
-                time.sleep(5)
-                continue
-            if failed_processing:
-                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-            else:
-                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-            added = False
-            # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
-            for task in tasks:
-                # Not-so-efficient lock.
-                if pending_task_id_map.get(task.id):
+                # If still full, don't add more (necessary despite pool).
+                if len(pending_task_id_map) >= parallel:
+                    time.sleep(5)
                     continue
-                log.info("Processing analysis data for Task #%d", task.id)
-                if task.category == "file":
-                    sample = db.view_sample(task.sample_id)
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                if failed_processing:
+                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
                 else:
-                    copy_path = None
-                args = task.target, copy_path
-                kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-                # result = pool.apply_async(process, args, kwargs)
-                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                pending_future_map[future] = task.id
-                pending_task_id_map[task.id] = future
-                future.add_done_callback(processing_finished)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-                count += 1
-                added = True
-                break
-            if not added:
-                # don't hog cpu
-                time.sleep(5)
+                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                added = False
+                # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
+                for task in tasks:
+                    # Not-so-efficient lock.
+                    if pending_task_id_map.get(task.id):
+                        continue
+                    log.info("Processing analysis data for Task #%d", task.id)
+                    if task.category == "file":
+                        sample = db.view_sample(task.sample_id)
+                        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                    else:
+                        copy_path = None
+                    args = task.target, copy_path
+                    kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    # result = pool.apply_async(process, args, kwargs)
+                    future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                    pending_future_map[future] = task.id
+                    pending_task_id_map[task.id] = future
+                    future.add_done_callback(processing_finished)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    count += 1
+                    added = True
+                    break
+                if not added:
+                    # don't hog cpu
+                    time.sleep(5)
     except KeyboardInterrupt:
         # ToDo verify in finally
         # pool.terminate()
         raise
     except MemoryError:
-        mem = get_memory() / 1024 /1024
+        mem = get_memory() / 1024 / 1024
         print('Remain: %.2f GB' % mem)
         sys.stderr.write('\n\nERROR: Memory Exception\n')
         sys.exit(1)

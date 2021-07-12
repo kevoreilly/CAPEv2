@@ -17,10 +17,19 @@ try:
 except ImportError:
     import re
 
+# os.listdir('/sys/class/net/')
+HAVE_NETWORKIFACES = False
+try:
+    import psutil
+    network_interfaces = list(psutil.net_if_addrs().keys())
+    HAVE_NETWORKIFACES = True
+except ImportError:
+    print("Missde dependency: pip3 install netifaces")
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
-from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooNetworkError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
@@ -471,7 +480,7 @@ class AnalysisManager(threading.Thread):
         if self.task.route:
             self.route = self.task.route
 
-        if self.route in ("none", "None", "drop"):
+        if self.route in ("none", "None", "drop", "false"):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
@@ -530,6 +539,10 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
 
         self._rooter_response_check()
+
+        # check if the interface is up
+        if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
+            raise CuckooNetworkError("Network interface {} not found".format(self.interface))
 
         if self.interface:
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)

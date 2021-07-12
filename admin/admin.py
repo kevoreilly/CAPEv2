@@ -177,7 +177,7 @@ def execute_command_on_all(remote_command):
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
-            if "Active: active (running)" in ssh_out:
+            if "Active: active (running)" in ssh_out and not "systemctl status" in remote_command:
                 log.info("[+] Service " + green("restarted successfully and is UP"))
             else:
                 if ssh_out:
@@ -415,7 +415,7 @@ if __name__ == "__main__":
                 files.remove(file)
 
             if file.endswith("admin.py"):
-                continue
+                files.remove(file)
 
         if args.dry_run:
             print(files)

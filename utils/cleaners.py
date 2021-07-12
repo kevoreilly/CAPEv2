@@ -358,6 +358,37 @@ def cuckoo_clean_lower_score(args):
     log.info(("number of matching records %s" % len(id_arr)))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
+def tmp_clean_before_day(args):
+    """Clean up tmp folder
+    It deletes all items in tmp folder before now - days.
+    """
+    if not args.delete_tmp_items_older_than_days:
+        log.info("Must provide argument delete_tmp_items_older_than_days")
+        return
+
+    days = args.delete_tmp_items_older_than_days
+    init_console_logging()
+
+    today = datetime.today()
+    tmp_folder_path = cuckoo.cuckoo.get("tmppath")
+
+    for root, directories, files in os.walk(tmp_folder_path, topdown=True):
+        for name in files + directories:
+            path = os.path.join(root, name)
+            last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
+            file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
+
+            if file_time.days > days:
+                try:
+                    if os.path.isdir(path):
+                        log.info("Delete folder: {0}".format(path))
+                        delete_folder(path)
+                    else:
+                        if os.path.exists(path):
+                            log.info("Delete file: {0}".format(path))
+                            os.remove(path)
+                except Exception as e:
+                    log.error(e)
 
 def cuckoo_clean_before_day(args):
     """Clean up failed tasks
@@ -402,7 +433,7 @@ def cuckoo_clean_before_day(args):
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr}, {"info.id": 1, "_id": 0}))
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.dont_delete_mongo)
+    delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
     #resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -529,7 +560,8 @@ if __name__ == "__main__":
     parser.add_argument("--pending-clean", help="Remove all tasks marked as pending", required=False, action="store_true")
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
-    parser.add_argument("-ddm", "--dont-delete-mongo", help="Keep mongo data but remove the rest", required=False, default=False, action="store_true")
+    parser.add_argument("--delete-tmp-items-older-than-days", help="Remove all items in tmp folder older than X number of days", type=int, required=False)
+    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo", required=False, default=False, action="store_true")
     parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False,)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False )
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False )
@@ -577,4 +609,8 @@ if __name__ == "__main__":
 
     if args.deduplicated_cluster_queue:
         cuckoo_dedup_cluster_queue()
+        sys.exit(0)
+
+    if args.delete_tmp_items_older_than_days:
+        tmp_clean_before_day(args)
         sys.exit(0)

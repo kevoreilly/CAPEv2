@@ -213,12 +213,12 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     count = 0
     db = Database()
     # pool = multiprocessing.Pool(parallel, init_worker)
-    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
     try:
         memory_limit()
         log.info("Processing analysis data")
-        # CAUTION - big ugly loop ahead.
-        while count < maxcount or not maxcount:
+        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+            # CAUTION - big ugly loop ahead.
+            while count < maxcount or not maxcount:
 
             # If not enough free disk space is available, then we print an
             # error message and wait another round (this check is ignored
@@ -277,7 +277,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         # pool.terminate()
         raise
     except MemoryError:
-        mem = get_memory() / 1024 /1024
+        mem = get_memory() / 1024 / 1024
         print('Remain: %.2f GB' % mem)
         sys.stderr.write('\n\nERROR: Memory Exception\n')
         sys.exit(1)

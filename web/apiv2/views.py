@@ -1080,6 +1080,19 @@ def tasks_report(request, task_id, report_format="json"):
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
+        "lite": {
+            "type": "+",
+            "files": [
+                "files.json",
+                "CAPE",
+                "files",
+                "procdump",
+                "macros",
+                "lite",
+                "shots",
+                "dump.pcap"
+            ]
+        }
     }
 
     if report_format.lower() in formats:
@@ -1087,7 +1100,7 @@ def tasks_report(request, task_id, report_format="json"):
         if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": "File not found".format(os.path.basename(report_path))})
         if os.path.exists(report_path):
-            if report_format in ("json", "maec5"):
+            if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
                 ext = "json"
             elif report_format.startswith("html"):

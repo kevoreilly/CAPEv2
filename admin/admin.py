@@ -415,7 +415,7 @@ if __name__ == "__main__":
                 files.remove(file)
 
             if file.endswith("admin.py"):
-                continue
+                files.remove(file)
 
         if args.dry_run:
             print(files)

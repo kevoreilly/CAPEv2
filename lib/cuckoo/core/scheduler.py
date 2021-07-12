@@ -480,7 +480,7 @@ class AnalysisManager(threading.Thread):
         if self.task.route:
             self.route = self.task.route
 
-        if self.route in ("none", "None", "drop"):
+        if self.route in ("none", "None", "drop", "false"):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":

@@ -308,7 +308,7 @@ def tasks_create_file(request):
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             details["path"] = tmp_path
 
-            if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(
+            if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(
                 File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours
             ):
                 details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})

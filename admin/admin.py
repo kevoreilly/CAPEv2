@@ -413,9 +413,15 @@ if __name__ == "__main__":
         for file in files[:]:
             if not file.startswith(("CAPE", "Custom", "Extractors")):
                 files.remove(file)
+                continue
 
             if file.endswith("admin.py"):
                 files.remove(file)
+                continue
+
+            if "/conf/" in file and file.endswith(".conf"):
+                files.remove(file)
+                continue
 
         if args.dry_run:
             print(files)

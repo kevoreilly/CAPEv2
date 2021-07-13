@@ -280,7 +280,7 @@ def tasks_create_file(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
         # Parse a max file size to be uploaded
@@ -438,7 +438,7 @@ def tasks_create_url(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
 
@@ -645,7 +645,7 @@ def tasks_vtdl(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
 
@@ -978,7 +978,7 @@ def tasks_reschedule(request, task_id):
         resp["error"] = False
         resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
-        resp = {"error": True, "error_value": ("An error occured while trying to reschedule " "Task ID {0}".format(task_id))}
+        resp = {"error": True, "error_value": ("An error occured while trying to reschedule Task ID {0}".format(task_id))}
 
     return Response(resp)
 
@@ -1670,7 +1670,7 @@ def tasks_procmemory(request, task_id, pid="all"):
                 resp["Content-Length"] = os.path.getsize(srcfile)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
         else:
-            resp = {"error": True, "error_value": "Process memory dump does not exist for " "pid %s" % pid}
+            resp = {"error": True, "error_value": "Process memory dump does not exist for pid %s" % pid}
             return Response(resp)
 
     return resp

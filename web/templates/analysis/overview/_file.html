@@ -188,23 +188,23 @@
                                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a>
                             {% endif %}
                         {% endif %}
-                        {% if graphs.bingraph.enabled %}
-                            {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
-                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
-                            {% else %}
-                                <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
-                            {% endif %}
+                    {% endif %}
+                    {% if graphs.bingraph.enabled %}
+                        {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
+                        {% else %}
+                            <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
                         {% endif %}
-                        {% if graphs.vba2graph.enabled and analysis.static.office %}
-                            {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
-                                <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
-                            {% else %}
-                                <a href="{% url "file_nl" "vba2graph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
-                            {% endif %}
+                    {% endif %}
+                    {% if graphs.vba2graph.enabled and analysis.static.office %}
+                        {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
+                        {% else %}
+                            <a href="{% url "file_nl" "vba2graph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
                         {% endif %}
-                        {% if config.virustotal and not analysis.virustotal %}
-                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
-                        {% endif %}
+                    {% endif %}
+                    {% if config.virustotal and not analysis.virustotal %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
                     {% endif %}
                     {% if config.vtupload and analysis.info.tlp != "Red" %}
                         <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle" data-bs-toggle="tooltip" title="Upload file to VirusTotal"></span> <span class="fas fa-upload"></span> VirusTotal</a>

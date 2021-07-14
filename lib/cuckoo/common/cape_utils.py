@@ -85,8 +85,9 @@ if process_cfg.malduck.enabled:
 HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-    cape_malware_parsers = cape_load_decoders(process_cfg.CAPE_extractors.modules_path)
-    HAVE_CAPE_EXTRACTORS = True
+    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
+    if cape_malware_parsers:
+        HAVE_CAPE_EXTRACTORS = True
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
@@ -172,7 +173,6 @@ def static_config_parsers(yara_hit, file_data):
     parser_loaded = False
     # Attempt to import a parser for the hit
     # DC3-MWCP
-
     if HAS_MWCP and cape_name and cape_name in malware_parsers:
         logging.debug("Running MWCP")
         try:
@@ -264,6 +264,9 @@ def static_config_parsers(yara_hit, file_data):
             for (key, value) in tmp_config[0].items():
                 cape_config[cape_name].update({key: [value]})
 
+    if not cape_config[cape_name]:
+        return dict()
+
     return cape_config
 
 def static_config_lookup(file_path, sha256=False):
@@ -284,7 +287,7 @@ def static_extraction(path):
         with open(path, "rb") as file_open:
             file_data = file_open.read()
         for hit in hits:
-            config = static_config_parsers(hit, file_data)
+            config = static_config_parsers(hit["name"], file_data)
             if config:
                 return config
         return False

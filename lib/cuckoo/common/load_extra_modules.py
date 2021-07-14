@@ -1,3 +1,5 @@
+import os
+import glob
 import importlib
 import inspect
 import pkgutil
@@ -33,17 +35,18 @@ def ratdecodedr_load_decoders(path):
     return dec_modules
 
 
-def cape_load_decoders(path):
-    cape_modules = dict()
-    for _, module_name, ispkg in pkgutil.iter_modules([path], prefix=path.replace("/", ".")):
-        if ispkg:
-            continue
-        # Try to import the module, otherwise skip.
-        try:
-            module = importlib.import_module(module_name)
-        except ImportError as e:
-            print("Unable to import Module {0}: {1}".format(module_name, e))
-            continue
+def cape_load_decoders(CUCKOO_ROOT):
 
-        cape_modules[module_name.split(".")[-1]] = module
+    cape_modules = dict()
+    cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
+    CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
+
+    for name in CAPE_DECODERS:
+        try:
+            cape_modules[name] = importlib.import_module("modules.processing.parsers.CAPE." + name)
+        except (ImportError, IndexError) as e:
+            if "datadirs" in str(e):
+              print("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
+            print("CAPE parser: No module named {} - {}".format(name, e))
+
     return cape_modules

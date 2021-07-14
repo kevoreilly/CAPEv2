@@ -542,6 +542,10 @@ def download_file(**kwargs):
     else:
         kwargs["task_machines"] = ["first"]
 
+    # Try to extract before submit to VM
+    if not static and "dist_extract" in kwargs["options"]:
+        static = True
+
     for machine in kwargs.get("task_machines", []):
         if machine == "first":
             machine = None

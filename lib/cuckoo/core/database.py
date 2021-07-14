@@ -1377,6 +1377,7 @@ class Database(object, metaclass=Singleton):
         # force auto package for linux files
         if platform == "linux":
             package = ""
+        original_options = options
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -1410,7 +1411,6 @@ class Database(object, metaclass=Singleton):
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
-
                 if not package:
                     f = SflockFile.from_path(file)
                     tmp_package = sflock_identify(f)
@@ -1419,6 +1419,15 @@ class Database(object, metaclass=Singleton):
                     else:
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
+
+                # ToDo better solution? - Distributed mode here:
+                # Main node is storage so try to extract before submit to vm isn't propagated to workers
+                options = original_options
+                if static and not config and repconf.distributed.enabled:
+                    if options:
+                        options += ",dist_extract=1"
+                    else:
+                        options = "dist_extract=1"
 
                 task_id = self.add_path(
                     file_path=file.decode(),

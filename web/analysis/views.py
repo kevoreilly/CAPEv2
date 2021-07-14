@@ -574,6 +574,9 @@ def load_files(request, task_id, category):
         elif category == "network":
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
+            pcap_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "tlsdump", "tlsdump.log")
+            if os.path.normpath(pcap_path).startswith(ANALYSIS_BASE_PATH):
+                ajax_response["tlskeys_exists"] = os.path.exists(pcap_path)
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)

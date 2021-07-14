@@ -331,7 +331,7 @@ def index(request, resubmit_hash=False):
                 task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
-                details["task_ids"] += task_id
+                details["task_ids"].append(task_id)
 
         elif "pcap" in request.FILES:
             samples = request.FILES.getlist("pcap")

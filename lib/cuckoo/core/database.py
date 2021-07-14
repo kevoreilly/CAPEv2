@@ -1407,7 +1407,7 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
+                        task_ids += self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
@@ -1457,11 +1457,8 @@ class Database(object, metaclass=Singleton):
                     username=username,
                 )
             if task_id:
-                if type(task_id) is int:
-                    task_ids.append(task_id)
-                elif type(task_id) is list:
-                    # Static extraction returns list
-                    task_ids += task_id
+                task_ids.append(task_id)
+
 
         details = {}
         if config:

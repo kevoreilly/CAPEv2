@@ -1457,7 +1457,11 @@ class Database(object, metaclass=Singleton):
                     username=username,
                 )
             if task_id:
-                task_ids.append(task_id)
+                if type(task_id) is int:
+                    task_ids.append(task_id)
+                elif type(task_id) is list:
+                    # Static extraction returns list
+                    task_ids += task_id
 
         details = {}
         if config:

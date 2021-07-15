@@ -1404,12 +1404,13 @@ class Database(object, metaclass=Singleton):
             if static:
                 # we don't need to process extra file if we already have it and config
                 config = static_config_lookup(file)
-                if not config:
-                    config = static_extraction(file)
-                    if config:
-                        task_ids += self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
-                else:
+                if config:
                     task_ids.append(config["id"])
+                else:
+                    config = static_extraction(file)
+                if config or static_extraction:
+                    task_ids += self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
+
             if not config and only_extraction is False:
                 if not package:
                     f = SflockFile.from_path(file)

@@ -35,8 +35,6 @@ def choose_package(file_type, file_name, exports, target):
         return "exe"
     elif file_name.endswith((".msi",".msp",".appx")) or "MSI Installer" in file_type:
         return "msi"
-    elif "PDF" in file_type or file_name.endswith(".pdf"):
-        return "pdf"
     elif file_name.endswith(".pub"):
         return "pub"
     elif (
@@ -82,8 +80,6 @@ def choose_package(file_type, file_name, exports, target):
         return "hta"
     elif file_name.endswith(".xps"):
         return "xps"
-    elif file_name.endswith(".wsf") or file_type == "XML document text":
-        return "wsf"
     elif "HTML" in file_type:
         return "html"
     elif file_name.endswith(".mht"):
@@ -100,10 +96,21 @@ def choose_package(file_type, file_name, exports, target):
         return "hwp"
     elif file_name.endswith((".inp", ".int")) or b"InPage Arabic Document" in file_content:
         return "inp"
-    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
-        return "vbs"
     elif file_name.endswith(".xsl") or file_name.endswith(".xslt") or "XSL stylesheet" in file_type:
         return "xslt"
+    elif file_name.endswith(".sct"):
+        if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration",file_content):
+            return "sct"
+        else:
+            return "hta"
+    elif file_name.endswith(".wsf") or file_type == "XML document text":
+        return "wsf"
+    elif "PDF" in file_type or file_name.endswith(".pdf"):
+        return "pdf"
+    elif re.search(b"<script\\s+language=\"(J|VB|Perl)Script\"",file_content,re.I):
+        return "wsf"
+    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
+        return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
     elif b"#@~^" in file_content[:100]:

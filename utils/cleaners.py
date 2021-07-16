@@ -91,7 +91,7 @@ def delete_bulk_tasks_n_folders(tids: list, dont_delete_mongo: bool):
                 analyses_tmp = list()
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))
                 analyses = results_db.analysis.find({"info.id": {"$in": [id for id in ids_tmp]}}, {"behavior.processes": 1, "_id": 1})
-                if analyses.count() > 0:
+                if analyses:
                     for analysis in analyses:
                         calls = list()
                         for process in analysis.get("behavior", {}).get("processes", []):

@@ -113,6 +113,8 @@ def choose_package(file_type, file_name, exports, target):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
+    elif file_name.endswith(".csproj") or b"msbuild" in file_content:
+        return "msbuild"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:

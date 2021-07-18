@@ -27,7 +27,7 @@ regex
 xmltodict
 SFlock2==0.3.20
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
-pyattck==3.0.1
+pyattck==4.0.3
 distorm3
 openpyxl
 volatility3==1.0.1

@@ -31,7 +31,7 @@ pyattck==3.0.1
 distorm3
 openpyxl
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/3128c35ebce0cf3ed0ea6b0efad252d4d2e8467a.zip
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/4728328809834af4561949a99f8f9fd2499e834f.zip
 passlib
 pyzipper
 mwcp==3.3.1

@@ -36,7 +36,7 @@ from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
 from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
-from data.safelist.domains import domain_passlist
+from data.safelist.domains import domain_passlist_re
 
 try:
     import GeoIP
@@ -94,7 +94,7 @@ if enabled_passlist and passlist_file:
             if domain.startswith("#") or len(domain.strip()) == 0:
                 # comment or empty line
                 continue
-            domain_passlist.append(domain)
+            domain_passlist_re.append(domain)
 
 
 ip_passlist = set()
@@ -471,7 +471,7 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in domain_passlist:
+                for reject in domain_passlist_re:
                     try:
                         if re.search(reject, query["request"]):
                             if query["answers"]:
@@ -555,7 +555,7 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in domain_passlist:
+                for reject in domain_passlist_re:
                     if re.search(reject, entry["host"]):
                         return False
 
@@ -903,7 +903,7 @@ class Pcap2(object):
                 elif protocol in ("http", "https"):
                     hostname = sent.headers.get("host")
 
-                for reject in domain_passlist:
+                for reject in domain_passlist_re:
                     if hostname and re.search(reject, hostname):
                         return False
 

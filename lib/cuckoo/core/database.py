@@ -39,7 +39,43 @@ except ImportError:
 
 
 sandbox_packages = (
-    "nsis", "cpl", "regsvr", "dll", "exe", "pdf", "pub", "doc", "xls", "ppt", "jar", "zip", "rar", "swf", "python", "msi", "ps1", "msg", "eml", "js", "html", "hta", "xps", "wsf", "mht", "doc", "vbs", "lnk", "chm", "hwp", "inp", "vbs", "js", "vbejse",
+    "nsis",
+    "cpl",
+    "regsvr",
+    "dll",
+    "exe",
+    "pdf",
+    "pub",
+    "doc",
+    "xls",
+    "ppt",
+    "jar",
+    "zip",
+    "rar",
+    "swf",
+    "python",
+    "msi",
+    "ps1",
+    "msg",
+    "eml",
+    "js",
+    "html",
+    "hta",
+    "xps",
+    "wsf",
+    "mht",
+    "doc",
+    "vbs",
+    "lnk",
+    "chm",
+    "hwp",
+    "inp",
+    "vbs",
+    "js",
+    "vbejse",
+    "msbuild",
+    "sct",
+    "xslt",
 )
 
 log = logging.getLogger(__name__)
@@ -51,7 +87,7 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource = repconf.mongodb.get("authsource", "cuckoo")
+    authSource=repconf.mongodb.get("authsource", "cuckoo"),
 )[repconf.mongodb.db]
 
 SCHEMA_VERSION = "6dc79a3ee6e4"
@@ -69,12 +105,18 @@ TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
-    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
+    "machines_tags",
+    Base.metadata,
+    Column("machine_id", Integer, ForeignKey("machines.id")),
+    Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(
-    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
+    "tasks_tags",
+    Base.metadata,
+    Column("task_id", Integer, ForeignKey("tasks.id")),
+    Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 
@@ -485,7 +527,11 @@ class Database(object, metaclass=Singleton):
             last = tmp_session.query(AlembicVersion).first()
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
-                print("DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(last.version_num, SCHEMA_VERSION))
+                print(
+                    "DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(
+                        last.version_num, SCHEMA_VERSION
+                    )
+                )
                 print(red("cd utils/db_migration/ && alembic upgrade head"))
                 sys.exit()
 
@@ -513,7 +559,9 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError("Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib))
+            raise CuckooDependencyError(
+                "Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib)
+            )
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -973,7 +1021,7 @@ class Database(object, metaclass=Singleton):
 
     @classlock
     def get_available_machines(self):
-        """  Which machines are available
+        """Which machines are available
         @return: free virtual machines
         """
         session = self.Session()
@@ -1100,12 +1148,11 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
-        route = None,
-        cape = False,
-        tags_tasks = False,
-        user_id = 0,
-        username = False,
-
+        route=None,
+        cape=False,
+        tags_tasks=False,
+        user_id=0,
+        username=False,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1273,7 +1320,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False
+        username=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1364,7 +1411,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         user_id=0,
-        username=False
+        username=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1409,7 +1456,9 @@ class Database(object, metaclass=Singleton):
                 else:
                     config = static_extraction(file)
                 if config or static_extraction:
-                    task_ids += self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
+                    task_ids += self.add_static(
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                    )
 
             if not config and only_extraction is False:
                 if not package:
@@ -1459,7 +1508,6 @@ class Database(object, metaclass=Singleton):
                 )
             if task_id:
                 task_ids.append(task_id)
-
 
         details = {}
         if config:
@@ -1605,7 +1653,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username = False,
+        username=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1653,11 +1701,11 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
-            route = route,
-            cape = cape,
-            tags_tasks = tags_tasks,
-            user_id = user_id,
-            username = username,
+            route=route,
+            cape=cape,
+            tags_tasks=tags_tasks,
+            user_id=user_id,
+            username=username,
         )
 
     @classlock
@@ -1742,14 +1790,19 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def check_file_uniq(self, sha256: str, hours: int=0):
+    def check_file_uniq(self, sha256: str, hours: int = 0):
         uniq = False
         session = self.Session()
         try:
             if hours and sha256:
-                date_since = datetime.now()-timedelta(hours=hours)
+                date_since = datetime.now() - timedelta(hours=hours)
                 date_till = datetime.now()
-                uniq = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Sample.sha256==sha256, Task.added_on.between(date_since, date_till)).first()
+                uniq = (
+                    session.query(Task)
+                    .join(Sample, Task.sample_id == Sample.id)
+                    .filter(Sample.sha256 == sha256, Task.added_on.between(date_since, date_till))
+                    .first()
+                )
             else:
                 if not Database.find_sample(self, sha256=sha256):
                     uniq = False
@@ -1765,8 +1818,8 @@ class Database(object, metaclass=Singleton):
     @classlock
     def list_parents(self, parent_id):
         """
-            Retrieve tasks created by ID
-            @param parent_id: filter tasks created by parent ID
+        Retrieve tasks created by ID
+        @param parent_id: filter tasks created by parent ID
         """
         session = self.Session()
         try:
@@ -1784,9 +1837,9 @@ class Database(object, metaclass=Singleton):
     @classlock
     def list_sample_parent(self, sample_id=False, task_id=False):
         """
-            Retrieve parent sample details by sample_id or task_id
-            @param sample_id: Sample id
-            @param task_id: Task id
+        Retrieve parent sample details by sample_id or task_id
+        @param sample_id: Sample id
+        @param task_id: Task id
         """
         parent_sample = dict()
         parent = False
@@ -1798,7 +1851,10 @@ class Database(object, metaclass=Singleton):
                     parent = parent[0]
             elif task_id:
                 _, parent = (
-                    session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+                    session.query(Task.sample_id, Sample.parent)
+                    .join(Sample, Sample.id == Task.sample_id)
+                    .filter(Task.id == task_id)
+                    .first()
                 )
 
             if parent:
@@ -1856,17 +1912,17 @@ class Database(object, metaclass=Singleton):
         try:
             search = session.query(Task)
             if inclide_hashes:
-                search = search.join(Sample, Task.sample_id==Sample.id)
+                search = search.join(Sample, Task.sample_id == Sample.id)
             if status:
-                search = search.filter(Task.status==status)
+                search = search.filter(Task.status == status)
             if not_status:
                 search = search.filter(Task.status != not_status)
             if category:
-                search = search.filter(Task.category==category)
+                search = search.filter(Task.category == category)
             if details:
                 search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
             if sample_id is not None:
-                search = search.filter(Task.sample_id==sample_id)
+                search = search.filter(Task.sample_id == sample_id)
             if id_before is not None:
                 search = search.filter(Task.id < id_before)
             if id_after is not None:
@@ -1895,8 +1951,8 @@ class Database(object, metaclass=Singleton):
 
     def minmax_tasks(self):
         """Find tasks minimum and maximum
-         @return: unix timestamps of minimum and maximum
-         """
+        @return: unix timestamps of minimum and maximum
+        """
         session = self.Session()
         try:
             _min = session.query(func.min(Task.started_on).label("min")).first()
@@ -1911,7 +1967,7 @@ class Database(object, metaclass=Singleton):
     @classlock
     def get_tlp_tasks(self):
         """
-            Retrieve tasks with TLP
+        Retrieve tasks with TLP
         """
         session = self.Session()
         try:
@@ -2009,7 +2065,7 @@ class Database(object, metaclass=Singleton):
             session.close()
         return True
 
-    #classlock
+    # classlock
     def delete_tasks(self, ids):
         session = self.Session()
         try:
@@ -2114,14 +2170,22 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                     {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
+                    tasks = results_db.analysis.find(
+                        {"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                    )
                     if tasks:
                         for task in tasks:
                             for block in task.get("CAPE", {}).get("payloads", []) or []:
                                 if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get("CAPE"),
-                                                        block["sha256"])
+                                    path = os.path.join(
+                                        CUCKOO_ROOT,
+                                        "storage",
+                                        "analyses",
+                                        str(task["info"]["id"]),
+                                        folders.get("CAPE"),
+                                        block["sha256"],
+                                    )
                                     if os.path.exists(path):
                                         sample = [path]
                                         break
@@ -2130,14 +2194,22 @@ class Database(object, metaclass=Singleton):
 
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
-                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                         {category: 1, "_id": 0, "info.id":1 })
+                        tasks = results_db.analysis.find(
+                            {category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                            {category: 1, "_id": 0, "info.id": 1},
+                        )
                         if tasks:
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category),
-                                                            block["sha256"])
+                                        path = os.path.join(
+                                            CUCKOO_ROOT,
+                                            "storage",
+                                            "analyses",
+                                            str(task["info"]["id"]),
+                                            folders.get(category),
+                                            block["sha256"],
+                                        )
                                         if os.path.exists(path):
                                             sample = [path]
                                             break
@@ -2235,9 +2307,9 @@ class Database(object, metaclass=Singleton):
     @classlock
     def get_source_url(self, sample_id=False):
         """
-            Retrieve url from where sample was downloaded
-            @param sample_id: Sample id
-            @param task_id: Task id
+        Retrieve url from where sample was downloaded
+        @param sample_id: Sample id
+        @param task_id: Task id
         """
         source_url = False
         session = self.Session()
@@ -2258,12 +2330,16 @@ class Database(object, metaclass=Singleton):
     @classlock
     def ban_user_tasks(self, user_id: int):
         """
-            Ban all tasks submitted by user_id
-            @param user_id: user id
+        Ban all tasks submitted by user_id
+        @param user_id: user id
         """
 
         session = self.Session()
-        _ = session.query(Task).filter(Task.user_id == int(user_id)).filter(Task.status == TASK_PENDING).update(
-           {Task.status: TASK_BANNED}, synchronize_session=False)
+        _ = (
+            session.query(Task)
+            .filter(Task.user_id == int(user_id))
+            .filter(Task.status == TASK_PENDING)
+            .update({Task.status: TASK_BANNED}, synchronize_session=False)
+        )
         session.commit()
         session.close()

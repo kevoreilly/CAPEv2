@@ -62,7 +62,7 @@ def choose_package(file_type, file_name, exports, target):
         return "zip"
     elif "RAR archive" in file_type or file_name.endswith(".rar"):
         return "rar"
-    elif "Macromedia Flash" in file_type or file_name.endswith(".swf") or file_name.endswith(".fws"):
+    elif "Macromedia Flash" in file_type or file_name.endswith((".swf", ".fws")):
         return "swf"
     elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
         return "python"
@@ -70,9 +70,9 @@ def choose_package(file_type, file_name, exports, target):
         return "ps1"
     elif file_name.endswith(".msg"):
         return "msg"
-    elif file_name.endswith(".eml") or file_name.endswith(".ics") or "vCalendar calendar" in file_type:
+    elif file_name.endswith((".eml", ".ics")) or "vCalendar calendar" in file_type:
         return "eml"
-    elif file_name.endswith(".js") or file_name.endswith(".jse"):
+    elif file_name.endswith((".js", ".jse")):
         return "js"
     elif file_name.endswith((".htm", ".html")):
         return "html"
@@ -96,7 +96,7 @@ def choose_package(file_type, file_name, exports, target):
         return "hwp"
     elif file_name.endswith((".inp", ".int")) or b"InPage Arabic Document" in file_content:
         return "inp"
-    elif file_name.endswith(".xsl") or file_name.endswith(".xslt") or "XSL stylesheet" in file_type:
+    elif file_name.endswith((".xsl", ".xslt")) or "XSL stylesheet" in file_type:
         return "xslt"
     elif file_name.endswith(".sct"):
         if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration",file_content):
@@ -109,11 +109,11 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif re.search(b"<script\\s+language=\"(J|VB|Perl)Script\"",file_content,re.I):
         return "wsf"
-    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
+    elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
-    elif file_name.endswith(".csproj") or b"msbuild" in file_content:
+    elif file_name.endswith((".csproj", ".vbproj", ".vcxproj", ".dbproj", "fsproj")) or b"msbuild" in file_content:
         return "msbuild"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")

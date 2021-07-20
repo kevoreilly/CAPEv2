@@ -549,7 +549,7 @@ class Retriever(threading.Thread):
                         self.cleaner_queue.put((node_id, task.get("id")))
                     continue
 
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
                 if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
@@ -586,7 +586,7 @@ class Retriever(threading.Thread):
                         # closing StringIO objects
                         fileobj.close()
                 except tarfile.ReadError:
-                    log.error("Task id: {} from node.id: {} Read error {}".format(t.task_id, t.node_id))
+                    log.error("Task id: {} from node.id: {} Read error tarfile.ReadError".format(t.task_id, t.node_id))
                 except Exception as e:
                     logging.exception("Exception: %s" % e)
                     if os.path.exists(os.path.join(report_path, "reports", "report.json")):

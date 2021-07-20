@@ -25,6 +25,8 @@ def choose_package(file_type, file_name, exports, target):
     elif "DLL" in file_type:
         if file_name.endswith(".cpl"):
             return "cpl"
+        elif file_name.endswith(".xll"):
+            return "xls"
         else:
             if exports:
                 explist = exports.split(",")

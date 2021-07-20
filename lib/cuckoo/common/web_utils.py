@@ -259,9 +259,10 @@ def statistics(s_days: int) -> dict:
         if module_name not in tmp_data:
             continue
         # module_data = get_stats_per_category(module_name)
-        s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
+        s = sorted(tmp_data[module_name].items(), key=lambda x: x[1].get("time"), reverse=True)[:20]
 
         for entry in s:
+            entry = entry[0]
             times_in_mins = tmp_data[module_name][entry]["time"]/60
             if not times_in_mins:
                 continue

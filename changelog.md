@@ -1,3 +1,7 @@
+### [21-07-2021] [Xll support](https://www.fortinet.com/blog/threat-research/signed-sealed-and-delivered-signed-xll-file-delivers-buer-loader)
+* __ACTION REQUIRED__
+    * `pip3 install -U sflock2`
+
 ### [07-07-2021] Signature testing
 * Allow to execute one specific signature, loading data from mongo or json report. Specially useful for signature based extractors.
     * python3 utils/process.py -r ID -sig -sn cape_detected_threat

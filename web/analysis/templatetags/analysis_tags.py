@@ -16,8 +16,9 @@ from django.template.defaultfilters import register
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""
-    return list(filter(None, value.decode("utf-8").split("\r\n")))
-
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return list(filter(None, value.split("\r\n")))
 
 @register.filter("filename")
 def filename(value):

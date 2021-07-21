@@ -114,7 +114,7 @@
                 {% endif %}
                 <tr>
                     <th></th>
-                    <td><a href="{% url "file" "suricata" id file.sha256 %}" class="btn btn-secondary btn-small"><span class="fas fa-download"></span></a>
+                    <td><a href="{% url "file" "suricata" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
                     {% if file.file_info.data %}
                     &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
                     {% endif %}

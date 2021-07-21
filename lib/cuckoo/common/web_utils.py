@@ -150,8 +150,7 @@ def load_vms_tags():
 
 
 all_vms_tags = load_vms_tags()
-all_vm_tags_str = ",".join(all_vms_tags)
-
+all_vms_tags_str = ",".join(all_vms_tags)
 
 def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     """function that gets detection: count
@@ -484,7 +483,7 @@ def download_file(**kwargs):
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {
-                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {all_vm_tags_str}"
+                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {all_vms_tags_str}"
             }
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}

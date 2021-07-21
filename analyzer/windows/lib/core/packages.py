@@ -55,7 +55,7 @@ def choose_package(file_type, file_name, exports, target):
     ):
         return "xls"
     elif "PowerPoint" in file_type or file_name.endswith(
-        (".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
+        (".ppt", ".ppa", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
     elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):

@@ -434,7 +434,7 @@ def cuckoo_clean_before_day(args):
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr}, {"info.id": 1, "_id": 0}))
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
+    delete_bulk_tasks_n_folders(id_arr, args.dont_delete_mongo)
     #resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -560,7 +560,7 @@ if __name__ == "__main__":
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument("--delete-tmp-items-older-than-days", help="Remove all items in tmp folder older than X number of days", type=int, required=False)
-    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo", required=False, default=False, action="store_true")
+    parser.add_argument("-dm", "--dont-delete-mongo", help="Don't delete data in mongo", required=False, default=False, action="store_true")
     parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False,)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False )
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False )

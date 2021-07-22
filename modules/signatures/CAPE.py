@@ -153,8 +153,6 @@ class CAPE_Unpacker(Signature):
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
             size = self.get_argument(call, "NumberOfBytesProtected")
             handle = self.get_argument(call, "ProcessHandle")
-            if size:
-                size = int(size)
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 

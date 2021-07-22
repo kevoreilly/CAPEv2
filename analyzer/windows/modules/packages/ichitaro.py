@@ -25,8 +25,8 @@ class ichitaro(Package):
         ichitaro = self.get_path("TAROVIEW.EXE")
         #Rename file to file.inp so it can open properly.
         ext = os.path.splitext(path)[-1].lower()
-        if ext != ".jtdc":
-          new_path = path + ".jtdc"
+        if ext != ".jtd":
+          new_path = path + ".jtd"
           os.rename(path, new_path)
           path = new_path
         return self.execute(ichitaro, '"%s"' % path, path)

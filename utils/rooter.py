@@ -426,7 +426,10 @@ if __name__ == "__main__":
     settings = parser.parse_args()
 
     if settings.verbose:
+        # Verbose logging is not only controlled by the level. Some INFO logs are also
+        # conditional (like here).
         log.setLevel(logging.DEBUG)
+        log.info('Verbose logging enabled')
 
     if not settings.systemctl or not os.path.exists(settings.systemctl):
         sys.exit(

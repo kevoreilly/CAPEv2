@@ -45,7 +45,9 @@ class CAPE_Compression(Signature):
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
             buf = self.get_argument(call, "UncompressedBuffer")
-            size = int(self.get_argument(call, "UncompressedBufferLength"), 0)
+            size = self.get_argument(call, "UncompressedBufferLength")
+            if size:
+                size = int(size)
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -446,8 +448,8 @@ class CAPE_EvilGrab(Signature):
                 self.reg_evilgrab_keyname = True
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            length = int(self.get_argument(call, "BufferLength"))
-            if length and length > 0x10000 and self.reg_evilgrab_keyname is True:
+            length = self.get_argument(call, "BufferLength")
+            if length and int(length) > 0x10000 and self.reg_evilgrab_keyname is True:
                 self.reg_binary = True
 
     def on_complete(self):

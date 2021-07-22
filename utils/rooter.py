@@ -426,7 +426,10 @@ if __name__ == "__main__":
     settings = parser.parse_args()
 
     if settings.verbose:
+        # Verbose logging is not only controlled by the level. Some INFO logs are also
+        # conditional (like here).
         log.setLevel(logging.DEBUG)
+        log.info('Verbose logging enabled')
 
     if not settings.systemctl or not os.path.exists(settings.systemctl):
         sys.exit(
@@ -487,6 +490,10 @@ if __name__ == "__main__":
         try:
             command, addr = server.recvfrom(4096)
         except socket.error as e:
+            if not do.run:
+                # When the signal handler shuts the server down, do.run is False and
+                # server.recvfrom raises an exception. Ignore that exception and exit.
+                break
             if e.errno == errno.EINTR:
                 continue
             raise e
@@ -502,20 +509,20 @@ if __name__ == "__main__":
         kwargs = obj.get("kwargs", {})
 
         if not isinstance(command, str) or command not in handlers:
-            log.info("Received incorrect command: %r", command)
+            log.warning("Received incorrect command: %r", command)
             continue
 
         if not isinstance(args, (tuple, list)):
-            log.info("Invalid arguments type: %r", args)
+            log.warning("Invalid arguments type: %r", args)
             continue
 
         if not isinstance(kwargs, dict):
-            log.info("Invalid keyword arguments: %r", kwargs)
+            log.warning("Invalid keyword arguments: %r", kwargs)
             continue
 
         for arg in args + list(kwargs.keys()) + list(kwargs.values()):
             if not isinstance(arg, str):
-                log.info("Invalid argument detected: %r", arg)
+                log.warning("Invalid argument type detected: %r (%s)", arg, type(arg))
                 break
         else:
             if settings.verbose:

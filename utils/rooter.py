@@ -487,6 +487,10 @@ if __name__ == "__main__":
         try:
             command, addr = server.recvfrom(4096)
         except socket.error as e:
+            if not do.run:
+                # When the signal handler shuts the server down, do.run is False and
+                # server.recvfrom raises an exception. Ignore that exception and exit.
+                break
             if e.errno == errno.EINTR:
                 continue
             raise e

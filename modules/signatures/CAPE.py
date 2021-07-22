@@ -74,8 +74,10 @@ class CAPE_RegBinary(Signature):
     def on_call(self, call, process):
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
             buf = self.get_argument(call, "Buffer")
-            size = int(self.get_argument(call, "BufferLength"))
+            size = self.get_argument(call, "BufferLength")
             if buf:
+                if size:
+                    size = int(size)
                 self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -102,7 +104,9 @@ class CAPE_Decryption(Signature):
     def on_call(self, call, process):
         if call["api"] == "CryptDecrypt":
             buf = self.get_argument(call, "Buffer")
-            size = int(self.get_argument(call, "Length"))
+            size = self.get_argument(call, "Length")
+            if size:
+                size = int(size)
             self.encrypted_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -147,8 +151,10 @@ class CAPE_Unpacker(Signature):
                 return True
         elif call["api"] == "NtProtectVirtualMemory":
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
-            size = int(self.get_argument(call, "NumberOfBytesProtected"), 0)
+            size = self.get_argument(call, "NumberOfBytesProtected")
             handle = self.get_argument(call, "ProcessHandle")
+            if size:
+                size = int(size)
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 

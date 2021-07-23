@@ -241,6 +241,11 @@ $(document).ready( function() {
                                         {% for socks5 in socks5s|dictsort:"0.lower" %}
                                             <option value="{{ socks5.name }}">{{ socks5.description }} (socks5)</option>
                                         {% endfor %}
+                                        {% if all_nodes_exists %}
+                                            {% for route_name, servers in all_nodes_exists.items %}
+                                                <option value="{{ route_name }}">{{ route_name }} (will pick proper server)</option>
+                                            {% endfor %}
+                                        {% endif %}
                                         <option value="none" >Drop all VM traffic</option>
                                     </select>
                                 </div>

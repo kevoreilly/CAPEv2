@@ -32,7 +32,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.common.dist_db import Node, Task, Machine, create_session
+from lib.cuckoo.common.dist_db import Node, Task, Machine, ExitNodes, create_session
 from lib.cuckoo.core.database import (
     Database,
     TASK_REPORTED,
@@ -125,7 +125,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
             params["completed_after"] = since
         r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
         if not r.ok:
-            log.error(f"Error fetching task list. Status code: {r.status_code}")
+            log.error(f"Error fetching task list. Status code: {r.status_code} - {r.url}")
             return []
         return r.json().get("data", [])
     except Exception as e:
@@ -143,6 +143,15 @@ def node_list_machines(url, apikey):
         abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
 
 
+def node_list_exitnodes(url, apikey):
+    try:
+        r = requests.get(os.path.join(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        for exitnode in r.json()["data"]:
+            yield exitnode
+    except Exception as e:
+        abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
+
+
 def node_get_report(task_id, fmt, url, apikey, stream=False):
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
@@ -153,12 +162,12 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 def _delete_many(node, ids, nodes, db):
 
-    if nodes[node.id].name == "master":
+    if nodes[node].name == "master":
         return
     try:
-        url = os.path.join(nodes[node.id].url, "tasks", "delete_many/")
-        apikey = nodes[node.id].apikey
-        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node.id].name))
+        url = os.path.join(nodes[node].url, "tasks", "delete_many/")
+        apikey = nodes[node].apikey
+        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
@@ -169,7 +178,7 @@ def _delete_many(node, ids, nodes, db):
             log.info("{} - {}".format(res.status_code, res.content))
             db.rollback()
     except Exception as e:
-        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node.id].name, e)
+        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
         db.rollback()
 
 
@@ -255,7 +264,7 @@ def node_submit_task(task_id, node_id):
             else:
                 log.debug("Failed to submit task {} to node: {}, code: {}".format(task_id, node.name, r.status_code))
 
-            log.debug("Submitted task to worker: {} - {} - {} - {}".format(node.name, task.task_id, task.main_task_id, r.json()))
+            log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
             log.debug((r.status_code, r.text))
@@ -376,6 +385,7 @@ class Retriever(threading.Thread):
 
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")
+        headers = {"x-api-key": reporting_conf.callback.key}
 
         db = session()
         while True:
@@ -387,7 +397,7 @@ class Retriever(threading.Thread):
                     log.debug("reporting main_task_id: {}".format(task.main_task_id))
                     for url in urls:
                         try:
-                            res = requests.post(url, data=json.dumps({"task_id": int(task.main_task_id)}))
+                            res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
                             if res and res.ok:
                                 # log.info(res.content)
                                 task.notificated = True
@@ -549,7 +559,7 @@ class Retriever(threading.Thread):
                         self.cleaner_queue.put((node_id, task.get("id")))
                     continue
 
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{t.main_task_id}")
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
@@ -570,13 +580,15 @@ class Retriever(threading.Thread):
                             if not os.path.exists(destination):
                                 os.makedirs(destination, mode=0o755)
                             destination = os.path.join(destination, sample_sha256)
-                            if not os.path.exists(destination):
+                            if not os.path.exists(destination) and os.path.exists(t.path):
                                 shutil.move(t.path, destination)
                             # creating link to analysis folder
-                            try:
-                                os.symlink(destination, os.path.join(report_path, "binary"))
-                            except Exception as e:
-                                pass
+                            if os.path.exists(t.path):
+                                try:
+                                    os.symlink(destination, os.path.join(report_path, "binary"))
+                                except Exception as e:
+                                    pass
+
                             t.retrieved = True
                             t.finished = True
                             db.commit()
@@ -586,7 +598,7 @@ class Retriever(threading.Thread):
                         # closing StringIO objects
                         fileobj.close()
                 except tarfile.ReadError:
-                    log.error("Task id: {} from node.id: {} Read error tarfile.ReadError".format(t.task_id, t.node_id))
+                    log.error("Task id: {} from node.id: {} Read error".format(t.task_id, t.node_id))
                 except Exception as e:
                     logging.exception("Exception: %s" % e)
                     if os.path.exists(os.path.join(report_path, "reports", "report.json")):
@@ -971,10 +983,21 @@ class NodeRootApi(NodeBaseApi):
             node.machines.append(machine)
             db.add(machine)
 
+        exitnodes = []
+        for exitnode in node_list_exitnodes(args["url"], args["apikey"]):
+            exitnode_db = db.query(ExitNodes).filter_by(name=exitnode).first()
+            if exitnode_db:
+                exitnode = exitnode_db
+            else:
+                exitnode = ExitNodes(name=exitnode)
+            exitnodes.append(dict(name=exitnode.name))
+            node.exitnodes.append(exitnode)
+            db.add(exitnode)
+
         db.add(node)
         db.commit()
         db.close()
-        return dict(name=args["name"], machines=machines)
+        return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
 
 
 class NodeApi(NodeBaseApi):
@@ -993,9 +1016,23 @@ class NodeApi(NodeBaseApi):
             return dict(error=True, error_value="Node doesn't exist")
 
         for k, v in args.items():
-            if v is not None:
-                setattr(node, k, v)
+            if k == "exitnodes":
+                exitnodes = []
+                for exitnode in node_list_exitnodes(args["url"], args["apikey"]):
+                    exitnode_db = db.query(ExitNodes).filter_by(name=exitnode).first()
+                    if exitnode_db:
+                        exitnode = exitnode_db
+                    else:
+                        exitnode = ExitNodes(name=exitnode)
+                    exitnodes.append(dict(name=exitnode.name))
+                    node.exitnodes.append(exitnode)
+                    db.add(exitnode)
+                db.add(node)
+            else:
+                if v is not None:
+                    setattr(node, k, v)
         db.commit()
+        db.close()
         return dict(error=False, error_value="Successfully modified node: %s" % node.name)
 
     def delete(self, name):

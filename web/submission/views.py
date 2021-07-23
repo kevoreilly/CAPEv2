@@ -28,7 +28,16 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
-from lib.cuckoo.common.web_utils import download_file, get_file_content, _download_file, parse_request_arguments, all_vms_tags, download_from_vt, perform_search
+from lib.cuckoo.common.web_utils import (
+    download_file,
+    get_file_content,
+    _download_file,
+    parse_request_arguments,
+    all_vms_tags,
+    all_nodes_exits,
+    download_from_vt,
+    perform_search,
+)
 
 
 # this required for hash searches
@@ -62,6 +71,7 @@ if repconf.mongodb.enabled:
         authSource=settings.MONGO_AUTHSOURCE,
     )[settings.MONGO_DB]
     FULL_DB = True
+
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
@@ -130,12 +140,35 @@ def get_platform(magic):
 def index(request, resubmit_hash=False):
     if request.method == "POST":
 
-        static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
-            clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp, tags_tasks, route, cape = parse_request_arguments(request)
+        (
+            static,
+            package,
+            timeout,
+            priority,
+            options,
+            machine,
+            platform,
+            tags,
+            custom,
+            memory,
+            clock,
+            enforce_timeout,
+            shrike_url,
+            shrike_msg,
+            shrike_sid,
+            shrike_refer,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+        ) = parse_request_arguments(request)
 
         # This is done to remove spaces in options but not breaks custom paths
-        options = ",".join("=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option)
+        options = ",".join(
+            "=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option
+        )
         opt_filename = get_user_filename(options, custom)
 
         if priority and web_conf.public.enabled and web_conf.public.priority and not request.user.is_staff:
@@ -209,17 +242,19 @@ def index(request, resubmit_hash=False):
             "user_id": request.user.id or 0,
         }
 
-        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':
+        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
             resubmission_hash = request.POST.get("hash").strip()
             paths = db.sample_path_by_hash(resubmission_hash)
             if paths:
                 content = get_file_content(paths)
                 if not content:
-                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
+                    return render(
+                        request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))}
+                    )
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                base_dir = tempfile.mkdtemp(prefix='resubmit_', dir=folder)
+                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
@@ -249,7 +284,11 @@ def index(request, resubmit_hash=False):
                     details["errors"].append({sample.name: "You uploaded an empty file."})
                     continue
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    details["errors"].append({sample.name:  "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."})
+                    details["errors"].append(
+                        {
+                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                        }
+                    )
                     continue
 
                 if opt_filename:
@@ -259,8 +298,14 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
                 sha256 = File(path).get_sha256()
-                if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours):
-                    details["errors"].append({filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"})
+                if (
+                    not request.user.is_staff
+                    and (web_conf.uniq_submission.enabled or unique)
+                    and db.check_file_uniq(sha256, hours=web_conf.uniq_submission.hours)
+                ):
+                    details["errors"].append(
+                        {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+                    )
                     continue
 
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
@@ -290,7 +335,13 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty quarantine file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html", {"error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -322,7 +373,13 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html", {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -342,7 +399,13 @@ def index(request, resubmit_hash=False):
 
                     return render(request, "error.html", {"error": "You uploaded an empty PCAP file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
-                    return render(request, "error.html", {"error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."})
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                        },
+                    )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -375,7 +438,11 @@ def index(request, resubmit_hash=False):
             elif machine:
                 machine_details = db.view_machine(machine)
                 if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
+                    return render(
+                        request,
+                        "error.html",
+                        {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
+                    )
                 else:
                     machines = [machine]
 
@@ -414,7 +481,7 @@ def index(request, resubmit_hash=False):
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
             response = _download_file(request.POST.get("route", None), url, options)
             if not response:
-                 return render(request, "error.html", {"error": "Was impossible to retrieve url"})
+                return render(request, "error.html", {"error": "Was impossible to retrieve url"})
 
             name = os.path.basename(url)
             if not "." in name:
@@ -430,9 +497,20 @@ def index(request, resubmit_hash=False):
                 details["errors"].append({name: task_ids_tmp})
             else:
                 details["task_ids"] = task_ids_tmp
-        elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) and request.POST.get("vtdl")[0] != "":
+        elif (
+            settings.VTDL_ENABLED
+            and "vtdl" in request.POST
+            and request.POST.get("vtdl", False)
+            and request.POST.get("vtdl")[0] != ""
+        ):
             if not settings.VTDL_KEY or not settings.VTDL_PATH:
-                    return render(request, "error.html", {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"})
+                return render(
+                    request,
+                    "error.html",
+                    {
+                        "error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"
+                    },
+                )
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
@@ -443,7 +521,12 @@ def index(request, resubmit_hash=False):
         else:
             tasks_count = 0
         if tasks_count > 0:
-            data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"], "existent_tasks": existent_tasks}
+            data = {
+                "tasks": details["task_ids"],
+                "tasks_count": tasks_count,
+                "errors": details["errors"],
+                "existent_tasks": existent_tasks,
+            }
             return render(request, "submission/complete.html", data)
         else:
             return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
@@ -492,7 +575,7 @@ def index(request, resubmit_hash=False):
             socks5s_random = random.choice(socks5s.values()).get("name", False)
 
         if routing.vpn.random_vpn:
-            vpn_random =  random.choice(list(vpns.values())).get("name", False)
+            vpn_random = random.choice(list(vpns.values())).get("name", False)
 
         if socks5s:
             socks5s_random = random.choice(list(socks5s.values())).get("name", False)
@@ -504,7 +587,6 @@ def index(request, resubmit_hash=False):
             random_route = vpn_random
         elif socks5s_random:
             random_route = socks5s_random
-
 
         existent_tasks = dict()
         if resubmit_hash:
@@ -530,6 +612,7 @@ def index(request, resubmit_hash=False):
                 "resubmit": resubmit_hash,
                 "tags": sorted(list(set(all_vms_tags))),
                 "existent_tasks": existent_tasks,
+                "all_exitnodes": all_nodes_exits,
             },
         )
 

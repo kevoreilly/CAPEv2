@@ -1,3 +1,7 @@
+### [23-07-2021] Distribute task based on route
+* Add hability to have different exit nodes on each cape worker in cluster, that will auto pickup proper worker server based on route.
+    * To update current nodes details on main db server, do the request with pull request
+
 ### [21-07-2021] [Xll support](https://www.fortinet.com/blog/threat-research/signed-sealed-and-delivered-signed-xll-file-delivers-buer-loader)
 * __ACTION REQUIRED__
     * `pip3 install -U sflock2`

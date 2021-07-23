@@ -34,6 +34,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
@@ -71,6 +72,7 @@ log = logging.getLogger(__name__)
 # Config variables
 repconf = Config("reporting")
 web_conf = Config("web")
+routing_conf = Config("routing")
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -308,8 +310,10 @@ def tasks_create_file(request):
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             details["path"] = tmp_path
 
-            if not request.user.is_staff and (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(
-                File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours
+            if (
+                not request.user.is_staff
+                and (web_conf.uniq_submission.enabled or unique)
+                and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours)
             ):
                 details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
                 continue
@@ -366,7 +370,9 @@ def tasks_create_file(request):
                 if callback:
                     resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
+                    ", ".join(str(x) for x in details.get("task_ids", []))
+                )
                 if callback:
                     resp["url"] = list()
                     for tid in details.get("task_ids", []):
@@ -526,7 +532,10 @@ def tasks_create_dlnexec(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {
+                    "error": True,
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                }
                 return Response(resp)
 
         if referrer:
@@ -579,7 +588,9 @@ def tasks_create_dlnexec(request):
             if len(details.get("task_ids")) == 1:
                 resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
+                    ", ".join(str(x) for x in details.get("task_ids", []))
+                )
         else:
             resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
@@ -1080,19 +1091,7 @@ def tasks_report(request, task_id, report_format="json"):
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
-        "lite": {
-            "type": "+",
-            "files": [
-                "files.json",
-                "CAPE",
-                "files",
-                "procdump",
-                "macros",
-                "lite",
-                "shots",
-                "dump.pcap"
-            ]
-        }
+        "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "lite", "shots", "dump.pcap"]},
     }
 
     if report_format.lower() in formats:
@@ -1113,7 +1112,9 @@ def tasks_report(request, task_id, report_format="json"):
                 content = "application/pdf"
                 ext = "pdf"
             fname = "%s_report.%s" % (task_id, ext)
-            resp = StreamingHttpResponse(FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;")
+            resp = StreamingHttpResponse(
+                FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
+            )
             resp["Content-Length"] = os.path.getsize(report_path)
             resp["Content-Disposition"] = "attachment; filename=" + fname
             return resp
@@ -1143,7 +1144,7 @@ def tasks_report(request, task_id, report_format="json"):
         bzf = bz_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-                return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+            return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
         s = BytesIO()
 
         tar = tarfile.open(fileobj=s, mode="w:bz2")
@@ -1326,7 +1327,9 @@ def tasks_iocs(request, task_id, detail=None):
         data["process_tree"] = {
             "pid": buf["behavior"]["processtree"][0]["pid"],
             "name": buf["behavior"]["processtree"][0]["name"],
-            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
+            "spawned_processes": [
+                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
+            ],
         }
     if "dropped" in buf:
         for entry in buf["dropped"]:
@@ -1503,7 +1506,7 @@ def tasks_dropped(request, task_id):
         dropped_max_size_limit = request.GET.get("max_size", False)
         # convert to MB
         size = len(s.getvalue())
-        size_in_mb = int(size/1024/1024)
+        size_in_mb = int(size / 1024 / 1024)
         if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
             resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
             return Response(resp)
@@ -1558,7 +1561,9 @@ def tasks_rollingsuri(request, window=60):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
-        results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1})
+        results_db.analysis.find(
+            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
+        )
     )
     resp = []
     for e in result:
@@ -1703,7 +1708,7 @@ def tasks_fullmemory(request, task_id):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(url.replace(":8090", ":8000") + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
+                return redirect(url + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             log.error(e)
 
@@ -1767,6 +1772,26 @@ def machines_list(request):
     machines = db.list_machines()
     for row in machines:
         resp["data"].append(row.to_dict())
+    return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def exit_nodes_list(request):
+
+    if not apiconf.list_exitnodes.get("enabled"):
+        resp = {"error": True, "error_value": "Exit nodes list API is disabled"}
+        return Response(resp)
+
+    resp = {}
+    resp["data"] = []
+    resp["error"] = False
+    resp["data"] += ["socks:" + sock5["name"] for sock5 in _load_socks5_operational() or []]
+    resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
+    if routing_conf.tor.enabled:
+        resp["data"].append("tor")
+    if routing_conf.inetsim.enabled:
+        resp["data"].append("inetsim")
     return Response(resp)
 
 

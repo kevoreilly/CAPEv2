@@ -13,8 +13,8 @@ from apiv2 import views
 urlpatterns = [
     url(r"^$", views.index, name="apiv2"),
     # disabled due to token auth
-    #url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    # url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path("api-token-auth/", obtain_auth_token, name="api_token_auth"),
     url(r"^tasks/create/file/$", views.tasks_create_file),
     url(r"^tasks/stats/$", views.task_x_hours),
     url(r"^tasks/create/url/$", views.tasks_create_url),
@@ -67,4 +67,5 @@ urlpatterns = [
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
     # url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     url(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),
+    url(r"^exitnodes/$", views.exit_nodes_list),
 ]

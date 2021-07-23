@@ -117,6 +117,8 @@ Update basic information of a CAPE node::
 
     * enabled
         False=0 or True=1 to activate or deactivate worker node
+    * exitnodes
+        exitnodes=1 - Update exit nodes list, to show won main webgui
     * apikey
         apikey for authorization
 

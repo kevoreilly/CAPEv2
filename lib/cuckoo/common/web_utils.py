@@ -820,6 +820,7 @@ search_term_map = {
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
     "payloads": "CAPE.payloads.",
+    "dhash": "static.pe.icon_dhash",
 }
 
 # ToDo verify if still working

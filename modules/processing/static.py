@@ -744,7 +744,7 @@ class PortableExecutable(object):
             if pefile.RESOURCE_TYPE["RT_ICON"] in rt_icon_idx_tmp:
                 rt_icon_idx = rt_icon_idx_tmp.index(pefile.RESOURCE_TYPE["RT_ICON"])
             if not rt_icon_idx:
-                return None, None, None
+                return None, None, None, None
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:

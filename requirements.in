@@ -20,7 +20,6 @@ python-dateutil==2.8.2
 requests_file==1.5.1
 gevent==20.4.0
 orjson==3.6.0
-# pyvmomi
 pyinstaller==4.4
 maec==4.1.0.17
 regex==2021.7.6

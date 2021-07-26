@@ -764,9 +764,10 @@ class PortableExecutable(object):
 
                     output = BytesIO()
                     img.save(output, format="PNG")
-                    # gen dhash here
+
                     if HAVE_IMAGEHASH:
                         dhash = imagehash.dhash(img)
+
                     img = img.resize((8, 8), Image.BILINEAR)
                     img = img.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=2).convert("L")
                     lowval = img.getextrema()[0]

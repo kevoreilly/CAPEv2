@@ -927,9 +927,10 @@ def tasks_list(request, offset=None, limit=None, window=None):
         task["sample"] = {}
         if row.sample_id:
             sample = db.view_sample(row.sample_id)
-            task["sample"] = sample.to_dict()
+            if sample:
+                task["sample"] = sample.to_dict()
 
-        if task["target"]:
+        if task.get("target"):
             task["target"] = convert_to_printable(task["target"])
 
         resp["data"].append(task)

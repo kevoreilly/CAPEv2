@@ -82,3 +82,4 @@ netstruct
 pymongo>=3.11.3
 django-ratelimit
 psutil
+ImageHash>=4.2.1

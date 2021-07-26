@@ -51,6 +51,13 @@ except ImportError:
     HAVE_V8PY = False
 
 try:
+    import imagehash
+    HAVE_IMAGEHASH = True
+except ImportError:
+    print("Missed imagehash library: pip3 install ImageHash")
+    HAVE_IMAGEHASH = False
+
+try:
     import cryptography
     from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.backends.openssl import x509
@@ -704,12 +711,12 @@ class PortableExecutable(object):
          image for fuzzy matching)
         """
         if not self.pe or not hasattr(self.pe, "DIRECTORY_ENTRY_RESOURCE"):
-            return None, None, None
+            return None, None, None, None
 
         try:
             idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_GROUP_ICON"] not in idx:
-                return None, None, None
+                return None, None, None, None
 
             rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
             rt_group_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
@@ -737,7 +744,7 @@ class PortableExecutable(object):
             if pefile.RESOURCE_TYPE["RT_ICON"] in rt_icon_idx_tmp:
                 rt_icon_idx = rt_icon_idx_tmp.index(pefile.RESOURCE_TYPE["RT_ICON"])
             if not rt_icon_idx:
-                return None, None, None
+                return None, None, None, None
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:
@@ -753,11 +760,13 @@ class PortableExecutable(object):
                     except OSError as e:
                         byteio.close()
                         log.error(e)
-                        return None, None, None
+                        return None, None, None, None
 
                     output = BytesIO()
                     img.save(output, format="PNG")
-
+                    # gen dhash here
+                    if HAVE_IMAGEHASH:
+                        dhash = imagehash.dhash(img)
                     img = img.resize((8, 8), Image.BILINEAR)
                     img = img.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=2).convert("L")
                     lowval = img.getextrema()[0]
@@ -774,11 +783,12 @@ class PortableExecutable(object):
                     icon = base64.b64encode(output.getvalue()).decode("utf-8")
                     output.close()
                     img.close()
-                    return icon, fullhash, simphash
+                    # dhash here
+                    return icon, fullhash, simphash, dhash
         except Exception as e:
             log.error(e, exc_info=True)
 
-        return None, None, None
+        return None, None, None, None
 
     def _get_versioninfo(self):
         """Get version info.
@@ -1001,7 +1011,7 @@ class PortableExecutable(object):
         peresults["sections"] = self._get_sections()
         peresults["overlay"] = self._get_overlay()
         peresults["resources"] = self._get_resources()
-        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"] = self._get_icon_info()
+        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"], peresults["icon_dhash"] = self._get_icon_info()
         peresults["versioninfo"] = self._get_versioninfo()
         peresults["imphash"] = self._get_imphash()
         peresults["timestamp"] = self._get_timestamp()

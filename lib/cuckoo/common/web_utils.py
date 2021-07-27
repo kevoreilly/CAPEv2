@@ -327,12 +327,17 @@ def statistics(s_days: int) -> dict:
 
     top_samples = dict()
     session = db.Session()
-    tasks = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    added_tasks = (
+        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    )
+    tasks = (
+        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
+    )
     details["total"] = len(tasks)
     details["average"] = "{:.2f}".format(round(details["total"] / s_days, 2))
     details["tasks"] = dict()
     for task in tasks or []:
-        day = task.added_on.strftime("%Y-%m-%d")
+        day = task.completed_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
             details["tasks"].setdefault(day, {})
             details["tasks"][day].setdefault("failed", 0)
@@ -343,11 +348,17 @@ def statistics(s_days: int) -> dict:
         if task.sample.sha256 not in top_samples[day]:
             top_samples[day].setdefault(task.sample.sha256, 0)
         top_samples[day][task.sample.sha256] += 1
-        details["tasks"][day]["added"] += 1
+        # details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
             details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
+
+    for added_task in added_tasks or []:
+        day = added_task.added_on.strftime("%Y-%m-%d")
+        if day not in details["tasks"]:
+            continue
+        details["tasks"][day]["added"] += 1
 
     details["tasks"] = OrderedDict(
         sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)

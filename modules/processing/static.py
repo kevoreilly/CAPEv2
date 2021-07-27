@@ -51,13 +51,6 @@ except ImportError:
     HAVE_V8PY = False
 
 try:
-    import imagehash
-    HAVE_IMAGEHASH = True
-except ImportError:
-    print("Missed imagehash library: pip3 install ImageHash")
-    HAVE_IMAGEHASH = False
-
-try:
     import cryptography
     from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.backends.openssl import x509
@@ -705,6 +698,30 @@ class PortableExecutable(object):
 
         return resources
 
+    def _generate_icon_dhash(image, hash_size = 8):
+        # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
+        image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+
+        difference = []
+
+        for row in range(hash_size):
+            for col in range(hash_size):
+                pixel_left = image.getpixel((col, row))
+                pixel_right = image.getpixel((col + 1, row))
+                difference.append(pixel_left > pixel_right)
+
+        decimal_value = 0
+        hex_string = []
+
+        for index, value in enumerate(difference):
+            if value:
+                decimal_value += 2**(index % 8)
+            if (index % 8) == 7:
+                hex_string.append(hex(decimal_value)[2:].rjust(2, '0'))
+                decimal_value = 0
+
+        return ''.join(hex_string)
+
     def _get_icon_info(self):
         """Get icon in PNG format and information for searching for similar icons
         @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified"
@@ -765,8 +782,7 @@ class PortableExecutable(object):
                     output = BytesIO()
                     img.save(output, format="PNG")
 
-                    if HAVE_IMAGEHASH:
-                        dhash = imagehash.dhash(img)
+                    dhash = self._generate_icon_dhash(img)
 
                     img = img.resize((8, 8), Image.BILINEAR)
                     img = img.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=2).convert("L")
@@ -784,7 +800,6 @@ class PortableExecutable(object):
                     icon = base64.b64encode(output.getvalue()).decode("utf-8")
                     output.close()
                     img.close()
-                    # dhash here
                     return icon, fullhash, simphash, dhash
         except Exception as e:
             log.error(e, exc_info=True)

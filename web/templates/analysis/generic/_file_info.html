@@ -168,11 +168,8 @@
                     <li>
                     {% if sign.meta.cape_type %}
                         {{sign.meta.cape_type}}
-                    {% elif sign.meta.description %}
-                        {{sign.meta.description}}
-                    {% else %}
-                        {{sign.name}}
                     {% endif %}
+                    {{sign.meta.name}} {% if sign.meta.description %} - {{sign.meta.description}} {% endif %}
                     {% if sign.meta.author %}
                         - Author: {{sign.meta.author}}
                     {% endif %}

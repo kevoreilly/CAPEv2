@@ -1049,19 +1049,13 @@ class NetworkAnalysis(Processing):
         if os.path.exists(self.pcap_path):
             results["pcap_sha256"] = File(self.pcap_path).get_sha256()
 
-        """
         if proc_cfg.network.sort_pcap:
             sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             # Sorted PCAP file hash.
             if os.path.exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
-                pcap_path = sorted_path
-            else:
-                pcap_path = self.pcap_path
-        else:
-            pcap_path = self.pcap_path
-        """
+
         pcap_path = self.pcap_path
         results.update(Pcap(pcap_path, ja3_fprints, self.options).run())
         # buf = Pcap(self.pcap_path, ja3_fprints).run()

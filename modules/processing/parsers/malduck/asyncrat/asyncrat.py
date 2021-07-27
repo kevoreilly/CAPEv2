@@ -90,18 +90,11 @@ class ASyncRAT(Extractor):
     @Extractor.extractor("magic_cslr_0")
     def asyncrat(self, p, addr):
         try:
-            log.debug(addr)  # 15356 (magic)
             strings_offset = p.uint32v(addr + 0x40)
-            log.debug(strings_offset)  # (15332 + 0x40) 1= 15420 -> 3BE4 (15332)
             strings_size = p.uint32v(addr + 0x44)
-            log.debug(strings_size)  # 10188 27CC
-            log.debug(addr + strings_offset)
             data = p.readv(addr + strings_offset, strings_size)
             data = data.split(b"\x00\x00")
-            # open("/tmp/toto1.bin", "wb").write(data[9][2:])
-            log.debug("AES Key: " + self.get_string(data, 7))
             key = base64.b64decode(self.get_string(data, 7))
-            log.debug("extracted key: " + str(key))
             config = {
                 "family": self.family,
                 "hosts": self.decrypt_config_item_list(key, data, 2),

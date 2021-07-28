@@ -67,6 +67,11 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+try:
+    zippwd = settings.ZIP_PWD
+except AttributeError:
+    zippwd = b"infected"
+
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
@@ -1088,12 +1093,13 @@ def tasks_report(request, task_id, report_format="json"):
         "metadata": "report.metadata.xml",
     }
 
-    bz_formats = {
+    report_formats = {
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
-        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
-        "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "lite", "shots", "dump.pcap"]},
+        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
+        "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
     }
+
 
     if report_format.lower() in formats:
         report_path = os.path.join(srcdir, formats[report_format.lower()])
@@ -1129,48 +1135,74 @@ def tasks_report(request, task_id, report_format="json"):
             resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
             return Response(resp)
 
-        fname = "%s_reports.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
-        for rep in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, rep), arcname=rep)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        if not HAVE_PYZIPPER:
+            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
+
+        fname = "%s_reports.zip" % task_id
+        parent_folder = os.path.dirname(srcdir)
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
         return resp
 
-    elif report_format.lower() in bz_formats:
-        bzf = bz_formats[report_format.lower()]
+    elif report_format.lower() in report_formats:
+        if not HAVE_PYZIPPER:
+            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
+
+        report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
-        s = BytesIO()
 
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
         if not os.path.exists(srcdir):
             resp = {"error": True, "error_value": "Report doesn't exists"}
             return Response(resp)
 
-        for filedir in os.listdir(srcdir):
-            try:
-                if bzf["type"] == "-" and filedir not in bzf["files"]:
-                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-                if bzf["type"] == "+" and filedir in bzf["files"]:
-                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-            except Exception as e:
-                log.error(e, exc_info=True)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for filedir in os.listdir(srcdir):
+                try:
+                    filepath = os.path.join(srcdir, filedir)
+                    if report_files["type"] == "-" and filedir not in report_files["files"]:
+                        if os.path.isdir(filepath):
+                            for subfile in os.listdir(filepath):
+                                zf.write(os.path.join(filepath, subfile), os.path.join(filedir, subfile))
+                        else:
+                            zf.write(filepath, filedir)
+                    if report_files["type"] == "+" and filedir in report_files["files"]:
+                        if os.path.isdir(filepath):
+                            for subfile in os.listdir(filepath):
+                                zf.write(os.path.join(filepath, subfile), os.path.join(filedir, subfile))
+                        else:
+                            zf.write(filepath, filedir)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+
+            # # exception for lite report that is under reports/lite.json
+            if report_format.lower() == "lite":
+                lite_report_path = os.path.join(srcdir, "reports", "lite.json")
+                if os.path.exists(lite_report_path):
+                    zf.write(lite_report_path, "reports/lite.json")
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
         return resp
 
     else:
         resp = {"error": True, "error_value": "Invalid report format specified"}
         return Response(resp)
+
 
 
 @csrf_exempt
@@ -1422,16 +1454,19 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return Response(resp)
 
     if screenshot == "all":
-        fname = "%s_screenshots.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for shot in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, shot), arcname=shot)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_screenshots.zip"
         return resp
 
     else:
@@ -1495,28 +1530,29 @@ def tasks_dropped(request, task_id):
         return Response(resp)
 
     else:
-        fname = "%s_dropped.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for dirfile in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
-        tar.close()
-        s.seek(0)
 
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
         # in Mb
         dropped_max_size_limit = request.GET.get("max_size", False)
         # convert to MB
-        size = len(s.getvalue())
+        size = len(mem_zip.getvalue())
         size_in_mb = int(size / 1024 / 1024)
         if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
             resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
             return Response(resp)
 
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_dropped.zip"
         return resp
-
 
 @csrf_exempt
 @api_view(["GET"])
@@ -1640,38 +1676,46 @@ def tasks_procmemory(request, task_id, pid="all"):
         resp = {"error": True, "error_value": "No memory dumps saved"}
         return Response(resp)
 
+    parent_folder = os.path.dirname(srcdir)
     if pid == "all":
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
 
-        fname = "%s_procdumps.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for memdump in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, memdump), arcname=memdump)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for fname in os.listdir(srcdir):
+                zf.write(os.path.join(parent_folder, fname), fname)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
+        return resp
+
     else:
-        srcfile = srcdir + "/" + pid + ".dmp"
-        if os.path.exists(srcfile):
+        filepath = os.path.join(parent_folder, pid + ".dmp")
+        if os.path.exists(filepath):
             if apiconf.taskprocmemory.get("compress"):
-                fname = srcfile.split("/")[-1]
-                s = BytesIO()
-                tar = tarfile.open(fileobj=s, mode="w:bz2")
-                tar.add(srcfile, arcname=fname)
-                tar.close()
-                s.seek(0)
-                resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-                archive = "%s-%s_dmp.tar.bz2" % (task_id, pid)
-                resp["Content-Length"] = str(len(s.getvalue()))
-                resp["Content-Disposition"] = "attachment; filename=" + archive
+                fname = filepath.split("/")[-1]
+
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(zippwd)
+                    zf.writes(filepath, fname)
+
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+                return resp
+
             else:
                 mime = "application/octet-stream"
                 fname = "%s-%s.dmp" % (task_id, pid)
+                srcfile = os.path.join(srcdir, pid + ".dmp")
                 resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type=mime)
                 resp["Content-Length"] = os.path.getsize(srcfile)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
@@ -1907,11 +1951,6 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
-    try:
-        zippwd = settings.ZIP_PWD
-    except AttributeError:
-        zippwd = b"infected"
-
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(capepath).startswith(ANALYSIS_BASE_PATH):
@@ -1923,7 +1962,7 @@ def tasks_payloadfiles(request, task_id):
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(capepath))[2]:
+            for fname in os.listdir(capepath):
                 if len(fname) == 64:
                     filepath = os.path.join(capepath, fname)
                     with open(filepath, "rb") as f:
@@ -1950,11 +1989,6 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
-    try:
-        zippwd = settings.ZIP_PWD
-    except AttributeError:
-        zippwd = b"infected"
-
     # ToDo add all/one
 
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
@@ -1966,7 +2000,7 @@ def tasks_procdumpfiles(request, task_id):
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(procdumppath))[2]:
+            for fname in os.listdir(procdumppath):
                 if len(fname) == 64:
                     filepath = os.path.join(procdumppath, fname)
                     if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):

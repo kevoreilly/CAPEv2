@@ -1,3 +1,7 @@
+### [28-07-2021]
+* bzip archives was replaced with zip with password, default infected, can be changes in conf/web.conf -> zipped_download -> zip_pwd
+    * use 7zip or pyzipper to extract
+
 ### [23-07-2021] Distribute task based on route
 * Add hability to have different exit nodes on each cape worker in cluster, that will auto pickup proper worker server based on route.
     * To update current nodes details on main db server, do the request with pull request

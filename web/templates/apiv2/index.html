@@ -354,7 +354,7 @@ Acepts as params status to check for status and/or option to search by option LI
             <li>RPM: {{ config.taskreport.rpm }}</li>
           </ul>
         </td>
-        <td>Download a report generated for a specific task. Return object will be JSON, XML, or octet-stream (tar.bz2).
+        <td>Download a report generated for a specific task. Return object will be JSON, XML, or application/zip (zip).
         </td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskreport" aria-expanded="false" aria-controls="#taskreport">Example</a>
         </td>
@@ -363,7 +363,9 @@ Acepts as params status to check for status and/or option to search by option LI
         <td colspan="5">
           <pre>curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/
 curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/
-Note: Format can be json/maec/maec5/metadata/all.</pre>
+Note: Format can be json/maec/maec5/metadata/lite/all.
+Note 2: extra formats: all/dist/dropped/lite - used for distributed cluster reporting
+</pre>
         </td>
       </tr>
       <tr>
@@ -402,8 +404,8 @@ curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
             <li>RPM: {{ config.taskscreenshot.rpm }}</li>
           </ul>
         </td>
-        <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or octet-stream. (.jpg or
-          .tar.bz2)</td>
+        <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or application/zip (.zip). Use 7zip or pyzipper to extract
+          .zip)</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskscreenshot" aria-expanded="false" aria-controls="#taskscreenshot">Example</a></td>
       </tr>
       <tr class="collapse" id="taskscreenshot">
@@ -447,7 +449,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <li>RPM: {{ config.taskdropped.rpm }}</li>
           </ul>
         </td>
-        <td>Download the dropped files associated with a Task by ID. Return object will be octet-stream. (.tar.bz2)</td>
+        <td>Download the dropped files associated with a Task by ID. Return object will be application/zip (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskdropped" aria-expanded="false" aria-controls="#taskdropped">Example</a>
         </td>
       </tr>
@@ -492,8 +494,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <li>RPM: {{ config.taskprocmemory.rpm }}</li>
           </ul>
         </td>
-        <td>Download a process memory dump from a Task by ID and PID. Return object will be octet-stream. (.dmp or
-          .tar.bz2)</td>
+        <td>Download a process memory dump from a Task by ID and PID. Return object will be application/zip (.zip). Use 7zip or pyzipper to extract</td>
         <td><a class="accordion-toggle" data-toggle="collapse" href="#taskprocmemory" aria-expanded="false" aria-controls="#taskprocmemory">Example</a></td>
       </tr>
       <tr class="collapse" id="taskprocmemory">

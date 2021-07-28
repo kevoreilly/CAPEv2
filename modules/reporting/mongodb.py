@@ -119,18 +119,22 @@ class MongoDB(Report):
     def loop_saver(self, report):
         keys = list(report.keys())
         if "info" not in keys:
+            log.error("Missing 'info' key: %r", keys)
             return
         if "_id" in keys:
             keys.remove("_id")
 
-        obj_id = self.db.analysis.insert_one(report["info"])
+        obj_id = self.db.analysis.insert_one({"info": report["info"]})
         keys.remove("info")
 
         for key in keys:
             try:
-                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+                self.db.analysis.update_one(
+                    {"_id": obj_id.inserted_id},
+                    {"$set": {key: report[key]}},
+                    bypass_document_validation=True)
             except InvalidDocument as e:
-                log.info("Investigate your key: {} - {}".format(key, str(key)))
+                log.warning("Investigate your key: %r", key)
 
     def run(self, results):
         """Writes report.

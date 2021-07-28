@@ -16,7 +16,6 @@ import queue
 import hashlib
 import logging
 from logging import handlers
-import tarfile
 import argparse
 import threading
 from io import BytesIO
@@ -26,6 +25,11 @@ from itertools import combinations
 import distutils.util
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
+
+try:
+    import pyzipper
+except ImportError:
+    sys.exti("Missed pyzipper dependency: pip3 install pyzipper -U")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -47,6 +51,9 @@ from lib.cuckoo.core.database import Task as MD_Task
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
 reporting_conf = Config("reporting")
+zip_pwd = Config("web").zipped_download.zip_pwd
+if type(zip_pwd) is not bytes:
+    zip_pwd = zip_pwd.encode("utf-8")
 
 # init
 logging.getLogger("elasticsearch").setLevel(logging.WARNING)
@@ -563,15 +570,15 @@ class Retriever(threading.Thread):
                 if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
-                    fileobj = BytesIO(report.content)
                     if report.content:
-                        file = tarfile.open(fileobj=fileobj, mode="r:bz2")  # errorlevel=0
-                        try:
-                            file.extractall(report_path)
-                            if (node_id, task.get("id")) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((node_id, task.get("id")))
-                        except OSError:
-                            log.error("Permission denied: {}".format(report_path))
+                        with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
+                            zf.setpassword(zip_pwd)
+                            try:
+                                zf.extractall(report_path)
+                                if (node_id, task.get("id")) not in self.cleaner_queue.queue:
+                                    self.cleaner_queue.put((node_id, task.get("id")))
+                            except OSError:
+                                log.error("Permission denied: {}".format(report_path))
 
                         if os.path.exists(t.path):
                             sample = open(t.path, "rb").read()
@@ -592,13 +599,9 @@ class Retriever(threading.Thread):
                             t.retrieved = True
                             t.finished = True
                             db.commit()
-
                     else:
-                        log.error("Tar file is empty")
-                        # closing StringIO objects
-                        fileobj.close()
-                except tarfile.ReadError:
-                    log.error("Task id: {} from node.id: {} Read error".format(t.task_id, t.node_id))
+                        log.error("Zip file is empty")
+
                 except Exception as e:
                     logging.exception("Exception: %s" % e)
                     if os.path.exists(os.path.join(report_path, "reports", "report.json")):

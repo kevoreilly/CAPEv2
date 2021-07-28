@@ -1204,7 +1204,6 @@ def tasks_report(request, task_id, report_format="json"):
         return Response(resp)
 
 
-
 @csrf_exempt
 @api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):

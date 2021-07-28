@@ -1092,7 +1092,7 @@ def report(request, task_id):
         )
         network_report = results_db.analysis.find_one(
             {"info.id": int(task_id)},
-            {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1},
+            {"network.domains":1, "network.dns": 1, "network.hosts": 1},
             sort=[("_id", pymongo.DESCENDING)],
         )
 

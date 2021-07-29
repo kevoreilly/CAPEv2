@@ -550,7 +550,7 @@ class Retriever(threading.Thread):
 
                 # Fetch each requested report.
                 node = db.query(Node).filter_by(id=node_id).first()
-                report = node_get_report(t.task_id, "dist", node.url, node.apikey, stream=True)
+                report = node_get_report(t.task_id, "dist/", node.url, node.apikey, stream=True)
 
                 if report is None:
                     log.info("dist report retrieve failed NONE: task_id: {} from node: {}".format(t.task_id, node_id))

@@ -17,5 +17,4 @@ On Windows simply launching the script will also spawn a Python window, if
 you want to hide it you can rename the file from *agent.py* to **agent.pyw**
 which will prevent the window from spawning.
 
-If you want the script to be launched at Windows' boot, just place the file in
-the `Startup` folder, add to autorun service, etc see how malware does it for tricks ;).
+If you want the script to be launched at Windows' boot, place the file in the admin startup folder. To access it, open the app launcher with **Win+R** and search for "shell:common startup" which will open the folder you want (usually ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp``). Do not place the agent in the user startup folder (usually ``C:\Users\<Username>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup``) as it will launch the agent without admin privileges and therefore insufficient permissions resulting in it not working as intended. Just place the file in the admin startup folder, add to autorun service, etc see how malware does it for tricks ;).

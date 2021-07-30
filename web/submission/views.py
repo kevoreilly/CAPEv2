@@ -34,7 +34,7 @@ from lib.cuckoo.common.web_utils import (
     _download_file,
     parse_request_arguments,
     all_vms_tags,
-    all_nodes_exits,
+    all_nodes_exits_list,
     download_from_vt,
     perform_search,
 )
@@ -612,7 +612,7 @@ def index(request, resubmit_hash=False):
                 "resubmit": resubmit_hash,
                 "tags": sorted(list(set(all_vms_tags))),
                 "existent_tasks": existent_tasks,
-                "all_exitnodes": all_nodes_exits,
+                "all_exitnodes": all_nodes_exits_list,
             },
         )
 

@@ -286,7 +286,7 @@ def index(request, resubmit_hash=False):
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     details["errors"].append(
                         {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         }
                     )
                     continue
@@ -339,7 +339,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 
@@ -377,7 +377,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 
@@ -403,7 +403,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 

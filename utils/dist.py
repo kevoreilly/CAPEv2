@@ -602,6 +602,8 @@ class Retriever(threading.Thread):
                     else:
                         log.error("Zip file is empty")
 
+                except pyzipper.zipfile.BadZipFile:
+                    logging.error("File is not a zip file")
                 except Exception as e:
                     logging.exception("Exception: %s" % e)
                     if os.path.exists(os.path.join(report_path, "reports", "report.json")):
@@ -945,6 +947,7 @@ class NodeBaseApi(RestResource):
         self._parser.add_argument("name", type=str)
         self._parser.add_argument("url", type=str)
         self._parser.add_argument("apikey", type=str, default="")
+        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None)
         self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None)
 
 
@@ -1036,7 +1039,7 @@ class NodeApi(NodeBaseApi):
                     setattr(node, k, v)
         db.commit()
         db.close()
-        return dict(error=False, error_value="Successfully modified node: %s" % node.name)
+        return dict(error=False, error_value="Successfully modified node: {name}")
 
     def delete(self, name):
         db = session()

@@ -13,6 +13,30 @@ Base = declarative_base()
 
 schema = 'b0fa23c3c9c0'
 
+class ExitNodes(Base):
+    """Exit nodes to route traffic."""
+
+    __tablename__ = "exitnodes"
+
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(255), nullable=False, unique=True)
+
+    def __repr__(self):
+        return "<Exit node('{0}','{1}')>".format(self.id, self.name)
+
+    def __init__(self, name):
+        self.name = name
+
+
+# Secondary table used in association Worker - Exit node.
+worker_exitnodes = Table(
+    "worker_exitnodes",
+    Base.metadata,
+    Column("node_id", Integer, ForeignKey("node.id")),
+    Column("exit_id", Integer, ForeignKey("exitnodes.id")),
+)
+
+
 class Node(Base):
     """Cuckoo node database model."""
 
@@ -24,6 +48,7 @@ class Node(Base):
     apikey = Column(String(255), nullable=False)
     last_check = Column(DateTime(timezone=False))
     machines = relationship("Machine", backref="node", lazy="dynamic")
+    exitnodes = relationship("ExitNodes", secondary=worker_exitnodes, backref="node", lazy="subquery")
 
 
 class StringList(TypeDecorator):

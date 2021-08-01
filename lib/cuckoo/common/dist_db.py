@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from datetime import datetime
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
-from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, Index, DateTime, or_, and_, desc
+from sqlalchemy import Column, ForeignKey, Integer, Text, Table, String, Boolean, Index, DateTime, or_, and_, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, relationship

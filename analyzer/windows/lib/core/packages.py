@@ -119,6 +119,8 @@ def choose_package(file_type, file_name, exports, target):
         return "msbuild"
     elif file_name.endswith((".jtd", ".jtdc", ".jttc", ".jtt")):
         return "ichitaro"
+    elif file_name.endswith(".reg"):
+        return "reg"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:

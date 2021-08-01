@@ -1943,9 +1943,13 @@ class Database(object, metaclass=Singleton):
                 search = search.order_by(Task.added_on.desc())
 
             return search.limit(limit).offset(offset).all()
+        except RuntimeError as e:
+            # RuntimeError: number of values in row (1) differ from number of column processors (62)
+            log.debug("Database RuntimeError error: {e}")
+            return []
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-            log.debug("Database error: {e}")
+            log.debug("Database AttributeError error: {e}")
             return []
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))

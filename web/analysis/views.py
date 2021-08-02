@@ -1232,6 +1232,21 @@ def report(request, task_id):
                 for a in i["answers"]:
                     iplookups[a["data"]] = i["request"]
 
+    stats_total = {
+        "total": 0,
+        "processing": 0,
+        "signatures": 0,
+        "reporting": 0,
+    }
+    for stats_category in ("processing", "signatures", "reporting"):
+        total = float()
+        for item in report.get("statistics", {}).get(stats_category, []) or []:
+            total += item["time"]
+
+        stats_total["total"] += int(total)
+        stats_total[stats_category] = "{:.2f}".format(total)
+
+    stats_total["total"] = "{:.2f}".format(stats_total["total"])
     if HAVE_REQUEST and enabledconf["distributed"]:
         try:
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
@@ -1254,6 +1269,7 @@ def report(request, task_id):
             "settings": settings,
             "config": enabledconf,
             "reports_exist": reports_exist,
+            "stats_total": stats_total,
             "graphs": {
                 "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},

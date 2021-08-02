@@ -69,15 +69,6 @@ def dehex(value):
     return re.sub(r"\\x[0-9a-f]{2}", "", value)
 
 
-@register.filter(name="stats_total")
-def stats_total(value):
-    total = float()
-    for item in value:
-        total += item["time"]
-
-    return "{:.2f}".format(total)
-
-
 @register.filter(name="sort")
 def sort(value):
     if isinstance(value, dict):

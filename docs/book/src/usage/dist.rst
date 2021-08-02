@@ -274,8 +274,12 @@ Is better if you run "web" and "dist.py" as uwsgi application
 uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
     [uwsgi]
-        plugins = python36
+        ; you might need to adjust plugin-dir path for your system
+        ; plugins-dir = /usr/lib/uwsgi/plugins
+        plugins = python38
         callable = app
+        ; For venvs see - https://uwsgi-docs.readthedocs.io/en/latest/Python.html#virtualenv-support
+        ; virtualenv = path_to_venv
         ;change this patch if is different
         chdir = /opt/CAPEv2/utils
         master = true

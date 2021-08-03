@@ -1243,7 +1243,7 @@ def report(request, task_id):
         for item in report.get("statistics", {}).get(stats_category, []) or []:
             total += item["time"]
 
-        stats_total["total"] += int(total)
+        stats_total["total"] += total
         stats_total[stats_category] = "{:.2f}".format(total)
 
     stats_total["total"] = "{:.2f}".format(stats_total["total"])

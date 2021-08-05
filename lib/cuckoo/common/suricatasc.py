@@ -120,10 +120,7 @@ class SuricataSC:
             else:
                 data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
             if data.endswith("\n"):
-                if HAVE_ORJSON:
-
-                else:
-                    cmdret = json.loads(data)
+                cmdret = json.loads(data)
                 break
         return cmdret
 

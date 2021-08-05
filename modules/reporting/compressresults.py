@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import simplejson as json
 from bson import ObjectId
 from bson.binary import Binary
 import zlib
+import json
 from lib.cuckoo.common.abstracts import Report
 import logging
 

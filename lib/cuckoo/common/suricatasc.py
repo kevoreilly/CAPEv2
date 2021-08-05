@@ -14,13 +14,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
 import readline
 import select
 import sys
+import json
 from socket import AF_UNIX, error, socket
 
 from .suri_specs import argsd
@@ -123,7 +120,10 @@ class SuricataSC:
             else:
                 data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
             if data.endswith("\n"):
-                cmdret = json.loads(data)
+                if HAVE_ORJSON:
+
+                else:
+                    cmdret = json.loads(data)
                 break
         return cmdret
 

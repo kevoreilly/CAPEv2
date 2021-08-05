@@ -52,6 +52,11 @@ class Suricata(Processing):
 
         return tmp
 
+    def json_default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode('utf8')
+        raise TypeError
+
     def run(self):
         """Run Suricata.
         @return: hash with alerts
@@ -360,7 +365,7 @@ class Suricata(Processing):
 
             if HAVE_ORJSON:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
-                    drop_log.write(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.default)) # orjson.OPT_SORT_KEYS |
+                    drop_log.write(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)) # orjson.OPT_SORT_KEYS |
             else:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                     json.dump(suricata["files"], drop_log, indent=4)

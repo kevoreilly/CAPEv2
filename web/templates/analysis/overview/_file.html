@@ -189,6 +189,22 @@
                             {% endif %}
                         {% endif %}
                     {% endif %}
+
+                        {% if config.xlsdeobf %}
+                            {% if not analysis.static.office.XLMMacroDeobfuscator %}
+                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
+                            {% else %}
+                                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
+                             {% endif %}
+                            <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
+                                <pre>
+                                    {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
+                                        {{line}}
+                                    {% endfor %}
+                                </pre>
+                            </div>
+                        {% endif %}
+
                     {% if graphs.bingraph.enabled %}
                         {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
                             <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>

@@ -59,7 +59,7 @@ try:
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
-    print("Missed cryptography library: pip3 install cryptography")
+    print("Missed cryptography library: pip3 install -U cryptography")
 
 try:
     from whois import whois
@@ -74,7 +74,6 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -109,13 +108,6 @@ except ImportError as e:
     HAVE_PEEPDF = False
 
 try:
-    HAVE_XLM_DEOBF = True
-    from XLMMacroDeobfuscator.deobfuscator import process_file as XLMMacroDeobf
-except ImportError:
-    print("Missed dependey XLMMacroDeobfuscator: pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
-    HAVE_XLM_DEOBF = False
-
-try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
     from elftools.elf.descriptions import (
@@ -144,6 +136,10 @@ if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand i
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.on_demand is False:
     from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+
+HAVE_XLM_DEOBF = False
+if processing_conf.xlsdeobf.on_demand is False:
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
 
 log = logging.getLogger(__name__)
 
@@ -1515,38 +1511,11 @@ class Office(object):
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
                 metares["DocumentType"] = indicator.name
 
-        if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
-            password = self.options.get("password", "")
-            xlm_kwargs = {
-                "file": filepath,
-                "noninteractive": True,
-                "extract_only": False,
-                "start_with_shell": False,
-                "return_deobfuscated": True,
-                "no_indent": False,
-                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
-                "day": -1,
-                "password": password,
-            }
 
-            try:
-                deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
-                if deofuscated_xlm:
-                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = dict()
-                    xlmmacro["Code"]= deofuscated_xlm
-                    if not os.path.exists(macro_folder):
-                        os.makedirs(macro_folder)
-                    macro_file = os.path.join(macro_folder, "xlm_macro")
-                    with open(macro_file, "w") as f:
-                        f.write("\n".join(deofuscated_xlm))
-                    xlmmacro["info"] = dict()
-                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                    xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
-            except Exception as e:
-                if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
-                    log.info("Workbook not found. Probably not an Excel file.")
-                else:
-                    log.error(e, exc_info=True)
+        if HAVE_XLM_DEOBF:
+            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"],  self.options.get("password", ""))
+            if tmp_xlmmacro:
+                results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
         return results
 

@@ -1,8 +1,11 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
 import os
+import logging
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
@@ -33,7 +36,7 @@ if processing_conf.xlsdeobf.enabled:
 
 def xlmdeobfuscate(filepath: str, task_id: int, password: str = "", on_demand: bool=False):
 
-    if HAVE_XLM_DEOBF and (processing_conf.xlsdeobf.on_demand is False or on_demand is True:
+    if HAVE_XLM_DEOBF and (processing_conf.xlsdeobf.on_demand is False or on_demand is True):
         xlm_kwargs["file"] = filepath
         xlm_kwargs["password"] = password
 

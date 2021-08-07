@@ -90,6 +90,10 @@ HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
 
+HAVE_XLM_DEOBF = False
+if processing_cfg.xlsdeobf.on_demand:
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+
 
 if reporting_cfg.bingraph.on_demand:
     try:
@@ -1938,6 +1942,7 @@ on_demand_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": processing_cfg,
     "vba2graph": processing_cfg,
+    "xlsdeobf": processing_cfg,
 }
 
 
@@ -1960,7 +1965,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf") and not on_demand_config_mapper.get(service, {}).get(
         service, {}
     ).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
@@ -1982,6 +1987,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)
+
+    elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
+        details = xlmdeobfuscate(path, task_id, on_demain=True)
 
     elif (
         service == "bingraph"
@@ -2014,6 +2022,8 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             if buf.get(category, {}):
                 if service == "virustotal":
                     buf[service] = details
+                if service == "xlsdeobf":
+                    buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
                     buf["static"][service] = details
 

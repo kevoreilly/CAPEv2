@@ -1,3 +1,6 @@
+### [07-08-2021]
+* Monitor update: fix issue causing occasional crashes on x64 when calling ScyllaGetExportDirectory on apphelp.dll
+
 ### [28-07-2021]
 * bzip archives was replaced with zip with password, default infected, can be changes in conf/web.conf -> zipped_download -> zip_pwd
     * use 7zip or pyzipper to extract

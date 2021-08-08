@@ -5,11 +5,8 @@
 from __future__ import absolute_import
 import os
 import shutil
-import logging
 
 from lib.common.abstracts import Package
-
-log = logging.getLogger(__name__)
 
 class Shellcode(Package):
     """32-bit Shellcode analysis package."""
@@ -19,15 +16,18 @@ class Shellcode(Package):
         self.config = config
         self.options = options
         self.options["procdump"] = "0"
+        self.options["caller-dump"] = "0"
 
     def start(self, path):
+        offset = self.options.get("offset")
         loaderpath = "bin\\loader.exe"
-        arguments = "shellcode " + path
-
+        args = "shellcode " + path
+        if offset:
+            args += " {0}".format(offset)
         # we need to move out of the analyzer directory
         # due to a check in monitor dll
         basepath = os.path.dirname(path)
         newpath = os.path.join(basepath, os.path.basename(loaderpath))
         shutil.copy(loaderpath, newpath)
 
-        return self.execute(newpath, arguments, newpath)
+        return self.execute(newpath, args, newpath)

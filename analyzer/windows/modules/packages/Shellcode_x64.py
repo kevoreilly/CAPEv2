@@ -16,7 +16,6 @@ class Shellcode_x64(Package):
         self.config = config
         self.options = options
         self.options["procdump"] = "0"
-        self.options["caller-dump"] = "0"
 
     def start(self, path):
         offset = self.options.get("offset")

@@ -1,3 +1,8 @@
+### [08-08-2021]
+* Monitor update: debugger improvements
+* Loader: fix debug output for shellcode start address including offset
+* Allow start offsets into shellcode to be set for Shellcode packages (offset=x)
+
 ### [07-08-2021]
 * Monitor update: fix issue causing occasional crashes on x64 when calling ScyllaGetExportDirectory on apphelp.dll
 * XLMMacroDeobfuscator moved to `on_demand`

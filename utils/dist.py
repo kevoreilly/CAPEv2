@@ -315,38 +315,54 @@ class Retriever(threading.Thread):
         self.current_queue = dict()
         self.current_two_queue = dict()
         self.stop_dist = threading.Event()
+        self.threads = list()
 
         for x in range(int(reporting_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
-                thread = threading.Thread(target=self.fetch_latest_reports, args=())
+                thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
                 thread.daemon = True
                 thread.start()
+                self.threads.append(thread)
 
         if fetch_lock.acquire(blocking=False):
-            thread = threading.Thread(target=self.fetcher, args=())
+            thread = threading.Thread(target=self.fetcher, name="fetcher", args=())
             thread.daemon = True
             thread.start()
+            self.threads.append(thread)
 
         # Delete the task and all its associated files.
         # (It will still remain in the nodes" database, though.)
         if reporting_conf.distributed.remove_task_on_worker or delete_enabled:
-            thread = threading.Thread(target=self.remove_from_worker, args=())
+            thread = threading.Thread(target=self.remove_from_worker, name="remove_from_worker", args=())
             thread.daemon = True
             thread.start()
+            self.threads.append(thread)
 
         if reporting_conf.distributed.failed_cleaner or failed_clean_enabled:
-            thread = threading.Thread(target=self.failed_cleaner, args=())
+            thread = threading.Thread(target=self.failed_cleaner, name="failed_to_clean", args=())
             thread.daemon = True
             thread.start()
+            self.threads.append(thread)
 
-        thread = threading.Thread(target=self.free_space_mon, args=())
+        thread = threading.Thread(target=self.free_space_mon, name="free_space_mon", args=())
         thread.daemon = True
         thread.start()
+        self.threads.append(thread)
 
         if reporting_conf.callback.enabled:
-            thread = threading.Thread(target=self.notification_loop, args=())
+            thread = threading.Thread(target=self.notification_loop, name="notification_loop", args=())
             thread.daemon = True
             thread.start()
+            self.threads.append(thread)
+
+        # thread monitoring
+        for thr in self.threads:
+            try:
+                thr.join(timeout=0.0)
+                log.info(f"Thread: {thr.getName()} - Alive: {thr.is_alive()}")
+            except Exception as e:
+                log.exception(e)
+            time.sleep(60)
 
     def free_space_mon(self):
         # If not enough free disk space is available, then we print an
@@ -564,6 +580,7 @@ class Retriever(threading.Thread):
                     )
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
+                        log.info(f"Status code: {report.status_code} - MSG: {report.text}")
                     continue
 
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
@@ -596,20 +613,23 @@ class Retriever(threading.Thread):
                                 except Exception as e:
                                     pass
 
-                            t.retrieved = True
-                            t.finished = True
-                            db.commit()
+                        else:
+                            log.debug(f"{t.path} doesn't exist")
+
+                        t.retrieved = True
+                        t.finished = True
+                        db.commit()
+
                     else:
                         log.error("Zip file is empty")
-
                 except pyzipper.zipfile.BadZipFile:
-                    logging.error("File is not a zip file")
+                    log.error("File is not a zip file")
                 except Exception as e:
-                    logging.exception("Exception: %s" % e)
+                    log.exception("Exception: %s" % e)
                     if os.path.exists(os.path.join(report_path, "reports", "report.json")):
                         os.remove(os.path.join(report_path, "reports", "report.json"))
             except Exception as e:
-                logging.exception(e)
+                log.exception(e)
             self.current_queue[node_id].remove(task["id"])
             db.commit()
         db.close()
@@ -1304,11 +1324,11 @@ if __name__ == "__main__":
     else:
         app = create_app(database_connection=reporting_conf.distributed.db)
 
-        t = StatusThread()
+        t = StatusThread(name="StatusThread")
         t.daemon = True
         t.start()
 
-        retrieve = Retriever()
+        retrieve = Retriever(name="Retriever")
         retrieve.daemon = True
         retrieve.start()
 
@@ -1319,10 +1339,10 @@ else:
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)
-    retrieve = Retriever()
+    retrieve = Retriever(name="Retriever")
     retrieve.daemon = True
     retrieve.start()
 
-    t = StatusThread()
+    t = StatusThread(name="StatusThread")
     t.daemon = True
     t.start()

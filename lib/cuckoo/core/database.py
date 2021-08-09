@@ -41,6 +41,7 @@ except ImportError:
 sandbox_packages = (
     "nsis",
     "cpl",
+    "reg",
     "regsvr",
     "dll",
     "exe",

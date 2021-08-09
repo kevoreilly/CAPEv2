@@ -76,6 +76,8 @@ sandbox_packages = (
     "msbuild",
     "sct",
     "xslt",
+    "shellcode",
+    "shellcode_64",
 )
 
 log = logging.getLogger(__name__)
@@ -1942,7 +1944,9 @@ class Database(object, metaclass=Singleton):
             else:
                 search = search.order_by(Task.added_on.desc())
 
-            return search.limit(limit).offset(offset).all()
+            tasks = search.limit(limit).offset(offset).all()
+            # session.expunge_all()
+            return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
             log.debug("Database RuntimeError error: {e}")

@@ -77,8 +77,8 @@ sandbox_packages = (
     "msbuild",
     "sct",
     "xslt",
-    "shellcode",
-    "shellcode_64",
+    "Shellcode",
+    "Shellcode_x64",
 )
 
 log = logging.getLogger(__name__)

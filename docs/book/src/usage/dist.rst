@@ -75,6 +75,7 @@ POST /node
 ----------
 
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
+You might need to enable ``list_exitnodes`` and ``machinelist`` in ``conf/api.conf``
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey

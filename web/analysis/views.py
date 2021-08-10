@@ -1663,6 +1663,8 @@ def search(request, searched=False):
                 term = "sha1"
             elif re.match(r"^([a-fA-F\d]{64})$", value):
                 term = "sha256"
+            elif re.match(r"^([a-fA-F\d]{96})$", value):
+                term = "sha3"
             elif re.match(r"^([a-fA-F\d]{128})$", value):
                 term = "sha512"
 

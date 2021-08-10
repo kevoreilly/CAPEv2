@@ -784,9 +784,9 @@ search_term_map = {
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
-    "ssdeep": "target.file.ssdeep",
+    "ssdeep": ("target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
     "trid": "trid",
-    "crc32": "target.file.crc32",
+    "crc32": ("target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
     "resolvedapi": "behavior.summary.resolved_apis",
@@ -800,6 +800,7 @@ search_term_map = {
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
+    # probably needs extend
     "imphash": "static.pe.imphash",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
@@ -823,10 +824,11 @@ search_term_map = {
     "shrikerefer": "info.shrike_refer",
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
-    "md5": "target.file.md5",
-    "sha1": "target.file.sha1",
-    "sha256": "target.file.sha256",
-    "sha512": "target.file.sha512",
+    "md5": ("target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
+    "sha1": ("target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
+    "sha3": ("target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
+    "sha256": ("target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
+    "sha512": ("target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
@@ -851,8 +853,8 @@ def perform_search(term, value):
         return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
 
     query_val = False
-    if term in ("md5", "sha1", "sha256", "sha512"):
-        query_val = value
+    if term in ("md5", "sha1", "sha3", "sha256", "sha512"):
+        query_val = value.lower()
     elif term in ("surisid", "id"):
         try:
             query_val = int(value)
@@ -887,8 +889,14 @@ def perform_search(term, value):
         search_term_map[term] = search_term_map[term] + hash_len.get(len(value))
 
     if repconf.mongodb.enabled and query_val:
+        if term in ("md5", "sha1", "sha3", "sha256", "sha512"):
+            mongo_search_query = {"$or":
+                [{search_term: query_val} for search_term in search_term_map[term]]
+            }
+        else:
+            mongo_search_query = {search_term_map[term]: query_val}
         return (
-            results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters)
+            results_db.analysis.find(mongo_search_query, perform_search_filters)
             .sort([["_id", -1]])
             .limit(web_cfg.general.get("search_limit", 50))
         )

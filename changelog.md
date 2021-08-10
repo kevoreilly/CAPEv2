@@ -1,4 +1,5 @@
 ### [10-08-2021]
+* Monitor update: Remove unnecessary check in TestPERequirements causing failed PE dumps
 * Search by hash now will cover any file in CAPE that contains hash.
     * It searches in binary/Dropped files/CAPE payloads/ProcessDump
     * payloads: md5 <- as example not needed anymore and will be deprecated in next month

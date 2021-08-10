@@ -836,6 +836,21 @@ search_term_map = {
     "dhash": "static.pe.icon_dhash",
 }
 
+# search terms that will be forwarded to mongodb in a lowered normalized form
+normalized_lower_terms = (
+    "md5",
+    "sha1",
+    "sha3",
+    "sha256",
+    "sha512",
+    "ip",
+    "domain",
+    "ja3_hash",
+    "dhash",
+    "iconhash",
+    "imphash",
+)
+
 # ToDo verify if still working
 def perform_ttps_search(value):
     if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
@@ -853,7 +868,7 @@ def perform_search(term, value):
         return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
 
     query_val = False
-    if term in ("md5", "sha1", "sha3", "sha256", "sha512"):
+    if term in normalized_lower_terms:
         query_val = value.lower()
     elif term in ("surisid", "id"):
         try:

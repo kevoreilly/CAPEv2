@@ -175,6 +175,8 @@ class CAPE(Processing):
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] in unpack_map:
                 file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]

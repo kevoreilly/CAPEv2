@@ -904,12 +904,10 @@ def perform_search(term, value):
         search_term_map[term] = search_term_map[term] + hash_len.get(len(value))
 
     if repconf.mongodb.enabled and query_val:
-        if term in ("md5", "sha1", "sha3", "sha256", "sha512"):
-            mongo_search_query = {"$or":
-                [{search_term: query_val} for search_term in search_term_map[term]]
-            }
-        else:
+        if type(search_term_map[term]) is str:
             mongo_search_query = {search_term_map[term]: query_val}
+        else:
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         return (
             results_db.analysis.find(mongo_search_query, perform_search_filters)
             .sort([["_id", -1]])

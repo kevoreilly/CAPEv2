@@ -6,7 +6,13 @@ import logging
 import binascii
 from lib.cuckoo.common.abstracts import Processing
 
+try:
+    import re2 as re
+except:
+    import re
+
 log = logging.getLogger(__name__)
+
 
 class TLSMasterSecrets(Processing):
     """Cross-references TLS master secrets extracted from the monitor and key
@@ -29,16 +35,24 @@ class TLSMasterSecrets(Processing):
             return results
 
         for entry in open(dump_tls_log, "r").readlines() or []:
-            client_random, server_random, master_secret = entry.split(",")
-            client_random = binascii.a2b_hex(client_random.split(":")[-1].strip())
-            server_random = binascii.a2b_hex(server_random.split(":")[-1].strip())
-            master_secret = binascii.a2b_hex(master_secret.split(":")[-1].strip())
-
-            if server_random not in metakeys:
-                log.debug("Was unable to extract TLS master secret for server random %s, skipping it.", server_random)
-                continue
-
-            results[metakeys[server_random]] = master_secret
+            try:
+                for m in re.finditer(
+                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*(?P<master_secret>[a-f0-9]+)\s*",
+                    entry,
+                    re.I,
+                ):
+                    try:
+                        client_random = binascii.a2b_hex(m.group("client_random").strip())
+                        server_random = binascii.a2b_hex(m.group("server_random").strip())
+                        master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                        if server_random not in metakeys:
+                            log.debug("Was unable to extract TLS master secret for server random %s, skipping it.", server_random)
+                            continue
+                    except Exception as e:
+                        log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, m.group(0)))
+                        results[metakeys[server_random]] = master_secret
+            except Exception as e:
+                log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, entry))
 
         if results:
             # Write the TLS master secrets file.

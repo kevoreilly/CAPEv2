@@ -845,6 +845,10 @@ normalized_lower_terms = (
     "sha512",
     "ip",
     "domain",
+    "ja3_hash",
+    "dhash",
+    "iconhash",
+    "imphash",
 )
 
 # ToDo verify if still working

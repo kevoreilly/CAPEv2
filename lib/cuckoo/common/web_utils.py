@@ -843,6 +843,8 @@ normalized_lower_terms = (
     "sha3",
     "sha256",
     "sha512",
+    "ip",
+    "domain",
 )
 
 # ToDo verify if still working

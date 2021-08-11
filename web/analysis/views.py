@@ -1096,7 +1096,7 @@ def report(request, task_id):
         )
         network_report = results_db.analysis.find_one(
             {"info.id": int(task_id)},
-            {"network.domains":1, "network.dns": 1, "network.hosts": 1},
+            {"network.domains": 1, "network.dns": 1, "network.hosts": 1},
             sort=[("_id", pymongo.DESCENDING)],
         )
 
@@ -1255,10 +1255,11 @@ def report(request, task_id):
         try:
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
             if res and res.ok:
-                if "name" in res.json():
+                res = res.json()
+                if "name" in res:
                     report["distributed"] = dict()
-                    report["distributed"]["name"] = res.json()["name"]
-                    report["distributed"]["task_id"] = res.json()["task_id"]
+                    report["distributed"]["name"] = res["name"]
+                    report["distributed"]["task_id"] = res["task_id"]
         except Exception as e:
             print(e)
 
@@ -1967,9 +1968,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf") and not on_demand_config_mapper.get(service, {}).get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf") and not on_demand_config_mapper.get(
         service, {}
-    ).get("on_demand"):
+    ).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

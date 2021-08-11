@@ -859,6 +859,9 @@ normalized_lower_terms = (
     "dhash",
     "iconhash",
     "imphash",
+)
+
+normalized_int_terms = (
     "sport",
     "dport",
     "port",
@@ -883,6 +886,8 @@ def perform_search(term, value):
     query_val = False
     if term in normalized_lower_terms:
         query_val = value.lower()
+    elif term in normalized_int_terms:
+        query_val = int(value)
     elif term in ("surisid", "id"):
         try:
             query_val = int(value)

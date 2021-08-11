@@ -762,8 +762,7 @@ class Database(object, metaclass=Singleton):
                     session.query(Task)
                     .filter_by(status=TASK_PENDING)
                     .filter_by(machine=machine)
-                    # districuted cape
-                    # .filter(Task.options.not_like("%node=%"))
+                    # distributed cape
                     .filter(not_(Task.options.contains('node=')))
                     .order_by(Task.priority.desc(), Task.added_on)
                     .first()
@@ -774,8 +773,7 @@ class Database(object, metaclass=Singleton):
                         session.query(Task)
                         .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
-                        # districuted cape
-                        # .filter(Task.options.not_like("%node=%"))
+                        # distributed cape
                         .filter(not_(Task.options.contains('node=')))
                         .order_by(Task.priority.desc(), Task.added_on)
                         .filter(cond)
@@ -786,8 +784,7 @@ class Database(object, metaclass=Singleton):
                     session.query(Task)
                     .filter_by(status=TASK_PENDING)
                     .order_by(Task.priority.desc(), Task.added_on)
-                    # districuted cape
-                    # .filter(Task.options.not_like("%node=%"))
+                    # distributed cape
                     .filter(not_(Task.options.contains('node=')))
                     .filter(Task.tags == None)
                     .first()

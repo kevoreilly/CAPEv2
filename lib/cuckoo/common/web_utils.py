@@ -834,6 +834,16 @@ search_term_map = {
     "ja3_string": "suricata.tls.ja3.string",
     "payloads": "CAPE.payloads.",
     "dhash": "static.pe.icon_dhash",
+    "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "port": (
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+    ),
 }
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
@@ -849,6 +859,9 @@ normalized_lower_terms = (
     "dhash",
     "iconhash",
     "imphash",
+    "sport",
+    "dport",
+    "port",
 )
 
 # ToDo verify if still working

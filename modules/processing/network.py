@@ -1035,7 +1035,7 @@ class NetworkAnalysis(Processing):
                         if "ja3_hash" in ja3 and "desc" in ja3:
                             ja3_fprints[ja3["ja3_hash"]] = ja3["desc"]
                     except Exception as e:
-                        pass
+                        print(e)
 
         return ja3_fprints
 

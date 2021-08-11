@@ -27,7 +27,7 @@ from sflock.ident import identify as sflock_identify
 
 try:
     from sqlalchemy import create_engine, Column, event
-    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_
+    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_, not_
     from sqlalchemy import ForeignKey, Text, Index, Table, text
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -762,6 +762,9 @@ class Database(object, metaclass=Singleton):
                     session.query(Task)
                     .filter_by(status=TASK_PENDING)
                     .filter_by(machine=machine)
+                    # districuted cape
+                    # .filter(Task.options.not_like("%node=%"))
+                    .filter(not_(Task.options.contains('node=')))
                     .order_by(Task.priority.desc(), Task.added_on)
                     .first()
                 )
@@ -771,6 +774,9 @@ class Database(object, metaclass=Singleton):
                         session.query(Task)
                         .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
+                        # districuted cape
+                        # .filter(Task.options.not_like("%node=%"))
+                        .filter(not_(Task.options.contains('node=')))
                         .order_by(Task.priority.desc(), Task.added_on)
                         .filter(cond)
                         .first()
@@ -780,6 +786,9 @@ class Database(object, metaclass=Singleton):
                     session.query(Task)
                     .filter_by(status=TASK_PENDING)
                     .order_by(Task.priority.desc(), Task.added_on)
+                    # districuted cape
+                    # .filter(Task.options.not_like("%node=%"))
+                    .filter(not_(Task.options.contains('node=')))
                     .filter(Task.tags == None)
                     .first()
                 )

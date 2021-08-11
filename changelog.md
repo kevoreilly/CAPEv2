@@ -1,3 +1,6 @@
+### [11-08-2021]
+* Distributed. Master node stop picking pending tasks when `node=X` is specified and master_storage_only=False
+
 ### [10-08-2021]
 * Monitor update: Remove unnecessary check in TestPERequirements causing failed PE dumps
 * Search by hash now will cover any file in CAPE that contains hash.

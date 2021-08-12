@@ -1992,8 +1992,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         details = vt_lookup("file", sha256, on_demand=True)
 
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
-        details = xlmdeobfuscate(path, task_id, on_demain=True)
-
+        details = xlmdeobfuscate(path, task_id, on_demand=True)
     elif (
         service == "bingraph"
         and HAVE_BINGRAPH

@@ -182,18 +182,18 @@
                     <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{analysis.target.file.sha256 }}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fa fa-sync"></span> File</a>
                     {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
                         {% if config.flare_capa %}
-                            {% if not analysis.static.flare_capa %}
+                            {% if not analysis.static.flare_capa and on_demand.flare_capa %}
                                 <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
-                            {% else %}
+                            {% elif analysis.static.flare_capa %}
                                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa">FLARE CAPA</a>
                             {% endif %}
                         {% endif %}
                     {% endif %}
 
                         {% if config.xlsdeobf %}
-                            {% if not analysis.static.office.XLMMacroDeobfuscator %}
+                            {% if not analysis.static.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
                                 <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
-                            {% else %}
+                            {% elif analysis.static.office.XLMMacroDeobfuscator %}
                                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
                              {% endif %}
                             <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
@@ -206,20 +206,20 @@
                         {% endif %}
 
                     {% if graphs.bingraph.enabled %}
-                        {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
+                        {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 and on_demand.bingraph %}
                             <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
-                        {% else %}
+                        {% elif graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
                             <a href="{% url "file_nl" "bingraph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
                         {% endif %}
                     {% endif %}
                     {% if graphs.vba2graph.enabled and analysis.static.office %}
-                        {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
+                        {% if not graphs.vba2graph.content|getkey:analysis.target.file.sha256 and on_demand.vba2graph %}
                             <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
-                        {% else %}
+                        {% elif graphs.vba2graph.content|getkey:analysis.target.file.sha256 %}
                             <a href="{% url "file_nl" "vba2graph" analysis.info.id analysis.target.file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
                         {% endif %}
                     {% endif %}
-                    {% if config.virustotal and not analysis.virustotal %}
+                    {% if config.virustotal and not analysis.virustotal and on_demand.virustotal %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
                     {% endif %}
                     {% if config.vtupload and analysis.info.tlp != "Red" %}

@@ -109,6 +109,7 @@ else:
 
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
+on_demand_conf = dict()
 for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
@@ -116,6 +117,8 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
         if "enabled" in confdata[item]:
             if confdata[item]["enabled"] == "yes":
                 enabledconf[item] = True
+                if confdata[item].get("on_demand", "no")  == "yes":
+                    on_demand_conf[item] = True
             else:
                 enabledconf[item] = False
 
@@ -571,6 +574,7 @@ def load_files(request, task_id, category):
             },
             "config": enabledconf,
             "tab_name": category,
+            "on_demand": on_demand_conf,
         }
 
         if category == "debugger":
@@ -1279,6 +1283,7 @@ def report(request, task_id):
                 "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             },
+            "on_demand": on_demand_conf,
         },
     )
 

@@ -58,7 +58,8 @@ domain_passlist_re = [
     "^crl\.pki\.goog$",
     "^crl\.identrust\.com$",
     "^r3\.o\.lencr\.org$",
-    "^x1\.c\.lencr\.org$" "^pki\.goog$",
+    "^x1\.c\.lencr\.org$",
+    "^pki\.goog$",
 ]
 
 

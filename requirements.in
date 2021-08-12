@@ -22,7 +22,7 @@ orjson==3.6.0
 pyinstaller==4.4
 maec==4.1.0.17
 regex==2021.7.6
-SFlock2==0.3.23
+SFlock2==0.3.26
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
 pyattck==4.0.3
 distorm3==3.5.2

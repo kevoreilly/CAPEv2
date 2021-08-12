@@ -416,10 +416,14 @@ def init_routing():
                 rooter("flush_rttable", entry.rt_table)
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
+    # If we are storage and webgui only but using as default route one of the workers exitnodes
+    if repconf.distributed.master_storage_only:
+        return
+
     # Check whether the default VPN exists if specified.
     if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
         if not routing.vpn.enabled:
-            raise CuckooStartupError("A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in vpn.conf")
+            raise CuckooStartupError("A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in routing.conf")
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
             raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field")

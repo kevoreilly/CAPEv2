@@ -206,9 +206,8 @@ might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
 
 Check also "[distributed]" section, where you can set database, path for samples,
-and few more values
-
-Activate "[compression]" to compress dump by "process.py" and save time with retrieve
+and few more values.
+*Do not* use sqlite3! Use PostgreSQL database for performance and thread safe.
 
 Register CAPE nodes
 ---------------------

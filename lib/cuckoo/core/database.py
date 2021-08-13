@@ -1957,16 +1957,18 @@ class Database(object, metaclass=Singleton):
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
             log.debug("Database RuntimeError error: {e}")
-            return []
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
             log.debug("Database AttributeError error: {e}")
-            return []
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))
-            return []
+        except Exception as e:
+            # psycopg2.DatabaseError
+            log.exception(e)
         finally:
             session.close()
+
+        return []
 
     def minmax_tasks(self):
         """Find tasks minimum and maximum

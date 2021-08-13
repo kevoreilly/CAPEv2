@@ -30,7 +30,7 @@ try:
     from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_, not_
     from sqlalchemy import ForeignKey, Text, Index, Table, text
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+    from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
     from sqlalchemy.orm import sessionmaker, relationship, joinedload, backref
 
     Base = declarative_base()
@@ -557,7 +557,7 @@ class Database(object, metaclass=Singleton):
             elif connection_string.startswith("postgres"):
                 # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocesing.
                 # See: http://www.postgresql.org/docs/9.0/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
-                self.engine = create_engine(connection_string, connect_args={"sslmode": "disable"})
+                self.engine = create_engine(connection_string, connect_args={"sslmode": "disable"}, pool_pre_ping=True)
             else:
                 self.engine = create_engine(connection_string)
         except ImportError as e:
@@ -763,7 +763,7 @@ class Database(object, metaclass=Singleton):
                     .filter_by(status=TASK_PENDING)
                     .filter_by(machine=machine)
                     # distributed cape
-                    .filter(not_(Task.options.contains('node=')))
+                    .filter(not_(Task.options.contains("node=")))
                     .order_by(Task.priority.desc(), Task.added_on)
                     .first()
                 )
@@ -774,7 +774,7 @@ class Database(object, metaclass=Singleton):
                         .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
                         # distributed cape
-                        .filter(not_(Task.options.contains('node=')))
+                        .filter(not_(Task.options.contains("node=")))
                         .order_by(Task.priority.desc(), Task.added_on)
                         .filter(cond)
                         .first()
@@ -785,7 +785,7 @@ class Database(object, metaclass=Singleton):
                     .filter_by(status=TASK_PENDING)
                     .order_by(Task.priority.desc(), Task.added_on)
                     # distributed cape
-                    .filter(not_(Task.options.contains('node=')))
+                    .filter(not_(Task.options.contains("node=")))
                     .filter(Task.tags == None)
                     .first()
                 )
@@ -1098,18 +1098,27 @@ class Database(object, metaclass=Singleton):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
-            sample = Sample(
-                md5=file_md5,
-                crc32=fileobj.get_crc32(),
-                sha1=fileobj.get_sha1(),
-                sha256=fileobj.get_sha256(),
-                sha512=fileobj.get_sha512(),
-                file_size=fileobj.get_size(),
-                file_type=file_type,
-                ssdeep=fileobj.get_ssdeep(),
-                source_url=source_url,
-            )
-            session.add(sample)
+            sample = None
+            # check if hash is known already
+            try:
+                sample = session.query(Sample).filter_by(md5=file_md5).first()
+            except SQLAlchemyError as e:
+                log.debug("Error querying sample for hash: {0}".format(e))
+
+            if not sample:
+                sample = Sample(
+                    md5=file_md5,
+                    crc32=fileobj.get_crc32(),
+                    sha1=fileobj.get_sha1(),
+                    sha256=fileobj.get_sha256(),
+                    sha512=fileobj.get_sha512(),
+                    file_size=fileobj.get_size(),
+                    file_type=file_type,
+                    ssdeep=fileobj.get_ssdeep(),
+                    parent=sample_parent_id,
+                    source_url=source_url,
+                )
+                session.add(sample)
 
             try:
                 session.commit()
@@ -1199,30 +1208,40 @@ class Database(object, metaclass=Singleton):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
-            sample = Sample(
-                md5=file_md5,
-                crc32=fileobj.get_crc32(),
-                sha1=fileobj.get_sha1(),
-                sha256=fileobj.get_sha256(),
-                sha512=fileobj.get_sha512(),
-                file_size=fileobj.get_size(),
-                file_type=file_type,
-                ssdeep=fileobj.get_ssdeep(),
-                parent=sample_parent_id,
-                source_url=source_url,
-            )
-            session.add(sample)
+            sample = None
+            # check if hash is known already
+            try:
+                sample = session.query(Sample).filter_by(md5=file_md5).first()
+            except SQLAlchemyError as e:
+                log.debug("Error querying sample for hash: {0}".format(e))
+
+            if not sample:
+                sample = Sample(
+                    md5=file_md5,
+                    crc32=fileobj.get_crc32(),
+                    sha1=fileobj.get_sha1(),
+                    sha256=fileobj.get_sha256(),
+                    sha512=fileobj.get_sha512(),
+                    file_size=fileobj.get_size(),
+                    file_type=file_type,
+                    ssdeep=fileobj.get_ssdeep(),
+                    parent=sample_parent_id,
+                    source_url=source_url,
+                )
+                session.add(sample)
 
             try:
                 session.commit()
             except IntegrityError:
                 session.rollback()
+                """
                 try:
                     sample = session.query(Sample).filter_by(md5=file_md5).first()
                 except SQLAlchemyError as e:
                     log.debug("Error querying sample for hash: {0}".format(e))
                     session.close()
                     return None
+                """
             except SQLAlchemyError as e:
                 log.debug("Database error adding task: {0}".format(e))
                 session.close()
@@ -1237,8 +1256,11 @@ class Database(object, metaclass=Singleton):
                     else:
                         tags = "x64"
 
-            task = Task(obj.file_path)
-            task.sample_id = sample.id
+            try:
+                task = Task(obj.file_path)
+                task.sample_id = sample.id
+            except OperationalError:
+                return None
 
             if isinstance(obj, PCAP) or isinstance(obj, Static):
                 # since no VM will operate on this PCAP

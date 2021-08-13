@@ -1115,7 +1115,7 @@ class Database(object, metaclass=Singleton):
                     file_size=fileobj.get_size(),
                     file_type=file_type,
                     ssdeep=fileobj.get_ssdeep(),
-                    parent=sample_parent_id,
+                    # parent=sample_parent_id,
                     source_url=source_url,
                 )
                 session.add(sample)

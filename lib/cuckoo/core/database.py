@@ -106,6 +106,20 @@ TASK_FAILED_PROCESSING = "failed_processing"
 TASK_FAILED_REPORTING = "failed_reporting"
 TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
+ALL_DB_STATUSES = (
+    TASK_BANNED,
+    TASK_PENDING,
+    TASK_RUNNING,
+    TASK_DISTRIBUTED,
+    TASK_COMPLETED,
+    TASK_RECOVERED,
+    TASK_REPORTED,
+    TASK_FAILED_ANALYSIS,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_DISTRIBUTED_COMPLETED,
+)
+
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
     "machines_tags",

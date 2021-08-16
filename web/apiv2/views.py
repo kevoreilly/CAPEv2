@@ -1002,7 +1002,7 @@ def tasks_reschedule(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_delete(request, task_id):
+def tasks_delete(request, task_id, status=False):
     """
     task_id: int or string if many
     example: 1 or 1,2,3,4
@@ -1021,7 +1021,7 @@ def tasks_delete(request, task_id):
     s_deleted = list()
     f_deleted = list()
     for task in task_id:
-        check = validate_task(task)
+        check = validate_task(task, status)
         if check["error"]:
             f_deleted.append(task)
             continue
@@ -1099,7 +1099,6 @@ def tasks_report(request, task_id, report_format="json"):
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
         "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
     }
-
 
     if report_format.lower() in formats:
         report_path = os.path.join(srcdir, formats[report_format.lower()])
@@ -1553,6 +1552,7 @@ def tasks_dropped(request, task_id):
         resp["Content-Disposition"] = f"attachment; filename={task_id}_dropped.zip"
         return resp
 
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_surifile(request, task_id):
@@ -1680,7 +1680,6 @@ def tasks_procmemory(request, task_id, pid="all"):
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
-
 
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:

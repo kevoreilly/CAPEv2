@@ -20,7 +20,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED, ALL_DB_STATUSES
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename, get_options
 
 cfg = Config("cuckoo")
@@ -746,12 +746,16 @@ def _download_file(route, url, options):
     return response
 
 
-def validate_task(tid):
+def validate_task(tid, status=TASK_REPORTED):
     task = db.view_task(tid)
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
 
-    if task.status != TASK_REPORTED:
+    if status and status not in ALL_DB_STATUSES:
+        return {"error": True, "error_value": "Specified wrong task status"}
+    elif status == task.status:
+        return {"error": False}
+    elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
     return {"error": False}

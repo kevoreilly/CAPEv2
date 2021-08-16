@@ -117,7 +117,7 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
         if "enabled" in confdata[item]:
             if confdata[item]["enabled"] == "yes":
                 enabledconf[item] = True
-                if confdata[item].get("on_demand", "no")  == "yes":
+                if confdata[item].get("on_demand", "no") == "yes":
                     on_demand_conf[item] = True
             else:
                 enabledconf[item] = False
@@ -473,6 +473,7 @@ def pending(request):
     for task in tasks:
         pending.append(
             {
+                "id": task.id,
                 "target": task.target,
                 "added_on": task.added_on,
                 "category": task.category,

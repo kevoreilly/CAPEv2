@@ -9,7 +9,8 @@
             <th width="14%">Timestamp (added on)</th>
             <th width="6%">Category</th>
             <th width="35%">Target</th>
-            <th width="35%">MD5/SHA256</th>
+            <th width="30%">MD5/SHA256</th>
+            <th width="5%">Action</th>
         </tr>
         </thead>
         <tbody>
@@ -19,6 +20,7 @@
                 <td>{{task.category}}</td>
                 <td>{{task.target|filename}}</td>
                 <td>{{task.md5}}</br>{{task.sha256}}</td>
+                <td><a href="/apiv2/tasks/delete/{{task.id}}/pending"><i class="fas fa-trash-alt"></i></a></td>
             </tr>
         {% endfor %}
         </tbody>

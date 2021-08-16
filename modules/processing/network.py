@@ -11,6 +11,7 @@ import tempfile
 import logging
 import binascii
 import dns.resolver
+import traceback
 from collections import OrderedDict
 from urllib.parse import urlunparse
 from hashlib import md5, sha1, sha256
@@ -889,8 +890,9 @@ class Pcap2(object):
 
         try:
             l = sorted(r.process(), key=lambda x: x[1])
-        except TypeError:
-            log.warning("You running old httpreplay: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+        except TypeError as e:
+            log.warning("You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(e))
+            traceback.print_exc()
             return results
 
         for s, ts, protocol, sent, recv in l:
@@ -1095,7 +1097,7 @@ class NetworkAnalysis(Processing):
         for entry in open(dump_tls_log, "r").readlines() or []:
             try:
                 for m in re.finditer(
-                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*(?P<master_secret>[a-f0-9]+)\s*",
+                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
                     entry,
                     re.I,
                 ):
@@ -1103,9 +1105,9 @@ class NetworkAnalysis(Processing):
                         client_random = binascii.a2b_hex(m.group("client_random").strip())
                         server_random = binascii.a2b_hex(m.group("server_random").strip())
                         master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                        tlsmaster[client_random, server_random] = master_secret
                     except Exception as e:
                         log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, m.group(0)))
-                        tlsmaster[client_random, server_random] = master_secret
             except Exception as e:
                 log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, entry))
 

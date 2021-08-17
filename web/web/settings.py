@@ -120,7 +120,7 @@ except ImportError:
         key_file.write('SECRET_KEY = "{0}"'.format(key))
 
     # Reload key.
-    from secret_key import *
+    from .secret_key import *
 
 try:
     from captcha.fields import ReCaptchaField

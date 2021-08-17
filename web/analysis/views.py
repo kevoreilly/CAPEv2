@@ -1241,6 +1241,17 @@ def report(request, task_id):
                 for a in i["answers"]:
                     iplookups[a["data"]] = i["request"]
 
+    if HAVE_REQUEST and enabledconf["distributed"]:
+        try:
+            res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
+            if res and res.ok:
+                if "name" in res.json():
+                    report["distributed"] = dict()
+                    report["distributed"]["name"] = res.json()["name"]
+                    report["distributed"]["task_id"] = res.json()["task_id"]
+        except Exception as e:
+            print(e)
+
     stats_total = {
         "total": 0,
         "processing": 0,

@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import json
+import time
 import logging
 import hashlib
 import tempfile
@@ -185,6 +186,15 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+
+    t = int(time.time())
+
+    # caches results for 10 minutes
+    if hasattr(top_detections, "cache"):
+        ct, data = top_detections.cache
+        if t - ct < 600:
+            return data
+
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
@@ -205,6 +215,9 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     data = results_db.analysis.aggregate(aggregation_command)
     if data:
         data = list(data)
+
+    # save to cache
+    top_detections.cache = (t, data)
 
     return data
 

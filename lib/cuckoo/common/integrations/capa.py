@@ -22,31 +22,36 @@ details = flare_capa_details(path, "static", on_demand=True)
 HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:
-        import capa.main
-        import capa.rules
-        import capa.engine
-        import capa.features
-        from capa.render import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
-        from capa.engine import *
-        import capa.render.utils as rutils
-        from capa.main import UnsupportedRuntimeError
-        from capa.rules import InvalidRuleWithPath
-
-        rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-        if os.path.exists(rules_path):
-            capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
-            try:
-                rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
-                rules = capa.rules.RuleSet(rules)
-                HAVE_FLARE_CAPA = True
-            except InvalidRuleWithPath:
-                print("FLARE_CAPA InvalidRuleWithPath")
+        from capa.version import __version__ as capa_version
+        if capa_version[0] != "2":
+            print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
-            print("FLARE CAPA rules missed! You can download them using python community.py -cr")
-            HAVE_FLARE_CAPA = False
-    except ImportError:
+            import capa.main
+            import capa.rules
+            import capa.engine
+            import capa.features
+            from capa.render.result_document import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
+            from capa.engine import *
+            import capa.render.utils as rutils
+            from capa.main import UnsupportedRuntimeError
+            from capa.rules import InvalidRuleWithPath
+
+            rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+            if os.path.exists(rules_path):
+                capa.main.RULES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
+                try:
+                    rules = capa.main.get_rules(capa.main.RULES_PATH_DEFAULT_STRING, disable_progress=True)
+                    rules = capa.rules.RuleSet(rules)
+                    HAVE_FLARE_CAPA = True
+                except InvalidRuleWithPath:
+                    print("FLARE_CAPA InvalidRuleWithPath")
+            else:
+                print("FLARE CAPA rules missed! You can download them using python community.py -cr")
+                HAVE_FLARE_CAPA = False
+    except ImportError as e:
         HAVE_FLARE_CAPA = False
-        print("FLARE-CAPA missed, pip3 install flare-capa")
+        print(e)
+        print("FLARE-CAPA missed, pip3 install -U flare-capa")
 
 def render_meta(doc, ostream):
 

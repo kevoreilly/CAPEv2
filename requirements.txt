@@ -1454,8 +1454,8 @@ six==1.15.0 \
     #   python-dateutil
     #   requests-file
     #   sqlalchemy-utils
-smda==1.5.18 \
-    --hash=sha256:e543467eeb249ffc224429cdaad3f09564446fadfac67b46177e930f9960d953
+smda==1.5.19 \
+    --hash=sha256:cec32ee9280584f9fb1802e815c6bc9fcef7144a6c1ad3b4f42692cfac28583e
     # via flare-capa
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip \
     --hash=sha256:5891b0759294e3351fff286bb9239714819dd100edda2f042a8c3c260ac47b06
@@ -1538,9 +1538,8 @@ tldextract==3.1.0 \
 tlslite-ng==0.7.6 \
     --hash=sha256:6ab56f0e9629ce3d807eb528c9112defa9f2e00af2b2961254e8429ca5c1ff00
     # via httpreplay
-tqdm==4.61.2 \
-    --hash=sha256:5aa445ea0ad8b16d82b15ab342de6b195a722d75fc1ef9934a46bba6feafbc64 \
-    --hash=sha256:8bb94db0d4468fea27d004a0f1d1c02da3cdedc00fe491c0de986b76a04d6b0a
+tqdm==4.62.1 \
+    --hash=sha256:07856e19a1fe4d2d9621b539d3f072fa88c9c1ef1f3b7dd4d4953383134c3164
     # via flare-capa
 traitlets==5.0.5 \
     --hash=sha256:178f4ce988f69189f7e523337a3e11d91c786ded9360174a3d9ca83e79bc5396 \

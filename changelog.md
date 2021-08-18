@@ -1,3 +1,6 @@
+### [18-08-2021]
+* Monitor update: stability fixes (window hooks, ...) & debugger improvements
+
 ### [11-08-2021]
 * Distributed. Master node stop picking pending tasks when `node=X` is specified and master_storage_only=False
 

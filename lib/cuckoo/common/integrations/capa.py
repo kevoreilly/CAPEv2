@@ -187,7 +187,6 @@ def render_mbc(doc, ostream):
         for mbc in rule["meta"]["mbc"]:
             objectives[mbc["objective"]].add((mbc["behavior"], mbc.get("method"), mbc["id"]))
 
-    rows = []
     for objective, behaviors in sorted(objectives.items()):
         inner_rows = []
         for (behavior, method, id) in sorted(behaviors):
@@ -195,12 +194,6 @@ def render_mbc(doc, ostream):
                 inner_rows.append("%s [%s]" % (behavior, id))
             else:
                 inner_rows.append("%s::%s [%s]" % (behavior, method, id))
-        rows.append(
-            (
-                rutils.bold(objective.upper()),
-                "\n".join(inner_rows),
-            )
-        )
     ostream["MBC"].setdefault(objective.upper(), inner_rows)
 
 

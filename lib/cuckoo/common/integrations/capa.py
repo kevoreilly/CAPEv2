@@ -48,6 +48,18 @@ if processing_conf.flare_capa.enabled:
             else:
                 print("FLARE CAPA rules missed! You can download them using python community.py -cr")
                 HAVE_FLARE_CAPA = False
+
+            signatures_path = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
+            if os.path.exists(signatures_path):
+                capa.main.SIGNATURES_PATH_DEFAULT_STRING = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
+                try:
+                    signatures = capa.main.get_signatures(capa.main.SIGNATURES_PATH_DEFAULT_STRING)
+                    HAVE_FLARE_CAPA = True
+                except IOError:
+                    print("FLARE_CAPA InvalidSignatures")
+            else:
+                print("FLARE CAPA rules missed! You can download them using python community.py -cs")
+                HAVE_FLARE_CAPA = False
     except ImportError as e:
         HAVE_FLARE_CAPA = False
         print(e)
@@ -232,7 +244,7 @@ def flare_capa_details(file_path, category=False, on_demand=False):
         and (processing_conf.flare_capa.on_demand is False or on_demand is True)
     ):
         try:
-            extractor = capa.main.get_extractor(file_path, "auto", backend="smda", disable_progress=True)
+            extractor = capa.main.get_extractor(file_path, "auto", capa.main.BACKEND_VIV, signatures, disable_progress=True)
             meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
             meta["analysis"].update(counts)

@@ -24,7 +24,12 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
-def flare_capa_rules():
+def flare_capa():
+    signature_urls = (
+        'https://github.com/fireeye/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
+        'https://github.com/fireeye/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
+        'https://github.com/fireeye/capa/raw/master/sigs/3_flare_common_libs.sig',
+    )
     try:
         http = urllib3.PoolManager()
         data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
@@ -33,7 +38,17 @@ def flare_capa_rules():
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
         zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
-        print("[+] FLARE CAPA rules installed")
+
+        # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
+        capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
+        if not os.path.isdir(capa_sigs_path):
+            os.mkdir(capa_sigs_path)
+        for url in signature_urls:
+            signature_name = url.split('/')[-1]
+            with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), 'wb') as out_sig:
+                shutil.copyfileobj(sig, out_sig)
+
+        print("[+] FLARE CAPA rules/signatures installed")
     except Exception as e:
         print(e)
 
@@ -129,7 +144,7 @@ def main():
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
     parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
-    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False, required=False)
+    parser.add_argument("-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)
@@ -137,7 +152,7 @@ def main():
 
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
-        flare_capa_rules()
+        flare_capa()
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -155,7 +170,7 @@ def main():
             enabled.append("data")
 
     if args.capa_rules:
-        flare_capa_rules()
+        flare_capa()
         if not enabled:
             return
 

@@ -1,3 +1,7 @@
+### [19-08-2021]
+* Move office settings from package options to in-monitor (automatic)
+* Fix issue with tlsdump/lsass being assigned 'first process' in analyzer
+
 ### [18-08-2021]
 * Monitor update: stability fixes (window hooks, ...) & debugger improvements
 

@@ -540,7 +540,8 @@ class Process:
             if logserver_path not in LOGSERVER_POOL:
                 LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
 
-            Process.process_num += 1
+            if "tlsdump" not in self.options:
+                Process.process_num += 1
             firstproc = Process.process_num == 1
 
             config.write("host-ip={0}\n".format(self.config.ip))

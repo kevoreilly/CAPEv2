@@ -4,6 +4,12 @@
         <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#stadistics"><i class="fas fa-stopwatch"></i> Statistics {% if stats_total.total %}({{stats_total.total}}) {% endif %}</a></center>
     </div>
     <div id="stadistics" class="collapse">
+        {% if analysis.info.category != "pcap" and analysis.info.category != "static"  %}
+            <center>
+            {% include "analysis/overview/_usage.html" %}
+            </center>
+            <hr />
+        {% endif %}
         <div class="container">
             <div class="row">
                 <div class="col-sm">
@@ -47,5 +53,6 @@
                 </div>
             </div>
         </div>
+
     </div>
 {% endif %}

@@ -1,5 +1,9 @@
 from __future__ import absolute_import
+import logging
+
 from lib.cuckoo.common.abstracts import Report
+
+log = logging.getLogger(__name__)
 
 
 class MITRE_TTPS(Report):
@@ -26,3 +30,6 @@ class MITRE_TTPS(Report):
                 results["mitre_attck"] = attck
         except FileNotFoundError:
             print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf'")
+        except Exception as e:
+            # simplejson.errors.JSONDecodeError
+            log.exception(e)

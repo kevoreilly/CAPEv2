@@ -14,13 +14,23 @@ log = logging.getLogger(__name__)
 
 processing_conf = Config("processing")
 
+"""
+path = "/opt/CAPEv2/storage/analyses/2894126/binary"
+task_id = 2894126
+from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate
+details = xlmdeobfuscate(path, task_id, on_demand=True)
+
+"""
+
 HAVE_XLM_DEOBF = False
 if processing_conf.xlsdeobf.enabled:
     try:
         HAVE_XLM_DEOBF = True
         from XLMMacroDeobfuscator.deobfuscator import process_file as XLMMacroDeobf
     except ImportError:
-        print("Missed dependey XLMMacroDeobfuscator: pip3 install -U git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
+        print(
+            "Missed dependey XLMMacroDeobfuscator: pip3 install -U git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git"
+        )
 
     xlm_kwargs = {
         # "file": filepath,
@@ -34,7 +44,8 @@ if processing_conf.xlsdeobf.enabled:
         # "password": password,
     }
 
-def xlmdeobfuscate(filepath: str, task_id: int, password: str = "", on_demand: bool=False):
+
+def xlmdeobfuscate(filepath: str, task_id: int, password: str = "", on_demand: bool = False):
 
     if HAVE_XLM_DEOBF and (processing_conf.xlsdeobf.on_demand is False or on_demand is True):
         xlm_kwargs["file"] = filepath

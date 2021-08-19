@@ -68,12 +68,6 @@
 {% endif %}
 {% include "analysis/overview/_signatures.html" %}
 
-{% if analysis.info.category != "pcap" %}
-    {% if analysis.usage %}
-    <hr />
-    {% include "analysis/overview/_usage.html" %}
-{% endif %}
-
 {% include "analysis/overview/_screenshots.html" %}
 <hr />
 {% endif %}

@@ -88,7 +88,7 @@ $(function() {
         {% if analysis.procmemory|length %}
             <li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab" >Process Memory ({{analysis.procmemory|length}})</a></li>
         {% endif %}
-        {% if analysis.memory|length %}
+        {% if analysis.memory %}
             <li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" data-toggle="tab">Memory Analysis</a></li>
         {% endif %}
         {% if analysis.procdump %}

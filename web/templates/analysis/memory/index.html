@@ -18,7 +18,7 @@
             {% if memory.ssdt %}<li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>{% endif %}
             {% if memory.idt %}<li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>{% endif %}
             {% if memory.gdt %}<li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>{% endif %}
-            {% if analysis.memory.sockscan or analysis.memory.netscan %}
+            {% if memory.sockscan or memory.netscan %}
             <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
             {% endif %}
         </ul>

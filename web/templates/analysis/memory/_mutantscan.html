@@ -1,0 +1,16 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>Offset</th>
+            <th>Name</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for mutex in memory.mutantscan %}
+        <tr>
+            <td>{{mutex.Offset}}</td>
+            <td>{{mutex.Name}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

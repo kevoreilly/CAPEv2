@@ -1,0 +1,20 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>PID</th>
+            <th>Process</th>
+            <th>SID</th>
+            <th>Name</td>
+        </tr>
+    </thead>
+    <tbody>
+    {% for getsids in memory.getsids %}
+        <tr>
+            <td>{{getsids.PID}}</td>
+            <td>{{getsids.Process}}</td>
+            <td>{{getsids.SID}}</td>
+            <td>{{getsids.Name}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

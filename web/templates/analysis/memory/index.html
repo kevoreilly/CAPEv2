@@ -18,7 +18,12 @@
             {% if memory.ssdt %}<li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>{% endif %}
             {% if memory.idt %}<li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>{% endif %}
             {% if memory.gdt %}<li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>{% endif %}
-            {% if analysis.memory.sockscan or analysis.memory.netscan %}
+            {% if memory.privs %}<li class="nav-item"><a class="nav-link" href="#memory_privs" data-toggle="tab">Privilege</a></li>{% endif %}
+            {% if memory.handles %}<li class="nav-item"><a class="nav-link" href="#memory_handles" data-toggle="tab">Handles</a></li>{% endif %}
+            {% if memory.getsids %}<li class="nav-item"><a class="nav-link" href="#memory_getsids" data-toggle="tab">Sid by Process</a></li>{% endif %}
+            {% if memory.dlllist %}<li class="nav-item"><a class="nav-link" href="#memory_dlllist" data-toggle="tab">Dll List</a></li>{% endif %}
+            {% if memory.mutantscan %}<li class="nav-item"><a class="nav-link" href="#memory_mutantscan" data-toggle="tab">Mutex</a></li>{% endif %}
+            {% if memory.sockscan or memory.netscan %}
             <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
             {% endif %}
         </ul>
@@ -96,6 +101,31 @@
             {% elif memory.netscan %}
             <div class="tab-pane fade show" id="memory_sockets">
                 {% include "analysis/memory/_netscan.html" %}
+            </div>
+            {% endif %}
+            {% if memory.privs %}
+            <div class="tab-pane fade show" id="memory_privs">
+                {% include "analysis/memory/_privs.html" %}
+            </div>
+            {% endif %}
+            {% if memory.handles %}
+            <div class="tab-pane fade show" id="memory_handles">
+                {% include "analysis/memory/_handles.html" %}
+            </div>
+            {% endif %}
+            {% if memory.getsids %}
+            <div class="tab-pane fade show" id="memory_getsids">
+                {% include "analysis/memory/_getsids.html" %}
+            </div>
+            {% endif %}
+            {% if memory.dlllist %}
+            <div class="tab-pane fade show" id="memory_dlllist">
+                {% include "analysis/memory/_dlllist.html" %}
+            </div>
+            {% endif %}
+            {% if memory.mutantscan %}
+            <div class="tab-pane fade show" id="memory_mutantscan">
+                {% include "analysis/memory/_mutantscan.html" %}
             </div>
             {% endif %}
         </div>

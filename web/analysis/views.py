@@ -2001,15 +2001,21 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
         details = flare_capa_details(path, category.lower(), on_demand=True)
+        if not details:
+            details = {"msg": "No results"}
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)
+        if not details:
+            details = {"msg": "No results"}
 
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
         details = xlmdeobfuscate(path, task_id, on_demand=True)
+        if not details:
+            details = {"msg": "No results"}
     elif (
         service == "bingraph"
         and HAVE_BINGRAPH

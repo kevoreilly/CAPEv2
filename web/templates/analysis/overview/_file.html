@@ -197,11 +197,15 @@
                                 <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
                              {% endif %}
                             <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
-                                <pre>
-                                    {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
-                                        {{line}}
-                                    {% endfor %}
-                                </pre>
+                                {% if analysis.static.office.XLMMacroDeobfuscator.msg %}
+                                    <pre>No results</pre>
+                                {% else %}
+                                    <pre>
+                                        {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
+                                            {{line}}
+                                        {% endfor %}
+                                    </pre>
+                                {% endif %}
                             </div>
                         {% endif %}
 

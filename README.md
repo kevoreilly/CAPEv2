@@ -1,4 +1,4 @@
-## CAPE: Malware Configuration And Payload Extraction
+## CAPE: Malware Configuration And Payload Extraction - [Documentation](https://capev2.readthedocs.io/en/latest/#)
 
 CAPE is a malware sandbox. It was derived from Cuckoo with the goal of adding automated malware unpacking and config extraction - hence its name is an acronym: 'Config And Payload Extraction'. Automated unpacking allows classification based on Yara signatures to complement network (Suricata) and behavior (API) signatures.
 
@@ -73,18 +73,29 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
     * host tested with python3 version 3.7
 
 ## Installation recommendations and scripts for optimal performance
+0. Become familiar with [documentation](https://capev2.readthedocs.io/en/latest/installation/guest/network.html#virtual-networking) for proper configuration
 1. For best compability we strongly suggest installing on [Ubuntu 20.04 LTS](https://ubuntu.com/#download)
 2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor, replace `<W00T>` to real pattern
  * `sudo ./kvm-qemu.sh all <username> | tee kvm-qemu.log`
 3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
- * `sudo ./cape2.sh base cape | tee cape.log`
+  * `sudo ./cape2.sh base cape | tee cape.log`
+  * CAPE Services
+        * cape.service
+        * cape-processor.service
+        * cape-web.service
+        * cape-rooter.service
+           * __Only rooter should be executed as root__, the rest as __cape__ user.
+        * To restart any service use `systemctl restart <service_name>`
+
+    * To debug any problem, stop service and run the command that runs service by hand to see more logs, check `-h`, debug mode (`-d`) can help
+
 4. Reboot and enjoy
+
 
 \* All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.
 
-__requirements.txt is decprecated now in favour of the script__
 
-### How to create VMs with virt-manager
+### How to create VMs with virt-manager see docs for configration
 * [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
 
 ## Virtual machine core dependecy
@@ -119,6 +130,8 @@ git merge kevoreilly/master
 # push to your repo if desired
 git push
 ```
+
+
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)

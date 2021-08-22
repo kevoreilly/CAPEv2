@@ -1,9 +1,8 @@
 {% load key_tags %}
 <section id="file">
-    <h4>File Details</h4>
+    <h4>File Details  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> Parent file</a></label> {% endif %} </h4>
     {% if analysis.info.parent_sample %}
     <div class="form-group">
-        <label for="parent_file"><a href="#parent_file" data-toggle="collapse">Parent file</a></label>
         <div id="parent_file" class="collapse">
             <table class="table table-striped table-dark" style="table-layout: fixed;">
                 <tr>

@@ -60,32 +60,29 @@ def rooter(command, *args, **kwargs):
         log.critical("Unable to passthrough root command (%s) as the rooter " "unix socket doesn't exist.", command)
         return
 
-    lock.acquire()
+    ret = None
+    with lock:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
 
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        if os.path.exists(unixpath.name):
+            os.remove(unixpath.name)
 
-    if os.path.exists(unixpath.name):
-        os.remove(unixpath.name)
+        s.bind(unixpath.name)
 
-    s.bind(unixpath.name)
+        try:
+            s.connect(cfg.cuckoo.rooter)
+        except socket.error as e:
+            log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s.", e)
+            return
 
-    try:
-        s.connect(cfg.cuckoo.rooter)
-    except socket.error as e:
-        log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s.", e)
-        lock.release()
-        return
+        s.send(json.dumps({"command": command, "args": args, "kwargs": kwargs,}).encode("utf-8"))
 
-    s.send(json.dumps({"command": command, "args": args, "kwargs": kwargs,}).encode("utf-8"))
+        try:
+            ret = json.loads(s.recv(0x10000))
+        except socket.timeout:
+            ret = {"exception": "rooter response timeout", "output": ""}
 
-    try:
-        ret = json.loads(s.recv(0x10000))
-    except socket.timeout:
-        ret["exception"] = "rooter response timeout"
-
-    lock.release()
-
-    if ret["exception"]:
+    if ret and ret["exception"]:
         log.warning("Rooter returned error: %s", ret["exception"])
 
     return ret

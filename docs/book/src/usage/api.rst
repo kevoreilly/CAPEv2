@@ -24,8 +24,10 @@ To generate user autorization token:
     # By hand, only required if auth enabled and user MUST exist
     python3 manage.py drf_create_token <your_user>
 
-    # Auto generation
+    # Auto generation local or any public instance
     curl -d "username=<USER>&password=<PASSWD>" http://127.0.0.1:8000/apiv2/api-token-auth/
+    curl -d "username=<USER>&password=<PASSWD>" https://capesandbox.com/apiv2/api-token-auth/
+    curl -d "username=<USER>&password=<PASSWD>" http(s)://<ANY_CAPE>/apiv2/api-token-auth/
 
     # Usage
     import requests

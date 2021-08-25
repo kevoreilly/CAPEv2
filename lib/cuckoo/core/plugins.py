@@ -459,6 +459,8 @@ class RunSignatures(object):
         self.results = results
         self.ttps = list()
         self.cfg_processing = Config("processing")
+        self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
+
     def _load_overlay(self):
         """Loads overlay data from a json file.
         See example in data/signature_overlay.json
@@ -550,6 +552,8 @@ class RunSignatures(object):
         if not self._check_signature_version(current):
             return None
 
+        # Give it path to the analysis results.
+        current.set_path(self.analysis_path)
         log.debug('Running signature "%s"', current.name)
 
         try:

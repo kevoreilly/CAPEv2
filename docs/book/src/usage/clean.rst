@@ -6,7 +6,7 @@ Clean all Tasks and Samples
 
 To clean your setup, run `-h` to see available options::
 
-    $ ./utils/cleaner.py -h
+    $ ./utils/cleaners.py -h
 
 To sum up, this command does the following:
 

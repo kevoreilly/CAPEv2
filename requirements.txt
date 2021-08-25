@@ -985,9 +985,9 @@ pyasn1==0.4.5 \
     # via
     #   pyasn1-modules
     #   vivisect
-pyattck==4.0.3 \
-    --hash=sha256:0830824915749c297b23c86809651849bacd8d06fdef5e194ac3e89d52a740cc \
-    --hash=sha256:0ac5bbbe18e3d5d9bcc050319753c04b00015af2b4c2784a5242fc73721ef64e
+pyattck==4.1.1 \
+    --hash=sha256:9d5df8fcab78e8eb2c00d6f973534e9d8d18164ce9d1664a400b68a1e310a7ae \
+    --hash=sha256:17a349c4c75b273436763bc65fa6f5c08c0ec29008739f09e96bd3c481f3b76f
     # via -r requirements.in
 pycparser==2.20 \
     --hash=sha256:2d475327684562c3a96cc71adf7dc8c4f0565175cf86b6d7a404ff4c771f15f0 \

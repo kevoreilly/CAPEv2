@@ -1,3 +1,7 @@
+### [25-08-2021]
+* __ACTION REQUIRED__
+    * `pip3 install -U pyattck`
+
 ### [19-08-2021]
 * Move office settings from package options to in-monitor (automatic)
 * Fix issue with tlsdump/lsass being assigned 'first process' in analyzer

@@ -50,6 +50,7 @@ except ImportError:
 
 try:
     from tldextract import TLDExtract
+
     HAVE_TLDEXTRACT = True
     logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
@@ -59,11 +60,23 @@ HAVE_MITRE = False
 
 if repconf.mitre.enabled:
     try:
-        from pyattck import Attck
+        from pyattck import Attck, Configuration
+        from pyattck.utils.version import __version_info__ as pyattck_version
+
+        assert pyattck_version == (4, 1, 1)
 
         mitre = Attck(
-            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+            nested_subtechniques=True,
+            save_config=True,
+            use_config=True,
             config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+            enterprise_attck_json="https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
+            pre_attck_json="https://raw.githubusercontent.com/mitre/cti/master/pre-attack/pre-attack.json",
+            mobile_attck_json="https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
+            nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
+            generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
+            generated_nist_json="hhttps://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
         )
         HAVE_MITRE = True
 
@@ -238,7 +251,9 @@ class Machinery(object):
                 raise CuckooCriticalError(msg)
 
         if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError("Virtual machine state change timeout " "setting not found, please add it to " "the config file.")
+            raise CuckooCriticalError(
+                "Virtual machine state change timeout " "setting not found, please add it to " "the config file."
+            )
 
     def machines(self):
         """List virtual machines.
@@ -756,7 +771,6 @@ class Signature(object):
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
 
-
     def set_path(self, analysis_path):
         """Set analysis folder path.
         @param analysis_path: analysis folder path.
@@ -896,7 +910,9 @@ class Signature(object):
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
-            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
+            print(
+                "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin."
+            )
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
@@ -913,7 +929,7 @@ class Signature(object):
             return False
 
     def _check_valid_url(self, url, all_checks=False):
-        """ Checks if url is correct
+        """Checks if url is correct
         @param url: string
         @return: url or None
         """
@@ -1381,17 +1397,21 @@ class Signature(object):
         return None
 
     def get_initial_process(self):
-        """ Obtains the initial process information
+        """Obtains the initial process information
         @return: dict containing initial process information or None
         """
 
-        if not "behavior" in self.results or not "processes" in self.results["behavior"] or not len(self.results["behavior"]["processes"]):
+        if (
+            not "behavior" in self.results
+            or not "processes" in self.results["behavior"]
+            or not len(self.results["behavior"]["processes"])
+        ):
             return None
 
         return self.results["behavior"]["processes"][0]
 
     def get_environ_entry(self, proc, env_name):
-        """ Obtains environment entry from process
+        """Obtains environment entry from process
         @param proc: Process to inspect
         @param env_name: Name of environment entry
         @return: value of environment entry or None
@@ -1467,7 +1487,9 @@ class Signature(object):
         if isinstance(self.results.get("suricata", {}), dict):
             for alert in self.results.get("suricata", {}).get("alerts", []):
                 sid = alert.get("sid", 0)
-                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(pattern, alert.get("signature", ""), re.I):
+                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(
+                    pattern, alert.get("signature", ""), re.I
+                ):
                     res = True
                     break
         return res

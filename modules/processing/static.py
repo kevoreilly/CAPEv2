@@ -694,7 +694,7 @@ class PortableExecutable(object):
 
         return resources
 
-    def _generate_icon_dhash(image, hash_size = 8):
+    def _generate_icon_dhash(self, image, hash_size = 8):
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
         image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
 

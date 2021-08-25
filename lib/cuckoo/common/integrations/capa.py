@@ -46,7 +46,7 @@ if processing_conf.flare_capa.enabled:
                 except InvalidRuleWithPath:
                     print("FLARE_CAPA InvalidRuleWithPath")
             else:
-                print("FLARE CAPA rules missed! You can download them using python community.py -cr")
+                print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "capa-signatures")
@@ -58,7 +58,7 @@ if processing_conf.flare_capa.enabled:
                 except IOError:
                     print("FLARE_CAPA InvalidSignatures")
             else:
-                print("FLARE CAPA rules missed! You can download them using python community.py -cs")
+                print("FLARE CAPA rules missed! You can download them using python3 community.py -cr")
                 HAVE_FLARE_CAPA = False
     except ImportError as e:
         HAVE_FLARE_CAPA = False

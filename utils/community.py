@@ -52,6 +52,31 @@ def flare_capa():
     except Exception as e:
         print(e)
 
+def mitre():
+    """ Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
+    try:
+        from pyattck import Attck
+    except ImportError:
+        print("Missed dependency: install pyattck library, see requirements for proper version")
+        return
+
+    mitre = Attck(
+        nested_subtechniques=True,
+        save_config=False,
+        use_config=False,
+        config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+        enterprise_attck_json="https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
+        pre_attck_json="https://raw.githubusercontent.com/mitre/cti/master/pre-attack/pre-attack.json",
+        mobile_attck_json="https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
+        nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
+        generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
+        generated_nist_json="hhttps://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
+     )
+
+    print("[+] Updating MITRE datasets")
+    mitre.update()
+
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
         data = open(filepath, "rb").read()
@@ -145,6 +170,7 @@ def main():
     parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
     parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False, required=False)
     parser.add_argument("-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False)
+    parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)
@@ -171,6 +197,11 @@ def main():
 
     if args.capa_rules:
         flare_capa()
+        if not enabled:
+            return
+
+    if args.mitre:
+        mitre()
         if not enabled:
             return
 

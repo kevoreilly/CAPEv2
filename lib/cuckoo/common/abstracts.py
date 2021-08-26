@@ -60,9 +60,8 @@ HAVE_MITRE = False
 
 if repconf.mitre.enabled:
     try:
-        from pyattck import Attck, Configuration
+        from pyattck import Attck
         from pyattck.utils.version import __version_info__ as pyattck_version
-
         assert pyattck_version == (4, 1, 1)
 
         mitre = Attck(
@@ -71,12 +70,12 @@ if repconf.mitre.enabled:
             use_config=True,
             config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
             data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-            enterprise_attck_json="https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
-            pre_attck_json="https://raw.githubusercontent.com/mitre/cti/master/pre-attack/pre-attack.json",
-            mobile_attck_json="https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
-            nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
-            generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
-            generated_nist_json="hhttps://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
+            enterprise_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
+            pre_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
+            mobile_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
+            nist_controls_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
+            generated_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_attck_json.json"),
+            generated_nist_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
         )
         HAVE_MITRE = True
 

@@ -62,22 +62,22 @@ if repconf.mitre.enabled:
     try:
         from pyattck import Attck
         from pyattck.utils.version import __version_info__ as pyattck_version
-        assert pyattck_version == (4, 1, 1)
 
-        mitre = Attck(
-            nested_subtechniques=True,
-            save_config=True,
-            use_config=True,
-            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
-            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-            enterprise_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
-            pre_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
-            mobile_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
-            nist_controls_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
-            generated_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_attck_json.json"),
-            generated_nist_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
-        )
-        HAVE_MITRE = True
+        if pyattck_version == (4, 1, 1):
+            mitre = Attck(
+                nested_subtechniques=True,
+                save_config=True,
+                use_config=True,
+                config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+                data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+                enterprise_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
+                pre_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
+                mobile_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
+                nist_controls_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
+                generated_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_attck_json.json"),
+                generated_nist_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
+            )
+            HAVE_MITRE = True
 
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")

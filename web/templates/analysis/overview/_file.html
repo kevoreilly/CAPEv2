@@ -262,5 +262,17 @@
                 </td>
             </tr>
             {% endif %}
+
+            {% if existent_tasks %}
+            <tr><th></th><td>
+            <div id="existent_tasks" class="collapse bg-dark" style="text-align: left;">
+                    <p>
+                        {% for te_id, malware_detection in existent_tasks.items %}
+                            <li><a href="{% url "report" te_id %}"><span class="mono">{{te_id}}</span></a> {% if malware_detection %} - <a href="/analysis/search/detections:{{malware_detection}}"><span style="color:#EE1B2F;font-weight: bold;">{{malware_detection}}</span></a>{% endif %}</li>
+                        {% endfor %}
+                    </p>
+                </div>
+                </td>
+            {% endif %}
         </table>
 </section>

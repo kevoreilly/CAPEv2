@@ -454,16 +454,15 @@ class Retriever(threading.Thread):
                             t.finished = True
                             t.retrieved = True
                             t.notificated = True
-                            lock_retriever.acquire()
-                            if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((t.node_id, t.task_id))
-                            lock_retriever.release()
+                            with lock_retriever:
+                                if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
+                                    self.cleaner_queue.put((t.node_id, t.task_id))
                         else:
                             log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
-                            lock_retriever.acquire()
-                            if (node.id, task["id"]) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((node.id, task["id"]))
-                            lock_retriever.release()
+                            with lock_retriever:
+                                if (node.id, task["id"]) not in self.cleaner_queue.queue:
+                                    self.cleaner_queue.put((node.id, task["id"]))
+
                     db.commit()
             time.sleep(600)
         db.close()

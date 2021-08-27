@@ -1279,6 +1279,15 @@ def report(request, task_id):
         except Exception as e:
             print(e)
 
+    # ToDo Make this configurable
+    existent_tasks = dict()
+    if report.get("target", {}).get("file", {}).get("sha256"):
+        records = perform_search("sha256", report["target"]["file"]["sha256"])
+        for record in records:
+            if record["info"]["id"] == report["info"]["id"]:
+                continue
+            existent_tasks[record["info"]["id"]] = record.get("detections")
+
     return render(
         request,
         "analysis/report.html",
@@ -1296,6 +1305,8 @@ def report(request, task_id):
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             },
             "on_demand": on_demand_conf,
+            "existent_tasks": existent_tasks,
+
         },
     )
 

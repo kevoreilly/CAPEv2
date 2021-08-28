@@ -1,3 +1,6 @@
+### [28-08-2021]
+* Monitor: revert changes to IsPeImageRaw() while crashes (e.g. BazarLoader) are investigated
+
 ### [25-08-2021]
 * __ACTION REQUIRED__
     * `pip3 install -U pyattck`

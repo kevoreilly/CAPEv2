@@ -99,198 +99,6 @@
         </div>
         <hr />
         {% endif %}
-        {% if analysis.static.pe.digital_signers %}
-        <div>
-            <h4>Digital Signers</h4>
-            <div id="digital_signers">
-                {% for cert in analysis.static.pe.digital_signers %}
-                <table class="table table-striped table-bordered">
-                    <colgroup>
-                        <col width="250" />
-                        <col width="*" />
-                    </colgroup>
-                    {% if cert.subject_commonName %}
-                        <tr>
-                            <th>Certificate Common Name</th>
-                            <td>{{cert.subject_commonName}}</td>
-                        </tr>
-                    {% endif %}
-                    {% if cert.subject_commonName %}
-                    <tr>
-                        <th>Subject Organization Name</th>
-                        <td>{{cert.subject_commonName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_organizationalUnitName %}
-                    <tr>
-                        <th>Subject Organization Unit Name</th>
-                        <td>{{cert.subject_organizationalUnitName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_streetAddress %}
-                    <tr>
-                        <th>Subject Street Address</th>
-                        <td>{{cert.subject_streetAddress}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_localityName %}
-                    <tr>
-                        <th>Subject Locality</th>
-                        <td>{{cert.subject_localityName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_stateOrProvinceName %}
-                    <tr>
-                        <th>Subject State or Province</th>
-                        <td>{{cert.subject_stateOrProvinceName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_postalCode %}
-                    <tr>
-                        <th>Subject Postal Code</th>
-                        <td>{{cert.subject_postalCode}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.subject_countryName %}
-                    <tr>
-                        <th>Subject Country</th>
-                        <td>{{cert.subject_countryName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_commonName %}
-                    <tr>
-                        <th>Issuer Common Name</th>
-                        <td>{{cert.issuer_commonName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_organizationName %}
-                    <tr>
-                        <th>Issuer Organization Name</th>
-                        <td>{{cert.issuer_organizationName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_organizationalUnitName %}
-                    <tr>
-                        <th>Issuer Organization Unit Name</th>
-                        <td>{{cert.issuer_organizationalUnitName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_localityName %}
-                    <tr>
-                        <th>Issuer Locality</th>
-                        <td>{{cert.issuer_localityName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_stateOrProvinceName %}
-                    <tr>
-                        <th>Issuer State or Province</th>
-                        <td>{{cert.issuer_stateOrProvinceName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.issuer_countryName %}
-                    <tr>
-                        <th>Issuer Country</th>
-                        <td>{{cert.issuer_countryName}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.serial_number %}
-                    <tr>
-                        <th>Serial Number</th>
-                        <td>{{cert.serial_number}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.sha256_fingerprint %}
-                    <tr>
-                        <th>SHA256 Fingerprint</th>
-                        <td>{{cert.sha256_fingerprint}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.sha1_fingerprint %}
-                    <tr>
-                        <th>SHA1 Fingerprint</th>
-                        <td>{{cert.sha1_fingerprint}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.md5_fingerprint %}
-                    <tr>
-                        <th>MD5 Fingerprint</th>
-                        <td>{{cert.md5_fingerprint}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.not_before %}
-                    <tr>
-                        <th>Not valid before</th>
-                        <td>{{cert.not_before}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.not_after %}
-                    <tr>
-                        <th>Not valid after</th>
-                        <td>{{cert.not_after}}</td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
-                </table>
-            </div>
-        </div>
-        {% endif %}
-        {% if analysis.static.pe.guest_signers and analysis.static.pe.guest_signers.aux_signers %}
-        <div>
-            <h4>Microsoft Certificate Validation (Sign Tool)</h4>
-            <div id="digital_signers_validation">
-                <table class="table table-striped table-bordered">
-                    <tr>
-                        <th width="20%">SHA1</th>
-                        <th width="20%">Timestamp</th>
-                        <th width="5%">Valid</th>
-                        <th width="55%">Error</th>
-                    </tr>
-                    <tr>
-                        <td>{{analysis.static.pe.guest_signers.aux_sha1}}</td>
-                        <td>{{analysis.static.pe.guest_signers.aux_timestamp}}</td>
-                        {% if analysis.static.pe.guest_signers.aux_valid %}
-                        <td><center><span class="badge badge-success">Yes</span></center></td>
-                        <td>None</td>
-                        {% else %}
-                        <td><center><span class="badge badge-danger">No</span></center></td>
-                        <td>{{analysis.static.pe.guest_signers.aux_error_desc}}</td>
-                        {% endif %}
-                    </tr>
-                </table>
-                {% for signer in analysis.static.pe.guest_signers.aux_signers %}
-                <table class="table table-striped table-bordered">
-                    <colgroup>
-                        <col style="width:15%">
-                        <col style="width:85%">
-                    </colgroup>
-                    <tbody>
-                        <tr>
-                            <td><b>Chain</b></td>
-                            <td>{{signer.name}}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Issued to</b></td>
-                            <td>{{signer|getkey:"Issued to"}}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Issued by</b></td>
-                            <td>{{signer|getkey:"Issued by"}}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Expires</b></td>
-                            <td>{{signer.Expires}}</td>
-                        </tr>
-                        <tr>
-                            <td><b>SHA1 Hash</b></td>
-                            <td>{{signer|getkey:"SHA1 hash"}}</td>
-                        </tr>
-                    </tbody>
-                 </table>
-                 {% endfor %}
-            </div>
-        </div>
-        <hr />
-        {% endif %}
         {% if analysis.static.pe.sections %}
             <div>
                 <h4>Sections</h4>
@@ -377,7 +185,7 @@
         {% endif %}
 
         {% if analysis.static.pe.imports %}
-        <div id="accordion">
+        <div>
             {% for library in analysis.static.pe.imports %}
             <div class="card">
                 <div class="card-header" id="h_{{library.dll}}">
@@ -421,6 +229,190 @@
                     </table>
                 </div>
             </div>
+        {% endif %}
+                {% if analysis.static.pe.digital_signers %}
+        <div class="card-header">
+            <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
+        </div>
+        <hr />
+        <div id="pe_digital_signers" class="collapse" style="text-align: left;">
+                <div id="digital_signers">
+                    {% for cert in analysis.static.pe.digital_signers %}
+                    <table class="table table-striped table-bordered">
+                        <colgroup>
+                            <col width="250" />
+                            <col width="*" />
+                        </colgroup>
+                        {% if cert.subject_commonName %}
+                            <tr>
+                                <th>Certificate Common Name</th>
+                                <td>{{cert.subject_commonName}}</td>
+                            </tr>
+                        {% endif %}
+                        {% if cert.subject_commonName %}
+                        <tr>
+                            <th>Subject Organization Name</th>
+                            <td>{{cert.subject_commonName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_organizationalUnitName %}
+                        <tr>
+                            <th>Subject Organization Unit Name</th>
+                            <td>{{cert.subject_organizationalUnitName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_streetAddress %}
+                        <tr>
+                            <th>Subject Street Address</th>
+                            <td>{{cert.subject_streetAddress}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_localityName %}
+                        <tr>
+                            <th>Subject Locality</th>
+                            <td>{{cert.subject_localityName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_stateOrProvinceName %}
+                        <tr>
+                            <th>Subject State or Province</th>
+                            <td>{{cert.subject_stateOrProvinceName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_postalCode %}
+                        <tr>
+                            <th>Subject Postal Code</th>
+                            <td>{{cert.subject_postalCode}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.subject_countryName %}
+                        <tr>
+                            <th>Subject Country</th>
+                            <td>{{cert.subject_countryName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_commonName %}
+                        <tr>
+                            <th>Issuer Common Name</th>
+                            <td>{{cert.issuer_commonName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_organizationName %}
+                        <tr>
+                            <th>Issuer Organization Name</th>
+                            <td>{{cert.issuer_organizationName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_organizationalUnitName %}
+                        <tr>
+                            <th>Issuer Organization Unit Name</th>
+                            <td>{{cert.issuer_organizationalUnitName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_localityName %}
+                        <tr>
+                            <th>Issuer Locality</th>
+                            <td>{{cert.issuer_localityName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_stateOrProvinceName %}
+                        <tr>
+                            <th>Issuer State or Province</th>
+                            <td>{{cert.issuer_stateOrProvinceName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.issuer_countryName %}
+                        <tr>
+                            <th>Issuer Country</th>
+                            <td>{{cert.issuer_countryName}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.serial_number %}
+                        <tr>
+                            <th>Serial Number</th>
+                            <td>{{cert.serial_number}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.sha256_fingerprint %}
+                        <tr>
+                            <th>SHA256 Fingerprint</th>
+                            <td>{{cert.sha256_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.sha1_fingerprint %}
+                        <tr>
+                            <th>SHA1 Fingerprint</th>
+                            <td>{{cert.sha1_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.md5_fingerprint %}
+                        <tr>
+                            <th>MD5 Fingerprint</th>
+                            <td>{{cert.md5_fingerprint}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.not_before %}
+                        <tr>
+                            <th>Not valid before</th>
+                            <td>{{cert.not_before}}</td>
+                        </tr>
+                        {% endif %}
+                        {% if cert.not_after %}
+                        <tr>
+                            <th>Not valid after</th>
+                            <td>{{cert.not_after}}</td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                    </table>
+                </div>
+            {% endif %}
+            {% if analysis.static.pe.guest_signers and analysis.static.pe.guest_signers.aux_signers %}
+            <div>
+                <h4>Microsoft Certificate Validation (Sign Tool)</h4>
+                <div id="digital_signers_validation">
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <th width="20%">SHA1</th>
+                            <th width="20%">Timestamp</th>
+                            <th width="5%">Valid</th>
+                            <th width="55%">Error</th>
+                        </tr>
+                        <tr>
+                            <td>{{analysis.static.pe.guest_signers.aux_sha1}}</td>
+                            <td>{{analysis.static.pe.guest_signers.aux_timestamp}}</td>
+                            {% if analysis.static.pe.guest_signers.aux_valid %}
+                            <td><center><span class="badge badge-success">Yes</span></center></td>
+                            <td>None</td>
+                            {% else %}
+                            <td><center><span class="badge badge-danger">No</span></center></td>
+                            <td>{{analysis.static.pe.guest_signers.aux_error_desc}}</td>
+                            {% endif %}
+                        </tr>
+                    </table>
+                    <table class="table table-striped table-bordered">
+                        <tr>
+                            <th><b>Chain</b></th>
+                            <th><b>Issued to</b></th>
+                            <th><b>Issued by</b></th>
+                            <th><b>Expires</b></th>
+                            <th><b>SHA1 Hash</b></th>
+                        </tr>
+
+                        {% for signer in analysis.static.pe.guest_signers.aux_signers %}
+                        <tr>
+                                <td>{{signer.name}}</td>
+                                <td>{{signer|getkey:"Issued to"}}</td>
+                                <td>{{signer|getkey:"Issued by"}}</td>
+                                <td>{{signer.Expires}}</td>
+                                <td>{{signer|getkey:"SHA1 hash"}}</td>
+                        </tr>
+                    {% endfor %}
+                    </table>
+                </div>
+            </div>
+        <hr />
+        </div>
         {% endif %}
     {% else %}
         Nothing to display.

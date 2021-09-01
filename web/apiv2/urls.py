@@ -31,6 +31,7 @@ urlpatterns = [
     url(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/(?P<window>\d+)/$", views.tasks_list),
     url(r"^tasks/view/(?P<task_id>\d+)/$", views.tasks_view),
     url(r"^tasks/reschedule/(?P<task_id>\d+)/$", views.tasks_reschedule),
+    url(r"^tasks/delete/(?P<task_id>\d+)/$", views.tasks_delete),
     url(r"^tasks/delete/(?P<task_id>\d+)/(?P<status>\w+)/$", views.tasks_delete),
     url(r"^tasks/delete_many/$", views.tasks_delete_many),
     url(r"^tasks/status/(?P<task_id>\d+)/$", views.tasks_status),

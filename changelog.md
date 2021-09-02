@@ -1,3 +1,6 @@
+### [02-09-2021]
+* Monitor: Remove case-sensitivity from check for dll path (e.g. Hancitor maldoc-spawned dlls)
+
 ### [28-08-2021]
 * Monitor: revert changes to IsPeImageRaw() while crashes (e.g. BazarLoader) are investigated
 

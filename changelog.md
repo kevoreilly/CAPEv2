@@ -1,5 +1,7 @@
 ### [02-09-2021]
-* Monitor fix: Some dropped files being missed (file_handle_terminate())
+* Monitor fixes: 
+    * Some dropped files being missed (file_handle_terminate())
+    * Disable ntdll write-protection for Office processes
 
 ### [06-09-2021]
 * Sflock update with more PE checks, as in many cases PE has other formats strings inside

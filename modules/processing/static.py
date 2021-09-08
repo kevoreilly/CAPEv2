@@ -922,7 +922,10 @@ class PortableExecutable(object):
         if type(signatures) is bytearray:
             signatures = bytes(signatures)
 
-        certs = backend.load_der_pkcs7_certificates(signatures)
+        try:
+            certs = backend.load_der_pkcs7_certificates(signatures)
+        except Exception as e:
+            certs = []
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()

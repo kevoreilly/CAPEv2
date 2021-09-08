@@ -1434,8 +1434,8 @@ ruamel.yaml==0.17.10 \
     # via
     #   flare-capa
     #   mwcp
-sflock2==0.3.26 \
-    --hash=sha256:d23c79f8ca21e5432241e71b4e4eabb166c4c4508269b20fee4d2e61eec049c8
+sflock2==0.3.27 \
+    --hash=sha256:a3256b5467702912e9f0f66858339ac79f84e6852cbe135f185903d138330e45
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \

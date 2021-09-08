@@ -698,10 +698,7 @@ class PortableExecutable(object):
 
     def _generate_icon_dhash(self, image, hash_size = 8):
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
-        try:
-            image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
-        except Exception as e:
-            return
+        image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
 
         difference = []
 

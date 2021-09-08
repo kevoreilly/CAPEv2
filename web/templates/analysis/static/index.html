@@ -3,7 +3,7 @@
     <ul class="nav nav-tabs" style="margin-bottom: 0;">
         {% if analysis.info.category in "file,static" %}
             <li class="nav-item active"><a class="nav-link" href="#static_analysis_tab" data-toggle="tab">Static Analysis</a></li>
-            {% if analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
+            {% if analysis.static and analysis.static.dotnet %}
                 <li class="nav-item"><a class="nav-link" href="#static_dotnet_tab" data-toggle="tab">.NET Static Analysis</a></li>
             {% endif %}
         {% endif %}
@@ -33,7 +33,7 @@
             {% endif %}
         </div>
         {% endif %}
-        {% if analysis.info.category in "file,static" and analysis.static and "PE32" in analysis.target.file.type and "Mono" in analysis.target.file.type %}
+        {% if analysis.info.category in "file,static" and analysis.static and analysis.static.dotnet %}
             <div class="tab-pane fade show" id="static_dotnet_tab">
                 {% include "analysis/static/_dotnet.html" %}
             </div>

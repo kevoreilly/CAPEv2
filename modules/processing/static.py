@@ -322,17 +322,19 @@ class DotNETExecutable(object):
 
         results = {}
 
-        pretime = datetime.now()
-        results["dotnet"] = {}
-        results["dotnet"]["typerefs"] = self._get_type_refs()
-        results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
-        results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
-        results["dotnet"]["customattrs"] = self._get_custom_attrs()
-        posttime = datetime.now()
-        timediff = posttime - pretime
-        self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
-
-        return results
+        try:
+            results["dotnet"] = {}
+            pretime = datetime.now()
+            results["dotnet"]["typerefs"] = self._get_type_refs()
+            results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
+            results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
+            results["dotnet"]["customattrs"] = self._get_custom_attrs()
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+            return results
+        except Exception as e:
+            return  None
 
 
 class PortableExecutable(object):
@@ -756,7 +758,7 @@ class PortableExecutable(object):
             rt_icon_idx_tmp = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_ICON"] in rt_icon_idx_tmp:
                 rt_icon_idx = rt_icon_idx_tmp.index(pefile.RESOURCE_TYPE["RT_ICON"])
-            if not rt_icon_idx:
+            if not isinstance(rt_icon_idx, int):
                 return None, None, None, None
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
@@ -814,29 +816,30 @@ class PortableExecutable(object):
         if not hasattr(self.pe, "VS_VERSIONINFO") and not hasattr(self.pe, "FileInfo"):
             return infos
 
-        for entry in self.pe.FileInfo:
-            try:
-                if hasattr(entry, "StringTable"):
-                    for st_entry in entry.StringTable:
-                        for str_entry in st_entry.entries.items():
-                            entry = {}
-                            entry["name"] = convert_to_printable(str_entry[0])
-                            entry["value"] = convert_to_printable(str_entry[1])
-                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                            infos.append(entry)
-                elif hasattr(entry, "Var"):
-                    for var_entry in entry.Var:
-                        if hasattr(var_entry, "entry"):
-                            entry = {}
-                            entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
-                            entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                            infos.append(entry)
-            except Exception as e:
-                log.error(e, exc_info=True)
-                continue
+        for infoentry in self.pe.FileInfo:
+            for entry in infoentry:
+                try:
+                    if hasattr(entry, "StringTable"):
+                        for st_entry in entry.StringTable:
+                            for str_entry in st_entry.entries.items():
+                                entry = {}
+                                entry["name"] = convert_to_printable(str_entry[0])
+                                entry["value"] = convert_to_printable(str_entry[1])
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                infos.append(entry)
+                    elif hasattr(entry, "Var"):
+                        for var_entry in entry.Var:
+                            if hasattr(var_entry, "entry"):
+                                entry = {}
+                                entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
+                                entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                infos.append(entry)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+                    continue
 
         return infos
 
@@ -2646,7 +2649,7 @@ class Static(Processing):
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 static = PortableExecutable(self.file_path, self.results).run()
-                if static and "Mono" in thetype:
+                if static and "Mono" in File(self.file_path).get_content_type():
                     static.update(DotNETExecutable(self.file_path, self.results).run())
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()

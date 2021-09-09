@@ -334,6 +334,7 @@ class DotNETExecutable(object):
             self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
             return results
         except Exception as e:
+            log.error(e, exc_info=True)
             return  None
 
 

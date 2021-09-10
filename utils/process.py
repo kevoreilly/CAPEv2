@@ -166,8 +166,8 @@ def init_logging(auto=False, tid=0, debug=False):
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
             os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
-            if cfg.logging.enabled:
-                days = cfg.logging.backup_count or 7
+            if cfg.log_rotation.enabled:
+                days = cfg.log_rotation.backup_count or 7
                 fh = logging.handlers.TimedRotatingFileHandler(
                     os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
                 )

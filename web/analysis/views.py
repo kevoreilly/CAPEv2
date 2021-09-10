@@ -80,6 +80,7 @@ TASK_LIMIT = 25
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+web_cfg = Config("web")
 
 # On demand features
 HAVE_FLARE_CAPA = False
@@ -1279,9 +1280,8 @@ def report(request, task_id):
         except Exception as e:
             print(e)
 
-    # ToDo Make this configurable
     existent_tasks = dict()
-    if report.get("target", {}).get("file", {}).get("sha256"):
+    if web_cfg.general.get("existent_tasks", False) and report.get("target", {}).get("file", {}).get("sha256"):
         records = perform_search("sha256", report["target"]["file"]["sha256"])
         for record in records:
             if record["info"]["id"] == report["info"]["id"]:

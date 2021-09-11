@@ -1,8 +1,3 @@
-### [11-09-2021]
-* Monitor improvements: 
-    * Restrict debugger breakpoint protection to current process (NtSetContextThread)
-    * Limit "Dropped file limit reached" messages to just one per process
-
 ### [02-09-2021]
 * Monitor fixes: 
     * Some dropped files being missed (file_handle_terminate())

@@ -179,7 +179,7 @@ def load_vms_tags():
 
 
 all_nodes_exits = load_vms_exits()
-all_nodes_exits_list = list(filter(None, [exitnode for values in all_nodes_exits.values() for exitnode in values]))
+all_nodes_exits_list = list(all_nodes_exits.keys())
 
 all_vms_tags = load_vms_tags()
 all_vms_tags_str = ",".join(all_vms_tags)
@@ -722,6 +722,11 @@ def download_file(**kwargs):
 
     return "ok", kwargs["task_ids"]
 
+def url_defang(url):
+    url_defang = url.replace("[.]", ".").replace("[.", ".").repalce(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
+    if not url_defang.startswith("http"):
+        url_defang = "http://" + url_defang
+    return url_defang
 
 def _download_file(route, url, options):
     socks5s = _load_socks5_operational()
@@ -749,10 +754,8 @@ def _download_file(route, url, options):
             headers[key.replace("dne_", "")] = value
 
     try:
-        url_defang = url.replace("[.]", ".").replace("[.", ".").repalce(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
-        if not url_defang.startswith("http"):
-            url_defang = "http://" + url_defang
-        response = requests.get(url_defang, headers=headers, proxies=proxies)
+        url = url_defang(url)
+        response = requests.get(url, headers=headers, proxies=proxies)
         if response and response.status_code == 200:
             return response.content
     except Exception as e:

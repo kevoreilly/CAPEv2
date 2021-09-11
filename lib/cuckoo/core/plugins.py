@@ -443,16 +443,14 @@ class RunProcessing(object):
                         malfamily_tag = "Suricata"
                         break
 
-        if self.cfg.detections.virustotal and not family:
-            if self.results["info"]["category"] == "file":
+        if self.results["info"]["category"] == "file":
+            if self.cfg.detections.virustotal and not family:
                 family = self.results.get("virustotal", {}).get("detection", "")
                 if family:
                     malfamily_tag = "VirusTotal"
 
-        if self.cfg.detections.clamav and not family:
-            if self.results["info"]["category"] == "file":
-                clam_av_detections = self.results.get("target", {}).get("file", {}).get("clamav", [])
-                for detection in clam_av_detections:
+            if self.cfg.detections.clamav and not family:
+                for detection in self.results.get("target", {}).get("file", {}).get("clamav", []):
                     if detection.startswith("Win.Trojan."):
                         words = re.findall(r"[A-Za-z0-9]+", detection)
                         family = words[2]

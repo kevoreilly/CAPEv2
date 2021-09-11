@@ -10,6 +10,13 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
+try:
+    import yara
+
+    HAVE_YARA = True
+except ImportError:
+    HAVE_YARA = False
+
 malware_parsers = dict()
 cape_malware_parsers = dict()
 
@@ -17,6 +24,8 @@ cape_malware_parsers = dict()
 cfg = Config()
 repconf = Config("reporting")
 process_cfg = Config("processing")
+
+log = logging.getLogger(__name__)
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -34,6 +43,78 @@ try:
 except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
+
+
+def init_yara():
+    """Generates index for yara signatures."""
+
+    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
+
+    log.debug("Initializing Yara...")
+
+    # Generate root directory for yara rules.
+    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
+
+    # Loop through all categories.
+    for category in categories:
+        # Check if there is a directory for the given category.
+        category_root = os.path.join(yara_root, category)
+        if not os.path.exists(category_root):
+            log.warning("Missing Yara directory: %s?", category_root)
+            continue
+
+        rules, indexed = {}, []
+        for category_root, _, filenames in os.walk(category_root, followlinks=True):
+            for filename in filenames:
+                if not filename.endswith((".yar", ".yara")):
+                    continue
+                filepath = os.path.join(category_root, filename)
+                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                indexed.append(filename)
+
+            # Need to define each external variable that will be used in the
+        # future. Otherwise Yara will complain.
+        externals = {"filename": ""}
+
+        while True:
+            try:
+                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                break
+            except yara.SyntaxError as e:
+                bad_rule = str(e).split(".yar")[0]+".yar"
+                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                if os.path.basename(bad_rule) in indexed:
+                    for k,v in rules.items():
+                        if v == bad_rule:
+                            del rules[k]
+                            indexed.remove(os.path.basename(bad_rule))
+                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            break
+                else:
+                    break
+            except yara.Error as e:
+                print("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                break
+
+        if category == "memory":
+            try:
+                mem_rules = yara.compile(filepaths=rules, externals=externals)
+                mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            except yara.Error as e:
+                if "could not open file" in str(e):
+                    log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                else:
+                    log.error(e)
+
+        indexed = sorted(indexed)
+        for entry in indexed:
+            if (category, entry) == indexed[-1]:
+                log.debug("\t `-- %s %s", category, entry)
+            else:
+                log.debug("\t |-- %s %s", category, entry)
+
+
 
 HAS_MWCP = False
 if process_cfg.mwcp.enabled:
@@ -74,8 +155,6 @@ if process_cfg.malduck.enabled:
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
         tmp_modules = load_modules(process_cfg.malduck.modules_path)
         malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
-        malduck_rules.rules = File.yara_rules["CAPE"]
-        malduck_modules.rules = malduck_rules
         malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True
         del tmp_modules
@@ -250,6 +329,11 @@ def static_config_parsers(yara_hit, file_data):
 
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:
         logging.debug("Running Malduck")
+        if not File.yara_initialized:
+            init_yara()
+        # placing here due to not load yara in not related tools
+        malduck_rules.rules = File.yara_rules["CAPE"]
+        malduck_modules.rules = malduck_rules
         ext = ExtractManager.__new__(ExtractManager)
         ext.configs = {}
         ext.modules = malduck_modules
@@ -280,6 +364,8 @@ def static_config_lookup(file_path, sha256=False):
 
 def static_extraction(path):
     try:
+        if not File.yara_initialized:
+            init_yara()
         hits = File(path).get_yara(category="CAPE")
         if not hits:
             return False

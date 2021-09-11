@@ -331,6 +331,7 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running Malduck")
         if not File.yara_initialized:
             init_yara()
+            File.yara_initialized = True
         # placing here due to not load yara in not related tools
         malduck_rules.rules = File.yara_rules["CAPE"]
         malduck_modules.rules = malduck_rules
@@ -366,6 +367,7 @@ def static_extraction(path):
     try:
         if not File.yara_initialized:
             init_yara()
+            File.yara_initialized = True
         hits = File(path).get_yara(category="CAPE")
         if not hits:
             return False

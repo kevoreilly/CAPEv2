@@ -79,6 +79,7 @@ def init_yara():
         while True:
             try:
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                File.yara_initialized = True
                 break
             except yara.SyntaxError as e:
                 bad_rule = str(e).split(".yar")[0]+".yar"
@@ -331,7 +332,6 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running Malduck")
         if not File.yara_initialized:
             init_yara()
-            File.yara_initialized = True
         # placing here due to not load yara in not related tools
         malduck_rules.rules = File.yara_rules["CAPE"]
         malduck_modules.rules = malduck_rules
@@ -367,7 +367,6 @@ def static_extraction(path):
     try:
         if not File.yara_initialized:
             init_yara()
-            File.yara_initialized = True
         hits = File(path).get_yara(category="CAPE")
         if not hits:
             return False

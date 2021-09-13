@@ -1569,6 +1569,7 @@ def filereport(request, task_id, category):
         "metadata": "report.metadata.xml",
         "misp": "misp.json",
         "litereport": "lite.json",
+        "cents": "cents.rules",
     }
 
     if category in formats:

@@ -1,14 +1,15 @@
 ### [14-09-2021]
 * Update Lockbit yara sig
 * Update Bazar yara sig
+* We spot that some extractors only works with `mwcp==3.2.1`, requirements updated
 
 ### [11-09-2021]
-* Monitor improvements: 
+* Monitor improvements:
     * Restrict debugger breakpoint protection to current process (NtSetContextThread)
     * Limit "Dropped file limit reached" messages to just one per process
 
 ### [02-09-2021]
-* Monitor fixes: 
+* Monitor fixes:
     * Some dropped files being missed (file_handle_terminate())
     * Disable ntdll write-protection for Office processes
 

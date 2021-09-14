@@ -71,10 +71,8 @@
                         <th width="6%">MalScore</th>
                     {% endif %}
                     {% if config.expanded_dashboard %}
-                    <th width="4%">MalFamily</th>
                     <th width="3%">PCAP</th>
                     <th width="5%">ClamAV</th>
-                    <th width="10%">Custom</th>
                     {% endif %}
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
@@ -245,15 +243,6 @@
                             {% endif %}
                             </span>
                         </td>
-                        <td>
-                            <span class="mono">
-                            {% if analysis.custom %}
-                                {{analysis.custom}}
-                            {% else %}
-                                -
-                            {% endif %}
-                            </span>
-                        </td>
                         {% endif %}
                         {% if config.display_shrike %}
                         <td>
@@ -374,10 +363,8 @@
                         <th width="3%">MalScore</th>
                     {% endif %}
                     {% if config.expanded_dashboard %}
-                    <th width="4%">MalFamily</th>
                     <th width="3%">PCAP</th>
                     <th width="5%">ClamAV</th>
-                    <th width="10%">Custom</th>
                     {% endif %}
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
@@ -486,15 +473,6 @@
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
-                                {% if analysis.detections %}
-                                {{analysis.detections}}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="mono">
                             {% if analysis.pcap_sha256 %}
                             <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
                             {% else %}
@@ -506,15 +484,6 @@
                             <span class="mono">
                             {% if analysis.clamav %}
                                 {{analysis.clamav}}
-                            {% else %}
-                                -
-                            {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="mono">
-                            {% if analysis.custom %}
-                                {{analysis.custom}}
                             {% else %}
                                 -
                             {% endif %}
@@ -633,10 +602,8 @@
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
                     {% endif %}
-                    <th width="10%">MalFamily</th>
                     <th width="5%">PCAP</th>
                     <th width="10%">ClamAV</th>
-                    <th width="5%">Custom</th>
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -795,15 +762,6 @@
                             {% endif %}
                             </span>
                         </td>
-                        <td>
-                            <span class="mono">
-                            {% if analysis.custom %}
-                                {{analysis.custom}}
-                            {% else %}
-                                -
-                            {% endif %}
-                            </span>
-                        </td>
                         {% endif %}
                         {% if config.display_shrike %}
                         <td>
@@ -905,9 +863,8 @@
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
                     {% endif %}
-                    <th width="10%">MalFamily</th>
+
                     <th width="5%">PCAP</th>
-                    <th width="5%">Custom</th>
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -1027,15 +984,6 @@
                         <span class="mono">
                             {% if analysis.pcap_sha256 %}
                             <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="mono">
-                            {% if analysis.custom %}
-                            {{analysis.custom}}
                             {% else %}
                             -
                             {% endif %}

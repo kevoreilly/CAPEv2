@@ -1555,7 +1555,7 @@ class Database(object, metaclass=Singleton):
                 task_ids.append(task_id)
 
         details = {}
-        if config:
+        if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs
         return task_ids, details

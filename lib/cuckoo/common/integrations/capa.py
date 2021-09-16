@@ -23,7 +23,7 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
-        if capa_version[0] != "2":
+        if capa_version[0] != "3":
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
             import capa.main

@@ -4,7 +4,7 @@ pymisp==2.4.144
 cryptography==3.3.2
 requests[security,socks]==2.26.0
 pyOpenSSL==20.0.1
-pefile==2021.5.24
+pefile==2021.9.3
 tldextract==3.1.0
 oletools==0.60
 olefile==0.46
@@ -28,11 +28,11 @@ pyattck==4.1.1
 distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/4728328809834af4561949a99f8f9fd2499e834f.zip
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/e920b3f482f900debe8b639c0ebea96f4b9688ba.zip
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4
-flare-capa==2.0.0
+flare-capa==3.0.0
 greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6

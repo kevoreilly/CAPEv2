@@ -361,9 +361,9 @@ filelock==3.0.12 \
 fire==0.3.1 \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
     # via pyattck
-flare-capa==2.0.0 \
-    --hash=sha256:4e2280bf1d3e9246932b8e241eaf0781ed683bd4d002b848823bed18fcd95bc3 \
-    --hash=sha256:f7679089d21595cc422c2a61d6ac6d32353941fe91507b04f3402f6448999b16
+flare-capa==3.0.0 \
+    --hash=sha256:50b0f251b8eee40dac4a6a45314e74baef9e772d0944da5fe96df28b9532abbd \
+    --hash=sha256:7d79a2800be745f490d403de3e9999a23754c340c20d5c2240a5f7abde0c51bd
     # via -r requirements.in
 flask==1.1.4 \
     --hash=sha256:0fbeb6180d383a9186d0d6ed954e0042ad9f18e0e8de088b2b419d526927d196 \
@@ -873,8 +873,8 @@ pebble==4.6.1 \
 https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip \
     --hash=sha256:7a3cfaf47f7cf8dddf9c768503a1c985eddb7c8b4bc87641a5add789443198b6
     # via -r requirements.in
-pefile==2021.5.24 \
-    --hash=sha256:ed79b2353daa58421459abf4d685953bde0adf9f6e188944f97ba9795f100246
+pefile==2021.9.3 \
+    --hash=sha256:344a49e40a94e10849f0fe34dddc80f773a12b40675bf2f7be4b8be578bdd94a
     # via
     #   -r requirements.in
     #   flare-capa
@@ -1045,7 +1045,9 @@ pydot==1.4.2 \
 pyelftools==0.27 \
     --hash=sha256:5609aa6da1123fccfae2e8431a67b4146aa7fad5b3889f808df12b110f230937 \
     --hash=sha256:cde854e662774c5457d688ca41615f6594187ba7067af101232df889a6b7a66b
-    # via mwcp
+    # via
+    #   flare-capa
+    #   mwcp
 pyfiglet==0.8.post1 \
     --hash=sha256:c6c2321755d09267b438ec7b936825a4910fec696292139e664ca8670e103639 \
     --hash=sha256:d555bcea17fbeaf70eaefa48bb119352487e629c9b56f30f383e2c62dd67a01c
@@ -1429,9 +1431,9 @@ ruamel.yaml.clib==0.2.4 \
     --hash=sha256:f997f13fd94e37e8b7d7dbe759088bb428adc6570da06b64a913d932d891ac8d \
     --hash=sha256:fd400bd19ea3e86bad9fb5176ab7efb6efb5e440cc2fd435c86de021620d8fa7
     # via ruamel.yaml
-ruamel.yaml==0.17.10 \
-    --hash=sha256:106bc8d6dc6a0ff7c9196a47570432036f41d556b779c6b4e618085f57e39e67 \
-    --hash=sha256:ffb9b703853e9e8b7861606dfdab1026cf02505bade0653d1880f4b2db47f815
+ruamel.yaml==0.17.16 \
+    --hash=sha256:1a771fc92d3823682b7f0893ad56cb5a5c87c48e62b5399d6f42c8759a583b33 \
+    --hash=sha256:ea21da1198c4b41b8e7a259301cc9710d3b972bf8ba52f06218478e6802dd1f1
     # via
     #   flare-capa
     #   mwcp
@@ -1457,8 +1459,8 @@ six==1.15.0 \
     #   python-dateutil
     #   requests-file
     #   sqlalchemy-utils
-smda==1.5.18 \
-    --hash=sha256:e543467eeb249ffc224429cdaad3f09564446fadfac67b46177e930f9960d953
+smda==1.6.2 \
+    --hash=sha256:902aa793dc9de181fffdd8cb2745c7ce28e9722bd3431f1150ebe5fd0856b398
     # via flare-capa
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip \
     --hash=sha256:5891b0759294e3351fff286bb9239714819dd100edda2f042a8c3c260ac47b06
@@ -1541,9 +1543,9 @@ tldextract==3.1.0 \
 tlslite-ng==0.7.6 \
     --hash=sha256:6ab56f0e9629ce3d807eb528c9112defa9f2e00af2b2961254e8429ca5c1ff00
     # via httpreplay
-tqdm==4.61.2 \
-    --hash=sha256:5aa445ea0ad8b16d82b15ab342de6b195a722d75fc1ef9934a46bba6feafbc64 \
-    --hash=sha256:8bb94db0d4468fea27d004a0f1d1c02da3cdedc00fe491c0de986b76a04d6b0a
+tqdm==4.62.2 \
+    --hash=sha256:80aead664e6c1672c4ae20dc50e1cdc5e20eeff9b14aa23ecd426375b28be588 \
+    --hash=sha256:a4d6d112e507ef98513ac119ead1159d286deab17dffedd96921412c2d236ff5
     # via flare-capa
 traitlets==5.0.5 \
     --hash=sha256:178f4ce988f69189f7e523337a3e11d91c786ded9360174a3d9ca83e79bc5396 \
@@ -1608,8 +1610,8 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/4728328809834af4561949a99f8f9fd2499e834f.zip \
-    --hash=sha256:48e45aeb5b82f4e652332f585961886b29cbc36ec7e866f1c5d15b73fa5cde51
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/e920b3f482f900debe8b639c0ebea96f4b9688ba.zip \
+    --hash=sha256:0bb6c48b72c034911d6eb5e0d125a7fa5d893b9337786e18c1de6911bbbdf3d3
     # via -r requirements.in
 xlrd2==1.2.6 \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \

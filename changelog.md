@@ -2,6 +2,7 @@
 * Update Lockbit yara sig
 * Update Bazar yara sig
 * We spot that some extractors only works with `mwcp==3.2.1`, requirements updated
+* FLARE-CAPA v3
 
 ### [11-09-2021]
 * Monitor improvements:

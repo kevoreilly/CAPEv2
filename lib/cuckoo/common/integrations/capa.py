@@ -194,7 +194,7 @@ def render_mbc(doc, ostream):
                 inner_rows.append("%s [%s]" % (behavior, id))
             else:
                 inner_rows.append("%s::%s [%s]" % (behavior, method, id))
-    ostream["MBC"].setdefault(objective.upper(), inner_rows)
+        ostream["MBC"].setdefault(objective.upper(), inner_rows)
 
 
 def render_dictionary(doc):
@@ -218,7 +218,7 @@ def flare_capa_details(file_path, category=False, on_demand=False, disable_progr
     ):
         try:
             extractor = capa.main.get_extractor(file_path, "auto", capa.main.BACKEND_VIV, signatures, disable_progress=disable_progress)
-            meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, "auto", extractor)
+            meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, extractor)
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
             meta["analysis"].update(counts)
             doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)

@@ -89,6 +89,9 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
+multi_block_config = (
+    "SquirrelWaffle",
+)
 
 class CAPE(Processing):
     """CAPE output file processing."""
@@ -306,9 +309,10 @@ class CAPE(Processing):
             if hit["name"] == "GuLoader":
                 self.detect2pid(file_info["pid"], "GuLoader")
 
+            cape_name = hit["name"].replace("_", " ")
             tmp_config = static_config_parsers(hit["name"], file_data)
-            if tmp_config and tmp_config[hit["name"].replace("_", " ")]:
-                config.update(tmp_config)
+            if tmp_config and tmp_config.get(cape_name):
+                config.update(tmp_config[cape_name])
 
         if type_string :
             log.info("CAPE: type_string: %s", type_string)
@@ -353,7 +357,12 @@ class CAPE(Processing):
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:
-            self.cape["configs"].append(config)
+            if cape_name in multi_block_config and self.cape["configs"]:
+                for conf in self.cape["configs"]:
+                    if cape_name in conf:
+                        conf[cape_name].update(config[cape_name])
+            else:
+                self.cape["configs"].append(config)
 
     def run(self):
         """Run analysis.

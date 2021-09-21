@@ -129,6 +129,15 @@ except Exception as e:
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    print(request.user.username, ip)
+    """
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/s"
     else:
@@ -137,6 +146,16 @@ def my_rate_seconds(group, request):
 
 def my_rate_minutes(group, request):
     # RateLimits not enabled
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    print(request.user.username, ip)
+    """
+
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/m"
     else:

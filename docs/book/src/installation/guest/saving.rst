@@ -18,7 +18,11 @@ KVM
 
 You can check here how to simple create virtual machine with virt-manager
 
+* `Create virtual machine with virt-manager aka GUI client`_
+* `Advanced KVM preparation for malware analysis`_
+
 .. _`Create virtual machine with virt-manager aka GUI client`: https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html
+.. _`Prepare KVM for malware analysis`: https://www.doomedraven.com/2016/05/kvm.html#modifying-kvm-qemu-kvm-settings-for-malware-analysis
 
 If decided to adopt KVM, you must first of all be sure to use a disk format for
 your virtual machines which supports snapshots.

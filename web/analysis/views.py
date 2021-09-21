@@ -1352,6 +1352,8 @@ def file_nl(request, category, task_id, dlfile):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @csrf_exempt
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @api_view(["GET"])
 def file(request, category, task_id, dlfile):
     file_name = dlfile

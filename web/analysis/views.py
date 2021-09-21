@@ -486,6 +486,8 @@ def pending(request):
     return render(request, "analysis/pending.html", {"tasks": pending})
 
 
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def _load_file(task_id, sha256, existen_details, name):
     filepath = False
     if name == "bingraph":

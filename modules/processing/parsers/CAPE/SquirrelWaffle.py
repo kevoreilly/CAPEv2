@@ -15,7 +15,7 @@
 def config(data):
     data = data.decode("utf-8")
     config = dict()
-    if data.startswith("HTTP/1.1"):
+    if data.startswith("HTTP/1.1") or "\t\t\n\r" in data:
         return config
     if '\r\n' in data and '|' not in data:
         try:

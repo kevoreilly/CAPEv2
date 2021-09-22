@@ -1,4 +1,5 @@
 ### [22-09-2021]
+* SquirrelWaffle detection & config extraction
 * Monitor improvements:
     * Dumping stability improvements (ScanForDisguisedPE, IsDisguisedPEHeader, DumpMemory, DumpRegion)
     * Add config option to allow enable/disable scans/dumps while loader lock held

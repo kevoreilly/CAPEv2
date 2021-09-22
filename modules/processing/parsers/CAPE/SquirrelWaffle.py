@@ -13,8 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 def config(data):
-    data = data.decode("utf-8")
     config = dict()
+    try:
+        data = data.decode("utf-8")
+    except Exception as e:
+        return config
+
     if data.startswith("HTTP/1.1") or "\t\t\n\r" in data:
         return config
     if '\r\n' in data and '|' not in data:

@@ -229,7 +229,7 @@ class DotNETExecutable(object):
             output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
-                if not splitline or len(splitline) < 6:
+                if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
                 nameval = splitline[6].split("::")[0]

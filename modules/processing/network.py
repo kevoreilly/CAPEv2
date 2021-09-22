@@ -812,20 +812,31 @@ class Pcap:
         # Post processors for reconstructed flows.
         self._process_smtp()
 
-        # Remove hosts that have an IP which correlate to a passlisted domain
-
         # Build results dict.
-        self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
-        self.results["domains"] = self.unique_domains
-        self.results["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
-        self.results["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
-        self.results["icmp"] = self.icmp_requests
-        self.results["http"] = list(self.http_requests.values())
-        self.results["dns"] = list(self.dns_requests.values())
-        self.results["smtp"] = self.smtp_requests
-        self.results["irc"] = self.irc_requests
+        if not self.options.get("sorted", False):
+            self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
+            self.results["domains"] = self.unique_domains
+            self.results["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
+            self.results["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
+            self.results["icmp"] = self.icmp_requests
+            self.results["http"] = list(self.http_requests.values())
+            self.results["dns"] = list(self.dns_requests.values())
+            self.results["smtp"] = self.smtp_requests
+            self.results["irc"] = self.irc_requests
 
-        self.results["dead_hosts"] = []
+            self.results["dead_hosts"] = []
+        else:
+            self.results["sorted"] = dict()
+            self.results["sorted"]["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
+            self.results["sorted"]["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
+
+            if enabled_passlist:
+                for keyword in ("tcp", "udp"):
+                    for host in self.results["sorted"][keyword]:
+                        for delip in ip_passlist:
+                            if delip == host["src"] or delip == host["dst"]:
+                                self.results["sorted"][keyword].remove(host)
+            return self.results
 
         # Report each IP/port combination as a dead host if we've had to retry
         # at least 3 times to connect to it and if no successful connections
@@ -838,6 +849,7 @@ class Pcap:
             if (ip, port) not in self.results["dead_hosts"]:
                 self.results["dead_hosts"].append((ip, port))
 
+        # Remove hosts that have an IP which correlate to a passlisted domain
         if enabled_passlist:
 
             for host in self.results["hosts"]:
@@ -1059,27 +1071,21 @@ class NetworkAnalysis(Processing):
         ja3_fprints = self._import_ja3_fprints()
 
         results = {}
-        # Save PCAP file hash.
-        if os.path.exists(self.pcap_path):
-            results["pcap_sha256"] = File(self.pcap_path).get_sha256()
+
+        results["pcap_sha256"] = File(self.pcap_path).get_sha256()
+        results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:
             sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
-            # Sorted PCAP file hash.
             if os.path.exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
+                self.options["sorted"] = True
+                results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        pcap_path = self.pcap_path
-        results.update(Pcap(pcap_path, ja3_fprints, self.options).run())
-        # buf = Pcap(self.pcap_path, ja3_fprints).run()
-        # results = Pcap(sorted_path, ja3_fprints).run()
-        # results["http"] = buf["http"]
-        # results["dns"] = buf["dns"]
-
-        if os.path.exists(pcap_path) and HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path).run()
+                p2 = Pcap2(self.pcap_path, self.get_tlsmaster(), self.network_path).run()
                 if p2:
                     results.update(p2)
             except:

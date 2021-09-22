@@ -1843,7 +1843,7 @@ def pcapstream(request, task_id, conntuple):
     if enabledconf["mongodb"]:
         conndata = results_db.analysis.find_one(
             {"info.id": int(task_id)},
-            {"network.tcp": 1, "network.udp": 1, "network.sorted_pcap_sha256": 1, "_id": 0},
+            {"network.sorted.tcp": 1, "network.sorted.udp": 1, "network.sorted_pcap_sha256": 1, "_id": 0},
             sort=[("_id", pymongo.DESCENDING)],
         )
 
@@ -1855,9 +1855,9 @@ def pcapstream(request, task_id, conntuple):
 
     try:
         if proto == "udp":
-            connlist = conndata["network"]["udp"]
+            connlist = conndata["network"]["sorted"]["udp"]
         else:
-            connlist = conndata["network"]["tcp"]
+            connlist = conndata["network"]["sorted"]["tcp"]
 
         conns = [i for i in connlist if (i["sport"], i["dport"], i["src"], i["dst"]) == (sport, dport, src, dst)]
         stream = conns[0]

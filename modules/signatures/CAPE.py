@@ -47,7 +47,7 @@ class CAPE_Compression(Signature):
             buf = self.get_argument(call, "UncompressedBuffer")
             size = self.get_argument(call, "UncompressedBufferLength")
             if size:
-                size = int(size)
+                size = int(size, 16)
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):

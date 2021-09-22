@@ -1,3 +1,9 @@
+### [22-09-2021]
+* Monitor improvements:
+    * Dumping stability improvements (ScanForDisguisedPE, IsDisguisedPEHeader, DumpMemory, DumpRegion)
+    * Add config option to allow enable/disable scans/dumps while loader lock held
+    * Monitor updates: dump/scan stability improvements, configurable loader lock scans/dumps, window hook fixes
+
 ### [14-09-2021]
 * Update Lockbit yara sig
 * Update Bazar yara sig

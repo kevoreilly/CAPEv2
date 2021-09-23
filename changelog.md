@@ -1,3 +1,6 @@
+### [23-09-2021]
+* Monitor update: Add CLSIDs and IsValidUrl hook for CVE-2021-40444
+
 ### [22-09-2021]
 * SquirrelWaffle detection & config extraction
 * Monitor improvements:

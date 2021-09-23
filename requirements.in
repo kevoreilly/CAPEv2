@@ -28,7 +28,7 @@ pyattck==4.1.1
 distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/e920b3f482f900debe8b639c0ebea96f4b9688ba.zip
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/d2a070d4b6b484b670baa605c0994954952c5d71.zip
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4
@@ -41,7 +41,7 @@ matplotlib>=3.4.2
 numpy>=1.21.1
 six>=1.12.0
 statistics>=1.0.3.5
-django>3
+django==3.2.5
 sqlalchemy==1.4.22
 sqlalchemy-utils==0.37.8
 jinja2
@@ -59,7 +59,7 @@ pillow>=8.2.0
 python-whois==0.7.3
 bs4==0.0.1
 pydeep==0.4
-https://github.com/CAPESandbox/httpreplay/archive/refs/tags/0.3.0.zip
+https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
 django-allauth==0.45.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 django-crispy-forms==1.12.0

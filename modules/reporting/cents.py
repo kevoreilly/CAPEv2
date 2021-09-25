@@ -5,6 +5,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
+from lib.cuckoo.common.cents.cents_azorult import cents_azorult
 from lib.cuckoo.common.cents.cents_cobaltstrikebeacon import cents_cobaltstrikebeacon
 from lib.cuckoo.common.cents.cents_remcos import cents_remcos
 from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
@@ -38,12 +39,26 @@ class Cents(Report):
         """
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")
-        for config in results.get("CAPE", {}).get("configs", []):
+        configs = results.get("CAPE", {}).get("configs", [])
+        if not configs:
+            # no config extracted, nothing to do for CENTS
+            return
+
+        # sometimes there is more than one extracted config that is identical
+        configs_dedup = []
+        for entry in configs:
+            if entry in configs_dedup:
+                continue
+            configs_dedup.append(entry)
+
+        for config in configs_dedup:
             if not config or not isinstance(config, dict):
                 continue
             for config_name, config_dict in config.items():
                 rules = None
-                if config_name == "CobaltStrikeBeacon":
+                if config_name == "Azorult":
+                    rules = cents_azorult(config_dict, self.sid_counter, md5)
+                elif config_name == "CobaltStrikeBeacon":
                     rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5)
                 elif config_name == "Remcos":
                     rules = cents_remcos(config_dict, self.sid_counter, md5)
@@ -62,6 +77,10 @@ class Cents(Report):
                     rule_list += rules
                 else:
                     log.warning(f"[CENTS] Found config for {config_name}, but couldn't create rules")
+
+        if not rule_list:
+            # no rules ahve been created
+            return
 
         try:
             with open(os.path.join(self.reports_path, "cents.rules"), "w") as f:

@@ -30,7 +30,7 @@ def cents_cobaltstrikebeacon(config_dict, sid_counter, md5):
         log.warning(f"[CENTS] Exception while trying to create CobaltStrike rules: {e}")
 
     if beacon_type and port and c2:
-        # TODO make this better and differentiate betweek HTTP and HTTPS beacon types
+        # TODO make this better and differentiate between HTTP and HTTPS beacon types
         rule = f"alert http $HOME_NET any -> $EXTERNAL_NET {port} (msg:\"ET MALWARE CobaltStrike Beacon " \
                f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
                f"content:\"{c2}\"; fast_pattern; reference:md5,{md5}; sid:{next_sid}; rev:1;)"

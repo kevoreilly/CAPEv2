@@ -5,8 +5,10 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
-from lib.cuckoo.common.cents.cents_remcos import cents_remcos
 from lib.cuckoo.common.cents.cents_cobaltstrikebeacon import cents_cobaltstrikebeacon
+from lib.cuckoo.common.cents.cents_remcos import cents_remcos
+from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
+from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +47,10 @@ class Cents(Report):
                     rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5)
                 elif config_name == "Remcos":
                     rules = cents_remcos(config_dict, self.sid_counter, md5)
+                elif config_name == "SquirrelWaffle":
+                    rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5)
+                elif config_name == "TrickBot":
+                    rules = cents_trickbot(config_dict, self.sid_counter, md5)
                 else:
                     # config for this family not implemented yet
                     log.debug(f"[CENTS] Config for family {config_name} not implemented yet")

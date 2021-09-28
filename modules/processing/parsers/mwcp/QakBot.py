@@ -48,6 +48,7 @@ def parse_config(data):
             if k == b'3':
                 config[CONFIG.get(k, k)] = datetime.datetime.fromtimestamp(int(v)).strftime('%H:%M:%S %d-%m-%Y')
             else:
+                k = k[-2:]
                 config[CONFIG.get(k, k)] = v
         except Exception as e:
             log.info("Failed to parse config entry:{}".format(entry))
@@ -156,6 +157,7 @@ class QakBot(Parser):
                 for entry in rsrc.directory.entries:
                     if entry.name is not None:
                         #log.info("id:{}".format(entry.name.__str__()))
+                        config = {}
                         offset = entry.directory.entries[0].data.struct.OffsetToData
                         size = entry.directory.entries[0].data.struct.Size
                         res_data = pe.get_memory_mapped_image()[offset:offset + size]
@@ -177,28 +179,15 @@ class QakBot(Parser):
                                             #log.info("qbot_config:{}".format(config))
                                             self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe2).decode("utf-8") })
 
-                                            for k,v in config.items():
-                                                #log.info( { k.decode("utf-8"): v.decode("utf-8") })
-                                                self.reporter.add_metadata("other", {k:v})
-
                                         elif entry.name.__str__() == '311':
                                             dec_bytes = decrypt_data(res_data)
                                             controllers = parse_controllers(dec_bytes)
 
-                                            #log.info("controllers:{}".format(controllers))
-                                            for controller in controllers:
-                                                self.reporter.add_metadata("address", controller)
                             #log.info("meta data:{}".format(self.reporter.metadata))
 
                         elif entry.name.__str__() == '308':
                             dec_bytes = decrypt_data(res_data)
                             config = parse_config(dec_bytes)
-                            #log.info("qbot_config:{}".format(config))
-                            self.reporter.add_metadata("other", { "Core DLL Build": parse_build(pe)})
-
-                            for k,v in config.items():
-                                #log.info({k:v})
-                                self.reporter.add_metadata("other", {k:v})
 
                         elif entry.name.__str__() == '311':
                             dec_bytes = decrypt_data(res_data)
@@ -208,14 +197,28 @@ class QakBot(Parser):
                             dec_bytes = decrypt_data2(res_data)
                             controllers = parse_binary_c2_2(dec_bytes)
 
+                        elif entry.name.__str__() == '3719':
+                            dec_bytes = decrypt_data2(res_data)
+                            controllers = parse_binary_c2_2(dec_bytes)
+
                         elif entry.name.__str__() == '524':
                             dec_bytes = decrypt_data2(res_data)
                             config = parse_config(dec_bytes)
 
-                            #log.info("controllers:{}".format(controllers))
-                            for controller in controllers:
-                                self.reporter.add_metadata("address", controller)
-                            #log.info("meta data:{}".format(self.reporter.metadata))
+                        elif entry.name.__str__() == '5812':
+                            dec_bytes = decrypt_data2(res_data)
+                            config = parse_config(dec_bytes)
+
+                        self.reporter.add_metadata("other", {"Loader Build": parse_build(pe).decode("utf-8")})
+
+                        for k,v in config.items():
+                            #log.info( { k.decode("utf-8"): v.decode("utf-8") })
+                            self.reporter.add_metadata("other", {k:v})
+
+                        #log.info("controllers:{}".format(controllers))
+                        for controller in controllers:
+                            self.reporter.add_metadata("address", controller)
+                        #log.info("meta data:{}".format(self.reporter.metadata))
 
         except Exception as e:
             log.warning(e)

@@ -365,7 +365,8 @@ class CAPE(Processing):
                 # in case if malware name is missed it will break conf visualization
                 if cape_name not in config:
                     config = {cape_name: config}
-                self.cape["configs"].append(config)
+                if config not in self.cape["configs"]:
+                    self.cape["configs"].append(config)
 
     def run(self):
         """Run analysis.

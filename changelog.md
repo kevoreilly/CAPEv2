@@ -1,3 +1,6 @@
+### [2-10-2021]
+* Monitor update: Fixes/hardening of dumps (PE & memory) and yara scans (e.g. SquirrelWaffle)
+
 ### [23-09-2021]
 * Monitor update: Add CLSIDs and IsValidUrl hook for CVE-2021-40444
 

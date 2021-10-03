@@ -126,9 +126,8 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
-linux_allowed = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
 def _get_linux_vm_tag(mgtype):
-    if mgtype.startswith((linux_allowed)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+    if mgtype.startswith((VALID_LINUX_TYPES)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
         return {"error":"not allowed"}
     if "mipsel" in mgtype:
         return "mipsel"

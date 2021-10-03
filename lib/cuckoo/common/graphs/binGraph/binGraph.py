@@ -236,7 +236,7 @@ def generate_graphs(args_dict):
                 output["info"] = json_data
 
                 buf = io.BytesIO()
-                plt.savefig(buf, format=args_dict["format"], dpi=args_dict["dpi"], forward=True, **save_kwargs)
+                plt.savefig(buf, format=args_dict["format"], dpi=args_dict["dpi"], **save_kwargs)
                 output["graph"] = base64.b64encode(buf.getvalue()).decode()
                 buf.close()
 
@@ -250,7 +250,7 @@ def generate_graphs(args_dict):
                 log.info('Graph saved to: "{}"'.format(abs_save_fpath))
 
             else:
-                plt.savefig(abs_save_fpath, format=args_dict["format"], dpi=args_dict["dpi"], forward=True, **save_kwargs)
+                plt.savefig(abs_save_fpath, format=args_dict["format"], dpi=args_dict["dpi"], **save_kwargs)
                 log.info('Graph saved to: "{}"'.format(abs_save_fpath))
 
             plt.clf()
@@ -281,10 +281,16 @@ if __name__ == "__main__":
         help='*** Required if --file or -f is the only argument given before a graph type is provided (it\'s greedy!). E.g. "binGraph.py --file mal.exe - bin_ent"',
     )
     parser.add_argument("--prefix", type=str, metavar="", help="Add this prefix to the saved filenames")
-    parser.add_argument("--out", type=str, dest="save_dir", default=os.getcwd(), metavar="/data/graphs/", help="Where to save the graph files")
-    parser.add_argument("--json", action="store_true", default=__json__, help="Ouput graphs as json with graph images encoded as Base64")
+    parser.add_argument(
+        "--out", type=str, dest="save_dir", default=os.getcwd(), metavar="/data/graphs/", help="Where to save the graph files"
+    )
+    parser.add_argument(
+        "--json", action="store_true", default=__json__, help="Ouput graphs as json with graph images encoded as Base64"
+    )
     parser.add_argument("--graphtitle", type=str, metavar='"file.exe"', default=None, help="Given title for graphs")
-    parser.add_argument("--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)")
+    parser.add_argument(
+        "--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)"
+    )
     parser.add_argument(
         "--format",
         type=str,

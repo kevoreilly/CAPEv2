@@ -47,12 +47,22 @@ def args_setup(arg_parser):
         help="Remove 0x00 from the graph, sometimes this blows other results due to there being numerous amounts - also see --no_log",
     )
     arg_parser.add_argument("--width", type=int, default=__width__, metavar=__width__, help="Sample width")
-    arg_parser.add_argument("--no_log", action="store_false", default=__g_log__, help="Do _not_ apply a log scale to occurance axis")
     arg_parser.add_argument(
-        "--no_order", action="store_true", default=__no_order__, help="Remove the ordered histogram - It shows overall distribution when on"
+        "--no_log", action="store_false", default=__g_log__, help="Do _not_ apply a log scale to occurance axis"
     )
     arg_parser.add_argument(
-        "--colours", type=str, nargs=2, default=__colours__, metavar="#ff01d5", help="Colours for the graph. First value is the ordered graph"
+        "--no_order",
+        action="store_true",
+        default=__no_order__,
+        help="Remove the ordered histogram - It shows overall distribution when on",
+    )
+    arg_parser.add_argument(
+        "--colours",
+        type=str,
+        nargs=2,
+        default=__colours__,
+        metavar="#ff01d5",
+        help="Colours for the graph. First value is the ordered graph",
     )
 
 
@@ -66,7 +76,9 @@ def args_validation(args):
     # # Test to see what matplotlib backend is setup
     backend = matplotlib.get_backend()
     if not backend == "TkAgg":
-        log.warning('{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(backend))
+        log.warning(
+            '{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(backend)
+        )
 
     # # Test to see if we should use defaults
     if args.graphtype == "all":
@@ -83,7 +95,9 @@ def args_validation(args):
         raise ArgValidationEx("Error parsing --colours: {}".format(e))
 
 
-def generate(abs_fpath, fname, no_zero=__no_zero__, width=__width__, g_log=__g_log__, no_order=__no_order__, colours=__colours__, **kwargs):
+def generate(
+    abs_fpath, fname, no_zero=__no_zero__, width=__width__, g_log=__g_log__, no_order=__no_order__, colours=__colours__, **kwargs
+):
 
     file_array = []
     with open(abs_fpath, "rb") as fh:
@@ -143,7 +157,9 @@ def generate(abs_fpath, fname, no_zero=__no_zero__, width=__width__, g_log=__g_l
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: ("0x{:02X}".format(int(x)))))
     ax.xaxis.set_major_locator(MaxNLocator(20))
     ax.set_xlabel(
-        "Bytes (0x00 included: {}, {})".format((True if no_zero == 0 else False), ("width 1" if width == 1 else "width: " + str(width)))
+        "Bytes (0x00 included: {}, {})".format(
+            (True if no_zero == 0 else False), ("width 1" if width == 1 else "width: " + str(width))
+        )
     )
     ax.set_ylabel("Occurrence (log {})".format(g_log))
 
@@ -188,7 +204,9 @@ if __name__ == "__main__":
         metavar="malware.exe",
         help="Give me a graph of this file. See - if this is the only argument specified.",
     )
-    parser.add_argument("--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)")
+    parser.add_argument(
+        "--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)"
+    )
     parser.add_argument(
         "--format",
         type=str,
@@ -231,5 +249,5 @@ if __name__ == "__main__":
         log.debug("Opening graph interactively")
         plt.show()
     else:
-        plt.savefig(args_dict["abs_save_fpath"], format=args.format, dpi=args.dpi, forward=True, **save_kwargs)
+        plt.savefig(args_dict["abs_save_fpath"], format=args.format, dpi=args.dpi, **save_kwargs)
         log.info('Graph saved to: "{}"'.format(args_dict["abs_save_fpath"]))

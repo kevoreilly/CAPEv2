@@ -96,7 +96,9 @@ def args_validation(args):
     # # Test to see what matplotlib backend is setup
     backend = matplotlib.get_backend()
     if not backend == "TkAgg":
-        log.warning('{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(backend))
+        log.warning(
+            '{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(backend)
+        )
 
     # # Test to see if we should use defaults
     if args.graphtype == "all":
@@ -220,7 +222,9 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
 
         for index, _ in enumerate(ibytes):
             c = ibytes[index]["colour"]
-            axBytePc.plot(np.array(ibytes[index]["percentages"]), label=ibytes[index]["name"], c=c, zorder=zorder, linewidth=1.2, alpha=0.75)
+            axBytePc.plot(
+                np.array(ibytes[index]["percentages"]), label=ibytes[index]["name"], c=c, zorder=zorder, linewidth=1.2, alpha=0.75
+            )
             zorder -= 1
 
         axBytePc.set_ybound(lower=-0.3, upper=101)
@@ -340,7 +344,10 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
     host.set_title("{title_gap}".format(title_gap=title_gap))
 
     # # Return the plt, kwargs for the plt.savefig function, and additional information for json data
-    json_data = {"title": fname, "info": {"Mean": statistics.mean(shannon_samples), "Standard deviation": statistics.stdev(shannon_samples)}}
+    json_data = {
+        "title": fname,
+        "info": {"Mean": statistics.mean(shannon_samples), "Standard deviation": statistics.stdev(shannon_samples)},
+    }
 
     return plt, {"bbox_inches": "tight", "bbox_extra_artists": tuple(legends)}, json_data
 
@@ -475,7 +482,11 @@ def hash_colour(text):
 
     name_colour = int("F" + hashlib.md5(text.encode("utf-8")).hexdigest()[:4], base=16)
     np.random.seed(int(name_colour))
-    return matplotlib.colors.to_rgba(np.random.rand(3,))
+    return matplotlib.colors.to_rgba(
+        np.random.rand(
+            3,
+        )
+    )
 
 
 # # Calculate entropy given a list
@@ -511,7 +522,9 @@ if __name__ == "__main__":
         metavar="malware.exe",
         help="Give me a graph of this file. See - if this is the only argument specified.",
     )
-    parser.add_argument("--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)")
+    parser.add_argument(
+        "--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)"
+    )
     parser.add_argument(
         "--format",
         type=str,
@@ -554,5 +567,5 @@ if __name__ == "__main__":
         log.debug("Opening graph interactively")
         plt.show()
     else:
-        plt.savefig(args_dict["abs_save_fpath"], format=args.format, dpi=args.dpi, forward=True, **save_kwargs)
+        plt.savefig(args_dict["abs_save_fpath"], format=args.format, dpi=args.dpi, **save_kwargs)
         log.info('Graph saved to: "{}"'.format(args_dict["abs_save_fpath"]))

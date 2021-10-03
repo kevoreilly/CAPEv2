@@ -72,7 +72,7 @@ netstruct==1.1.2
 pymongo>=3.12.0
 django-ratelimit==3.0.1
 psutil==5.8.0
-https://github.com/CAPESandbox/binGraph/archive/bc5162b13e5f3c6d60e5e0eec2d9d8eb413354b7.zip
+https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip
 # theorically this is binGraph deps
 matplotlib>=3.3.0
-numpy>=1.21.1
+numpy>=1.19.1

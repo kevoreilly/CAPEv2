@@ -1,17 +1,24 @@
 """
     Qakbot decoder for Core/Main DLL
 """
-import os
-import sys
+
 import struct
 import socket
 import pefile
 import hashlib
 import datetime
+import logging
+
 from mwcp.parser import Parser
 from Crypto.Cipher import ARC4
-from lib.cuckoo.common import blzpack
-import logging
+
+try:
+    HAVE_BLZPACK = True
+    from lib.cuckoo.common import blzpack
+except OSError as e:
+    print(f"Problem to import blzpack: {str(e)}")
+    HAVE_BLZPACK = False
+
 log = logging.getLogger(__name__)
 
 """
@@ -149,10 +156,12 @@ class QakBot(Parser):
     AUTHOR = "threathive, r1n9w0rm"
 
     def run(self):
+        if not HAVE_BLZPACK:
+            return
         filebuf = self.file_object.file_data
         try:
             pe = pefile.PE(data=filebuf, fast_load=False)
-            image_base = pe.OPTIONAL_HEADER.ImageBase
+            # image_base = pe.OPTIONAL_HEADER.ImageBase
             for rsrc in pe.DIRECTORY_ENTRY_RESOURCE.entries:
                 for entry in rsrc.directory.entries:
                     if entry.name is not None:

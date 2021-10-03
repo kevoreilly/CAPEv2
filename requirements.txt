@@ -53,6 +53,9 @@ beautifulsoup4==4.9.3 \
     --hash=sha256:84729e322ad1d5b4d25f805bfa05b902dd96450f43842c4e99067d5e1369eb25 \
     --hash=sha256:fff47e031e34ec82bf17e00da8f592fe7de69aeea38be00523c04623c04fb666
     # via bs4
+https://github.com/CAPESandbox/binGraph/archive/3462cd0f9ddd551dff891757812a80168488f2bd.zip \
+    --hash=sha256:28e3a4f0c0fa083209c243fbe68070bfaa649bbd1a2fc2f76b31ec4da94bcc3d
+    # via -r requirements.in
 brotli==1.0.7 \
     --hash=sha256:0538dc1744fd17c314d2adc409ea7d1b779783b89fd95bcfb0c2acc93a6ea5a7 \
     --hash=sha256:0970a47f471782912d7705160b2b0a9306e68e6fadf9cffcaeb42d8f0951e26c \
@@ -328,10 +331,6 @@ dnspython==2.1.0 \
     --hash=sha256:95d12f6ef0317118d2a1a6fc49aac65ffec7eb8087474158f42f26a639135216 \
     --hash=sha256:e4a87f0b573201a0f3727fa18a516b055fd1107e0e5477cded4a2de497df1dd4
     # via -r requirements.in
-docutils==0.17.1 \
-    --hash=sha256:686577d2e4c32380bb50cbb22f575ed742d58168cee37e99117a854bcd88f125 \
-    --hash=sha256:cf316c8370a737a022b72b56874f6602acf974a37a9fba42ec2876387549fc61
-    # via statistics
 dpkt==1.9.6 \
     --hash=sha256:b1739c594297b2b6321dfbf133e3f8dcf54c0ef54cb5739d204331d34a0d8fe4 \
     --hash=sha256:b5737010fd420d142e02ed04fa616edd1fc05e414980baef594f72287c875eef
@@ -718,6 +717,7 @@ matplotlib==3.4.2 \
     # via
     #   -r requirements.in
     #   androguard
+    #   bingraph
 maxminddb==2.0.3 \
     --hash=sha256:47e86a084dd814fac88c99ea34ba3278a74bc9de5a25f4b815b608798747c7dc
     # via geoip2
@@ -804,6 +804,7 @@ numpy==1.21.1 \
     --hash=sha256:fd7d7409fa643a91d0a05c7554dd68aa9c9bb16e186f6ccfe40d6e003156e33a
     # via
     #   -r requirements.in
+    #   bingraph
     #   matplotlib
 oauthlib==3.1.1 \
     --hash=sha256:42bf6354c2ed8c6acb54d971fce6f88193d97297e18602a3a886603f9d7730cc \
@@ -877,6 +878,7 @@ pefile==2021.9.3 \
     --hash=sha256:344a49e40a94e10849f0fe34dddc80f773a12b40675bf2f7be4b8be578bdd94a
     # via
     #   -r requirements.in
+    #   bingraph
     #   flare-capa
     #   malwareconfig
     #   mwcp
@@ -1521,9 +1523,6 @@ sqlparse==0.4.2 \
     --hash=sha256:0c00730c74263a94e5a9919ade150dfc3b19c574389985446148402998287dae \
     --hash=sha256:48719e356bb8b42991bdbb1e8b83223757b93789c00910a616a071910ca4a64d
     # via django
-statistics==1.0.3.5 \
-    --hash=sha256:2dc379b80b07bf2ddd5488cad06b2b9531da4dd31edb04dc9ec0dc226486c138
-    # via -r requirements.in
 tabulate==0.8.9 \
     --hash=sha256:d7c013fe7abbc5e491394e10fa845f8f32fe54f8dc60c6622c6cf482d25d47e4 \
     --hash=sha256:eb1d13f25760052e8931f2ef80aaf6045a6cceb47514db8beab24cded16f13a7
@@ -1610,8 +1609,8 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/d2a070d4b6b484b670baa605c0994954952c5d71.zip \
-    --hash=sha256:d00fec4ecad5f7288722cb5f8967a7f1914c770fb04281c8adff16117c608f18
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/c6e4cbcb84847e840322616220a65856bfa60820.zip \
+    --hash=sha256:b914d07167ad573e07499c02bf5bead3226caf6ce17a16f3bbda8ae50f24864b
     # via -r requirements.in
 xlrd2==1.2.6 \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \

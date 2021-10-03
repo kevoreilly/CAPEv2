@@ -8,3 +8,5 @@ env/
 .env/
 *.pyc
 tests/test_objects/
+log/*
+storage/*

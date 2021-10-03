@@ -14,7 +14,7 @@ reporting_conf = Config("reporting")
 HAVE_BINGRAPH = False
 if reporting_conf.bingraph.on_demand is False:
     try:
-        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+        from binGraph.binGraph import generate_graphs as bingraph_gen
 
         HAVE_BINGRAPH = True
     except ImportError:

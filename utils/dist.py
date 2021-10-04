@@ -734,18 +734,15 @@ class StatusThread(threading.Thread):
                     if "x86" in tags and "x64" in tags:
                         tags = tags.replace("x86,", "")
                     if "msoffice-crypt-tmp" in t.target and "password=" in t.options:
-                        # t.options = t.options.replace(f"password={options['password']}", "")
                         del options["password"]
-                    # if options.get("node"):
-                    #    t.options = t.options.replace(f"node={options['node']}", "")
                     if options.get("node"):
                         del options["node"]
 
                     # rebuild options without denied options
                     t.options = ",".join([f"{k}={v}" for k, v in options.items()])
                     if t.options:
-                        t.options = t.options + ","
-                    t.options = t.options + "main_task_id={}".format(t.id)
+                        t.options += ","
+                    t.options += "main_task_id={}".format(t.id)
                     args = dict(
                         package=t.package,
                         category=t.category,

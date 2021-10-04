@@ -693,7 +693,7 @@ class StatusThread(threading.Thread):
                     try:
                         options = get_options(t.options)
                         # check if node exist and its correct
-                        if "node=" in t.options:
+                        if options.get("node"):
                             requested_node = options.get("node")
                             if requested_node not in STATUSES:
                                 # if the requested node is not available
@@ -734,15 +734,21 @@ class StatusThread(threading.Thread):
                     if "x86" in tags and "x64" in tags:
                         tags = tags.replace("x86,", "")
                     if "msoffice-crypt-tmp" in t.target and "password=" in t.options:
-                        t.options = t.options.replace(f"password={options['password']}", "")
-                    if "node=" in t.options:
-                        t.options = t.options.replace(f"node={options['node']},", "")
+                        del options["password"]
+                    if options.get("node"):
+                        del options["node"]
+
+                    # rebuild options without denied options
+                    t.options = ",".join([f"{k}={v}" for k, v in options.items()])
+                    if t.options:
+                        t.options += ","
+                    t.options += "main_task_id={}".format(t.id)
                     args = dict(
                         package=t.package,
                         category=t.category,
                         timeout=t.timeout,
                         priority=t.priority,
-                        options=t.options + ",main_task_id={}".format(t.id),
+                        options=t.options,
                         machine=t.machine,
                         platform=t.platform,
                         tags=tags,

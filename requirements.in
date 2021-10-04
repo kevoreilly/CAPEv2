@@ -28,7 +28,7 @@ pyattck==4.1.1
 distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/d2a070d4b6b484b670baa605c0994954952c5d71.zip
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/c6e4cbcb84847e840322616220a65856bfa60820.zip
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4
@@ -37,10 +37,7 @@ greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6
 https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip
-matplotlib>=3.4.2
-numpy>=1.21.1
 six>=1.12.0
-statistics>=1.0.3.5
 django==3.2.5
 sqlalchemy==1.4.22
 sqlalchemy-utils==0.37.8
@@ -75,3 +72,7 @@ netstruct==1.1.2
 pymongo>=3.12.0
 django-ratelimit==3.0.1
 psutil==5.8.0
+https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip
+# theorically this is binGraph deps
+matplotlib>=3.3.0
+numpy>=1.19.1

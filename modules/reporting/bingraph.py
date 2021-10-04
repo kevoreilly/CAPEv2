@@ -14,7 +14,7 @@ reporting_conf = Config("reporting")
 HAVE_BINGRAPH = False
 if reporting_conf.bingraph.on_demand is False:
     try:
-        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+        from binGraph.binGraph import generate_graphs as bingraph_gen
 
         HAVE_BINGRAPH = True
     except ImportError:
@@ -41,6 +41,14 @@ bingraph_args_dict = {
     "entcolour": "#ff00ff",
 }
 
+"""
+path = ""
+from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+bingraph_args_dict.update({"files": [path], "save_dir": "/tmp"})
+bingraph_gen(bingraph_args_dict)
+
+"""
+
 
 excluded_filetypes = (
     "HTML document, ASCII text, with CRLF line terminators",
@@ -58,7 +66,9 @@ class BinGraph(Report):
                 os.makedirs(bingraph_path)
             try:
                 if not os.listdir(bingraph_path) and results.get("target", {}).get("file", {}).get("sha256", False):
-                    bingraph_args_dict.update({"prefix": results["target"]["file"]["sha256"], "files": [self.file_path], "save_dir": bingraph_path})
+                    bingraph_args_dict.update(
+                        {"prefix": results["target"]["file"]["sha256"], "files": [self.file_path], "save_dir": bingraph_path}
+                    )
                     try:
                         bingraph_gen(bingraph_args_dict)
                     except Exception as e:

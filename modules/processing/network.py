@@ -906,6 +906,10 @@ class Pcap2(object):
             log.warning("You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(e))
             traceback.print_exc()
             return results
+        except Exception as e:
+            log.error(f"httpreplay error: {e}")
+            traceback.print_exc()
+            return results
 
         for s, ts, protocol, sent, recv in l:
             srcip, srcport, dstip, dstport = s
@@ -1260,7 +1264,7 @@ def flowtuple_from_raw(raw, linktype=1):
             sport, dport = 0, 0
 
     else:
-        sip, dip, proto = 0, 0, -1
+        sip, dip, proto = "0", "0", -1
         sport, dport = 0, 0
 
     flowtuple = (sip, dip, sport, dport, proto)

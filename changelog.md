@@ -1,3 +1,14 @@
+### [2-10-2021] Hacktoberfest
+* Monitor update: Fixes/hardening of dumps (PE & memory) and yara scans (e.g. SquirrelWaffle)
+* Handled errors that was giving problem to use `init_yara` sometime, used in Qakbot extractor
+    * `OSError: /opt/CAPEv2/lib/cuckoo/common/blzpack_lib.so: failed to map segment from shared object`
+* Bingraph:
+    * matplotlib `forward` deprication fixed
+    * moved to external dependency, we host CAPE's version here https://github.com/CAPESandbox/binGraph.
+    * __ACTION REQUIRED__
+        * `pip3 install -U git+https://github.com/CAPESandbox/binGraph`
+
+
 ### [23-09-2021]
 * Monitor update: Add CLSIDs and IsValidUrl hook for CVE-2021-40444
 

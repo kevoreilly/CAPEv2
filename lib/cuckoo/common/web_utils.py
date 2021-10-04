@@ -126,6 +126,32 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
+def _get_linux_vm_tag(mgtype):
+    if mgtype.startswith((VALID_LINUX_TYPES)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+        return {"error":"not allowed"}
+    if "mipsel" in mgtype:
+        return "mipsel"
+    elif "mips" in mgtype:
+        return "mips"
+    elif "arm".lower() in mgtype:
+        return "arm"
+    #elif "armhl" in mgtype:
+    #    return {"tags":"armhl"}
+    elif "sparc" in mgtype:
+        return "sparc"
+    #elif "motorola" in mgtype:
+    #    return "motorola"
+    #elif "renesas sh" in mgtype:
+    #    return "renesassh"
+    elif "powerpc" in mgtype:
+        return "powerpc"
+    elif "32-bit" in mgtype.lower():
+        return "x32"
+    elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
+        return "x64"
+    else:
+        return "x64"
+
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
@@ -160,7 +186,6 @@ def my_rate_minutes(group, request):
         return "99999999999999/m"
     else:
         return rpm
-
 
 def load_vms_exits():
     all_exits = dict()

@@ -154,7 +154,7 @@ if process_cfg.malduck.enabled:
         from malduck.yara import Yara
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
-        tmp_modules = load_modules(process_cfg.malduck.modules_path)
+        tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
         malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
         malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True

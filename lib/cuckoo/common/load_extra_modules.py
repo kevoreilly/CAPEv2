@@ -50,3 +50,17 @@ def cape_load_decoders(CUCKOO_ROOT):
             print("CAPE parser: No module named {} - {}".format(name, e))
 
     return cape_modules
+
+def malduck_load_decoders(CUCKOO_ROOT):
+
+    malduck_modules = dict()
+    malduck_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck")
+    MALDUCK_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(malduck_decoders + "/[!_]*.py")]
+
+    for name in MALDUCK_DECODERS:
+        try:
+            malduck_modules[name] = importlib.import_module("modules.processing.parsers.malduck." + name)
+        except (ImportError, IndexError) as e:
+            print("malduck parser: No module named {} - {}".format(name, e))
+
+    return malduck_modules

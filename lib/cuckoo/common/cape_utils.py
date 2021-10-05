@@ -29,16 +29,18 @@ log = logging.getLogger(__name__)
 
 if repconf.mongodb.enabled:
     import pymongo
+
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource = repconf.mongodb.get("authsource", "cuckoo")
+        authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.db]
 
 try:
     import pefile
+
     HAVE_PEFILE = True
 except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
@@ -82,10 +84,10 @@ def init_yara():
                 File.yara_initialized = True
                 break
             except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar")[0]+".yar"
+                bad_rule = str(e).split(".yar")[0] + ".yar"
                 log.debug(f"Trying to delete bad rule: {bad_rule}")
                 if os.path.basename(bad_rule) in indexed:
-                    for k,v in rules.items():
+                    for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
@@ -116,27 +118,31 @@ def init_yara():
                 log.debug("\t |-- %s %s", category, entry)
 
 
-
 HAS_MWCP = False
 if process_cfg.mwcp.enabled:
-# Import All config parsers
+    # Import All config parsers
     try:
         import mwcp
+
         logging.getLogger("mwcp").setLevel(logging.CRITICAL)
         mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
         malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
         HAS_MWCP = True
     except ImportError as e:
-        logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
+        logging.info(
+            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
+        )
 
 HAS_MALWARECONFIGS = False
 if process_cfg.ratdecoders.enabled:
     try:
         from malwareconfig import fileparser
         from malwareconfig.modules import __decoders__, __preprocessors__
+
         HAS_MALWARECONFIGS = True
         if process_cfg.ratdecoders.modules_path:
             from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
+
             ratdecoders_local_modules = ratdecodedr_load_decoders([process_cfg.ratdecoders.modules_path])
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
@@ -148,24 +154,28 @@ if process_cfg.ratdecoders.enabled:
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:
     try:
+        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
         from malduck.extractor import ExtractorModules, ExtractManager
         from malduck.extractor.extractor import Extractor
         from malduck.extractor.loaders import load_modules
         from malduck.yara import Yara
+
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
-        tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
-        malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
         malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True
-        del tmp_modules
+        # del tmp_modules
     except ImportError:
         logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
 HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
+
+    cape_malware_parsers = cape_load_decoders(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
 
@@ -243,6 +253,7 @@ def convert(data):
         return type(data)(list(map(convert, data)))
     else:
         return data
+
 
 def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
@@ -323,7 +334,11 @@ def static_config_parsers(yara_hit, file_data):
                 for (key, value) in malwareconfig_config.items():
                     cape_config[cape_name].update({key: [value]})
         except Exception as e:
-            logging.warning("malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/", cape_name, e,)
+            logging.warning(
+                "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
+                cape_name,
+                e,
+            )
 
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
@@ -354,14 +369,18 @@ def static_config_parsers(yara_hit, file_data):
 
     return cape_config
 
+
 def static_config_lookup(file_path, sha256=False):
     if not sha256:
         sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
-    cape_tasks = results_db.analysis.find_one({"target.file.sha256": sha256}, {"CAPE.configs":1, "info.id": 1, "_id":0}, sort=[("_id", pymongo.DESCENDING)])
+    cape_tasks = results_db.analysis.find_one(
+        {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+    )
     if not cape_tasks:
         return
     for task in cape_tasks.get("CAPE", {}).get("configs", []) or []:
         return task["info"]
+
 
 def static_extraction(path):
     try:
@@ -383,9 +402,12 @@ def static_extraction(path):
 
     return False
 
+
 def cape_name_from_yara(details, pid, results):
     for hit in details.get("cape_yara", []) or []:
-        if "meta" in hit and any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]):
+        if "meta" in hit and any(
+            [file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]
+        ):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
             results["detections2pid"].setdefault(str(pid), list())

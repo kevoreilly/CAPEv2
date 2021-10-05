@@ -764,27 +764,26 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, lock=True, machine=""):
+    def fetch(self, machine):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
         try:
-            if machine != "":
-                row = (
-                    session.query(Task)
+            row = (
+                session.query(Task)
                     .filter_by(status=TASK_PENDING)
-                    .filter_by(machine=machine)
+                    .order_by(Task.priority.desc(), Task.added_on)
                     # distributed cape
                     .filter(not_(Task.options.contains("node=")))
-                    .order_by(Task.priority.desc(), Task.added_on)
                     .first()
-                )
-                if not row and self.vms_tags.get(machine, False):
-                    cond = self.tasks_filters[machine]
-                    row = (
-                        session.query(Task)
+            )
+
+            if not row and self.vms_tags.get(machine, False):
+                cond = self.tasks_filters[machine]
+                row = (
+                    session.query(Task)
                         .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
                         # distributed cape
@@ -792,23 +791,16 @@ class Database(object, metaclass=Singleton):
                         .order_by(Task.priority.desc(), Task.added_on)
                         .filter(cond)
                         .first()
-                    )
-            else:
-                row = (
-                    session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                    .filter(Task.tags == None)
-                    .first()
                 )
-            if not row:
+
+            if row:
+                if row.machine and machine != row.machine:
+                    return None
+            else:
                 return None
 
-            if lock:
-                self.set_status(task_id=row.id, status=TASK_RUNNING)
-                session.refresh(row)
+            self.set_status(task_id=row.id, status=TASK_RUNNING)
+            session.refresh(row)
 
             return row
         except SQLAlchemyError as e:

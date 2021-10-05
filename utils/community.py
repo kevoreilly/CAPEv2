@@ -26,13 +26,13 @@ URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
 def flare_capa():
     signature_urls = (
-        'https://github.com/fireeye/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
-        'https://github.com/fireeye/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
-        'https://github.com/fireeye/capa/raw/master/sigs/3_flare_common_libs.sig',
+        'https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
+        'https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
+        'https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig',
     )
     try:
         http = urllib3.PoolManager()
-        data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
+        data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)

@@ -2011,6 +2011,8 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+    elif category == "dropped":
+        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
 
@@ -2071,7 +2073,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 else:
                     buf["static"][service] = details
 
-        elif category == "procdump":
+        elif category == "procdump" or category == "dropped":
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details

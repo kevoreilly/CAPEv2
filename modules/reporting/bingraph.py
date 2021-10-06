@@ -43,7 +43,7 @@ bingraph_args_dict = {
 
 """
 path = ""
-from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+from binGraph.binGraph import generate_graphs as bingraph_gen
 bingraph_args_dict.update({"files": [path], "save_dir": "/tmp"})
 bingraph_gen(bingraph_args_dict)
 

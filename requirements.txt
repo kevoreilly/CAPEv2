@@ -26,10 +26,6 @@ appnope==0.1.2 \
     --hash=sha256:93aa393e9d6c54c5cd570ccadd8edad61ea0c4b9ea7a01409020c9aa019eb442 \
     --hash=sha256:dd83cd4b5b460958838f6eb3000c660b1f9caf2a5b1de4264e941512f603258a
     # via ipython
-argparse==1.4.0 \
-    --hash=sha256:62b089a55be1d8949cd2bc7e0df0bddb9e028faefc8c32038cc84862aefdd6e4 \
-    --hash=sha256:c31647edb69fd3d465a847ea3157d37bed1f95f19760b11a47aa91c04b666314
-    # via viv-utils
 asgiref==3.4.0 \
     --hash=sha256:05914d0fa65a21711e732adc6572edad6c8da5f1435c3f0c060689ced5e85195 \
     --hash=sha256:d36fa91dd90e3aa3c81a6bd426ccc8fb20bd3d22b0cf14a12800289e9c3e2563
@@ -360,9 +356,9 @@ filelock==3.0.12 \
 fire==0.3.1 \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
     # via pyattck
-flare-capa==3.0.0 \
-    --hash=sha256:50b0f251b8eee40dac4a6a45314e74baef9e772d0944da5fe96df28b9532abbd \
-    --hash=sha256:7d79a2800be745f490d403de3e9999a23754c340c20d5c2240a5f7abde0c51bd
+flare-capa==3.0.2 \
+    --hash=sha256:17939f4e3b1114c682ccbcd0226cdf7310e2ffd6eccba3e9eef1eb489aa6ea50 \
+    --hash=sha256:6b0e206efd16ab034bba9b72610aefa51b7ef63786abea4d244662723a751b6f
     # via -r requirements.in
 flask==1.1.4 \
     --hash=sha256:0fbeb6180d383a9186d0d6ed954e0042ad9f18e0e8de088b2b419d526927d196 \
@@ -1542,9 +1538,9 @@ tldextract==3.1.0 \
 tlslite-ng==0.7.6 \
     --hash=sha256:6ab56f0e9629ce3d807eb528c9112defa9f2e00af2b2961254e8429ca5c1ff00
     # via httpreplay
-tqdm==4.62.2 \
-    --hash=sha256:80aead664e6c1672c4ae20dc50e1cdc5e20eeff9b14aa23ecd426375b28be588 \
-    --hash=sha256:a4d6d112e507ef98513ac119ead1159d286deab17dffedd96921412c2d236ff5
+tqdm==4.62.3 \
+    --hash=sha256:8dd278a422499cd6b727e6ae4061c40b48fce8b76d1ccbf5d34fca9b7f925b0c \
+    --hash=sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d
     # via flare-capa
 traitlets==5.0.5 \
     --hash=sha256:178f4ce988f69189f7e523337a3e11d91c786ded9360174a3d9ca83e79bc5396 \
@@ -1575,13 +1571,13 @@ urllib3==1.26.6 \
     --hash=sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4 \
     --hash=sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f
     # via requests
-viv-utils[flirt]==0.6.5 \
-    --hash=sha256:348201d0a5871b58c470e526ad0da1fe810f000dd3005637f57d429fdd94ef9d \
-    --hash=sha256:c6ef342f4e270d4d9d4cb3a7cccb0cc08ce3bb3455536d013a0ebd0af21f69b7
+viv-utils[flirt]==0.6.6 \
+    --hash=sha256:30c76abaa0eefc68332a9d72ea562caf88be2a1a12c5568ba8c874e0911cf015 \
+    --hash=sha256:70be7a779e3558ff88f78d79ce1073a9bc4bade80818c5f2a07602a2d9256ab6
     # via flare-capa
-vivisect==1.0.3 \
-    --hash=sha256:33dfd5c904f3ae4c6a73e37f8061cd16c213219efe60056b1f37793c4c45376b \
-    --hash=sha256:f055a299b080f83ba030c98574e853cf41c25185b0b13e2134cdb9110ce74d9b
+vivisect==1.0.5 \
+    --hash=sha256:3265145b891e87410ec73d6fdd96103862970e600d31e4aa609fe4d243dd44da \
+    --hash=sha256:f629dc0143656b06b64e2da1772deda67d37a3e048e74bd728de4a4f24bf877b
     # via
     #   flare-capa
     #   viv-utils

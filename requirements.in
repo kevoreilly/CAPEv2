@@ -32,7 +32,7 @@ https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/c6e4cbcb84847e840
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4
-flare-capa==3.0.0
+flare-capa==3.0.2
 greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6
@@ -74,5 +74,5 @@ django-ratelimit==3.0.1
 psutil==5.8.0
 https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip
 # theorically this is binGraph deps
-matplotlib>=3.3.0
-numpy>=1.19.1
+matplotlib==3.3.0
+numpy==1.19.1

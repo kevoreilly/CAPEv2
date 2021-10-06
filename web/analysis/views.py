@@ -98,7 +98,7 @@ if processing_cfg.xlsdeobf.on_demand:
 
 if reporting_cfg.bingraph.on_demand:
     try:
-        from lib.cuckoo.common.graphs.binGraph.binGraph import generate_graphs as bingraph_gen
+        from binGraph.binGraph import generate_graphs as bingraph_gen
         from modules.reporting.bingraph import bingraph_args_dict
 
         HAVE_BINGRAPH = True

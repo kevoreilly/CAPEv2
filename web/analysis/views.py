@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+import base64
 import os
 import sys
 import zlib
@@ -1955,8 +1956,10 @@ def vtupload(request, category, task_id, filename, dlfile):
             if response.ok:
                 id = response.json().get("data", {}).get("id")
                 if id:
+                    hashbytes, _ = base64.b64decode(id).split(b":")
+                    md5hash = hashbytes.decode('utf8')
                     return render(
-                        request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)}
+                        request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)}
                     )
             else:
                 return render(

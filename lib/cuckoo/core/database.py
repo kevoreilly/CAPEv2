@@ -771,26 +771,29 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         row = None
         try:
-            row = (
-                session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                    .first()
-            )
-
-            if not row and self.vms_tags.get(machine, False):
-                cond = self.tasks_filters[machine]
+            # if 64-bit machine select any pending task
+            if "x64" in self.vms_tags.get(machine, False):
                 row = (
                     session.query(Task)
-                        .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
+                        .order_by(Task.priority.desc(), Task.added_on)
                         # distributed cape
                         .filter(not_(Task.options.contains("node=")))
-                        .order_by(Task.priority.desc(), Task.added_on)
-                        .filter(cond)
                         .first()
+                )
+            else:
+                # 32-bit machine select only 32-bit pending tasks
+                # filter all tasks with 64-bit tag, then invert in filter
+                cond = or_(*[Task.tags.any(name="x64")])
+                row = (
+                 session.query(Task)
+                     .options(joinedload("tags"))
+                     .filter_by(status=TASK_PENDING)
+                     # distributed cape
+                     .filter(not_(Task.options.contains("node=")))
+                     .order_by(Task.priority.desc(), Task.added_on)
+                     .filter(not_(cond))
+                     .first()
                 )
 
             if row:
@@ -1255,12 +1258,11 @@ class Database(object, metaclass=Singleton):
 
             # force a special tag for 64-bit binaries to prevent them from being
             # analyzed by default on VM types that can't handle them
-            if not machine:
-                if "PE32+" in file_type or "64-bit" in file_type:
-                    if tags:
-                        tags += ",x64"
-                    else:
-                        tags = "x64"
+            if "PE32+" in file_type or "64-bit" in file_type:
+                if tags:
+                    tags += ",x64"
+                else:
+                    tags = "x64"
 
             try:
                 task = Task(obj.file_path)

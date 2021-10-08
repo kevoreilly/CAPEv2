@@ -10,9 +10,8 @@ def ratdecodedr_load_decoders(path):
     from malwareconfig import decoders
 
     dec_modules = dict()
-
     # Walk recursively through all modules and packages.
-    for loader, module_name, ispkg in pkgutil.walk_packages(path, decoders.__name__ + '.'):
+    for loader, module_name, ispkg in pkgutil.walk_packages(path, "modules.processing.parsers.RATDecoders."):
         # If current item is a package, skip.
         if ispkg:
             continue

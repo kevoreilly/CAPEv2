@@ -157,7 +157,7 @@ if process_cfg.malduck.enabled:
         from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
         from malduck.extractor import ExtractorModules, ExtractManager
         from malduck.extractor.extractor import Extractor
-        from malduck.extractor.loaders import load_modules
+        # from malduck.extractor.loaders import load_modules
         from malduck.yara import Yara
 
         malduck_rules = Yara.__new__(Yara)

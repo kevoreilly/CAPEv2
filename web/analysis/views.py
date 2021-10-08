@@ -2076,7 +2076,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 else:
                     buf["static"][service] = details
 
-        elif category == "procdump" or category == "dropped":
+        elif category in ("procdump", "dropped"):
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details

@@ -7,7 +7,6 @@ import pkgutil
 
 def ratdecodedr_load_decoders(path):
     from malwareconfig.common import Decoder
-    from malwareconfig import decoders
 
     dec_modules = dict()
     # Walk recursively through all modules and packages.

@@ -322,17 +322,20 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running Malwareconfigs")
         try:
             file_info = fileparser.FileParser(rawdata=file_data)
-            module = __decoders__[file_info.malware_name]["obj"]()
-            module.set_file(file_info)
-            module.get_config()
-            malwareconfig_config = module.config
-            # ToDo remove
-            if isinstance(malwareconfig_config, list):
-                for (key, value) in malwareconfig_config[0].items():
-                    cape_config[cape_name].update({key: [value]})
-            elif isinstance(malwareconfig_config, dict):
-                for (key, value) in malwareconfig_config.items():
-                    cape_config[cape_name].update({key: [value]})
+            if file_info.malware_name not in __decoders__:
+                logging.warning(f"{cape_name}: wasn't matched by plugin's yara")
+            else:
+                module = __decoders__[file_info.malware_name]["obj"]()
+                module.set_file(file_info)
+                module.get_config()
+                malwareconfig_config = module.config
+                # ToDo remove
+                if isinstance(malwareconfig_config, list):
+                    for (key, value) in malwareconfig_config[0].items():
+                        cape_config[cape_name].update({key: [value]})
+                elif isinstance(malwareconfig_config, dict):
+                    for (key, value) in malwareconfig_config.items():
+                        cape_config[cape_name].update({key: [value]})
         except Exception as e:
             if "rules" in str(e):
                 logging.warning("You probably need to compile yara-python with dotnet support")

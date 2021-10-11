@@ -143,7 +143,7 @@ if process_cfg.ratdecoders.enabled:
         if process_cfg.ratdecoders.modules_path:
             from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
 
-            ratdecoders_local_modules = ratdecodedr_load_decoders([process_cfg.ratdecoders.modules_path])
+            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
     except ImportError:
@@ -334,10 +334,14 @@ def static_config_parsers(yara_hit, file_data):
                 for (key, value) in malwareconfig_config.items():
                     cape_config[cape_name].update({key: [value]})
         except Exception as e:
-            logging.warning(
-                "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
-                cape_name,
-                e,
+            if "rules" in str(e):
+                logging.warning("You probably need to compile yara-python with dotnet support")
+            else:
+                logging.error(e, exc_info=True)
+                logging.warning(
+                    "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
+                    cape_name,
+                    e,
             )
 
         if cape_name in cape_config and cape_config[cape_name] == {}:

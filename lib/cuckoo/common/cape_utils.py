@@ -175,7 +175,7 @@ HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
 
-    cape_malware_parsers = cape_load_decoders(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
 

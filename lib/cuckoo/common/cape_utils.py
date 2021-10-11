@@ -321,11 +321,17 @@ def static_config_parsers(yara_hit, file_data):
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         logging.debug("Running Malwareconfigs")
         try:
+            module = False
             file_info = fileparser.FileParser(rawdata=file_data)
-            if file_info.malware_name not in __decoders__:
-                logging.warning(f"{cape_name}: wasn't matched by plugin's yara")
-            else:
+            # Detects name by embed yara
+            if file_info.malware_name in __decoders__:
                 module = __decoders__[file_info.malware_name]["obj"]()
+            elif cape_name in __decoders__:
+                module = __decoders__[cape_name]["obj"]()
+            else:
+                logging.warning(f"{cape_name}: wasn't matched by plugin's yara")
+
+            if module:
                 module.set_file(file_info)
                 module.get_config()
                 malwareconfig_config = module.config

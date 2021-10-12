@@ -1,4 +1,5 @@
 ### [2-10-2021] Hacktoberfest
+* Add test module to extraction framework to ensure that they are loaded properly: CAPE, MWCP, RATDecoders, Malduck
 * Monitor update: Fixes/hardening of dumps (PE & memory) and yara scans (e.g. SquirrelWaffle)
 * Handled errors that was giving problem to use `init_yara` sometime, used in Qakbot extractor
     * `OSError: /opt/CAPEv2/lib/cuckoo/common/blzpack_lib.so: failed to map segment from shared object`

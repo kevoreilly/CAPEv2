@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
@@ -22,19 +23,31 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5):
 
     next_sid = sid_counter
     rule_list = []
-    url_list = config_dict.get("URLs", [])
-    for url in url_list:
-        if url.lower().startswith("http"):
-            host = url.split("/", 1)[1].rsplit("/", 1)[0].replace("/", "")
-            uri = url.split("/", 1)[1].rsplit("/", 1)[1]
-        else:
-            host = url.split("/", 1)[0]
-            uri = "/" + url.split("/", 1)[1]
-        rule = f"alert http $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET MALWARE SquirrelWaffle Beacon " \
-               f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
-               f"http.method; content:\"POST\"; http.host; content:\"{host}\"; fast_pattern; reference:md5,{md5}; " \
-               f"http.uri; content:\"{uri}\"; sid:{next_sid}; rev:1;)"
-        next_sid += 1
-        rule_list.append(rule)
+    url_list_main = config_dict.get("URLs", [])
+    for urls in url_list_main:
+        # why is this a list of lists
+        for nested_url in urls:
+            # urlparse expects the url to be introduced with a // https://docs.python.org/3/library/urllib.parse.html
+            # Following the syntax specifications in RFC 1808, urlparse recognizes a netloc only if it is properly
+            # introduced by ‘//’. Otherwise the input is presumed to be a relative URL and thus to start with a path
+            # component.
+            if not nested_url.lower().startswith("http://") and not nested_url.lower().startswith("https://"):
+                nested_url = f"http://{nested_url}"
+            c2 = urlparse(nested_url)
+            # we'll make two rules, dns and http
+            http_rule = f"alert http $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET CENTS SquirrelWaffle CnC " \
+                        f"Activity\"; flow:established,to_server; http.method; content:\"POST\"; http.host; " \
+                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; http.uri; " \
+                        f"content:\"{c2.path}\"; bsize:{len(c2.path)}; sid:{next_sid}; rev:1;)"
+
+            rule_list.append(http_rule)
+            next_sid += 1
+
+            dns_rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS SquirrelWaffle CnC Domain in DNS Query\"; " \
+                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; sid:{next_sid}; rev" \
+                       f":1;)"
+
+            rule_list.append(dns_rule)
+            next_sid += 1
 
     return rule_list

@@ -40,6 +40,7 @@ class Cents(Report):
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")
         configs = results.get("CAPE", {}).get("configs", [])
+        results["info"]["has_cents_rules"] = False
         if not configs:
             # no config extracted, nothing to do for CENTS
             return
@@ -92,5 +93,6 @@ class Cents(Report):
                 for line in rule_list:
                     f.write(line + "\n")
                 log.info(f"[CENTS] Wrote {len(rule_list)} rule(s) to rule file at: {f.name}")
+                results["info"]["has_cents_rules"] = True
         except IOError as e:
             raise CuckooReportError("Failed to generate CENTS report: %s" % e)

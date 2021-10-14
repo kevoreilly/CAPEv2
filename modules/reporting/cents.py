@@ -40,7 +40,7 @@ class Cents(Report):
         """
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")  # md5 of the sample
-        date = datetime_to_iso(results.get("info", {}).get("started", ""))  # timestamp of the sample run
+        date = datetime_to_iso(results.get("info", {}).get("started", "")).split("T", 1)[0].replace("-", "_")  # timestamp of the sample run
         configs = results.get("CAPE", {}).get("configs", [])
         if not configs:
             # no config extracted, nothing to do for CENTS

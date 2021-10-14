@@ -23,8 +23,12 @@ class Cents(Report):
     def __init__(self):
         self.reporting_conf = Config("reporting")
         self.sid_counter = 1000000  # start sid of suricata rules in output rule file
-        if self.reporting_conf and self.reporting_conf.cents.start_sid:
-            self.sid_counter = int(self.reporting_conf.cents.start_sid)
+        self.hostname = "https://127.0.0.1/"  # hostname of the cape instance
+        if self.reporting_conf:
+            if self.reporting_conf.cents.start_sid:
+                self.sid_counter = int(self.reporting_conf.cents.start_sid)
+            if self.reporting_conf.cents.hostname:
+                self.hostname = str(self.reporting_conf.cents.hostname)
 
     def run(self, results):
         """CENTS reporting module
@@ -39,6 +43,8 @@ class Cents(Report):
         """
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")
+        task_id = int(results.get("info", {}).get("id", 0))  # task id of the analysis run
+        task_link = f"{self.hostname}{task_id}"
         configs = results.get("CAPE", {}).get("configs", [])
         if not configs:
             # no config extracted, nothing to do for CENTS
@@ -57,15 +63,15 @@ class Cents(Report):
             for config_name, config_dict in config.items():
                 rules = None
                 if config_name == "Azorult":
-                    rules = cents_azorult(config_dict, self.sid_counter, md5)
+                    rules = cents_azorult(config_dict, self.sid_counter, md5, task_link)
                 elif config_name == "CobaltStrikeBeacon":
-                    rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5)
+                    rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5, task_link)
                 elif config_name == "Remcos":
-                    rules = cents_remcos(config_dict, self.sid_counter, md5)
+                    rules = cents_remcos(config_dict, self.sid_counter, md5, task_link)
                 elif config_name == "SquirrelWaffle":
-                    rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5)
+                    rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5, task_link)
                 elif config_name == "TrickBot":
-                    rules = cents_trickbot(config_dict, self.sid_counter, md5)
+                    rules = cents_trickbot(config_dict, self.sid_counter, md5, task_link)
                 else:
                     # config for this family not implemented yet
                     log.debug(f"[CENTS] Config for family {config_name} not implemented yet")

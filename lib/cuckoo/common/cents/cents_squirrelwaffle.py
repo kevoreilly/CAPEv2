@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 log = logging.getLogger(__name__)
 
 
-def cents_squirrelwaffle(config_dict, sid_counter, md5):
+def cents_squirrelwaffle(config_dict, sid_counter, md5, task_link):
     """Creates Suricata rules from extracted SquirrelWaffle malware configuration.
 
     :param config_dict: Dictionary with the extracted SquirrelWaffle configuration.
@@ -16,9 +16,12 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5):
     :param md5: MD5 hash of the source sample.
     :type md5: `int`
 
+    :param task_link: Link to analysis task of the source sample.
+    :type task_link: `str`
+
     :return List of Suricata rules (`str`) or empty list if no rule has been created.
     """
-    if not config_dict or not sid_counter or not md5:
+    if not config_dict or not sid_counter or not md5 or not task_link:
         return []
 
     next_sid = sid_counter
@@ -37,15 +40,15 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5):
             # we'll make two rules, dns and http
             http_rule = f"alert http $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET CENTS SquirrelWaffle CnC " \
                         f"Activity\"; flow:established,to_server; http.method; content:\"POST\"; http.host; " \
-                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; http.uri; " \
-                        f"content:\"{c2.path}\"; bsize:{len(c2.path)}; sid:{next_sid}; rev:1;)"
+                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; reference:url,{task_link}; " \
+                        f"http.uri; content:\"{c2.path}\"; bsize:{len(c2.path)}; sid:{next_sid}; rev:1;)"
 
             rule_list.append(http_rule)
             next_sid += 1
 
             dns_rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS SquirrelWaffle CnC Domain in DNS Query\"; " \
-                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; sid:{next_sid}; rev" \
-                       f":1;)"
+                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; " \
+                       f"reference:url,{task_link}; sid:{next_sid}; rev:1;)"
 
             rule_list.append(dns_rule)
             next_sid += 1

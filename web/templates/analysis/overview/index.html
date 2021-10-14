@@ -5,7 +5,7 @@
         {% for family, config in config_block.items %}
         <div class="card-header">
             <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a>
-            {% if config.cents and anlysis.info.has_cents_rules %}
+            {% if analysis.info.has_cents_rules %}
             <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> Download CENTS ruleset</a>
             {% endif %}
         </div>

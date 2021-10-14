@@ -44,7 +44,9 @@ class Cents(Report):
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")
         task_id = int(results.get("info", {}).get("id", 0))  # task id of the analysis run
-        task_link = f"{self.hostname}{task_id}"
+        task_link = f"{self.hostname}/analysis/{task_id}/"
+        if self.hostname.endswith("/"):
+            task_link = f"{self.hostname}analysis/{task_id}/"
         configs = results.get("CAPE", {}).get("configs", [])
         if not configs:
             # no config extracted, nothing to do for CENTS

@@ -1,6 +1,9 @@
 # Copyright (C) 2015-2017 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
+# https://qemu.readthedocs.io/en/latest/
+
 from __future__ import absolute_import
 import os
 import time
@@ -235,10 +238,9 @@ class QEMU(Machinery):
         self.qemu_dir = os.path.dirname(self.options.qemu.path)
         self.qemu_img = os.path.join(self.qemu_dir, "qemu-img")
 
-    def start(self, label, task):
+    def start(self, label):
         """Start a virtual machine.
         @param label: virtual machine label.
-        @param task: task object.
         @raise CuckooMachineError: if unable to start.
         """
         log.debug("Starting vm %s" % label)
@@ -256,12 +258,11 @@ class QEMU(Machinery):
             if os.path.exists(snapshot_path):
                 os.remove(snapshot_path)
 
-            # make sure we use a new harddisk layer by creating a new
-            # qcow2 with backing file
+            # make sure we use a new harddisk layer by creating a new qcow2 with backing file
+            # https://qemu.readthedocs.io/en/latest/about/removed-features.html?highlight=backing#qemu-img-backing-file-without-format-removed-in-6-1
             try:
                 proc = subprocess.Popen([
-                    self.qemu_img, "create", "-f", "qcow2",
-                    "-b", vm_options.image, snapshot_path
+                    self.qemu_img, "create", "-f", "qcow2", "-F", "qcow2", "-b", vm_options.image, snapshot_path
                 ], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output, err = proc.communicate()
                 if err:
@@ -311,36 +312,34 @@ class QEMU(Machinery):
                 final_cmdline,  universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
-            raise CuckooMachineError(
-                "QEMU failed starting the machine: %s" % e)
+            raise CuckooMachineError("QEMU failed starting the machine: %s" % e)
 
     def stop(self, label):
         """Stops a virtual machine.
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug(f"Stopping vm {label}")
 
         vm_info = self.db.view_machine_by_label(label)
 
         if self._status(vm_info.name) == self.STOPPED:
-            raise CuckooMachineError(
-                "Trying to stop an already stopped vm %s" % label)
+            raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
         proc = self.state.get(vm_info.name, None)
         proc.kill()
 
         stop_me = 0
         while proc.poll() is None:
-            if stop_me < cfg.cuckoo.timeouts.vm_state:
+            if stop_me < cfg.timeouts.vm_state:
                 time.sleep(1)
                 stop_me += 1
             else:
-                log.debug("Stopping vm %s timeouted. Killing" % label)
+                log.debug(f"Stopping vm {label} timeouted. Killing")
                 proc.terminate()
                 time.sleep(1)
 
-        # if proc.returncode != 0 and stop_me < cfg.cuckoo.timeouts.vm_state:
+        # if proc.returncode != 0 and stop_me < cfg.timeouts.vm_state:
         #     log.debug("QEMU exited with error powering off the machine")
 
         self.state[vm_info.name] = None

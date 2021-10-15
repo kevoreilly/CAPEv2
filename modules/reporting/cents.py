@@ -4,6 +4,7 @@ import logging
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.utils import datetime_to_iso
 
 from lib.cuckoo.common.cents.cents_azorult import cents_azorult
 from lib.cuckoo.common.cents.cents_cobaltstrikebeacon import cents_cobaltstrikebeacon
@@ -38,7 +39,8 @@ class Cents(Report):
         :raise CuckooReportError: if fails to write rules file.
         """
         rule_list = []
-        md5 = results.get("target", {}).get("file", {}).get("md5", "")
+        md5 = results.get("target", {}).get("file", {}).get("md5", "")  # md5 of the sample
+        date = datetime_to_iso(results.get("info", {}).get("started", "")).split("T", 1)[0].replace("-", "_")  # timestamp of the sample run
         configs = results.get("CAPE", {}).get("configs", [])
         results["info"]["has_cents_rules"] = False
         if not configs:
@@ -58,15 +60,15 @@ class Cents(Report):
             for config_name, config_dict in config.items():
                 rules = None
                 if config_name == "Azorult":
-                    rules = cents_azorult(config_dict, self.sid_counter, md5)
+                    rules = cents_azorult(config_dict, self.sid_counter, md5, date)
                 elif config_name == "CobaltStrikeBeacon":
-                    rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5)
+                    rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5, date)
                 elif config_name == "Remcos":
-                    rules = cents_remcos(config_dict, self.sid_counter, md5)
+                    rules = cents_remcos(config_dict, self.sid_counter, md5, date)
                 elif config_name == "SquirrelWaffle":
-                    rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5)
+                    rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5, date)
                 elif config_name == "TrickBot":
-                    rules = cents_trickbot(config_dict, self.sid_counter, md5)
+                    rules = cents_trickbot(config_dict, self.sid_counter, md5, date)
                 else:
                     # config for this family not implemented yet
                     log.debug(f"[CENTS] Config for family {config_name} not implemented yet")
@@ -80,7 +82,7 @@ class Cents(Report):
                     log.warning(f"[CENTS] Found config for {config_name}, but couldn't create rules")
 
         if not rule_list:
-            # no rules ahve been created
+            # no rules have been created
             return
 
         try:

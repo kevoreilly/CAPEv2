@@ -48,6 +48,10 @@ class FileCollector(Auxiliary, Thread):
         log.info("FileCollector init complete")
 
     def run(self):
+
+        if not HAVE_PYINOTIFY:
+            log.info("Missed dependency: pip3 install pyinotify")
+
         log.info("FileCollector run started")
 
         for method in EventProcessor._methods:

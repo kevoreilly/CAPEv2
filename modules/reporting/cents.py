@@ -6,8 +6,6 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.utils import datetime_to_iso
 
-from lib.cuckoo.common.cents.cents_azorult import cents_azorult
-from lib.cuckoo.common.cents.cents_cobaltstrikebeacon import cents_cobaltstrikebeacon
 from lib.cuckoo.common.cents.cents_remcos import cents_remcos
 from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
 from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
@@ -67,16 +65,12 @@ class Cents(Report):
                 continue
             for config_name, config_dict in config.items():
                 rules = None
-                if config_name == "Azorult":
-                    rules = cents_azorult(config_dict, self.sid_counter, md5, date, task_link)
-                elif config_name == "CobaltStrikeBeacon":
-                    rules = cents_cobaltstrikebeacon(config_dict, self.sid_counter, md5, date, task_link)
-                elif config_name == "Remcos":
+                if config_name == "Remcos":
                     rules = cents_remcos(config_dict, self.sid_counter, md5, date, task_link)
                 elif config_name == "SquirrelWaffle":
                     rules = cents_squirrelwaffle(config_dict, self.sid_counter, md5, date, task_link)
                 elif config_name == "TrickBot":
-                    rules = cents_trickbot(config_dict, self.sid_counter, md5, date, task_link)
+                    rules = cents_trickbot(config_dict, results.get("suricata", {}), self.sid_counter, md5, date, task_link)
                 else:
                     # config for this family not implemented yet
                     log.debug(f"[CENTS] Config for family {config_name} not implemented yet")

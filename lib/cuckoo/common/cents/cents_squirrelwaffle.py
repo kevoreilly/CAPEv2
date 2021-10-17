@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 log = logging.getLogger(__name__)
 
 
-def cents_squirrelwaffle(config_dict, sid_counter, md5, date):
+def cents_squirrelwaffle(config_dict, sid_counter, md5, date, task_link):
     """Creates Suricata rules from extracted SquirrelWaffle malware configuration.
 
     :param config_dict: Dictionary with the extracted SquirrelWaffle configuration.
@@ -19,9 +19,12 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5, date):
     :param date: Timestamp of the analysis run of the source sample.
     :type date: `str`
 
+    :param task_link: Link to analysis task of the source sample.
+    :type task_link: `str`
+
     :return List of Suricata rules (`str`) or empty list if no rule has been created.
     """
-    if not config_dict or not sid_counter or not md5 or not date:
+    if not config_dict or not sid_counter or not md5 or not date or not task_link:
         return []
 
     next_sid = sid_counter
@@ -40,7 +43,7 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5, date):
             # we'll make two rules, dns and http
             http_rule = f"alert http $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET CENTS SquirrelWaffle CnC " \
                         f"Activity\"; flow:established,to_server; http.method; content:\"POST\"; http.host; " \
-                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; http.uri; " \
+                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; reference:url,{task_link}; http.uri; " \
                         f"content:\"{c2.path}\"; bsize:{len(c2.path)}; sid:{next_sid}; rev:1; " \
                         f"metadata:created_at {date};)"
 
@@ -48,8 +51,8 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5, date):
             next_sid += 1
 
             dns_rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS SquirrelWaffle CnC Domain in DNS Query\"; " \
-                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; sid:{next_sid}; rev" \
-                       f":1; " \
+                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; reference:url,{task_link}; " \
+                       f"sid:{next_sid}; rev:1; " \
                        f"metadata:created_at {date};)"
 
             rule_list.append(dns_rule)

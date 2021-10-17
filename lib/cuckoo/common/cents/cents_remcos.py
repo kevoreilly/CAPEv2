@@ -78,7 +78,7 @@ def _parse_ratdecoders(remcos_config):
     return remcos_config_list
 
 
-def cents_remcos(config_dict, sid_counter, md5, date):
+def cents_remcos(config_dict, sid_counter, md5, date, task_link):
     """Creates Suricata rules from extracted Remcos malware configuration.
 
     :param config_dict: Dictionary with the extracted Remcos configuration.
@@ -93,9 +93,12 @@ def cents_remcos(config_dict, sid_counter, md5, date):
     :param date: Timestamp of the analysis run of the source sample.
     :type date: `str`
 
+    :param task_link: Link to analysis task of the source sample.
+    :type task_link: `str`
+
     :return List of Suricata rules (`str`) or empty list if no rule has been created.
     """
-    if not config_dict or not sid_counter or not md5 or not date:
+    if not config_dict or not sid_counter or not md5 or not date or not task_link:
         return []
 
     next_sid = sid_counter
@@ -155,7 +158,7 @@ def cents_remcos(config_dict, sid_counter, md5, date):
     for ip_group in _chunk_stuff(list(ip_list)):
         rule = f"alert tcp $HOME_NET any -> {ip_group} any (msg:\"ET CENTS Remcos RAT (C2 IP Address) " \
                f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
-               f"reference:md5,{md5}; sid:{next_sid}; rev:1; " \
+               f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
                f"metadata:created_at {date};)"
         rule_list.append(rule)
         next_sid += 1
@@ -165,7 +168,7 @@ def cents_remcos(config_dict, sid_counter, md5, date):
         rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS Remcos RAT (C2 Domain) " \
                f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
                f"dns.query; content:\"{c2_domain}\"; " \
-               f"reference:md5,{md5}; sid:{next_sid}; rev:1; " \
+               f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
                f"metadata:created_at {date};)"
         rule_list.append(rule)
         next_sid += 1
@@ -179,7 +182,7 @@ def cents_remcos(config_dict, sid_counter, md5, date):
                    f"(passphrase {parsed_config.get('Password')}) " \
                    f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
                    f"content:\"|{first}|\"; startswith; fast_pattern; content:\"|{second}|\"; distance:2; within:2; " \
-                   f"reference:md5,{md5}; sid:{next_sid}; rev:1; " \
+                   f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
                    f"metadata:created_at {date};)"
             rule_list.append(rule)
             next_sid += 1

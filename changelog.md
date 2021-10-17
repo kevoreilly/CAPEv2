@@ -1,3 +1,6 @@
+### [17-10-2021]
+* Monitor update: Win10x64 deadlock fix & other misc fixes (see capemon repo for details)
+
 ### [2-10-2021] Hacktoberfest
 * Add test module to extraction framework to ensure that they are loaded properly: CAPE, MWCP, RATDecoders, Malduck
 * Monitor update: Fixes/hardening of dumps (PE & memory) and yara scans (e.g. SquirrelWaffle)

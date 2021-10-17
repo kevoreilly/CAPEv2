@@ -23,13 +23,13 @@ class Cents(Report):
 
     def __init__(self):
         self.reporting_conf = Config("reporting")
+        self.web_conf = Config("web")
         self.sid_counter = 1000000  # start sid of suricata rules in output rule file
         self.hostname = "https://127.0.0.1/"  # hostname of the cape instance
-        if self.reporting_conf:
-            if self.reporting_conf.cents.start_sid:
-                self.sid_counter = int(self.reporting_conf.cents.start_sid)
-            if self.reporting_conf.cents.hostname:
-                self.hostname = str(self.reporting_conf.cents.hostname)
+        if self.reporting_conf and self.reporting_conf.cents.start_sid:
+            self.sid_counter = int(self.reporting_conf.cents.start_sid)
+        if self.web_conf and self.web_conf.general.hostname:
+            self.hostname = str(self.web_conf.general.hostname)
 
     def run(self, results):
         """CENTS reporting module

@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
+
 def cents_squirrelwaffle(config_dict, sid_counter, md5, date, task_link):
     """Creates Suricata rules from extracted SquirrelWaffle malware configuration.
 

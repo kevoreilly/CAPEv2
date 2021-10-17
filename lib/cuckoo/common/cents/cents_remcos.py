@@ -77,6 +77,7 @@ def _parse_ratdecoders(remcos_config):
 
     return remcos_config_list
 
+
 def cents_remcos(config_dict, sid_counter, md5, date, task_link):
     """Creates Suricata rules from extracted Remcos malware configuration.
 

@@ -2,6 +2,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 def cents_trickbot(config_dict, sid_counter, md5, date, task_link):
     """Creates Suricata rules from extracted TrickBot malware configuration.
 
@@ -33,7 +34,7 @@ def cents_trickbot(config_dict, sid_counter, md5, date, task_link):
     for s in servs:
         ip = s.split(":", 1)[0]
         port = s.split(":", 1)[1]
-        rule = f"alert ip $HOME_NET any -> {ip} {port} (msg:\"ET MALWARE TrickBot Beacon (gtag {gtag}, version {ver})" \
+        rule = f"alert ip $HOME_NET any -> {ip} {port} (msg:\"ET CENTS TrickBot Beacon (gtag {gtag}, version {ver})" \
                f" C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
                f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
                f"metadata:created_at {date};)"

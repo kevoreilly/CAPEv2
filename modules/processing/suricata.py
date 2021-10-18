@@ -101,7 +101,9 @@ class Suricata(Processing):
         suricata["ssh_log_full_path"] = None
         suricata["dns_log_full_path"] = None
 
-        tls_items = ["fingerprint", "issuer", "version", "subject", "sni", "ja3", "serial"]
+        tls_items = [
+            "fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"
+        ]
 
         SURICATA_ALERT_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_ALERT_LOG)
         SURICATA_TLS_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_TLS_LOG)

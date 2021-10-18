@@ -6,7 +6,7 @@
         <div class="card-header">
             <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a>
             {% if analysis.info.has_cents_rules %}
-            <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> Download CENTS ruleset</a>
+            <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> CENTS ruleset</a>
             {% endif %}
         </div>
         <div id="{{family}}_config" class="collapse show">

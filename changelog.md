@@ -1,3 +1,6 @@
+### CENTS - Configuration Extraction to Network Traffic Signatures
+* For full description [read](https://github.com/kevoreilly/CAPEv2/pull/605)
+
 ### [17-10-2021]
 * Monitor update: Win10x64 deadlock fix & other misc fixes (see capemon repo for details)
 

@@ -31,6 +31,9 @@
             {% if config.litereport %}
                 <div class="column"><a href="{% url "filereport" analysis.info.id "litereport" %}">Lite</a></div>
             {% endif %}
+            {% if config.cents %}
+                <div class="column"><a href="{% url "filereport" analysis.info.id "cents" %}">CENTS</a></div>
+            {% endif %}
         </div>
     </div>
 </div>

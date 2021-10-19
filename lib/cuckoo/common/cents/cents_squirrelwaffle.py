@@ -42,18 +42,16 @@ def cents_squirrelwaffle(config_dict, sid_counter, md5, date, task_link):
             c2 = urlparse(nested_url)
             # we'll make two rules, dns and http
             http_rule = f"alert http $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET CENTS SquirrelWaffle CnC " \
-                        f"Activity\"; flow:established,to_server; http.method; content:\"POST\"; http.host; " \
-                        f"content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; reference:url,{task_link}; http.uri; " \
-                        f"content:\"{c2.path}\"; bsize:{len(c2.path)}; sid:{next_sid}; rev:1; " \
-                        f"metadata:created_at {date};)"
+                        f"Activity\"; flow:established,to_server; http.request_line; content:\"POST {c2.path}\"; " \
+                        f"startswith; fast_pattern; http.host; content:\"{c2.hostname}\"; reference:md5,{md5}; " \
+                        f"reference:url,{task_link}; sid:{next_sid}; rev:1; metadata:created_at {date};)"
 
             rule_list.append(http_rule)
             next_sid += 1
 
-            dns_rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS SquirrelWaffle CnC Domain in DNS Query\"; " \
-                       f"dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; reference:url,{task_link}; " \
-                       f"sid:{next_sid}; rev:1; " \
-                       f"metadata:created_at {date};)"
+            dns_rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS SquirrelWaffle CnC Domain in DNS Query\";" \
+                       f" dns.query; content:\"{c2.hostname}\"; fast_pattern; reference:md5,{md5}; " \
+                       f"reference:url,{task_link}; sid:{next_sid}; rev:1; metadata:created_at {date};)"
 
             rule_list.append(dns_rule)
             next_sid += 1

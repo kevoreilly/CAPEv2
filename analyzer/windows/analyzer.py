@@ -1092,13 +1092,6 @@ class CommandPipeHandler(object):
     def _handle_resume(self, data):
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = datetime.now()
-        if self.analyzer.options.get("unpack", "").lower() in ("yes", "true", "enabled", "on", "y"):
-            data = list(map(int, data.split(b",")))
-            if len(data) == 1:
-                pid, tid = data[0], 0
-            elif len(data) == 2:
-                pid, tid = data
-            log.debug("Resume: %s, %s", str(pid), str(tid))
 
     # Handle attempted shutdowns/restarts -- flush logs for all monitored processes
     # additional handling can be added later

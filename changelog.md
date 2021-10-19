@@ -1,3 +1,6 @@
+### [19-10-2021]
+* Monitor update: Monitor fix for NtSuspendThread hook issue (thanks Intezer)
+
 ### CENTS - Configuration Extraction to Network Traffic Signatures
 * For full description [read](https://github.com/kevoreilly/CAPEv2/pull/605)
 

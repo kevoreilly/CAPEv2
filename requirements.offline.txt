@@ -25,7 +25,7 @@ pyinstaller
 maec
 regex
 xmltodict
-sflock
+sflock2
 socks5man
 pyattck==3.0.1
 distorm3
@@ -35,7 +35,7 @@ XLMMacroDeobfuscator
 passlib
 pyzipper
 mwcp==3.2.1
-RATDecoders
+malwareconfig
 capa
 greenlet==0.4.16
 cython

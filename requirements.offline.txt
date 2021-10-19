@@ -36,7 +36,7 @@ passlib
 pyzipper
 mwcp==3.2.1
 malwareconfig
-capa
+flare-capa
 greenlet==0.4.16
 cython
 pyre2

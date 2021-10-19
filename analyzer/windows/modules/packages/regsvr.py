@@ -30,8 +30,9 @@ class Regsvr(Package):
             os.rename(path, new_path)
             path = new_path
 
-        args = path
+        args = ""
         if arguments:
-            args += " {0}".format(arguments)
+            args += "{0} ".format(arguments)
+        args += path
 
         return self.execute(regsvr32, args, path)

@@ -69,6 +69,8 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
     EOF
 
+    $ sudo systemctl stop snapd.service && sudo systemctl mask snapd.service
+
 If needed, kill the unattended-upgrade process using htop or ps + kill.
 
 Optional - preinstalled remove software and configurations::

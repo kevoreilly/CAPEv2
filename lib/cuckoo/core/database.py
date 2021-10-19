@@ -772,7 +772,7 @@ class Database(object, metaclass=Singleton):
         row = None
         try:
             # if 64-bit machine select any pending task
-            if "x64" in self.vms_tags.get(machine, False):
+            if "x64" in self.vms_tags.get(machine, ""):
                 row = (
                     session.query(Task)
                         .filter_by(status=TASK_PENDING)

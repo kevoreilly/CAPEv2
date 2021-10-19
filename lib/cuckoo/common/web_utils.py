@@ -980,9 +980,6 @@ def perform_search(term, value):
                     query_val = int(value)
         except Exception as e:
             print(term, value, e)
-    elif term == "configs":
-        # check if family name is string only maybe?
-        query_val = {f"{search_term_map[term]}.{value}": {"$exist":True}, "$options": "-i"}
     else:
         query_val = {"$regex": value, "$options": "-i"}
 
@@ -990,7 +987,12 @@ def perform_search(term, value):
         return None
 
     if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = search_term_map[term] + hash_len.get(len(value))
+        search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
+
+    elif term == "configs":
+        # check if family name is string only maybe?
+        search_term_map[term] = f"CAPE.configs.{value}"
+        query_val = {"$exists":True}
 
     if repconf.mongodb.enabled and query_val:
         if type(search_term_map[term]) is str:

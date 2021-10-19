@@ -360,7 +360,7 @@ class CAPE(Processing):
             if cape_name in multi_block_config and self.cape["configs"]:
                 for conf in self.cape["configs"]:
                     if cape_name in conf:
-                        conf.setdefault(cape_name, list()).update(config[cape_name])
+                        conf[cape_name].update(config[cape_name])
             else:
                 # in case if malware name is missed it will break conf visualization
                 if cape_name not in config:

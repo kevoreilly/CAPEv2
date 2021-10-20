@@ -70,7 +70,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 * Python3
     * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
-    * host tested with python3 version 3.7
+    * host tested with python3 version 3.7 and 3.8, but newer versions should works too
 
 ## Installation recommendations and scripts for optimal performance
 0. Become familiar with [documentation](https://capev2.readthedocs.io/en/latest/installation/guest/network.html#virtual-networking) for proper configuration

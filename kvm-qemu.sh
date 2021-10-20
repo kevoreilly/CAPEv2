@@ -1158,7 +1158,7 @@ fi
 
 OS="$(uname -s)"
 MAINTAINER="$(whoami)"_"$(hostname)"
-ARCH="$(arch)"
+ARCH="$(dpkg --print-architecture)"
 #add-apt-repository universe
 #apt update && apt upgrade
 #make

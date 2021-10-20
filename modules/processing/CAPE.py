@@ -356,7 +356,7 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
-        if config and config not in self.cape["configs"] and config.get(cape_name):
+        if config and config not in self.cape["configs"]:
             if cape_name in multi_block_config and self.cape["configs"]:
                 for conf in self.cape["configs"]:
                     if cape_name in conf:

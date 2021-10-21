@@ -331,13 +331,13 @@ class ReSubmitExtractedEXE(Report):
                             ((tstart + datetime.timedelta(minutes=self.job_cache_timeout_minutes)) > datetime.datetime.utcnow())
                             and target
                             and os.path.basename(target) == sanitize_filename(os.path.basename(filesdict[e]))
-                        ) and tid not in self.results["resubs"]:
+                        ) and tid not in self.results.get("resubs", []):
                             log.info(
                                 "Adding previous task run to our resub list {0} for hash {1} and filename {2}".format(
                                     tid, e, filesdict[e]
                                 )
                             )
-                            self.results["resubs"].append(tid)
+                            self.results.setdefault("resubs", list()).append(tid)
                             added_previous = True
                             continue
                         else:
@@ -390,7 +390,7 @@ class ReSubmitExtractedEXE(Report):
                                                 filesdict[e], task_id, self.resubcnt
                                             )
                                         )
-                                        self.results["resubs"].append(task_id)
+                                        self.results.setdefault("resubs", list()).append(task_id)
                                         self.resubcnt = self.resubcnt + 1
                                         subbed_hash = True
 
@@ -442,7 +442,7 @@ class ReSubmitExtractedEXE(Report):
                                 filesdict[e], task_id, self.resubcnt
                             )
                         )
-                        self.results["resubs"].append(task_id)
+                        self.results.setdefault("resubs", list()).append(task_id)
                         self.resubcnt = self.resubcnt + 1
                 else:
                     log.warn("Error adding resubmitexe task to database")

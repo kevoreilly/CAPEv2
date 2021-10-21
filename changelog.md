@@ -1,3 +1,6 @@
+### [21-10-2021]
+* Monitor update: Monitor fix for scan crashes in e.g. Equation Editor/Cmd (thanks Will)
+
 ### [19-10-2021]
 * Monitor update: Monitor fix for NtSuspendThread hook issue (thanks Intezer)
 

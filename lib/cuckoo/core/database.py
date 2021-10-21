@@ -764,7 +764,7 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, machine):
+    def fetch(self, machine, label):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
@@ -795,9 +795,8 @@ class Database(object, metaclass=Singleton):
                      .filter(not_(cond))
                      .first()
                 )
-
             if row:
-                if row.machine and machine != row.machine:
+                if row.machine and machine != row.machine and label != row.machine:
                     return None
             else:
                 return None

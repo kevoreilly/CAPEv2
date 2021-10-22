@@ -385,7 +385,7 @@ class CAPE(Processing):
                 entry = json.loads(line)
 
                 # ignore ransom files
-                if entry["filepath"] in self.report.get("ransom_exclude_files", []):
+                if entry["filepath"] in self.results.get("ransom_exclude_files", []):
                     continue
 
                 filepath = os.path.join(self.analysis_path, entry["path"])

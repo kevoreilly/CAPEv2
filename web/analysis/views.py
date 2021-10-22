@@ -1636,7 +1636,7 @@ def full_memory_dump_file(request, analysis_number):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
     if filename:
         content_type = "application/octet-stream"
-        response = StreamingHttpResponse(FileWrapper(open(file_path), 8192), content_type=content_type)
+        response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), 8192), content_type=content_type)
         response["Content-Length"] = os.path.getsize(file_path)
         response["Content-Disposition"] = "attachment; filename=%s" % filename
         return response

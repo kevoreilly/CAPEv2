@@ -139,9 +139,9 @@ tasks_tags = Table(
 )
 
 
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
 def _get_linux_vm_tag(mgtype):
-    if mgtype.startswith((VALID_LINUX_TYPES)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+    if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
         return False
     if "mipsel" in mgtype:
         return "mipsel"

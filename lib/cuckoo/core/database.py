@@ -141,13 +141,14 @@ tasks_tags = Table(
 
 VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
 def _get_linux_vm_tag(mgtype):
-    if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+    mgtype = mgtype.lower()
+    if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
         return False
     if "mipsel" in mgtype:
         return "mipsel"
     elif "mips" in mgtype:
         return "mips"
-    elif "arm".lower() in mgtype:
+    elif "arm" in mgtype:
         return "arm"
     #elif "armhl" in mgtype:
     #    return {"tags":"armhl"}
@@ -159,7 +160,7 @@ def _get_linux_vm_tag(mgtype):
     #    return "renesassh"
     elif "powerpc" in mgtype:
         return "powerpc"
-    elif "32-bit" in mgtype.lower():
+    elif "32-bit" in mgtype:
         return "x32"
     elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
         return "x64"

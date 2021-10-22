@@ -84,6 +84,8 @@ sandbox_packages = (
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 repconf = Config("reporting")
+web_conf = Config("web")
+LINUX_ENABLED = web_conf.linux.enabled
 
 results_db = pymongo.MongoClient(
     repconf.mongodb.host,
@@ -135,6 +137,34 @@ tasks_tags = Table(
     Column("task_id", Integer, ForeignKey("tasks.id")),
     Column("tag_id", Integer, ForeignKey("tags.id")),
 )
+
+
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+def _get_linux_vm_tag(mgtype):
+    if mgtype.startswith((VALID_LINUX_TYPES)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+        return False
+    if "mipsel" in mgtype:
+        return "mipsel"
+    elif "mips" in mgtype:
+        return "mips"
+    elif "arm".lower() in mgtype:
+        return "arm"
+    #elif "armhl" in mgtype:
+    #    return {"tags":"armhl"}
+    elif "sparc" in mgtype:
+        return "sparc"
+    #elif "motorola" in mgtype:
+    #    return "motorola"
+    #elif "renesas sh" in mgtype:
+    #    return "renesassh"
+    elif "powerpc" in mgtype:
+        return "powerpc"
+    elif "32-bit" in mgtype.lower():
+        return "x32"
+    elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
+        return "x64"
+    else:
+        return "x64"
 
 
 class Machine(Base):
@@ -1262,6 +1292,14 @@ class Database(object, metaclass=Singleton):
                     tags += ",x64"
                 else:
                     tags = "x64"
+
+            if LINUX_ENABLED:
+                linux_arch = _get_linux_vm_tag(file_type)
+                if linux_arch:
+                    if tags:
+                        tags += f",{linux_arch}"
+                    else:
+                        tags = linux_arch
 
             try:
                 task = Task(obj.file_path)

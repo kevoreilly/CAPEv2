@@ -383,6 +383,11 @@ class CAPE(Processing):
         if os.path.exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
+
+                # ignore ransom files
+                if entry["filepath"] in self.report.get("ransom_exclude_files", []):
+                    continue
+
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
                     "pids": entry["pids"],

@@ -55,7 +55,7 @@ QEMU_ARGS = {
             "-M", "malta", "-m", "{memory}",
             "-kernel", "{kernel}",
             "-hda", "{snapshot_path}",
-            "-append", "root=/dev/sda1 console=tty0",
+            "-append", "root=/dev/sda1 console=ttyS0 nokaslr",
             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
             "-device", "e1000,netdev=net_{vmname},mac={mac}",
         ],

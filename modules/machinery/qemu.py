@@ -7,10 +7,12 @@
 from __future__ import absolute_import
 import os
 import time
+import magic
 import logging
 import subprocess
 import os.path
 
+# from lib.cuckoo.core.rooter import rooter
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError
@@ -18,6 +20,17 @@ from lib.cuckoo.common.exceptions import CuckooMachineError
 
 log = logging.getLogger(__name__)
 cfg = Config()
+qemu_cfg = Config("qemu")
+
+# os.listdir('/sys/class/net/')
+HAVE_NETWORKIFACES = False
+try:
+    import psutil
+    network_interfaces = list(psutil.net_if_addrs().keys())
+    HAVE_NETWORKIFACES = True
+except ImportError:
+    print("Missde dependency: pip3 install psutil")
+
 
 # this whole semi-hardcoded commandline thing is not the best
 #  but in the config files we can't do arrays etc so we'd have to parse the
@@ -72,7 +85,7 @@ QEMU_ARGS = {
             "-drive", "if=sd,cache=unsafe,file={snapshot_path}",
             "-append", "console=ttyAMA0 root=/dev/mmcblk0 rootwait",
             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-            "-device", "e1000,netdev=net_{vmname},mac={mac}",
+            "-device", "virtio-net-device,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "kernel": "{imagepath}/openwrt-realview-vmlinux.elf",
@@ -83,10 +96,11 @@ QEMU_ARGS = {
             "qemu-system-arm", "-display", "none",
             "-M", "virt", "-m", "{memory}",
             "-kernel", "{kernel}", "-initrd", "{initrd}",
-            "-hda", "{snapshot_path}",
-            "-append", "root=/dev/vda2 rootfstype=ext4",
+            "-drive", "if=none,file={snapshot_path},id=hd0",
+            "-device", "virtio-blk-device,drive=hd0",
+            "-append", "root=/dev/vda2",
             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-            "-device", "e1000,netdev=net_{vmname},mac={mac}",
+            "-device", "virtio-net-device,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "{memory}",
@@ -100,10 +114,11 @@ QEMU_ARGS = {
             "-display", "none",
             "-M", "virt", "-m", "{memory}",
             "-kernel", "{kernel}", "-initrd", "{initrd}",
-            "-hda", "{snapshot_path}",
+            "-drive", "if=none,file={snapshot_path},id=hd0",
+            "-device", "virtio-blk-device,drive=hd0",
             "-append", "root=/dev/sda1",
             "-netdev", "tap,id=net_{vmname},ifname=tap_{vmname},script=no,downscript=no",
-            "-device", "e1000,netdev=net_{vmname},mac={mac}",
+            "-device", "virtio-net-device,netdev=net_{vmname},mac={mac}",
         ],
         "params": {
             "memory": "512M",  # 512 didn't work for some reason
@@ -228,15 +243,40 @@ class QEMU(Machinery):
         """
         # VirtualBox specific checks.
         if not self.options.qemu.path:
-            raise CuckooCriticalError("QEMU binary path missing, "
-                                      "please add it to the config file")
+            raise CuckooCriticalError("QEMU binary path missing, please add it to the config file")
         if not os.path.exists(self.options.qemu.path):
-            raise CuckooCriticalError("QEMU binary not found at "
-                                      "specified path \"%s\"" %
-                                      self.options.qemu.path)
+            raise CuckooCriticalError("QEMU binary not found at specified path \"%s\"" % self.options.qemu.path)
 
         self.qemu_dir = os.path.dirname(self.options.qemu.path)
         self.qemu_img = os.path.join(self.qemu_dir, "qemu-img")
+        # 1 check if arch is not x32 or x64
+        # 2 check for kernel and initrd files
+        # 3 check for snapshot
+        # 3. check tap device
+
+        for vm_label in qemu_cfg.qemu.machines.split(","):
+            try:
+                vm_config = qemu_cfg.get(vm_label.strip())
+                if vm_config.get("platform", "").strip() != "linux":
+                    continue
+                if vm_config.get("image", False) and not os.path.exists(vm_config["image"]):
+                    log.error(f"Missed harddrive file for VM: {vm_label}")
+                if vm_config.get("kernel", False) and not magic.from_file(vm_config['kernel']).startswith(("Linux kernel", "ELF")):
+                    log.error(f"Bad Kernel file for VM: {vm_label} - {vm_config['kernel']}")
+                if vm_config.get("initrd", False) and not magic.from_file(vm_config['initrd']).startswith("gzip"):
+                    log.error(f"Bad initrd file for VM: {vm_label} - {vm_config['initrd']}")
+                if vm_config.get("snapshot", False) and vm_config.get("image", False):
+                    try:
+                        snalshot_list = subprocess.check_output([self.qemu_img, "snapshot", "-l", vm_config["image"]], universal_newlines=True)
+                        if vm_config["snapshot"] not in snalshot_list:
+                            log.error(f"Snapshot: {vm_config['snapshot']} doesn't exist for VM: {vm_label}")
+                    except Exception as e:
+                        log.debug(f"Can't check snapshot list for VM:{vm_label} - {e}")
+
+                if vm_config.get("interface", False) and HAVE_NETWORKIFACES and vm_config["interface"] not in network_interfaces:
+                    log.error(f"Missed TAP network interface {vm_config['interface']}")
+            except Exception as e:
+                log.exception(e)
 
     def start(self, label):
         """Start a virtual machine.

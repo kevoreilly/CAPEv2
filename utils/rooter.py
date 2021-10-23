@@ -19,10 +19,10 @@ import sys
 import errno
 
 
-if sys.version_info[:2] < (3, 5):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
-
+username = False
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 ch = logging.StreamHandler()
@@ -44,6 +44,17 @@ def run(*args):
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     stdout, stderr = p.communicate()
     return stdout, stderr
+
+def check_tuntap(vm_name, main_iface):
+    """Create tuntap device for qemu vms"""
+    try:
+        run([s.ip, "tuntap", "add", "dev", f"tap_{vm_name}", "mode", "tap", "user", username])
+        run([s.ip, "link", "set", "tap_{vm_name}", "master" main_iface])
+        run([s.ip, "link", "set", "dev", "tap_{vm_name}", "up"])
+        run([s.ip, "link", "set", "dev", main_iface, "up"])
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def run_iptables(*args):
@@ -461,6 +472,8 @@ if __name__ == "__main__":
             "./utils/rooter.py -g myuser" % settings.group
         )
 
+    # global username
+    username = settings.group
     os.chown(settings.socket, 0, gr.gr_gid)
     os.chmod(settings.socket, stat.S_IRUSR | stat.S_IWUSR | stat.S_IWGRP)
 

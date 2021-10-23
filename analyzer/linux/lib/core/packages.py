@@ -123,6 +123,9 @@ class Package(object):
             else:
                 self.target = filepath
         self.prepare()
+        self.normal_analysis()
+        return self.proc.pid
+        """
         if self.free:
             self.normal_analysis()
             return self.proc.pid
@@ -131,7 +134,7 @@ class Package(object):
             return self.proc.pid
         else:
             raise Exception("Unsupported analysis method. Try `apicalls`.")
-
+        """
     def check(self):
         """Check."""
         return True

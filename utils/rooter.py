@@ -49,7 +49,7 @@ def check_tuntap(vm_name, main_iface):
     """Create tuntap device for qemu vms"""
     try:
         run([s.ip, "tuntap", "add", "dev", f"tap_{vm_name}", "mode", "tap", "user", username])
-        run([s.ip, "link", "set", "tap_{vm_name}", "master" main_iface])
+        run([s.ip, "link", "set", "tap_{vm_name}", "master", main_iface])
         run([s.ip, "link", "set", "dev", "tap_{vm_name}", "up"])
         run([s.ip, "link", "set", "dev", main_iface, "up"])
         return True

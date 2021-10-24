@@ -3,9 +3,11 @@
 {% if analysis.malware_conf %}
     {% for config_block in analysis.malware_conf %}
         {% for family, config in config_block.items %}
-
         <div class="card-header">
             <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span class="badge badge-danger">{{family}} Config</span></a>
+            {% if analysis.info.has_cents_rules %}
+            <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> CENTS ruleset</a>
+            {% endif %}
         </div>
         <div id="{{family}}_config" class="collapse show">
             <table class="table table-striped table-bordered" style="table-layout: fixed;">
@@ -53,6 +55,11 @@
     </div>
 </div>
 
+{% if analysis.curtain %}
+    <hr />
+    {% include "analysis/overview/_curtain.html" %}
+{% endif %}
+
 {% if analysis.mitre_attck %}
     <hr />
     {% include "analysis/overview/_mitre.html" %}
@@ -63,15 +70,8 @@
 {% endif %}
 {% include "analysis/overview/_signatures.html" %}
 
-{% if analysis.info.category != "pcap" %}
-    {% if analysis.usage %}
-    <hr />
-    {% include "analysis/overview/_usage.html" %}
-{% endif %}
-
 {% include "analysis/overview/_screenshots.html" %}
 <hr />
-{% endif %}
 <div class="row">
     <div class="col-md-6 mx-auto">{% include "analysis/network/_hosts_not_ajax.html" %}</div>
     <div class="col-md-6 mx-auto">{% include "analysis/network/_dns_not_ajax.html" %}</div>

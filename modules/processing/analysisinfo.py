@@ -94,7 +94,6 @@ class AnalysisInfo(Processing):
             del machine["task_id"]
             # Save.
             self.task["machine"] = machine
-        distributed = dict()
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
         if "maint_task_id" not in parsed_options:
@@ -119,7 +118,6 @@ class AnalysisInfo(Processing):
             parent_id=self.task["parent_id"],
             tlp=self.task["tlp"],
             parent_sample=parent_sample_details,
-            distributed=distributed,
             options=parsed_options,
             source_url=source_url,
             route=self.task.get("route"),

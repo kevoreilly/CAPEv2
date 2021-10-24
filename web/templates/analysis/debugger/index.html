@@ -52,8 +52,8 @@ function show_tab_dbg(id, callback) {
     {% for process in debugger.processes %}
         {% for key, value in debugger_logs.items %}
             {% if key == process.process_id %}
-            <div class="tab-pane fade {% if forloop.parentloop.counter == 1 %} show active {% endif %}" id="dbg_{{key}}">
-                <div class="alert alert-danger center"><a class="btn btn-secondary btn-small" href="{% url "file" "debugger_log" id key %}">Download Log</a></div>
+            <div class="tab-pane fade {% if forloop.counter == 1 %} show active {% endif %}" id="dbg_{{key}}">
+                <div class="alert alert-danger center"><a class="btn btn-secondary btn-small" href="{% url "file" "debugger_log" id key %}"><i class="fas fa-download"></i> Log</a></div>
                 <pre>{{value}}</pre>
             </div>
             {% endif %}

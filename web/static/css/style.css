@@ -257,7 +257,7 @@ pre {
 .tcp-out pre {
     padding: 0;
     border: 0;
-    background-color: white;
+    /*background-color: white;*/
     color: #d9534f;
 }
 .tcp-in {
@@ -266,7 +266,7 @@ pre {
 .tcp-in pre {
     padding: 0;
     border: 0;
-    background-color: white;
+    /*background-color: white;*/
     color: #5bc0de;
 }
 #filter-toggle {

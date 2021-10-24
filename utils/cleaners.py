@@ -90,7 +90,7 @@ def delete_bulk_tasks_n_folders(tids: list, dont_delete_mongo: bool):
                 analyses_tmp = list()
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))
                 analyses = results_db.analysis.find({"info.id": {"$in": [id for id in ids_tmp]}}, {"behavior.processes": 1, "_id": 1})
-                if analyses.count() > 0:
+                if analyses:
                     for analysis in analyses:
                         calls = list()
                         for process in analysis.get("behavior", {}).get("processes", []):
@@ -357,6 +357,37 @@ def cuckoo_clean_lower_score(args):
     log.info(("number of matching records %s" % len(id_arr)))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
+def tmp_clean_before_day(args):
+    """Clean up tmp folder
+    It deletes all items in tmp folder before now - days.
+    """
+    if not args.delete_tmp_items_older_than_days:
+        log.info("Must provide argument delete_tmp_items_older_than_days")
+        return
+
+    days = args.delete_tmp_items_older_than_days
+    init_console_logging()
+
+    today = datetime.today()
+    tmp_folder_path = cuckoo.cuckoo.get("tmppath")
+
+    for root, directories, files in os.walk(tmp_folder_path, topdown=True):
+        for name in files + directories:
+            path = os.path.join(root, name)
+            last_modified_time_in_seconds = os.stat(os.path.join(root, path)).st_mtime
+            file_time = today - datetime.fromtimestamp(last_modified_time_in_seconds)
+
+            if file_time.days > days:
+                try:
+                    if os.path.isdir(path):
+                        log.info("Delete folder: {0}".format(path))
+                        delete_folder(path)
+                    else:
+                        if os.path.exists(path):
+                            log.info("Delete file: {0}".format(path))
+                            os.remove(path)
+                except Exception as e:
+                    log.error(e)
 
 def tmp_clean_before_day(args):
     """Clean up tmp folder

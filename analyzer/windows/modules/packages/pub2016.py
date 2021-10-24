@@ -28,7 +28,6 @@ class PUB2007(Package):
         self.config = config
         self.options = options
         self.options["exclude-apis"] = "memcpy"
-        self.options["office"] = "1"
 
     """Word analysis package."""
     PATHS = [

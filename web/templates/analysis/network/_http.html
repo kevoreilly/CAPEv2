@@ -13,7 +13,7 @@
             {% if http.request %}
                 <tr><td>
                     {% if http.req.sha256 %}
-                        <a href="{% url "file" "networkzip" id http.req.sha256 %}" class="btn btn-secondary btn-sm">Download Request content</a>
+                        <a href="{% url "file" "networkzip" id http.req.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span> Request content</a>
                     {% else %}
                         Request:
                     {% endif %}
@@ -25,7 +25,7 @@
             <tr><td>
             {% if http.response %}
                 {% if http.resp.sha256 %}
-                    <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm">Download Response content</a>
+                    <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span> Response content</a>
                 {% else %}
                     Response:
                 {% endif %}

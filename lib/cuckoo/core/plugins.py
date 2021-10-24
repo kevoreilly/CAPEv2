@@ -115,12 +115,15 @@ suricata_blocklist = (
     "common",
     "custom",
     "dropper",
+    "downloader",
+    "evil",
     "executable",
     "f-av",
     "fake",
     "fileless",
     "filename",
     "generic",
+    "fireeye",
     "google",
     "hacking",
     "injector",
@@ -143,9 +146,12 @@ suricata_blocklist = (
     "self-signed",
     "shadowserver",
     "single",
+    "suspect",
+    "suspected",
     "supicious",
     "targeted",
     "team",
+    "terse",
     "troj",
     "trojan",
     "unit42",
@@ -156,11 +162,13 @@ suricata_blocklist = (
     "virus",
     "w2km",
     "w97m",
+    "w32",
     "win32",
+    "win64",
     "windows",
     "worm",
     "wscript",
-    # "http",
+    "http",
     "ptsecurity",
     "request",
     "suspicious",
@@ -385,6 +393,8 @@ class RunProcessing(object):
         else:
             log.info("No processing modules loaded")
 
+        self._detect_family()
+
         # Add temp_processing stats to global processing stats
         if self.results["temp_processing_stats"]:
             for plugin_name in self.results["temp_processing_stats"]:
@@ -411,36 +421,46 @@ class RunProcessing(object):
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
+        return self.results
+
+    def _detect_family(self):
+        if not self.cfg.detections.enabled:
+            return
+
         family = ""
-        self.results["malfamily_tag"] = ""
-        if self.cfg.detections.enabled:
-            if self.results.get("detections", False) and self.cfg.detections.yara:
-                family = self.results["detections"]
-                self.results["malfamily_tag"] = "Yara"
-            elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
-                for alert in self.results["suricata"]["alerts"]:
-                    if alert.get("signature", "") and alert["signature"].startswith((et_categories)):
-                        family = get_suricata_family(alert["signature"])
-                        if family:
-                            self.results["malfamily_tag"] = "Suricata"
-                            self.results["detections"] = family
+        malfamily_tag = ""
 
-            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("detection"):
-                family = self.results["virustotal"]["detection"]
-                self.results["malfamily_tag"] = "VirusTotal"
+        if self.cfg.detections.yara:
+            family = self.results.get("detections", "")
+            if family:
+                malfamily_tag = "Yara"
 
-            # fall back to ClamAV detection
-            elif self.cfg.detections.clamav and not family and self.results["info"]["category"] == "file" and self.results.get("target", {}).get("file", {}).get("clamav"):
-                for detection in self.results["target"]["file"]["clamav"]:
+        if self.cfg.detections.suricata and not family:
+            for alert in self.results.get("suricata", {}).get("alerts", []):
+                if alert.get("signature", "").startswith(et_categories):
+                    family = get_suricata_family(alert["signature"])
+                    if family:
+                        malfamily_tag = "Suricata"
+                        break
+
+        if self.results["info"]["category"] == "file":
+            if self.cfg.detections.virustotal and not family:
+                family = self.results.get("virustotal", {}).get("detection", "")
+                if family:
+                    malfamily_tag = "VirusTotal"
+
+            if self.cfg.detections.clamav and not family:
+                for detection in self.results.get("target", {}).get("file", {}).get("clamav", []):
                     if detection.startswith("Win.Trojan."):
                         words = re.findall(r"[A-Za-z0-9]+", detection)
                         family = words[2]
-                        self.results["malfamily_tag"] = "ClamAV"
+                        if family:
+                            malfamily_tag = "ClamAV"
+                            break
 
-            if family:
-                self.results["detections"] = family
-
-        return self.results
+        if family:
+            self.results["detections"] = family
+            self.results["malfamily_tag"] = malfamily_tag
 
 
 class RunSignatures(object):
@@ -451,6 +471,7 @@ class RunSignatures(object):
         self.results = results
         self.ttps = list()
         self.cfg_processing = Config("processing")
+        self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
     def _load_overlay(self):
         """Loads overlay data from a json file.
@@ -543,6 +564,8 @@ class RunSignatures(object):
         if not self._check_signature_version(current):
             return None
 
+        # Give it path to the analysis results.
+        current.set_path(self.analysis_path)
         log.debug('Running signature "%s"', current.name)
 
         try:
@@ -567,13 +590,18 @@ class RunSignatures(object):
 
         return None
 
-    def run(self):
-        """Run evented signatures."""
+    def run(self, test_signature: str = False):
+        """Run evented signatures.
+        test_signature: signature name, Ex: cape_detected_threat, to test unique signature
+        """
+
         # This will contain all the matched signatures.
         matched = []
         stats = {}
 
         complete_list = list_plugins(group="signatures") or []
+        if test_signature:
+            complete_list = [sig for sig in complete_list if sig.name == test_signature]
         evented_list = list()
         try:
             evented_list = [
@@ -709,7 +737,7 @@ class RunSignatures(object):
         if self.results.get("malfamily_tag", "") != "Yara" and self.cfg_processing.detections.enabled and self.cfg_processing.detections.behavior:
             for match in matched:
                 if "families" in match and match["families"]:
-                    self.results["detections"] = match["families"][0].title()
+                    self.results["detections"] = match["families"][0]
                     self.results["malfamily_tag"] = "Behavior"
                     break
 

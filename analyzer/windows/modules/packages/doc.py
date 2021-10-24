@@ -14,7 +14,6 @@ class DOC(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["office"] = "1"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),

@@ -25,6 +25,8 @@ def choose_package(file_type, file_name, exports, target):
     elif "DLL" in file_type:
         if file_name.endswith(".cpl"):
             return "cpl"
+        elif file_name.endswith(".xll"):
+            return "xls"
         else:
             if exports:
                 explist = exports.split(",")
@@ -34,9 +36,7 @@ def choose_package(file_type, file_name, exports, target):
     elif "PE32" in file_type or "MS-DOS" in file_type:
         return "exe"
     elif file_name.endswith((".msi",".msp",".appx")) or "MSI Installer" in file_type:
-        return "msi"    
-    elif "PDF" in file_type or file_name.endswith(".pdf"):
-        return "pdf"
+        return "msi"
     elif file_name.endswith(".pub"):
         return "pub"
     elif (
@@ -45,17 +45,17 @@ def choose_package(file_type, file_name, exports, target):
         or "Microsoft Office Word" in file_type
         or "Microsoft OOXML" in file_type
         or "MIME entity" in file_type
-        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk"))
+        or file_name.endswith((".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".rtf", ".mht", ".mso", ".wbk", ".wiz"))
     ):
         return "doc"
     elif (
         "Microsoft Office Excel" in file_type
         or "Microsoft Excel" in file_type
-        or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk"))
+        or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk", ".csv"))
     ):
         return "xls"
     elif "PowerPoint" in file_type or file_name.endswith(
-        (".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
+        (".ppt", ".ppa", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm")
     ):
         return "ppt"
     elif "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
@@ -64,7 +64,7 @@ def choose_package(file_type, file_name, exports, target):
         return "zip"
     elif "RAR archive" in file_type or file_name.endswith(".rar"):
         return "rar"
-    elif "Macromedia Flash" in file_type or file_name.endswith(".swf") or file_name.endswith(".fws"):
+    elif "Macromedia Flash" in file_type or file_name.endswith((".swf", ".fws")):
         return "swf"
     elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
         return "python"
@@ -72,9 +72,9 @@ def choose_package(file_type, file_name, exports, target):
         return "ps1"
     elif file_name.endswith(".msg"):
         return "msg"
-    elif file_name.endswith(".eml") or file_name.endswith(".ics") or "vCalendar calendar" in file_type:
+    elif file_name.endswith((".eml", ".ics")) or "vCalendar calendar" in file_type:
         return "eml"
-    elif file_name.endswith(".js") or file_name.endswith(".jse"):
+    elif file_name.endswith((".js", ".jse")):
         return "js"
     elif file_name.endswith((".htm", ".html")):
         return "html"
@@ -82,8 +82,6 @@ def choose_package(file_type, file_name, exports, target):
         return "hta"
     elif file_name.endswith(".xps"):
         return "xps"
-    elif file_name.endswith(".wsf") or file_type == "XML document text":
-        return "wsf"
     elif "HTML" in file_type:
         return "html"
     elif file_name.endswith(".mht"):
@@ -100,10 +98,29 @@ def choose_package(file_type, file_name, exports, target):
         return "hwp"
     elif file_name.endswith((".inp", ".int")) or b"InPage Arabic Document" in file_content:
         return "inp"
-    elif file_name.endswith(".vbs") or file_name.endswith(".vbe") or re.findall(br"\s?Dim\s", file_content, re.I):
+    elif file_name.endswith((".xsl", ".xslt")) or "XSL stylesheet" in file_type:
+        return "xslt"
+    elif file_name.endswith(".sct"):
+        if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration",file_content):
+            return "sct"
+        else:
+            return "hta"
+    elif file_name.endswith(".wsf") or file_type == "XML document text":
+        return "wsf"
+    elif "PDF" in file_type or file_name.endswith(".pdf"):
+        return "pdf"
+    elif re.search(b"<script\\s+language=\"(J|VB|Perl)Script\"",file_content,re.I):
+        return "wsf"
+    elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
+    elif file_name.endswith((".csproj", ".vbproj", ".vcxproj", ".dbproj", "fsproj")) or b"msbuild" in file_content:
+        return "msbuild"
+    elif file_name.endswith((".jtd", ".jtdc", ".jttc", ".jtt")):
+        return "ichitaro"
+    elif file_name.endswith(".reg"):
+        return "reg"
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:

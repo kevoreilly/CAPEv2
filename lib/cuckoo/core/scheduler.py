@@ -21,10 +21,19 @@ try:
 except ImportError:
     import re
 
+# os.listdir('/sys/class/net/')
+HAVE_NETWORKIFACES = False
+try:
+    import psutil
+    network_interfaces = list(psutil.net_if_addrs().keys())
+    HAVE_NETWORKIFACES = True
+except ImportError:
+    print("Missde dependency: pip3 install netifaces")
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
-from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooNetworkError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
@@ -370,7 +379,7 @@ class AnalysisManager(threading.Thread):
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
-                    log.error("The memory dump functionality is not available " "for the current machine manager.")
+                    log.error("The memory dump functionality is not available for the current machine manager.")
 
                 except CuckooMachineError as e:
                     log.error(e, exc_info=True)
@@ -486,7 +495,7 @@ class AnalysisManager(threading.Thread):
         if self.task.route:
             self.route = self.task.route
 
-        if self.route in ("none", "None", "drop"):
+        if self.route in ("none", "None", "drop", "false"):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
@@ -549,7 +558,7 @@ class AnalysisManager(threading.Thread):
         self._rooter_response_check()
 
         # check if the interface is up
-        if routing.routing.verify_interface and self.interface and self.interface not in netifaces.interfaces():
+        if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
             raise CuckooNetworkError("Network interface {} not found".format(self.interface))
 
         if self.interface:
@@ -753,7 +762,7 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path, return_value=True)
+                need_space, space_available = free_space_monitor(dir_path,  return_value=True, analysis=True)
                 if need_space:
                     log.error(
                         "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
@@ -780,11 +789,9 @@ class Scheduler:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine=machine.name)
+                    task = self.db.fetch(machine.name)
                     if task:
                         break
-                else:
-                    task = self.db.fetch()
                 if task:
                     log.debug("Task #{0}: Processing task".format(task.id))
                     self.total_analysis_count += 1

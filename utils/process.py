@@ -41,7 +41,8 @@ cfg = Config()
 repconf = Config("reporting")
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
-    from pymongo import MongoClient
+    from pymongo import MongoClient, DESCENDING, ASCENDING
+    from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
@@ -104,19 +105,11 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
 
     if report:
         if repconf.mongodb.enabled:
-            conn = MongoClient(
-                host = repconf.mongodb.get("host", "127.0.0.1"),
-                port = repconf.mongodb.get("port", 27017),
-                username = repconf.mongodb.get("username", None),
-                password = repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authsource", "admin"),
-            )
-            mdata = conn[repconf.mongodb.get("db", "cuckoo")]
-            analyses = mdata.analysis.find({"info.id": int(task_id)})
+            conn, mdata, analyses = _load_mongo_report(task_id)
             if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
-                    for process in analysis["behavior"].get("processes", []):
+                    for process in analysis.get("behavior", {}).get("processes", []):
                         calls = list()
                         for call in process["calls"]:
                             calls.append(ObjectId(call))
@@ -177,8 +170,8 @@ def init_logging(auto=False, tid=0, debug=False):
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
             os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
-            if cfg.logging.enabled:
-                days = cfg.logging.backup_count or 7
+            if cfg.log_rotation.enabled:
+                days = cfg.log_rotation.backup_count or 7
                 fh = logging.handlers.TimedRotatingFileHandler(
                     os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=int(days)
                 )
@@ -225,12 +218,11 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
+    # pool = multiprocessing.Pool(parallel, init_worker)
     try:
         memory_limit()
         log.info("Processing analysis data")
-        # CAUTION - big ugly loop ahead.
-
-        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:# CAUTION - big ugly loop ahead.
             while count < maxcount or not maxcount:
                 # If not enough free disk space is available, then we print an
                 # error message and wait another round (this check is ignored
@@ -315,6 +307,32 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         pool.close()
         pool.join()
 
+def _load_mongo_report(task_id: int, return_one: bool = False):
+    conn = MongoClient(
+        host = repconf.mongodb.get("host", "127.0.0.1"),
+        port = repconf.mongodb.get("port", 27017),
+        username = repconf.mongodb.get("username", None),
+        password = repconf.mongodb.get("password", None),
+        authSource = repconf.mongodb.get("authsource", "cuckoo"),
+    )
+    mdata = conn[repconf.mongodb.get("db", "cuckoo")]
+
+    if return_one:
+        analysis = mdata.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", DESCENDING)])
+        for process in analysis.get("behavior", {}).get("processes", []):
+            calls = list()
+            for call in process["calls"]:
+                calls.append(ObjectId(call))
+            process["calls"] = list()
+            for call in mdata.calls.find({"_id": {"$in": calls}}, sort=[("_id", ASCENDING)]) or []:
+                process["calls"] += call["calls"]
+        return conn, mdata, analysis
+
+    else:
+        return conn, mdata, mdata.analysis.find({"info.id": int(task_id)})
+
+    return False, False, False
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -324,8 +342,7 @@ def main():
                         required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
-    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true",
-                        required=False)
+
     parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int,
                         required=False, default=1)
     parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true",
@@ -345,6 +362,10 @@ def main():
         required=False,
         default=300,
     )
+    testing_args = parser.add_argument_group('Signature testing options')
+    testing_args.add_argument("-sig", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", default=False, required=False)
+    testing_args.add_argument("-sn", "--signature-name", help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat", action="store", default=False, required=False)
+    testing_args.add_argument("-jr", "--json-report", help="Path to json report, only if data not in mongo/default report location", action="store", default=False, required=False)
     args = parser.parse_args()
 
     init_yara()
@@ -364,13 +385,23 @@ def main():
         init_logging(tid=args.id, debug=args.debug)
         task = Database().view_task(int(args.id))
         if args.signatures:
-            report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")
-            if not os.path.exists(report):
-                sys.exit("File {} doest exist".format(report))
-
-            results = json.load(open(report))
+            conn = False
+            report = False
+            # check mongo
+            if repconf.mongodb.enabled:
+                conn, _, results = _load_mongo_report(int(args.id), return_one = True)
+            if not results:
+                # fallback to json
+                report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")
+                if not os.path.exists(report):
+                    if args.json_report and not os.path.exists(args.json_report):
+                        report = args.json_report
+                    else:
+                        sys.exit("File {} doest exist".format(report))
+                if report:
+                    results = json.load(open(report))
             if results is not None:
-                RunSignatures(task=task.to_dict(), results=results).run()
+                RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
         else:
             process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
 

@@ -1,23 +1,28 @@
 from __future__ import absolute_import
 from __future__ import print_function
-import pype32
+
+from binascii import unhexlify
 from base64 import b64decode
 from Crypto.Cipher import AES
+
+# import pefile
+import pype32
 from pbkdf2 import PBKDF2
 
 
 def config(raw_data):
     try:
         pe = pype32.PE(data=raw_data)
+        # pe = pefile.PE(data=raw_data)
         string_list = get_strings(pe, 2)
         vers = get_version(string_list)
         if vers == "v12":
             config_dict = config_12(string_list)
         elif vers == "v13":
-            key, salt = "PredatorLogger", "3000390039007500370038003700390037003800370038003600".decode("hex")
+            key, salt = "PredatorLogger", unhexlify("3000390039007500370038003700390037003800370038003600")
             config_dict = config_13(key, salt, string_list)
         elif vers == "v14":
-            key, salt = "EncryptedCredentials", "3000390039007500370038003700390037003800370038003600".decode("hex")
+            key, salt = "EncryptedCredentials", unhexlify("3000390039007500370038003700390037003800370038003600")
             config_dict = config_14(key, salt, string_list)
         else:
             return False
@@ -28,6 +33,7 @@ def config(raw_data):
         else:
             return False
     except Exception as e:
+        print("PREDATORPAIN EXTRACTOR", e)
         return False
 
 
@@ -49,7 +55,7 @@ def decrypt_string(key, salt, coded):
     mode = AES.MODE_CBC
     cipher = AES.new(aes_key, mode, IV=aes_iv)
     value = cipher.decrypt(b64decode(coded)).replace("\x00", "")
-    return value  # .encode('hex')
+    return value
 
 
 # except:
@@ -59,9 +65,11 @@ def decrypt_string(key, salt, coded):
 def get_strings(pe, dir_type):
     counter = 0
     string_list = []
-    m = pe.ntHeaders.optionalHeader.dataDirectory[14].info
+    m = pe.ntHeaders.optionalHeader.DATA_DIRECTORY[14].info
+    # m = pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[14].dump_dict().get("VirtualAddress", dict())
     for s in m.netMetaDataStreams[dir_type].info:
-        for offset, value in s.iteritems():
+
+        for offset, value in s.items():
             string_list.append(value)
             # print counter, value
         counter += 1

@@ -252,24 +252,6 @@
             </tr>
         </table>
         </div>
-        {% endif %}
-        {% if analysis.static.office.XLMMacroDeobfuscator %}
-        <div id="xmlmacro">
-        <h4>XLMMacroDeobfuscator</h4>
-        <table class="table table-striped table-bordered">
-            <tr>
-                <td><a class="accordion-toggle" data-toggle="collapse"  data-parent="#accordion" href="#XLMMacroDeobfuscator">Decoded XLM Macro</a></td>
-            </tr>
-        </table>
-        <div id="XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
-            <pre>
-                {% for line in analysis.static.office.XLMMacroDeobfuscator.Code%}
-                    {{line}}
-                {% endfor %}
-            </pre>
-        </div>
-        </div>
-        <hr />
-        {% endif %}
     {% endif %}
+{% endif %}
 </section>

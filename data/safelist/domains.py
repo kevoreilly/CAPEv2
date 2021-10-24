@@ -40,9 +40,7 @@ domain_passlist_re = [
     "^crl\.globalsign\.net$",
     "^cacerts\.digicert\.com$",
     "^ocsp\.digicert\.com$",
-    "^crl3\.digicert\.com$"
-    "^crl4\.digicert\.com$"
-    "\.amazontrust\.com$",
+    "^crl3\.digicert\.com$" "^crl4\.digicert\.com$" "\.amazontrust\.com$",
     "\.opera\.com",
     "\.ss2\.us$",
     "\.google-analytics\.com$",
@@ -60,6 +58,7 @@ domain_passlist_re = [
     "^crl\.pki\.goog$",
     "^crl\.identrust\.com$",
     "^r3\.o\.lencr\.org$",
+    "^x1\.c\.lencr\.org$",
     "^pki\.goog$",
 ]
 

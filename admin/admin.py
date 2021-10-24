@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import os
 import sys
 import json
@@ -31,7 +32,7 @@ from threading import Thread
 
 try:
     from paramiko import SSHClient, AutoAddPolicy
-    from scp import SCPClient
+    from scp import SCPClient, SCPException
     from paramiko.ssh_exception import BadHostKeyException
 except ImportError:
     print("pip3 install -U paramiko scp")
@@ -101,12 +102,12 @@ def file_recon(file, yara_category="CAPE"):
     elif filename in ("loader.exe", "loader_x64.exe"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
         POSTPROCESS = False
-    elif b"def calculate(self" in f:
+    elif b"def _generator(self" in f:
         TARGET = f"{VOL_PATH}{filename}"
         OWNER = "root:staff"
-    elif b"class .*(Report):" in f:
+    elif re.findall(br"class .*\(Report\):", f):
         TARGET = f"{CAPE_PATH}/modules/reporting/{filename}"
-    elif b"class .*(Processing):" in f:
+    elif re.findall(br"class .*\(Processing\):", f):
         TARGET = f"{CAPE_PATH}/modules/processing/{filename}"
     elif filename.endswith(".yar") and b"rule " in f and b"condition:" in f:
         # capemon yara
@@ -115,22 +116,22 @@ def file_recon(file, yara_category="CAPE"):
         else:
             # server side rule
             TARGET = f"{CAPE_PATH}data/yara/{yara_category}/{filename}"
-    elif b"class .*(Package):" in f:
+    elif re.findall(br"class .*\(Package\):", f):
         TARGET = f"{CAPE_PATH}/analyzer/windows/modules/packages/{filename}"
     elif b"def choose_package(file_type, file_name, exports, target)" in f:
         TARGET = f"{CAPE_PATH}/analyzer/windows/lib/core/{filename}"
-    elif b"class Signature(object):" in f and "class Processing(object):" in f:
+    elif b"class Signature(object):" in f and b"class Processing(object):" in f:
         TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
-    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and "class PipeServer(Thread):" in f:
+    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
         TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
         POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):
         TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
         POSTPROCESS = False
     # generic deployer of files
-    elif file.startswith("CAPE/"):
-        # Remove CAPE/ from path to build new path
-        TARGET = f"{CAPE_PATH}" + file[5:]
+    elif file.startswith("CAPEv2/"):
+        # Remove CAPEv2/ from path to build new path
+        TARGET = f"{CAPE_PATH}" + file[7:]
     elif filename.endswith(".service"):
         TARGET = "/lib/systemd/system/{filename}"
         OWNER = "root:root"
@@ -175,11 +176,14 @@ def execute_command_on_all(remote_command):
         try:
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
-            ssh_out = ssh_stdout.read().decode("utf-8")
-            if "Active: active (running)" in ssh_out:
+            ssh_out = ssh_stdout.read().decode("utf-8").strip()
+            if "Active: active (running)" in ssh_out and not "systemctl status" in remote_command:
                 log.info("[+] Service " + green("restarted successfully and is UP"))
             else:
-                log.info(green("[+] {} - {}".format(server, ssh_stdout.read().strip())))
+                if ssh_out:
+                    log.info(green(f"[+] {server} - {ssh_out}"))
+                else:
+                    log.info(green(f"[+] {server}"))
             ssh.close()
         except Exception as e:
             log.error(e, exc_info=True)
@@ -212,8 +216,11 @@ def deploy_file(queue):
             try:
                 ssh = _connect_via_jump_box(server)
                 with SCPClient(ssh.get_transport()) as scp:
-                    scp.put(local_file, remote_file)
-
+                    try:
+                        scp.put(local_file, remote_file)
+                    except SCPException as e:
+                        # case when main node is storage only
+                        print(e)
                 if remote_command:
                     _, ssh_stdout, _ = ssh.exec_command(remote_command)
 
@@ -250,6 +257,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--debug", action="store_true", help="Logger debug mode", required=False, default=False)
+    parser.add_argument("-u", "--username", action="store", help="SSH tunnel username", required=False, default=False)
     parser.add_argument(
         "-r",
         "--restart-service",
@@ -328,6 +336,9 @@ if __name__ == "__main__":
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
 
+    if args.username:
+        JUMP_BOX_USERNAME = args.username
+
     if JUMP_BOX_USERNAME and args.jump_box:
         jumpbox_used = True
 
@@ -349,6 +360,8 @@ if __name__ == "__main__":
                 servers = [res[server]["url"].split("://")[1].split(":")[0] for server in res] + [MASTER_NODE]
         except (urllib3.exceptions.NewConnectionError, urllib3.exceptions.MaxRetryError):
             sys.exit("Can't retrieve list of servers")
+    if args.continues_integration:
+        CI = True
     if args.deploy_file:
         parameters = file_recon(args.deploy_file, args.yara_category)
         if not parameters:
@@ -372,12 +385,9 @@ if __name__ == "__main__":
         queue = Queue()
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)
-
     elif args.deploy_local_changes:
-        if args.continues_integration:
-            CI = True
-            out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-            files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
+        files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
     elif args.deploy_remote_changes:
         out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
         files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
@@ -393,7 +403,6 @@ if __name__ == "__main__":
             dest_file = os.path.join(destiny_folder, file)
             files.append(dest_file)
             shutil.copyfile(os.path.join(community_folder, file), dest_file)
-
     else:
         parser.print_help()
     if args.deploy_local_changes or args.deploy_remote_changes or args.sync_community:
@@ -404,6 +413,15 @@ if __name__ == "__main__":
         for file in files[:]:
             if not file.startswith(("CAPE", "Custom", "Extractors")):
                 files.remove(file)
+                continue
+
+            if file.endswith("admin.py"):
+                files.remove(file)
+                continue
+
+            if "/conf/" in file and file.endswith(".conf"):
+                files.remove(file)
+                continue
 
         if args.dry_run:
             print(files)

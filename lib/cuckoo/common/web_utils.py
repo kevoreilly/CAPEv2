@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import json
+import time
 import logging
 import hashlib
 import tempfile
@@ -20,8 +21,8 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
-from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED, ALL_DB_STATUSES
+from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename, get_options
 
 cfg = Config("cuckoo")
 web_cfg = Config("web")
@@ -32,6 +33,7 @@ disable_x64 = cfg.cuckoo.get("disable_x64", False)
 
 apiconf = Config("api")
 
+linux_enabled = web_cfg.linux.get("enabled", False)
 rateblock = web_cfg.ratelimit.get("enabled", False)
 rps = web_cfg.ratelimit.get("rps", "1/rps")
 rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
@@ -44,25 +46,12 @@ if repconf.distributed.enabled:
     try:
         # Tags
         from lib.cuckoo.common.dist_db import Machine, create_session, Task as DTask, Node
+
         HAVE_DIST = True
         dist_session = create_session(repconf.distributed.db)
     except Exception as e:
         print(e)
 
-
-ht = False
-try:
-    """
-        To enable: sudo apt install apache2-utils
-
-    """
-    from passlib.apache import HtpasswdFile
-
-    HAVE_PASSLIB = True
-    if apiconf.api.get("users_db") and os.path.exists(apiconf.api.get("users_db")):
-        ht = HtpasswdFile(apiconf.api.get("users_db"))
-except ImportError:
-    HAVE_PASSLIB = False
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -72,7 +61,7 @@ if repconf.mongodb.enabled:
         port=repconf.mongodb.port,
         username=repconf.mongodb.get("username", None),
         password=repconf.mongodb.get("password", None),
-        authSource = repconf.mongodb.get("authsource", "cuckoo")
+        authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
 es_as_db = False
@@ -85,7 +74,15 @@ if repconf.elasticsearchdb.enabled:
         es_as_db = True
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
+    es = Elasticsearch(
+        hosts=[
+            {
+                "host": repconf.elasticsearchdb.host,
+                "port": repconf.elasticsearchdb.port,
+            }
+        ],
+        timeout=60,
+    )
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
@@ -129,20 +126,83 @@ except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
 
+def _get_linux_vm_tag(mgtype):
+    if mgtype.startswith((VALID_LINUX_TYPES)) and "motorola" not in mgtype.lower() and "renesas" not in mgtype.lower():
+        return {"error":"not allowed"}
+    if "mipsel" in mgtype:
+        return "mipsel"
+    elif "mips" in mgtype:
+        return "mips"
+    elif "arm".lower() in mgtype:
+        return "arm"
+    #elif "armhl" in mgtype:
+    #    return {"tags":"armhl"}
+    elif "sparc" in mgtype:
+        return "sparc"
+    #elif "motorola" in mgtype:
+    #    return "motorola"
+    #elif "renesas sh" in mgtype:
+    #    return "renesassh"
+    elif "powerpc" in mgtype:
+        return "powerpc"
+    elif "32-bit" in mgtype.lower():
+        return "x32"
+    elif "elf 64-bit" in mgtype and "x86-64" in mgtype:
+        return "x64"
+    else:
+        return "x64"
+
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
     # RateLimits not enabled
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    print(request.user.username, ip)
+    """
+
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/s"
     else:
         return rps
 
+
 def my_rate_minutes(group, request):
     # RateLimits not enabled
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    print(request.user.username, ip)
+    """
     if rateblock is False or request.user.is_authenticated:
         return "99999999999999/m"
     else:
         return rpm
+
+def load_vms_exits():
+    all_exits = dict()
+    if HAVE_DIST and repconf.distributed.enabled:
+        try:
+            db = dist_session()
+            for node in db.query(Node).all():
+                if hasattr(node, "exitnodes"):
+                    for exit in node.exitnodes:
+                        all_exits.setdefault(exit.name, list())
+                        all_exits[exit.name].append(node.name)
+            db.close()
+        except Exception as e:
+            print(e)
+
+    return all_exits
+
 
 def load_vms_tags():
     all_tags = list()
@@ -157,22 +217,36 @@ def load_vms_tags():
             print(e)
 
     for machine in Database().list_machines():
-        for tag in machine.tags:
-            all_tags.append(tag.name)
+        all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
-    return all_tags
+    return list(set(all_tags))
+
+
+all_nodes_exits = load_vms_exits()
+all_nodes_exits_list = list(all_nodes_exits.keys())
 
 all_vms_tags = load_vms_tags()
+all_vms_tags_str = ",".join(all_vms_tags)
 
-def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
+
+def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+
+    t = int(time.time())
+
+    # caches results for 10 minutes
+    if hasattr(top_detections, "cache"):
+        ct, data = top_detections.cache
+        if t - ct < 600:
+            return data
+
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
     data = False
 
     aggregation_command = [
-        {"$match": {"detections": {"$exists":True}}},
-        {"$group": {"_id": "$detections", "total":{"$sum":1}}},
+        {"$match": {"detections": {"$exists": True}}},
+        {"$group": {"_id": "$detections", "total": {"$sum": 1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"family": "$_id"}},
         {"$project": {"_id": 0}},
@@ -186,28 +260,35 @@ def top_detections(date_since: datetime=False, results_limit: int=20) -> dict:
     if data:
         data = list(data)
 
+    # save to cache
+    top_detections.cache = (t, data)
+
     return data
+
 
 # ToDo extend this to directly extract per day
 def get_stats_per_category(date_since, date_to, category):
     aggregation_command = [
-        {"$match": {
-            "info.started": {
-                "$gte": date_since.isoformat(),
-                "$lt": date_to.isoformat(),
-            },
-            "statistics.{}".format(category): {"$exists": True},
+        {
+            "$match": {
+                "info.started": {
+                    "$gte": date_since.isoformat(),
+                    "$lt": date_to.isoformat(),
+                },
+                "statistics.{}".format(category): {"$exists": True},
             }
         },
-        {"$unwind":"$statistics.{}".format(category)},
-        {"$group": {
-            "_id": "$statistics.{}.name".format(category),
-            "total_time": {"$sum": "$statistics.{}.time".format(category)},
-            "total_run": {"$sum": 1}}
+        {"$unwind": "$statistics.{}".format(category)},
+        {
+            "$group": {
+                "_id": "$statistics.{}.name".format(category),
+                "total_time": {"$sum": "$statistics.{}.time".format(category)},
+                "total_run": {"$sum": 1},
+            }
         },
         {"$addFields": {"name": "$_id"}},
         {"$project": {"_id": 0}},
-        {"day": { "$dayOfMonth": "$info.started" }},
+        {"day": {"$dayOfMonth": "$info.started"}},
         {"$sort": {"total_time": -1}},
     ]
     data = results_db.analysis.aggregate(aggregation_command)
@@ -216,7 +297,7 @@ def get_stats_per_category(date_since, date_to, category):
 
 
 def statistics(s_days: int) -> dict:
-    date_since = datetime.now()-timedelta(days=s_days)
+    date_since = datetime.now() - timedelta(days=s_days)
     date_till = datetime.now()
 
     details = {
@@ -229,7 +310,9 @@ def statistics(s_days: int) -> dict:
 
     tmp_custom = dict()
     tmp_data = dict()
-    data = results_db.analysis.find({"statistics":{"$exists":True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0})
+    data = results_db.analysis.find(
+        {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0}
+    )
     for analysis in data or []:
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
@@ -243,7 +326,9 @@ def statistics(s_days: int) -> dict:
                             tmp_custom[entry["name"]]["successful"] = 0
                         else:
                             tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get(
+                                "extracted", 0
+                            )
                         tmp_custom[entry["name"]]["runs"] = 1
 
                     else:
@@ -253,7 +338,9 @@ def statistics(s_days: int) -> dict:
                             tmp_custom[entry["name"]]["successful"] += 0
                         else:
                             tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get("extracted", 0)
+                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get(
+                                "extracted", 0
+                            )
                         tmp_custom[entry["name"]]["runs"] += 1
                 if entry["name"] not in tmp_data[type_entry]:
                     tmp_data[type_entry].setdefault(entry["name"], dict())
@@ -266,20 +353,23 @@ def statistics(s_days: int) -> dict:
     if not data:
         return details
 
-    for module_name in [u'signatures', u'processing', u'reporting']:
+    for module_name in ["signatures", "processing", "reporting"]:
         if module_name not in tmp_data:
             continue
         # module_data = get_stats_per_category(module_name)
-        s = sorted(tmp_data[module_name], key=tmp_data[module_name].get("time"), reverse=True)[:20]
+        s = sorted(tmp_data[module_name].items(), key=lambda x: x[1].get("time"), reverse=True)[:20]
 
         for entry in s:
-            times_in_mins = tmp_data[module_name][entry]["time"]/60
+            entry = entry[0]
+            times_in_mins = tmp_data[module_name][entry]["time"] / 60
             if not times_in_mins:
                 continue
             details[module_name].setdefault(entry, dict())
             details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins/tmp_data[module_name][entry]["runs"], 2)))
+            details[module_name][entry]["average"] = float(
+                "{:.2f}".format(round(times_in_mins / tmp_data[module_name][entry]["runs"], 2))
+            )
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     # custom average
@@ -294,12 +384,17 @@ def statistics(s_days: int) -> dict:
 
     top_samples = dict()
     session = db.Session()
-    tasks = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    added_tasks = (
+        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    )
+    tasks = (
+        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
+    )
     details["total"] = len(tasks)
-    details["average"] = "{:.2f}".format(round(details["total"]/s_days, 2))
+    details["average"] = "{:.2f}".format(round(details["total"] / s_days, 2))
     details["tasks"] = dict()
     for task in tasks or []:
-        day = task.added_on.strftime("%Y-%m-%d")
+        day = task.completed_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
             details["tasks"].setdefault(day, {})
             details["tasks"][day].setdefault("failed", 0)
@@ -310,20 +405,28 @@ def statistics(s_days: int) -> dict:
         if task.sample.sha256 not in top_samples[day]:
             top_samples[day].setdefault(task.sample.sha256, 0)
         top_samples[day][task.sample.sha256] += 1
-        details["tasks"][day]["added"] += 1
+        # details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
             details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
 
-    details["tasks"] = OrderedDict(sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
+    for added_task in added_tasks or []:
+        day = added_task.added_on.strftime("%Y-%m-%d")
+        if day not in details["tasks"]:
+            continue
+        details["tasks"][day]["added"] += 1
+
+    details["tasks"] = OrderedDict(
+        sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
+    )
 
     if HAVE_DIST and repconf.distributed.enabled:
         details["distributed_tasks"] = dict()
         dist_db = dist_session()
         dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
         id2name = dict()
-        #load node names
+        # load node names
         for node in dist_db.query(Node).all() or []:
             id2name.setdefault(node.id, node.name)
 
@@ -336,7 +439,7 @@ def statistics(s_days: int) -> dict:
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
         dist_db.close()
 
-        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[1], reverse=True))
+        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
 
     # Get top15 of samples per day and seen more than once
     for day in top_samples:
@@ -347,12 +450,15 @@ def statistics(s_days: int) -> dict:
                 details["top_samples"][day][sha256] = top_samples[day][sha256]
 
         details["top_samples"][day] = OrderedDict(sorted(details["top_samples"][day].items(), key=lambda x: x[1], reverse=True))
-    details["top_samples"] = OrderedDict(sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
+    details["top_samples"] = OrderedDict(
+        sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
+    )
 
     details["detections"] = top_detections(date_since=date_since, results_limit=20)
 
     session.close()
     return details
+
 
 # Same jsonize function from api.py except we can now return Django
 # HttpResponse objects as well. (Shortcut to return errors)
@@ -430,8 +536,9 @@ def get_platform(magic):
     else:
         return "windows"
 
+
 def download_file(**kwargs):
-    """ Example of kwargs
+    """Example of kwargs
     {
         "errors": [],
         "content": content,
@@ -448,9 +555,30 @@ def download_file(**kwargs):
     }
     """
 
-    static, package, timeout, priority, _, machine, platform, tags, custom, memory, \
-            clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp, tags_tasks, route, cape = parse_request_arguments(kwargs["request"])
+    (
+        static,
+        package,
+        timeout,
+        priority,
+        _,
+        machine,
+        platform,
+        tags,
+        custom,
+        memory,
+        clock,
+        enforce_timeout,
+        shrike_url,
+        shrike_msg,
+        shrike_sid,
+        shrike_refer,
+        unique,
+        referrer,
+        tlp,
+        tags_tasks,
+        route,
+        cape,
+    ) = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
     username = False
@@ -493,7 +621,9 @@ def download_file(**kwargs):
                 tags = "x64"
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
-            return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
+            return "error", {
+                "error": f"Check Tags help, you have introduced incorrect tag(s). Your tags: {tags} - Supported tags: {all_vms_tags_str}"
+            }
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}
 
@@ -504,16 +634,21 @@ def download_file(**kwargs):
             logging.error(e)
             return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
 
-        if r.status_code == 200 and r.content != b"Hash Not Present" and b"The request requires higher privileges than provided by the access token" not in r.content:
+        if (
+            r.status_code == 200
+            and r.content != b"Hash Not Present"
+            and b"The request requires higher privileges than provided by the access token" not in r.content
+        ):
             kwargs["content"] = r.content
         elif r.status_code == 403:
-            return "error", {"error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(kwargs["service"])}
+            return "error", {
+                "error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(kwargs["service"])
+            }
 
         elif r.status_code == 404:
             return "error", {"error": "Server returns 404 from {}".format(kwargs["service"])}
         else:
             return "error", {"error": "Was impossible to download from {0}".format(kwargs["service"])}
-
 
     if not kwargs["content"]:
         return "error", {"error": "Error downloading file from {}".format(kwargs["service"])}
@@ -521,14 +656,42 @@ def download_file(**kwargs):
         if kwargs.get("fhash", False):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
-                return "error", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)}
+                return "error", {
+                    "error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)
+                }
         if not os.path.exists(kwargs.get("path")):
-            f = open(kwargs["path"], 'wb')
+            f = open(kwargs["path"], "wb")
             f.write(kwargs["content"])
-            f. close()
+            f.close()
     except Exception as e:
         print(e)
         return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
+
+    # Distribute task based on route support by worker
+    if route and route not in ("none", "None") and all_nodes_exits_list:
+        parsed_options = get_options(kwargs["options"])
+        node = parsed_options.get("node")
+
+        if node and route not in all_nodes_exits.get(node):
+            return "error", {"error": f"Specified worker {node} doesn't support this route: {route}"}
+        elif route not in all_nodes_exits_list:
+            return "error", {"error": "Specified route doesn't exist on any worker"}
+
+        if not node:
+            # get nodes that supports this exit
+            tmp_workers = list()
+            for node, exitnodes in all_nodes_exits.items():
+                if route in exitnodes:
+                    tmp_workers.append(node)
+            if tmp_workers:
+                if kwargs["options"]:
+                    kwargs["options"] += ",node=" + choice(tmp_workers)
+                else:
+                    kwargs["options"] = "node=" + choice(tmp_workers)
+
+        # Remove workers prefixes
+        if route.startswith(("socks5:", "vpn:")):
+            route = route.replace("socks5:", "", 1).replace("vpn:", "", 1)
 
     onesuccess = True
     magic_type = get_magic_type(kwargs["path"])
@@ -541,6 +704,9 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [None]
 
     platform = get_platform(magic_type)
+    if platform == "linux" and not linux_enabled:
+        return "error", {"error": "Linux binaries analysis isn't enabled"}
+
     if machine.lower() == "all":
         kwargs["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
     elif machine:
@@ -551,6 +717,10 @@ def download_file(**kwargs):
             kwargs["task_machines"] = [machine]
     else:
         kwargs["task_machines"] = ["first"]
+
+    # Try to extract before submit to VM
+    if not static and "dist_extract" in kwargs["options"]:
+        static = True
 
     for machine in kwargs.get("task_machines", []):
         if machine == "first":
@@ -580,9 +750,10 @@ def download_file(**kwargs):
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
-            username = username,
-            #parent_id=kwargs.get("parent_id", None),
-            #sample_parent_id=kwargs.get("sample_parent_id", None)
+            username=username,
+            source_url=kwargs.get("source_url", False)
+            # parent_id=kwargs.get("parent_id", None),
+            # sample_parent_id=kwargs.get("sample_parent_id", None)
         )
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
@@ -595,6 +766,11 @@ def download_file(**kwargs):
 
     return "ok", kwargs["task_ids"]
 
+def url_defang(url):
+    url_defang = url.replace("[.]", ".").replace("[.", ".").repalce(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
+    if not url_defang.startswith("http"):
+        url_defang = "http://" + url_defang
+    return url_defang
 
 def _download_file(route, url, options):
     socks5s = _load_socks5_operational()
@@ -622,6 +798,7 @@ def _download_file(route, url, options):
             headers[key.replace("dne_", "")] = value
 
     try:
+        url = url_defang(url)
         response = requests.get(url, headers=headers, proxies=proxies)
         if response and response.status_code == 200:
             return response.content
@@ -632,12 +809,16 @@ def _download_file(route, url, options):
     return response
 
 
-def validate_task(tid):
+def validate_task(tid, status=TASK_REPORTED):
     task = db.view_task(tid)
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
 
-    if task.status != TASK_REPORTED:
+    if status and status not in ALL_DB_STATUSES:
+        return {"error": True, "error_value": "Specified wrong task status"}
+    elif status == task.status:
+        return {"error": False}
+    elif task.status != TASK_REPORTED:
         return {"error": True, "error_value": "Task is still being analyzed"}
 
     return {"error": False}
@@ -670,11 +851,12 @@ search_term_map = {
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
-    "ssdeep": "target.file.ssdeep",
+    "ssdeep": ("target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
     "trid": "trid",
-    "crc32": "target.file.crc32",
+    "crc32": ("target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
+    "configs": "CAPE.configs",
     "resolvedapi": "behavior.summary.resolved_apis",
     "key": "behavior.summary.keys",
     "mutex": "behavior.summary.mutexes",
@@ -686,6 +868,7 @@ search_term_map = {
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
+    # probably needs extend
     "imphash": "static.pe.imphash",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
@@ -709,15 +892,48 @@ search_term_map = {
     "shrikerefer": "info.shrike_refer",
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
-    "md5": "target.file.md5",
-    "sha1": "target.file.sha1",
-    "sha256": "target.file.sha256",
-    "sha512": "target.file.sha512",
+    "md5": ("target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
+    "sha1": ("target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
+    "sha3": ("target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
+    "sha256": ("target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
+    "sha512": ("target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
     "payloads": "CAPE.payloads.",
+    "dhash": "static.pe.icon_dhash",
+    "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "port": (
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+    ),
 }
+
+# search terms that will be forwarded to mongodb in a lowered normalized form
+normalized_lower_terms = (
+    "md5",
+    "sha1",
+    "sha3",
+    "sha256",
+    "sha512",
+    "ip",
+    "domain",
+    "ja3_hash",
+    "dhash",
+    "iconhash",
+    "imphash",
+)
+
+normalized_int_terms = (
+    "sport",
+    "dport",
+    "port",
+)
 
 # ToDo verify if still working
 def perform_ttps_search(value):
@@ -736,8 +952,10 @@ def perform_search(term, value):
         return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
 
     query_val = False
-    if term in ("md5", "sha1", "sha256", "sha512"):
-        query_val = value
+    if term in normalized_lower_terms:
+        query_val = value.lower()
+    elif term in normalized_int_terms:
+        query_val = int(value)
     elif term in ("surisid", "id"):
         try:
             query_val = int(value)
@@ -769,10 +987,23 @@ def perform_search(term, value):
         return None
 
     if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = search_term_map[term]+hash_len.get(len(value))
+        search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
+
+    elif term == "configs":
+        # check if family name is string only maybe?
+        search_term_map[term] = f"CAPE.configs.{value}"
+        query_val = {"$exists":True}
 
     if repconf.mongodb.enabled and query_val:
-        return results_db.analysis.find({search_term_map[term]: query_val}, perform_search_filters).sort([["_id", -1]]).limit(web_cfg.general.get("search_limit", 50))
+        if type(search_term_map[term]) is str:
+            mongo_search_query = {search_term_map[term]: query_val}
+        else:
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
+        return (
+            results_db.analysis.find(mongo_search_query, perform_search_filters)
+            .sort([["_id", -1]])
+            .limit(web_cfg.general.get("search_limit", 50))
+        )
     if es_as_db:
         return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]
 
@@ -818,8 +1049,31 @@ def parse_request_arguments(request):
     if lin_options:
         options = lin_options
 
-    return static, package, timeout, priority, options, machine, platform, tags, custom, memory, clock, enforce_timeout, \
-        shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, tlp, tags_tasks, route, cape
+    return (
+        static,
+        package,
+        timeout,
+        priority,
+        options,
+        machine,
+        platform,
+        tags,
+        custom,
+        memory,
+        clock,
+        enforce_timeout,
+        shrike_url,
+        shrike_msg,
+        shrike_sid,
+        shrike_refer,
+        unique,
+        referrer,
+        tlp,
+        tags_tasks,
+        route,
+        cape,
+    )
+
 
 def get_hash_list(hashes):
     hashlist = []
@@ -830,12 +1084,13 @@ def get_hash_list(hashes):
 
     return hashlist
 
+
 def download_from_vt(vtdl, details, opt_filename, settings):
     for h in get_hash_list(vtdl):
         folder = os.path.join(settings.VTDL_PATH, "cape-vt")
         if not os.path.exists(folder):
             os.makedirs(folder)
-        base_dir = tempfile.mkdtemp(prefix='vtdl', dir=folder)
+        base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
             filename = base_dir + "/" + opt_filename
         else:
@@ -849,13 +1104,13 @@ def download_from_vt(vtdl, details, opt_filename, settings):
         if paths:
             details["content"] = get_file_content(paths)
         if settings.VTDL_KEY:
-            details["headers"] = {'x-apikey': settings.VTDL_KEY}
+            details["headers"] = {"x-apikey": settings.VTDL_KEY}
         elif details.get("apikey", False):
-            details["headers"] = {'x-apikey': details["apikey"]}
+            details["headers"] = {"x-apikey": details["apikey"]}
         else:
             details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
             return details
-        details["url"] = "https://www.virustotal.com/api/v3/files/{id}/download".format(id = h.lower())
+        details["url"] = "https://www.virustotal.com/api/v3/files/{id}/download".format(id=h.lower())
         details["fhash"] = h
         details["path"] = filename
         details["service"] = "VirusTotal"

@@ -85,6 +85,7 @@ To get rid of many bots/scrappers so we suggest to deploy this amazing project `
 
 * Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
 * Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``
+* You might need to "Verify" and set as "Stuff user" to your admin in Django admin panel and add your domain to Sites in Django admin too
 * `AllAuth`_ aka SSO autentification with Google, Github, etc. `Video Tutorial`_ & `StackOverflow Example`_:
     * Note ``SITE_ID=1`` in django admin is ``example.com`` rename it to your domain to get it working
 

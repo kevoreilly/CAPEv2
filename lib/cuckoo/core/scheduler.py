@@ -767,7 +767,7 @@ class Scheduler:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine.name, machine.label)
+                    task = self.db.fetch(machine)
                     if task:
                         break
 

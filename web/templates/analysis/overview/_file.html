@@ -228,6 +228,10 @@
                     {% if config.vtupload and analysis.info.tlp != "Red" %}
                         <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle" data-bs-toggle="tooltip" title="Upload file to VirusTotal"></span> <span class="fas fa-upload"></span> VirusTotal</a>
                     {% endif %}
+                    {% if config.evtx_download %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "file" "evtx"  analysis.info.id analysis.target.file.sha256 %}" data-bs-toggle="tooltip" title="Download evtx files"><span class="fas fa-eye"></span> Evtx</a>
+                {% endif %}
+
                 </td>
             </tr>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}

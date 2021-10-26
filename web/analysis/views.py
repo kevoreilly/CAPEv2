@@ -1340,6 +1340,11 @@ def file_nl(request, category, task_id, dlfile):
         file_name = f"{file_name}.svg"
         cd = "image/svg+xml"
 
+    elif category == "evtx":
+        path = os.path.join(base_path, "evtx", "evtx.zip")
+        file_name = "evtx.zip"
+        cd = "application/zip"
+
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 

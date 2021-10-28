@@ -1,29 +1,28 @@
 # encoding: utf-8
 from __future__ import absolute_import
+
 import json
-import os
-import sys
-import socket
-import tarfile
 import logging
+import os
+import socket
+import sys
+from datetime import datetime
+from datetime import timedelta
 from io import BytesIO
-from datetime import datetime, timedelta
+from wsgiref.util import FileWrapper
 from zlib import decompress
 
 import requests
+from bson.objectid import ObjectId
 from django.conf import settings
-from wsgiref.util import FileWrapper
+from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-
-
-from rest_framework.response import Response
 from rest_framework.decorators import api_view
-
-from bson.objectid import ObjectId
-from django.contrib.auth.decorators import login_required
+from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
@@ -1098,20 +1097,8 @@ def tasks_report(request, task_id, report_format="json"):
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
-        "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
-        "lite": {
-            "type": "+",
-            "files": [
-                "files.json",
-                "CAPE",
-                "files",
-                "procdump",
-                "macros",
-                "lite",
-                "shots",
-                "dump.pcap"
-            ]
-        }
+        "lite": {"type": "+",
+                 "files": ["files.json", "CAPE", "files", "procdump", "macros", "lite", "shots", "dump.pcap"]}
     }
 
     if report_format.lower() in formats:

@@ -22,11 +22,13 @@ log = logging.getLogger(__name__)
 URL = "https://bitbucket.org/intezer/cape-signatures/get/master.tar.gz"
 
 
-def download(user, password):
-    print("Downloading signatures from {0}".format(URL))
+def download(user: str, password: str, path: str = None):
     try:
-        data = requests.get(URL, auth=(user, password), stream=True).raw.read()
-        tar = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
+        if not path:
+            data = requests.get(URL, auth=(user, password), stream=True).raw.read()
+            tar = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
+        else:
+            tar = tarfile.TarFile.open(name=path, mode="r:gz")
     except Exception as e:
         print("ERROR: Unable to download archive: %s" % e)
         sys.exit(-1)
@@ -47,11 +49,12 @@ def download(user, password):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--user", help="User name in bitbucket", type=str, required=True)
-    parser.add_argument("-p", "--password", help="App password in bitbucket", type=str, required=True)
+    parser.add_argument("-u", "--user", help="User name in bitbucket", type=str, required=False)
+    parser.add_argument("-p", "--password", help="App password in bitbucket", type=str, required=False)
+    parser.add_argument("-f", "--file", help="Path to cape-signatures repo", type=str, required=False)
     args = parser.parse_args()
 
-    download(args.user, args.password)
+    download(args.user, args.password, args.file)
 
 
 if __name__ == "__main__":

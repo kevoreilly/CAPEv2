@@ -34,29 +34,33 @@ def get_signatures_modification_dict() -> dict:
         return json.load(f)
 
 
-def flare_capa():
+def flare_capa_rules(offline_dest_folder: str = None):
     signature_urls = (
         'https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
         'https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
         'https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig',
     )
     try:
-        http = urllib3.PoolManager()
-        data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
-        dest_folder = os.path.join(CUCKOO_ROOT, "data")
+        if not offline_dest_folder:
+            http = urllib3.PoolManager()
+            data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
+            dest_folder = os.path.join(CUCKOO_ROOT, "data")
+            zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
+        else:
+            dest_folder = offline_dest_folder
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
-        zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
 
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
         capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
         if not os.path.isdir(capa_sigs_path):
             os.mkdir(capa_sigs_path)
-        for url in signature_urls:
-            signature_name = url.split('/')[-1]
-            with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), 'wb') as out_sig:
-                shutil.copyfileobj(sig, out_sig)
+        if not offline_dest_folder:
+            for url in signature_urls:
+                signature_name = url.split('/')[-1]
+                with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), 'wb') as out_sig:
+                    shutil.copyfileobj(sig, out_sig)
 
         print("[+] FLARE CAPA rules/signatures installed")
     except Exception as e:
@@ -179,14 +183,21 @@ def main():
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
     parser.add_argument("-m", "--machinery", help="Download machine managers", action="store_true", required=False)
     parser.add_argument("-r", "--reporting", help="Download reporting modules", action="store_true", required=False)
-    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true", required=False)
+    parser.add_argument("-an", "--analyzer", help="Download analyzer modules/binaries/etc", action="store_true",
+                        required=False)
     parser.add_argument("-data", "--data", help="Download data items", action="store_true", required=False)
-    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False, required=False)
+    parser.add_argument("-f", "--force", help="Install files without confirmation", action="store_true", default=False,
+                        required=False)
     parser.add_argument("-w", "--rewrite", help="Rewrite existing files", action="store_true", required=False)
-    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master", required=False)
-    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,required=False)
+    parser.add_argument("-b", "--branch", help="Specify a different branch", action="store", default="master",
+                        required=False)
+    parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,
+                        required=False)
     parser.add_argument("-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False)
-    parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
+    parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False,
+                        required=False)
+    parser.add_argument("-crp", "--capa-rules-path", help="Path to capa rules folder", action="store", default=False,
+                        required=False)
     args = parser.parse_args()
 
     URL = URL.format(args.branch)
@@ -194,7 +205,7 @@ def main():
 
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
-        flare_capa()
+        flare_capa(args.capa_rules_path)
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -217,7 +228,7 @@ def main():
             return
 
     if args.mitre:
-        mitre()
+        mitre(args.capa_rules_path)
         if not enabled:
             return
 

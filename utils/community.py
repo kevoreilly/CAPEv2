@@ -99,10 +99,11 @@ def install(enabled, force, rewrite, filepath):
         try:
             http = urllib3.PoolManager()
             data = http.request("GET", URL).data
-            t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
             sys.exit(-1)
+
+    t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
 
     folders = {
         "feeds": "modules/feeds",

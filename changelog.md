@@ -1,3 +1,12 @@
+### [01-11-2021]
+* Allow download reports as zip via API
+* Fix python analysis support in Windows
+
+### [22-10-2021]
+* POC: AntiRansomware:
+    * Can be enabled in `processing.conf` it will disable processing of files with extensions that are not in allowed list, see `modules/processing/antiransomware.py`
+    * Specially useful to disable them in CAPE.py that gather all the metadata, yara etc and can consume a lot of ram
+
 ### [21-10-2021]
 * Monitor update: Monitor fix for scan crashes in e.g. Equation Editor/Cmd (thanks Will)
 

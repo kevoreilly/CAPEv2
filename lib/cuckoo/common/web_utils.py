@@ -161,6 +161,7 @@ def my_rate_minutes(group, request):
     else:
         return rpm
 
+
 def load_vms_exits():
     all_exits = dict()
     if HAVE_DIST and repconf.distributed.enabled:
@@ -271,8 +272,8 @@ def get_stats_per_category(date_since, date_to, category):
 
 
 def statistics(s_days: int) -> dict:
-    date_since = datetime.now() - timedelta(days=s_days)
-    date_till = datetime.now()
+    date_since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=s_days)
+    date_till = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     details = {
         "signatures": {},
@@ -678,7 +679,7 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [None]
 
     platform = get_platform(magic_type)
-    if platform == "linux" and not linux_enabled:
+    if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
     if machine.lower() == "all":
@@ -740,11 +741,13 @@ def download_file(**kwargs):
 
     return "ok", kwargs["task_ids"]
 
+
 def url_defang(url):
     url_defang = url.replace("[.]", ".").replace("[.", ".").repalce(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
     if not url_defang.startswith("http"):
         url_defang = "http://" + url_defang
     return url_defang
+
 
 def _download_file(route, url, options):
     socks5s = _load_socks5_operational()
@@ -890,6 +893,7 @@ search_term_map = {
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
 normalized_lower_terms = (
+    "target_sha256",
     "md5",
     "sha1",
     "sha3",
@@ -920,7 +924,7 @@ def perform_malscore_search(value):
         return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
 
 
-def perform_search(term, value):
+def perform_search(term, value, search_limit=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         numhits = es.search(index=fullidx, doc_type="analysis", q="%s" % value, size=0)["hits"]["total"]
         return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
@@ -960,13 +964,16 @@ def perform_search(term, value):
     if term not in search_term_map:
         return None
 
+    if not search_limit:
+        search_limit = web_cfg.general.get("search_limit", 50)
+
     if term == "payloads" and len(value) in (32, 40, 64, 128):
         search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
 
     elif term == "configs":
         # check if family name is string only maybe?
         search_term_map[term] = f"CAPE.configs.{value}"
-        query_val = {"$exists":True}
+        query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
         if type(search_term_map[term]) is str:

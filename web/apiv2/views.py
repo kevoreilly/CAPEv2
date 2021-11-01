@@ -36,7 +36,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
+from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name, create_zip
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import (
     perform_malscore_search,
@@ -1062,9 +1062,10 @@ def tasks_status(request, task_id):
     return Response(resp)
 
 
+
 @csrf_exempt
 @api_view(["GET"])
-def tasks_report(request, task_id, report_format="json"):
+def tasks_report(request, task_id, report_format="json", make_zip=False):
 
     if not apiconf.taskreport.get("enabled"):
         resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
@@ -1118,12 +1119,24 @@ def tasks_report(request, task_id, report_format="json"):
                 content = "application/pdf"
                 ext = "pdf"
             fname = "%s_report.%s" % (task_id, ext)
-            resp = StreamingHttpResponse(
-                FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
-            )
-            resp["Content-Length"] = os.path.getsize(report_path)
-            resp["Content-Disposition"] = "attachment; filename=" + fname
-            return resp
+
+            if make_zip:
+                mem_zip = create_zip(report_path)
+                if type(mem_zip) is bool and mem_zip is False:
+                    esp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                    return Response(resp)
+
+                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                resp["Content-Disposition"] = f"attachment; filename={fname}.zip"
+                return resp
+            else:
+                resp = StreamingHttpResponse(
+                    FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
+                )
+                resp["Content-Length"] = os.path.getsize(report_path)
+                resp["Content-Disposition"] = "attachment; filename=" + fname
+                return resp
 
         else:
             resp = {"error": True, "error_value": "Reports directory does not exist"}

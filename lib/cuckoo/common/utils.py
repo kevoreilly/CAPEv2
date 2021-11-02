@@ -106,7 +106,7 @@ def create_zip(files, folder=False):
                 log.error(f"File does't exist: {file}")
                 continue
 
-            parent_folder = os.path.basename(file)
+            parent_folder = os.path.dirname(file).split(os.sep)[-1]
             path = os.path.join(parent_folder, os.path.basename(file))
             zf.write(file, path)
 

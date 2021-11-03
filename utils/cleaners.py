@@ -81,12 +81,12 @@ def connect_to_es():
 
     return es, delidx
 
-def delete_bulk_tasks_n_folders(tids: list, dont_delete_mongo: bool):
+def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
     results_db = connect_to_mongo()[mdb]
     ids = [tid["info.id"] for tid in tids]
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i:i+10]
-        if dont_delete_mongo is False:
+        if delete_mongo is True:
             try:
                 analyses_tmp = list()
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))

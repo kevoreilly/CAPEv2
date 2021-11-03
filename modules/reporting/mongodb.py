@@ -16,7 +16,7 @@ MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
 
 try:
-    from pymongo import MongoClient
+    from pymongo import MongoClient, TEXT
     from bson.objectid import ObjectId
     from pymongo.errors import ConnectionFailure, InvalidDocument
 
@@ -42,10 +42,10 @@ class MongoDB(Report):
         try:
             self.conn = MongoClient(
                 self.options.get("host", "127.0.0.1"),
-                port = self.options.get("port", 27017),
-                username = self.options.get("username", None),
-                password = self.options.get("password", None),
-                authSource = self.options.get("authsource", "cuckoo"),
+                port=self.options.get("port", 27017),
+                username=self.options.get("username", None),
+                password=self.options.get("password", None),
+                authSource=self.options.get("authsource", "cuckoo"),
             )
             self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:
@@ -130,9 +130,8 @@ class MongoDB(Report):
         for key in keys:
             try:
                 self.db.analysis.update_one(
-                    {"_id": obj_id.inserted_id},
-                    {"$set": {key: report[key]}},
-                    bypass_document_validation=True)
+                    {"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
+                )
             except InvalidDocument as e:
                 log.warning("Investigate your key: %r", key)
 
@@ -234,6 +233,13 @@ class MongoDB(Report):
         # Note: Silently ignores the creation if the index already exists.
         self.db.analysis.create_index("info.id", background=True)
 
+        # We performs a lot of SHA256 hash lookup so we need this index
+        self.db.analysis.create_index(
+            [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
+            name="ALL_SHA256",
+            background=True,
+        )
+
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
@@ -261,7 +267,7 @@ class MongoDB(Report):
             parent_key, psize = self.debug_dict_size(report)[0]
             if not self.options.get("fix_large_docs", False):
                 # Just log the error and problem keys
-                #log.error(str(e))
+                # log.error(str(e))
                 log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
             else:
                 # Delete the problem keys and check for more

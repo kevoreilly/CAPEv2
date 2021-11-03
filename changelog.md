@@ -1,3 +1,7 @@
+### [03-11-2021]
+* Add MongoDB multifield index for all SHA256 fields.
+    * if you using any other fields for frequent lookup, add indexes for that on your side to speedup database
+
 ### [01-11-2021]
 * Allow download reports as zip via API
 * Fix python analysis support in Windows

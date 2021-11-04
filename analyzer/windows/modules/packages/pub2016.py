@@ -27,7 +27,6 @@ class PUB2007(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["exclude-apis"] = "memcpy"
 
     """Word analysis package."""
     PATHS = [

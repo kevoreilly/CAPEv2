@@ -1,3 +1,6 @@
+### [04-11-2021]
+* Move Office hook options from packages to monitor
+
 ### [03-11-2021]
 * Add MongoDB multifield index for all SHA256 fields.
     * if you using any other fields for frequent lookup, add indexes for that on your side to speedup database

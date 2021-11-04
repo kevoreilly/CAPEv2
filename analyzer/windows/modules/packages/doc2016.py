@@ -14,7 +14,6 @@ class DOC2016(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["exclude-apis"] = "memcpy"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office*", "root", "Office16", "WINWORD.EXE"),

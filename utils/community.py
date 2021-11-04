@@ -43,7 +43,7 @@ def flare_capa_rules(zip_path: str = None):
             zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         else:
             with open(zip_path, 'rb') as flare_file:
-                zipfile.ZipFile(BytesIO(flare_file)).extractall(path=dest_folder)
+                zipfile.ZipFile(BytesIO(flare_file.read())).extractall(path=dest_folder)
 
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)

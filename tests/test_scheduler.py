@@ -331,6 +331,7 @@ class TestAnalysisManager:
             "file_type": "Python script, ASCII text executable",
             "options": "foo=bar",
             "enforce_timeout": 1,
+            "evtx": False,
             "timeout": 10,
             "file_name": "test_scheduler.py",
             "curtain": False,

@@ -34,15 +34,16 @@ def get_signatures_modification_dict() -> dict:
         return json.load(f)
 
 
-def flare_capa_rules(offline_dest_folder: str = None):
+def flare_capa_rules(zip_path: str = None):
+    dest_folder = os.path.join(CUCKOO_ROOT, "data")
     try:
-        if not offline_dest_folder:
+        if not zip_path:
             http = urllib3.PoolManager()
             data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
-            dest_folder = os.path.join(CUCKOO_ROOT, "data")
             zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         else:
-            dest_folder = offline_dest_folder
+            with open(zip_path, 'rb') as flare_file:
+                zipfile.ZipFile(BytesIO(flare_file)).extractall(path=dest_folder)
 
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)

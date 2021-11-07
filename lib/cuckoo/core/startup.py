@@ -316,7 +316,7 @@ def init_yara():
                 mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
             except yara.Error as e:
                 if "could not open file" in str(e):
-                    log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
                 else:
                     log.error(e)
 

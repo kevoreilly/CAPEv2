@@ -1,3 +1,6 @@
+### [08-11-2021]
+* Monitor: rdtscp emulation, optional exception & breakpoint logging
+
 ### [04-11-2021]
 * Move Office hook options from packages to monitor
 * Monitor: Disable NtWaitForSingleObject hook for 32-bit Windows 8+ due to crashes

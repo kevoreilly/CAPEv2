@@ -18,7 +18,7 @@ import tempfile
 import argparse
 import subprocess
 import socket
-from io import BytesIO, StringIO
+from io import StringIO
 from zipfile import ZipFile
 
 import http.server
@@ -378,7 +378,7 @@ def do_remove():
 def do_execute():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
-    
+
     if request.client_ip == "127.0.0.1" or request.client_ip == local_ip:
         return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:

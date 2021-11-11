@@ -2,7 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 # TODO
-#  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
+#  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
 from __future__ import absolute_import
 import os
@@ -366,7 +366,7 @@ class Analyzer:
         try:
             log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
-            #log.debug('Imported analysis package "%s".', package)
+            # log.debug('Imported analysis package "%s".', package)
         # If it fails, we need to abort the analysis.
         except ImportError:
             raise CuckooError('Unable to import package "{0}", does ' "not exist.".format(package_name))
@@ -385,7 +385,7 @@ class Analyzer:
         # Initialize the analysis package.
         log.debug('Initializing analysis package "%s"...', package)
         self.package = package_class(self.options, self.config)
-        #log.debug('Initialized analysis package "%s".', package)
+        # log.debug('Initialized analysis package "%s".', package)
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.
@@ -455,7 +455,7 @@ class Analyzer:
             try:
                 log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
-                #log.debug('Imported auxiliary module "%s".', name)
+                # log.debug('Imported auxiliary module "%s".', name)
             except ImportError as e:
                 log.warning("Unable to import the auxiliary module " '"%s": %s', name, e)
         # Walk through the available auxiliary modules.
@@ -468,9 +468,9 @@ class Analyzer:
             try:
                 log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                #log.debug('Initialized auxiliary module "%s".', module.__name__)
+                # log.debug('Initialized auxiliary module "%s".', module.__name__)
                 aux_avail.append(aux)
-                #log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                # log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
             except (NotImplementedError, AttributeError):
                 log.warning("Auxiliary module %s was not implemented", module.__name__)
@@ -504,14 +504,14 @@ class Analyzer:
         si.dwFlags = 1
         # SW_HIDE
         si.wShowWindow = 0
-        #log.info("Stopping WMI Service")
+        # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
-        #log.info("Stopped WMI Service")
+        # log.info("Stopped WMI Service")
         subprocess.call("sc config winmgmt type= own", startupinfo=si)
 
         log.info("Restarting WMI Service")
         subprocess.call("net start winmgmt", startupinfo=si)
-        #log.info("Started WMI Service")
+        # log.info("Started WMI Service")
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
@@ -522,7 +522,9 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_name, e))
         except Exception as e:
-            raise CuckooError('The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e))
+            raise CuckooError(
+                'The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e)
+            )
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -1209,7 +1211,11 @@ class CommandPipeHandler(object):
                         INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id, suspended=suspended
+                        options=self.analyzer.options,
+                        config=self.analyzer.config,
+                        pid=process_id,
+                        thread_id=thread_id,
+                        suspended=suspended,
                     )
                     filepath = proc.get_filepath()  # .encode('utf8', 'replace')
                     # if it's a URL analysis, provide the URL to all processes as
@@ -1278,7 +1284,9 @@ class CommandPipeHandler(object):
             # Syntax -> PATH|PID|Metadata
             file_path, pid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(
+                    file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump"
+                )
 
         else:
             if os.path.exists(file_path):

@@ -88,6 +88,11 @@ HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
 
+HAVE_STRINGS = False
+if processing_cfg.strings.on_demand:
+    from module.processing.strings import extract_strings
+
+
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
@@ -1990,8 +1995,11 @@ on_demand_config_mapper = {
     "flare_capa": processing_cfg,
     "vba2graph": processing_cfg,
     "xlsdeobf": processing_cfg,
+    "strings": processing_cfg,
 }
 
+str_nulltermonly = processing_cfg.strings.get("nullterminated_only", True)
+str_minchars = processing_cfg.strings.get("minchars", 5)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -2012,7 +2020,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf") and not on_demand_config_mapper.get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf", "strings") and not on_demand_config_mapper.get(
         service, {}
     ).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
@@ -2035,6 +2043,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, str(task_id), sha256, on_demand=True)
+
+    elif service == "strings" and HAVE_STRINGS:
+        details = extract_strings(path,  str_nulltermonly, str_minchars)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)

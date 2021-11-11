@@ -17,6 +17,30 @@ from lib.cuckoo.common.utils import bytes2str
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
+def extract_strings(path, nulltermonly, minchars):
+    strings = []
+
+    try:
+        data = open(path, "rb").read()
+    except (IOError, OSError) as e:
+        raise CuckooProcessingError("Error opening file %s" % e)
+
+    endlimit = b""
+    if not HAVE_RE2:
+        endlimit = b"8192"
+
+    if nulltermonly:
+        apat = b"([\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00"
+        upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00\x00"
+    else:
+        apat = b"[\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
+        upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
+
+    strings = [bytes2str(string) for string in re.findall(apat, data)]
+    for ws in re.findall(upat, data):
+        strings.append(str(ws.decode("utf-16le")))
+
+    return strings
 
 class Strings(Processing):
     """Extract strings from analyzed file."""
@@ -26,33 +50,12 @@ class Strings(Processing):
         @return: list of printable strings.
         """
         self.key = "strings"
-        strings = []
+
+        nulltermonly = self.options.get("nullterminated_only", True)
+        minchars = self.options.get("minchars", 5)
 
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
                 raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
 
-            try:
-                data = open(self.file_path, "rb").read()
-            except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening file %s" % e)
-
-            nulltermonly = self.options.get("nullterminated_only", True)
-            minchars = self.options.get("minchars", 5)
-
-            endlimit = b""
-            if not HAVE_RE2:
-                endlimit = b"8192"
-
-            if nulltermonly:
-                apat = b"([\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00"
-                upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00\x00"
-            else:
-                apat = b"[\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
-                upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
-
-            strings = [bytes2str(string) for string in re.findall(apat, data)]
-            for ws in re.findall(upat, data):
-                strings.append(str(ws.decode("utf-16le")))
-
-        return strings
+        return extract_strings(self.file_path, nulltermonly, minchars)

@@ -30,7 +30,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
+from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, msi_extract
 
 try:
     import pydeep
@@ -89,9 +89,8 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
-multi_block_config = (
-    "SquirrelWaffle",
-)
+multi_block_config = ("SquirrelWaffle",)
+
 
 class CAPE(Processing):
     """CAPE output file processing."""
@@ -144,6 +143,10 @@ class CAPE(Processing):
         if pefile_object:
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+
+        if "MSI Installer" in file_info.get("type", ""):
+            msi_data = msi_extract(file_path)
+            file_info.setdefault("msitools", msi_data)
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
@@ -314,7 +317,7 @@ class CAPE(Processing):
             if tmp_config and tmp_config.get(cape_name):
                 config.update(tmp_config[cape_name])
 
-        if type_string :
+        if type_string:
             log.info("CAPE: type_string: %s", type_string)
             tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
             if tmp_config:

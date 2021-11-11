@@ -170,7 +170,6 @@
                 </td>
             </tr>
             {% endif %}
-
             <tr>
                 <th></th>
                 <td>
@@ -188,25 +187,38 @@
                             {% endif %}
                         {% endif %}
                     {% endif %}
-
-                        {% if config.xlsdeobf %}
-                            {% if not analysis.static.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
-                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
-                            {% elif analysis.static.office.XLMMacroDeobfuscator %}
-                                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
-                             {% endif %}
-                            <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
-                                {% if analysis.static.office.XLMMacroDeobfuscator.msg %}
-                                    <pre>No results</pre>
-                                {% else %}
-                                    <pre>
-                                        {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
-                                            {{line}}
-                                        {% endfor %}
-                                    </pre>
-                                {% endif %}
+                    {% if analysis.target.file.msitools %}
+                        <tr>
+                            <th></th><td>
+                            <div class="collapse" id="msitools_{{file.sha256}}">
+                                <div class="card card-body">
+                                    {% for msi_file in  analysis.target.file.msitools %}
+                                        {% include "analysis/generic/_msi_info.html" %}
+                                    {% endfor %}
+                                </div>
                             </div>
-                        {% endif %}
+                        </td>
+                        </tr>
+                        </br>
+                    {% endif %}
+                    {% if config.xlsdeobf %}
+                        {% if not analysis.static.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
+                            <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
+                        {% elif analysis.static.office.XLMMacroDeobfuscator %}
+                            <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
+                            {% endif %}
+                        <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
+                            {% if analysis.static.office.XLMMacroDeobfuscator.msg %}
+                                <pre>No results</pre>
+                            {% else %}
+                                <pre>
+                                    {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
+                                        {{line}}
+                                    {% endfor %}
+                                </pre>
+                            {% endif %}
+                        </div>
+                    {% endif %}
 
                     {% if graphs.bingraph.enabled %}
                         {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 and on_demand.bingraph %}

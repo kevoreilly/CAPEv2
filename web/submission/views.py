@@ -211,7 +211,7 @@ def index(request, resubmit_hash=False):
             options += "norefer=1,"
 
         if request.POST.get("oldloader"):
-            options += "loader=oldloader.exe,loader_64=oldloader_x64.exe,"
+            options += "no-iat=1,"
 
         if request.POST.get("unpack"):
             options += "unpack=yes,"

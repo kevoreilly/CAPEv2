@@ -820,6 +820,7 @@ class Database(object, metaclass=Singleton):
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
+            self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row

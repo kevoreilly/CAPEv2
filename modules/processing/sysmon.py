@@ -53,6 +53,8 @@ class Sysmon(Processing):
         # Determine oldest sysmon log and remove the rest
         lastlog = os.listdir("%s/sysmon/" % self.analysis_path)
         lastlog.sort()
+        if not lastlog:
+            return
         lastlog = lastlog[-1]
         # Leave only the most recent file
         for f in os.listdir("%s/sysmon/" % self.analysis_path):

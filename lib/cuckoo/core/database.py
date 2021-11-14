@@ -1547,7 +1547,7 @@ class Database(object, metaclass=Singleton):
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
 
-                if "DllRegisterServer" in File(self.task.target).get_dll_exports(options["file_type"]):
+                if package == "dll" and "DllRegisterServer" in File(self.task.target).get_dll_exports(options["file_type"]):
                     package = "regsvr"
 
                 # ToDo better solution? - Distributed mode here:

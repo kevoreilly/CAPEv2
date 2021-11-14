@@ -1547,6 +1547,9 @@ class Database(object, metaclass=Singleton):
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
 
+                if "DllRegisterServer" in File(self.task.target).get_dll_exports(options["file_type"]):
+                    package = "regsvr"
+
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
                 options = original_options

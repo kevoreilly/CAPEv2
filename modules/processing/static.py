@@ -2745,7 +2745,7 @@ class Static(Processing):
             #    static["keys"] = f.get_keys()
 
             if "MSI Installer" in thetype:
-                msi_data = msi_extract(self.file_path)
+                msi_data = msi_extract(self.file_path, self.dropped_path)
                 static.setdefault("msitools", msi_data)
 
         elif self.task["category"] == "url":

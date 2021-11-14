@@ -145,7 +145,7 @@ class CAPE(Processing):
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
         if "MSI Installer" in file_info.get("type", ""):
-            msi_data = msi_extract(file_path)
+            msi_data = msi_extract(file_path, self.dropped_path)
             file_info.setdefault("msitools", msi_data)
 
         # Get the file data

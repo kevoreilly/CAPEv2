@@ -8,6 +8,8 @@ import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
+from lib.cuckoo.common.cape_utils import msi_extract
+
 
 class Dropped(Processing):
     """Dropped files analysis."""
@@ -31,10 +33,12 @@ class Dropped(Processing):
                 entry = json.loads(line)
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta.setdefault(filepath, [])
-                meta[filepath].append({
-                    "pids": entry["pids"],
-                    "filepath": entry["filepath"],
-                })
+                meta[filepath].append(
+                    {
+                        "pids": entry["pids"],
+                        "filepath": entry["filepath"],
+                    }
+                )
 
         for dir_name, _, file_names in os.walk(self.dropped_path):
             for file_name in file_names:
@@ -61,13 +65,18 @@ class Dropped(Processing):
                     pass
                 dropped_files.append(file_info)
 
-        for dir_name, dir_names, file_names in os.walk(self.package_files):
+        for dir_name, _, file_names in os.walk(self.package_files):
             for file_name in file_names:
                 file_path = os.path.join(dir_name, file_name)
                 file_info, pefile_object = File(file_path=file_path).get_all()
                 if pefile_object:
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+
+                if "MSI Installer" in file_info.get("type", ""):
+                    msi_data = msi_extract(file_path)
+                    file_info.setdefault("msitools", msi_data)
+
                 dropped_files.append(file_info)
 
         return dropped_files

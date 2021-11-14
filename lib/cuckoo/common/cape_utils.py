@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import os
+import shutil
 import logging
 import tempfile
 import hashlib
@@ -159,6 +160,7 @@ if process_cfg.malduck.enabled:
         from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
         from malduck.extractor import ExtractorModules, ExtractManager
         from malduck.extractor.extractor import Extractor
+
         # from malduck.extractor.loaders import load_modules
         from malduck.yara import Yara
 
@@ -355,7 +357,7 @@ def static_config_parsers(yara_hit, file_data):
                     "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
                     cape_name,
                     e,
-            )
+                )
 
         if cape_name in cape_config and cape_config[cape_name] == {}:
             return {}
@@ -435,3 +437,28 @@ def cape_name_from_yara(details, pid, results):
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
             return name
+
+
+def msi_extract(file, destination_folder, msiextract="/usr/bin/msiextract"):  # dropped_path
+    """Work on MSI Installers"""
+    msi_files = list()
+
+    if not os.path.exists(msiextract):
+        logging.error("Missed dependency: sudo apt install msitools")
+        return msi_files
+
+    with tempfile.mkdtemp(prefix="msidump-") as tempdir:
+        try:
+            files = subprocess.check_output([msiextract, file, "--directory", tempdir], universal_newlines=True)
+            if files:
+                for extracted in list(filter(None, files.split("\n"))):
+                    full_path = os.path.join(tempdir, extracted)
+                    file_details = File(full_path).get_all()
+                    msi_files.append(file_details)
+                    dest_path = os.path.join(destination_folder, file_details["sha256"])
+                    if not os.path.exists(dest_path):
+                        shutil.move(full_path, dest_path)
+        except Exception as e:
+            logging.error(e)
+
+    return msi_files

@@ -447,18 +447,20 @@ def msi_extract(file, destination_folder, msiextract="/usr/bin/msiextract"):  # 
         logging.error("Missed dependency: sudo apt install msitools")
         return msi_files
 
-    with tempfile.mkdtemp(prefix="msidump-") as tempdir:
+    with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
             files = subprocess.check_output([msiextract, file, "--directory", tempdir], universal_newlines=True)
             if files:
                 for extracted in list(filter(None, files.split("\n"))):
                     full_path = os.path.join(tempdir, extracted)
                     file_details = File(full_path).get_all()
+                    if file_details:
+                        file_details = file_details[0]
                     msi_files.append(file_details)
                     dest_path = os.path.join(destination_folder, file_details["sha256"])
                     if not os.path.exists(dest_path):
                         shutil.move(full_path, dest_path)
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
     return msi_files

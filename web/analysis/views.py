@@ -90,7 +90,8 @@ if processing_cfg.flare_capa.on_demand:
 
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
-    from module.processing.strings import extract_strings
+    from modules.processing.strings import extract_strings
+    HAVE_STRINGS = True
 
 
 HAVE_VBA2GRAPH = False

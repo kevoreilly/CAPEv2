@@ -203,7 +203,7 @@
                 {% endif %}
                 {% if config.strings %}
                     {% if not file.strings %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "strings" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate strings"><span class="fas fa-cogs"></span> Strings</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "strings" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate strings"><span class="fas fa-cogs"></span> Strings</a>
                     {% else %}
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                     {% endif %}
@@ -233,7 +233,7 @@
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                 {% endif %}
                 {% if file.msitools %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#msitools_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="msitools{{file.sha256}}"  data-bs-toggle="tooltip" title="Display MSI extracted files"><span class="fas fa-archive"></span> MSI</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#msitools_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="msitools_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display MSI extracted files"><span class="fas fa-archive"></span> MSI</a>
                 {% endif %}
             </td>
         </tr>
@@ -295,7 +295,9 @@
                 <th></th><td>
                 <div class="collapse" id="strings_{{file.sha256}}">
                     <div class="card card-body">
-                    {{file.strings|safe}}
+                    {% for string in file.strings %}
+                        <div>{{string}}</div>
+                    {% endfor %}
                     </div>
                 </div>
             </td>
@@ -306,7 +308,7 @@
                 <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    {% for string in analysis.strings %}
+                    {% for string in file.data %}
                         <div>{{string}}</div>
                     {% endfor %}
                     </div>

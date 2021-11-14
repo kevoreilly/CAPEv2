@@ -242,7 +242,10 @@
                     {% endif %}
                     {% if config.evtx_download %}
                     <a class="btn btn-secondary btn-sm" href="{% url "file" "evtx"  analysis.info.id analysis.target.file.sha256 %}" data-bs-toggle="tooltip" title="Download evtx files"><span class="fas fa-eye"></span> Evtx</a>
-                {% endif %}
+                    {% endif %}
+                    {% if analysis.static.msitools %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#msitools_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="msitools_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display MSI extracted files"><span class="fas fa-archive"></span> MSI</a>
+                    {% endif %}
 
                 </td>
             </tr>
@@ -256,7 +259,20 @@
                     <td>{{ graphs.vba2graph.content|getkey:analysis.target.file.sha256|safe }}</td>
                 </tr>
             {% endif %}
-
+            {% if analysis.static.msitools %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="msitools_{{analysis.target.file.sha256}}">
+                    <div class="card card-body">
+                        {% for sub_file in analysis.static.msitools %}
+                            {% include "analysis/overview/_subfile_info.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
+            {% endif %}
             {% if analysis.static.flare_capa %}
                 <tr><th></th><td>
                 <div class="collapse" id="flare_capa_{{analysis.target.file.sha256}}">

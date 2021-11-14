@@ -48,8 +48,13 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                 file_info.update(meta.get(file_info["path"][0], {}))
-                guest_paths = list(set([path["filepath"] for path in meta[file_path]]))
-                guest_names = list(set([path["filepath"].split("\\")[-1] for path in meta[file_path]]))
+                if file_path in meta:
+                    guest_paths = list(set([path.get("filepath") for path in meta[file_path]]))
+                    guest_names = list(set([path.get("filepath", "").split("\\")[-1] for path in meta[file_path]]))
+                else:
+                    guest_paths = list()
+                    guest_names = list()
+
                 file_info["guest_paths"] = guest_paths if isinstance(guest_paths, list) else [guest_paths]
                 file_info["name"] = guest_names
                 try:

@@ -576,7 +576,7 @@ class File(object):
     def get_dll_exports(self, file_type):
         if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
-                pe = pefile.PE(self.task.target)
+                pe = pefile.PE(self.file_path)
                 if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                     exports = []
                     for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:

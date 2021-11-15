@@ -1547,8 +1547,13 @@ class Database(object, metaclass=Singleton):
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
 
-                if package == "dll" and "DllRegisterServer" in File(self.task.target).get_dll_exports(options["file_type"]):
-                    package = "regsvr"
+                if package == "dll":
+                    dll_exports = File(self.task.target).get_dll_exports(options["file_type"])
+                    if "DllRegisterServer" in dll_exports:
+                        package = "regsvr"
+                    elif "xlAutoOpen" in dll_exports:
+                        package = "xls"
+
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers

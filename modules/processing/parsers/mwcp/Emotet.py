@@ -38,6 +38,7 @@ rule Emotet
         $snippetA = {85 C0 74 5? 8B ?8 04 89 78 28 89 38 89 70 2C EB 04 41 89 48 04 39 34 CD [4] 75 F3 FF 75 DC FF 75 F0 8B 55 F8 FF 75 10 8B 4D EC E8 [4] 83 C4 0C 85 C0 74 05}
         $snippetB = {EB 04 4? 89 [2] 39 [6] 75 F3}
         $snippetC = {EB 03 4? 89 1? 39 [6] 75 F4}
+        $snippetD = {8D 44 [2] 50 68 [4] FF 74 [2] FF 74 [2] 8B 54 [2] 8B 4C [2] E8 [4] 8B 54 [2] 83 C4 10 89 44 [2] 8B F8 03 44 [2] B9 [4] 89 44 [2] E9 [2] FF FF}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -360,6 +361,35 @@ class Emotet(Parser):
                                     else:
                                         break
                                     c2_list_offset += 8
+                            else:
+                                refc2list = yara_scan(filebuf, "$snippetD")
+                                if refc2list:
+                                    c2list_va_offset = int(refc2list["$snippetD"])
+                                    c2_list_va = struct.unpack("I", filebuf[c2list_va_offset+6:c2list_va_offset+10])[0]
+                                    c2_list_rva = c2_list_va - image_base
+                                    try:
+                                        c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+                                    except pefile.PEFormatError as err:
+                                        pass
+                                    key = filebuf[c2_list_offset:c2_list_offset+4]
+                                    c2_list_offset += 8
+                                    c2_list = xor_data(filebuf[c2_list_offset:], key)
+                                    offset = 0
+                                    while 1:
+                                        try:
+                                            ip = struct.unpack(">I", c2_list[offset:offset+4])[0]
+                                        except:
+                                            break
+                                        if ip == struct.unpack(">I", key)[0]:
+                                            break
+                                        c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+                                        port = str(struct.unpack(">H", c2_list[offset+4:offset+6])[0])
+                                        if c2_address and port:
+                                            self.reporter.add_metadata("address", c2_address + ":" + port)
+                                            c2found = True
+                                        else:
+                                            break
+                                        offset += 8
 
         if not c2found:
             return

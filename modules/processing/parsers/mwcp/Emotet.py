@@ -372,10 +372,11 @@ class Emotet(Parser):
                                     except pefile.PEFormatError as err:
                                         pass
                                     key = filebuf[c2_list_offset:c2_list_offset+4]
+                                    size = struct.unpack("I", filebuf[c2_list_offset+4:c2_list_offset+8])[0] ^ struct.unpack("I", key)[0]
                                     c2_list_offset += 8
                                     c2_list = xor_data(filebuf[c2_list_offset:], key)
                                     offset = 0
-                                    while 1:
+                                    while offset < size:
                                         try:
                                             ip = struct.unpack(">I", c2_list[offset:offset+4])[0]
                                         except:

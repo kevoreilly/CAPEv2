@@ -206,7 +206,7 @@ def main():
 
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
-        flare_capa(args.capa_rules_path)
+        flare_capa_rules(args.capa_rules_path)
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -224,7 +224,7 @@ def main():
             enabled.append("data")
 
     if args.capa_rules:
-        flare_capa()
+        flare_capa_rules()
         if not enabled:
             return
 

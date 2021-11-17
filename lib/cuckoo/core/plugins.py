@@ -112,6 +112,7 @@ suricata_blocklist = (
     "abuse",
     "agent",
     "base64",
+    "backdoor",
     "common",
     "custom",
     "dropper",
@@ -120,6 +121,7 @@ suricata_blocklist = (
     "executable",
     "f-av",
     "fake",
+    "family",
     "fileless",
     "filename",
     "generic",
@@ -208,6 +210,15 @@ def get_suricata_family(signature):
     if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
+    if famchecklower == "backdoor" and words[3].lower() == "family":
+        famcheck = words[4]
+        famchecklower = famcheck.lower()
+    if "/" in famchecklower:
+        famcheck_list = famchecklower.split("/")  # [-1]
+        for fam_name in famcheck_list:
+            if not any([block in fam_name.lower() for block in suricata_blocklist]):
+                famcheck = fam_name
+                break
     isbad = any([block in famchecklower for block in suricata_blocklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()

@@ -117,6 +117,12 @@
             <td style="word-wrap: break-word;">{{sub_file.sha3_384}}</td>
         </tr>
         {% endif %}
+        {% if sub_file.rh_hash %}
+            <tr>
+                <th>RichHeader Hash</th>
+                <td style="word-wrap: break-word;">{{sub_file.rh_hash}}</td>
+            </tr>
+        {% endif %}
         <tr>
             <th>CRC32</th>
             <td>{{sub_file.crc32}}</td>

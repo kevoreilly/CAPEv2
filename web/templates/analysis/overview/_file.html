@@ -91,6 +91,12 @@
                 <td style="word-wrap: break-word;">{{analysis.target.file.sha3_384}}</td>
             </tr>
             {% endif %}
+            {% if analysis.target.file.rh_hash %}
+            <tr>
+                <th>RichHeader Hash</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.rh_hash}}</td>
+            </tr>
+            {% endif %}
             <tr>
                 <th>CRC32</th>
                 <td>{{analysis.target.file.crc32}}</td>

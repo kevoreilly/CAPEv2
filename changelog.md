@@ -1,3 +1,8 @@
+### [18-11-2021]
+* Add [RichHeader](https://github.com/RichHeaderResearch/RichPE) MD5
+* Improve Suricata family detection
+* Extract strings on demand feature
+
 ### [08-11-2021]
 * Monitor: rdtscp emulation, optional exception & breakpoint logging
 

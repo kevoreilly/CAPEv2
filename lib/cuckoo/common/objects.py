@@ -589,6 +589,9 @@ class File(object):
             return False
 
     def get_rh_hash(self):
+        if not self.pe:
+            return None
+
         # source https://github.com/RichHeaderResearch/RichPE/blob/master/richpe.py#L34
         rich_header = self.pe.parse_rich_header()
         if rich_header is None:

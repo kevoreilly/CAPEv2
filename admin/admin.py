@@ -122,7 +122,7 @@ def file_recon(file, yara_category="CAPE"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/lib/core/{filename}"
     elif b"class Signature(object):" in f and b"class Processing(object):" in f:
         TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
-    elif b"class Analyzer:" in f and "class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
+    elif b"class Analyzer:" in f and b"class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
         TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
         POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):

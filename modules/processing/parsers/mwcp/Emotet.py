@@ -21,6 +21,7 @@ import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
 from itertools import cycle
+import base64
 
 rule_source = """
 rule Emotet
@@ -43,8 +44,9 @@ rule Emotet
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
         $ref_rsa = {6A 00 6A 01 FF [4-9] C0 [5-11] E8 ?? ?? FF FF 8D 4? [1-2] B9 ?? ?? ?? 00 8D 5? [4-6] E8}
+        $ref_ecc = {8D 84 [5] 50 68 [4] FF B4 24 [4] FF B4 24 [4] 8B 94 24 [4] 8B 8C 24 [4] E8 [4] 89 84 24 [4] 8D 84 24 [4] 50 68 [4] FF B4 24 [4] FF B4 24 [4] 8B 54 24 40 8B 8C 24 [4] E8}
     condition:
-        uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa
+        uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or $ref_ecc
 }
 
 """
@@ -119,7 +121,10 @@ def extract_emotet_rsakey(pe):
             res_list = list(set(res_list))
             pub_key = res_list[0][0:106]
             seq = asn1.DerSequence()
-            seq.decode(pub_key)
+            try:
+                seq.decode(pub_key)
+            except:
+                return
             return RSA.construct((seq[0], seq[1]))
 
 class Emotet(Parser):
@@ -430,3 +435,24 @@ class Emotet(Parser):
                 seq = asn1.DerSequence()
                 seq.decode(rsa_key)
                 self.reporter.add_metadata("other", {"RSA public key": RSA.construct((seq[0], seq[1])).exportKey()})
+            else:
+                ref_ecc = yara_scan(filebuf, "$ref_ecc")
+                if ref_ecc:
+                    ref_ecc_offset = int(ref_ecc["$ref_ecc"])
+                    ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset+9:ref_ecc_offset+13])[0] - image_base
+                    ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset+62:ref_ecc_offset+66])[0] - image_base
+                    try:
+                        eck_offset = pe.get_offset_from_rva(ref_eck_rva)
+                        ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
+                    except:
+                        return
+                    key = filebuf[eck_offset:eck_offset+4]
+                    size = struct.unpack("I", filebuf[eck_offset+4:eck_offset+8])[0] ^ struct.unpack("I", key)[0]
+                    eck_offset += 8
+                    eck_key = base64.b64encode(xor_data(filebuf[eck_offset:eck_offset+size], key))
+                    self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
+                    key = filebuf[ecs_offset:ecs_offset+4]
+                    size = struct.unpack("I", filebuf[ecs_offset+4:ecs_offset+8])[0] ^ struct.unpack("I", key)[0]
+                    ecs_offset += 8
+                    ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset:ecs_offset+size], key))
+                    self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})

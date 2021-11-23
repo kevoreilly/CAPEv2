@@ -241,6 +241,9 @@
                 {% if file.msitools %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#msitools_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="msitools_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display MSI extracted files"><span class="fas fa-archive"></span> MSI</a>
                 {% endif %}
+                {% if file.kixtart %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#kixtart_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="kixtart_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Kixtart extracted files"><span class="fas fa-archive"></span> Kixtart</a>
+                {% endif %}
             </td>
         </tr>
         {% endif %}
@@ -250,6 +253,20 @@
                 <div class="collapse" id="msitools_{{file.sha256}}">
                     <div class="card card-body">
                         {% for sub_file in file.msitools %}
+                            {% include "analysis/generic/_subfile_info.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
+        {% endif %}
+        {% if file.kixtart %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="kixtart_{{file.sha256}}">
+                    <div class="card card-body">
+                        {% for sub_file in file.kixtart %}
                             {% include "analysis/generic/_subfile_info.html" %}
                         {% endfor %}
                     </div>

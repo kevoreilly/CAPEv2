@@ -87,6 +87,26 @@ if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode("utf-8")
 
 
+texttypes = [
+    "ASCII",
+    "Windows Registry text",
+    "XML document text",
+    "Unicode text",
+]
+
+textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
+is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
+
+
+def is_text_file(file_data, file_info, buf):
+    # if not any([file_type in file_info.get("type", "") for file_type in texttypes]):
+    if not is_binary_file(file_data[:8192]):
+        if len(file_data) > buf:
+            file_info["data"] = file_data[:buf] + b" <truncated>"
+        else:
+            file_info["data"] = file_data
+
+
 def create_zip(files, folder=False):
     """Utility function to create zip archive with file(s)"""
     if not HAVE_PYZIPPER:
@@ -239,7 +259,7 @@ def convert_char(c):
 
 
 def is_printable(s):
-    """ Test if a string is printable."""
+    """Test if a string is printable."""
     for c in s:
         if isinstance(c, int):
             c = chr(c)
@@ -262,7 +282,7 @@ def convert_filename_char(c):
 
 
 def is_sane_filename(s):
-    """ Test if a filename is sane."""
+    """Test if a filename is sane."""
     for c in s:
         if isinstance(c, int):
             c = chr(c)

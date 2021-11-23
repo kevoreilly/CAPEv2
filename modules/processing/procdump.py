@@ -10,7 +10,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, msi_extract
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, generic_file_extractors
 
 processing_conf = Config("processing")
 
@@ -108,9 +108,8 @@ class ProcDump(Processing):
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime)
 
-            if "MSI Installer" in file_info.get("type", ""):
-                msi_data = msi_extract(file_path, self.dropped_path)
-                file_info.setdefault("msitools", msi_data)
+            # Allows to put execute file extractors/unpackers
+            generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
 
             procdump_files.append(file_info)
 

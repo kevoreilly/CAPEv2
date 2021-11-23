@@ -8,7 +8,7 @@ import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
-from lib.cuckoo.common.cape_utils import msi_extract
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 
 class Dropped(Processing):
@@ -78,9 +78,8 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-                if "MSI Installer" in file_info.get("type", ""):
-                    msi_data = msi_extract(file_path, self.dropped_path)
-                    file_info.setdefault("msitools", msi_data)
+                # Allows to put execute file extractors/unpackers
+                generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
 
                 dropped_files.append(file_info)
 

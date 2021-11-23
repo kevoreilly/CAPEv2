@@ -1,3 +1,7 @@
+### [23-11-2021]
+* Integrate [Kixtart-Detokenizer](https://github.com/jhumble/Kixtart-Detokenizer)
+* Simplify integration of another tools to unpack/extract files
+
 ### [18-11-2021]
 * Add [RichHeader](https://github.com/RichHeaderResearch/RichPE) MD5
 * Improve Suricata family detection

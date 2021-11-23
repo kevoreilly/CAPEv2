@@ -30,7 +30,8 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, msi_extract
+from lib.cuckoo.common.utils import is_text_file
+from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, generic_file_extractors
 
 try:
     import pydeep
@@ -139,18 +140,20 @@ class CAPE(Processing):
             return
 
         buf = self.options.get("buffer", BUFSIZE)
+
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
         if pefile_object:
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-        if "MSI Installer" in file_info.get("type", ""):
-            msi_data = msi_extract(file_path, self.dropped_path)
-            file_info.setdefault("msitools", msi_data)
+        # Allows to put execute file extractors/unpackers
+        generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
             file_data = file_open.read()
+
+        # is_text_file(file_data, file_info, buf)
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:

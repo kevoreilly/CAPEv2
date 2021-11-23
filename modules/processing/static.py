@@ -76,7 +76,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.cape_utils import msi_extract
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 try:
     import olefile
@@ -2744,10 +2744,8 @@ class Static(Processing):
             #    static["elf"] = ELF(self.file_path).run()
             #    static["keys"] = f.get_keys()
 
-            if "MSI Installer" in thetype:
-                msi_data = msi_extract(self.file_path, self.dropped_path)
-                static.setdefault("msitools", msi_data)
-
+            # Allows to put execute file extractors/unpackers
+            generic_file_extractors(self.file_path, self.dropped_path, thetype, static)
         elif self.task["category"] == "url":
             enabled_whois = self.options.get("whois", True)
             if HAVE_WHOIS and enabled_whois:

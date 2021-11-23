@@ -1809,16 +1809,17 @@ def cuckoo_status(request):
         resp["error_value"] = "Cuckoo Status API is disabled"
     else:
         resp["error"] = False
+        tasks_dict_with_counts = db.get_tasks_status_count()
         resp["data"] = dict(
             version=CUCKOO_VERSION,
             hostname=socket.gethostname(),
             machines=dict(total=len(db.list_machines()), available=db.count_machines_available()),
             tasks=dict(
-                total=db.count_tasks(),
-                pending=db.count_tasks("pending"),
-                running=db.count_tasks("running"),
-                completed=db.count_tasks("completed"),
-                reported=db.count_tasks("reported"),
+                total=sum(tasks_dict_with_counts.values()),
+                pending=tasks_dict_with_counts.get("pending", 0),
+                running=tasks_dict_with_counts.get("running", 0),
+                completed=tasks_dict_with_counts.get("completed", 0),
+                reported=tasks_dict_with_counts.get("reported", 0),
             ),
         )
 

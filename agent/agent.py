@@ -49,7 +49,7 @@ STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
-state = dict()
+state = {}
 state["status"] = STATUS_INIT
 
 # To send output to stdin comment out this 2 lines

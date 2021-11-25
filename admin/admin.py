@@ -209,7 +209,7 @@ def bulk_deploy(files, yara_category):
 
 
 def deploy_file(queue):
-    error_list = list()
+    error_list = []
 
     while not queue.empty():
         servers, local_file, remote_file, remote_command, local_sha256 = queue.get()
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    files = list()
+    files = []
 
     if args.debug:
         logging.getLogger("paramiko.transport").setLevel(logging.DEBUG)
@@ -389,7 +389,7 @@ if __name__ == "__main__":
         out = subprocess.check_output(["git", "diff", "--name-only", f"HEAD~{head}"])
         community_files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
         os.chdir(cwd)
-        files = list()
+        files = []
         for file in community_files:
             dest_file = os.path.join(destiny_folder, file)
             files.append(dest_file)

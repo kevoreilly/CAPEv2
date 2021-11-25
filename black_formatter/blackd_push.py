@@ -1,11 +1,12 @@
 
 import os
-import sys
 import traceback
 from pathlib import Path
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
-from httpcore import ConnectError
+
 import httpx
+from httpcore import ConnectError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+
 
 def get_filepaths(directory):
     """
@@ -35,7 +36,6 @@ def print_line(response, file_name):
         print(f"{response.status_code} - {file_name} - input is already well-formatted")
     if response.status_code == 200:
         print(f"{response.status_code} - {file_name} - blackened code: {response.text}")
-
         Path(f"/tmp/200.blk_{formatted_name}.log").touch()
     if response.status_code == 400:
         print(f"{response.status_code} - {file_name} - input contains a syntax error: {response.text}")
@@ -47,18 +47,18 @@ def print_line(response, file_name):
 def submit_to_blackd(code, client):
     # Can't use localhost
     # OSError: [Errno 99] error while attempting to bind on address ('::1', 45484, 0, 0): cannot assign requested address
-    url = f"http://127.0.0.1:45484"
+    url = "http://127.0.0.1:45484"
     headers = {"X-Line-Length": "132"}
     with open(code, mode="r") as file:
         contents = file.read()
-        try:
-            r = client_post(client, url, contents, headers)
-            print_line(r, code)
-            return code
-        except Exception as e:
-            # e is empty of text for some reason, but we can find out which file died
-            print(f"Failed to check: {code}\nerror type: {repr(e)}\ntraceback: {traceback.print_exc()}")
-            return None
+    try:
+        r = client_post(client, url, contents, headers)
+        print_line(r, code)
+        return code
+    except Exception as e:
+        # e is empty of text for some reason, but we can find out which file died
+        print(f"Failed to check: {code}\nerror type: {e}\ntraceback: {traceback.print_exc()}")
+        return None
 
 
 @retry(retry=retry_if_exception_type(ConnectError), wait=wait_fixed(2), stop=stop_after_attempt(20))

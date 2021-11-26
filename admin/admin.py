@@ -15,25 +15,28 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
-import os
-import sys
-import json
-import shutil
-import tempfile
-import urllib3
-import logging
 import argparse
+import json
+import logging
+import os
+import shutil
 import subprocess
-import tempfile
+import sys
+import urllib3
 from hashlib import sha256
 from queue import Queue
 from threading import Thread
+from urllib import urlparse
 
 try:
-    from paramiko import SSHClient, AutoAddPolicy
-    from scp import SCPClient, SCPException
+    import re2 as re
+except ImportError:
+    import re
+
+try:
+    from paramiko import AutoAddPolicy, SSHClient
     from paramiko.ssh_exception import BadHostKeyException
+    from scp import SCPClient, SCPException
 except ImportError:
     print("pip3 install -U paramiko scp")
     sys.exit()
@@ -84,7 +87,7 @@ def green(text):
 
 
 def file_recon(file, yara_category="CAPE"):
-    if not os.path.exists(file):
+    if not os.path.isfile(file):
         return
 
     global POSTPROCESS
@@ -98,52 +101,52 @@ def file_recon(file, yara_category="CAPE"):
     LOCAL_SHA256 = sha256(f).hexdigest()
 
     if b"(TcrSignature):" in f or b"(Signature)" in f:
-        TARGET = f"{CAPE_PATH}modules/signatures/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "modules", "signatures", filename)
     elif filename in ("loader.exe", "loader_x64.exe"):
-        TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "bin", filename)
         POSTPROCESS = False
     elif b"def _generator(self" in f:
-        TARGET = f"{VOL_PATH}{filename}"
+        TARGET = os.path.join(VOL_PATH, filename)
         OWNER = "root:staff"
     elif re.findall(br"class .*\(Report\):", f):
-        TARGET = f"{CAPE_PATH}/modules/reporting/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "modules", "reporting", filename)
     elif re.findall(br"class .*\(Processing\):", f):
-        TARGET = f"{CAPE_PATH}/modules/processing/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "modules", "processing", filename)
     elif filename.endswith(".yar") and b"rule " in f and b"condition:" in f:
         # capemon yara
         if "/analyzer/" in file:
-            TARGET = f"{CAPE_PATH}analyzer/windows/data/yara/{filename}"
+            TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "data", "yara", filename)
         else:
             # server side rule
-            TARGET = f"{CAPE_PATH}data/yara/{yara_category}/{filename}"
+            TARGET = os.path.join(CAPE_PATH, "data", "yara", yara_category, filename)
     elif re.findall(br"class .*\(Package\):", f):
-        TARGET = f"{CAPE_PATH}/analyzer/windows/modules/packages/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "modules", "packages", filename)
     elif b"def choose_package(file_type, file_name, exports, target)" in f:
-        TARGET = f"{CAPE_PATH}/analyzer/windows/lib/core/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "lib", "core", filename)
     elif b"class Signature(object):" in f and b"class Processing(object):" in f:
-        TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "lib", "cuckoo", "common", filename)
     elif b"class Analyzer:" in f and b"class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
-        TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", filename)
         POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):
-        TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
+        TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "dll", filename)
         POSTPROCESS = False
     # generic deployer of files
     elif file.startswith("CAPEv2/"):
         # Remove CAPEv2/ from path to build new path
-        TARGET = f"{CAPE_PATH}" + file[7:]
+        TARGET = os.path.join(CAPE_PATH, file.lstrip("CAPEv2/"))
     elif filename.endswith(".service"):
-        TARGET = "/lib/systemd/system/{filename}"
+        TARGET = os.path.join("lib", "systemd", "system", filename)
         OWNER = "root:root"
         POSTPROCESS = "systemctl daemon-reload"
     else:
-        print(f"I'm sorry, I don't know how to deploy this kind of file.: {filename}, {file}")
+        print(f"I'm sorry, I don't know how to deploy this kind of file: {filename}, {file}")
         return False
 
     # build command to be executed remotely
     REMOTE_COMMAND = f"chown {OWNER} {TARGET}; chmod 644 {TARGET};"
     if filename.endswith(".py") and TARGET:
-        REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(TARGET.replace(".py", ""))
+        REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(TARGET.rstrip(".py"))
     return TARGET, REMOTE_COMMAND, LOCAL_SHA256
 
 
@@ -177,7 +180,7 @@ def execute_command_on_all(remote_command):
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
-            if "Active: active (running)" in ssh_out and not "systemctl status" in remote_command:
+            if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] Service " + green("restarted successfully and is UP"))
             else:
                 if ssh_out:
@@ -206,7 +209,7 @@ def bulk_deploy(files, yara_category):
 
 
 def deploy_file(queue):
-    error_list = list()
+    error_list = []
 
     while not queue.empty():
         servers, local_file, remote_file, remote_command, local_sha256 = queue.get()
@@ -227,16 +230,14 @@ def deploy_file(queue):
                     ssh_out = ssh_stdout.read().decode("utf-8")
                     log.info(ssh_out)
 
-                _, ssh_stdout, _ = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1")
+                _, ssh_stdout, _ = ssh.exec_command(f"sha256sum {remote_file} | cut -d ' ' -f1")
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
 
                 if local_sha256 == remote_sha256:
-                    log.info("[+] {} - Hashes are {}: {} - {}".format(server, green("correct"), local_sha256, remote_file))
+                    log.info(f"[+] {server} - Hashes are {green('correct')}: {local_sha256} - {remote_file}")
                 else:
                     log.info(
-                        "[-] {} - Hashes are {}: \n\tLocal: {}\n\tRemote: {} - {}".format(
-                            server, red("incorrect"), local_sha256, remote_sha256, remote_file
-                        )
+                        f"[-] {server} - Hashes are {red('incorrect')}: \n\tLocal: {local_sha256}\n\tRemote: {remote_sha256} - {remote_file}"
                     )
                     error = 1
                     error_list.append(remote_file)
@@ -245,9 +246,9 @@ def deploy_file(queue):
                 log.error(e)
 
         if not error:
-            log.info(green(f"Completed! {remote_file}\n"))
+            log.info(green(f"Completed! {remote_file}"))
         else:
-            log.info(red(f"Completed with errors. {remote_file}\n"))
+            log.info(red(f"Completed with errors. {remote_file}"))
         queue.task_done()
 
     return error_list
@@ -274,9 +275,7 @@ if __name__ == "__main__":
         default=False,
         required=False,
     )
-    parser.add_argument(
-        "-jb", "--jump-box", help="Use jump box to reach servers", action="store_true", default=False, required=False
-    )
+    parser.add_argument("-jb", "--jump-box", help="Use jump box to reach servers", action="store_true", default=False, required=False)
     parser.add_argument(
         "-yc",
         "--yara-category",
@@ -288,10 +287,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("-s", "--static-server-list", default=False, action="store_true", required=False)
     parser.add_argument("-df", "--deploy-file", help="Deploy local file", action="store", default=False, required=False)
-    parser.add_argument(
-        "-e", "--execute-command", help="Execute command on server(s)", action="store", default=False, required=False
-    )
-    parser.add_argument("-cp", "--copy-file", help="Copy local file to servers.", nargs=2, default=False, required=False)
+    parser.add_argument("-e", "--execute-command", help="Execute command on server(s)", action="store", default=False, required=False)
+    parser.add_argument("-cp", "--copy-file", help="Copy local file to servers", nargs=2, default=False, required=False)
     parser.add_argument(
         "-dlc",
         "--deploy-local-changes",
@@ -303,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-drc",
         "--deploy-remote-changes",
-        help="Deploy remote changes, after an merge and git pull as example. Compares the current git commit ref to master and deploys the changed files to the remote server.",
+        help="Deploy remote changes, after an merge and git pull as example. Compares the current git commit ref to master and deploys the changed files to the remote server",
         action="store_true",
         required=False,
         default=False,
@@ -327,7 +324,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    files = list()
+    files = []
 
     if args.debug:
         logging.getLogger("paramiko.transport").setLevel(logging.DEBUG)
@@ -357,7 +354,7 @@ if __name__ == "__main__":
             r = http.request("GET", CAPE_DIST_URL)
             if r.status == 200:
                 res = json.loads(r.data.decode("utf-8")).get("nodes", [])
-                servers = [res[server]["url"].split("://")[1].split(":")[0] for server in res] + [MASTER_NODE]
+                servers = [urlparse(res[server]["url"]).hostname for server in res] + [MASTER_NODE]
         except (urllib3.exceptions.NewConnectionError, urllib3.exceptions.MaxRetryError):
             sys.exit("Can't retrieve list of servers")
     if args.continues_integration:
@@ -367,13 +364,7 @@ if __name__ == "__main__":
         if not parameters:
             sys.exit()
         queue = Queue()
-        queue.put(
-            [
-                servers,
-                args.deploy_file,
-            ]
-            + list(parameters)
-        )
+        queue.put([servers, args.deploy_file, *list(parameters)])
         _ = deploy_file(queue)
     elif args.execute_command:
         execute_command_on_all(args.execute_command)
@@ -398,7 +389,7 @@ if __name__ == "__main__":
         out = subprocess.check_output(["git", "diff", "--name-only", f"HEAD~{head}"])
         community_files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
         os.chdir(cwd)
-        files = list()
+        files = []
         for file in community_files:
             dest_file = os.path.join(destiny_folder, file)
             files.append(dest_file)

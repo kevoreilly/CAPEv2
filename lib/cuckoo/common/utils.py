@@ -94,17 +94,34 @@ texttypes = [
     "Unicode text",
 ]
 
-textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
-is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
+# this doesn't work for bytes
+# textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
+# is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
 
 
-def is_text_file(file_data, file_info, buf):
-    # if not any([file_type in file_info.get("type", "") for file_type in texttypes]):
-    if not is_binary_file(file_data[:8192]):
+def is_text_file(file_info, destination_folder, buf, file_data=False):
+
+    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
+    if any([file_type in file_info.get("type", "") for file_type in texttypes]):
+
+        extracted_path = os.path.join(
+            destination_folder,
+            file_info.get(
+                "sha256",
+            ),
+        )
+        if not os.path.exists(extracted_path):
+            return
+
+        if not file_data:
+            with open(extracted_path, "rb") as f:
+                file_data = f.read()
+
         if len(file_data) > buf:
-            file_info["data"] = file_data[:buf] + b" <truncated>"
+            data = file_data[:buf] + b" <truncated>"
+            file_info.setdefault("data", data.decode())
         else:
-            file_info["data"] = file_data
+            file_info.setdefault("data", file_data.decode("latin-1"))
 
 
 def create_zip(files, folder=False):

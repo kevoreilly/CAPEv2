@@ -18,11 +18,6 @@ import shutil
 import json
 import logging
 from datetime import datetime
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 import hashlib
 import imp
 
@@ -153,7 +148,7 @@ class CAPE(Processing):
         with open(file_info["path"], "rb") as file_open:
             file_data = file_open.read()
 
-        # is_text_file(file_data, file_info, buf)
+        is_text_file(file_info, self.CAPE_path, buf, file_data)
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:

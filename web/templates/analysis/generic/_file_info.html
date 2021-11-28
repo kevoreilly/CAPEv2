@@ -331,9 +331,7 @@
                 <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    {% for string in file.data %}
-                        <div>{{string}}</div>
-                    {% endfor %}
+                    <pre>{{file.data|safe}}</pre>
                     </div>
                 </div>
             </td>

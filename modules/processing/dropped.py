@@ -57,6 +57,7 @@ class Dropped(Processing):
 
                 file_info["guest_paths"] = guest_paths if isinstance(guest_paths, list) else [guest_paths]
                 file_info["name"] = guest_names
+
                 try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)

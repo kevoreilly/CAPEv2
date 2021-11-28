@@ -17,19 +17,11 @@ from zipfile import ZipFile, ZIP_STORED
 
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_GUEST_INIT
-from lib.cuckoo.common.constants import CUCKOO_GUEST_COMPLETED
-from lib.cuckoo.common.constants import CUCKOO_GUEST_FAILED
+from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
 from lib.cuckoo.common.exceptions import (
-    CuckooMachineError,
     CuckooGuestError,
-    CuckooOperationalError,
-    CuckooMachineSnapshotError,
-    CuckooCriticalError,
     CuckooGuestCriticalTimeout,
 )
-from lib.cuckoo.common.utils import TimeoutServer, sanitize_filename
-from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -226,7 +218,7 @@ class GuestManager(object):
         self.post("/store", files={"file": "\n".join(config)}, data=data)
 
     def upload_support_files(self, options):
-        """ Upload supporting files from zip temp directory if they exist
+        """Upload supporting files from zip temp directory if they exist
         :param options: options
         :return:
         """

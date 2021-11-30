@@ -2084,6 +2084,21 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
+    def get_tasks_status_count(self):
+        """Count all tasks in the database
+        @return: dict with status and number of tasks found example: {'failed_analysis': 2, 'running': 100, 'reported': 400}
+        """
+        session = self.Session()
+        try:
+            tasks_dict_count = session.query(Task.column, func.count(Task.column)).group_by(Task.column).all()
+            return tasks_dict_count
+        except SQLAlchemyError as e:
+            log.debug("Database error counting all tasks: {0}".format(e))
+            return 0
+        finally:
+            session.close()
+
+    @classlock
     def view_task(self, task_id, details=False):
         """Retrieve information on a task.
         @param task_id: ID of the task to query.

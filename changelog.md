@@ -1,3 +1,116 @@
+### [19-10-2021]
+* Monitor update: Monitor fix for NtSuspendThread hook issue (thanks Intezer)
+
+### CENTS - Configuration Extraction to Network Traffic Signatures
+* For full description [read](https://github.com/kevoreilly/CAPEv2/pull/605)
+
+### [17-10-2021]
+* Monitor update: Win10x64 deadlock fix & other misc fixes (see capemon repo for details)
+
+### [2-10-2021] Hacktoberfest
+* Add test module to extraction framework to ensure that they are loaded properly: CAPE, MWCP, RATDecoders, Malduck
+* Monitor update: Fixes/hardening of dumps (PE & memory) and yara scans (e.g. SquirrelWaffle)
+* Handled errors that was giving problem to use `init_yara` sometime, used in Qakbot extractor
+    * `OSError: /opt/CAPEv2/lib/cuckoo/common/blzpack_lib.so: failed to map segment from shared object`
+* Bingraph:
+    * matplotlib `forward` deprication fixed
+    * moved to external dependency, we host CAPE's version here https://github.com/CAPESandbox/binGraph.
+    * __ACTION REQUIRED__
+        * `pip3 install -U git+https://github.com/CAPESandbox/binGraph`
+
+
+### [23-09-2021]
+* Monitor update: Add CLSIDs and IsValidUrl hook for CVE-2021-40444
+
+### [22-09-2021]
+* SquirrelWaffle detection & config extraction
+* Monitor improvements:
+    * Dumping stability improvements (ScanForDisguisedPE, IsDisguisedPEHeader, DumpMemory, DumpRegion)
+    * Add config option to allow enable/disable scans/dumps while loader lock held
+    * Monitor updates: dump/scan stability improvements, configurable loader lock scans/dumps, window hook fixes
+
+### [14-09-2021]
+* Update Lockbit yara sig
+* Update Bazar yara sig
+* We spot that some extractors only works with `mwcp==3.2.1`, requirements updated
+* FLARE-CAPA v3
+
+### [11-09-2021]
+* Monitor improvements:
+    * Restrict debugger breakpoint protection to current process (NtSetContextThread)
+    * Limit "Dropped file limit reached" messages to just one per process
+
+### [02-09-2021]
+* Monitor fixes:
+    * Some dropped files being missed (file_handle_terminate())
+    * Disable ntdll write-protection for Office processes
+
+### [06-09-2021]
+* Sflock update with more PE checks, as in many cases PE has other formats strings inside
+* __ACTION REQUIRED__
+    * `pip3 install -U sflock2`
+
+### [02-09-2021]
+* Monitor: Remove case-sensitivity from check for dll path (e.g. Hancitor maldoc-spawned dlls)
+
+### [28-08-2021]
+* Monitor: revert changes to IsPeImageRaw() while crashes (e.g. BazarLoader) are investigated
+
+### [25-08-2021]
+* __ACTION REQUIRED__
+    * `pip3 install -U pyattck`
+
+### [19-08-2021]
+* Move office settings from package options to in-monitor (automatic)
+* Fix issue with tlsdump/lsass being assigned 'first process' in analyzer
+* Usage graph moved to under statistics block
+
+### [18-08-2021]
+* Monitor update: stability fixes (window hooks, ...) & debugger improvements
+
+### [11-08-2021]
+* Distributed. Master node stop picking pending tasks when `node=X` is specified and master_storage_only=False
+
+### [10-08-2021]
+* Monitor update: Remove unnecessary check in TestPERequirements causing failed PE dumps
+* Search by hash now will cover any file in CAPE that contains hash.
+    * It searches in binary/Dropped files/CAPE payloads/ProcessDump
+    * payloads: md5 <- as example not needed anymore and will be deprecated in next month
+
+### [08-08-2021]
+* Monitor update: debugger improvements
+* Loader: fix debug output for shellcode start address including offset
+* Allow start offsets into shellcode to be set for Shellcode packages (offset=x)
+
+### [07-08-2021]
+* Monitor update: fix issue causing occasional crashes on x64 when calling ScyllaGetExportDirectory on apphelp.dll
+* XLMMacroDeobfuscator moved to `on_demand`
+
+### [28-07-2021]
+* bzip archives was replaced with zip with password, default infected, can be changes in conf/web.conf -> zipped_download -> zip_pwd
+    * use 7zip or pyzipper to extract
+
+### [23-07-2021] Distribute task based on route
+* Add hability to have different exit nodes on each cape worker in cluster, that will auto pickup proper worker server based on route.
+    * To update current nodes details on main db server, do the request with pull request
+
+### [21-07-2021] [Xll support](https://www.fortinet.com/blog/threat-research/signed-sealed-and-delivered-signed-xll-file-delivers-buer-loader)
+* __ACTION REQUIRED__
+    * `pip3 install -U sflock2`
+
+### [07-07-2021] Signature testing
+* Allow to execute one specific signature, loading data from mongo or json report. Specially useful for signature based extractors.
+    * python3 utils/process.py -r ID -sig -sn cape_detected_threat
+
+### [06-07-2021] [Malduck](https://github.com/CERT-Polska/malduck)
+* Integration of part of [mwcfg-modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules) by [@c3rb3ru5d3d53c](https://github.com/c3rb3ru5d3d53c)
+
+### [05-07-2021]
+* Add support for archives in static extraction, so you don't need to submit them one by one
+
+### [20-06-2021] [enter the sandman](https://www.youtube.com/watch?v=CD-E-LDc384) @doomedraven moved to CAPEv2
+* Expect more fixes :)
+
 ### [17-06-2021]
 * Updates to processing module & monitor to allow type strings to replace old type codes
 * Updates to 'dump' Debugger action
@@ -71,11 +184,6 @@ db.createUser(
 
 ### [15-05-2021]
 * Reports download moved to main page, under file info as Strings, VirusTotal, Mitre
-
-### [06-05-2021] Docs about throttling and yara categories
-* __ACTION REQUIRED!__
-    * Update sflock library - we suggest you to keep an eye on this repo!
-        * `pip3 install --force-reinstall -U git+https://github.com/doomedraven/sflock/`
 
 ### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
 * Add button to ban user and their pending tasks on admin tab

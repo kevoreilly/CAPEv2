@@ -11,7 +11,7 @@ class Python(Package):
 
     PATHS = [
         ("HomeDrive", "Python*", "python.exe"),
-        ("SYSTEMROOT", "py.exe")
+        ("SystemRoot", "py.exe")
     ]
 
     def start(self, path):

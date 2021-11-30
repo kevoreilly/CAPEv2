@@ -13,7 +13,7 @@ random.seed(1338)
 
 
 def gen_data_file():
-    with open("CAPE/tests/utils_pretty_print_funcs_data.py", "a") as f:
+    with open("CAPEv2/tests/utils_pretty_print_funcs_data.py", "a") as f:
         f.write("# fmt: off")
 
     gen_rnd_data(pp_fn.api_name_ntcreatesection_arg_name_desiredaccess, 0x20, 0xF001F)
@@ -57,15 +57,15 @@ def gen_data_file():
 
 def gen_rnd_data(func, lower, upper, arg_name=None):
     def print_def():
-        with open("CAPE/tests/utils_pretty_print_funcs_data.py", "a") as f:
+        with open("CAPEv2/tests/utils_pretty_print_funcs_data.py", "a") as f:
             f.write("\ndef " + func.__name__ + "_data():\n    return [\n")
 
     def print_line():
-        with open("CAPE/tests/utils_pretty_print_funcs_data.py", "a") as f:
+        with open("CAPEv2/tests/utils_pretty_print_funcs_data.py", "a") as f:
             f.write('        ("' + str(i) + '", "' + val + '"),\n')
 
     def print_end():
-        with open("CAPE/tests/utils_pretty_print_funcs_data.py", "a") as f:
+        with open("CAPEv2/tests/utils_pretty_print_funcs_data.py", "a") as f:
             f.write("    ]\n\n")
 
     print_def()
@@ -94,7 +94,7 @@ if not os.environ.get("GEN_DATA", None):
     import utils_pretty_print_funcs_data as data
 else:
     try:
-        os.unlink("CAPE/tests/utils_pretty_print_funcs_data.py")
+        os.unlink("CAPEv2/tests/utils_pretty_print_funcs_data.py")
     except Exception as e:
         print(("Error in cleanup: " + str(e)))
     gen_data_file()

@@ -18,6 +18,7 @@ import shutil
 import json
 import logging
 from datetime import datetime
+
 try:
     import re2 as re
 except ImportError:
@@ -33,6 +34,7 @@ from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_co
 
 try:
     import pydeep
+
     HAVE_PYDEEP = True
 except ImportError:
     HAVE_PYDEEP = False
@@ -87,13 +89,18 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
+multi_block_config = (
+    "SquirrelWaffle",
+)
+
 class CAPE(Processing):
     """CAPE output file processing."""
 
     def detect2pid(self, pid, cape_name):
         self.results.setdefault("detections2pid", {})
         self.results["detections2pid"].setdefault(str(pid), list())
-        self.results["detections2pid"][str(pid)].append(cape_name)
+        if cape_name not in self.results["detections2pid"][str(pid)]:
+            self.results["detections2pid"][str(pid)].append(cape_name)
 
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
@@ -135,16 +142,12 @@ class CAPE(Processing):
         buf = self.options.get("buffer", BUFSIZE)
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
         if pefile_object:
-                self.results.setdefault("pefiles", {})
-                self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+            self.results.setdefault("pefiles", {})
+            self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
         # Get the file data
-        try:
-            with open(file_info["path"], "rb") as file_open:
-                file_data = file_open.read()
-        except UnicodeDecodeError as e:
-            with open(file_info["path"], "rb") as file_open:
-                file_data = file_open.read()
+        with open(file_info["path"], "rb") as file_open:
+            file_data = file_open.read()
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -161,11 +164,8 @@ class CAPE(Processing):
 
         file_info["cape_type_code"] = 0
         file_info["cape_type"] = ""
-        if metastrings != "":
-            try:
-                file_info["cape_type_code"] = int(metastrings[0])
-            except Exception as e:
-                pass
+        if metastrings and metastrings[0] and metastrings[0].isdigit():
+            file_info["cape_type_code"] = int(metastrings[0])
 
             if file_info["cape_type_code"] == TYPE_STRING:
                 if len(metastrings) > 4:
@@ -178,6 +178,8 @@ class CAPE(Processing):
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] in unpack_map:
                 file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
@@ -226,6 +228,7 @@ class CAPE(Processing):
                     else:
                         log.error("CAPE: PlugX config parsing failure - size many not be handled.")
                     append_file = False
+
             # Attempt to decrypt script dump
             if file_info["cape_type_code"] == SCRIPT_DUMP:
                 data = file_data.decode("utf-16").replace("\x00", "")
@@ -306,22 +309,23 @@ class CAPE(Processing):
             if hit["name"] == "GuLoader":
                 self.detect2pid(file_info["pid"], "GuLoader")
 
+            cape_name = hit["name"].replace("_", " ")
             tmp_config = static_config_parsers(hit["name"], file_data)
-            if tmp_config and tmp_config[hit["name"].replace("_", " ")]:
-                config.update(tmp_config)
+            if tmp_config and tmp_config.get(cape_name):
+                config.update(tmp_config[cape_name])
 
-        if type_string != "":
+        if type_string :
             log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(' ')[0], file_data)
-            if tmp_config != {}:
-                cape_name = type_string.split(' ')[0]
+            tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
+            if tmp_config:
+                cape_name = type_string.split(" ")[0]
                 log.info("CAPE: config returned for: %s", cape_name)
                 config.update(tmp_config)
 
         if cape_name:
-            if not "detections" in self.results:
+            if "detections" not in self.results:
                 if cape_name != "UPX":
-                    #ToDo list of keys
+                    # ToDo list of keys
                     self.results["detections"] = cape_name
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
@@ -334,7 +338,8 @@ class CAPE(Processing):
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
-                    if (file_info.get("entrypoint")
+                    if (
+                        file_info.get("entrypoint")
                         and file_info["entrypoint"] == cape_file["entrypoint"]
                         and file_info["cape_type_code"] == cape_file["cape_type_code"]
                         and file_info["ep_bytes"] == cape_file["ep_bytes"]
@@ -352,7 +357,16 @@ class CAPE(Processing):
             self.cape["payloads"].append(file_info)
 
         if config and config not in self.cape["configs"]:
-            self.cape["configs"].append(config)
+            if cape_name in multi_block_config and self.cape["configs"]:
+                for conf in self.cape["configs"]:
+                    if cape_name in conf:
+                        conf[cape_name].update(config[cape_name])
+            else:
+                # in case if malware name is missed it will break conf visualization
+                if cape_name not in config:
+                    config = {cape_name: config}
+                if config not in self.cape["configs"]:
+                    self.cape["configs"].append(config)
 
     def run(self):
         """Run analysis.

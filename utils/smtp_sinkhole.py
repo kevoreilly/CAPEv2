@@ -11,9 +11,9 @@ import asyncore
 import argparse
 
 import smtplib
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEBase import MIMEBase
-from email import Encoders
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 from datetime import datetime
 from smtpd import SMTPServer
@@ -58,7 +58,7 @@ class SmtpSink(SMTPServer):
                 msg["To"] = email_config.email["to"]
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(data)
-                Encoders.encode_base64(part)
+                encoders.encode_base64(part)
                 part.add_header("Content-Disposition", 'attachment; filename="cuckoo.eml"')
                 msg.attach(part)
                 server = smtplib.SMTP_SSL(email_config.email["server"], int(email_config.email["port"]))

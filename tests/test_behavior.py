@@ -9,5 +9,6 @@ from modules.processing.behavior import ParseProcessLog
 class TestParseProcessLog:
     def test_init(self):
         assert (
-            str(ParseProcessLog(log_path="CAPE/tests/test_bson.bson")) == "<ParseProcessLog log-path: 'CAPE/tests/test_bson.bson'>"
+            str(ParseProcessLog(log_path="CAPEv2/tests/test_bson.bson"))
+            == "<ParseProcessLog log-path: 'CAPEv2/tests/test_bson.bson'>"
         )

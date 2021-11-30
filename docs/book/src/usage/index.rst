@@ -15,6 +15,7 @@ This chapter explains how to use CAPE.
     packages
     results
     clean
+    rooter
     utilities - processing generated data by Virtual Machine(s)
     performance
     monitor

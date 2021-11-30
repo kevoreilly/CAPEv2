@@ -1,29 +1,28 @@
 # encoding: utf-8
 from __future__ import absolute_import
+
 import json
-import os
-import sys
-import socket
-import tarfile
 import logging
+import os
+import socket
+import sys
+from datetime import datetime
+from datetime import timedelta
 from io import BytesIO
-from datetime import datetime, timedelta
+from wsgiref.util import FileWrapper
 from zlib import decompress
 
 import requests
+from bson.objectid import ObjectId
 from django.conf import settings
-from wsgiref.util import FileWrapper
+from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-
-
-from rest_framework.response import Response
 from rest_framework.decorators import api_view
-
-from bson.objectid import ObjectId
-from django.contrib.auth.decorators import login_required
+from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
@@ -34,6 +33,7 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
@@ -66,11 +66,17 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+try:
+    zippwd = settings.ZIP_PWD
+except AttributeError:
+    zippwd = b"infected"
+
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
 repconf = Config("reporting")
 web_conf = Config("web")
+routing_conf = Config("routing")
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -280,7 +286,7 @@ def tasks_create_file(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
         # Parse a max file size to be uploaded
@@ -308,8 +314,10 @@ def tasks_create_file(request):
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             details["path"] = tmp_path
 
-            if (web_conf.uniq_submission.enabled or unique) and db.check_file_uniq(
-                File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours
+            if (
+                not request.user.is_staff
+                and (web_conf.uniq_submission.enabled or unique)
+                and db.check_file_uniq(File(tmp_path).get_sha256(), hours=web_conf.uniq_submission.hours)
             ):
                 details["errors"].append({sample.name: "Not unique, as unique option set on submit or in conf/web.conf"})
                 continue
@@ -342,13 +350,13 @@ def tasks_create_file(request):
                 try:
                     File(path).get_type()
                 except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path): "Error submitting file - bad file type"})
+                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): "Error submitting file - bad file type"})
                     continue
             else:
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(tmp_path): task_ids_tmp})
+                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
@@ -366,7 +374,9 @@ def tasks_create_file(request):
                 if callback:
                     resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
+                    ", ".join(str(x) for x in details.get("task_ids", []))
+                )
                 if callback:
                     resp["url"] = list()
                     for tid in details.get("task_ids", []):
@@ -438,7 +448,7 @@ def tasks_create_url(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
 
@@ -526,7 +536,10 @@ def tasks_create_dlnexec(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)))}
+                resp = {
+                    "error": True,
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                }
                 return Response(resp)
 
         if referrer:
@@ -564,7 +577,7 @@ def tasks_create_dlnexec(request):
 
         status, task_ids_tmp = download_file(**details)
         if status == "error":
-            details["errors"].append({os.path.basename(path): task_ids_tmp})
+            details["errors"].append({os.path.basename(path).decode("utf-8"): task_ids_tmp})
         else:
             details["task_ids"] = task_ids_tmp
 
@@ -579,7 +592,9 @@ def tasks_create_dlnexec(request):
             if len(details.get("task_ids")) == 1:
                 resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
+                    ", ".join(str(x) for x in details.get("task_ids", []))
+                )
         else:
             resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
@@ -645,7 +660,7 @@ def tasks_vtdl(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return Response(resp)
 
@@ -916,9 +931,10 @@ def tasks_list(request, offset=None, limit=None, window=None):
         task["sample"] = {}
         if row.sample_id:
             sample = db.view_sample(row.sample_id)
-            task["sample"] = sample.to_dict()
+            if sample:
+                task["sample"] = sample.to_dict()
 
-        if task["target"]:
+        if task.get("target"):
             task["target"] = convert_to_printable(task["target"])
 
         resp["data"].append(task)
@@ -978,14 +994,14 @@ def tasks_reschedule(request, task_id):
         resp["error"] = False
         resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
-        resp = {"error": True, "error_value": ("An error occured while trying to reschedule " "Task ID {0}".format(task_id))}
+        resp = {"error": True, "error_value": ("An error occured while trying to reschedule Task ID {0}".format(task_id))}
 
     return Response(resp)
 
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_delete(request, task_id):
+def tasks_delete(request, task_id, status=False):
     """
     task_id: int or string if many
     example: 1 or 1,2,3,4
@@ -1004,7 +1020,7 @@ def tasks_delete(request, task_id):
     s_deleted = list()
     f_deleted = list()
     for task in task_id:
-        check = validate_task(task)
+        check = validate_task(task, status)
         if check["error"]:
             f_deleted.append(task)
             continue
@@ -1074,26 +1090,15 @@ def tasks_report(request, task_id, report_format="json"):
         "maec": "report.maec-4.1.xml",
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
-        "litereport": "../lite/lite-report.json"
+        "litereport": "lite.json"
     }
 
-    bz_formats = {
+    report_formats = {
         "all": {"type": "-", "files": ["memory.dmp"]},
         "dropped": {"type": "+", "files": ["files"]},
-        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp"]},
-        "lite": {
-            "type": "+",
-            "files": [
-                "files.json",
-                "CAPE",
-                "files",
-                "procdump",
-                "macros",
-                "lite",
-                "shots",
-                "dump.pcap"
-            ]
-        }
+        "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
+        "lite": {"type": "+",
+                 "files": ["files.json", "CAPE", "files", "procdump", "macros", "lite", "shots", "dump.pcap"]}
     }
 
     if report_format.lower() in formats:
@@ -1114,7 +1119,9 @@ def tasks_report(request, task_id, report_format="json"):
                 content = "application/pdf"
                 ext = "pdf"
             fname = "%s_report.%s" % (task_id, ext)
-            resp = StreamingHttpResponse(FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;")
+            resp = StreamingHttpResponse(
+                FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
+            )
             resp["Content-Length"] = os.path.getsize(report_path)
             resp["Content-Disposition"] = "attachment; filename=" + fname
             return resp
@@ -1128,43 +1135,68 @@ def tasks_report(request, task_id, report_format="json"):
             resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
             return Response(resp)
 
-        fname = "%s_reports.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
-        for rep in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, rep), arcname=rep)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        if not HAVE_PYZIPPER:
+            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
+
+        fname = "%s_reports.zip" % task_id
+        parent_folder = os.path.dirname(srcdir)
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
         return resp
 
-    elif report_format.lower() in bz_formats:
-        bzf = bz_formats[report_format.lower()]
+    elif report_format.lower() in report_formats:
+        if not HAVE_PYZIPPER:
+            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
+
+        report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-                return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
-        s = BytesIO()
+            return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
         if not os.path.exists(srcdir):
             resp = {"error": True, "error_value": "Report doesn't exists"}
             return Response(resp)
 
-        for filedir in os.listdir(srcdir):
-            try:
-                if bzf["type"] == "-" and filedir not in bzf["files"]:
-                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-                if bzf["type"] == "+" and filedir in bzf["files"]:
-                    tar.add(os.path.join(srcdir, filedir), arcname=filedir)
-            except Exception as e:
-                log.error(e, exc_info=True)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + report_format.lower()
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for filedir in os.listdir(srcdir):
+                try:
+                    filepath = os.path.join(srcdir, filedir)
+                    if report_files["type"] == "-" and filedir not in report_files["files"]:
+                        if os.path.isdir(filepath):
+                            for subfile in os.listdir(filepath):
+                                zf.write(os.path.join(filepath, subfile), os.path.join(filedir, subfile))
+                        else:
+                            zf.write(filepath, filedir)
+                    if report_files["type"] == "+" and filedir in report_files["files"]:
+                        if os.path.isdir(filepath):
+                            for subfile in os.listdir(filepath):
+                                zf.write(os.path.join(filepath, subfile), os.path.join(filedir, subfile))
+                        else:
+                            zf.write(filepath, filedir)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+
+            # # exception for lite report that is under reports/lite.json
+            if report_format.lower() == "lite":
+                lite_report_path = os.path.join(srcdir, "reports", "lite.json")
+                if os.path.exists(lite_report_path):
+                    zf.write(lite_report_path, "reports/lite.json")
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
         return resp
 
     else:
@@ -1233,9 +1265,6 @@ def tasks_iocs(request, task_id, detail=None):
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
-            for x in data["target"]["file"]["yara"]:
-                for i in range(0, len(x["strings"])):
-                    x["strings"][i] = x["strings"][i].hex()
 
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:
@@ -1330,7 +1359,9 @@ def tasks_iocs(request, task_id, detail=None):
         data["process_tree"] = {
             "pid": buf["behavior"]["processtree"][0]["pid"],
             "name": buf["behavior"]["processtree"][0]["name"],
-            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
+            "spawned_processes": [
+                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
+            ],
         }
     if "dropped" in buf:
         for entry in buf["dropped"]:
@@ -1422,16 +1453,19 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return Response(resp)
 
     if screenshot == "all":
-        fname = "%s_screenshots.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for shot in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, shot), arcname=shot)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_screenshots.zip"
         return resp
 
     else:
@@ -1495,26 +1529,28 @@ def tasks_dropped(request, task_id):
         return Response(resp)
 
     else:
-        fname = "%s_dropped.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for dirfile in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
-        tar.close()
-        s.seek(0)
 
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            parent_folder = os.path.basename(srcdir)
+            for fname in os.listdir(srcdir):
+                path = os.path.join(parent_folder, fname)
+                zf.write(os.path.join(srcdir, fname), path)
+
+        mem_zip.seek(0)
         # in Mb
         dropped_max_size_limit = request.GET.get("max_size", False)
         # convert to MB
-        size = len(s.getvalue())
-        size_in_mb = int(size/1024/1024)
+        size = len(mem_zip.getvalue())
+        size_in_mb = int(size / 1024 / 1024)
         if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
             resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
             return Response(resp)
 
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_dropped.zip"
         return resp
 
 
@@ -1562,7 +1598,9 @@ def tasks_rollingsuri(request, window=60):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
-        results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1})
+        results_db.analysis.find(
+            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
+        )
     )
     resp = []
     for e in result:
@@ -1638,43 +1676,50 @@ def tasks_procmemory(request, task_id, pid="all"):
         resp = {"error": True, "error_value": "No memory dumps saved"}
         return Response(resp)
 
+    parent_folder = os.path.dirname(srcdir)
     if pid == "all":
         if not apiconf.taskprocmemory.get("all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
 
-        fname = "%s_procdumps.tar.bz2" % task_id
-        s = BytesIO()
-        tar = tarfile.open(fileobj=s, mode="w:bz2")
-        for memdump in os.listdir(srcdir):
-            tar.add(os.path.join(srcdir, memdump), arcname=memdump)
-        tar.close()
-        s.seek(0)
-        resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-        resp["Content-Length"] = str(len(s.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=" + fname
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for fname in os.listdir(srcdir):
+                zf.write(os.path.join(parent_folder, fname), fname)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
+        return resp
+
     else:
-        srcfile = srcdir + "/" + pid + ".dmp"
-        if os.path.exists(srcfile):
+        filepath = os.path.join(parent_folder, pid + ".dmp")
+        if os.path.exists(filepath):
             if apiconf.taskprocmemory.get("compress"):
-                fname = srcfile.split("/")[-1]
-                s = BytesIO()
-                tar = tarfile.open(fileobj=s, mode="w:bz2")
-                tar.add(srcfile, arcname=fname)
-                tar.close()
-                s.seek(0)
-                resp = StreamingHttpResponse(s, content_type="application/octet-stream;")
-                archive = "%s-%s_dmp.tar.bz2" % (task_id, pid)
-                resp["Content-Length"] = str(len(s.getvalue()))
-                resp["Content-Disposition"] = "attachment; filename=" + archive
+                fname = filepath.split("/")[-1]
+
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(zippwd)
+                    zf.writes(filepath, fname)
+
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                resp["Content-Length"] = len(mem_zip.getvalue())
+                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+                return resp
+
             else:
                 mime = "application/octet-stream"
                 fname = "%s-%s.dmp" % (task_id, pid)
+                srcfile = os.path.join(srcdir, pid + ".dmp")
                 resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type=mime)
                 resp["Content-Length"] = os.path.getsize(srcfile)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
         else:
-            resp = {"error": True, "error_value": "Process memory dump does not exist for " "pid %s" % pid}
+            resp = {"error": True, "error_value": "Process memory dump does not exist for pid %s" % pid}
             return Response(resp)
 
     return resp
@@ -1707,7 +1752,7 @@ def tasks_fullmemory(request, task_id):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(url.replace(":8090", ":8000") + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
+                return redirect(url + "apiv2/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             log.error(e)
 
@@ -1771,6 +1816,26 @@ def machines_list(request):
     machines = db.list_machines()
     for row in machines:
         resp["data"].append(row.to_dict())
+    return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def exit_nodes_list(request):
+
+    if not apiconf.list_exitnodes.get("enabled"):
+        resp = {"error": True, "error_value": "Exit nodes list API is disabled"}
+        return Response(resp)
+
+    resp = {}
+    resp["data"] = []
+    resp["error"] = False
+    resp["data"] += ["socks:" + sock5["name"] for sock5 in _load_socks5_operational() or []]
+    resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
+    if routing_conf.tor.enabled:
+        resp["data"].append("tor")
+    if routing_conf.inetsim.enabled:
+        resp["data"].append("inetsim")
     return Response(resp)
 
 
@@ -1885,11 +1950,6 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
-    try:
-        zippwd = settings.ZIP_PWD
-    except AttributeError:
-        zippwd = b"infected"
-
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(capepath).startswith(ANALYSIS_BASE_PATH):
@@ -1901,7 +1961,7 @@ def tasks_payloadfiles(request, task_id):
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(capepath))[2]:
+            for fname in os.listdir(capepath):
                 if len(fname) == 64:
                     filepath = os.path.join(capepath, fname)
                     with open(filepath, "rb") as f:
@@ -1928,11 +1988,6 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
-    try:
-        zippwd = settings.ZIP_PWD
-    except AttributeError:
-        zippwd = b"infected"
-
     # ToDo add all/one
 
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
@@ -1944,7 +1999,7 @@ def tasks_procdumpfiles(request, task_id):
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
-            for fname in next(os.walk(procdumppath))[2]:
+            for fname in os.listdir(procdumppath):
                 if len(fname) == 64:
                     filepath = os.path.join(procdumppath, fname)
                     if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):

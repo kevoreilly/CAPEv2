@@ -9,7 +9,7 @@ from sqlalchemy import Table
 
 def test_node():
     node = Node()
-    need_set = set(["id", "name", "url", "enabled", "ht_user", "ht_pass", "last_check", "machines"])
+    need_set = set(["id", "name", "url", "enabled", "apikey", "last_check", "machines"])
     have_set = set(dir(node))
     assert need_set & have_set == need_set
 

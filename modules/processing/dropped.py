@@ -7,8 +7,7 @@ import os
 import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
-
+from lib.cuckoo.common.utils import convert_to_printable, wide2str
 
 class Dropped(Processing):
     """Dropped files analysis."""
@@ -52,6 +51,8 @@ class Dropped(Processing):
                 try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
+
+                    filedata = wide2str(filedata)
                     if len(filedata) > buf:
                         file_info["data"] = convert_to_printable(filedata[:buf] + " <truncated>")
                     else:

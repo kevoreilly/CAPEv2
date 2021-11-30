@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 import datetime
 import os
+import pathlib
 
 import pytest
 from lib.cuckoo.common.netlog import BsonParser
@@ -13,10 +14,12 @@ from bson.binary import Binary
 
 # Might require newer pymongo, works with 3.11.4
 
+
 @pytest.fixture
 def bson_file():
     class mock_handle:
         def __init__(self, filename):
+            print(filename)
             self.file_handle = open(filename, "rb")
             self.process_log = ()
 
@@ -35,7 +38,7 @@ def bson_file():
         def read(self, num):
             return self.file_handle.read(num)
 
-    yield mock_handle(os.path.join(os.getcwd(), "tests/test_bson.bson"))
+    yield mock_handle(pathlib.Path(__file__).absolute().parent.as_posix() + "/test_bson.bson")
 
 
 class TestBsonParser:
@@ -50,9 +53,9 @@ class TestBsonParser:
         b.read_next_message()
         assert bson_file.process_log == (
             [0, 0, 1, 0, 2360, 0, 0, 0],
-            datetime.datetime(2020, 11, 6, 10, 34, 36, 359375),
+            datetime.datetime(2020, 11, 6, 9, 34, 36, 359375),
             1976,
             476,
-            b'C:\\Windows\\sysnative\\lsass.exe',
+            b"C:\\Windows\\sysnative\\lsass.exe",
             b"lsass.exe",
         )

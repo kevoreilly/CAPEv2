@@ -4,9 +4,9 @@
 
 from __future__ import absolute_import
 import datetime
-import simplejson as json
 import logging
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -16,6 +16,12 @@ try:
     import re2 as re
 except ImportError:
     import re
+
+try:
+    import orjson
+    HAVE_ORJSON = True
+except ImportError:
+    HAVE_ORJSON = False
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
@@ -45,6 +51,11 @@ class Suricata(Processing):
             item["timestamp"] = datetime.datetime.strftime(item["timestamp"], "%Y-%m-%d %H:%M:%S.%f")[:-3]
 
         return tmp
+
+    def json_default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode('utf8')
+        raise TypeError
 
     def run(self):
         """Run Suricata.
@@ -90,7 +101,9 @@ class Suricata(Processing):
         suricata["ssh_log_full_path"] = None
         suricata["dns_log_full_path"] = None
 
-        tls_items = ["fingerprint", "issuer", "version", "subject", "sni", "ja3", "serial"]
+        tls_items = [
+            "fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"
+        ]
 
         SURICATA_ALERT_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_ALERT_LOG)
         SURICATA_TLS_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_TLS_LOG)
@@ -351,8 +364,13 @@ class Suricata(Processing):
                         if file_info:
                             sfile["file_info"] = file_info
                     suricata["files"].append(sfile)
-            with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
-                drop_log.write(json.dumps(suricata["files"], indent=4))
+
+            if HAVE_ORJSON:
+                with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
+                    drop_log.write(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)) # orjson.OPT_SORT_KEYS |
+            else:
+                with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
+                    json.dump(suricata["files"], drop_log, indent=4)
 
             # Cleanup file subdirectories left behind by messy Suricata
             for d in [

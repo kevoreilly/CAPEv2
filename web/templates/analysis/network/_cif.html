@@ -1,6 +1,6 @@
 <section id="cif">
     <h4>CIF Results</h4>
-    {% if analysis.cif %}
+    {% if cif %}
         <table class="table table-striped table-bordered">
             <tr>
                 <th width="20%">Address</th>
@@ -11,18 +11,18 @@
                 <th width="5%">Assessment</th>
                 <th width="30%">Description</th>
             </tr>
-            {% for result in analysis.cif %}
-            {% if result.address %}
-            <tr>
-                <td>{{result.address}}</td>
-                <td>{{result.detecttime}}</td>
-                <td>{{result.reporttime}}</td>
-                <td>{{result.restriction}}</td>
-                <td>{{result.confidence}}</td>
-                <td>{{result.assessment}}</td>
-                <td>{{result.description}}</td>
-            </tr>
-            {% endif %}
+            {% for result in cif %}
+                {% if result.address %}
+                <tr>
+                    <td>{{result.address}}</td>
+                    <td>{{result.detecttime}}</td>
+                    <td>{{result.reporttime}}</td>
+                    <td>{{result.restriction}}</td>
+                    <td>{{result.confidence}}</td>
+                    <td>{{result.assessment}}</td>
+                    <td>{{result.description}}</td>
+                </tr>
+                {% endif %}
             {% endfor %}
         </table>
 

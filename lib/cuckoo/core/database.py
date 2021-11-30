@@ -27,10 +27,10 @@ from sflock.ident import identify as sflock_identify
 
 try:
     from sqlalchemy import create_engine, Column, event
-    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_
+    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_, not_
     from sqlalchemy import ForeignKey, Text, Index, Table, text
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+    from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
     from sqlalchemy.orm import sessionmaker, relationship, joinedload, backref
 
     Base = declarative_base()
@@ -39,7 +39,46 @@ except ImportError:
 
 
 sandbox_packages = (
-    "nsis", "cpl", "regsvr", "dll", "exe", "pdf", "pub", "doc", "xls", "ppt", "jar", "zip", "rar", "swf", "python", "msi", "ps1", "msg", "eml", "js", "html", "hta", "xps", "wsf", "mht", "doc", "vbs", "lnk", "chm", "hwp", "inp", "vbs", "js", "vbejse",
+    "nsis",
+    "cpl",
+    "reg",
+    "regsvr",
+    "dll",
+    "exe",
+    "pdf",
+    "pub",
+    "doc",
+    "xls",
+    "ppt",
+    "jar",
+    "zip",
+    "rar",
+    "swf",
+    "python",
+    "msi",
+    "ps1",
+    "msg",
+    "eml",
+    "js",
+    "html",
+    "hta",
+    "xps",
+    "wsf",
+    "mht",
+    "doc",
+    "vbs",
+    "lnk",
+    "chm",
+    "hwp",
+    "inp",
+    "vbs",
+    "js",
+    "vbejse",
+    "msbuild",
+    "sct",
+    "xslt",
+    "Shellcode",
+    "Shellcode_x64",
 )
 
 log = logging.getLogger(__name__)
@@ -51,7 +90,7 @@ results_db = pymongo.MongoClient(
     port=repconf.mongodb.port,
     username=repconf.mongodb.get("username", None),
     password=repconf.mongodb.get("password", None),
-    authSource = repconf.mongodb.get("authsource", "cuckoo")
+    authSource=repconf.mongodb.get("authsource", "cuckoo"),
 )[repconf.mongodb.db]
 
 SCHEMA_VERSION = "6dc79a3ee6e4"
@@ -67,14 +106,34 @@ TASK_FAILED_PROCESSING = "failed_processing"
 TASK_FAILED_REPORTING = "failed_reporting"
 TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
+ALL_DB_STATUSES = (
+    TASK_BANNED,
+    TASK_PENDING,
+    TASK_RUNNING,
+    TASK_DISTRIBUTED,
+    TASK_COMPLETED,
+    TASK_RECOVERED,
+    TASK_REPORTED,
+    TASK_FAILED_ANALYSIS,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_DISTRIBUTED_COMPLETED,
+)
+
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
-    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
+    "machines_tags",
+    Base.metadata,
+    Column("machine_id", Integer, ForeignKey("machines.id")),
+    Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(
-    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
+    "tasks_tags",
+    Base.metadata,
+    Column("task_id", Integer, ForeignKey("tasks.id")),
+    Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 
@@ -485,7 +544,11 @@ class Database(object, metaclass=Singleton):
             last = tmp_session.query(AlembicVersion).first()
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
-                print("DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(last.version_num, SCHEMA_VERSION))
+                print(
+                    "DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(
+                        last.version_num, SCHEMA_VERSION
+                    )
+                )
                 print(red("cd utils/db_migration/ && alembic upgrade head"))
                 sys.exit()
 
@@ -508,12 +571,14 @@ class Database(object, metaclass=Singleton):
             elif connection_string.startswith("postgres"):
                 # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocesing.
                 # See: http://www.postgresql.org/docs/9.0/static/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS
-                self.engine = create_engine(connection_string, connect_args={"sslmode": "disable"})
+                self.engine = create_engine(connection_string, connect_args={"sslmode": "disable"}, pool_pre_ping=True)
             else:
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError("Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib))
+            raise CuckooDependencyError(
+                "Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib)
+            )
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -699,31 +764,41 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, lock=True, machine=""):
+    def fetch(self, machine):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
         try:
-            if machine != "":
+            # if 64-bit machine select any pending task
+            if "x64" in self.vms_tags.get(machine, ""):
                 row = (
                     session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .filter_by(machine=machine)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    .first()
-                )
-                if not row and self.vms_tags.get(machine, False):
-                    cond = self.tasks_filters[machine]
-                    row = (
-                        session.query(Task)
-                        .options(joinedload("tags"))
                         .filter_by(status=TASK_PENDING)
                         .order_by(Task.priority.desc(), Task.added_on)
-                        .filter(cond)
+                        # distributed cape
+                        .filter(not_(Task.options.contains("node=")))
                         .first()
-                    )
+                )
+            else:
+                # 32-bit machine select only 32-bit pending tasks
+                # filter all tasks with 64-bit tag, then invert in filter
+                cond = or_(*[Task.tags.any(name="x64")])
+                row = (
+                 session.query(Task)
+                     .options(joinedload("tags"))
+                     .filter_by(status=TASK_PENDING)
+                     # distributed cape
+                     .filter(not_(Task.options.contains("node=")))
+                     .order_by(Task.priority.desc(), Task.added_on)
+                     .filter(not_(cond))
+                     .first()
+                )
+
+            if row:
+                if row.machine and machine != row.machine:
+                    return None
             else:
                 row = (
                     session.query(Task)
@@ -734,9 +809,8 @@ class Database(object, metaclass=Singleton):
             if not row:
                 return None
 
-            if lock:
-                self.set_status(task_id=row.id, status=TASK_RUNNING)
-                session.refresh(row)
+            self.set_status(task_id=row.id, status=TASK_RUNNING)
+            session.refresh(row)
 
             return row
         except SQLAlchemyError as e:
@@ -972,7 +1046,7 @@ class Database(object, metaclass=Singleton):
 
     @classlock
     def get_available_machines(self):
-        """  Which machines are available
+        """Which machines are available
         @return: free virtual machines
         """
         session = self.Session()
@@ -1040,18 +1114,27 @@ class Database(object, metaclass=Singleton):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
-            sample = Sample(
-                md5=file_md5,
-                crc32=fileobj.get_crc32(),
-                sha1=fileobj.get_sha1(),
-                sha256=fileobj.get_sha256(),
-                sha512=fileobj.get_sha512(),
-                file_size=fileobj.get_size(),
-                file_type=file_type,
-                ssdeep=fileobj.get_ssdeep(),
-                source_url=source_url,
-            )
-            session.add(sample)
+            sample = None
+            # check if hash is known already
+            try:
+                sample = session.query(Sample).filter_by(md5=file_md5).first()
+            except SQLAlchemyError as e:
+                log.debug("Error querying sample for hash: {0}".format(e))
+
+            if not sample:
+                sample = Sample(
+                    md5=file_md5,
+                    crc32=fileobj.get_crc32(),
+                    sha1=fileobj.get_sha1(),
+                    sha256=fileobj.get_sha256(),
+                    sha512=fileobj.get_sha512(),
+                    file_size=fileobj.get_size(),
+                    file_type=file_type,
+                    ssdeep=fileobj.get_ssdeep(),
+                    # parent=sample_parent_id,
+                    source_url=source_url,
+                )
+                session.add(sample)
 
             try:
                 session.commit()
@@ -1099,12 +1182,11 @@ class Database(object, metaclass=Singleton):
         tlp=None,
         static=False,
         source_url=False,
-        route = None,
-        cape = False,
-        tags_tasks = False,
-        user_id = 0,
-        username = False,
-
+        route=None,
+        cape=False,
+        tags_tasks=False,
+        user_id=0,
+        username=False,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1142,30 +1224,40 @@ class Database(object, metaclass=Singleton):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
-            sample = Sample(
-                md5=file_md5,
-                crc32=fileobj.get_crc32(),
-                sha1=fileobj.get_sha1(),
-                sha256=fileobj.get_sha256(),
-                sha512=fileobj.get_sha512(),
-                file_size=fileobj.get_size(),
-                file_type=file_type,
-                ssdeep=fileobj.get_ssdeep(),
-                parent=sample_parent_id,
-                source_url=source_url,
-            )
-            session.add(sample)
+            sample = None
+            # check if hash is known already
+            try:
+                sample = session.query(Sample).filter_by(md5=file_md5).first()
+            except SQLAlchemyError as e:
+                log.debug("Error querying sample for hash: {0}".format(e))
+
+            if not sample:
+                sample = Sample(
+                    md5=file_md5,
+                    crc32=fileobj.get_crc32(),
+                    sha1=fileobj.get_sha1(),
+                    sha256=fileobj.get_sha256(),
+                    sha512=fileobj.get_sha512(),
+                    file_size=fileobj.get_size(),
+                    file_type=file_type,
+                    ssdeep=fileobj.get_ssdeep(),
+                    parent=sample_parent_id,
+                    source_url=source_url,
+                )
+                session.add(sample)
 
             try:
                 session.commit()
             except IntegrityError:
                 session.rollback()
+                """
                 try:
                     sample = session.query(Sample).filter_by(md5=file_md5).first()
                 except SQLAlchemyError as e:
                     log.debug("Error querying sample for hash: {0}".format(e))
                     session.close()
                     return None
+                """
             except SQLAlchemyError as e:
                 log.debug("Database error adding task: {0}".format(e))
                 session.close()
@@ -1173,15 +1265,17 @@ class Database(object, metaclass=Singleton):
 
             # force a special tag for 64-bit binaries to prevent them from being
             # analyzed by default on VM types that can't handle them
-            if not machine:
-                if "PE32+" in file_type or "64-bit" in file_type:
-                    if tags:
-                        tags += ",x64"
-                    else:
-                        tags = "x64"
+            if "PE32+" in file_type or "64-bit" in file_type:
+                if tags:
+                    tags += ",x64"
+                else:
+                    tags = "x64"
 
-            task = Task(obj.file_path)
-            task.sample_id = sample.id
+            try:
+                task = Task(obj.file_path)
+                task.sample_id = sample.id
+            except OperationalError:
+                return None
 
             if isinstance(obj, PCAP) or isinstance(obj, Static):
                 # since no VM will operate on this PCAP
@@ -1272,7 +1366,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False
+        username=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1363,7 +1457,7 @@ class Database(object, metaclass=Singleton):
         route=None,
         cape=False,
         user_id=0,
-        username=False
+        username=False,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -1376,6 +1470,7 @@ class Database(object, metaclass=Singleton):
         # force auto package for linux files
         if platform == "linux":
             package = ""
+        original_options = options
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -1391,7 +1486,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode("utf8")
+                runfile = runfile.encode("utf-8")
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1402,14 +1497,16 @@ class Database(object, metaclass=Singleton):
             if static:
                 # we don't need to process extra file if we already have it and config
                 config = static_config_lookup(file)
-                if not config:
-                    config = static_extraction(file)
-                    if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username)
-                else:
+                if config:
                     task_ids.append(config["id"])
-            if not config and only_extraction is False:
+                else:
+                    config = static_extraction(file)
+                if config or static_extraction:
+                    task_ids += self.add_static(
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                    )
 
+            if not config and only_extraction is False:
                 if not package:
                     f = SflockFile.from_path(file)
                     tmp_package = sflock_identify(f)
@@ -1418,6 +1515,15 @@ class Database(object, metaclass=Singleton):
                     else:
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
+
+                # ToDo better solution? - Distributed mode here:
+                # Main node is storage so try to extract before submit to vm isn't propagated to workers
+                options = original_options
+                if static and not config and repconf.distributed.enabled:
+                    if options:
+                        options += ",dist_extract=1"
+                    else:
+                        options = "dist_extract=1"
 
                 task_id = self.add_path(
                     file_path=file.decode(),
@@ -1450,7 +1556,7 @@ class Database(object, metaclass=Singleton):
                 task_ids.append(task_id)
 
         details = {}
-        if config:
+        if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
         # this is aim to return custom data, think of this as kwargs
         return task_ids, details
@@ -1527,29 +1633,46 @@ class Database(object, metaclass=Singleton):
         user_id=0,
         username=False,
     ):
-        return self.add(
-            Static(file_path.decode()),
-            timeout,
-            package,
-            options,
-            priority,
-            custom,
-            machine,
-            platform,
-            tags,
-            memory,
-            enforce_timeout,
-            clock,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
-            parent_id,
-            tlp,
-            static,
-            user_id = user_id,
-            username = username,
-        )
+        extracted_files = demux_sample(file_path, package, options)
+        sample_parent_id = None
+        # check if len is 1 and the same file, if diff register file, and set parent
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode("utf-8")
+        if extracted_files and file_path not in extracted_files:
+            sample_parent_id = self.register_sample(File(file_path))
+            if conf.cuckoo.delete_archive:
+                os.remove(file_path)
+
+        task_ids = list()
+        # create tasks for each file in the archive
+        for file in extracted_files:
+            task_id = self.add(
+                Static(file.decode()),
+                timeout,
+                package,
+                options,
+                priority,
+                custom,
+                machine,
+                platform,
+                tags,
+                memory,
+                enforce_timeout,
+                clock,
+                shrike_url,
+                shrike_msg,
+                shrike_sid,
+                shrike_refer,
+                tlp=tlp,
+                static=static,
+                sample_parent_id=sample_parent_id,
+                user_id=user_id,
+                username=username,
+            )
+            if task_id:
+                task_ids.append(task_id)
+
+        return task_ids
 
     @classlock
     def add_url(
@@ -1576,7 +1699,7 @@ class Database(object, metaclass=Singleton):
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username = False,
+        username=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1624,11 +1747,11 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
-            route = route,
-            cape = cape,
-            tags_tasks = tags_tasks,
-            user_id = user_id,
-            username = username,
+            route=route,
+            cape=cape,
+            tags_tasks=tags_tasks,
+            user_id=user_id,
+            username=username,
         )
 
     @classlock
@@ -1713,14 +1836,19 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def check_file_uniq(self, sha256: str, hours: int=0):
+    def check_file_uniq(self, sha256: str, hours: int = 0):
         uniq = False
         session = self.Session()
         try:
             if hours and sha256:
-                date_since = datetime.now()-timedelta(hours=hours)
+                date_since = datetime.now() - timedelta(hours=hours)
                 date_till = datetime.now()
-                uniq = session.query(Task).join(Sample, Task.sample_id==Sample.id).filter(Sample.sha256==sha256, Task.added_on.between(date_since, date_till)).first()
+                uniq = (
+                    session.query(Task)
+                    .join(Sample, Task.sample_id == Sample.id)
+                    .filter(Sample.sha256 == sha256, Task.added_on.between(date_since, date_till))
+                    .first()
+                )
             else:
                 if not Database.find_sample(self, sha256=sha256):
                     uniq = False
@@ -1736,8 +1864,8 @@ class Database(object, metaclass=Singleton):
     @classlock
     def list_parents(self, parent_id):
         """
-            Retrieve tasks created by ID
-            @param parent_id: filter tasks created by parent ID
+        Retrieve tasks created by ID
+        @param parent_id: filter tasks created by parent ID
         """
         session = self.Session()
         try:
@@ -1755,9 +1883,9 @@ class Database(object, metaclass=Singleton):
     @classlock
     def list_sample_parent(self, sample_id=False, task_id=False):
         """
-            Retrieve parent sample details by sample_id or task_id
-            @param sample_id: Sample id
-            @param task_id: Task id
+        Retrieve parent sample details by sample_id or task_id
+        @param sample_id: Sample id
+        @param task_id: Task id
         """
         parent_sample = dict()
         parent = False
@@ -1769,7 +1897,10 @@ class Database(object, metaclass=Singleton):
                     parent = parent[0]
             elif task_id:
                 _, parent = (
-                    session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
+                    session.query(Task.sample_id, Sample.parent)
+                    .join(Sample, Sample.id == Task.sample_id)
+                    .filter(Task.id == task_id)
+                    .first()
                 )
 
             if parent:
@@ -1790,6 +1921,7 @@ class Database(object, metaclass=Singleton):
         limit=None,
         details=False,
         category=None,
+
         offset=None,
         status=None,
         sample_id=None,
@@ -1827,17 +1959,17 @@ class Database(object, metaclass=Singleton):
         try:
             search = session.query(Task)
             if inclide_hashes:
-                search = search.join(Sample, Task.sample_id==Sample.id)
+                search = search.join(Sample, Task.sample_id == Sample.id)
             if status:
-                search = search.filter(Task.status==status)
+                search = search.filter(Task.status == status)
             if not_status:
                 search = search.filter(Task.status != not_status)
             if category:
-                search = search.filter(Task.category==category)
+                search = search.filter(Task.category == category)
             if details:
                 search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
             if sample_id is not None:
-                search = search.filter(Task.sample_id==sample_id)
+                search = search.filter(Task.sample_id == sample_id)
             if id_before is not None:
                 search = search.filter(Task.id < id_before)
             if id_after is not None:
@@ -1857,17 +1989,29 @@ class Database(object, metaclass=Singleton):
             else:
                 search = search.order_by(Task.added_on.desc())
 
-            return search.limit(limit).offset(offset).all()
+            tasks = search.limit(limit).offset(offset).all()
+            # session.expunge_all()
+            return tasks
+        except RuntimeError as e:
+            # RuntimeError: number of values in row (1) differ from number of column processors (62)
+            log.debug("Database RuntimeError error: {e}")
+        except AttributeError as e:
+            # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
+            log.debug("Database AttributeError error: {e}")
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: {0}".format(e))
-            return []
+        except Exception as e:
+            # psycopg2.DatabaseError
+            log.exception(e)
         finally:
             session.close()
 
+        return []
+
     def minmax_tasks(self):
         """Find tasks minimum and maximum
-         @return: unix timestamps of minimum and maximum
-         """
+        @return: unix timestamps of minimum and maximum
+        """
         session = self.Session()
         try:
             _min = session.query(func.min(Task.started_on).label("min")).first()
@@ -1882,7 +2026,7 @@ class Database(object, metaclass=Singleton):
     @classlock
     def get_tlp_tasks(self):
         """
-            Retrieve tasks with TLP
+        Retrieve tasks with TLP
         """
         session = self.Session()
         try:
@@ -1980,7 +2124,7 @@ class Database(object, metaclass=Singleton):
             session.close()
         return True
 
-    #classlock
+    # classlock
     def delete_tasks(self, ids):
         session = self.Session()
         try:
@@ -2085,14 +2229,22 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                     {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
+                    tasks = results_db.analysis.find(
+                        {"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                    )
                     if tasks:
                         for task in tasks:
                             for block in task.get("CAPE", {}).get("payloads", []) or []:
                                 if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get("CAPE"),
-                                                        block["sha256"])
+                                    path = os.path.join(
+                                        CUCKOO_ROOT,
+                                        "storage",
+                                        "analyses",
+                                        str(task["info"]["id"]),
+                                        folders.get("CAPE"),
+                                        block["sha256"],
+                                    )
                                     if os.path.exists(path):
                                         sample = [path]
                                         break
@@ -2101,14 +2253,22 @@ class Database(object, metaclass=Singleton):
 
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
-                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                         {category: 1, "_id": 0, "info.id":1 })
+                        tasks = results_db.analysis.find(
+                            {category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                            {category: 1, "_id": 0, "info.id": 1},
+                        )
                         if tasks:
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category),
-                                                            block["sha256"])
+                                        path = os.path.join(
+                                            CUCKOO_ROOT,
+                                            "storage",
+                                            "analyses",
+                                            str(task["info"]["id"]),
+                                            folders.get(category),
+                                            block["sha256"],
+                                        )
                                         if os.path.exists(path):
                                             sample = [path]
                                             break
@@ -2127,6 +2287,19 @@ class Database(object, metaclass=Singleton):
                                 if sample_hash == sizes[len(sample_hash)](f).hexdigest():
                                     sample = [path]
                                     break
+
+                if sample is None:
+                    # search in Suricata files folder
+                    tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0})
+                    if tasks:
+                        for task in tasks:
+                            for item in task["suricata"]["files"] or []:
+                                path = item["file_info"]["path"]
+                                if sample_hash in path:
+                                    if os.path.exists(path):
+                                        sample = [path]
+                                        break
+
             except AttributeError:
                 pass
             except SQLAlchemyError as e:
@@ -2206,9 +2379,9 @@ class Database(object, metaclass=Singleton):
     @classlock
     def get_source_url(self, sample_id=False):
         """
-            Retrieve url from where sample was downloaded
-            @param sample_id: Sample id
-            @param task_id: Task id
+        Retrieve url from where sample was downloaded
+        @param sample_id: Sample id
+        @param task_id: Task id
         """
         source_url = False
         session = self.Session()
@@ -2229,12 +2402,16 @@ class Database(object, metaclass=Singleton):
     @classlock
     def ban_user_tasks(self, user_id: int):
         """
-            Ban all tasks submitted by user_id
-            @param user_id: user id
+        Ban all tasks submitted by user_id
+        @param user_id: user id
         """
 
         session = self.Session()
-        _ = session.query(Task).filter(Task.user_id == int(user_id)).filter(Task.status == TASK_PENDING).update(
-           {Task.status: TASK_BANNED}, synchronize_session=False)
+        _ = (
+            session.query(Task)
+            .filter(Task.user_id == int(user_id))
+            .filter(Task.status == TASK_PENDING)
+            .update({Task.status: TASK_BANNED}, synchronize_session=False)
+        )
         session.commit()
         session.close()

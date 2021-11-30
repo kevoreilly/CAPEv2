@@ -120,7 +120,7 @@ except ImportError:
         key_file.write('SECRET_KEY = "{0}"'.format(key))
 
     # Reload key.
-    from secret_key import *
+    from .secret_key import *
 
 try:
     from captcha.fields import ReCaptchaField
@@ -195,7 +195,7 @@ MIDDLEWARE = [
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django_otp.middleware.OTPMiddleware',
+    # 'django_otp.middleware.OTPMiddleware',
     # in case you want custom auth, place logic in web/web/middleware.py
     # "web.middleware.CustoAuth",
 ]
@@ -228,8 +228,8 @@ INSTALLED_APPS = [
     "users",
 
     'django_extensions',
-    'django_otp',
-    'django_otp.plugins.otp_totp',
+    # 'django_otp',
+    # 'django_otp.plugins.otp_totp',
 
     #allauth
     'django.contrib.sites',

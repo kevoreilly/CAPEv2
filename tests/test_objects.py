@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import pathlib
 import tempfile
 
 from lib.cuckoo.common.objects import Dictionary, File, ProcDump
@@ -141,7 +142,7 @@ def test_files():
     random_suffix = random_string()
 
     test_files_with_location = test_files
-    tmp_list = os.listdir(os.getcwd() + "/tests/test_objects/")
+    tmp_list = os.listdir(pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/")
 
     for index, _ in enumerate(test_files):
         sample_hash = test_files[index]["hash"]
@@ -149,9 +150,13 @@ def test_files():
         cache = [x for x in tmp_list if sample_hash in x]
         if len(cache) > 0:
             print(("Already have " + sample_hash))
-            test_files_with_location[index]["download_location"] = File(os.getcwd() + "/tests/test_objects/" + cache[0])
+            test_files_with_location[index]["download_location"] = File(
+                pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + cache[0]
+            )
         else:
-            sample_location = os.getcwd() + "/tests/test_objects/" + sample_hash + "." + random_suffix
+            sample_location = (
+                pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash + "." + random_suffix
+            )
             get_sample(hash=sample_hash, download_location=sample_location)
             test_files_with_location[index]["download_location"] = File(sample_location)
             print(("stored at " + sample_location))
@@ -197,7 +202,7 @@ class TestFiles:
     def test_get_yara(self, hello_file, yara_compiled):
         File.yara_rules = {"hello": yara_compiled}
         assert hello_file["file"].get_yara(category="hello") == [
-            {"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": [b"hello"]}
+            {"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}
         ]
 
     def test_get_yara_no_categories(self, test_files):
@@ -206,7 +211,7 @@ class TestFiles:
 
 class TestMisc:
     def test_yara_encode_string_deal_with_error(self):
-        assert File("none_existent_file")._yara_encode_string(b"\xd0\x91") == b'\xd0\x91'
+        assert File("none_existent_file")._yara_encode_string("\xd0\x91") == "\xd0\x91"
 
     def test_yara_encode_string(self):
         assert File("none_existent_file")._yara_encode_string("velociraptor") == "velociraptor"
@@ -215,13 +220,13 @@ class TestMisc:
 @pytest.fixture
 def proc_dump():
     sha2 = "d62148b0329ac911ef707d6517e83b49416306198e343b28ab71343e30fa0075"
-    location = os.getcwd() + "/tests/test_objects/" + sha2 + "." + random_string()
-    tmp_list = os.listdir(os.getcwd() + "/tests/test_objects/")
+    location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sha2 + "." + random_string()
+    tmp_list = os.listdir(pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/")
 
     cache_list = [x for x in tmp_list if sha2 in x]
     if len(cache_list) > 0:
         print(("Already have " + sha2))
-        location = os.getcwd() + "/tests/test_objects/" + cache_list[0]
+        location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + cache_list[0]
     else:
         get_sample(hash=sha2, download_location=location)
     yield sha2, location

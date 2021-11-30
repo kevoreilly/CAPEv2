@@ -75,6 +75,7 @@ POST /node
 ----------
 
 Register a new CAPE node by providing the name and the URL. Optionally the apikey if auth is enabled,
+You might need to enable ``list_exitnodes`` and ``machinelist`` in ``conf/api.conf``
 if your Node API is behing htaccess authentication::
 
     $ curl http://localhost:9003/node -F name=master -F url=http://localhost:8000/apiv2/ -F apikey=apikey
@@ -117,6 +118,8 @@ Update basic information of a CAPE node::
 
     * enabled
         False=0 or True=1 to activate or deactivate worker node
+    * exitnodes
+        exitnodes=1 - Update exit nodes list, to show on main webgui
     * apikey
         apikey for authorization
 
@@ -203,9 +206,8 @@ might make sense to only make those report(s) that you're going to use. Thus
 disable the other ones.
 
 Check also "[distributed]" section, where you can set database, path for samples,
-and few more values
-
-Activate "[compression]" to compress dump by "process.py" and save time with retrieve
+and few more values.
+*Do not* use sqlite3! Use PostgreSQL database for performance and thread safe.
 
 Register CAPE nodes
 ---------------------
@@ -272,8 +274,12 @@ Is better if you run "web" and "dist.py" as uwsgi application
 uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
 
     [uwsgi]
-        plugins = python36
+        ; you might need to adjust plugin-dir path for your system
+        ; plugins-dir = /usr/lib/uwsgi/plugins
+        plugins = python38
         callable = app
+        ; For venvs see - https://uwsgi-docs.readthedocs.io/en/latest/Python.html#virtualenv-support
+        ; virtualenv = path_to_venv
         ;change this patch if is different
         chdir = /opt/CAPEv2/utils
         master = true

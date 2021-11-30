@@ -53,7 +53,7 @@ Rooter and choosing a network routing option for your analysis**.
 Documentation on starting the ``Rooter`` may be found in the
 :ref:`cape_rooter_usage` document.
 
-Both global routing and per-analysis routing require ip forwarding to be enabled:
+Both global routing and per-analysis routing require ip forwarding to be enabled::
 
     $ echo 1 | sudo tee -a /proc/sys/net/ipv4/ip_forward
     $ sudo sysctl -w net.ipv4.ip_forward=1

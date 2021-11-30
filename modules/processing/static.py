@@ -59,7 +59,7 @@ try:
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
-    print("Missed cryptography library: pip3 install cryptography")
+    print("Missed cryptography library: pip3 install -U cryptography")
 
 try:
     from whois import whois
@@ -74,7 +74,6 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -109,13 +108,6 @@ except ImportError as e:
     HAVE_PEEPDF = False
 
 try:
-    HAVE_XLM_DEOBF = True
-    from XLMMacroDeobfuscator.deobfuscator import process_file as XLMMacroDeobf
-except ImportError:
-    print("Missed dependey XLMMacroDeobfuscator: pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git")
-    HAVE_XLM_DEOBF = False
-
-try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
     from elftools.elf.descriptions import (
@@ -144,6 +136,10 @@ if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand i
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.on_demand is False:
     from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+
+HAVE_XLM_DEOBF = False
+if processing_conf.xlsdeobf.on_demand is False:
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
 
 log = logging.getLogger(__name__)
 
@@ -233,7 +229,7 @@ class DotNETExecutable(object):
             output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
-                if not splitline or len(splitline) < 6:
+                if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
                 nameval = splitline[6].split("::")[0]
@@ -326,17 +322,20 @@ class DotNETExecutable(object):
 
         results = {}
 
-        pretime = datetime.now()
-        results["dotnet"] = {}
-        results["dotnet"]["typerefs"] = self._get_type_refs()
-        results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
-        results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
-        results["dotnet"]["customattrs"] = self._get_custom_attrs()
-        posttime = datetime.now()
-        timediff = posttime - pretime
-        self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
-
-        return results
+        try:
+            results["dotnet"] = {}
+            pretime = datetime.now()
+            results["dotnet"]["typerefs"] = self._get_type_refs()
+            results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
+            results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
+            results["dotnet"]["customattrs"] = self._get_custom_attrs()
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+            return results
+        except Exception as e:
+            log.error(e, exc_info=True)
+            return  None
 
 
 class PortableExecutable(object):
@@ -698,18 +697,42 @@ class PortableExecutable(object):
 
         return resources
 
+    def _generate_icon_dhash(self, image, hash_size = 8):
+        # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
+        image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+
+        difference = []
+
+        for row in range(hash_size):
+            for col in range(hash_size):
+                pixel_left = image.getpixel((col, row))
+                pixel_right = image.getpixel((col + 1, row))
+                difference.append(pixel_left > pixel_right)
+
+        decimal_value = 0
+        hex_string = []
+
+        for index, value in enumerate(difference):
+            if value:
+                decimal_value += 2**(index % 8)
+            if (index % 8) == 7:
+                hex_string.append(hex(decimal_value)[2:].rjust(2, '0'))
+                decimal_value = 0
+
+        return ''.join(hex_string)
+
     def _get_icon_info(self):
         """Get icon in PNG format and information for searching for similar icons
         @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified"
          image for fuzzy matching)
         """
         if not self.pe or not hasattr(self.pe, "DIRECTORY_ENTRY_RESOURCE"):
-            return None, None, None
+            return None, None, None, None
 
         try:
             idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_GROUP_ICON"] not in idx:
-                return None, None, None
+                return None, None, None, None
 
             rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
             rt_group_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
@@ -736,8 +759,8 @@ class PortableExecutable(object):
             rt_icon_idx_tmp = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_ICON"] in rt_icon_idx_tmp:
                 rt_icon_idx = rt_icon_idx_tmp.index(pefile.RESOURCE_TYPE["RT_ICON"])
-            if not rt_icon_idx:
-                return None, None, None
+            if not isinstance(rt_icon_idx, int):
+                return None, None, None, None
             rt_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_icon_idx]
             for entry in rt_icon_dir.directory.entries:
                 if entry.id == bigidx:
@@ -753,10 +776,12 @@ class PortableExecutable(object):
                     except OSError as e:
                         byteio.close()
                         log.error(e)
-                        return None, None, None
+                        return None, None, None, None
 
                     output = BytesIO()
                     img.save(output, format="PNG")
+
+                    dhash = self._generate_icon_dhash(img)
 
                     img = img.resize((8, 8), Image.BILINEAR)
                     img = img.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=2).convert("L")
@@ -774,11 +799,11 @@ class PortableExecutable(object):
                     icon = base64.b64encode(output.getvalue()).decode("utf-8")
                     output.close()
                     img.close()
-                    return icon, fullhash, simphash
+                    return icon, fullhash, simphash, dhash
         except Exception as e:
             log.error(e, exc_info=True)
 
-        return None, None, None
+        return None, None, None, None
 
     def _get_versioninfo(self):
         """Get version info.
@@ -792,29 +817,30 @@ class PortableExecutable(object):
         if not hasattr(self.pe, "VS_VERSIONINFO") and not hasattr(self.pe, "FileInfo"):
             return infos
 
-        for entry in self.pe.FileInfo:
-            try:
-                if hasattr(entry, "StringTable"):
-                    for st_entry in entry.StringTable:
-                        for str_entry in st_entry.entries.items():
-                            entry = {}
-                            entry["name"] = convert_to_printable(str_entry[0])
-                            entry["value"] = convert_to_printable(str_entry[1])
-                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                            infos.append(entry)
-                elif hasattr(entry, "Var"):
-                    for var_entry in entry.Var:
-                        if hasattr(var_entry, "entry"):
-                            entry = {}
-                            entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
-                            entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                            infos.append(entry)
-            except Exception as e:
-                log.error(e, exc_info=True)
-                continue
+        for infoentry in self.pe.FileInfo:
+            for entry in infoentry:
+                try:
+                    if hasattr(entry, "StringTable"):
+                        for st_entry in entry.StringTable:
+                            for str_entry in st_entry.entries.items():
+                                entry = {}
+                                entry["name"] = convert_to_printable(str_entry[0])
+                                entry["value"] = convert_to_printable(str_entry[1])
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                infos.append(entry)
+                    elif hasattr(entry, "Var"):
+                        for var_entry in entry.Var:
+                            if hasattr(var_entry, "entry"):
+                                entry = {}
+                                entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
+                                entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
+                                if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                infos.append(entry)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+                    continue
 
         return infos
 
@@ -900,7 +926,10 @@ class PortableExecutable(object):
         if type(signatures) is bytearray:
             signatures = bytes(signatures)
 
-        certs = backend.load_der_pkcs7_certificates(signatures)
+        try:
+            certs = backend.load_der_pkcs7_certificates(signatures)
+        except Exception as e:
+            certs = []
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()
@@ -919,13 +948,16 @@ class PortableExecutable(object):
                     cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
             except ValueError as e:
                 log.warning(e)
-            for attribute in cert.issuer:
-                cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            try:
+                for attribute in cert.issuer:
+                    cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            except ValueError as e:
+                log.warning(e)
             try:
                 for extension in cert.extensions:
-                    if extension.oid._name == "authorityKeyIdentifier":
+                    if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
-                    elif extension.oid._name == "subjectKeyIdentifier":
+                    elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
@@ -998,7 +1030,7 @@ class PortableExecutable(object):
         peresults["sections"] = self._get_sections()
         peresults["overlay"] = self._get_overlay()
         peresults["resources"] = self._get_resources()
-        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"] = self._get_icon_info()
+        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"], peresults["icon_dhash"] = self._get_icon_info()
         peresults["versioninfo"] = self._get_versioninfo()
         peresults["imphash"] = self._get_imphash()
         peresults["timestamp"] = self._get_timestamp()
@@ -1486,38 +1518,11 @@ class Office(object):
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
                 metares["DocumentType"] = indicator.name
 
-        if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
-            password = self.options.get("password", "")
-            xlm_kwargs = {
-                "file": filepath,
-                "noninteractive": True,
-                "extract_only": False,
-                "start_with_shell": False,
-                "return_deobfuscated": True,
-                "no_indent": False,
-                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
-                "day": -1,
-                "password": password,
-            }
 
-            try:
-                deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
-                if deofuscated_xlm:
-                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = dict()
-                    xlmmacro["Code"]= deofuscated_xlm
-                    if not os.path.exists(macro_folder):
-                        os.makedirs(macro_folder)
-                    macro_file = os.path.join(macro_folder, "xlm_macro")
-                    with open(macro_file, "w") as f:
-                        f.write("\n".join(deofuscated_xlm))
-                    xlmmacro["info"] = dict()
-                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                    xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
-            except Exception as e:
-                if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
-                    log.info("Workbook not found. Probably not an Excel file.")
-                else:
-                    log.error(e, exc_info=True)
+        if HAVE_XLM_DEOBF:
+            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"],  self.options.get("password", ""))
+            if tmp_xlmmacro:
+                results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
         return results
 
@@ -2565,11 +2570,10 @@ class EncodedScriptFile(object):
 
         o = source.index(start) + len(start) + 8
         end = source.index(end) - 8
-        c, m, r = 0, 0, []
+        c, m, r = bytes([]), 0, []
 
         while o < end:
             ch = source[o]
-            print(ch, "ch")
             if source[o] == 64: # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
@@ -2582,11 +2586,10 @@ class EncodedScriptFile(object):
                 r.append(ch)
             o = o + 1
 
-        #if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 8]))[0]:
         if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
-        return "".join(chr(ch) for ch in r)
+        return b"".join(ch for ch in r).decode("latin-1")
 
 
 class WindowsScriptFile(object):
@@ -2647,7 +2650,7 @@ class Static(Processing):
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 static = PortableExecutable(self.file_path, self.results).run()
-                if static and "Mono" in thetype:
+                if static and "Mono" in File(self.file_path).get_content_type():
                     static.update(DotNETExecutable(self.file_path, self.results).run())
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()

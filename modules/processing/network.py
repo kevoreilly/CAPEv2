@@ -11,6 +11,7 @@ import tempfile
 import logging
 import binascii
 import dns.resolver
+import traceback
 from collections import OrderedDict
 from urllib.parse import urlunparse
 from hashlib import md5, sha1, sha256
@@ -58,7 +59,8 @@ HAVE_HTTPREPLAY = False
 try:
     import httpreplay
     import httpreplay.cut
-    if httpreplay.__version__ == '0.3':
+
+    if httpreplay.__version__ == "0.3":
         HAVE_HTTPREPLAY = True
 except ImportError:
     print("Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
@@ -102,9 +104,11 @@ if enabled_ip_passlist and ip_passlist_file:
     with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
         ip_passlist = set(f.read().split("\n"))
 
+
 class Pcap:
     """Reads network data from PCAP file."""
-    ssl_ports = 443,
+
+    ssl_ports = (443,)
 
     def __init__(self, filepath, ja3_fprints, options):
         """Creates a new instance.
@@ -164,7 +168,7 @@ class Pcap:
         # Is DNS recording coming from allowed NS server.
         if not self.known_dns:
             pass
-        elif (conn.get("src") in self.known_dns or conn.get("dst") in self.known_dns):
+        elif conn.get("src") in self.known_dns or conn.get("dst") in self.known_dns:
             pass
         else:
             return False
@@ -491,7 +495,7 @@ class Pcap:
                 new_answers = set((i["type"], i["data"]) for i in query["answers"]) - self.dns_answers
                 self.dns_answers.update(new_answers)
                 self.dns_requests[reqtuple]["answers"] += [dict(type=i[0], data=i[1]) for i in new_answers]
-            #else:
+            # else:
             #    print(query)
         return True
 
@@ -615,10 +619,12 @@ class Pcap:
             return
 
         # Extract the server random and the session id.
-        self.tls_keys.append({
-            "server_random": binascii.b2a_hex(record.data.random),
-            "session_id": binascii.b2a_hex(record.data.session_id),
-        })
+        self.tls_keys.append(
+            {
+                "server_random": binascii.b2a_hex(record.data.random),
+                "session_id": binascii.b2a_hex(record.data.session_id),
+            }
+        )
 
     def _reassemble_smtp(self, conn, data):
         """Reassemble a SMTP flow.
@@ -652,7 +658,7 @@ class Pcap:
     def _add_irc(self, conn, tcpdata):
         """
         Adds an IRC communication.
-	    @param conn: TCP connection info.
+            @param conn: TCP connection info.
         @param tcpdata: TCP data in flow
         """
 
@@ -747,14 +753,19 @@ class Pcap:
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data)
                         src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
-                        if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
+                        if not (
+                            (dst, dport, src, sport) in self.tcp_connections_seen
+                            or (src, sport, dst, dport) in self.tcp_connections_seen
+                        ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
                         self.alive_hosts[dst, dport] = True
                     else:
                         ipconn = (
-                            connection["src"], tcp.sport,
-                            connection["dst"], tcp.dport,
+                            connection["src"],
+                            tcp.sport,
+                            connection["dst"],
+                            tcp.dport,
                         )
                         seqack = self.tcp_connections_dead.get(ipconn)
                         if seqack == (tcp.seq, tcp.ack):
@@ -774,7 +785,10 @@ class Pcap:
                         self._udp_dissect(connection, udp.data)
 
                     src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
-                    if not ((dst, dport, src, sport) in self.udp_connections_seen or (src, sport, dst, dport) in self.udp_connections_seen):
+                    if not (
+                        (dst, dport, src, sport) in self.udp_connections_seen
+                        or (src, sport, dst, dport) in self.udp_connections_seen
+                    ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
 
@@ -798,20 +812,31 @@ class Pcap:
         # Post processors for reconstructed flows.
         self._process_smtp()
 
-        # Remove hosts that have an IP which correlate to a passlisted domain
-
         # Build results dict.
-        self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
-        self.results["domains"] = self.unique_domains
-        self.results["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
-        self.results["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
-        self.results["icmp"] = self.icmp_requests
-        self.results["http"] = list(self.http_requests.values())
-        self.results["dns"] = list(self.dns_requests.values())
-        self.results["smtp"] = self.smtp_requests
-        self.results["irc"] = self.irc_requests
+        if not self.options.get("sorted", False):
+            self.results["hosts"] = self._enrich_hosts(self.unique_hosts)
+            self.results["domains"] = self.unique_domains
+            self.results["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
+            self.results["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
+            self.results["icmp"] = self.icmp_requests
+            self.results["http"] = list(self.http_requests.values())
+            self.results["dns"] = list(self.dns_requests.values())
+            self.results["smtp"] = self.smtp_requests
+            self.results["irc"] = self.irc_requests
 
-        self.results["dead_hosts"] = []
+            self.results["dead_hosts"] = []
+        else:
+            self.results["sorted"] = dict()
+            self.results["sorted"]["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
+            self.results["sorted"]["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
+
+            if enabled_passlist:
+                for keyword in ("tcp", "udp"):
+                    for host in self.results["sorted"][keyword]:
+                        for delip in ip_passlist:
+                            if delip == host["src"] or delip == host["dst"]:
+                                self.results["sorted"][keyword].remove(host)
+            return self.results
 
         # Report each IP/port combination as a dead host if we've had to retry
         # at least 3 times to connect to it and if no successful connections
@@ -824,6 +849,7 @@ class Pcap:
             if (ip, port) not in self.results["dead_hosts"]:
                 self.results["dead_hosts"].append((ip, port))
 
+        # Remove hosts that have an IP which correlate to a passlisted domain
         if enabled_passlist:
 
             for host in self.results["hosts"]:
@@ -838,6 +864,7 @@ class Pcap:
                             self.results[keyword].remove(host)
 
         return self.results
+
 
 class Pcap2(object):
     """Interpret the PCAP file through the httpreplay library which parses
@@ -861,17 +888,13 @@ class Pcap2(object):
         }
 
     def run(self):
-        results = {
-            "http_ex": [],
-            "https_ex": [],
-            "smtp_ex": []
-        }
+        results = {"http_ex": [], "https_ex": [], "smtp_ex": []}
 
         if not os.path.exists(self.network_path):
             os.makedirs(self.network_path, exist_ok=True)
 
         if not os.path.exists(self.pcap_path):
-            log.warning("The PCAP file does not exist at path \"%s\".", self.pcap_path)
+            log.warning('The PCAP file does not exist at path "%s".', self.pcap_path)
             return {}
 
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
@@ -879,8 +902,13 @@ class Pcap2(object):
 
         try:
             l = sorted(r.process(), key=lambda x: x[1])
-        except TypeError:
-            log.warning("You running old httpreplay: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
+        except TypeError as e:
+            log.warning("You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(e))
+            traceback.print_exc()
+            return results
+        except Exception as e:
+            log.error(f"httpreplay error: {e}")
+            traceback.print_exc()
             return results
 
         for s, ts, protocol, sent, recv in l:
@@ -891,8 +919,8 @@ class Pcap2(object):
                 if is_safelisted_ip(dstip):
                     continue
                 """
-                #ToDo rewrite the whole safelists
-                #ip or host
+                # ToDo rewrite the whole safelists
+                # ip or host
 
                 if dstip in ip_passlist:
                     continue
@@ -908,26 +936,26 @@ class Pcap2(object):
                         return False
 
             if protocol == "smtp":
-                results["smtp_ex"].append({
-                    "src": srcip,
-                    "dst": dstip,
-                    "sport": srcport,
-                    "dport": dstport,
-                    "protocol": protocol,
-                    "req": {
-                        "hostname": sent.hostname,
-                        "mail_from": sent.mail_from,
-                        "mail_to": sent.mail_to,
-                        "auth_type": sent.auth_type,
-                        "username": sent.username,
-                        "password": sent.password,
-                        "headers": sent.headers,
-                        "mail_body": sent.message
-                    },
-                    "resp": {
-                        "banner": recv.ready_message
+                results["smtp_ex"].append(
+                    {
+                        "src": srcip,
+                        "dst": dstip,
+                        "sport": srcport,
+                        "dport": dstport,
+                        "protocol": protocol,
+                        "req": {
+                            "hostname": sent.hostname,
+                            "mail_from": sent.mail_from,
+                            "mail_to": sent.mail_to,
+                            "auth_type": sent.auth_type,
+                            "username": sent.username,
+                            "password": sent.password,
+                            "headers": sent.headers,
+                            "mail_body": sent.message,
+                        },
+                        "resp": {"banner": recv.ready_message},
                     }
-                })
+                )
 
             if protocol == "http" or protocol == "https":
                 response = b""
@@ -939,17 +967,18 @@ class Pcap2(object):
 
                 status = int(getattr(recv, "status", 0))
                 tmp_dict = {
-                    "src": srcip, "sport": srcport,
-                    "dst": dstip, "dport": dstport,
+                    "src": srcip,
+                    "sport": srcport,
+                    "dst": dstip,
+                    "dport": dstport,
                     "protocol": protocol,
                     "method": sent.method,
                     "host": sent.headers.get("host", dstip),
                     "uri": sent.uri,
                     "status": status,
-
                     # We'll keep these fields here for now.
-                    "request": request,#.decode("latin-1"),
-                    "response": response,#.decode("latin-1"),
+                    "request": request,  # .decode("latin-1"),
+                    "response": response,  # .decode("latin-1"),
                 }
 
                 if status and status not in (301, 302):
@@ -981,12 +1010,12 @@ class Pcap2(object):
                         try:
                             c = 0
                             for i in range(3):
-                                data = recv.body[c:c+16]
+                                data = recv.body[c : c + 16]
                                 if not data:
                                     continue
-                                s1 = " ".join([f"{i:02x}" for i in data]) # hex string
-                                s1 = s1[0:23] + " " + s1[23:]          # insert extra space between groups of 8 hex values
-                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data]) # ascii string; chained comparison
+                                s1 = " ".join([f"{i:02x}" for i in data])  # hex string
+                                s1 = s1[0:23] + " " + s1[23:]  # insert extra space between groups of 8 hex values
+                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data])  # ascii string; chained comparison
                                 resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
                                 c += 16
                         except Exception as e:
@@ -1003,6 +1032,7 @@ class Pcap2(object):
                 results["%s_ex" % protocol].append(tmp_dict)
 
         return results
+
 
 class NetworkAnalysis(Processing):
     """Network analysis."""
@@ -1023,7 +1053,7 @@ class NetworkAnalysis(Processing):
                         if "ja3_hash" in ja3 and "desc" in ja3:
                             ja3_fprints[ja3["ja3_hash"]] = ja3["desc"]
                     except Exception as e:
-                        pass
+                        print(e)
 
         return ja3_fprints
 
@@ -1045,33 +1075,21 @@ class NetworkAnalysis(Processing):
         ja3_fprints = self._import_ja3_fprints()
 
         results = {}
-        # Save PCAP file hash.
-        if os.path.exists(self.pcap_path):
-            results["pcap_sha256"] = File(self.pcap_path).get_sha256()
 
-        """
+        results["pcap_sha256"] = File(self.pcap_path).get_sha256()
+        results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
+
         if proc_cfg.network.sort_pcap:
             sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
-            # Sorted PCAP file hash.
             if os.path.exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
-                pcap_path = sorted_path
-            else:
-                pcap_path = self.pcap_path
-        else:
-            pcap_path = self.pcap_path
-        """
-        pcap_path = self.pcap_path
-        results.update(Pcap(pcap_path, ja3_fprints, self.options).run())
-        # buf = Pcap(self.pcap_path, ja3_fprints).run()
-        # results = Pcap(sorted_path, ja3_fprints).run()
-        # results["http"] = buf["http"]
-        # results["dns"] = buf["dns"]
+                self.options["sorted"] = True
+                results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if os.path.exists(pcap_path) and HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY:
             try:
-                p2 = Pcap2(pcap_path, self.get_tlsmaster(), self.network_path).run()
+                p2 = Pcap2(self.pcap_path, self.get_tlsmaster(), self.network_path).run()
                 if p2:
                     results.update(p2)
             except:
@@ -1087,11 +1105,22 @@ class NetworkAnalysis(Processing):
             return tlsmaster
 
         for entry in open(dump_tls_log, "r").readlines() or []:
-            client_random, server_random, master_secret = entry.split(",")
-            client_random = binascii.a2b_hex(client_random.split(":")[-1].strip())
-            server_random = binascii.a2b_hex(server_random.split(":")[-1].strip())
-            master_secret = binascii.a2b_hex(master_secret.split(":")[-1].strip())
-            tlsmaster[client_random, server_random] = master_secret
+            try:
+                for m in re.finditer(
+                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                    entry,
+                    re.I,
+                ):
+                    try:
+                        client_random = binascii.a2b_hex(m.group("client_random").strip())
+                        server_random = binascii.a2b_hex(m.group("server_random").strip())
+                        master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                        tlsmaster[client_random, server_random] = master_secret
+                    except Exception as e:
+                        log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, m.group(0)))
+            except Exception as e:
+                log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, entry))
+
         return tlsmaster
 
 
@@ -1114,6 +1143,7 @@ def conn_from_flowtuple(ft):
     """Convert the flow tuple into a dictionary (suitable for JSON)"""
     sip, sport, dip, dport, offset, relts = ft
     return {"src": sip, "sport": sport, "dst": dip, "dport": dport, "offset": offset, "time": relts}
+
 
 # input_iterator should be a class that also supports writing so we can use it for the temp files
 # this code is mostly taken from some SO post, can't remember the url though
@@ -1234,7 +1264,7 @@ def flowtuple_from_raw(raw, linktype=1):
             sport, dport = 0, 0
 
     else:
-        sip, dip, proto = 0, 0, -1
+        sip, dip, proto = "0", "0", -1
         sport, dport = 0, 0
 
     flowtuple = (sip, dip, sport, dport, proto)

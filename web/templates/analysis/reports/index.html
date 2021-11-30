@@ -48,5 +48,11 @@
             <td style="text-align: right;"><a class="btn btn-secondary btn-small" href="{% url "filereport" analysis.info.id "misp" %}">Download</a></td>
         </tr>
       {% endif %}
+      {% if analysis.info.has_cents_rules %}
+        <tr>
+            <th>CENTS Ruleset</th>
+            <td style="text-align: right;"><a class="btn btn-secondary btn-small" href="{% url "filereport" analysis.info.id "cents" %}">Download</a></td>
+        </tr>
+      {% endif %}
     </table>
 </div>

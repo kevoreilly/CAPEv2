@@ -16,8 +16,9 @@ from django.template.defaultfilters import register
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""
-    return list(filter(None, value.decode("utf-8").split("\r\n")))
-
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return list(filter(None, value.split("\r\n")))
 
 @register.filter("filename")
 def filename(value):
@@ -66,15 +67,6 @@ def get_detection_by_pid(dictionary, key):
 @register.filter(name="dehex")
 def dehex(value):
     return re.sub(r"\\x[0-9a-f]{2}", "", value)
-
-
-@register.filter(name="stats_total")
-def stats_total(value):
-    total = float()
-    for item in value:
-        total += item["time"]
-
-    return "{:.2f}".format(total)
 
 
 @register.filter(name="sort")
@@ -214,7 +206,7 @@ def malware_config(obj, *args, **kwargs):
         if obj:
             if len(obj) > 1:
                 _print(0, '\n')
-                _print(level + 0, '<ul style="columns: 4;">\n')
+                _print(level + 0, '<ul style="margin: 0;columns: 4;">\n')
                 for item in obj:
                     _print(level + 1, '<li>' + malware_config(item, level=level + 2) + '</li>\n')
                 _print(level + 0, '</ul>\n')
@@ -222,6 +214,6 @@ def malware_config(obj, *args, **kwargs):
             else:
                 result.write(malware_config(obj[0]))
     else:
-        result.write(escape(str(obj)))
+        result.write('<pre style="margin: 0">' + escape(str(obj)) + "</pre>")
 
     return mark_safe(result.getvalue())

@@ -13,8 +13,8 @@ from apiv2 import views
 urlpatterns = [
     url(r"^$", views.index, name="apiv2"),
     # disabled due to token auth
-    #url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    # url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path("api-token-auth/", obtain_auth_token, name="api_token_auth"),
     url(r"^tasks/create/file/$", views.tasks_create_file),
     url(r"^tasks/stats/$", views.task_x_hours),
     url(r"^tasks/create/url/$", views.tasks_create_url),
@@ -32,6 +32,7 @@ urlpatterns = [
     url(r"^tasks/view/(?P<task_id>\d+)/$", views.tasks_view),
     url(r"^tasks/reschedule/(?P<task_id>\d+)/$", views.tasks_reschedule),
     url(r"^tasks/delete/(?P<task_id>\d+)/$", views.tasks_delete),
+    url(r"^tasks/delete/(?P<task_id>\d+)/(?P<status>\w+)/$", views.tasks_delete),
     url(r"^tasks/delete_many/$", views.tasks_delete_many),
     url(r"^tasks/status/(?P<task_id>\d+)/$", views.tasks_status),
     url(r"^tasks/get/report/(?P<task_id>\d+)/$", views.tasks_report),
@@ -67,4 +68,5 @@ urlpatterns = [
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
     # url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     url(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),
+    url(r"^exitnodes/$", views.exit_nodes_list),
 ]

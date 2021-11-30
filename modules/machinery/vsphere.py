@@ -3,13 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import requests
+import sys
 import logging
 import time
 import random
 import re
-
 from datetime import datetime, timedelta
+
+import requests
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
@@ -23,6 +24,7 @@ try:
     HAVE_PYVMOMI = True
 except ImportError:
     HAVE_PYVMOMI = False
+    sys.exit("Missed library: pip3 install pyvmomi")
 
 log = logging.getLogger(__name__)
 logging.getLogger("requests").setLevel(logging.WARNING)

@@ -65,16 +65,3 @@ screenshot below, but you may need to tweak these times for your environment.
 
     .. image:: ../../_images/screenshots/fog_scheduled_job.png
         :align: center
-
-
-Setup using VMWare (Bonus!)
-===========================
-
-Traditionally CAPE requires to be running some sort of virtualization software
-(e.g. KVM, VMware, Virtualbox, etc).
-The physical machine manager will also work with other virtual machines, so long
-as they are configured to revert to a snapshot on shutdown/reboot, and running
-the agent.py script.
-A use case for this functionality would be to run the CAPE server and the
-guest sandboxes each in their own virtual machine on a single host, allowing for
-development/testing of CAPE without requiring a dedicated Linux host.

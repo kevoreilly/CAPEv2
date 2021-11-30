@@ -14,6 +14,7 @@ import logging.handlers
 
 try:
     import yara
+
     if not int(yara.__version__[0]) >= 4:
         raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
 except ImportError:
@@ -79,12 +80,14 @@ def check_webgui_mongo():
                 port=repconf.mongodb.port,
                 username=repconf.mongodb.get("username", None),
                 password=repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authsource", "cuckoo")
+                authSource=repconf.mongodb.get("authsource", "cuckoo"),
             )
             # ToDo check how to give user permission to read this without admin
             # conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
+            log.warning(
+                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration"
+            )
             bad = True
         finally:
             conn.close()
@@ -105,6 +108,9 @@ def check_configs():
     for config in configs:
         if not os.path.exists(config):
             raise CuckooStartupError("Config file does not exist at path: {0}".format(config))
+
+    if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
+        log.error("Bad resultserver address. You need to listen on virtual machines range. Ex: 10.0.0.1 not 127.0.0.1")
 
     return True
 
@@ -156,21 +162,26 @@ class ConsoleHandler(logging.StreamHandler):
 
 
 def check_linux_dist():
-    ubuntu_versions = ("18.04", "20.04")
+    ubuntu_versions = ("18.04", "20.04", "22.04")
     try:
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
-            print(f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}")
+            log.info(
+                f"[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS {ubuntu_versions}"
+            )
     except AttributeError:
         pass
+
 
 def init_logging():
     """Initializes logging."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
-    if cuckoo.logging.enabled:
-        days = cuckoo.logging.backup_count or 7
-        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days))
+    if cuckoo.log_rotation.enabled:
+        days = cuckoo.log_rotation.backup_count or 7
+        fh = logging.handlers.TimedRotatingFileHandler(
+            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
+        )
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -283,10 +294,10 @@ def init_yara():
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
                 break
             except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar")[0]+".yar"
+                bad_rule = str(e).split(".yar")[0] + ".yar"
                 log.debug(f"Trying to delete bad rule: {bad_rule}")
                 if os.path.basename(bad_rule) in indexed:
-                    for k,v in rules.items():
+                    for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
@@ -300,13 +311,14 @@ def init_yara():
                 break
 
         if category == "memory":
-            mem_rules = yara.compile(filepaths=rules, externals=externals)
-            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-            """
-            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
-                for filename in sorted(indexed):
-                    f.write('include "%s"\n' % os.path.join(category_root, filename))
-            """
+            try:
+                mem_rules = yara.compile(filepaths=rules, externals=externals)
+                mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            except yara.Error as e:
+                if "could not open file" in str(e):
+                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
+                else:
+                    log.error(e)
 
         indexed = sorted(indexed)
         for entry in indexed:
@@ -314,6 +326,7 @@ def init_yara():
                 log.debug("\t `-- %s %s", category, entry)
             else:
                 log.debug("\t |-- %s %s", category, entry)
+
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can
@@ -416,13 +429,21 @@ def init_routing():
                 rooter("flush_rttable", entry.rt_table)
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
+    # If we are storage and webgui only but using as default route one of the workers exitnodes
+    if repconf.distributed.master_storage_only:
+        return
+
     # Check whether the default VPN exists if specified.
     if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
         if not routing.vpn.enabled:
-            raise CuckooStartupError("A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in vpn.conf")
+            raise CuckooStartupError(
+                "A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in routing.conf"
+            )
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
-            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field")
+            raise CuckooStartupError(
+                "The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field"
+            )
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":

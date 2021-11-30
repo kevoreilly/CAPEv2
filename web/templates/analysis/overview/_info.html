@@ -55,7 +55,7 @@
                     {% if analysis.info.options %}
                         <th>Options</th>
                     {% endif %}
-                    {% if analysis.distributed %}
+                    {% if user.is_staff and analysis.distributed %}
                         <th>Distributed</th>
                     {% endif %}
                     <th>Log</th>
@@ -74,18 +74,18 @@
                     {% if analysis.info.options %}
                         <td><a class="accordion-toggle" data-toggle="collapse" href="#options">Show Options</a></td>
                     {% endif %}
-                    {% if analysis.distributed %}
+                    {% if user.is_staff and analysis.distributed %}
                         <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
                     {% endif %}
                     <td><a class="accordion-toggle" data-toggle="collapse" href="#info-log">Show Log</a></td>
                     {% if config.malscore and analysis.malscore %}
                     <td>
                         {% if analysis.malscore > 6.0 %}
-                           <span class="label badge-danger">{{analysis.malscore|floatformat:1}}</span>
+                           <span class="badge badge-danger">{{analysis.malscore|floatformat:1}}</span>
                             {% elif analysis.malscore > 2.0 %}
-                            <span class="label badge-warning">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="badge badge-warning">{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                            <span class="label badge-success">{{analysis.malscore|floatformat:1}}</span>
+                            <span class="badge badge-success">{{analysis.malscore|floatformat:1}}</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -118,7 +118,7 @@
             <div class="panel-heading">
                 <h4 class="panel-title">Machine</h4>
             </div>
-            <table class="table table-striped table-bordered">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Name</th>

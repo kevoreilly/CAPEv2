@@ -12,6 +12,7 @@ from tcr_misc import random_string
 from lib.cuckoo.common import utils
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
+
 def test_free_space_monitor(mocker):
     # Will not enter main loop
     utils.free_space_monitor(return_value=True)
@@ -75,10 +76,10 @@ class TestFileOps:
 
 class TestConvertChar:
     def test_utf(self):
-        assert "\\xe9", utils.convert_char(u"\xe9")
+        assert "\\xe9", utils.convert_char("\xe9")
 
     def test_digit(self):
-        assert "9" == utils.convert_char(u"9")
+        assert "9" == utils.convert_char("9")
 
     def test_literal(self):
         assert "e" == utils.convert_char("e")
@@ -92,10 +93,10 @@ class TestConvertChar:
 
 class TestConvertToPrintable:
     def test_utf(self):
-        assert "\\xe9" == utils.convert_to_printable(u"\xe9")
+        assert "\\xe9" == utils.convert_to_printable("\xe9")
 
     def test_digit(self):
-        assert "9" == utils.convert_to_printable(u"9")
+        assert "9" == utils.convert_to_printable("9")
 
     def test_literal(self):
         assert "e" == utils.convert_to_printable("e")
@@ -112,10 +113,10 @@ class TestConvertToPrintable:
 
 class TestIsPrintable:
     def test_utf(self):
-        assert not utils.is_printable(u"\xe9")
+        assert not utils.is_printable("\xe9")
 
     def test_digit(self):
-        assert utils.is_printable(u"9")
+        assert utils.is_printable("9")
 
     def test_literal(self):
         assert utils.is_printable("e")
@@ -132,7 +133,7 @@ class TestIsPrintable:
 
 class TestConvertFilenameChar:
     def test_convert_filename_char(self):
-        assert utils.convert_filename_char(u"\u00A3") == "\\xa3"
+        assert utils.convert_filename_char("\u00A3") == "\\xa3"
 
     def test_convert_filename_char_allowed(self):
         assert utils.convert_filename_char("!") == "!"

@@ -159,3 +159,19 @@ Practical examples
         condition:
             ($golden_ratio) and any of ($crypto32*)
     }
+
+Debugger to disassembler
+========================
+
+* Highlight CFG in disassembler:
+
+.. code-block:: bash
+
+    1 Install lighthouse plugin from
+        pip3 install git+https://github.com/kevoreilly/lighthouse
+    2 Load payload into IDA
+    3 Check image base matches that from debugger log (if not rebase)
+    4 Go to File -> Load File -> Code coverage file and load debugger logfile (ignore any warnings - any address outside image base causes these)
+
+.. image:: ../_images/screenshots/debugger2disassembler.png
+    :align: center

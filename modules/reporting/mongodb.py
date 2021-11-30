@@ -119,18 +119,22 @@ class MongoDB(Report):
     def loop_saver(self, report):
         keys = list(report.keys())
         if "info" not in keys:
+            log.error("Missing 'info' key: %r", keys)
             return
         if "_id" in keys:
             keys.remove("_id")
 
-        obj_id = self.db.analysis.insert_one(report["info"])
+        obj_id = self.db.analysis.insert_one({"info": report["info"]})
         keys.remove("info")
 
         for key in keys:
             try:
-                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+                self.db.analysis.update_one(
+                    {"_id": obj_id.inserted_id},
+                    {"$set": {key: report[key]}},
+                    bypass_document_validation=True)
             except InvalidDocument as e:
-                log.info("Investigate your key: {} - {}".format(key, str(key)))
+                log.warning("Investigate your key: %r", key)
 
     def run(self, results):
         """Writes report.
@@ -215,8 +219,8 @@ class MongoDB(Report):
                     report["f_mlist_cnt"] = len(entry["data"])
 
         # Other info we want quick access to from the web UI
-        if results.get("virustotal", False) and "positives" in results["virustotal"] and "total" in results["virustotal"]:
-            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"])
+        if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
+            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positive"], results["virustotal"]["total"])
         if results.get("suricata", False):
 
             keywords = ("tls", "alerts", "files", "http", "ssh", "dns")

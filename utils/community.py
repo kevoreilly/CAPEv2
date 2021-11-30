@@ -34,24 +34,62 @@ def get_signatures_modification_dict() -> dict:
         return json.load(f)
 
 
-def flare_capa_rules(zip_path: str = None):
-    dest_folder = os.path.join(CUCKOO_ROOT, "data")
+def flare_capa_rules(offline_dest_folder: str = None):
+    signature_urls = (
+        'https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
+        'https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
+        'https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig',
+    )
     try:
-        if not zip_path:
+        if not offline_dest_folder:
             http = urllib3.PoolManager()
-            data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
+            data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
+            dest_folder = os.path.join(CUCKOO_ROOT, "data")
             zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         else:
-            with open(zip_path, 'rb') as flare_file:
-                zipfile.ZipFile(BytesIO(flare_file.read())).extractall(path=dest_folder)
-
+            dest_folder = offline_dest_folder
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
-        print("[+] FLARE CAPA rules installed")
+
+        # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
+        capa_sigs_path = os.path.join(dest_folder, "capa-signatures")
+        if not os.path.isdir(capa_sigs_path):
+            os.mkdir(capa_sigs_path)
+        if not offline_dest_folder:
+            for url in signature_urls:
+                signature_name = url.split('/')[-1]
+                with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), 'wb') as out_sig:
+                    shutil.copyfileobj(sig, out_sig)
+
+        print("[+] FLARE CAPA rules/signatures installed")
     except Exception as e:
         print(e)
 
+def mitre():
+    """ Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
+    try:
+        from pyattck import Attck
+    except ImportError:
+        print("Missed dependency: install pyattck library, see requirements for proper version")
+        return
+
+    mitre = Attck(
+        nested_subtechniques=True,
+        save_config=False,
+        use_config=False,
+        config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+        data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+        enterprise_attck_json="https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
+        pre_attck_json="https://raw.githubusercontent.com/mitre/cti/master/pre-attack/pre-attack.json",
+        mobile_attck_json="https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
+        nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
+        generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
+        generated_nist_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
+     )
+
+    print("[+] Updating MITRE datasets")
+    mitre.update()
 
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
@@ -156,7 +194,8 @@ def main():
                         required=False)
     parser.add_argument("--file", help="Specify a local copy of a community .zip file", action="store", default=False,
                         required=False)
-    parser.add_argument("-cr", "--capa-rules", help="Download capa rules", action="store_true", default=False,
+    parser.add_argument("-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False)
+    parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False,
                         required=False)
     parser.add_argument("-crp", "--capa-rules-path", help="Path to capa rules folder", action="store", default=False,
                         required=False)
@@ -185,7 +224,12 @@ def main():
             enabled.append("data")
 
     if args.capa_rules:
-        flare_capa_rules(args.capa_rules_path)
+        flare_capa_rules()
+        if not enabled:
+            return
+
+    if args.mitre:
+        mitre(args.capa_rules_path)
         if not enabled:
             return
 

@@ -6,8 +6,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import sys
-import smtplib
-import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders

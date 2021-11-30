@@ -44,8 +44,10 @@ class CAPE_Compression(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            buf = self.get_raw_argument(call, "UncompressedBuffer")
-            size = int(self.get_raw_argument(call, "UncompressedBufferLength"), 0)
+            buf = self.get_argument(call, "UncompressedBuffer")
+            size = self.get_argument(call, "UncompressedBufferLength")
+            if size:
+                size = int(size, 16)
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -71,9 +73,11 @@ class CAPE_RegBinary(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            buf = self.get_raw_argument(call, "Buffer")
-            size = self.get_raw_argument(call, "BufferLength")
+            buf = self.get_argument(call, "Buffer")
+            size = self.get_argument(call, "BufferLength")
             if buf:
+                if size:
+                    size = int(size)
                 self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -99,8 +103,10 @@ class CAPE_Decryption(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "CryptDecrypt":
-            buf = self.get_raw_argument(call, "Buffer")
-            size = self.get_raw_argument(call, "Length")
+            buf = self.get_argument(call, "Buffer")
+            size = self.get_argument(call, "Length")
+            if size:
+                size = int(size)
             self.encrypted_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -125,25 +131,29 @@ class CAPE_Unpacker(Signature):
 
     def on_call(self, call, process):
 
-        if process["process_name"] == "WINWORD.EXE" or process["process_name"] == "EXCEL.EXE" or process["process_name"] == "POWERPNT.EXE":
+        if (
+            process["process_name"] == "WINWORD.EXE"
+            or process["process_name"] == "EXCEL.EXE"
+            or process["process_name"] == "POWERPNT.EXE"
+        ):
             return False
         if call["api"] == "NtAllocateVirtualMemory":
-            protection = int(self.get_raw_argument(call, "Protection"), 0)
-            regionsize = int(self.get_raw_argument(call, "RegionSize"), 0)
+            protection = int(self.get_argument(call, "Protection"), 0)
+            regionsize = int(self.get_argument(call, "RegionSize"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and regionsize >= EXTRACTION_MIN_SIZE:
                 return True
         if call["api"] == "VirtualProtectEx":
-            protection = int(self.get_raw_argument(call, "Protection"), 0)
-            size = int(self.get_raw_argument(call, "Size"), 0)
+            protection = int(self.get_argument(call, "Protection"), 0)
+            size = int(self.get_argument(call, "Size"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
         elif call["api"] == "NtProtectVirtualMemory":
-            protection = int(self.get_raw_argument(call, "NewAccessProtection"), 0)
-            size = int(self.get_raw_argument(call, "NumberOfBytesProtected"), 0)
+            protection = int(self.get_argument(call, "NewAccessProtection"), 0)
+            size = self.get_argument(call, "NumberOfBytesProtected")
             handle = self.get_argument(call, "ProcessHandle")
-            if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
+            if handle == 0xffffffff and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 
 
@@ -189,7 +199,11 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] == "VirtualAllocEx" or call["api"] == "NtAllocateVirtualMemory":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif call["api"] == "NtWriteVirtualMemory" or call["api"] == "NtWow64WriteVirtualMemory64" or call["api"] == "WriteProcessMemory":
+        elif (
+            call["api"] == "NtWriteVirtualMemory"
+            or call["api"] == "NtWow64WriteVirtualMemory64"
+            or call["api"] == "WriteProcessMemory"
+        ):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
                 addr = int(self.get_argument(call, "BaseAddress"), 16)
@@ -201,7 +215,11 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #                                     procname, self.handle_map[handle])
                     # self.data.append({"Injection": desc})
                     return True
-        elif call["api"] == "CreateRemoteThread" or call["api"].startswith("NtCreateThread") or call["api"].startswith("NtCreateThreadEx"):
+        elif (
+            call["api"] == "CreateRemoteThread"
+            or call["api"].startswith("NtCreateThread")
+            or call["api"].startswith("NtCreateThreadEx")
+        ):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 # procname = self.get_name_from_pid(self.handle_map[handle])
@@ -231,6 +249,7 @@ class CAPE_InjectionProcessHollowing(Signature):
     minimum = "1.3"
     evented = True
     ttp = ["T1055", "T1093"]
+    allow_list = ["acrord32.exe"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -246,6 +265,9 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.process_map = dict()
             self.thread_map = dict()
             self.lastprocess = process
+
+        if "process_name" in process and process["process_name"] in self.allow_list:
+            return False
 
         if call["api"] == "CreateProcessInternalW":
             phandle = self.get_argument(call, "ProcessHandle")
@@ -434,8 +456,8 @@ class CAPE_EvilGrab(Signature):
                 self.reg_evilgrab_keyname = True
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            length = self.get_raw_argument(call, "BufferLength")
-            if length and length > 0x10000 and self.reg_evilgrab_keyname is True:
+            length = self.get_argument(call, "BufferLength")
+            if length and int(length) > 0x10000 and self.reg_evilgrab_keyname is True:
                 self.reg_binary = True
 
     def on_complete(self):
@@ -465,13 +487,13 @@ class CAPE_PlugX(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            dos_header = self.get_raw_argument(call, "UncompressedBuffer")[:2]
+            dos_header = self.get_argument(call, "UncompressedBuffer")[:2]
             # IMAGE_DOS_SIGNATURE or PLUGX_SIGNATURE
             if dos_header in ("MZ", "XV", "GULP"):
                 self.compressed_binary = True
 
         if call["api"] == "memcpy":
-            count = self.get_raw_argument(call, "count")
+            count = int(self.get_argument(call, "count"))
             if count in (0xAE4, 0xBE4, 0x150C, 0x1510, 0x1516, 0x170C, 0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
                 self.config_copy = True
 
@@ -494,7 +516,13 @@ class CAPE_Doppelganging(Signature):
         Signature.__init__(self, *args, **kwargs)
         self.lastprocess = None
 
-    filter_categories = set(["process", "thread", "filesystem",])
+    filter_categories = set(
+        [
+            "process",
+            "thread",
+            "filesystem",
+        ]
+    )
 
     def on_call(self, call, process):
         if process is not self.lastprocess:

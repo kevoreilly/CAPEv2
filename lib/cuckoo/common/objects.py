@@ -17,8 +17,6 @@ import subprocess
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
 from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
-#from lib.cuckoo.core.startup import init_yara
-from lib.cuckoo.common.exceptions import CuckooStartupError
 
 try:
     import magic
@@ -225,7 +223,7 @@ class File(object):
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
     yara_rules = {}
-
+    yara_initialized = False
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
     notified_yara = False
@@ -752,78 +750,3 @@ class ProcDump(object):
                         result["match"] = match
                         result["chunk"] = chunk
                         return result
-
-
-# ToDo remove/unify required for static extraction
-
-def init_yara():
-    """Generates index for yara signatures."""
-
-    categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-
-    log.debug("Initializing Yara...")
-
-    # Generate root directory for yara rules.
-    yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
-    # Loop through all categories.
-    for category in categories:
-        # Check if there is a directory for the given category.
-        category_root = os.path.join(yara_root, category)
-        if not os.path.exists(category_root):
-            log.warning("Missing Yara directory: %s?", category_root)
-            continue
-
-        rules, indexed = {}, []
-        for category_root, _, filenames in os.walk(category_root, followlinks=True):
-            for filename in filenames:
-                if not filename.endswith((".yar", ".yara")):
-                    continue
-                filepath = os.path.join(category_root, filename)
-                rules["rule_%s_%d" % (category, len(rules))] = filepath
-                indexed.append(filename)
-
-            # Need to define each external variable that will be used in the
-        # future. Otherwise Yara will complain.
-        externals = {"filename": ""}
-
-        while True:
-            try:
-                File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                break
-            except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar")[0]+".yar"
-                log.debug(f"Trying to delete bad rule: {bad_rule}")
-                if os.path.basename(bad_rule) in indexed:
-                    for k,v in rules.items():
-                        if v == bad_rule:
-                            del rules[k]
-                            indexed.remove(os.path.basename(bad_rule))
-                            print("Deleted broken yara rule: {}".format(bad_rule))
-                            break
-                else:
-                    break
-            except yara.Error as e:
-                print("There was a syntax error in one or more Yara rules: %s" % e)
-                log.error("There was a syntax error in one or more Yara rules: %s" % e)
-                break
-
-        if category == "memory":
-            mem_rules = yara.compile(filepaths=rules, externals=externals)
-            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-            """
-            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
-                for filename in sorted(indexed):
-                    f.write('include "%s"\n' % os.path.join(category_root, filename))
-            """
-
-        indexed = sorted(indexed)
-        for entry in indexed:
-            if (category, entry) == indexed[-1]:
-                log.debug("\t `-- %s %s", category, entry)
-            else:
-                log.debug("\t |-- %s %s", category, entry)
-
-
-
-init_yara()

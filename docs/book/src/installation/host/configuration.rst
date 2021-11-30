@@ -13,7 +13,7 @@ CAPE relies on six main configuration files:
     * :ref:`reporting_conf`: for enabling or disabling report formats.
 
 To get CAPE working you have to edit :ref:`auxiliary_conf`:, :ref:`cuckoo_conf` and :ref:`machinery_conf` at least.
-We suggest you to check all configs before starting, to be familiar with posibilities that you have and what you want to be done.
+We suggest you to check all configs before starting, to be familiar with possibilities that you have and what you want to be done.
 
 .. _cuckoo_conf:
 

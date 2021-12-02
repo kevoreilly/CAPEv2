@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import struct
 import socket
 import base64
@@ -387,8 +386,8 @@ def config(filebuf):
     pem_key = False
     try:
         pem_key = extract_emotet_rsakey(pe)
-    except Exception as e:
-        logging.exception(e)
+    except ValueError as e:
+        logging.error(e)
     if pem_key:
         # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
         conf_dict.setdefault("RSA public key", pem_key.exportKey().decode('utf8'))
@@ -468,3 +467,8 @@ def config(filebuf):
                 # self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})
                 conf_dict.setdefault("ECC ECS1", ecs_key)
     return conf_dict
+
+if __name__ == "__main__":
+    import sys
+    file_data = open(sys.argv[1], "rb").read()
+    print(config(file_data))

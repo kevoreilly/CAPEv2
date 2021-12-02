@@ -887,6 +887,7 @@ class StatusThread(threading.Thread):
         # when master used to only store data and not process samples
 
         db = session()
+        master_storage_only = False
         if reporting_conf.distributed.master_storage_only is False:
             master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
             if master is None:

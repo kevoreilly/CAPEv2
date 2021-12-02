@@ -138,7 +138,7 @@ def extract_emotet_rsakey(pe):
             try:
                 seq.decode(pub_key)
             except Exception as e:
-                self.logger.exception(e)
+                log.exception(e)
                 return
             return RSA.construct((seq[0], seq[1]))
 

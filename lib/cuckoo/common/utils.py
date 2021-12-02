@@ -127,8 +127,6 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
 
 def create_zip(files=False, folder=False, encrypted=False):
     """Utility function to create zip archive with file(s)"""
-    if not HAVE_PYZIPPER:
-        return False
 
     if folder:
         # To avoid when we have only folder argument

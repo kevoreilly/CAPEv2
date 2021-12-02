@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import socket
-import tarfile
+import zipfile
 import logging
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -56,14 +56,6 @@ try:
 except ImportError:
     HAVE_PSUTIL = False
     print("Missed psutil dependency: pip3 install -U psutil")
-
-try:
-    import pyzipper
-
-    HAVE_PYZIPPER = True
-except ImportError:
-    HAVE_PYZIPPER = False
-    print("Missed pyzipper dependency: pip3 install pyzipper -U")
 
 log = logging.getLogger(__name__)
 
@@ -1062,7 +1054,6 @@ def tasks_status(request, task_id):
     return Response(resp)
 
 
-
 @csrf_exempt
 @api_view(["GET"])
 def tasks_report(request, task_id, report_format="json", make_zip=False):
@@ -1074,6 +1065,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    time_start = datetime.now()
 
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
@@ -1121,22 +1114,22 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             fname = "%s_report.%s" % (task_id, ext)
 
             if make_zip:
-                mem_zip = create_zip(report_path)
+                mem_zip = create_zip(files=report_path)
                 if type(mem_zip) is bool and mem_zip is False:
                     esp = {"error": True, "error_value": "Can't create zip archive for report file"}
                     return Response(resp)
 
                 resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
                 resp["Content-Length"] = len(mem_zip.getvalue())
-                resp["Content-Disposition"] = f"attachment; filename={fname}.zip"
-                return resp
+                resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
             else:
                 resp = StreamingHttpResponse(
                     FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
                 )
                 resp["Content-Length"] = os.path.getsize(report_path)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
-                return resp
+
+            return resp
 
         else:
             resp = {"error": True, "error_value": "Reports directory does not exist"}
@@ -1147,29 +1140,17 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
             return Response(resp)
 
-        if not HAVE_PYZIPPER:
-            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
+        mem_zip = create_zip(folder=srcdir)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
 
-        fname = "%s_reports.zip" % task_id
-        parent_folder = os.path.dirname(srcdir)
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            parent_folder = os.path.basename(srcdir)
-            for fname in os.listdir(srcdir):
-                path = os.path.join(parent_folder, fname)
-                zf.write(os.path.join(srcdir, fname), path)
-
-        mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_reports.zip"
         return resp
 
     elif report_format.lower() in report_formats:
-        if not HAVE_PYZIPPER:
-            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
-
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -1180,8 +1161,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             return Response(resp)
 
         mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
+        with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
             for filedir in os.listdir(srcdir):
                 try:
                     filepath = os.path.join(srcdir, filedir)
@@ -1209,6 +1189,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
+
+        print("Time needed to generate report for task", task_id, datetime.now()-time_start, "size is:", f'int({int(resp["Content-Length"])/int(1<<20):,.0f} MB')
         return resp
 
     else:
@@ -1465,16 +1447,11 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         return Response(resp)
 
     if screenshot == "all":
+        mem_zip = create_zip(folder=srcdir)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
 
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            parent_folder = os.path.basename(srcdir)
-            for fname in os.listdir(srcdir):
-                path = os.path.join(parent_folder, fname)
-                zf.write(os.path.join(srcdir, fname), path)
-
-        mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={task_id}_screenshots.zip"
@@ -1541,16 +1518,11 @@ def tasks_dropped(request, task_id):
         return Response(resp)
 
     else:
+        mem_zip = create_zip(folder=srcdir, encrypted=True)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
 
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            parent_folder = os.path.basename(srcdir)
-            for fname in os.listdir(srcdir):
-                path = os.path.join(parent_folder, fname)
-                zf.write(os.path.join(srcdir, fname), path)
-
-        mem_zip.seek(0)
         # in Mb
         dropped_max_size_limit = request.GET.get("max_size", False)
         # convert to MB
@@ -1694,13 +1666,11 @@ def tasks_procmemory(request, task_id, pid="all"):
             resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return Response(resp)
 
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            for fname in os.listdir(srcdir):
-                zf.write(os.path.join(parent_folder, fname), fname)
+        mem_zip = create_zip(folder=srcdir, encrypted=True)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
 
-        mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={task_id}_procdumps.zip"
@@ -1709,32 +1679,19 @@ def tasks_procmemory(request, task_id, pid="all"):
     else:
         filepath = os.path.join(parent_folder, pid + ".dmp")
         if os.path.exists(filepath):
-            if apiconf.taskprocmemory.get("compress"):
-                fname = filepath.split("/")[-1]
 
-                mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(zippwd)
-                    zf.writes(filepath, fname)
+            mem_zip = create_zip(files=filepath, encrypted=True)
+            if type(mem_zip) is bool and mem_zip is False:
+                resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                return Response(resp)
 
-                mem_zip.seek(0)
-                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-                resp["Content-Length"] = len(mem_zip.getvalue())
-                resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
-                return resp
-
-            else:
-                mime = "application/octet-stream"
-                fname = "%s-%s.dmp" % (task_id, pid)
-                srcfile = os.path.join(srcdir, pid + ".dmp")
-                resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type=mime)
-                resp["Content-Length"] = os.path.getsize(srcfile)
-                resp["Content-Disposition"] = "attachment; filename=" + fname
+            resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+            resp["Content-Length"] = len(mem_zip.getvalue())
+            resp["Content-Disposition"] = f"attachment; filename={task_id}-{pid}_dmp.zip"
+            return resp
         else:
             resp = {"error": True, "error_value": "Process memory dump does not exist for pid %s" % pid}
             return Response(resp)
-
-    return resp
 
 
 @csrf_exempt
@@ -1783,8 +1740,7 @@ def tasks_fullmemory(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def file(request, stype, value):
-
-    if not apiconf.sampledl.get("enabled"):
+    if apiconf.sampledl.get("enabled", False) is False:
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
@@ -1848,6 +1804,7 @@ def exit_nodes_list(request):
         resp["data"].append("tor")
     if routing_conf.inetsim.enabled:
         resp["data"].append("inetsim")
+
     return Response(resp)
 
 
@@ -1962,24 +1919,18 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
-    capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
-    if not os.path.normpath(capepath).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(capepath))})
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
 
-    if os.path.exists(capepath):
-        if not HAVE_PYZIPPER:
-            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            for fname in os.listdir(capepath):
-                if len(fname) == 64:
-                    filepath = os.path.join(capepath, fname)
-                    with open(filepath, "rb") as f:
-                        zf.writestr(os.path.basename(filepath), f.read())
+    if os.path.exists(srcdir):
 
-        mem_zip.seek(0)
+        mem_zip = create_zip(folder=srcdir, encrypted=True)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
+
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
@@ -2002,24 +1953,14 @@ def tasks_procdumpfiles(request, task_id):
 
     # ToDo add all/one
 
-    procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
+    if os.path.exists(srcdir):
 
-    # ToDo check bad rturn
-    if os.path.exists(procdumppath):
-        if not HAVE_PYZIPPER:
-            return Response({"error": True, "error_value": "Install pyzipper to be able to download files"})
-        mem_zip = BytesIO()
-        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-            zf.setpassword(zippwd)
-            for fname in os.listdir(procdumppath):
-                if len(fname) == 64:
-                    filepath = os.path.join(procdumppath, fname)
-                    if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
-                        continue
-                    with open(filepath, "rb") as f:
-                        zf.writestr(os.path.basename(filepath), f.read())
+        mem_zip = create_zip(folder=srcdir, encrypted=True)
+        if type(mem_zip) is bool and mem_zip is False:
+            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+            return Response(resp)
 
-        mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
@@ -2088,11 +2029,9 @@ def tasks_config(request, task_id, cape_name=False):
         return Response(resp)
 
 
-"""
-
 @csrf_exempt
-@api_view(['POST'])
-#should be securized by checking category, this is just an example how easy to extend webgui with external tools
+@api_view(["POST"])
+# should be securized by checking category, this is just an example how easy to extend webgui with external tools
 def post_processing(request, category, task_id):
 
     content = request.data.get("content", "")
@@ -2109,7 +2048,6 @@ def post_processing(request, category, task_id):
         resp = {"error": True, "msg": "Missed content data or category"}
 
     return Response(resp)
-"""
 
 
 @csrf_exempt

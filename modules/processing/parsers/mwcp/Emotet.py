@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2019 Kevin O'Reilly (kevin.oreilly@contextis.co.uk)
+# Copyright (C) 2017-2021 Kevin O'Reilly (kevin.oreilly@contextis.co.uk)
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -12,24 +12,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
-import yara
+
 import struct
 import socket
-import pefile
 import base64
 import logging
 from itertools import cycle
 
-
-from mwcp.parser import Parser
+import pefile
+import yara
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
 
 
-# ToDo remove
-log = logging.getLogger()
-log.setLevel(logging.DEBUG)
 rule_source = """
 rule Emotet
 {
@@ -86,7 +81,7 @@ def xor_data(data, key):
 def emotet_decode(data, size, xor_key):
     offset = 8
     res = b''
-    for count in xrange(int(size/4)):
+    for count in range(int(size/4)):
         off_from = offset+count*4
         off_to = off_from+4
         encoded_dw = int.from_bytes(data[off_from:off_to], byteorder='little')
@@ -138,353 +133,338 @@ def extract_emotet_rsakey(pe):
             try:
                 seq.decode(pub_key)
             except Exception as e:
-                log.exception(e)
+                logging.exception(e)
                 return
             return RSA.construct((seq[0], seq[1]))
 
-class Emotet(Parser):
-    # def __init__(self, reporter=None):
-    #    Parser.__init__(self, description='Emotet configuration parser.', author='kevoreilly', reporter=reporter)
 
-    DESCRIPTION = "Emotet configuration parser."
+def config(filebuf):
     AUTHOR = "kevoreilly"
 
-    def run(self):
-        filebuf = self.file_object.file_data
-        pe = pefile.PE(data=filebuf, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
-        c2found = False
+    conf_dict = {}
+    pe = pefile.PE(data=filebuf, fast_load=False)
+    image_base = pe.OPTIONAL_HEADER.ImageBase
+    c2found = False
 
-        yara_matches = yara_scan(filebuf)
-        """
-        # c2list is dead
-        #c2list = yara_scan(filebuf, "$c2list")
-        if yara_matches.get("$c2list"):
-            ips_offset = int(yara_matches["$c2list"])
-            ip = struct.unpack("I", filebuf[ips_offset : ips_offset + 4])[0]
-
-            while ip:
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("h", filebuf[ips_offset + 4 : ips_offset + 6])[0])
-
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-
-                ips_offset += 8
-                ip = struct.unpack("I", filebuf[ips_offset : ips_offset + 4])[0]
-        """
-        if yara_matches.get("$snippet3"):
-            c2list_va_offset = int(yara_matches["$snippet3"])
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
-            if c2_list_va - image_base > 0x20000:
-                c2_list_va = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-
-            while 1:
-                try:
-                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
-                    return
-                if ip == 0:
-                    return
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    return
-                c2_list_offset += 8
-        elif yara_matches.get("$snippet4"):
-            c2list_va_offset = int(yara_matches["$snippet4"])
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
-            if c2_list_va - image_base > 0x20000:
-                c2_list_rva = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-            while 1:
-                try:
-                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
-                    return
-                if ip == 0:
-                    return
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    return
-                c2_list_offset += 8
-        elif any(yara_matches.get(name, False) for name in ("$snippet5", "$snippet8", "$snippet9", "$snippetB", "$snippetC", "$comboA1", "$comboA2")):
-            if yara_matches.get("$snippet5"):
-                delta = 5
-                refc2list = yara_matches.get("$snippet5")
-            elif yara_matches.get("$snippet8"):
-                refc2list = yara_matches.get("$snippet8")
-            elif yara_matches.get("$snippet9"):
-                refc2list = yara_matches.get("$snippet8")
-                c2list_va_offset = int(yara_matches["$snippet9"])
-                tb = struct.unpack("b", filebuf[c2list_va_offset+5:c2list_va_offset+6])[0]
-                if tb == 0x48:
-                    delta += 1
-            elif yara_matches.get("$snippetB"):
-                delta = 9
-                refc2list = yara_matches.get("$snippetB")
-            elif yara_matches.get("$snippetC"):
-                delta = 8
-                refc2list = yara_matches.get("$snippetC")
-            elif yara_matches.get("$comboA1"):
-                refc2list = yara_matches.get("$comboA1")
-            elif yara_matches.get("$comboA2"):
-                delta = 6
-                refc2list = yara_matches.get("$comboA2")
-
-
-            if refc2list:
-                c2list_va_offset = int(refc2list)
-                c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
-                if c2_list_va - image_base > 0x40000:
-                    c2_list_rva = c2_list_va & 0xFFFF
-                else:
-                    c2_list_rva = c2_list_va - image_base
-                try:
-                    c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                except pefile.PEFormatError as err:
-                    return
-                while 1:
-                    try:
-                        ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                    except:
-                        break
-                    if ip == 0:
-                        break
-                    c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                    port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-                    if c2_address and port:
-                        self.reporter.add_metadata("address", c2_address + ":" + port)
-                        c2found = True
-                    else:
-                        break
-                    c2_list_offset += 8
-        elif yara_matches.get("$snippet6"):
-            c2list_va_offset = int(yara_matches["$snippet6"])
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 15 : c2list_va_offset + 19])[0]
-            if c2_list_va - image_base > 0x20000:
-                c2_list_rva = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-            while 1:
-                try:
-                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
-                    break
-                if ip == 0:
-                    break
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    break
-                c2_list_offset += 8
-        elif yara_matches.get("$snippet7"):
-            c2list_va_offset = int(yara_matches["$snippet7"])
-            delta = 26
-            hb = struct.unpack("b", filebuf[c2list_va_offset + 29 : c2list_va_offset + 30])[0]
-            if hb:
-                delta += 1
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
-            if c2_list_va - image_base > 0x20000:
-                c2_list_rva = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-            while 1:
-                try:
-                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
-                    break
-                if ip == 0:
-                    break
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    break
-                c2_list_offset += 8
-        elif yara_matches.get("$snippetA"):
-            c2list_va_offset = int(yara_matches["$snippetA"])
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 24 : c2list_va_offset + 28])[0]
-            if c2_list_va - image_base > 0x20000:
-                c2_list_rva = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-            while 1:
-                try:
-                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
-                    break
-                if ip == 0:
-                    break
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    break
-                c2_list_offset += 8
-        elif yara_matches.get("$snippetD"):
-            delta = 6
-            c2list_va_offset = int(yara_matches["$snippetD"])
-        elif yara_matches.get("$snippetE"):
-            delta = 13
-            c2list_va_offset = int(yara_matches["$snippetE"])
-        elif yara_matches.get("$snippetF"):
-            delta = 9
-            c2list_va_offset = int(yara_matches["$snippetF"])
-        elif yara_matches.get("$snippetG"):
-            delta = -4
-            c2list_va_offset = int(yara_matches["$snippetG"])
-        elif yara_matches.get("$snippetH"):
-            delta = 12
-            c2list_va_offset = int(yara_matches["$snippetH"])
-
-        if c2list_va_offset:
-            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset+delta:c2list_va_offset+delta+4])[0]
-            c2_list_rva = c2_list_va - image_base
-            try:
-                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-            except pefile.PEFormatError as err:
-                pass
-            key = filebuf[c2_list_offset:c2_list_offset+4]
-            size = struct.unpack("I", filebuf[c2_list_offset+4:c2_list_offset+8])[0] ^ struct.unpack("I", key)[0]
-            c2_list_offset += 8
-            c2_list = xor_data(filebuf[c2_list_offset:], key)
-            offset = 0
-            while offset < size:
-                try:
-                    ip = struct.unpack(">I", c2_list[offset:offset+4])[0]
-                except:
-                    break
-                if ip == struct.unpack(">I", key)[0]:
-                    break
-                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                port = str(struct.unpack(">H", c2_list[offset+4:offset+6])[0])
-                if c2_address and port:
-                    self.reporter.add_metadata("address", c2_address + ":" + port)
-                    c2found = True
-                else:
-                    break
-                offset += 8
-
-        if not c2found:
-            return
-        pem_key = False
-        try:
-            pem_key = extract_emotet_rsakey(pe)
-        except Exception as e:
-            self.logger.exception(e)
-        if pem_key:
-            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
+    yara_matches = yara_scan(filebuf)
+    if yara_matches.get("$snippet3"):
+        c2list_va_offset = int(yara_matches["$snippet3"])
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
+        if c2_list_va - image_base > 0x20000:
+            c2_list_va = c2_list_va & 0xFFFF
         else:
-            if yara_matches.get("$ref_rsa"):
-                ref_rsa_offset = int(yara_matches["$ref_rsa"])
-                ref_rsa_va = 0
-                zb = struct.unpack("b", filebuf[ref_rsa_offset + 31 : ref_rsa_offset + 32])[0]
-                if not zb:
-                    ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 32])[0]
-                else:
-                    zb = struct.unpack("b", filebuf[ref_rsa_offset + 29 : ref_rsa_offset + 30])[0]
-                    if not zb:
-                        ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 26 : ref_rsa_offset + 30])[0]
-                    else:
-                        zb = struct.unpack("b", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 29])[0]
-                        if not zb:
-                            ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 25 : ref_rsa_offset + 29])[0]
-                        else:
-                            zb = struct.unpack("b", filebuf[ref_rsa_offset + 38 : ref_rsa_offset + 39])[0]
-                            if not zb:
-                                ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 35 : ref_rsa_offset + 39])[0]
-                if not ref_rsa_va:
-                    return
-                ref_rsa_rva = ref_rsa_va - image_base
-                try:
-                    ref_rsa_offset = pe.get_offset_from_rva(ref_rsa_rva)
-                except:
-                    return
-                key = struct.unpack("<I", filebuf[ref_rsa_offset : ref_rsa_offset + 4])[0]
-                xorsize = key ^ struct.unpack("<I", filebuf[ref_rsa_offset + 4 : ref_rsa_offset + 8])[0]
-                rsa_key = xor_data(filebuf[ref_rsa_offset + 8 : ref_rsa_offset + 8 + xorsize], struct.pack("<I", key))
-                seq = asn1.DerSequence()
-                seq.decode(rsa_key)
-                self.reporter.add_metadata("other", {"RSA public key": RSA.construct((seq[0], seq[1])).exportKey()})
-            else:
-                if yara_matches.get("$ref_ecc1"):
-                    ref_ecc_offset = int(yara_matches["$ref_ecc1"])
-                    delta1 = 9
-                    delta2 = 62
-                elif yara_matches.get("$ref_ecc2"):
-                    ref_ecc_offset = int(yara_matches["$ref_ecc2"])
-                    delta1 = 22
-                    delta2 = 71
-                elif yara_matches.get("$ref_ecc3"):
-                    ref_ecc_offset = int(yara_matches["$ref_ecc3"])
-                    delta1 = 8
-                    delta2 = 47
-                elif yara_matches.get("$ref_ecc4"):
-                    ref_ecc_offset = int(yara_matches["$ref_ecc4"])
-                    delta1 = -4
-                    delta2 = 49
-                elif yara_matches.get("$ref_ecc5"):
-                    ref_ecc_offset = int(yara_matches["$ref_ecc5"])
-                    delta1 = 15
-                    delta2 = 65
-                if ref_ecc_offset:
-                    ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta1:ref_ecc_offset+delta1+4])[0] - image_base
-                    ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta2:ref_ecc_offset+delta2+4])[0] - image_base
-                    try:
-                        eck_offset = pe.get_offset_from_rva(ref_eck_rva)
-                        ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
-                    except Exception as e:
-                        self.logger.error(e)
-                        return
-                    key = filebuf[eck_offset:eck_offset+4]
-                    size = struct.unpack("I", filebuf[eck_offset+4:eck_offset+8])[0] ^ struct.unpack("I", key)[0]
-                    eck_offset += 8
-                    eck_key = base64.b64encode(xor_data(filebuf[eck_offset:eck_offset+size], key))
-                    self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
-                    key = filebuf[ecs_offset:ecs_offset+4]
-                    size = struct.unpack("I", filebuf[ecs_offset+4:ecs_offset+8])[0] ^ struct.unpack("I", key)[0]
-                    ecs_offset += 8
-                    ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset:ecs_offset+size], key))
-                    self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})
+            c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
 
+        while 1:
+            try:
+                ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+            except:
+                return
+            if ip == 0:
+                return
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                return
+            c2_list_offset += 8
+    elif yara_matches.get("$snippet4"):
+        c2list_va_offset = int(yara_matches["$snippet4"])
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
+        if c2_list_va - image_base > 0x20000:
+            c2_list_rva = c2_list_va & 0xFFFF
+        else:
+            c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
+        while 1:
+            try:
+                ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+            except:
+                return
+            if ip == 0:
+                return
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                return
+            c2_list_offset += 8
+    elif any(yara_matches.get(name, False) for name in ("$snippet5", "$snippet8", "$snippet9", "$snippetB", "$snippetC", "$comboA1", "$comboA2")):
+        delta = 5
+        if yara_matches.get("$snippet5"):
+            refc2list = yara_matches.get("$snippet5")
+        elif yara_matches.get("$snippet8"):
+            refc2list = yara_matches.get("$snippet8")
+        elif yara_matches.get("$snippet9"):
+            refc2list = yara_matches.get("$snippet8")
+            c2list_va_offset = int(yara_matches["$snippet9"])
+            tb = struct.unpack("b", filebuf[c2list_va_offset+5:c2list_va_offset+6])[0]
+            if tb == 0x48:
+                delta += 1
+        elif yara_matches.get("$snippetB"):
+            delta = 9
+            refc2list = yara_matches.get("$snippetB")
+        elif yara_matches.get("$snippetC"):
+            delta = 8
+            refc2list = yara_matches.get("$snippetC")
+        elif yara_matches.get("$comboA1"):
+            refc2list = yara_matches.get("$comboA1")
+        elif yara_matches.get("$comboA2"):
+            delta = 6
+            refc2list = yara_matches.get("$comboA2")
+        if refc2list:
+            c2list_va_offset = int(refc2list)
+            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
+            if c2_list_va - image_base > 0x40000:
+                c2_list_rva = c2_list_va & 0xFFFF
+            else:
+                c2_list_rva = c2_list_va - image_base
+            try:
+                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+            except pefile.PEFormatError as err:
+                return
+            while 1:
+                try:
+                    ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+                except:
+                    break
+                if ip == 0:
+                    break
+                c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+                port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+                if c2_address and port:
+                    conf_dict.setdefault("address", list())
+                    conf_dict["address"].append(c2_address + ":" + port)
+                    c2found = True
+                else:
+                    break
+                c2_list_offset += 8
+    elif yara_matches.get("$snippet6"):
+        c2list_va_offset = int(yara_matches["$snippet6"])
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 15 : c2list_va_offset + 19])[0]
+        if c2_list_va - image_base > 0x20000:
+            c2_list_rva = c2_list_va & 0xFFFF
+        else:
+            c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
+        while 1:
+            try:
+                ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+            except:
+                break
+            if ip == 0:
+                break
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                break
+            c2_list_offset += 8
+    elif yara_matches.get("$snippet7"):
+        c2list_va_offset = int(yara_matches["$snippet7"])
+        delta = 26
+        hb = struct.unpack("b", filebuf[c2list_va_offset + 29 : c2list_va_offset + 30])[0]
+        if hb:
+            delta += 1
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
+        if c2_list_va - image_base > 0x20000:
+            c2_list_rva = c2_list_va & 0xFFFF
+        else:
+            c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
+        while 1:
+            try:
+                ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+            except:
+                break
+            if ip == 0:
+                break
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                break
+            c2_list_offset += 8
+    elif yara_matches.get("$snippetA"):
+        c2list_va_offset = int(yara_matches["$snippetA"])
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 24 : c2list_va_offset + 28])[0]
+        if c2_list_va - image_base > 0x20000:
+            c2_list_rva = c2_list_va & 0xFFFF
+        else:
+            c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
+        while 1:
+            try:
+                ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
+            except:
+                break
+            if ip == 0:
+                break
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                break
+            c2_list_offset += 8
+    elif yara_matches.get("$snippetD"):
+        delta = 6
+        c2list_va_offset = int(yara_matches["$snippetD"])
+    elif yara_matches.get("$snippetE"):
+        delta = 13
+        c2list_va_offset = int(yara_matches["$snippetE"])
+    elif yara_matches.get("$snippetF"):
+        delta = 9
+        c2list_va_offset = int(yara_matches["$snippetF"])
+    elif yara_matches.get("$snippetG"):
+        delta = -4
+        c2list_va_offset = int(yara_matches["$snippetG"])
+    elif yara_matches.get("$snippetH"):
+        delta = 12
+        c2list_va_offset = int(yara_matches["$snippetH"])
+
+    if c2list_va_offset:
+        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset+delta:c2list_va_offset+delta+4])[0]
+        c2_list_rva = c2_list_va - image_base
+        try:
+            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+        except pefile.PEFormatError as err:
+            pass
+        key = filebuf[c2_list_offset:c2_list_offset+4]
+        size = struct.unpack("I", filebuf[c2_list_offset+4:c2_list_offset+8])[0] ^ struct.unpack("I", key)[0]
+        c2_list_offset += 8
+        c2_list = xor_data(filebuf[c2_list_offset:], key)
+        offset = 0
+        while offset < size:
+            try:
+                ip = struct.unpack(">I", c2_list[offset:offset+4])[0]
+            except:
+                break
+            if ip == struct.unpack(">I", key)[0]:
+                break
+            c2_address = socket.inet_ntoa(struct.pack("!L", ip))
+            port = str(struct.unpack(">H", c2_list[offset+4:offset+6])[0])
+            if c2_address and port:
+                conf_dict.setdefault("address", list())
+                conf_dict["address"].append(c2_address + ":" + port)
+                c2found = True
+            else:
+                break
+            offset += 8
+
+    if not c2found:
+        return
+    pem_key = False
+    try:
+        pem_key = extract_emotet_rsakey(pe)
+    except Exception as e:
+        logging.exception(e)
+    if pem_key:
+        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
+        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode('utf8'))
+    else:
+        if yara_matches.get("$ref_rsa"):
+            ref_rsa_offset = int(yara_matches["$ref_rsa"])
+            ref_rsa_va = 0
+            zb = struct.unpack("b", filebuf[ref_rsa_offset + 31 : ref_rsa_offset + 32])[0]
+            if not zb:
+                ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 32])[0]
+            else:
+                zb = struct.unpack("b", filebuf[ref_rsa_offset + 29 : ref_rsa_offset + 30])[0]
+                if not zb:
+                    ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 26 : ref_rsa_offset + 30])[0]
+                else:
+                    zb = struct.unpack("b", filebuf[ref_rsa_offset + 28 : ref_rsa_offset + 29])[0]
+                    if not zb:
+                        ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 25 : ref_rsa_offset + 29])[0]
+                    else:
+                        zb = struct.unpack("b", filebuf[ref_rsa_offset + 38 : ref_rsa_offset + 39])[0]
+                        if not zb:
+                            ref_rsa_va = struct.unpack("I", filebuf[ref_rsa_offset + 35 : ref_rsa_offset + 39])[0]
+            if not ref_rsa_va:
+                return
+            ref_rsa_rva = ref_rsa_va - image_base
+            try:
+                ref_rsa_offset = pe.get_offset_from_rva(ref_rsa_rva)
+            except:
+                return
+            key = struct.unpack("<I", filebuf[ref_rsa_offset : ref_rsa_offset + 4])[0]
+            xorsize = key ^ struct.unpack("<I", filebuf[ref_rsa_offset + 4 : ref_rsa_offset + 8])[0]
+            rsa_key = xor_data(filebuf[ref_rsa_offset + 8 : ref_rsa_offset + 8 + xorsize], struct.pack("<I", key))
+            seq = asn1.DerSequence()
+            seq.decode(rsa_key)
+            # self.reporter.add_metadata("other", {"RSA public key": RSA.construct((seq[0], seq[1])).exportKey()})
+            conf_dict.setdefault("RSA public key", RSA.construct((seq[0], seq[1])).exportKey())
+        else:
+            if yara_matches.get("$ref_ecc1"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc1"])
+                delta1 = 9
+                delta2 = 62
+            elif yara_matches.get("$ref_ecc2"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc2"])
+                delta1 = 22
+                delta2 = 71
+            elif yara_matches.get("$ref_ecc3"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc3"])
+                delta1 = 8
+                delta2 = 47
+            elif yara_matches.get("$ref_ecc4"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc4"])
+                delta1 = -4
+                delta2 = 49
+            elif yara_matches.get("$ref_ecc5"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc5"])
+                delta1 = 15
+                delta2 = 65
+            if ref_ecc_offset:
+                ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta1:ref_ecc_offset+delta1+4])[0] - image_base
+                ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta2:ref_ecc_offset+delta2+4])[0] - image_base
+                try:
+                    eck_offset = pe.get_offset_from_rva(ref_eck_rva)
+                    ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
+                except Exception as e:
+                    logging.error(e)
+                    return
+                key = filebuf[eck_offset:eck_offset+4]
+                size = struct.unpack("I", filebuf[eck_offset+4:eck_offset+8])[0] ^ struct.unpack("I", key)[0]
+                eck_offset += 8
+                eck_key = base64.b64encode(xor_data(filebuf[eck_offset:eck_offset+size], key))
+                # self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
+                conf_dict.setdefault("ECC ECK1", eck_key)
+                key = filebuf[ecs_offset:ecs_offset+4]
+                size = struct.unpack("I", filebuf[ecs_offset+4:ecs_offset+8])[0] ^ struct.unpack("I", key)[0]
+                ecs_offset += 8
+                ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset:ecs_offset+size], key))
+                # self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})
+                conf_dict.setdefault("ECC ECS1", ecs_key)
+    return conf_dict

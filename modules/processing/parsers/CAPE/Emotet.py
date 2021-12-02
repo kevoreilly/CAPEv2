@@ -109,7 +109,11 @@ def extract_emotet_rsakey(pe):
             res_list = list(set(res_list))
             pub_key = res_list[0][0:106]
             seq = asn1.DerSequence()
-            seq.decode(pub_key)
+            try:
+                seq.decode(pub_key)
+                logging.exception(e)
+            except Exception as e:
+                return
             return RSA.construct((seq[0], seq[1]))
     for section in pe.sections:
         if section.Name.replace(b'\x00',b'') == b'.text':
@@ -131,8 +135,8 @@ def extract_emotet_rsakey(pe):
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
-            except Exception as e:
-                logging.exception(e)
+            except ValueError as e:
+                logging.error(e)
                 return
             return RSA.construct((seq[0], seq[1]))
 

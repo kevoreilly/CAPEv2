@@ -63,6 +63,8 @@ logging.getLogger("elasticsearch").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+# Move to config
+dist_ignore_patterns = shutil.ignore_patterns("binary", "dump_sorted.pcap", "memory.dmp", "logs")
 STATUSES = {}
 ID2NAME = {}
 SERVER_TAGS = {}
@@ -71,6 +73,8 @@ main_db = Database()
 dead_count = 5
 if reporting_conf.distributed.dead_count:
     dead_count = reporting_conf.distributed.dead_count
+
+NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
 
 INTERVAL = 10
 
@@ -171,6 +175,26 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
+
+
+def node_get_report_nfs(task_id, worker_name, main_task_id):
+
+    worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
+    if not os.path.exists(worker_path):
+        log.error(f"File on destiny doesn't exist: {worker_path}")
+        return False
+
+    analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
+    if not os.path.exists(analyses_path):
+        os.makedirs(analyses_path, mode=0o755)
+
+    try:
+        shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+    except Exception as e:
+        log.exception(e)
+        return False
+
+    return True
 
 
 def _delete_many(node, ids, nodes, db):
@@ -340,7 +364,10 @@ class Retriever(threading.Thread):
 
         for x in range(int(reporting_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
-                thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
+                if NFS_BASED_FETCH:
+                    thread = threading.Thread(target=self.fetch_latest_reports_nfs, name="fetch_latest_reports_nfs", args=())
+                else:
+                    thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
                 thread.daemon = True
                 thread.start()
                 self.threads.append(thread)
@@ -501,7 +528,7 @@ class Retriever(threading.Thread):
                 last_checks.setdefault(node.name, 0)
                 last_checks[node.name] += 1
                 # reset it every 10 calls
-                if hasattr(node, "last_check"):
+                if hasattr(node, "last_check") and node.last_check:
                     last_check = int(node.last_check.strftime("%s"))
                 else:
                     last_check = 0
@@ -544,6 +571,99 @@ class Retriever(threading.Thread):
                             # db.commit()
             db.commit()
             time.sleep(5)
+        db.close()
+
+    # This should be executed as external thread as it generates bottle neck
+    def fetch_latest_reports_nfs(self):
+        db = session()
+        # to not exit till cleaner works
+        while not self.stop_dist.isSet():
+            task, node_id = self.fetcher_queue.get()
+
+            self.current_queue.setdefault(node_id, list()).append(task["id"])
+
+            try:
+                # In the case that a Cuckoo node has been reset over time it"s
+                # possible that there are multiple combinations of
+                # node-id/task-id, in this case we take the last one available.
+                # (This makes it possible to re-setup a Cuckoo node).
+                t = (
+                    db.query(Task)
+                    .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
+                    .order_by(Task.id.desc())
+                    .first()
+                )
+                if t is None:
+                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+
+                    # sometime it not deletes tasks in workers of some fails or something
+                    # this will do the trick
+                    # log.debug("tf else,")
+                    if (node_id, task.get("id")) not in self.cleaner_queue.queue:
+                        self.cleaner_queue.put((node_id, task.get("id")))
+                    continue
+
+                log.debug(
+                    "Fetching dist report for: id: {}, task_id: {}, main_task_id:{} from node: {}".format(
+                        t.id, t.task_id, t.main_task_id, ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id
+                    )
+                )
+                # set completed_on time
+                main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
+                # set reported time
+                main_db.set_status(t.main_task_id, TASK_REPORTED)
+
+                # Fetch each requested report.
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                # ToDo option
+                node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
+                start_copy = datetime.now()
+                copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
+                print(
+                    f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
+                )
+
+                if not copied:
+                    log.error("Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                    continue
+
+                if os.path.exists(t.path):
+                    sample = open(t.path, "rb").read()
+                    sample_sha256 = hashlib.sha256(sample).hexdigest()
+                    destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+                    if not os.path.exists(destination):
+                        os.makedirs(destination, mode=0o755)
+                    destination = os.path.join(destination, sample_sha256)
+                    if not os.path.exists(destination) and os.path.exists(t.path):
+                        shutil.move(t.path, destination)
+                    # creating link to analysis folder
+                    if os.path.exists(t.path):
+                        try:
+                            os.symlink(destination, os.path.join(report_path, "binary"))
+                        except Exception as e:
+                            pass
+
+                        else:
+                            log.debug(f"{t.path} doesn't exist")
+
+                t.retrieved = True
+                t.finished = True
+                db.commit()
+
+                """
+                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
+                if not os.path.exists(report_path):
+                    os.makedirs(report_path, mode=0o755)
+
+                except Exception as e:
+                    log.exception("Exception: %s" % e)
+                    if os.path.exists(os.path.join(report_path, "reports", "report.json")):
+                        os.remove(os.path.join(report_path, "reports", "report.json"))
+                """
+            except Exception as e:
+                log.exception(e)
+            self.current_queue[node_id].remove(task["id"])
+            db.commit()
         db.close()
 
     # This should be executed as external thread as it generates bottle neck
@@ -607,14 +727,12 @@ class Retriever(threading.Thread):
 
                 log.info(f"Report size for task {t.task_id} is: {int(report.headers.get('Content-length', 1))/int(1<<20):,.0f} MB")
 
-
-
                 report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "{}".format(t.main_task_id))
                 if not os.path.exists(report_path):
                     os.makedirs(report_path, mode=0o777)
                 try:
                     if report.content:
-                        #with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
+                        # with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
                         #    zf.setpassword(zip_pwd)
                         with zipfile.ZipFile(BytesIO(report.content)) as zf:
                             try:

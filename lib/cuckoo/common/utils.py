@@ -126,7 +126,11 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
 
 
 def create_zip(files=False, folder=False, encrypted=False):
-    """Utility function to create zip archive with file(s)"""
+    """Utility function to create zip archive with file(s)
+    @param files: file or list of files
+    @param folder: path to folder to compress
+    @param encrypted: create password protected and AES encrypted file
+    """
 
     if folder:
         # To avoid when we have only folder argument

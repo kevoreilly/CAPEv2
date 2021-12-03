@@ -111,8 +111,8 @@ def extract_emotet_rsakey(pe):
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
-                logging.exception(e)
             except Exception as e:
+                logging.exception(e)
                 return
             return RSA.construct((seq[0], seq[1]))
     for section in pe.sections:

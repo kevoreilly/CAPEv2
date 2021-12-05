@@ -122,7 +122,7 @@ def config(filebuf):
 
         if c2_address and port:
             cfg.setdefault("address", list())
-            cfg["address"].append(c2_address + ":" + port))
+            cfg["address"].append(c2_address + ":" + port)
 
         c2_offset += 6 + delta
 

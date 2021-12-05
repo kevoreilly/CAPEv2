@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mwcp.parser import Parser
 import struct
 import pefile
 import yara
@@ -52,31 +51,32 @@ def string_from_offset(data, offset):
     return string
 
 
-class Azorult(Parser):
+def config(filebuf)
     DESCRIPTION = "Azorult configuration parser."
     AUTHOR = "kevoreilly"
 
-    def run(self):
-        filebuf = self.file_object.file_data
-        pe = pefile.PE(data=filebuf, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
+    config = dict()
+    pe = pefile.PE(data=filebuf, fast_load=False)
+    image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        ref_c2 = yara_scan(filebuf, "$ref_c2")
-        if ref_c2 is None:
-            return
+    ref_c2 = yara_scan(filebuf, "$ref_c2")
+    if ref_c2 is None:
+        return
 
-        ref_c2_offset = int(ref_c2["$ref_c2"])
-        if ref_c2_offset is None:
-            return
+    ref_c2_offset = int(ref_c2["$ref_c2"])
+    if ref_c2_offset is None:
+        return
 
-        c2_list_va = struct.unpack("i", filebuf[ref_c2_offset + 21 : ref_c2_offset + 25])[0]
-        c2_list_rva = c2_list_va - image_base
+    c2_list_va = struct.unpack("i", filebuf[ref_c2_offset + 21 : ref_c2_offset + 25])[0]
+    c2_list_rva = c2_list_va - image_base
 
-        try:
-            c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
-            print(err)
+    try:
+        c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+    except pefile.PEFormatError as err:
+        print(err)
 
-        c2_domain = string_from_offset(filebuf, c2_list_offset)
-        if c2_domain:
-            self.reporter.add_metadata("address", c2_domain)
+    c2_domain = string_from_offset(filebuf, c2_list_offset)
+    if c2_domain:
+           config.setdefault("address", c2_domain)
+
+    return config

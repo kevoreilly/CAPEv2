@@ -51,7 +51,7 @@ def string_from_offset(data, offset):
     return string
 
 
-def config(filebuf)
+def config(filebuf):
     DESCRIPTION = "Azorult configuration parser."
     AUTHOR = "kevoreilly"
 

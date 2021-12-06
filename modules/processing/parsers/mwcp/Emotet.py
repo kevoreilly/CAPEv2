@@ -44,6 +44,7 @@ rule Emotet
         $snippetF = {FF 74 [2] 8D 44 [2] BA [4] FF 74 [2] 8B 4C [2] 50 E8 [4] 8B 54 [2] 8B D8 8B 84 [5] 83 C4 0C 03 C3 89 5C [2] 8B FB 89 44}
         $snippetG = {FF 74 [2] 8B 54 [2] 8D 44 [2] 8B 4C [2] 50 E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 89 44}
         $snippetH = {FF 74 [2] 8D 84 [5] 68 [4] 50 FF 74 [2] 8B 54 [2] 8B 4C [2] E8 [4] 8B 94 [5] 83 C4 10 89 84 [5] 8B F8 03 84}
+        $snippetI = {FF 74 [2] 8D 8C [5] FF 74 [2] 8B 54 [2] E8 [4] 8B 54 [2] 8B D8 8B 84 [5] 83 C4 0C 03 C3 89 5C [2] 8B FB 89 44 24 74}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -53,6 +54,7 @@ rule Emotet
         $ref_ecc3 = {8D 84 [5] BA [4] FF B4 [5] 8B 4C [2] 50 E8 [4] 83 C4 0C 89 84 [5] 8D 84 [5] BA [4] FF B4 [5] FF B4 [5] 8B 8C [5] 50 E8 05 05 01 00}
         $ref_ecc4 = {FF 74 [2] 8B 94 [5] 8D 84 [5] 8B 8C [5] 50 E8 [4] 83 C4 0C 89 84 [5] 8D 84 [5] 68 [4] FF B4 [5] 8B 54 [2] 8B 8C [5] 50 E8}
         $ref_ecc5 = {FF B4 [3] 00 00 8D 84 [3] 00 00 68 [4] 50 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 4C [2] E8 [4] FF B4 [3] 00 00 89 84 [3] 00 00 8D 84}
+        $ref_ecc6 = {FF B4 [3] 00 00 8D 8C [3] 00 00 FF B4 [3] 00 00 8B 54 [2] E8 [4] 83 C4 0C 89 84 [5] 8D 8C [5] 68 [4] FF B4 [5] FF 74 [2] 8B 94 24 [4] E8}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -399,6 +401,11 @@ class Emotet(Parser):
                                                 if refc2list:
                                                     delta = 12
                                                     c2list_va_offset = int(refc2list["$snippetH"])
+                                                else:
+                                                    refc2list = yara_scan(filebuf, "$snippetI")
+                                                    if refc2list:
+                                                        delta = -4
+                                                        c2list_va_offset = int(refc2list["$snippetI"])
                                 if c2list_va_offset:
                                     c2_list_va = struct.unpack("I", filebuf[c2list_va_offset+delta:c2list_va_offset+delta+4])[0]
                                     c2_list_rva = c2_list_va - image_base
@@ -495,6 +502,12 @@ class Emotet(Parser):
                                     ref_ecc_offset = int(ref_ecc["$ref_ecc5"])
                                     delta1 = 15
                                     delta2 = 65
+                                else:
+                                    ref_ecc = yara_scan(filebuf, "$ref_ecc6")
+                                    if ref_ecc:
+                                        ref_ecc_offset = int(ref_ecc["$ref_ecc6"])
+                                        delta1 = -4
+                                        delta2 = 48
                 if ref_ecc_offset:
                     ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta1:ref_ecc_offset+delta1+4])[0] - image_base
                     ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta2:ref_ecc_offset+delta2+4])[0] - image_base

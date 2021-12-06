@@ -15,26 +15,21 @@ import hashlib
 import traceback
 import subprocess
 from ctypes import create_string_buffer, create_unicode_buffer, POINTER
-from ctypes import c_wchar_p, byref, c_int, sizeof, cast, c_void_p, c_ulong, addressof
+from ctypes import byref, c_int, sizeof, cast, c_void_p, c_ulong
 
-from threading import Lock, Thread
+from threading import Lock
 from datetime import datetime, timedelta
 from shutil import copy
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from lib.common.rand import random_string
 from lib.api.process import Process
 from lib.common.abstracts import Package, Auxiliary
 from lib.common.constants import PATHS, PIPE, SHUTDOWN_MUTEX, TERMINATE_EVENT, LOGSERVER_PREFIX
 from lib.common.constants import CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME
 from lib.common.defines import ADVAPI32, KERNEL32, NTDLL
-from lib.common.defines import ERROR_MORE_DATA, ERROR_PIPE_CONNECTED
-from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE
-from lib.common.defines import PIPE_READMODE_MESSAGE, PIPE_WAIT
-from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
 from lib.common.defines import SYSTEM_PROCESS_INFORMATION
-from lib.common.defines import EVENT_MODIFY_STATE, SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SYSTEMTIME
+from lib.common.defines import EVENT_MODIFY_STATE
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -1382,7 +1377,7 @@ if __name__ == "__main__":
 
     # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
     except CuckooError:
-        log.info("You probably submitted the job with wrong package")
+        log.info("You probably submitted the job with wrong package", exc_info=True)
         data["status"] = "exception"
         data["description"] = "You probably submitted the job with wrong package"
         try:

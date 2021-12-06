@@ -255,7 +255,9 @@
                     {% if analysis.static.kixtart %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#kixtart_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="kixtart_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display kixtart extracted files"><span class="fas fa-archive"></span> Kixtart</a>
                     {% endif %}
-
+                    {% if analysis.target.file.data %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{target.file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                {% endif %}
                 </td>
             </tr>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
@@ -317,6 +319,18 @@
                 </td>
             </tr>
             {% endif %}
+
+            {% if analysis.target.file.data %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="text_{{sub_file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{analysis.target.file.data|safe}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
 
             {% if existent_tasks %}
             <tr><th></th><td>

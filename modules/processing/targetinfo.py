@@ -7,7 +7,7 @@ import os.path
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
-
+from lib.cuckoo.common.utils import is_text_file
 
 class TargetInfo(Processing):
     """General information about a file."""
@@ -30,6 +30,9 @@ class TargetInfo(Processing):
                 if pefile_object:
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(target_info["file"]["sha256"], pefile_object)
+
+                with open(self.file_path, "rb") as f:
+                    is_text_file(target_info["file"], self.analysis_path, 8192, f.read())
 
             target_info["file"]["name"] = File(self.task["target"]).get_name()
         elif self.task["category"] == "url":

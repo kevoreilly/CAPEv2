@@ -111,7 +111,7 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
                 "sha256",
             ),
         )
-        if not os.path.exists(extracted_path):
+        if not file_data and not os.path.exists(extracted_path):
             return
 
         if not file_data:

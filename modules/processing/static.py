@@ -16,11 +16,15 @@ import base64
 import hashlib
 import requests
 import binascii
-import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
 from datetime import datetime
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     import bs4

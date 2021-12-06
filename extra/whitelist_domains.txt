@@ -26,6 +26,7 @@ download\.windowsupdate\.com$
 \.windows\.com$
 \.edgesuite\.net$
 \.blob\.core\.windows\.net$
+crl\.microsoft\.com
 
 \.windows\.com\.akadns\.net$
 \.microsoft\.com\.nsatc\.net$
@@ -197,3 +198,17 @@ www\.cert\.fnmt\.es
 www\.certinomis\.com
 www\.certsign\.ro
 www\.trustis\.com
+
+# adobe
+\.adobe\.com$
+www\.adobe\.com$
+geo2\.adobe\.com
+armmf\.adobe\.com
+p13n\.adobe\.io
+ardownload3\.adobe\.com
+
+# digicert
+\.digicert\.com$
+ocsp\.digicert\.com
+crl3\.digicert\.com
+crl4\.digicert\.com

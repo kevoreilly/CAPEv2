@@ -77,7 +77,7 @@ def check_names_for_typeinfo(arginfo):
     converters = []
     for i in arginfo:
         if type(i) in (list, tuple):
-            r = TYPECONVERTERS.get(i[1], None)
+            r = TYPECONVERTERS.get(i[1])
             if not r:
                 log.debug("Analyzer sent unknown format " "specifier '{0}'".format(i[1]))
                 r = default_converter

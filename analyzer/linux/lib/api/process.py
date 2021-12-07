@@ -31,7 +31,7 @@ class Process:
         return True
 
     def get_parent_pid(self):
-        return self.get_proc_status().get("PPid", None)
+        return self.get_proc_status().get("PPid")
 
     def get_proc_status(self):
         try:

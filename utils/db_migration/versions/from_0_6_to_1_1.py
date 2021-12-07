@@ -282,8 +282,8 @@ def mongo_upgrade():
         host = config.mongodb.get("host", "127.0.0.1")
         port = config.mongodb.get("port", 27017)
         database = config.mongodb.get("db", "cuckoo")
-        user = config.mongodb.get("user", None)
-        password = config.mongodb.get("password", None)
+        user = config.mongodb.get("user")
+        password = config.mongodb.get("password")
         print("Mongo reporting is enabled, strarting mongo data migration.")
 
         if not port.isnumber():

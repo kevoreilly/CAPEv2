@@ -59,8 +59,8 @@ if repconf.mongodb.enabled:
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
@@ -713,8 +713,8 @@ def download_file(**kwargs):
             user_id=kwargs.get("user_id"),
             username=username,
             source_url=kwargs.get("source_url", False)
-            # parent_id=kwargs.get("parent_id", None),
-            # sample_parent_id=kwargs.get("sample_parent_id", None)
+            # parent_id=kwargs.get("parent_id"),
+            # sample_parent_id=kwargs.get("sample_parent_id")
         )
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
@@ -986,15 +986,15 @@ def force_int(value):
 
 def parse_request_arguments(request):
     static = request.POST.get("static", "")
-    referrer = validate_referrer(request.POST.get("referrer", None))
+    referrer = validate_referrer(request.POST.get("referrer"))
     package = request.POST.get("package", "")
     timeout = force_int(request.POST.get("timeout"))
     priority = force_int(request.POST.get("priority"))
     options = request.POST.get("options", "")
     machine = request.POST.get("machine", "")
     platform = request.POST.get("platform", "")
-    tags_tasks = request.POST.get("tags_tasks", None)
-    tags = request.POST.get("tags", None)
+    tags_tasks = request.POST.get("tags_tasks")
+    tags = request.POST.get("tags")
     custom = request.POST.get("custom", "")
     memory = bool(request.POST.get("memory", False))
     clock = request.POST.get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
@@ -1003,12 +1003,12 @@ def parse_request_arguments(request):
     if "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-    shrike_url = request.POST.get("shrike_url", None)
-    shrike_msg = request.POST.get("shrike_msg", None)
-    shrike_sid = request.POST.get("shrike_sid", None)
-    shrike_refer = request.POST.get("shrike_refer", None)
+    shrike_url = request.POST.get("shrike_url")
+    shrike_msg = request.POST.get("shrike_msg")
+    shrike_sid = request.POST.get("shrike_sid")
+    shrike_refer = request.POST.get("shrike_refer")
     unique = bool(request.POST.get("unique", False))
-    tlp = request.POST.get("tlp", None)
+    tlp = request.POST.get("tlp")
     lin_options = request.POST.get("lin_options", "")
     route = request.POST.get("route")
     cape = request.POST.get("cape", "")

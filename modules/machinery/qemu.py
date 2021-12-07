@@ -423,7 +423,7 @@ class QEMU(Machinery):
         # allow some overrides from the vm specific options
         # also do another round of parameter formatting
         for var in ["mac", "kernel", "initrd"]:
-            val = getattr(vm_options, var, params.get(var, None))
+            val = getattr(vm_options, var, params.get(var))
             if not val:
                 continue
             params[var] = val.format(**params)
@@ -460,7 +460,7 @@ class QEMU(Machinery):
         if self._status(vm_info.name) == self.STOPPED:
             raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
-        proc = self.state.get(vm_info.name, None)
+        proc = self.state.get(vm_info.name)
         proc.kill()
 
         stop_me = 0
@@ -483,7 +483,7 @@ class QEMU(Machinery):
         @param name: virtual machine name.
         @return: status string.
         """
-        p = self.state.get(name, None)
+        p = self.state.get(name)
         if p is not None:
             return self.RUNNING
         return self.STOPPED

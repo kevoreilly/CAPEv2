@@ -469,7 +469,7 @@ def index(request, resubmit_hash=False):
                 return render(request, "error.html", {"error": "You specified an invalid URL!"})
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-            response = _download_file(request.POST.get("route", None), url, options)
+            response = _download_file(request.POST.get("route"), url, options)
             if not response:
                 return render(request, "error.html", {"error": "Was impossible to retrieve url"})
 

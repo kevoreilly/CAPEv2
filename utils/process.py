@@ -311,8 +311,8 @@ def _load_mongo_report(task_id: int, return_one: bool = False):
     conn = MongoClient(
         host=repconf.mongodb.get("host", "127.0.0.1"),
         port=repconf.mongodb.get("port", 27017),
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )
     mdata = conn[repconf.mongodb.get("db", "cuckoo")]

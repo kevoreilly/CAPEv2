@@ -1286,8 +1286,7 @@ pytzdata==2020.1 \
     --hash=sha256:e1e14750bcf95016381e4d472bad004eef710f2d6417240904070b3d6654485f
     # via pendulum
 https://github.com/DissectMalware/pyxlsb2/archive/master.zip \
-    --hash=sha256:2d24b578591157c0a12ae0dfad15a4105009ab629a5b148d56eaa695569dca70 \
-    --hash=sha256:341917e711889e7531e603766f7e49282e9bf36eb12f866bd525b0f4760c4ffc
+    --hash=sha256:ed1acf32fc375c6dca843e9c94fd841f882b973bc573a32b53e43ba106941767
     # via xlmmacrodeobfuscator
 pyyaml==5.4.1 \
     --hash=sha256:08682f6b72c722394747bddaf0aa62277e02557c0fd1c42cb853016a38f8dedf \
@@ -1616,8 +1615,7 @@ https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/ff77bdc114ee84b8e
     --hash=sha256:556013c3522891d02ed8b4b587de6975bcf5115ee7a1a003ad9a71f0a25e1385
     # via -r requirements.in
 https://github.com/DissectMalware/xlrd2/archive/master.zip \
-    --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \
-    --hash=sha256:f84d245d40f4dc5b2e336a5086314e481efddcf92c93ee4636c426e1f188e173
+    --hash=sha256:a8e006ae8855a54f0e6ddfbf342b621297d260953a3ccb7d5baa13192878fb43
     # via xlmmacrodeobfuscator
 xmltodict==0.12.0 \
     --hash=sha256:50d8c638ed7ecb88d90561beedbf720c9b4e851a9fa6c47ebd64e99d166d8a21 \

@@ -2,6 +2,7 @@
 * VBE/JSE/BATCH decoded and shown on WebGui
 * __ACTION REQUIRED__
     * `pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator`
+* Monitor: Add support for parent pid in payload capture (thanks to Intezer)
 
 ### [02-12-2021] - API changes
 * We spot that pyzipper adds huge overhead specially to distributed cape.

@@ -57,6 +57,12 @@ try:
 except ImportError:
     HAVE_KIXTART = False
 
+try:
+    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
+
+    HAVE_VBE_DECODER = True
+except ImportError:
+    HAVE_VBE_DECODER = False
 
 def init_yara():
     """Generates index for yara signatures."""
@@ -485,8 +491,37 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract):
+    for funcname in (msi_extract, kixtart_extract, vbe_extract):
         funcname(file, destination_folder, filetype, data_dictionary)
+
+
+def vbe_extract(file, destination_folder, filetype, data_dictionary):
+
+    if not HAVE_VBE_DECODER:
+        return
+
+    decoded = False
+
+    try:
+        decoded = vbe_decode_file(file)
+    except Exception as e:
+        log.error(e, exc_info=True)
+
+    if not decoded:
+        return
+
+    with tempfile.TemporaryDirectory(prefix="vbedecoded_") as tempdir:
+        decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
+        with open(decoded_file_path, "wb") as f:
+            f.write(decoded)
+
+    metadata = list()
+    metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("vbe_decoded", metadata)
 
 
 def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract="/usr/bin/msiextract"):  # dropped_path

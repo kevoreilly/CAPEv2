@@ -239,6 +239,9 @@
                 {% if sub_file.kixtart %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#kixtart_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="kixtart_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display kixtart extracted files"><span class="fas fa-archive"></span> Kixtart</a>
                 {% endif %}
+                {% if sub_file.vbe_decoded %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#vbe_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="vbe_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> VBE</a>
+                {% endif %}
             </td>
         </tr>
         {% endif %}
@@ -327,6 +330,17 @@
                 <div class="collapse" id="text_{{sub_file.sha256}}">
                     <div class="card card-body">
                     <pre>{{sub_file.data|safe}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+        {% if sub_file.vbe_decoded %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="vba_{{sub_file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{sub_file.vbe_decoded|safe}}</pre>
                     </div>
                 </div>
             </td>

@@ -743,10 +743,10 @@ def download_file(**kwargs):
 
 
 def url_defang(url):
-    url_defang = url.replace("[.]", ".").replace("[.", ".").replace(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
-    if not url_defang.startswith("http"):
-        url_defang = "http://" + url_defang
-    return url_defang
+    url = url.replace("[.]", ".").replace("[.", ".").replace(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
+    if not url.startswith("http"):
+        url = "http://" + url
+    return url
 
 
 def _download_file(route, url, options):

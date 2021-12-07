@@ -17,9 +17,13 @@ import struct
 import string
 import pefile
 import yara
-import re
 from Crypto.Cipher import ARC4
 import logging
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 log = logging.getLogger(__name__)
 

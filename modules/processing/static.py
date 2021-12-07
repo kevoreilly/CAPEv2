@@ -7,7 +7,6 @@ from __future__ import print_function
 import json
 import logging
 import os
-import re
 import math
 import array
 import ctypes

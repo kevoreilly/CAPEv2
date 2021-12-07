@@ -16,7 +16,11 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 
 import sys
 import os
-import re
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 
 def decode_data(data: str):

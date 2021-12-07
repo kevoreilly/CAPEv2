@@ -8,7 +8,10 @@ from __future__ import absolute_import
 # this is with some fixes https://github.com/kvesteri/validators/blob/master/validators/url.py
 # https://github.com/kvesteri/validators/pull/184/files
 
-import re
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 ip_middle_octet = r"(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5]))"
 ip_last_octet = r"(?:\.(?:0|[1-9]\d?|1\d\d|2[0-4]\d|25[0-5]))"

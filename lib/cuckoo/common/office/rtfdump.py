@@ -47,7 +47,6 @@ import os
 import zipfile
 import binascii
 import textwrap
-import re
 import string
 import hashlib
 import json
@@ -56,8 +55,13 @@ import collections
 import glob
 
 try:
+    import re2 as re
+except ImportError:
+    import re
+
+try:
     import yara
-except Exception:
+except ImportError:
     pass
 
 dumplinelength = 16

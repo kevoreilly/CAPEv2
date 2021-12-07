@@ -7,11 +7,15 @@
 # Updates based on work presented here https://gist.github.com/sysopfb/11e6fb8c1377f13ebab09ab717026c87
 
 import string
-import re
 import pefile
 from mwcp.parser import Parser
 from Crypto.Cipher import ARC4
 from collections import OrderedDict
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 # From JPCERT
 FLAG = {b"\x00": "Disable", b"\x01": "Enable"}

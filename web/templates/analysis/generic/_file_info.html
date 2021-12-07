@@ -247,6 +247,9 @@
                 {% if file.vbe_decoded %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#vbe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="vbe_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> VBE</a>
                 {% endif %}
+                {% if file.batch_decoded %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#batch_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="batch_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Batch</a>
+                {% endif %}
             </td>
         </tr>
         {% endif %}
@@ -351,5 +354,16 @@
             </td>
             </tr>
         {% endif %}
+        {% if file.batch_decoded %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="batch_{{file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{file.batch_decoded|safe}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+            {% endif %}
     </table>
 </div>

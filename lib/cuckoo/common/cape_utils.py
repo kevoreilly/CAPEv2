@@ -64,6 +64,16 @@ try:
 except ImportError:
     HAVE_VBE_DECODER = False
 
+try:
+    from batch_deobfuscator.batch_interpreter import BatchDeobfuscator, handle_bat_file
+
+    batch_deobfuscator = BatchDeobfuscator()
+    HAVE_BAT_DECODER = True
+except ImportError:
+    HAVE_BAT_DECODER = False
+    print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
+
+
 def init_yara():
     """Generates index for yara signatures."""
 
@@ -491,8 +501,47 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract, vbe_extract):
+    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract):
         funcname(file, destination_folder, filetype, data_dictionary)
+
+
+def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tmp_prefix, dict_key):
+    with tempfile.TemporaryDirectory(prefix=tmp_prefix) as tempdir:
+        decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
+        with open(decoded_file_path, "wb") as f:
+            f.write(decoded)
+
+    metadata = list()
+    metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault(dict_key, metadata)
+
+
+def batch_extract(file, destination_folder, filetype, data_dictionary):
+    # https://github.com/DissectMalware/batch_deobfuscator
+    # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
+
+    if not HAVE_BAT_DECODER or not file.endswith(".bat"):
+        return
+
+    decoded = handle_bat_file(batch_deobfuscator, file)
+    if not decoded:
+        return
+
+    # compare hashes to ensure that they are not the same
+    with open(file, "rb") as f:
+        data = f.read()
+
+    original_sha256 = hashlib.sha256(data).hexdigest()
+    decoded_sha256 = hashlib.sha256(decoded).hexdigest()
+
+    if original_sha256 == decoded_sha256:
+        return
+
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "batchdecoded_", "batch_decoded")
 
 
 def vbe_extract(file, destination_folder, filetype, data_dictionary):
@@ -510,18 +559,7 @@ def vbe_extract(file, destination_folder, filetype, data_dictionary):
     if not decoded:
         return
 
-    with tempfile.TemporaryDirectory(prefix="vbedecoded_") as tempdir:
-        decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
-        with open(decoded_file_path, "wb") as f:
-            f.write(decoded)
-
-    metadata = list()
-    metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("vbe_decoded", metadata)
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "vbedecoded_", "vbe_decoded")
 
 
 def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract="/usr/bin/msiextract"):  # dropped_path

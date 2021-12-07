@@ -44,6 +44,9 @@ backcall==0.2.0 \
     --hash=sha256:5cbdbf27be5e7cfadb448baf0aa95508f91f2bbc6c6437cd9cd06e2a4c215e1e \
     --hash=sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255
     # via ipython
+https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip \
+    --hash=sha256:f8b1782d4820463c93340ab44ef91d01e93453c79cc5ad0aadb8c386c17f8ec9
+    # via -r requirements.in
 beautifulsoup4==4.9.3 \
     --hash=sha256:4c98143716ef1cb40bf7f39a8e3eec8f8b009509e74904ba3a7b315431577e35 \
     --hash=sha256:84729e322ad1d5b4d25f805bfa05b902dd96450f43842c4e99067d5e1369eb25 \
@@ -1282,7 +1285,7 @@ pytzdata==2020.1 \
     --hash=sha256:3efa13b335a00a8de1d345ae41ec78dd11c9f8807f522d39850f2dd828681540 \
     --hash=sha256:e1e14750bcf95016381e4d472bad004eef710f2d6417240904070b3d6654485f
     # via pendulum
-pyxlsb2==0.0.2 \
+https://github.com/DissectMalware/pyxlsb2/archive/master.zip \
     --hash=sha256:2d24b578591157c0a12ae0dfad15a4105009ab629a5b148d56eaa695569dca70 \
     --hash=sha256:341917e711889e7531e603766f7e49282e9bf36eb12f866bd525b0f4760c4ffc
     # via xlmmacrodeobfuscator
@@ -1406,6 +1409,10 @@ requests[security,socks]==2.26.0 \
     #   requests-file
     #   requests-oauthlib
     #   tldextract
+roman==3.3 \
+    --hash=sha256:2c46ac8db827d34e4fa9ccc0577e7f0b0d84f16ffe112351bd4f1ec2eb12d73f \
+    --hash=sha256:c2a1f14ab47373aecc141edbcdd66595949c9d0ed932fe76bd547df1b55f7278
+    # via xlmmacrodeobfuscator
 ruamel.yaml.clib==0.2.4 \
     --hash=sha256:091a38f04f8a332ba7b3dba26197cd522bc29936943b3d1732ce3c463bb6b275 \
     --hash=sha256:202e4751f038383241036e79640e7efd23d7272e3ce0cc8a11b9804ad604c5da \
@@ -1605,10 +1612,10 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/c6e4cbcb84847e840322616220a65856bfa60820.zip \
-    --hash=sha256:b914d07167ad573e07499c02bf5bead3226caf6ce17a16f3bbda8ae50f24864b
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/ff77bdc114ee84b8e1520b77cb25e7305743f040.zip \
+    --hash=sha256:556013c3522891d02ed8b4b587de6975bcf5115ee7a1a003ad9a71f0a25e1385
     # via -r requirements.in
-xlrd2==1.2.6 \
+https://github.com/DissectMalware/xlrd2/archive/master.zip \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \
     --hash=sha256:f84d245d40f4dc5b2e336a5086314e481efddcf92c93ee4636c426e1f188e173
     # via xlmmacrodeobfuscator

@@ -502,7 +502,11 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
     """
 
     for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract):
-        funcname(file, destination_folder, filetype, data_dictionary)
+        try:
+            funcname(file, destination_folder, filetype, data_dictionary)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
 
 
 def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tmp_prefix, dict_key):

@@ -120,9 +120,12 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
 
         if len(file_data) > buf:
             data = file_data[:buf] + b" <truncated>"
-            file_info.setdefault("data", data.decode())
+            file_info.setdefault("data", data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
+
         else:
             file_info.setdefault("data", file_data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
 
 
 def create_zip(files=False, folder=False, encrypted=False):

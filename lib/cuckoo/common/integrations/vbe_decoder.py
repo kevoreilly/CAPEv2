@@ -89,15 +89,16 @@ def decode_files(files: list):
     return '\n'.join(output)
 
 
-def decode_file(file :str):
-    try:
-        handle = open(file, 'rb')
-        binary_content = handle.read()
-        contents :str = binary_content.decode('latin-1', errors='ignore')
-    except Exception as e:
-        fatal_error(f'{e.message}')
-    finally:
-        handle.close()
+def decode_file(file :str, contents=False):
+    if not contents:
+        try:
+            handle = open(file, 'rb')
+            binary_content = handle.read()
+            contents :str = binary_content.decode('latin-1', errors='ignore')
+        except Exception as e:
+            fatal_error(f'{e.message}')
+        finally:
+            handle.close()
 
     encoded_data :list = re.findall(r'#@~\^......==(.+)......==\^#~@', contents)
 

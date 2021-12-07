@@ -256,13 +256,13 @@
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#kixtart_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="kixtart_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display kixtart extracted files"><span class="fas fa-archive"></span> Kixtart</a>
                     {% endif %}
                     {% if analysis.target.file.data %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{target.file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                     {% endif %}
                     {% if analysis.target.file.vbe_decoded %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#vbe_{{target.file.sha256}}" role="button" aria-expanded="false" aria-controls="vbe_{{target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> VBE</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#vbe_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="vbe_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> VBE</a>
                     {% endif %}
                     {% if analysis.target.file.batch_decoded %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#batch_{{target.file.sha256}}" role="button" aria-expanded="false" aria-controls="batch_{{target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Batch</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#batch_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="batch_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Batch</a>
                     {% endif %}
                 </td>
             </tr>
@@ -329,7 +329,7 @@
             {% if analysis.target.file.data %}
             <tr>
                 <th></th><td>
-                <div class="collapse" id="text_{{target.file.sha256}}">
+                <div class="collapse" id="text_{{analysis.target.file.sha256}}">
                     <div class="card card-body">
                     <pre>{{analysis.target.file.data|safe}}</pre>
                     </div>
@@ -341,7 +341,7 @@
             {% if analysis.target.file.vbe_decoded %}
             <tr>
                 <th></th><td>
-                <div class="collapse" id="vbe_{{target.file.sha256}}">
+                <div class="collapse" id="vbe_{{analysis.target.file.sha256}}">
                     <div class="card card-body">
                     <pre>{{analysis.target.file.vbe_decoded|safe}}</pre>
                     </div>
@@ -353,7 +353,7 @@
             {% if analysis.target.file.batch_decoded %}
             <tr>
                 <th></th><td>
-                <div class="collapse" id="batch_{{target.file.sha256}}">
+                <div class="collapse" id="batch_{{analysis.target.file.sha256}}">
                     <div class="card card-body">
                     <pre>{{analysis.target.file.batch_decoded|safe}}</pre>
                     </div>

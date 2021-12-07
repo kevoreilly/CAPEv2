@@ -547,16 +547,25 @@ def batch_extract(file, destination_folder, filetype, data_dictionary):
 def vbe_extract(file, destination_folder, filetype, data_dictionary):
 
     if not HAVE_VBE_DECODER:
+        log.debug("Missed VBE decoder")
         return
 
     decoded = False
 
+    with open(file, "rb") as f:
+        data = f.read()
+
+    if b"#@~^" not in data[:100]:
+        log.debug("Not appers to be VBE file")
+        return
+
     try:
-        decoded = vbe_decode_file(file)
+        decoded = vbe_decode_file(file, data)
     except Exception as e:
         log.error(e, exc_info=True)
 
     if not decoded:
+        log.debug("VBE content wasn't decoded")
         return
 
     _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "vbedecoded_", "vbe_decoded")

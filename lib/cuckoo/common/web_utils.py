@@ -301,9 +301,7 @@ def statistics(s_days: int) -> dict:
                             tmp_custom[entry["name"]]["successful"] = 0
                         else:
                             tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
+                            tmp_custom[entry["name"]]["successful"] = analysis["custom_statistics"][entry["name"]].get("extracted", 0)
                         tmp_custom[entry["name"]]["runs"] = 1
 
                     else:
@@ -313,9 +311,7 @@ def statistics(s_days: int) -> dict:
                             tmp_custom[entry["name"]]["successful"] += 0
                         else:
                             tmp_custom[entry["name"]]["time"] += analysis["custom_statistics"][entry["name"]]["time"]
-                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get(
-                                "extracted", 0
-                            )
+                            tmp_custom[entry["name"]]["successful"] += analysis["custom_statistics"][entry["name"]].get("extracted", 0)
                         tmp_custom[entry["name"]]["runs"] += 1
                 if entry["name"] not in tmp_data[type_entry]:
                     tmp_data[type_entry].setdefault(entry["name"], dict())
@@ -342,9 +338,7 @@ def statistics(s_days: int) -> dict:
             details[module_name].setdefault(entry, dict())
             details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float(
-                "{:.2f}".format(round(times_in_mins / tmp_data[module_name][entry]["runs"], 2))
-            )
+            details[module_name][entry]["average"] = float("{:.2f}".format(round(times_in_mins / tmp_data[module_name][entry]["runs"], 2)))
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     # custom average
@@ -359,12 +353,8 @@ def statistics(s_days: int) -> dict:
 
     top_samples = dict()
     session = db.Session()
-    added_tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
-    )
-    tasks = (
-        session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
-    )
+    added_tasks = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    tasks = session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
     details["total"] = len(tasks)
     details["average"] = "{:.2f}".format(round(details["total"] / s_days, 2))
     details["tasks"] = dict()
@@ -392,9 +382,7 @@ def statistics(s_days: int) -> dict:
             continue
         details["tasks"][day]["added"] += 1
 
-    details["tasks"] = OrderedDict(
-        sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
-    )
+    details["tasks"] = OrderedDict(sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True))
 
     if HAVE_DIST and repconf.distributed.enabled:
         details["distributed_tasks"] = dict()
@@ -631,9 +619,7 @@ def download_file(**kwargs):
         if kwargs.get("fhash", False):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
-                return "error", {
-                    "error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)
-                }
+                return "error", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)}
         if not os.path.exists(kwargs.get("path")):
             f = open(kwargs["path"], "wb")
             f.write(kwargs["content"])

@@ -98,9 +98,7 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                     virustotal["sha1"] = vt_response.get("data", {}).get("attributes", {}).get("sha1")
                     virustotal["sha256"] = vt_response.get("data", {}).get("attributes", {}).get("sha256")
                     virustotal["tlsh"] = vt_response.get("data", {}).get("attributes", {}).get("tlsh")
-                    virustotal["positive"] = (
-                        vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious")
-                    )
+                    virustotal["positive"] = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious")
                     virustotal["total"] = len(engines.keys())
                     virustotal["permalink"] = vt_response.get("data", {}).get("links", {}).get("self")
                     if remove_empty:

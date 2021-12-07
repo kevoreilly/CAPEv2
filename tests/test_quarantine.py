@@ -54,10 +54,7 @@ class TestUnquarantine:
     def test_xorff(self, grab_sample):
         sample_hash = "f78151a41250f2bb1b5ca6bd61a427ad1fcf353febb1461e68c52025490827e2"
         sample_location = grab_sample(sample_hash)
-        assert (
-            xorff_unquarantine(sample_location).split(b"/")[-1]
-            == b"f78151a41250f2bb1b5ca6bd61a427ad1fcf353febb1461e68c52025490827e2"
-        )
+        assert xorff_unquarantine(sample_location).split(b"/")[-1] == b"f78151a41250f2bb1b5ca6bd61a427ad1fcf353febb1461e68c52025490827e2"
 
     def test_mbam(self, grab_sample):
         # Simple eicar file generated from malwarebytes

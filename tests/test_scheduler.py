@@ -355,9 +355,7 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
         analysis_man.machine = mock_machine()
-        mocker.patch(
-            "lib.cuckoo.core.scheduler.File.get_type", return_value="PE32 executable (console) Intel 80386, for MS Windows"
-        )
+        mocker.patch("lib.cuckoo.core.scheduler.File.get_type", return_value="PE32 executable (console) Intel 80386, for MS Windows")
 
         opts = analysis_man.build_options()
         opts["target"] = opts["target"].split("/")[-1]

@@ -34,8 +34,7 @@ class AnalysisInfo(Processing):
     """General information about analysis session."""
 
     def had_timeout(self):
-        """ Test if the analysis had a timeout
-        """
+        """Test if the analysis had a timeout"""
         if os.path.exists(self.log_path):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
@@ -49,8 +48,7 @@ class AnalysisInfo(Processing):
         return False
 
     def get_package(self):
-        """ Get the actually used package name
-        """
+        """Get the actually used package name"""
         package = self.task["package"]
         if not package and os.path.exists(self.log_path):
             try:

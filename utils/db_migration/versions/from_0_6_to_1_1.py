@@ -61,7 +61,9 @@ def upgrade():
 
         # Create table used by Tag.
         op.create_table(
-            "tags", sa.Column("id", sa.Integer(), primary_key=True), sa.Column("name", sa.String(length=255), nullable=False, unique=True),
+            "tags",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("name", sa.String(length=255), nullable=False, unique=True),
         )
 
         # Create secondary table used in association Machine - Tag.

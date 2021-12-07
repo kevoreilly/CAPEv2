@@ -8,6 +8,7 @@ import os
 import sys
 import zipfile
 from io import BytesIO
+
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 import logging
@@ -24,11 +25,12 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 log = logging.getLogger(__name__)
 URL = "https://github.com/kevoreilly/community/archive/{0}.tar.gz"
 
+
 def flare_capa():
     signature_urls = (
-        'https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig',
-        'https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig',
-        'https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig',
+        "https://github.com/mandiant/capa/raw/master/sigs/1_flare_msvc_rtf_32_64.sig",
+        "https://github.com/mandiant/capa/raw/master/sigs/2_flare_msvc_atlmfc_32_64.sig",
+        "https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig",
     )
     try:
         http = urllib3.PoolManager()
@@ -44,16 +46,17 @@ def flare_capa():
         if not os.path.isdir(capa_sigs_path):
             os.mkdir(capa_sigs_path)
         for url in signature_urls:
-            signature_name = url.split('/')[-1]
-            with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), 'wb') as out_sig:
+            signature_name = url.split("/")[-1]
+            with http.request("GET", url, preload_content=False) as sig, open(os.path.join(capa_sigs_path, signature_name), "wb") as out_sig:
                 shutil.copyfileobj(sig, out_sig)
 
         print("[+] FLARE CAPA rules/signatures installed")
     except Exception as e:
         print(e)
 
+
 def mitre():
-    """ Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
+    """Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
     try:
         from pyattck import Attck
     except ImportError:
@@ -72,10 +75,11 @@ def mitre():
         nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
         generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
         generated_nist_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",
-     )
+    )
 
     print("[+] Updating MITRE datasets")
     mitre.update()
+
 
 def install(enabled, force, rewrite, filepath):
     if filepath and os.path.exists(filepath):
@@ -218,4 +222,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-

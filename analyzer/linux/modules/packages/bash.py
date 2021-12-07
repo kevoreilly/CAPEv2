@@ -7,7 +7,7 @@ from lib.core.packages import Package
 
 
 class Bash(Package):
-    """ Bash shell script analysys package. """
+    """Bash shell script analysys package."""
 
     def prepare(self):
         self.args = [self.target] + self.args

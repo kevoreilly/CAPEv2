@@ -42,6 +42,7 @@ config_mapper = {
     "reporting": reporting_cfg,
 }
 
+
 def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"])
@@ -64,7 +65,11 @@ def import_package(package):
 
         # Disable initialization of disabled plugins, performance++
         _, category, module_name = name.split(".")
-        if category in config_mapper and module_name in config_mapper[category].fullconfig and config_mapper[category].get(module_name).get("enabled", False) is False:
+        if (
+            category in config_mapper
+            and module_name in config_mapper[category].fullconfig
+            and config_mapper[category].get(module_name).get("enabled", False) is False
+        ):
             continue
 
         try:
@@ -239,7 +244,9 @@ class RunProcessing(object):
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))})
+            self.results["statistics"]["processing"].append(
+                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))}
+            )
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -284,7 +291,9 @@ class RunProcessing(object):
         # Add temp_processing stats to global processing stats
         if self.results["temp_processing_stats"]:
             for plugin_name in self.results["temp_processing_stats"]:
-                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)})
+                self.results["statistics"]["processing"].append(
+                    {"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)}
+                )
 
         del self.results["temp_processing_stats"]
 
@@ -462,7 +471,10 @@ class RunSignatures(object):
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["signatures"].append(
-                {"name": current.name, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
+                {
+                    "name": current.name,
+                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                }
             )
 
             if data:
@@ -585,7 +597,10 @@ class RunSignatures(object):
         for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": float("%d.%03d" % (value.seconds, value.microseconds / 1000)),}
+                    {
+                        "name": key,
+                        "time": float("%d.%03d" % (value.seconds, value.microseconds / 1000)),
+                    }
                 )
         # Compat loop for old-style (non evented) signatures.
         if complete_list:
@@ -620,7 +635,11 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "Yara" and self.cfg_processing.detections.enabled and self.cfg_processing.detections.behavior:
+        if (
+            self.results.get("malfamily_tag", "") != "Yara"
+            and self.cfg_processing.detections.enabled
+            and self.cfg_processing.detections.behavior
+        ):
             for match in matched:
                 if "families" in match and match["families"]:
                     self.results["detections"] = match["families"][0]
@@ -704,7 +723,10 @@ class RunReporting:
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["reporting"].append(
-                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
+                {
+                    "name": current.__class__.__name__,
+                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                }
             )
 
         except CuckooDependencyError as e:

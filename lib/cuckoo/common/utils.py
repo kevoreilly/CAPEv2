@@ -542,19 +542,14 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         or arg_name == "OldProtection"
     ):
         return pp_funcs.arg_name_protection_and_others(arg_val)
-    elif (
-        api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags"
-    ):
+    elif api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags":
         return pp_funcs.api_name_in_creation(arg_val)
     elif (api_name == "MoveFileWithProgressW" or api_name == "MoveFileWithProgressTransactedW") and arg_name == "Flags":
         return pp_funcs.api_name_move_arg_name_flags(arg_val)
     elif arg_name == "FileAttributes":
         return pp_funcs.arg_name_fileattributes(arg_val)
     elif (
-        api_name == "NtCreateFile"
-        or api_name == "NtOpenFile"
-        or api_name == "NtCreateDirectoryObject"
-        or api_name == "NtOpenDirectoryObject"
+        api_name == "NtCreateFile" or api_name == "NtOpenFile" or api_name == "NtCreateDirectoryObject" or api_name == "NtOpenDirectoryObject"
     ) and arg_name == "DesiredAccess":
         return pp_funcs.api_name_nt_arg_name_desiredaccess(arg_val)
     elif api_name == "NtOpenProcess" and arg_name == "DesiredAccess":
@@ -904,9 +899,7 @@ def get_user_filename(options, customs):
 
 
 def generate_fake_name():
-    out = "".join(
-        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15))
-    )
+    out = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15)))
     return out
 
 

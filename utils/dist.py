@@ -122,9 +122,7 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 
 def node_status(url, name, apikey):
     try:
-        r = requests.get(
-            os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300
-        )
+        r = requests.get(os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=300)
         return r.json().get("data", {})
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
@@ -284,9 +282,7 @@ def node_submit_task(task_id, node_id):
                 return
         elif task.category == "url":
             url = os.path.join(node.url, "tasks", "create", "url/")
-            r = requests.post(
-                url, data={"url": task.path, "options": task.options}, headers={"Authorization": f"Token {apikey}"}, verify=False
-            )
+            r = requests.post(url, data={"url": task.path, "options": task.options}, headers={"Authorization": f"Token {apikey}"}, verify=False)
         elif task.category == "static":
             url = os.path.join(node.url, "tasks", "create", "static/")
             files = dict(file=open(task.path, "rb"))
@@ -493,11 +489,7 @@ class Retriever(threading.Thread):
                     for task in node_fetch_tasks(status, node.url, node.apikey, action="delete"):
                         t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
                         if t is not None:
-                            log.info(
-                                "Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(
-                                    t.id, t.node_id, t.main_task_id
-                                )
-                            )
+                            log.info("Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
                             main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
                             t.finished = True
                             t.retrieved = True
@@ -547,10 +539,7 @@ class Retriever(threading.Thread):
                         self.cleaner_queue.put((node.id, task["id"]))
                         continue
                     try:
-                        if (
-                            task["id"] not in self.current_queue.get(node.id, [])
-                            and (task["id"], node.id) not in self.fetcher_queue.queue
-                        ):
+                        if task["id"] not in self.current_queue.get(node.id, []) and (task["id"], node.id) not in self.fetcher_queue.queue:
                             limit += 1
                             self.fetcher_queue.put((task, node.id))
                             # log.debug("{} - {}".format(task, node.id))
@@ -619,9 +608,7 @@ class Retriever(threading.Thread):
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
                 start_copy = datetime.now()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
-                print(
-                    f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
-                )
+                print(f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
 
                 if not copied:
                     log.error("Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
@@ -713,9 +700,7 @@ class Retriever(threading.Thread):
 
                 if report.status_code != 200:
                     log.info(
-                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(
-                            report.status_code, t.task_id, node_id
-                        )
+                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(report.status_code, t.task_id, node_id)
                     )
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
@@ -1014,9 +999,7 @@ class StatusThread(threading.Thread):
         db.close()
 
         # MINIMUMQUEUE but per Node depending of number vms
-        for node in (
-            db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).filter_by(enabled=True).all()
-        ):
+        for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).filter_by(enabled=True).all():
             MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
             ID2NAME[node.id] = node.name
             self.load_vm_tags(db, node.id, node.name)
@@ -1030,22 +1013,13 @@ class StatusThread(threading.Thread):
             try:
                 # Remove disabled nodes
                 for node in (
-                    db.query(Node)
-                    .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled)
-                    .filter_by(enabled=False)
-                    .all()
-                    or []
+                    db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).filter_by(enabled=False).all() or []
                 ):
                     if node.name in STATUSES:
                         del STATUSES[node.name]
 
                 # Request a status update on all CAPE nodes.
-                for node in (
-                    db.query(Node)
-                    .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled)
-                    .filter_by(enabled=True)
-                    .all()
-                ):
+                for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).filter_by(enabled=True).all():
                     status = node_status(node.url, node.name, node.apikey)
                     if not status:
                         failed_count.setdefault(node.name, 0)
@@ -1078,9 +1052,7 @@ class StatusThread(threading.Thread):
 
                         node_name = min(
                             STATUSES,
-                            key=lambda k: STATUSES[k]["tasks"]["completed"]
-                            + STATUSES[k]["tasks"]["pending"]
-                            + STATUSES[k]["tasks"]["running"],
+                            key=lambda k: STATUSES[k]["tasks"]["completed"] + STATUSES[k]["tasks"]["pending"] + STATUSES[k]["tasks"]["running"],
                         )
                         if node_name != node.name:
                             node = (
@@ -1265,12 +1237,7 @@ class TaskInfo(RestResource):
         db = session()
         task_db = db.query(Task).filter_by(main_task_id=main_task_id).first()
         if task_db and task_db.node_id:
-            node = (
-                db.query(Node)
-                .with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled)
-                .filter_by(id=task_db.node_id)
-                .first()
-            )
+            node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).filter_by(id=task_db.node_id).first()
             response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
         else:
             response = {"status": "pending"}

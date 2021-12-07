@@ -21,6 +21,7 @@ except ImportError:
 HAVE_NETWORKIFACES = False
 try:
     import psutil
+
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
@@ -137,7 +138,9 @@ class AnalysisManager(threading.Thread):
             try:
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
-                log.error("Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(self.task.id, self.task.target, self.binary))
+                log.error(
+                    "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(self.task.id, self.task.target, self.binary)
+                )
                 return False
 
         try:
@@ -175,10 +178,16 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(self.task.id))
+                log.debug(
+                    "Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(
+                        self.task.id
+                    )
+                )
                 time.sleep(1)
             else:
-                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform))
+                log.info(
+                    "Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform)
+                )
                 break
 
         self.machine = machine
@@ -201,7 +210,6 @@ class AnalysisManager(threading.Thread):
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
         options["upload_max_size"] = self.cfg.resultserver.upload_max_size
         options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
-
 
         if not self.task.timeout or self.task.timeout == 0:
             options["timeout"] = self.cfg.timeouts.default
@@ -277,7 +285,9 @@ class AnalysisManager(threading.Thread):
         dead_machine = False
         self.socks5s = _load_socks5_operational()
 
-        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
+        log.info(
+            "Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target))
+        )
 
         # Initialize the analysis folders.
         if not self.init_storage():
@@ -576,7 +586,11 @@ class AnalysisManager(threading.Thread):
 
         elif self.route == "tor":
             self.rooter_response = rooter(
-                "socks5_disable", self.machine.ip, str(self.cfg.resultserver.port), str(routing.tor.dnsport), str(routing.tor.proxyport),
+                "socks5_disable",
+                self.machine.ip,
+                str(self.cfg.resultserver.port),
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -647,7 +661,9 @@ class Scheduler:
         conf = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery_name)
 
         if not os.path.exists(conf):
-            raise CuckooCriticalError("The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf))
+            raise CuckooCriticalError(
+                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
+            )
 
         # Provide a dictionary with the configuration options to the
         # machine manager instance.
@@ -742,9 +758,11 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path,  return_value=True, analysis=True)
+                need_space, space_available = free_space_monitor(dir_path, return_value=True, analysis=True)
                 if need_space:
-                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                    log.error(
+                        "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+                    )
                     continue
 
             # Have we limited the number of concurrently executing machines?

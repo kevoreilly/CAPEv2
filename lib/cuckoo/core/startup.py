@@ -85,9 +85,7 @@ def check_webgui_mongo():
             # ToDo check how to give user permission to read this without admin
             # conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning(
-                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration"
-            )
+            log.warning("You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration")
             bad = True
         finally:
             conn.close()
@@ -179,9 +177,7 @@ def init_logging():
 
     if cuckoo.log_rotation.enabled:
         days = cuckoo.log_rotation.backup_count or 7
-        fh = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
-        )
+        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days))
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)

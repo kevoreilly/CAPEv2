@@ -457,7 +457,7 @@ class MaecReport(Report):
 
     def map_object_properties(self, obj, mapping_entry, arguments):
         """Map the properties of a Cuckoo-reported Object to its STIX
-         Cyber Observable Representation"""
+        Cyber Observable Representation"""
         obj_dict = {}
         # Handle object extensions
         if "extension" in mapping_entry:

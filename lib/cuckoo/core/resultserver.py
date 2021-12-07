@@ -62,7 +62,7 @@ RESULT_UPLOADABLE = (
     b"shots",
     b"sysmon",
     b"stap",
-    b"evtx"
+    b"evtx",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 

@@ -7,6 +7,7 @@ import argparse
 #   VPN intergrator for CAPE
 #   Quick and Dirty script by doomedraven to preparate configs for vpn integration
 
+
 def main():
     rt_table = dict()
     templates = list()

@@ -219,7 +219,7 @@ class vSphere(Machinery):
 
     def _get_snapshot_by_name(self, vm, name):
         """Return the named VirtualMachineSnapshot managed object for
-           a virtual machine"""
+        a virtual machine"""
         root = vm.snapshot.rootSnapshotList
         sg = (ss.snapshot for ss in self._traverseSnapshots(root) if ss.name == name)
         return next(sg, None)

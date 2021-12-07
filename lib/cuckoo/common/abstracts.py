@@ -250,9 +250,7 @@ class Machinery(object):
                 raise CuckooCriticalError(msg)
 
         if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError(
-                "Virtual machine state change timeout " "setting not found, please add it to " "the config file."
-            )
+            raise CuckooCriticalError("Virtual machine state change timeout " "setting not found, please add it to " "the config file.")
 
     def machines(self):
         """List virtual machines.
@@ -909,9 +907,7 @@ class Signature(object):
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
-            print(
-                "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin."
-            )
+            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
@@ -1400,11 +1396,7 @@ class Signature(object):
         @return: dict containing initial process information or None
         """
 
-        if (
-            not "behavior" in self.results
-            or not "processes" in self.results["behavior"]
-            or not len(self.results["behavior"]["processes"])
-        ):
+        if not "behavior" in self.results or not "processes" in self.results["behavior"] or not len(self.results["behavior"]["processes"]):
             return None
 
         return self.results["behavior"]["processes"][0]
@@ -1486,9 +1478,7 @@ class Signature(object):
         if isinstance(self.results.get("suricata", {}), dict):
             for alert in self.results.get("suricata", {}).get("alerts", []):
                 sid = alert.get("sid", 0)
-                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(
-                    pattern, alert.get("signature", ""), re.I
-                ):
+                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(pattern, alert.get("signature", ""), re.I):
                     res = True
                     break
         return res

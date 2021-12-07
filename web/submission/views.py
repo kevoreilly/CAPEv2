@@ -248,9 +248,7 @@ def index(request, resubmit_hash=False):
             if paths:
                 content = get_file_content(paths)
                 if not content:
-                    return render(
-                        request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))}
-                    )
+                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
                 if not os.path.exists(folder):
                     os.makedirs(folder)
@@ -285,9 +283,7 @@ def index(request, resubmit_hash=False):
                     continue
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     details["errors"].append(
-                        {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        }
+                        {sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."}
                     )
                     continue
 
@@ -338,9 +334,7 @@ def index(request, resubmit_hash=False):
                     return render(
                         request,
                         "error.html",
-                        {
-                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
+                        {"error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."},
                     )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
@@ -376,9 +370,7 @@ def index(request, resubmit_hash=False):
                     return render(
                         request,
                         "error.html",
-                        {
-                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
+                        {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."},
                     )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
@@ -402,9 +394,7 @@ def index(request, resubmit_hash=False):
                     return render(
                         request,
                         "error.html",
-                        {
-                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
+                        {"error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."},
                     )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
@@ -497,12 +487,7 @@ def index(request, resubmit_hash=False):
                 details["errors"].append({name: task_ids_tmp})
             else:
                 details["task_ids"] = task_ids_tmp
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
+        elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) and request.POST.get("vtdl")[0] != "":
             if not settings.VTDL_KEY or not settings.VTDL_PATH:
                 return render(
                     request,

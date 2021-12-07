@@ -44,9 +44,7 @@ def config(memdump_path, read=False):
     if start:
         F = F[start - 600 : start + 500]
 
-    output = re.findall(
-        b"(https?://.[A-Za-z0-9-\\.\\_\\~\\:\\/\\?\\#\\[\\]\\@\\!\\$\\&'\\(\\)\\*\\+\\,\\;\\=]+(?:\\.php|\\.exe|\\.dll))", F
-    )
+    output = re.findall(b"(https?://.[A-Za-z0-9-\\.\\_\\~\\:\\/\\?\\#\\[\\]\\@\\!\\$\\&'\\(\\)\\*\\+\\,\\;\\=]+(?:\\.php|\\.exe|\\.dll))", F)
     for url in output:
         try:
             if b"\x00" not in url:

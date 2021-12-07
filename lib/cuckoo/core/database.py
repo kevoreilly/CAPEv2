@@ -140,6 +140,8 @@ tasks_tags = Table(
 
 
 VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
+
+
 def _get_linux_vm_tag(mgtype):
     mgtype = mgtype.lower()
     if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
@@ -150,13 +152,13 @@ def _get_linux_vm_tag(mgtype):
         return "mips"
     elif "arm" in mgtype:
         return "arm"
-    #elif "armhl" in mgtype:
+    # elif "armhl" in mgtype:
     #    return {"tags":"armhl"}
     elif "sparc" in mgtype:
         return "sparc"
-    #elif "motorola" in mgtype:
+    # elif "motorola" in mgtype:
     #    return "motorola"
-    #elif "renesas sh" in mgtype:
+    # elif "renesas sh" in mgtype:
     #    return "renesassh"
     elif "powerpc" in mgtype:
         return "powerpc"
@@ -576,9 +578,7 @@ class Database(object, metaclass=Singleton):
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
                 print(
-                    "DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(
-                        last.version_num, SCHEMA_VERSION
-                    )
+                    "DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(last.version_num, SCHEMA_VERSION)
                 )
                 print(red("cd utils/db_migration/ && alembic upgrade head"))
                 sys.exit()
@@ -607,9 +607,7 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError(
-                "Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib)
-            )
+            raise CuckooDependencyError("Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib))
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -806,25 +804,25 @@ class Database(object, metaclass=Singleton):
             if "x64" in self.vms_tags.get(machine, ""):
                 row = (
                     session.query(Task)
-                        .filter_by(status=TASK_PENDING)
-                        .order_by(Task.priority.desc(), Task.added_on)
-                        # distributed cape
-                        .filter(not_(Task.options.contains("node=")))
-                        .first()
+                    .filter_by(status=TASK_PENDING)
+                    .order_by(Task.priority.desc(), Task.added_on)
+                    # distributed cape
+                    .filter(not_(Task.options.contains("node=")))
+                    .first()
                 )
             else:
                 # 32-bit machine select only 32-bit pending tasks
                 # filter all tasks with 64-bit tag, then invert in filter
                 cond = or_(*[Task.tags.any(name="x64")])
                 row = (
-                 session.query(Task)
-                     .options(joinedload("tags"))
-                     .filter_by(status=TASK_PENDING)
-                     # distributed cape
-                     .filter(not_(Task.options.contains("node=")))
-                     .order_by(Task.priority.desc(), Task.added_on)
-                     .filter(not_(cond))
-                     .first()
+                    session.query(Task)
+                    .options(joinedload("tags"))
+                    .filter_by(status=TASK_PENDING)
+                    # distributed cape
+                    .filter(not_(Task.options.contains("node=")))
+                    .order_by(Task.priority.desc(), Task.added_on)
+                    .filter(not_(cond))
+                    .first()
                 )
             if row:
                 if row.machine and machine != row.machine and label != row.machine:
@@ -1533,9 +1531,7 @@ class Database(object, metaclass=Singleton):
                 else:
                     config = static_extraction(file)
                 if config or static_extraction:
-                    task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
-                    )
+                    task_ids += self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
 
             if not config and only_extraction is False:
                 if not package:
@@ -1928,10 +1924,7 @@ class Database(object, metaclass=Singleton):
                     parent = parent[0]
             elif task_id:
                 _, parent = (
-                    session.query(Task.sample_id, Sample.parent)
-                    .join(Sample, Sample.id == Task.sample_id)
-                    .filter(Task.id == task_id)
-                    .first()
+                    session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
                 )
 
             if parent:
@@ -1952,7 +1945,6 @@ class Database(object, metaclass=Singleton):
         limit=None,
         details=False,
         category=None,
-
         offset=None,
         status=None,
         sample_id=None,

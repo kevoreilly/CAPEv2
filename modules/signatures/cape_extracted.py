@@ -36,6 +36,7 @@ class CAPEExtractedContent(Signature):
 
         return ret
 
+
 class CAPEExtractedConfig(Signature):
     name = "cape_extracted_config"
     description = "CAPE has extracted a malware configuration"

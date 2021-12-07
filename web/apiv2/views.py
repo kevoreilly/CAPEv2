@@ -367,9 +367,7 @@ def tasks_create_file(request):
                 if callback:
                     resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), details.get("task_ids", [])[0])]
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
-                    ", ".join(str(x) for x in details.get("task_ids", []))
-                )
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
                 if callback:
                     resp["url"] = list()
                     for tid in details.get("task_ids", []):
@@ -585,9 +583,7 @@ def tasks_create_dlnexec(request):
             if len(details.get("task_ids")) == 1:
                 resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
             else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(
-                    ", ".join(str(x) for x in details.get("task_ids", []))
-                )
+                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details.get("task_ids", [])))
         else:
             resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
     else:
@@ -1123,9 +1119,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                 resp["Content-Length"] = len(mem_zip.getvalue())
                 resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
             else:
-                resp = StreamingHttpResponse(
-                    FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
-                )
+                resp = StreamingHttpResponse(FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;")
                 resp["Content-Length"] = os.path.getsize(report_path)
                 resp["Content-Disposition"] = "attachment; filename=" + fname
 
@@ -1190,7 +1184,13 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
 
-        print("Time needed to generate report for task", task_id, datetime.now()-time_start, "size is:", f'int({int(resp["Content-Length"])/int(1<<20):,.0f} MB')
+        print(
+            "Time needed to generate report for task",
+            task_id,
+            datetime.now() - time_start,
+            "size is:",
+            f'int({int(resp["Content-Length"])/int(1<<20):,.0f} MB',
+        )
         return resp
 
     else:
@@ -1353,9 +1353,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["process_tree"] = {
             "pid": buf["behavior"]["processtree"][0]["pid"],
             "name": buf["behavior"]["processtree"][0]["name"],
-            "spawned_processes": [
-                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
-            ],
+            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
         }
     if "dropped" in buf:
         for entry in buf["dropped"]:
@@ -1582,9 +1580,7 @@ def tasks_rollingsuri(request, window=60):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
-        results_db.analysis.find(
-            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
-        )
+        results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1})
     )
     resp = []
     for e in result:
@@ -1881,11 +1877,7 @@ def cuckoo_status(request):
 def task_x_hours(request):
 
     session = db.Session()
-    res = (
-        session.query(Task)
-        .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
-        .all()
-    )
+    res = session.query(Task).filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1))).all()
     results = dict()
     if res:
         for date, samples in res:

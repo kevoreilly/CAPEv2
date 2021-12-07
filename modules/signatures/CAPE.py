@@ -131,11 +131,7 @@ class CAPE_Unpacker(Signature):
 
     def on_call(self, call, process):
 
-        if (
-            process["process_name"] == "WINWORD.EXE"
-            or process["process_name"] == "EXCEL.EXE"
-            or process["process_name"] == "POWERPNT.EXE"
-        ):
+        if process["process_name"] == "WINWORD.EXE" or process["process_name"] == "EXCEL.EXE" or process["process_name"] == "POWERPNT.EXE":
             return False
         if call["api"] == "NtAllocateVirtualMemory":
             protection = int(self.get_argument(call, "Protection"), 0)
@@ -153,7 +149,7 @@ class CAPE_Unpacker(Signature):
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
             size = self.get_argument(call, "NumberOfBytesProtected")
             handle = self.get_argument(call, "ProcessHandle")
-            if handle == 0xffffffff and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
+            if handle == 0xFFFFFFFF and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 
 
@@ -199,11 +195,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] == "VirtualAllocEx" or call["api"] == "NtAllocateVirtualMemory":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-        ):
+        elif call["api"] == "NtWriteVirtualMemory" or call["api"] == "NtWow64WriteVirtualMemory64" or call["api"] == "WriteProcessMemory":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
                 addr = int(self.get_argument(call, "BaseAddress"), 16)
@@ -215,11 +207,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #                                     procname, self.handle_map[handle])
                     # self.data.append({"Injection": desc})
                     return True
-        elif (
-            call["api"] == "CreateRemoteThread"
-            or call["api"].startswith("NtCreateThread")
-            or call["api"].startswith("NtCreateThreadEx")
-        ):
+        elif call["api"] == "CreateRemoteThread" or call["api"].startswith("NtCreateThread") or call["api"].startswith("NtCreateThreadEx"):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 # procname = self.get_name_from_pid(self.handle_map[handle])

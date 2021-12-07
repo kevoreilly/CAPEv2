@@ -45,6 +45,7 @@ def run(*args):
     stdout, stderr = p.communicate()
     return stdout, stderr
 
+
 def check_tuntap(vm_name, main_iface):
     """Create tuntap device for qemu vms"""
     try:
@@ -115,6 +116,7 @@ def vpn_status(name):
             break
 
     return ret
+
 
 def forward_drop():
     """Disable any and all forwarding unless explicitly said so."""
@@ -440,7 +442,7 @@ if __name__ == "__main__":
         # Verbose logging is not only controlled by the level. Some INFO logs are also
         # conditional (like here).
         log.setLevel(logging.DEBUG)
-        log.info('Verbose logging enabled')
+        log.info("Verbose logging enabled")
 
     if not settings.systemctl or not os.path.exists(settings.systemctl):
         sys.exit(
@@ -548,4 +550,12 @@ if __name__ == "__main__":
             except Exception as e:
                 log.exception("Error executing command: {}".format(command))
                 error = str(e)
-            server.sendto(json.dumps({"output": output, "exception": error,}).encode("utf-8"), addr)
+            server.sendto(
+                json.dumps(
+                    {
+                        "output": output,
+                        "exception": error,
+                    }
+                ).encode("utf-8"),
+                addr,
+            )

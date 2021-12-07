@@ -104,7 +104,7 @@ class NetlogBinary(NetlogConnection):
 class NetlogFile(NetlogConnection):
     def init(self, dump_path, filepath=False, pids="", metadata="", category="files"):
         """
-            All arguments should be strings
+        All arguments should be strings
         """
         if pids:
             pids = " ".join(pids)

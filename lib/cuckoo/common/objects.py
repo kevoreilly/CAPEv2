@@ -439,9 +439,7 @@ class File(object):
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(
-                        ["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE
-                    )
+                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
                     file_type = p.stdout.read().strip()
                 except Exception as e:
                     log.error(e, exc_info=True)

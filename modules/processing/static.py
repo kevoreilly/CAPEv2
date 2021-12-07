@@ -254,11 +254,7 @@ class DotNETExecutable(object):
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = (
-                Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
-            )
+            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline or len(splitline) < 7:
@@ -290,9 +286,7 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
+                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             )
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
@@ -316,11 +310,7 @@ class DotNETExecutable(object):
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = (
-                Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
-            )
+            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -334,11 +324,7 @@ class DotNETExecutable(object):
     def _get_type_refs(self):
         try:
             ret = []
-            output = (
-                Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True)
-                .stdout.read()
-                .split("\n")
-            )
+            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 restline = "".join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -637,10 +623,7 @@ class PortableExecutable(object):
         try:
             off = self.pe.get_overlay_data_start_offset()
         except:
-            log.error(
-                "Your version of pefile is out of date.  "
-                "Please update to the latest version on https://github.com/erocarrera/pefile"
-            )
+            log.error("Your version of pefile is out of date.  " "Please update to the latest version on https://github.com/erocarrera/pefile")
             return None
 
         if off is None:
@@ -689,10 +672,7 @@ class PortableExecutable(object):
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
         except:
-            log.warning(
-                "Detected outdated version of pefile.  "
-                "Please update to the latest version at https://github.com/erocarrera/pefile"
-            )
+            log.warning("Detected outdated version of pefile.  " "Please update to the latest version at https://github.com/erocarrera/pefile")
         return retstr
 
     def _get_osversion(self):
@@ -702,9 +682,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(
-            self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion
-        )
+        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
 
     def _get_resources(self):
         """Get resources.
@@ -732,9 +710,7 @@ class PortableExecutable(object):
                                     data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
                                     language = pefile.LANG.get(resource_lang.data.lang, None)
-                                    sublanguage = pefile.get_sublang_name_for_lang(
-                                        resource_lang.data.lang, resource_lang.data.sublang
-                                    )
+                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
                                     resource["name"] = name
                                     resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
                                     resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
@@ -959,9 +935,7 @@ class PortableExecutable(object):
             return []
 
         if not HAVE_CRYPTO:
-            log.critical(
-                "You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography"
-            )
+            log.critical("You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography")
             return []
 
         if not self.pe:
@@ -1010,13 +984,11 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
-                            extension.value.key_identifier
-                        ).decode("utf-8")
-                    elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode(
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode(
                             "utf-8"
                         )
+                    elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
@@ -1030,17 +1002,13 @@ class PortableExecutable(object):
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data[
-                                    "extensions_{}_caIssuers".format(extension.oid._name)
-                                ] = authority_info.access_location.value
+                                cert_data["extensions_{}_caIssuers".format(extension.oid._name)] = authority_info.access_location.value
                             elif authority_info.access_method._name == "OCSP":
                                 cert_data["extensions_{}_OCSP".format(extension.oid._name)] = authority_info.access_location.value
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(
-                                    name.value
-                                ).decode("utf-8")
+                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value).decode("utf-8")
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()

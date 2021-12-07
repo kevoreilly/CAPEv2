@@ -22,6 +22,7 @@ import io
 import re
 import pefile
 import logging
+
 log = logging.getLogger(__name__)
 
 COLUMN_WIDTH = 35
@@ -250,7 +251,7 @@ class BeaconSettings:
         self.settings["Jitter"] = packedSetting(5, confConsts.TYPE_SHORT)
         self.settings["MaxDNS"] = packedSetting(6, confConsts.TYPE_SHORT)
         # Silencing for now
-        self.settings['PublicKey'] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
+        self.settings["PublicKey"] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
         self.settings["C2Server"] = packedSetting(8, confConsts.TYPE_STR, 256)
         self.settings["UserAgent"] = packedSetting(9, confConsts.TYPE_STR, 128)
         self.settings["HttpPostUri"] = packedSetting(10, confConsts.TYPE_STR, 64)
@@ -380,15 +381,15 @@ class cobaltstrikeConfig:
         return None
 
     def parse_encrypted_config(self, version=None, quiet=False, as_json=False):
-        '''
+        """
         Parses beacon's configuration from stager dll or memory dump
         :bool quiet: Whether to print missing settings
         :bool as_json: Whether to dump as json
-        '''
+        """
 
         THRESHOLD = 1100
         pe = pefile.PE(data=self.data)
-        data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]
+        data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
         if not data_sections:
             return None
         data = data_sections[0].get_data()
@@ -396,12 +397,12 @@ class cobaltstrikeConfig:
         offset = 0
         key_found = False
         while offset < len(data):
-            key = data[offset:offset+4]
+            key = data[offset : offset + 4]
             if key != bytes(4):
                 if data.count(key) >= THRESHOLD:
                     key_found = True
-                    size = int.from_bytes(data[offset-4:offset], 'little')
-                    encrypted_data_offset = offset+16 - (offset % 16)
+                    size = int.from_bytes(data[offset - 4 : offset], "little")
+                    encrypted_data_offset = offset + 16 - (offset % 16)
                     break
 
             offset += 4
@@ -411,9 +412,9 @@ class cobaltstrikeConfig:
             return None
 
         ## decrypt and parse
-        enc_data = data[encrypted_data_offset:encrypted_data_offset+size]
+        enc_data = data[encrypted_data_offset : encrypted_data_offset + size]
         dec_data = []
-        for i,c in enumerate(enc_data):
+        for i, c in enumerate(enc_data):
             dec_data.append(c ^ key[i % 4])
 
         dec_data = bytes(dec_data)

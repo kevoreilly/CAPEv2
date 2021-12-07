@@ -31,7 +31,7 @@ if enabledconf["mongodb"]:
         port=settings.MONGO_PORT,
         username=settings.MONGO_USER,
         password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE
+        authSource=settings.MONGO_AUTHSOURCE,
     )[settings.MONGO_DB]
 
 es_as_db = False
@@ -44,7 +44,15 @@ if enabledconf["elasticsearchdb"]:
         es_as_db = False
     baseidx = Config("reporting").elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(hosts=[{"host": settings.ELASTIC_HOST, "port": settings.ELASTIC_PORT,}], timeout=60)
+    es = Elasticsearch(
+        hosts=[
+            {
+                "host": settings.ELASTIC_HOST,
+                "port": settings.ELASTIC_PORT,
+            }
+        ],
+        timeout=60,
+    )
 
 # Conditional decorator for web authentication
 class conditional_login_required(object):

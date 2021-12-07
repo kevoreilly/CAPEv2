@@ -15,9 +15,7 @@ def parse_args():
         "-v", "--verbose", action="count", default=0, help="Increase verbosity. Can specify multiple times for more verbose output"
     )
     arg_parser.add_argument("-d", "--dump", dest="dump_dir", action="store", default=None, help="Dump path for output scripts")
-    arg_parser.add_argument(
-        "-p", "--print", dest="print", action="store_true", default=False, help="Write detokenized scripts to stdout"
-    )
+    arg_parser.add_argument("-p", "--print", dest="print", action="store_true", default=False, help="Write detokenized scripts to stdout")
     arg_parser.add_argument("files", nargs="+")
     return arg_parser.parse_args()
 

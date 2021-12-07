@@ -8,7 +8,7 @@ from lib.core.packages import Package
 
 
 class Ff(Package):
-    """ Firefox analysys package. """
+    """Firefox analysys package."""
 
     def prepare(self):
         self.args = [self.target] + self.args

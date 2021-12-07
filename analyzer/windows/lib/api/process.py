@@ -190,7 +190,7 @@ class Process:
 
     def is_critical(self):
         """Determines if process is 'critical' or not, so we can prevent
-           terminating it
+        terminating it
         """
         if not self.h_process:
             self.open()
@@ -225,8 +225,7 @@ class Process:
         return None
 
     def kernel_analyze(self):
-        """zer0m0n kernel analysis
-        """
+        """zer0m0n kernel analysis"""
         log.info("Starting kernel analysis")
         log.info("Installing driver")
         if is_os_64bit():
@@ -456,8 +455,7 @@ class Process:
             return False
 
     def set_terminate_event(self):
-        """Sets the termination event for the process.
-        """
+        """Sets the termination event for the process."""
         if self.h_process == 0:
             self.open()
 

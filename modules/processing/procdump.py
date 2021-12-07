@@ -51,9 +51,7 @@ class ProcDump(Processing):
             file_path = os.path.join(self.procdump_path, file_name)
             if not meta.get(file_path):
                 continue
-            file_info, pefile_object = File(
-                file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name
-            ).get_all()
+            file_info, pefile_object = File(file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name).get_all()
             if pefile_object:
                 self.results.setdefault("pefiles", {})
                 self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)

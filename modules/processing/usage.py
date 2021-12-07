@@ -21,7 +21,7 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 class Usage(Processing):
     """Converts collected usage data to image for web display
-       and performs other processing on usage data
+    and performs other processing on usage data
     """
 
     def run(self):

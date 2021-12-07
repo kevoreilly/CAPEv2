@@ -1026,7 +1026,10 @@ api_call_mappings = {
             },
             "group_together_nested": {
                 "parameter_mappings": [
-                    {"parameter_name": "ProcessFileName", "element_name": "File_Name",},
+                    {
+                        "parameter_name": "ProcessFileName",
+                        "element_name": "File_Name",
+                    },
                     {"parameter_name": "ImagePathName", "element_name": "Path"},
                 ],
                 "associated_object_type": "ProcessObjectType",
@@ -2590,21 +2593,21 @@ def regStringToKey(reg_string):
 
 class MAEC41Report(Report):
     """Generates a MAEC 4.1 report.
-       --Output modes (set in reporting.conf):
-           mode = "full": Output fully mapped Actions (see maec41), including Windows Handle mapped/substituted objects,
-                          along with API call/parameter capture via Action Implementations.
-           mode = "overview": Output only fully mapped Actions, without any Action Implementations. Default mode.
-           mode = "api": Output only Actions with Action Implementations, but no mapped components.
-       --Other configuration parameters:
-           processtree = "true" | "false". Output captured ProcessTree as part of dynamic analysis MAEC Bundle. Default = "true".
-           output_handles = "true" | "false". Output the Windows Handles used to  construct the Object-Handle mappings as a
-                                              separate Object Collection in the dynamic analysis MAEC Bundle. Only applicable
-                                              for mode = "full" or mode = "overview". Default = "false".
-           static = "true" | "false". Output Cuckoo static analysis (PEfile) output as a separate MAEC Bundle in the document.
-                                      Default = "true".
-           strings = "true" | "false". Output Cuckoo strings output as a separate MAEC Bundle in the document. Default = "true".
-           virustotal = "true" | "false". Output VirusTotal output as a separate MAEC Bundle in the document. Default = "true".
-           deduplicate = "true" | "false". Deduplicate the CybOX Objects in the generated dynamic analysis MAEC Bundle. Default = "true".
+    --Output modes (set in reporting.conf):
+        mode = "full": Output fully mapped Actions (see maec41), including Windows Handle mapped/substituted objects,
+                       along with API call/parameter capture via Action Implementations.
+        mode = "overview": Output only fully mapped Actions, without any Action Implementations. Default mode.
+        mode = "api": Output only Actions with Action Implementations, but no mapped components.
+    --Other configuration parameters:
+        processtree = "true" | "false". Output captured ProcessTree as part of dynamic analysis MAEC Bundle. Default = "true".
+        output_handles = "true" | "false". Output the Windows Handles used to  construct the Object-Handle mappings as a
+                                           separate Object Collection in the dynamic analysis MAEC Bundle. Only applicable
+                                           for mode = "full" or mode = "overview". Default = "false".
+        static = "true" | "false". Output Cuckoo static analysis (PEfile) output as a separate MAEC Bundle in the document.
+                                   Default = "true".
+        strings = "true" | "false". Output Cuckoo strings output as a separate MAEC Bundle in the document. Default = "true".
+        virustotal = "true" | "false". Output VirusTotal output as a separate MAEC Bundle in the document. Default = "true".
+        deduplicate = "true" | "false". Deduplicate the CybOX Objects in the generated dynamic analysis MAEC Bundle. Default = "true".
     """
 
     def run(self, results):
@@ -3306,8 +3309,7 @@ class MAEC41Report(Report):
             return None
 
     def createWinExecFileObj(self):
-        """Creates a Windows Executable File (PE) object for capturing static analysis output.
-        """
+        """Creates a Windows Executable File (PE) object for capturing static analysis output."""
 
         # A mapping of Cuckoo resource type names to their name in MAEC
         resource_type_mappings = {

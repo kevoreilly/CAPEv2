@@ -91,6 +91,7 @@ if processing_cfg.flare_capa.on_demand:
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
     from modules.processing.strings import extract_strings
+
     HAVE_STRINGS = True
 
 
@@ -362,17 +363,13 @@ def index(request, page=1):
     # On a fresh install, we need handle where there are 0 tasks.
     buf = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())
     if len(buf) == 1:
-        first_file = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()[
-            "id"
-        ]
+        first_file = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
         paging["show_file_prev"] = "show"
     else:
         paging["show_file_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())
     if len(buf) == 1:
-        first_static = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())[
-            0
-        ].to_dict()["id"]
+        first_static = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
         paging["show_static_prev"] = "show"
     else:
         paging["show_file_prev"] = "hide"
@@ -384,9 +381,7 @@ def index(request, page=1):
         paging["show_url_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc())
     if len(buf) == 1:
-        first_pcap = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()[
-            "id"
-        ]
+        first_pcap = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
         paging["show_pcap_prev"] = "show"
     else:
         paging["show_pcap_prev"] = "hide"
@@ -493,10 +488,10 @@ def pending(request):
     return render(request, "analysis/pending.html", {"tasks": pending})
 
 
-#@require_safe
-#@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+# @require_safe
+# @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+# @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def _load_file(task_id, sha256, existen_details, name):
     filepath = False
     if name == "bingraph":
@@ -529,8 +524,8 @@ def _load_file(task_id, sha256, existen_details, name):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
@@ -550,9 +545,7 @@ def load_files(request, task_id, category):
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             elif category == "network":
-                data = results_db.analysis.find_one(
-                    {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
-                )
+                data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0})
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
 
@@ -674,11 +667,9 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
             )
         if es_as_db:
             # print "info.id: \"%s\" and behavior.processes.process_id: \"%s\"" % (task_id, pid)
-            record = es.search(
-                index=fullidx,
-                doc_type="analysis",
-                q='info.id: "%s" and behavior.processes.process_id: "%s"' % (task_id, pid),
-            )["hits"]["hits"][0]["_source"]
+            record = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s" and behavior.processes.process_id: "%s"' % (task_id, pid),)[
+                "hits"
+            ]["hits"][0]["_source"]
 
         if not record:
             raise PermissionDenied
@@ -740,13 +731,9 @@ def gen_moloch_from_suri_http(suricata):
     if "http" in suricata and suricata["http"]:
         for e in suricata["http"]:
             if "srcip" in e and e["srcip"]:
-                e["moloch_src_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
-                )
+                e["moloch_src_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
             if "dstip" in e and e["dstip"]:
-                e["moloch_dst_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
-                )
+                e["moloch_dst_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
             if "dstport" in e and e["dstport"]:
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
@@ -765,9 +752,7 @@ def gen_moloch_from_suri_http(suricata):
                 )
             if "uri" in e and e["uri"]:
                 e["moloch_http_uri_url"] = (
-                    settings.MOLOCH_BASE
-                    + "?date=-1&expression=http.uri"
-                    + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode("utf8")), safe="")
+                    settings.MOLOCH_BASE + "?date=-1&expression=http.uri" + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode("utf8")), safe="")
                 )
             if "ua" in e and e["ua"]:
                 e["moloch_http_ua_url"] = (
@@ -786,13 +771,9 @@ def gen_moloch_from_suri_alerts(suricata):
     if "alerts" in suricata and suricata["alerts"]:
         for e in suricata["alerts"]:
             if "srcip" in e and e["srcip"]:
-                e["moloch_src_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
-                )
+                e["moloch_src_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
             if "dstip" in e and e["dstip"]:
-                e["moloch_dst_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
-                )
+                e["moloch_dst_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
             if "dstport" in e and e["dstport"]:
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
@@ -807,9 +788,7 @@ def gen_moloch_from_suri_alerts(suricata):
                 )
             if "sid" in e and e["sid"]:
                 e["moloch_sid_url"] = (
-                    settings.MOLOCH_BASE
-                    + "?date=-1&expression=tags"
-                    + quote("\x3d\x3d\x22suri_sid\x3a%s\x22" % (e["sid"]), safe="")
+                    settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22suri_sid\x3a%s\x22" % (e["sid"]), safe="")
                 )
             if "signature" in e and e["signature"]:
                 e["moloch_msg_url"] = (
@@ -824,13 +803,9 @@ def gen_moloch_from_suri_file_info(suricata):
     if "files" in suricata and suricata["files"]:
         for e in suricata["files"]:
             if "srcip" in e and e["srcip"]:
-                e["moloch_src_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
-                )
+                e["moloch_src_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
             if "dstip" in e and e["dstip"]:
-                e["moloch_dst_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
-                )
+                e["moloch_dst_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
             if "dp" in e and e["dp"]:
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
@@ -885,13 +860,9 @@ def gen_moloch_from_suri_tls(suricata):
     if "tls" in suricata and suricata["tls"]:
         for e in suricata["tls"]:
             if "srcip" in e and e["srcip"]:
-                e["moloch_src_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
-                )
+                e["moloch_src_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
             if "dstip" in e and e["dstip"]:
-                e["moloch_dst_ip_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
-                )
+                e["moloch_dst_ip_url"] = settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
             if "dstport" in e and e["dstport"]:
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
@@ -922,9 +893,7 @@ def gen_moloch_from_antivirus(virustotal):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surialert(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    report = results_db.analysis.find_one({"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -956,9 +925,7 @@ def shrike(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surihttp(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    report = results_db.analysis.find_one({"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -976,9 +943,7 @@ def surihttp(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def suritls(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    report = results_db.analysis.find_one({"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -1208,9 +1173,7 @@ def report(request, task_id):
         if settings.MOLOCH_BASE[-1] != "/":
             settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
         report["moloch_url"] = (
-            settings.MOLOCH_BASE
-            + "?date=-1&expression=tags"
-            + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, task_id), safe="")
+            settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, task_id), safe="")
         )
         if isinstance(suricata, dict):
             suricata = gen_moloch_from_suri_http(suricata)
@@ -1319,7 +1282,6 @@ def report(request, task_id):
             },
             "on_demand": on_demand_conf,
             "existent_tasks": existent_tasks,
-
         },
     )
 
@@ -1514,9 +1476,7 @@ def procdump(request, task_id, process_id, start, end):
     tmp_file_path = None
     response = False
     if enabledconf["mongodb"]:
-        analysis = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-        )
+        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         analysis = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]["_source"]
 
@@ -1637,9 +1597,7 @@ def full_memory_dump_file(request, analysis_number):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(
-                    url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True
-                )
+                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
@@ -1904,9 +1862,7 @@ def comments(request, task_id):
             return render(request, "error.html", {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = results_db.analysis.find_one(
-                {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-            )
+            report = results_db.analysis.find_one({"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
         if es_as_db:
             query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
             report = query["_source"]
@@ -1931,9 +1887,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            results_db.analysis.update(
-                {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True
-            )
+            results_db.analysis.update({"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True)
         if es_as_db:
             es.update(index=esidx, doc_type="analysis", id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -1968,14 +1922,10 @@ def vtupload(request, category, task_id, filename, dlfile):
                 id = response.json().get("data", {}).get("id")
                 if id:
                     hashbytes, _ = base64.b64decode(id).split(b":")
-                    md5hash = hashbytes.decode('utf8')
-                    return render(
-                        request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)}
-                    )
+                    md5hash = hashbytes.decode("utf8")
+                    return render(request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)})
             else:
-                return render(
-                    request, "error.html", {"error": "Response code: {} - {}".format(response.status_code, response.reason)}
-                )
+                return render(request, "error.html", {"error": "Response code: {} - {}".format(response.status_code, response.reason)})
         except Exception as err:
             return render(request, "error.html", {"error": err})
     else:
@@ -2001,6 +1951,7 @@ on_demand_config_mapper = {
 
 str_nulltermonly = processing_cfg.strings.get("nullterminated_only", True)
 str_minchars = processing_cfg.strings.get("minchars", 5)
+
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -2046,7 +1997,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "strings" and HAVE_STRINGS:
-        details = extract_strings(path,  str_nulltermonly, str_minchars)
+        details = extract_strings(path, str_nulltermonly, str_minchars)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)

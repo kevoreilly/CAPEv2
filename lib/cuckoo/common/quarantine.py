@@ -29,8 +29,7 @@ def bytearray_xor(data, key):
 
 
 def read_trend_tag(data, offset):
-    """ @return a code byte and data tuple
-    """
+    """@return a code byte and data tuple"""
     code, length = struct.unpack("<BH", data[offset : offset + 3])
     return code, bytes(data[offset + 3 : offset + 3 + length])
 
@@ -99,8 +98,7 @@ log = logging.getLogger(__name__)
 
 
 def read_sep_tag(data, offset):
-    """ @return a code byte, metalength, metaval, and extra data tuple
-    """
+    """@return a code byte, metalength, metaval, and extra data tuple"""
     code = struct.unpack("B", data[offset : offset + 1])[0]
     codeval = 0
     retdata = ""
@@ -730,8 +728,8 @@ def mcafee_unquarantine(f):
 
 def xorff_unquarantine(f):
     """
-       sentinelone
-       forefront
+    sentinelone
+    forefront
     """
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)

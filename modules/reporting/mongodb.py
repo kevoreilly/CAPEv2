@@ -129,9 +129,7 @@ class MongoDB(Report):
 
         for key in keys:
             try:
-                self.db.analysis.update_one(
-                    {"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
-                )
+                self.db.analysis.update_one({"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
             except InvalidDocument as e:
                 log.warning("Investigate your key: %r", key)
 

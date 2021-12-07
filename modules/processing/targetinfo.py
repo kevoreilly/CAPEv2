@@ -9,6 +9,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
 
+
 class TargetInfo(Processing):
     """General information about a file."""
 

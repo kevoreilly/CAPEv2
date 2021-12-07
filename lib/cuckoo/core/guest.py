@@ -156,9 +156,7 @@ class GuestManager(object):
                 time.sleep(1)
 
             if time.time() > end:
-                raise CuckooGuestCriticalTimeout(
-                    "Machine %s: the guest initialization hit the critical timeout, analysis aborted." % self.vmid
-                )
+                raise CuckooGuestCriticalTimeout("Machine %s: the guest initialization hit the critical timeout, analysis aborted." % self.vmid)
 
     def query_environ(self):
         """Query the environment of the Agent in the Virtual Machine."""

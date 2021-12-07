@@ -154,9 +154,7 @@ def test_files():
                 pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + cache[0]
             )
         else:
-            sample_location = (
-                pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash + "." + random_suffix
-            )
+            sample_location = pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash + "." + random_suffix
             get_sample(hash=sample_hash, download_location=sample_location)
             test_files_with_location[index]["download_location"] = File(sample_location)
             print(("stored at " + sample_location))
@@ -201,9 +199,7 @@ class TestFiles:
 
     def test_get_yara(self, hello_file, yara_compiled):
         File.yara_rules = {"hello": yara_compiled}
-        assert hello_file["file"].get_yara(category="hello") == [
-            {"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}
-        ]
+        assert hello_file["file"].get_yara(category="hello") == [{"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}]
 
     def test_get_yara_no_categories(self, test_files):
         assert not test_files[0]["download_location"].get_yara()

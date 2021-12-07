@@ -157,9 +157,7 @@ if process_cfg.mwcp.enabled:
         HAS_MWCP = True
         assert "MWCP_TEST" in malware_parsers
     except ImportError as e:
-        logging.info(
-            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
-        )
+        logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
 HAS_MALWARECONFIGS = False
 if process_cfg.ratdecoders.enabled:
@@ -453,9 +451,7 @@ def static_extraction(path):
 
 def cape_name_from_yara(details, pid, results):
     for hit in details.get("cape_yara", []) or []:
-        if "meta" in hit and any(
-            [file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]
-        ):
+        if "meta" in hit and any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in ("payload", "config", "loader")]):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
             results["detections2pid"].setdefault(str(pid), list())
@@ -506,7 +502,6 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
             log.error(e, exc_info=True)
-
 
 
 def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tmp_prefix, dict_key):

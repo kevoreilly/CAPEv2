@@ -30,12 +30,13 @@ from hashlib import pbkdf2_hmac
 from lib.cuckoo.common.utils import store_temp_file
 
 
-unpad = lambda s : s[0:-s[-1]]
+unpad = lambda s: s[0 : -s[-1]]
+
 
 def unzip_config(filepath):
     data = ""
     try:
-        z = zipfile.ZipFile(filepath.decode('utf8'))
+        z = zipfile.ZipFile(filepath.decode("utf8"))
         for name in z.namelist():
             if "config.txt" in name:
                 data = z.read(name)
@@ -44,11 +45,13 @@ def unzip_config(filepath):
         return
     return data
 
+
 def aesdecrypt(data, passkey):
     iv = data[4:20]
     key = pbkdf2_hmac("sha1", passkey, iv, 65536, 16)
     aes = AES.new(key, AES.MODE_CBC, iv)
     return unpad(aes.decrypt(data[20:]))
+
 
 def decode(data):
     decoded = ""
@@ -62,7 +65,8 @@ def decode(data):
             decoded = aesdecrypt(data, passkey)
         except:
             return
-    return decoded.decode('utf8')
+    return decoded.decode("utf8")
+
 
 def config(data):
     raw_config = {}

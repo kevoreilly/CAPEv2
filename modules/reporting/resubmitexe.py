@@ -167,9 +167,9 @@ class ReSubmitExtractedEXE(Report):
         report = dict(results)
         self.results = results
 
-        if (
-            "options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]
-        ) or ("Parent_Task_ID" in results.get("info", {}).get("custom", "")):
+        if ("options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]) or (
+            "Parent_Task_ID" in results.get("info", {}).get("custom", "")
+        ):
             log.warning("Bailing out of resubexe this is a child task")
             return
         if "signatures" in results and results["signatures"]:
@@ -239,9 +239,7 @@ class ReSubmitExtractedEXE(Report):
                     and dropped["name"]
                 ):
                     if dropped["sha256"] not in filesdict:
-                        srcpath = os.path.join(
-                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"]
-                        )
+                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"])
                         linkdir = os.path.join(
                             CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"] + "_link"
                         )
@@ -333,9 +331,7 @@ class ReSubmitExtractedEXE(Report):
                             and os.path.basename(target) == sanitize_filename(os.path.basename(filesdict[e]))
                         ) and tid not in self.results.get("resubs", []):
                             log.info(
-                                "Adding previous task run to our resub list {0} for hash {1} and filename {2}".format(
-                                    tid, e, filesdict[e]
-                                )
+                                "Adding previous task run to our resub list {0} for hash {1} and filename {2}".format(tid, e, filesdict[e])
                             )
                             self.results.setdefault("resubs", list()).append(tid)
                             added_previous = True
@@ -438,9 +434,7 @@ class ReSubmitExtractedEXE(Report):
                 if task_ids_new:
                     for task_id in task_ids_new:
                         log.info(
-                            'Resubmitexe file "{0}" added as task with ID {1} resub count {2}'.format(
-                                filesdict[e], task_id, self.resubcnt
-                            )
+                            'Resubmitexe file "{0}" added as task with ID {1} resub count {2}'.format(filesdict[e], task_id, self.resubcnt)
                         )
                         self.results.setdefault("resubs", list()).append(task_id)
                         self.resubcnt = self.resubcnt + 1

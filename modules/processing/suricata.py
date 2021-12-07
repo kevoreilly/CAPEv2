@@ -19,6 +19,7 @@ except ImportError:
 
 try:
     import orjson
+
     HAVE_ORJSON = True
 except ImportError:
     HAVE_ORJSON = False
@@ -54,7 +55,7 @@ class Suricata(Processing):
 
     def json_default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode('utf8')
+            return obj.decode("utf8")
         raise TypeError
 
     def run(self):
@@ -101,9 +102,7 @@ class Suricata(Processing):
         suricata["ssh_log_full_path"] = None
         suricata["dns_log_full_path"] = None
 
-        tls_items = [
-            "fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"
-        ]
+        tls_items = ["fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"]
 
         SURICATA_ALERT_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_ALERT_LOG)
         SURICATA_TLS_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_TLS_LOG)
@@ -367,7 +366,9 @@ class Suricata(Processing):
 
             if HAVE_ORJSON:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
-                    drop_log.write(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)) # orjson.OPT_SORT_KEYS |
+                    drop_log.write(
+                        orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)
+                    )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                     json.dump(suricata["files"], drop_log, indent=4)

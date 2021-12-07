@@ -48,7 +48,7 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
 
 
 def _found_target_class(module, name):
-    """ Searches for a class with the specific name: it should be
+    """Searches for a class with the specific name: it should be
     equal to capitalized $name.
     """
     members = inspect.getmembers(module, inspect.isclass)
@@ -77,7 +77,7 @@ def _guess_package_name(file_type, file_name):
 
 
 class Package(object):
-    """ Base analysis package """
+    """Base analysis package"""
 
     def __init__(self, target, **kwargs):
         if not target:
@@ -107,11 +107,11 @@ class Package(object):
         self.pids = pids
 
     def prepare(self):
-        """ Preparation routine. Do anything you want here. """
+        """Preparation routine. Do anything you want here."""
         pass
 
     def start(self):
-        """ Runs an analysis process.
+        """Runs an analysis process.
         This function is a generator.
         """
         target_name = self.options.get("filename")
@@ -135,6 +135,7 @@ class Package(object):
         else:
             raise Exception("Unsupported analysis method. Try `apicalls`.")
         """
+
     def check(self):
         """Check."""
         return True

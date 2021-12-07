@@ -19,7 +19,11 @@ urlpatterns = [
     url(r"^shrike/(?P<task_id>\d+)/$", views.shrike, name="shrike"),
     url(r"^remove/(?P<task_id>\d+)/$", views.remove, name="remove"),
     url(r"^chunk/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<pagenum>\d+)/$", views.chunk, name="chunk"),
-    url(r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$", views.filtered_chunk, name="filtered_chunk",),
+    url(
+        r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$",
+        views.filtered_chunk,
+        name="filtered_chunk",
+    ),
     url(r"^file_nl/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", views.file_nl, name="file_nl"),
     url(r"^search/(?P<task_id>\d+)/$", views.search_behavior, name="search_behavior"),
     url(r"^search/(?P<searched>[\w\d\s:\-_]+)/$", views.search, name="search"),

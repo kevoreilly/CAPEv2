@@ -24,12 +24,13 @@ def ratdecodedr_load_decoders(path):
         for mod_name, mod_object in inspect.getmembers(module):
             if inspect.isclass(mod_object):
                 if issubclass(mod_object, Decoder) and mod_object is not Decoder:
-                    dec_modules[mod_object.decoder_name] = dict(obj=mod_object,
-                                                                decoder_name=mod_object.decoder_name,
-                                                                decoder_description=mod_object.decoder_description,
-                                                                decoder_version=mod_object.decoder_version,
-                                                                decoder_author=mod_object.decoder_author
-                                                                )
+                    dec_modules[mod_object.decoder_name] = dict(
+                        obj=mod_object,
+                        decoder_name=mod_object.decoder_name,
+                        decoder_description=mod_object.decoder_description,
+                        decoder_version=mod_object.decoder_version,
+                        decoder_author=mod_object.decoder_author,
+                    )
     return dec_modules
 
 
@@ -44,10 +45,11 @@ def cape_load_decoders(CUCKOO_ROOT):
             cape_modules[name] = importlib.import_module("modules.processing.parsers.CAPE." + name)
         except (ImportError, IndexError) as e:
             if "datadirs" in str(e):
-              print("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
+                print("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
             print("CAPE parser: No module named {} - {}".format(name, e))
 
     return cape_modules
+
 
 def malduck_load_decoders(CUCKOO_ROOT):
 

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from lib.core.config import Config
+
 config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class NetlogBinary(NetlogConnection):
 class NetlogFile(NetlogConnection):
     def init(self, dump_path, filepath=False, pids="", ppids="", metadata="", category="files", duplicated=0):
         """
-            All arguments should be strings
+        All arguments should be strings
         """
         if pids:
             pids = " ".join(pids)

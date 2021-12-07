@@ -140,7 +140,7 @@ def decode_onboard_config(data):
     try:
         pe = pefile.PE(data=data)
         rsrcs = get_rsrc(pe)
-    except:
+    except Exception:
         return
     if rsrcs != []:
         a = rsrcs[0][1]
@@ -181,7 +181,7 @@ def config(data):
     xml = decode_onboard_config(data)
     try:
         root = ET.fromstring(xml)
-    except:
+    except Exception:
         return
     raw_config = {}
     for child in root:

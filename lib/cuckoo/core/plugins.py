@@ -123,7 +123,7 @@ class RunAuxiliary(object):
             for module in auxiliary_list:
                 try:
                     current = module()
-                except:
+                except Exception:
                     log.exception("Failed to load the auxiliary module " '"{0}":'.format(module))
                     return
 
@@ -166,7 +166,7 @@ class RunAuxiliary(object):
                 pass
             except CuckooDisableModule:
                 continue
-            except:
+            except Exception:
                 log.exception(
                     "Error performing callback %r on auxiliary module %r", name, module.__class__.__name__, extra={"task_id": self.task["id"]}
                 )
@@ -210,7 +210,7 @@ class RunProcessing(object):
         # Initialize the specified processing module.
         try:
             current = module(self.results)
-        except:
+        except Exception:
             log.exception("Failed to load the processing module " '"{0}":'.format(module))
             return
 
@@ -255,7 +255,7 @@ class RunProcessing(object):
             log.warning('The processing module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooProcessingError as e:
             log.warning('The processing module "%s" returned the following ' "error: %s", current.__class__.__name__, e)
-        except:
+        except Exception:
             log.exception('Failed to run the processing module "%s":', current.__class__.__name__)
 
         return None
@@ -448,7 +448,7 @@ class RunSignatures(object):
         # Initialize the current signature.
         try:
             current = signature(self.results)
-        except:
+        except Exception:
             log.exception("Failed to load signature " '"{0}":'.format(signature))
             return
 
@@ -483,7 +483,7 @@ class RunSignatures(object):
                 return current.as_result()
         except NotImplementedError:
             return None
-        except:
+        except Exception:
             log.exception('Failed to run signature "%s":', current.name)
 
         return None
@@ -578,7 +578,7 @@ class RunSignatures(object):
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
-                except:
+                except Exception:
                     log.exception('Failed run on_complete() method for signature "%s":', sig.name)
                     continue
                 else:
@@ -681,7 +681,7 @@ class RunReporting:
         # Initialize current reporting module.
         try:
             current = module()
-        except:
+        except Exception:
             log.exception('Failed to load the reporting module "{0}":'.format(module))
             return
 
@@ -733,7 +733,7 @@ class RunReporting:
             log.warning('The reporting module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooReportError as e:
             log.warning('The reporting module "%s" returned the following error: %s', current.__class__.__name__, e)
-        except:
+        except Exception:
             log.exception('Failed to run the reporting module "%s":', current.__class__.__name__)
 
     def run(self):
@@ -778,7 +778,7 @@ class GetFeeds(object):
         try:
             current = feed()
             log.debug('Loading feed "{0}"'.format(current.name))
-        except:
+        except Exception:
             log.exception('Failed to load feed "{0}":'.format(current.name))
             return
 
@@ -789,7 +789,7 @@ class GetFeeds(object):
                 log.debug('"{0}" has been updated'.format(current.name))
             except NotImplementedError:
                 current.run(modified=False)
-            except:
+            except Exception:
                 log.exception('Failed to run feed "%s"', current.name)
                 return
 

@@ -137,7 +137,7 @@ def extract_emotet_rsakey(pe):
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
-            except:
+            except Exception:
                 return
             return RSA.construct((seq[0], seq[1]))
 
@@ -188,7 +188,7 @@ class Emotet(Parser):
             while 1:
                 try:
                     ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                except:
+                except Exception:
                     return
                 if ip == 0:
                     return
@@ -218,7 +218,7 @@ class Emotet(Parser):
                 while 1:
                     try:
                         ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                    except:
+                    except Exception:
                         return
                     if ip == 0:
                         return
@@ -276,7 +276,7 @@ class Emotet(Parser):
                     while 1:
                         try:
                             ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                        except:
+                        except Exception:
                             break
                         if ip == 0:
                             break
@@ -305,7 +305,7 @@ class Emotet(Parser):
                         while 1:
                             try:
                                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                            except:
+                            except Exception:
                                 break
                             if ip == 0:
                                 break
@@ -338,7 +338,7 @@ class Emotet(Parser):
                             while 1:
                                 try:
                                     ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                                except:
+                                except Exception:
                                     break
                                 if ip == 0:
                                     break
@@ -368,7 +368,7 @@ class Emotet(Parser):
                                 while 1:
                                     try:
                                         ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-                                    except:
+                                    except Exception:
                                         break
                                     if ip == 0:
                                         break
@@ -426,7 +426,7 @@ class Emotet(Parser):
                                     while offset < size:
                                         try:
                                             ip = struct.unpack(">I", c2_list[offset : offset + 4])[0]
-                                        except:
+                                        except Exception:
                                             break
                                         if ip == struct.unpack(">I", key)[0]:
                                             break
@@ -469,7 +469,7 @@ class Emotet(Parser):
                 ref_rsa_rva = ref_rsa_va - image_base
                 try:
                     ref_rsa_offset = pe.get_offset_from_rva(ref_rsa_rva)
-                except:
+                except Exception:
                     return
                 key = struct.unpack("<I", filebuf[ref_rsa_offset : ref_rsa_offset + 4])[0]
                 xorsize = key ^ struct.unpack("<I", filebuf[ref_rsa_offset + 4 : ref_rsa_offset + 8])[0]
@@ -519,7 +519,7 @@ class Emotet(Parser):
                     try:
                         eck_offset = pe.get_offset_from_rva(ref_eck_rva)
                         ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
-                    except:
+                    except Exception:
                         return
                     key = filebuf[eck_offset : eck_offset + 4]
                     size = struct.unpack("I", filebuf[eck_offset + 4 : eck_offset + 8])[0] ^ struct.unpack("I", key)[0]

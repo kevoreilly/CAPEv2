@@ -36,7 +36,7 @@ def get_config(data):
                 key_slice = ord(enc_key[i + 1])  # get next Char For Key
                 output += chr(xor(data_slice, key_slice))  # xor Hex and Key Char
             print(output)
-        except:
+        except Exception:
             output = "DecodeError"
         config_list.append(output)
     return config_list

@@ -171,7 +171,7 @@ class Remcos(Parser):
                 for id, param in p_data.items():
                     try:
                         out[id] = param.decode("utf-16").decode("ascii")
-                    except:
+                    except Exception:
                         out[id] = param
 
                 for k, v in out.items():

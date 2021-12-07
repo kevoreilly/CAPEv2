@@ -507,7 +507,7 @@ class Process:
             ret = KERNEL32.IsWow64Process(self.h_process, byref(val))
             if ret and not val.value and is_os_64bit():
                 return True
-        except:
+        except Exception:
             pass
 
         return False

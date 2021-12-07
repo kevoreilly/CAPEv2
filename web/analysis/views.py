@@ -606,7 +606,7 @@ def load_files(request, task_id, category):
 def chunk(request, task_id, pid, pagenum):
     try:
         pid, pagenum = int(pid), int(pagenum) - 1
-    except:
+    except Exception:
         raise PermissionDenied
 
     if request.is_ajax():
@@ -1120,7 +1120,7 @@ def report(request, task_id):
                 ]
             )
         )[0]["dropped_size"]
-    except:
+    except Exception:
         report["dropped"] = 0
 
     report["CAPE"] = 0
@@ -1316,7 +1316,7 @@ def file_nl(request, category, task_id, dlfile):
 
     try:
         resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
-    except:
+    except Exception:
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 
     resp["Content-Length"] = os.path.getsize(path)
@@ -1526,7 +1526,7 @@ def procdump(request, task_id, process_id, start, end):
             os.unlink(tmp_file_path)
         if tmpdir:
             shutil.rmtree(tmpdir)
-    except:
+    except Exception:
         pass
 
     if response:
@@ -1832,7 +1832,7 @@ def pcapstream(request, task_id, conntuple):
         conns = [i for i in connlist if (i["sport"], i["dport"], i["src"], i["dst"]) == (sport, dport, src, dst)]
         stream = conns[0]
         offset = stream["offset"]
-    except:
+    except Exception:
         return render(request, "standalone_error.html", {"error": "Could not find the requested stream"})
 
     try:

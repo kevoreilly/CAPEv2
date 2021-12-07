@@ -57,7 +57,7 @@ import glob
 
 try:
     import yara
-except:
+except Exception:
     pass
 
 dumplinelength = 16
@@ -100,11 +100,11 @@ def IFF(expression, valueTrue, valueFalse):
 def File2String(filename):
     try:
         f = open(filename, "rb")
-    except:
+    except Exception:
         return None
     try:
         return f.read()
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -236,11 +236,11 @@ def IfWIN32SetBinary(io):
 def File2Strings(filename):
     try:
         f = open(filename, "r")
-    except:
+    except Exception:
         return None
     try:
         return map(lambda line: line.rstrip("\n"), f.readlines())
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -830,7 +830,7 @@ def RTFSub(oStringIO, prefix, rules, options):
             if options.extract and len(data) > 0:
                 try:
                     data = ExtractPackage(data)
-                except:
+                except Exception:
                     data = ""
             object.append({"id": counter, "name": str(counter), "content": binascii.b2a_base64(data).strip("\n")})
         print(json.dumps({"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object}))

@@ -73,7 +73,7 @@ class Sniffer(Auxiliary):
         # Trying to save pcap with the same user which cuckoo is running.
         try:
             user = getpass.getuser()
-        except:
+        except Exception:
             pass
         else:
             if not remote:
@@ -223,7 +223,7 @@ class Sniffer(Auxiliary):
         if self.proc and not self.proc.poll():
             try:
                 self.proc.terminate()
-            except:
+            except Exception:
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")

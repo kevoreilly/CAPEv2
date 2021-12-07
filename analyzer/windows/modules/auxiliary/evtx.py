@@ -184,7 +184,7 @@ class Evtx(Thread, Auxiliary):
         try:
             logs_folder = "C:/windows/Sysnative/winevt/Logs"
             os.listdir(logs_folder)
-        except:
+        except Exception:
             logs_folder = "c:/Windows/System32/winevt/Logs"
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:

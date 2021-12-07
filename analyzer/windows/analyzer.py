@@ -100,7 +100,7 @@ def add_pid_to_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.add_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -108,7 +108,7 @@ def del_pid_from_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.del_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -621,7 +621,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()
-                    except:
+                    except Exception:
                         log.error("Unable to set terminate event for process %d.", proc.pid)
                         continue
                     log.info("Terminate event set for process %d.", proc.pid)
@@ -635,7 +635,7 @@ class Analyzer:
                             if proc_counter > 5:
                                 try:
                                     proc.terminate()
-                                except:
+                                except Exception:
                                     continue
                             log.info("Waiting for process %d to exit.", proc.pid)
                             KERNEL32.Sleep(1000)
@@ -869,14 +869,14 @@ class CommandPipeHandler(object):
         """Debug message from the monitor."""
         try:
             log.debug(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
         try:
             log.info(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_warning(self, data):

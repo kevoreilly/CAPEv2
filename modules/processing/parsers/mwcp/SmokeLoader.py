@@ -67,7 +67,7 @@ class SmokeLoader(Parser):
         try:
             pe = pefile.PE(data=filebuf, fast_load=False)
             image_base = pe.OPTIONAL_HEADER.ImageBase
-        except:
+        except Exception:
             image_base = 0
 
         table_ref = yara_scan(filebuf, "$ref64_1")
@@ -98,7 +98,7 @@ class SmokeLoader(Parser):
                         c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                         if c2_url:
                             self.reporter.add_metadata("address", c2_url)
-                    except:
+                    except Exception:
                         table_loop = False
                 else:
                     table_loop = False
@@ -123,7 +123,7 @@ class SmokeLoader(Parser):
                     c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                     if c2_url:
                         self.reporter.add_metadata("address", c2_url)
-                except:
+                except Exception:
                     pass
                 table_offset = table_offset + 8
             return
@@ -156,7 +156,7 @@ class SmokeLoader(Parser):
                         c2_url = xor_decode(filebuf[c2_offset + 1 : c2_offset + c2_size + 1], c2_key).decode("ascii")
                         if c2_url:
                             self.reporter.add_metadata("address", c2_url)
-                    except:
+                    except Exception:
                         table_loop = False
                 else:
                     table_loop = False

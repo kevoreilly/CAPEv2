@@ -251,7 +251,7 @@ class ReSubmitExtractedEXE(Report):
                             if not os.path.exists(linkpath):
                                 os.symlink(srcpath, linkpath)
                             filesdict[dropped["sha256"]] = linkpath
-                        except:
+                        except Exception:
                             filesdict[dropped["sha256"]] = dropped["path"]
                 else:
                     for gpath in dropped["guest_paths"]:
@@ -278,7 +278,7 @@ class ReSubmitExtractedEXE(Report):
                                         if not os.path.exists(linkpath):
                                             os.symlink(srcpath, linkpath)
                                         filesdict[dropped["sha256"]] = linkpath
-                                    except:
+                                    except Exception:
                                         filesdict[dropped["sha256"]] = dropped["path"]
 
         if "suricata" in report and report["suricata"]:

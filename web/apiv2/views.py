@@ -1994,13 +1994,13 @@ def tasks_config(request, task_id, cape_name=False):
     if buf.get("CAPE"):
         try:
             buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-        except:
+        except Exception:
             pass
 
         if isinstance(buf, dict) and buf.get("CAPE", False):
             try:
                 buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-            except:
+            except Exception:
                 # In case compress results processing module is not enabled
                 pass
             data = []

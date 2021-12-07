@@ -515,7 +515,7 @@ if __name__ == "__main__":
 
         try:
             obj = json.loads(command)
-        except:
+        except Exception:
             log.info("Received invalid request: %r", command)
             continue
 

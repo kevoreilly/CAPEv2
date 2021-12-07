@@ -330,7 +330,7 @@ class Human(Auxiliary, Thread):
                     other_hwnds = INITIAL_HWNDS[:]
                     try:
                         other_hwnds.remove(USER32.GetForegroundWindow())
-                    except:
+                    except Exception:
                         pass
                     if len(other_hwnds):
                         USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds) - 1)])

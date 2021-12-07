@@ -755,7 +755,7 @@ class ProcDump(object):
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True
                 f.seek(size - 2, 1)
-            except:
+            except Exception:
                 break
             curchunk.append(alloc)
         if len(curchunk):

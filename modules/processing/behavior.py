@@ -1127,13 +1127,13 @@ class BehaviorAnalysis(Processing):
                 for instance in instances:
                     try:
                         instance.event_apicall(call, process)
-                    except:
+                    except Exception:
                         log.exception('Failure in partial behavior "%s"', instance.key)
 
         for instance in instances:
             try:
                 behavior[instance.key] = instance.run()
-            except:
+            except Exception:
                 log.exception('Failed to run partial behavior class "%s"', instance.key)
 
         return behavior

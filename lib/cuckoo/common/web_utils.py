@@ -869,6 +869,8 @@ search_term_map = {
     "shrikerefer": "info.shrike_refer",
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
+    # initial binary
+    "target_sha256": "target.file.sha256",
     "md5": ("target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
     "sha1": ("target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
     "sha3": ("target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),

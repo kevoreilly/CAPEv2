@@ -136,7 +136,7 @@ class Kixtart:
                 # self.logger.debug(f'{func}: {hexlify(function_data).decode("utf-8")}')
                 self.detokenize(function_data, labels, func)
                 i += 1
-            except:
+            except Exception:
                 self.logger.error(f"Failed to parse remaining function data {hexlify(buf[start:])}")
                 return
 
@@ -208,7 +208,7 @@ class Kixtart:
             b = buf[i]
             try:
                 n = buf[i + 1]
-            except:
+            except Exception:
                 n = 0
             # parse line number
             if b in [0xEC, 0xED]:
@@ -222,7 +222,7 @@ class Kixtart:
                     last_line = line_num
                 try:
                     self.script[line_num] += ":" + labels[i] + "\n"
-                except:
+                except Exception:
                     # No label for this line
                     pass
                 i += 1 + offset_size

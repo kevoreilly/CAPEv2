@@ -43,8 +43,8 @@ class MongoDB(Report):
             self.conn = MongoClient(
                 self.options.get("host", "127.0.0.1"),
                 port=self.options.get("port", 27017),
-                username=self.options.get("username", None),
-                password=self.options.get("password", None),
+                username=self.options.get("username"),
+                password=self.options.get("password"),
                 authSource=self.options.get("authsource", "cuckoo"),
             )
             self.db = self.conn[self.options.get("db", "cuckoo")]

@@ -175,9 +175,7 @@ class Evtx(Thread, Auxiliary):
                     log.debug(f"Enabling advanced logging -> {cmd}")
                     os.system(cmd)
                 except Exception as err:
-                    log.error(
-                        f"Cannot enable advanced logging for subcategory {subcategory} - {err}"
-                    )
+                    log.error(f"Cannot enable advanced logging for subcategory {subcategory} - {err}")
                     pass
 
     def collect_windows_logs(self):
@@ -189,7 +187,7 @@ class Evtx(Thread, Auxiliary):
         try:
             logs_folder = "C:/windows/Sysnative/winevt/Logs"
             os.listdir(logs_folder)
-        except:
+        except Exception:
             logs_folder = "c:/Windows/System32/winevt/Logs"
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:

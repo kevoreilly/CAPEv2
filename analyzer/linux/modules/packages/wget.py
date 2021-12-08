@@ -20,7 +20,7 @@ def _fileinfo(target):
 
 
 class Wget(Package):
-    """ Mach-O executable analysys package. """
+    """Mach-O executable analysys package."""
 
     def prepare(self):
         # todo use random tempfile

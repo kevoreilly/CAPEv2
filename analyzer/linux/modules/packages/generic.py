@@ -8,7 +8,7 @@ from lib.core.packages import Package
 
 
 class Generic(Package):
-    """ Generic analysis package. """
+    """Generic analysis package."""
 
     def prepare(self):
         # Make sure that our target is executable

@@ -14,8 +14,7 @@ log = logging.getLogger(__name__)
 
 
 def apicalls(target, **kwargs):
-    """
-    """
+    """ """
     if not target:
         raise Exception("Invalid target for apicalls()")
 
@@ -32,7 +31,7 @@ def _stap_command_line(target, **kwargs):
             return os.path.join(p, only_stap[0])
         return False
 
-    path_cfg = config.get("analyzer_stap_path", None)
+    path_cfg = config.get("analyzer_stap_path")
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
     elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):

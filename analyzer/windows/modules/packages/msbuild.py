@@ -6,6 +6,7 @@ import os
 
 from lib.common.abstracts import Package
 
+
 class MSBUILD(Package):
     """msbuild analysis package."""
 

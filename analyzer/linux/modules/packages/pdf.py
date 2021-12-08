@@ -8,7 +8,7 @@ from lib.core.packages import Package
 
 
 class Pdf(Package):
-    """ Bash shell script analysys package. """
+    """Bash shell script analysys package."""
 
     def prepare(self):
         system('/bin/chmod +x "%s"' % self.target)

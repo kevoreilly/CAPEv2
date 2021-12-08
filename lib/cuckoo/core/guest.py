@@ -272,7 +272,7 @@ class GuestManager(object):
             status = r.json()
             version = status.get("version")
             features = status.get("features", [])
-        except:
+        except Exception:
             log.critical(
                 "We were unable to detect Agent in the "
                 "Guest VM, are you sure you have set it up correctly? Please "

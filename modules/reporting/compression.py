@@ -20,8 +20,8 @@ class Compression(Report):
         zipprocstrings = self.options.get("zipprocstrings", False)
 
         for proc in results.get("procmemory", []) or []:
-            dmp_path = proc.get("file", None)
-            strings_path = proc.get("strings_path", None)
+            dmp_path = proc.get("file")
+            strings_path = proc.get("strings_path")
 
             for option in (zipprocdump, zipprocstrings):
                 if option and dmp_path and dmp_path.endswith((".dmp", ".strings")) and os.path.exists(dmp_path):

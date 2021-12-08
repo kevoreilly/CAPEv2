@@ -60,7 +60,9 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             status = s.put(
-                "https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid, data=json.dumps({}), auth=(self.username, self.password)
+                "https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid,
+                data=json.dumps({}),
+                auth=(self.username, self.password),
             )
             if "Authentication failed" in status.text:
                 log.info("Authentication failed, please check credentials in vmwarerest.conf")
@@ -106,7 +108,9 @@ class VMwareREST(Machinery):
     def get_power_for_vm(self, id):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
-            status = s.get("https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid + "/power", auth=(self.username, self.password))
+            status = s.get(
+                "https://" + self.host + ":" + self.port + "/api/vms/" + vmmoid + "/power", auth=(self.username, self.password)
+            )
             return status
         log.info("There was a problem querying power status for vm %s", id)
 

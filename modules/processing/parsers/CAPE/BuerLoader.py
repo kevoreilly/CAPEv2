@@ -14,11 +14,13 @@
 
 import pefile
 
+
 def decrypt_string(string):
-	enc=[]
-	for i in range(0, len(string)):
-		enc.append(chr(ord(string[i]) - 6))
-	return "".join(enc)
+    enc = []
+    for i in range(0, len(string)):
+        enc.append(chr(ord(string[i]) - 6))
+    return "".join(enc)
+
 
 def config(filebuf):
     DESCRIPTION = "BuerLoader configuration parser."

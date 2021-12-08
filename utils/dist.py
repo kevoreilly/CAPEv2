@@ -643,9 +643,6 @@ class Retriever(threading.Thread):
                         except Exception as e:
                             pass
 
-                        else:
-                            log.debug(f"{t.path} doesn't exist")
-
                 t.retrieved = True
                 t.finished = True
                 db.commit()

@@ -104,7 +104,7 @@ else:
     import ConfigParser
 try:
     import yara
-except:
+except Exception:
     pass
 
 CHAR_WHITESPACE = 1
@@ -222,14 +222,14 @@ class cPDFDocument:
             try:
                 self.zipfile = zipfile.ZipFile(file, "r")
                 self.infile = self.zipfile.open(self.zipfile.infolist()[0], "r", C2BIP3("infected"))
-            except:
+            except Exception:
                 print("Error opening file %s" % file)
                 print(sys.exc_info()[1])
                 sys.exit()
         else:
             try:
                 self.infile = open(file, "rb")
-            except:
+            except Exception:
                 print("Error opening file %s" % file)
                 print(sys.exc_info()[1])
                 sys.exit()
@@ -693,22 +693,22 @@ class cPDFElementIndirectObject:
             elif EqualCanonical(filter, "/ASCIIHexDecode") or EqualCanonical(filter, "/AHx"):
                 try:
                     data = ASCIIHexDecode(data)
-                except:
+                except Exception:
                     return "ASCIIHexDecode decompress failed"
             elif EqualCanonical(filter, "/ASCII85Decode") or EqualCanonical(filter, "/A85"):
                 try:
                     data = ASCII85Decode(data.rstrip(">"))
-                except:
+                except Exception:
                     return "ASCII85Decode decompress failed"
             elif EqualCanonical(filter, "/LZWDecode") or EqualCanonical(filter, "/LZW"):
                 try:
                     data = LZWDecode(data)
-                except:
+                except Exception:
                     return "LZWDecode decompress failed"
             elif EqualCanonical(filter, "/RunLengthDecode") or EqualCanonical(filter, "/R"):
                 try:
                     data = RunLengthDecode(data)
-                except:
+                except Exception:
                     return "RunLengthDecode decompress failed"
             #            elif i.startswith('/CC')                        # CCITTFaxDecode
             #            elif i.startswith('/DCT')                       # DCTDecode
@@ -1002,10 +1002,10 @@ def PrintOutputObject(object, options):
             fDump = open(options.dump, "wb")
             try:
                 fDump.write(C2BIP3(filtered))
-            except:
+            except Exception:
                 print("Error writing file %s" % options.dump)
             fDump.close()
-        except:
+        except Exception:
             print("Error writing file %s" % options.dump)
     print("")
     return
@@ -1027,7 +1027,7 @@ def Canonicalize(sIn):
                 try:
                     sCanonical += chr(int(sIn[i + 1 : i + 3], 16))
                     i += 2
-                except:
+                except Exception:
                     sCanonical += sIn[i]
             else:
                 sCanonical += sIn[i]
@@ -1079,7 +1079,7 @@ def ASCIIHexDecode(data):
 def FlateDecode(data):
     try:
         return zlib.decompress(C2BIP3(data))
-    except:
+    except Exception:
         if len(data) <= 10:
             raise
         oDecompress = zlib.decompressobj()
@@ -1089,7 +1089,7 @@ def FlateDecode(data):
             try:
                 oStringIO.write(oDecompress.decompress(byte))
                 count += 1
-            except:
+            except Exception:
                 break
         if len(data) - count <= 2:
             return oStringIO.getvalue()
@@ -1259,11 +1259,11 @@ def PrintObject(object, options):
 def File2Strings(filename):
     try:
         f = open(filename, "r")
-    except:
+    except Exception:
         return None
     try:
         return map(lambda line: line.rstrip("\n"), f.readlines())
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -1820,10 +1820,10 @@ def Main():
                             fExtract = open(options.extract, "wb")
                             try:
                                 fExtract.write(C2BIP3(object.content))
-                            except:
+                            except Exception:
                                 print("Error writing file %s" % options.extract)
                             fExtract.close()
-                        except:
+                        except Exception:
                             print("Error writing file %s" % options.extract)
             else:
                 break

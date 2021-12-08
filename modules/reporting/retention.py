@@ -32,9 +32,9 @@ if repconf.mongodb and repconf.mongodb.enabled:
     results_db = MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
-        authSource = repconf.mongodb.get("authsource", "cuckoo")
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
+        authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
 if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -42,7 +42,15 @@ if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.e
 
     idx = repconf.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60,)
+        es = Elasticsearch(
+            hosts=[
+                {
+                    "host": repconf.elasticsearchdb.host,
+                    "port": repconf.elasticsearchdb.port,
+                }
+            ],
+            timeout=60,
+        )
     except Exception as e:
         log.warning("Unable to connect to ElasticSearch: %s", str(e))
 
@@ -58,6 +66,7 @@ def delete_mongo_data(curtask, tid):
                     results_db.calls.remove({"_id": ObjectId(call)})
             results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
         log.debug("Task #{0} deleting MongoDB data for Task #{1}".format(curtask, tid))
+
 
 """
 def delete_elastic_data(curtask, tid):
@@ -79,6 +88,7 @@ def delete_elastic_data(curtask, tid):
             )
         log.debug("Task #{0} deleting ElasticSearch data for Task #{1}".format(curtask, tid))
 """
+
 
 def delete_files(curtask, delfiles, target_id):
     delfiles_list = delfiles
@@ -135,7 +145,9 @@ class Retention(Report):
                 with open(taskFile, "r") as taskLog:
                     taskCheck = json.loads(taskLog.read())
             except Exception as e:
-                log.warn("Failed to load retention log, if this is not the " "time running retention, review the error: {0}".format(e))
+                log.warn(
+                    "Failed to load retention log, if this is not the " "time running retention, review the error: {0}".format(e)
+                )
             curtime = datetime.now()
             since_retlog_modified = curtime - datetime.fromtimestamp(os.path.getmtime(taskFile))
             since_conf_modified = curtime - datetime.fromtimestamp(os.path.getmtime(confPath))

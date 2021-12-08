@@ -161,7 +161,20 @@ class SubmitCAPE(Report):
             detections.add("Hancitor")
 
     def submit_task(
-        self, target, package, timeout, task_options, priority, machine, platform, memory, enforce_timeout, clock, tags, parent_id, tlp
+        self,
+        target,
+        package,
+        timeout,
+        task_options,
+        priority,
+        machine,
+        platform,
+        memory,
+        enforce_timeout,
+        clock,
+        tags,
+        parent_id,
+        tlp,
     ):
 
         db = Database()

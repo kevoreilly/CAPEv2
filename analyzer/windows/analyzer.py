@@ -15,26 +15,21 @@ import hashlib
 import traceback
 import subprocess
 from ctypes import create_string_buffer, create_unicode_buffer, POINTER
-from ctypes import c_wchar_p, byref, c_int, sizeof, cast, c_void_p, c_ulong, addressof
+from ctypes import byref, c_int, sizeof, cast, c_void_p, c_ulong
 
-from threading import Lock, Thread
+from threading import Lock
 from datetime import datetime, timedelta
 from shutil import copy
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from lib.common.rand import random_string
 from lib.api.process import Process
 from lib.common.abstracts import Package, Auxiliary
 from lib.common.constants import PATHS, PIPE, SHUTDOWN_MUTEX, TERMINATE_EVENT, LOGSERVER_PREFIX
 from lib.common.constants import CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME
 from lib.common.defines import ADVAPI32, KERNEL32, NTDLL
-from lib.common.defines import ERROR_MORE_DATA, ERROR_PIPE_CONNECTED
-from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE
-from lib.common.defines import PIPE_READMODE_MESSAGE, PIPE_WAIT
-from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
 from lib.common.defines import SYSTEM_PROCESS_INFORMATION
-from lib.common.defines import EVENT_MODIFY_STATE, SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SYSTEMTIME
+from lib.common.defines import EVENT_MODIFY_STATE
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -105,7 +100,7 @@ def add_pid_to_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.add_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -113,7 +108,7 @@ def del_pid_from_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.del_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -628,7 +623,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()
-                    except:
+                    except Exception:
                         log.error("Unable to set terminate event for process %d.", proc.pid)
                         continue
                     log.info("Terminate event set for process %d.", proc.pid)
@@ -642,7 +637,7 @@ class Analyzer:
                             if proc_counter > 5:
                                 try:
                                     proc.terminate()
-                                except:
+                                except Exception:
                                     continue
                             log.info("Waiting for process %d to exit.", proc.pid)
                             KERNEL32.Sleep(1000)
@@ -751,7 +746,7 @@ class Files(object):
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath, metadata="", pids=False, category="files"):
+    def dump_file(self, filepath, metadata="", pids=False, ppids=False, category="files"):
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -788,7 +783,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category, duplicated=duplicated)
+            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -876,14 +871,14 @@ class CommandPipeHandler(object):
         """Debug message from the monitor."""
         try:
             log.debug(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
         try:
             log.info(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_warning(self, data):
@@ -1262,10 +1257,16 @@ class CommandPipeHandler(object):
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
-        # Syntax -> PATH|PID|Metadata
-        file_path, pid, metadata = data.split(b"|")
+        # Syntax -> PATH|PID|PPID|Metadata
+        file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(
+                file_path.decode("utf-8"),
+                pids=[pid.decode("utf-8")],
+                ppids=[ppid.decode("utf-8")],
+                metadata=metadata,
+                category="CAPE",
+            )
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1281,11 +1282,15 @@ class CommandPipeHandler(object):
         # We extract the file path.
         # We dump immediately.
         if b"\\CAPE\\" in file_path:
-            # Syntax -> PATH|PID|Metadata
-            file_path, pid, metadata = file_path.split(b"|")
+            # Syntax -> PATH|PID|PPID|Metadata
+            file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
                 self.analyzer.files.dump_file(
-                    file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump"
+                    file_path.decode("utf-8"),
+                    pids=[pid.decode("utf-8")],
+                    ppids=[ppid.decode("utf-8")],
+                    metadata=metadata,
+                    category="procdump",
                 )
 
         else:
@@ -1381,7 +1386,7 @@ if __name__ == "__main__":
 
     # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
     except CuckooError:
-        log.info("You probably submitted the job with wrong package")
+        log.info("You probably submitted the job with wrong package", exc_info=True)
         data["status"] = "exception"
         data["description"] = "You probably submitted the job with wrong package"
         try:

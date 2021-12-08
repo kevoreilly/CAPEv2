@@ -25,7 +25,7 @@ try:
     from mmbot import MaliciousMacroBot
 
     HAVE_MMBOT = True
-except:
+except Exception:
     HAVE_MMBOT = False
 
 
@@ -61,7 +61,9 @@ class MMBot(Processing):
             opts["model_path"] = self.options.get("model_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "model"))
 
             try:
-                mmb = MaliciousMacroBot(opts["benign_path"], opts["malicious_path"], opts["model_path"], retain_sample_contents=False)
+                mmb = MaliciousMacroBot(
+                    opts["benign_path"], opts["malicious_path"], opts["model_path"], retain_sample_contents=False
+                )
 
                 mmb.mmb_init_model(modelRebuild=False)
                 predresult = mmb.mmb_predict(self.file_path)

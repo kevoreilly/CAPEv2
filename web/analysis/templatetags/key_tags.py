@@ -9,6 +9,7 @@ def getkey(mapping, value):
     if type(mapping) is dict:
         return mapping.get(value, "")
 
+
 @register.filter(name="str2list")
 def str2list(value):
     if type(value) is str:

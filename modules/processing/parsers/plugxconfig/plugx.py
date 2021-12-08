@@ -79,7 +79,7 @@ class PlugXConfig:
         protos = ["???", "???", "????", "TCP", "HTTP", "DNS", "UDP", "ICMP", "RAW", "???", "???"]
         try:
             ret = protos[proto] + "(%d)" % proto
-        except:
+        except Exception:
             ret = "UNKNOWN (%d)" % proto
         return ret
 
@@ -273,7 +273,11 @@ class PlugXConfig:
                 cfg_blob = cfg_blob[calcsize("<6L") :]
                 config_output.update({"Screenshots": ("%r\0" % (screenshots != 0))})
                 config_output.update(
-                    {"Screenshots params": ("%d sec / Zoom %d / %d bits / Quality %d / Keep %d days\0" % (freq, zoom, color, qual, days))}
+                    {
+                        "Screenshots params": (
+                            "%d sec / Zoom %d / %d bits / Quality %d / Keep %d days\0" % (freq, zoom, color, qual, days)
+                        )
+                    }
                 )
                 screen_path = self.get_str_utf16le(cfg_blob[:str_sz])
                 cfg_blob = cfg_blob[str_sz:]

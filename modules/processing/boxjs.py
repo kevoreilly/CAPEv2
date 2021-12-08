@@ -10,16 +10,13 @@ log = logging.getLogger(__name__)
 
 
 class BoxJS(Processing):
-
     def _request_text(self, url, **kwargs):
         """Wrapper around doing a request and parsing its text output."""
         try:
             r = requests.get(url, timeout=self.timeout, **kwargs)
             return r.text if r.status_code == 200 else {}
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError(
-                "Unable to GET results: %r" % e.message
-            )
+            raise CuckooOperationalError("Unable to GET results: %r" % e.message)
 
     def request_json(self, url, **kwargs):
         """Wrapper around doing a request and parsing its JSON output."""
@@ -54,9 +51,10 @@ class BoxJS(Processing):
         self.key = "boxjs"
 
         """ Fall off if we don't deal with files """
-        if self.results.get("info", {}).get("category") not in ("file", "static") and \
-            (self.results.get("info", {}).get("package", "") in ("js", "jse", "jsevbe", "js_antivm") or \
-                self.results.get("target", {}).get("file", "").get("name", "").endswith(".js", ".jse")):
+        if self.results.get("info", {}).get("category") not in ("file", "static") and (
+            self.results.get("info", {}).get("package", "") in ("js", "jse", "jsevbe", "js_antivm")
+            or self.results.get("target", {}).get("file", "").get("name", "").endswith(".js", ".jse")
+        ):
             log.debug("Box-js supports only file scanning!")
             return {}
 
@@ -76,7 +74,7 @@ class BoxJS(Processing):
         while not done:
             time.sleep(2)
             result = self.request_json(base_url)
-            code = result.get("code", None)
+            code = result.get("code")
             retry = False
 
             # Read the status code, and retry with different flags if necessary

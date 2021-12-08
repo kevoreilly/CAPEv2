@@ -12,8 +12,10 @@ from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
 
 log = logging.getLogger(__name__)
 
+
 class TLSDumpMasterSecrets(Auxiliary):
     """Dump TLS master secrets from lsass process"""
+
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
@@ -42,6 +44,8 @@ class TLSDumpMasterSecrets(Auxiliary):
             if "process access denied" in e.message:
                 log.warning("You're not running the Agent as Administrator.")
             else:
-                log.warning("An unknown error occurred while trying to inject into "
-                    "the lsass.exe process to dump TLS master secrets: %s", e)
+                log.warning(
+                    "An unknown error occurred while trying to inject into " "the lsass.exe process to dump TLS master secrets: %s",
+                    e,
+                )
         del self.options["tlsdump"]

@@ -128,7 +128,7 @@ def decoder(data):
             if ".x" in sect.Name:
                 x_sect = sect
         img = pe.get_memory_mapped_image()
-    except:
+    except Exception:
         img = data
     if x_sect != None:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]

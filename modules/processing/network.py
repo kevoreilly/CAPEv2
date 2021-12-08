@@ -234,7 +234,7 @@ class Pcap:
                 network_high = network_low | (1 << (32 - bits)) - 1
                 if ipaddr <= network_high and ipaddr >= network_low:
                     return True
-        except:
+        except Exception:
             pass
 
         return False
@@ -247,7 +247,7 @@ class Pcap:
                 temp_cn = gi.country_name_by_addr(ip)
                 if temp_cn:
                     cn = temp_cn
-            except:
+            except Exception:
                 log.error("Unable to GEOIP resolve %s" % ip)
         return cn
 
@@ -269,7 +269,7 @@ class Pcap:
                     # first packet they appear in.
                     if not self._is_private_ip(ip):
                         self.unique_hosts.append(ip)
-        except:
+        except Exception:
             pass
 
     def _enrich_hosts(self, unique_hosts):
@@ -287,7 +287,7 @@ class Pcap:
             if cfg.processing.reverse_dns:
                 try:
                     inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
-                except:
+                except Exception:
                     pass
             for request in self.dns_requests.values():
                 for answer in request["answers"]:
@@ -333,7 +333,7 @@ class Pcap:
         """
         try:
             return isinstance(icmp_data, dpkt.icmp.ICMP) and len(icmp_data.data) > 0
-        except:
+        except Exception:
             return False
 
     def _icmp_dissect(self, conn, data):
@@ -356,7 +356,7 @@ class Pcap:
             # Extract data from dpkg.icmp.ICMP.
             try:
                 entry["data"] = convert_to_printable(data.data.data)
-            except:
+            except Exception:
                 entry["data"] = ""
 
             self.icmp_requests.append(entry)
@@ -367,7 +367,7 @@ class Pcap:
         """
         try:
             dpkt.dns.DNS(udpdata)
-        except:
+        except Exception:
             return False
 
         return True
@@ -1092,7 +1092,7 @@ class NetworkAnalysis(Processing):
                 p2 = Pcap2(self.pcap_path, self.get_tlsmaster(), self.network_path).run()
                 if p2:
                     results.update(p2)
-            except:
+            except Exception:
                 log.exception("Error running httpreplay-based PCAP analysis")
 
         return results
@@ -1276,7 +1276,7 @@ def payload_from_raw(raw, linktype=1):
     ip = iplayer_from_raw(raw, linktype)
     try:
         return ip.data.data
-    except:
+    except Exception:
         return b""
 
 

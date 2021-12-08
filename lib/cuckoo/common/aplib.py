@@ -9,11 +9,12 @@ from io import BytesIO
 import logging
 import struct
 
-__all__ = ['decompress']
-__version__ = '0.1'
-__author__ = 'Sandor Nemes'
+__all__ = ["decompress"]
+__version__ = "0.1"
+__author__ = "Sandor Nemes"
 
 log = logging.getLogger(__name__)
+
 
 class APDSTATE(object):
     """internal data structure"""
@@ -138,7 +139,8 @@ def decompress(data):
     try:
         return ap_depack(data)
     except Exception:
-        raise Exception('aPLib decompression error')
+        raise Exception("aPLib decompression error")
+
 
 def aplib_decompress(data_in):
     # for compatability with the python2 implementaion used by some emulators
@@ -149,22 +151,26 @@ def aplib_decompress(data_in):
 
     return decompress(enc)
 
-def strip_header(data):
 
+def strip_header(data):
 
     # if it starts with ap32 header then strip it first
     start_offset = 0
     length = len(data)
 
-    if data[:4] == b'AP32':
+    if data[:4] == b"AP32":
         start_offset = struct.unpack("I", data[4:8])[0]
-        length = struct.unpack("I", data[8:0xc])[0]
+        length = struct.unpack("I", data[8:0xC])[0]
 
-    return data[start_offset:length + start_offset]
+    return data[start_offset : length + start_offset]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # self-test
-    data = b'T\x00he quick\xecb\x0erown\xcef\xaex\x80jumps\xed\xe4veur`t?lazy\xead\xfeg\xc0\x00'
-    assert decompress(data) == b'The quick brown fox jumps over the lazy dog'
-    assert aplib_decompress(data) == b'The quick brown fox jumps over the lazy dog'
-    assert aplib_decompress(b'AP32' + struct.pack("I", 0xc) + struct.pack("I", len(data)) + data) == b'The quick brown fox jumps over the lazy dog'
+    data = b"T\x00he quick\xecb\x0erown\xcef\xaex\x80jumps\xed\xe4veur`t?lazy\xead\xfeg\xc0\x00"
+    assert decompress(data) == b"The quick brown fox jumps over the lazy dog"
+    assert aplib_decompress(data) == b"The quick brown fox jumps over the lazy dog"
+    assert (
+        aplib_decompress(b"AP32" + struct.pack("I", 0xC) + struct.pack("I", len(data)) + data)
+        == b"The quick brown fox jumps over the lazy dog"
+    )

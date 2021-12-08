@@ -7,7 +7,7 @@ First prepare the networking for your machinery platform on the host side.
 .. This has not been tested recently:
 
 Sparc and PowerPC dependencies::
-    $ sudo apt-get install openbios-spark openbios-ppc
+    $ sudo apt-get install openbios-sparc openbios-ppc
 
 Next, get the list of virtual machines for which to configure the interface
 from ``conf/qemu.conf``.

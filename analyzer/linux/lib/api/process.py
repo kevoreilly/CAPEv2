@@ -17,8 +17,7 @@ class Process:
     first_process_pid = None
 
     def __init__(self, pid=0):
-        """@param pid: PID.
-        """
+        """@param pid: PID."""
         self.pid = pid
 
     def is_alive(self):
@@ -32,14 +31,14 @@ class Process:
         return True
 
     def get_parent_pid(self):
-        return self.get_proc_status().get("PPid", None)
+        return self.get_proc_status().get("PPid")
 
     def get_proc_status(self):
         try:
             status = open("/proc/%u/status" % self.pid).readlines()
             status_values = dict((i[0], i[1]) for i in [j.strip().split(None, 1) for j in status])
             return status_values
-        except:
+        except Exception:
             log.critical("could not get process status for pid %u", self.pid)
         return {}
 

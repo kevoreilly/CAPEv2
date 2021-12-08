@@ -222,5 +222,5 @@ def disconnect_pipes():
         try:
             sock.shutdown(socket.SHUT_RDWR)
             sock.close()
-        except:
+        except Exception:
             log.exception("Could not close socket")

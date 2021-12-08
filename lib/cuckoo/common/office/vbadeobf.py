@@ -79,7 +79,7 @@ def decode_base64(m):
 
     try:
         decoded = s.decode("base64")
-    except:
+    except Exception:
         return s
 
     if not is_printable(decoded):
@@ -124,7 +124,7 @@ def decrypt_sub(m):
         second = int([c for c in m.group(2) if c.isdigit()])
         if first and second:
             return chr(first - second)
-    except:
+    except Exception:
         pass
     return m.group()
 

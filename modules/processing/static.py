@@ -69,7 +69,7 @@ try:
     from whois import whois
 
     HAVE_WHOIS = True
-except:
+except Exception:
     HAVE_WHOIS = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
@@ -222,7 +222,7 @@ def _get_filetype(data):
         ms = magic.open(magic.MAGIC_SYMLINK)
         ms.load()
         file_type = ms.buffer(data)
-    except:
+    except Exception:
         try:
             file_type = magic.from_buffer(data)
         except Exception:
@@ -230,7 +230,7 @@ def _get_filetype(data):
     finally:
         try:
             ms.close()
-        except:
+        except Exception:
             pass
 
     return file_type
@@ -636,7 +636,7 @@ class PortableExecutable(object):
 
         try:
             off = self.pe.get_overlay_data_start_offset()
-        except:
+        except Exception:
             log.error(
                 "Your version of pefile is out of date.  "
                 "Please update to the latest version on https://github.com/erocarrera/pefile"
@@ -688,7 +688,7 @@ class PortableExecutable(object):
         retstr = None
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
-        except:
+        except Exception:
             log.warning(
                 "Detected outdated version of pefile.  "
                 "Please update to the latest version at https://github.com/erocarrera/pefile"
@@ -1145,7 +1145,7 @@ class PDF(object):
         try:
             if obj.type == "reference":
                 return self.pdf.body[version].getObject(obj.id)
-        except:
+        except Exception:
             pass
         return obj
 
@@ -1467,7 +1467,7 @@ class Office(object):
             else:
                 try:
                     vba = VBA_Parser(filepath)
-                except:
+                except Exception:
                     return results
         else:
             return results
@@ -2003,7 +2003,7 @@ class Java(object):
 
             try:
                 os.unlink(jar_file)
-            except:
+            except Exception:
                 pass
 
         return results
@@ -2079,7 +2079,7 @@ class URL(object):
                 for field in fields:
                     if field not in list(w.keys()) or not w[field]:
                         w[field] = ["None"]
-            except:
+            except Exception:
                 # No WHOIS data returned
                 log.warning("No WHOIS data for domain: " + self.domain)
                 return results
@@ -2679,7 +2679,7 @@ class WindowsScriptFile(object):
             try:
                 x = bs4.BeautifulSoup(script, "html.parser")
                 language = x.script.attrs.get("language", "").lower()
-            except:
+            except Exception:
                 language = None
 
             # We can't rely on bs4 or any other HTML/XML parser to provide us

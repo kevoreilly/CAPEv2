@@ -63,7 +63,7 @@ class AnalysisInfo(Processing):
                 try:
                     idx = analysis_log.index('INFO: Automatically selected analysis package "')
                     package = analysis_log[idx + 47 :].split('"', 1)[0]
-                except:
+                except Exception:
                     pass
         return package
 
@@ -78,7 +78,7 @@ class AnalysisInfo(Processing):
             started = datetime.fromtimestamp(time.mktime(started))
             ended = time.strptime(self.task["completed_on"], "%Y-%m-%d %H:%M:%S")
             ended = datetime.fromtimestamp(time.mktime(ended))
-        except:
+        except Exception:
             log.critical("Failed to get start/end time from Task.")
             duration = -1
         else:

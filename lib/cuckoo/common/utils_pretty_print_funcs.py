@@ -110,7 +110,7 @@ def hookidentifer(arg_val):
 def infolevel(arg_val):
     try:
         val = int(arg_val, 16)
-    except:
+    except Exception:
         val = int(arg_val, 10)
     return utils_dicts.InfoLevelDict().get(val, None)
 

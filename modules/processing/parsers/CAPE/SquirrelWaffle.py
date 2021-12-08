@@ -68,7 +68,7 @@ def config(data):
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif '|' in decrypted and '.' in decrypted and '\r\n' not in decrypted:
                         config["URLs"] = list(filter(None, decrypted.split("|")))
-                except:
+                except Exception:
                     continue
         matches = yara_rules.match(data=data)
         if not matches:

@@ -25,7 +25,7 @@ def extract_config(zip):
 
                 _log("[+] Found it : %s" % zip)
                 _log("[+] C2 : %s" % "".join(c2))
-            except:
+            except Exception:
                 _log("[*] Probably corrupted Base64 string.")
     if bFile == False:
         _log("[*] No such file")
@@ -53,7 +53,7 @@ def check_jar_classes(jar_file):
             if fn.endswith(".class"):
                 bJar = True
                 return bJar
-    except:
+    except Exception:
         return False
 
 
@@ -85,11 +85,11 @@ if __name__ == "__main__":
     Directory = args.szDirectory
     try:
         is_file = os.path.isfile(Filename[0])
-    except:
+    except Exception:
         pass
     try:
         is_dir = os.path.isdir(Directory[0])
-    except:
+    except Exception:
         pass
     logo()
     if Filename is not None and is_file:

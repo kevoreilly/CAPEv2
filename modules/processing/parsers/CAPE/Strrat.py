@@ -40,7 +40,7 @@ def unzip_config(filepath):
             if "config.txt" in name:
                 data = z.read(name)
                 break
-    except:
+    except Exception:
         return
     return data
 
@@ -60,7 +60,7 @@ def decode(data):
     if data:
         try:
             decoded = aesdecrypt(data, passkey)
-        except:
+        except Exception:
             return
     return decoded.decode('utf8')
 

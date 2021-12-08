@@ -9,7 +9,7 @@ from django.conf import settings
 
 try:
     from django.utils.deprecation import MiddlewareMixin
-except:
+except Exception:
     pass
 
 sys.path.append(settings.CUCKOO_PATH)

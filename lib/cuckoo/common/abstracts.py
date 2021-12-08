@@ -924,7 +924,7 @@ class Signature(object):
         try:
             socket.inet_aton(ip)
             return True
-        except:
+        except Exception:
             return False
 
     def _check_valid_url(self, url, all_checks=False):

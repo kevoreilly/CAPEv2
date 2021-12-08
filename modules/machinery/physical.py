@@ -82,7 +82,7 @@ class Physical(Machinery):
                 if (task['host']['id']) == hostID:
                     flag = False
             return flag
-        except:
+        except Exception:
             raise CuckooMachineError("Error while checking for fog task state for hostID " + str(hostID) + ": " + sys.exc_info()[0])
 
 
@@ -138,7 +138,7 @@ class Physical(Machinery):
                                  "wol": 'true'}).encode('utf8')
 
                     r_deploy = requests.post("http://" + self.options.fog.hostname + "/fog/host/" + hostID + "/task", headers=headers, data=payload)
-                    
+
                     try:
                         requests.post("http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT) + "/execute", data={"command" : "shutdown -r -f -t 0"})
                     except:
@@ -161,7 +161,7 @@ class Physical(Machinery):
                 r = requests.get(url + "/status")
                 print(r.text)
                 connection_succesful = True
-            except:
+            except Exception:
                 log.debug("Machine not reachable yet after reset")
                 sleep(3)
 
@@ -198,7 +198,7 @@ class Physical(Machinery):
             r = requests.get(url + "/status")
             print(r.text)
             return self.RUNNING
-        except:
+        except Exception:
             return self.STOPPED
 
         return self.ERROR

@@ -706,7 +706,7 @@ def mcafee_unquarantine(f):
             for item in quarfiles:
                 try:
                     decoded[item] = bytearray_xor(bytearray(oledata.openstream(item).read()), 0x6A)
-                except:
+                except Exception:
                     pass
             # Try and get original file name from details
             if list(decoded.keys()):
@@ -759,7 +759,7 @@ def unquarantine(f):
     if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f)):
         try:
             return mcafee_unquarantine(f)
-        except:
+        except Exception:
             pass
 
     if ext.lower() in func_map:
@@ -773,5 +773,5 @@ def unquarantine(f):
             quarfile = func(f)
             if quarfile:
                 return quarfile
-        except:
+        except Exception:
             pass

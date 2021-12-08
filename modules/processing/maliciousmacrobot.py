@@ -25,7 +25,7 @@ try:
     from mmbot import MaliciousMacroBot
 
     HAVE_MMBOT = True
-except:
+except Exception:
     HAVE_MMBOT = False
 
 

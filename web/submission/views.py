@@ -123,7 +123,7 @@ class conditional_login_required(object):
 def force_int(value):
     try:
         value = int(value)
-    except:
+    except Exception:
         value = 0
     finally:
         return value

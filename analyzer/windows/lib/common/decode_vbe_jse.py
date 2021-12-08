@@ -71,11 +71,11 @@ def C2BIP3(string):
 def File2String(filename):
     try:
         f = open(filename, "rb")
-    except:
+    except Exception:
         return None
     try:
         return f.read()
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -112,7 +112,7 @@ def File2StringHash(filename):
 def FixPipe():
     try:
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except:
+    except Exception:
         pass
 
 

@@ -7,10 +7,14 @@ import sys
 import logging
 import time
 import random
-import re
 from datetime import datetime, timedelta
 
 import requests
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError

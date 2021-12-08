@@ -67,7 +67,6 @@ Todo:
 import random
 import optparse
 import os
-import re
 import xml.dom.minidom
 import traceback
 import math
@@ -80,6 +79,11 @@ import collections
 import glob
 import fnmatch
 import binascii
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 if sys.version_info[0] >= 3:
     import urllib.request as urllib23

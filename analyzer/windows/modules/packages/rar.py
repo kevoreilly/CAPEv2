@@ -6,7 +6,11 @@ from __future__ import absolute_import
 import os
 import shutil
 import logging
-import re
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     from rarfile import RarFile, BadRarFile

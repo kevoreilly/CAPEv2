@@ -17,11 +17,15 @@ import struct
 import socket
 import pefile
 import yara
-import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
 from itertools import cycle
 import base64
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 rule_source = """
 rule Emotet

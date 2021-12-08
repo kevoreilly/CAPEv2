@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from __future__ import print_function
-import re
 import os
 import sys
 import commands
@@ -10,6 +9,11 @@ import string
 from zipfile import ZipFile
 from Crypto.Cipher import AES, DES3
 import database
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 
 def run(md5, data):

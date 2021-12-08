@@ -5,13 +5,17 @@
 from __future__ import absolute_import
 import io
 import os
-import re
 import subprocess
 import logging
 from random import randint
 from winreg import *
 from uuid import uuid4
 import platform
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string

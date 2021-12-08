@@ -8,8 +8,12 @@
 from __future__ import absolute_import
 import os
 import hashlib
-import re
 from collections import defaultdict
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError

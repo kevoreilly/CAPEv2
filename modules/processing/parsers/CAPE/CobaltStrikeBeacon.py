@@ -19,9 +19,13 @@ import json
 from base64 import b64encode
 import argparse
 import io
-import re
 import pefile
 import logging
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 log = logging.getLogger(__name__)
 

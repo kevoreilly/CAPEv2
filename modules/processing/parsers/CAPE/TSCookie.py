@@ -8,9 +8,13 @@
 from __future__ import absolute_import
 import sys
 import pefile
-import re
 import collections
 from struct import unpack, unpack_from
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 # Resource pattern
 RESOURCE_PATTERNS = [

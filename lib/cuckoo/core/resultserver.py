@@ -204,7 +204,7 @@ class FileUpload(ProtocolHandler):
             category = self.handler.read_newline()
             duplicated = int(self.handler.read_newline()) or 0
         else:
-            filepath, pids, ppid, metadata, category, duplicated = None, [], [], b"", b"", False
+            filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         if not duplicated:

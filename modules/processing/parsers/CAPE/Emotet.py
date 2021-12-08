@@ -493,13 +493,13 @@ def config(filebuf):
                 eck_offset += 8
                 eck_key = base64.b64encode(xor_data(filebuf[eck_offset:eck_offset+size], key))
                 # self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
-                conf_dict.setdefault("ECC ECK1", eck_key)
+                conf_dict.setdefault("ECC ECK1", eck_key.decode("latin-1"))
                 key = filebuf[ecs_offset:ecs_offset+4]
                 size = struct.unpack("I", filebuf[ecs_offset+4:ecs_offset+8])[0] ^ struct.unpack("I", key)[0]
                 ecs_offset += 8
                 ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset:ecs_offset+size], key))
                 # self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})
-                conf_dict.setdefault("ECC ECS1", ecs_key)
+                conf_dict.setdefault("ECC ECS1", ecs_key.decode("latin-1"))
     return conf_dict
 
 def test_them_all(path):

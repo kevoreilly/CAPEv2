@@ -4,7 +4,12 @@
 
 from __future__ import absolute_import
 import os
-import re
+
+try:
+    import re2 as re
+except ImportError:
+    import re
+
 from lib.common.decode_vbe_jse import DecodeVBEJSE
 
 
@@ -35,7 +40,7 @@ def choose_package(file_type, file_name, exports, target):
             return "dll"
     elif "PE32" in file_type or "MS-DOS" in file_type:
         return "exe"
-    elif file_name.endswith((".msi",".msp",".appx")) or "MSI Installer" in file_type:
+    elif file_name.endswith((".msi", ".msp", ".appx")) or "MSI Installer" in file_type:
         return "msi"
     elif file_name.endswith(".pub"):
         return "pub"
@@ -51,7 +56,9 @@ def choose_package(file_type, file_name, exports, target):
     elif (
         "Microsoft Office Excel" in file_type
         or "Microsoft Excel" in file_type
-        or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk", ".csv"))
+        or file_name.endswith(
+            (".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk", ".csv")
+        )
     ):
         return "xls"
     elif "PowerPoint" in file_type or file_name.endswith(
@@ -101,7 +108,7 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith((".xsl", ".xslt")) or "XSL stylesheet" in file_type:
         return "xslt"
     elif file_name.endswith(".sct"):
-        if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration",file_content):
+        if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration", file_content):
             return "sct"
         else:
             return "hta"
@@ -109,7 +116,7 @@ def choose_package(file_type, file_name, exports, target):
         return "wsf"
     elif "PDF" in file_type or file_name.endswith(".pdf"):
         return "pdf"
-    elif re.search(b"<script\\s+language=\"(J|VB|Perl)Script\"",file_content,re.I):
+    elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
         return "wsf"
     elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.I):
         return "vbs"

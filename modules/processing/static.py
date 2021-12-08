@@ -7,7 +7,6 @@ from __future__ import print_function
 import json
 import logging
 import os
-import re
 import math
 import array
 import ctypes
@@ -28,28 +27,24 @@ except ImportError:
 
 try:
     import bs4
-
     HAVE_BS4 = True
 except ImportError:
     HAVE_BS4 = False
 
 try:
     import magic
-
     HAVE_MAGIC = True
 except ImportError:
     HAVE_MAGIC = False
 
 try:
     import pefile
-
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
 
 try:
     import v8py
-
     HAVE_V8PY = True
 except ImportError:
     HAVE_V8PY = False
@@ -59,7 +54,6 @@ try:
     from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.backends.openssl import x509
     from cryptography.hazmat.primitives import hashes
-
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
@@ -67,7 +61,6 @@ except ImportError:
 
 try:
     from whois import whois
-
     HAVE_WHOIS = True
 except Exception:
     HAVE_WHOIS = False
@@ -84,7 +77,6 @@ from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 try:
     import olefile
-
     HAVE_OLEFILE = True
 except ImportError:
     HAVE_OLEFILE = False
@@ -104,7 +96,6 @@ try:
     )
     from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
-
     HAVE_OLETOOLS = True
 except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
@@ -116,7 +107,6 @@ from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 try:
     from peepdf.PDFCore import PDFParser
     from peepdf.JSAnalysis import analyseJS
-
     HAVE_PEEPDF = True
 except ImportError as e:
     HAVE_PEEPDF = False

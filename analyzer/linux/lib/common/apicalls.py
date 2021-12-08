@@ -14,8 +14,7 @@ log = logging.getLogger(__name__)
 
 
 def apicalls(target, **kwargs):
-    """
-    """
+    """ """
     if not target:
         raise Exception("Invalid target for apicalls()")
 

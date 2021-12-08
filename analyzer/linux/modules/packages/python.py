@@ -7,7 +7,7 @@ from lib.core.packages import Package
 
 
 class Python(Package):
-    """ Python script analysis package. """
+    """Python script analysis package."""
 
     def prepare(self):
         self.args = [self.target] + self.args

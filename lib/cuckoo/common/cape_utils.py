@@ -508,7 +508,6 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
             log.error(e, exc_info=True)
 
 
-
 def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tmp_prefix, dict_key):
     with tempfile.TemporaryDirectory(prefix=tmp_prefix) as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")

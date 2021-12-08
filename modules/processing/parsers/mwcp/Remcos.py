@@ -7,11 +7,15 @@
 # Updates based on work presented here https://gist.github.com/sysopfb/11e6fb8c1377f13ebab09ab717026c87
 
 import string
-import re
 import pefile
 from mwcp.parser import Parser
 from Crypto.Cipher import ARC4
 from collections import OrderedDict
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 # From JPCERT
 FLAG = {b"\x00": "Disable", b"\x01": "Enable"}
@@ -73,7 +77,7 @@ idx_list = {
     52: "Unknown52",
     53: "Unknown53",
     54: "Keylog file max size",
-    55: "Unknown55"
+    55: "Unknown55",
 }
 
 # From JPCERT
@@ -102,9 +106,9 @@ class Remcos(Parser):
                 name = str(pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
             if name == None:
                 name = str(resource_type.struct.name)
-            if hasattr(resource_type, 'directory'):
+            if hasattr(resource_type, "directory"):
                 for resource_id in resource_type.directory.entries:
-                    if hasattr(resource_id, 'directory'):
+                    if hasattr(resource_id, "directory"):
                         for resource_lang in resource_id.directory.entries:
                             data = pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
                             ret.append((name, data, resource_lang.data.struct.Size, resource_type))
@@ -140,15 +144,15 @@ class Remcos(Parser):
             blob = False
             ResourceData = self.get_rsrc(pe)
             for rsrc in ResourceData:
-                if rsrc[0] in ['RT_RCDATA', 'SETTINGS']:
+                if rsrc[0] in ["RT_RCDATA", "SETTINGS"]:
                     blob = rsrc[1]
                     break
 
             if blob:
                 keylen = blob[0]
-                key = blob[1:keylen + 1]
+                key = blob[1 : keylen + 1]
 
-                decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1:])
+                decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1 :])
                 p_data = OrderedDict()
                 p_data["Version"] = self.check_version(filebuf)
 
@@ -161,9 +165,10 @@ class Remcos(Parser):
                         if i in [16, 25, 37]:
                             p_data[idx_list[i]] = setup_list[int(cont)]
                         elif i in [0]:
-                            host, port, password = cont.split(b"|")[0].split(b':')
-                            p_data["Control"] = "tcp://{}:{}:{}".format(host.decode('utf-8'), port.decode("utf-8"),
-                                                                     password.decode("utf-8"))
+                            host, port, password = cont.split(b"|")[0].split(b":")
+                            p_data["Control"] = "tcp://{}:{}:{}".format(
+                                host.decode("utf-8"), port.decode("utf-8"), password.decode("utf-8")
+                            )
 
                         else:
                             p_data[idx_list[i]] = cont
@@ -177,7 +182,6 @@ class Remcos(Parser):
 
                 for k, v in out.items():
                     self.reporter.add_metadata("other", {k: v})
-
 
         except Exception as e:
             self.logger.error("caught an exception:{}".format(e))

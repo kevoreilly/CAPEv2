@@ -1,9 +1,13 @@
 from __future__ import absolute_import
 from __future__ import print_function
-import re
 import struct
 import string
 from io import StringIO
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 
 class Stream(StringIO):
@@ -214,7 +218,9 @@ class NymaimExtractor:
                     parsed["fake_error_message"] = raw
                 elif hash == self.CFG_PEER_DOMAINS:
                     parsed["domains"] += [{"cnc": x} for x in raw.split(";") if x]
-                elif (all(c in string.printable for c in raw) and len(raw) > 3) or len([c for c in raw if c in string.printable]) > 10:
+                elif (all(c in string.printable for c in raw) and len(raw) > 3) or len(
+                    [c for c in raw if c in string.printable]
+                ) > 10:
                     if "other_strings" not in parsed:
                         parsed["other_strings"] = {}
                     parsed["other_strings"][hex(hash)] = raw.encode("hex")

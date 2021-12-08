@@ -8,9 +8,13 @@
 from __future__ import absolute_import
 import sys
 import pefile
-import re
 import collections
 from struct import unpack, unpack_from
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 # Resource pattern
 RESOURCE_PATTERNS = [
@@ -64,7 +68,9 @@ def parse_config(config):
     config_dict = collections.OrderedDict()
     for i in range(4):
         if config[0x10 + 0x100 * i] != "\x00":
-            config_dict["Server name #" + str(i + 1)] = __format_string(unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16"))
+            config_dict["Server name #" + str(i + 1)] = __format_string(
+                unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")
+            )
             config_dict["Main port #" + str(i + 1)] = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
             config_dict["Backup port #" + str(i + 1)] = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
     if config[0x400] != "\x00":

@@ -275,7 +275,9 @@ if __name__ == "__main__":
         default=False,
         required=False,
     )
-    parser.add_argument("-jb", "--jump-box", help="Use jump box to reach servers", action="store_true", default=False, required=False)
+    parser.add_argument(
+        "-jb", "--jump-box", help="Use jump box to reach servers", action="store_true", default=False, required=False
+    )
     parser.add_argument(
         "-yc",
         "--yara-category",
@@ -287,7 +289,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("-s", "--static-server-list", default=False, action="store_true", required=False)
     parser.add_argument("-df", "--deploy-file", help="Deploy local file", action="store", default=False, required=False)
-    parser.add_argument("-e", "--execute-command", help="Execute command on server(s)", action="store", default=False, required=False)
+    parser.add_argument(
+        "-e", "--execute-command", help="Execute command on server(s)", action="store", default=False, required=False
+    )
     parser.add_argument("-cp", "--copy-file", help="Copy local file to servers", nargs=2, default=False, required=False)
     parser.add_argument(
         "-dlc",

@@ -43,6 +43,7 @@ yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 
 # set logger volatility3
 
+
 class MuteProgress(object):
     def __init__(self):
         self._max_message_len = 0
@@ -64,9 +65,7 @@ class ReturnJsonRenderer(JsonRenderer):
             node_dict = {}
             for column_index in range(len(grid.columns)):
                 column = grid.columns[column_index]
-                renderer = self._type_renderers.get(
-                    column.type, self._type_renderers["default"]
-                )
+                renderer = self._type_renderers.get(column.type, self._type_renderers["default"])
                 data = renderer(list(node.values)[column_index])
                 if isinstance(data, interfaces.renderers.BaseAbsentValue):
                     data = None
@@ -101,7 +100,7 @@ class VolatilityAPI(object):
             self.memdump = memdump
 
     def run(self, plugin_class, pids=[], round=1):
-        """ Module which initialize all volatility 3 internals
+        """Module which initialize all volatility 3 internals
         https://github.com/volatilityfoundation/volatility3/blob/stable/doc/source/using-as-a-library.rst
         @param plugin_class: plugin class. Ex. windows.pslist.PsList
         @param plugin_class: plugin class. Ex. windows.pslist.PsList
@@ -117,7 +116,7 @@ class VolatilityAPI(object):
             self.automagics = automagic.available(self.ctx)
             self.plugin_list = framework.list_plugins()
             seen_automagics = set()
-            #volatility3.symbols.__path__ = [symbols_path] + constants.SYMBOL_BASEPATHS
+            # volatility3.symbols.__path__ = [symbols_path] + constants.SYMBOL_BASEPATHS
             for amagic in self.automagics:
                 if amagic in seen_automagics:
                     continue
@@ -138,7 +137,8 @@ class VolatilityAPI(object):
         constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
         runned_plugin = constructed.run()
         json_data, error = ReturnJsonRenderer().render(runned_plugin)
-        return json_data#, error
+        return json_data  # , error
+
 
 """ keeping at the moment to see if we want to integrate more
     {'windows.statistics.Statistics': <class 'volatility3.plugins.windows.statistics.Statistics'>,
@@ -181,7 +181,6 @@ class VolatilityAPI(object):
     'windows.svcscan.SvcScan': <class 'volatility3.plugins.windows.svcscan.SvcScan'>,
     'windows.registry.userassist.UserAssist': <class 'volatility3.plugins.windows.registry.userassist.UserAssist'>,
 """
-
 
 
 class VolatilityManager(object):
@@ -241,10 +240,10 @@ class VolatilityManager(object):
         if self.voptions.devicetree.enabled:
             results["devicetree"] = vol.devicetree()
         """
-        vol_logger = logging.getLogger('volatility3')
+        vol_logger = logging.getLogger("volatility3")
         vol_logger.setLevel(logging.WARNING)
 
-        #if self.voptions.psxview.enabled:
+        # if self.voptions.psxview.enabled:
         #    results["pstree"] = vol3.run("windows.pstree.PsTree")
         if self.voptions.pslist.enabled:
             results["pslist"] = vol3.run("windows.pslist.PsList")
@@ -279,9 +278,9 @@ class VolatilityManager(object):
         self.cleanup()
 
         if not self.voptions.basic.delete_memdump:
-            results['memory_path'] = self.memfile
+            results["memory_path"] = self.memfile
         if self.voptions.basic.dostrings:
-            results['memory_strings_path'] = self.memfile + ".strings"
+            results["memory_strings_path"] = self.memfile + ".strings"
 
         return results
 
@@ -290,7 +289,6 @@ class VolatilityManager(object):
         if "malfind" in res:
             for item in res["malfind"]:
                 self.taint_pid.add(item["PID"])
-
 
     def do_strings(self):
         if self.voptions.basic.dostrings:
@@ -358,6 +356,4 @@ class Memory(Processing):
         else:
             log.error("Memory dump not found: to run volatility you have to enable memory_dump")
 
-
         return results
-

@@ -23,9 +23,13 @@
 from mwcp.parser import Parser
 import pefile
 import sys
-import re
 import struct
 from Crypto.Cipher import DES3
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 
 def find_iv(pe):

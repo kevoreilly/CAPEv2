@@ -7,9 +7,13 @@ from __future__ import absolute_import
 from __future__ import print_function
 import database
 import createIOC
-import re
 import string
 from operator import xor
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 new_line = "#-@NewLine@-#"
 split_string = "ESILlzCwXBSrQ1Vb72t6bIXtKRzHJkolNNL94gD8hIi9FwLiiVlrznTz68mkaaJQQSxJfdLyE4jCnl5QJJWuPD4NeO4WFYURvmkth8"  #
@@ -21,6 +25,7 @@ enc_key = "pSILlzCwXBSrQ1Vb72t6bIXtKRzAHJklNNL94gD8hIi9FwLiiVlr"  # Actual key i
 
 def string_print(line):
     return [x for x in line if x in string.printable]
+
 
 def get_config(data):
     config_list = []
@@ -60,12 +65,14 @@ def parse_config(config_list):
     config_dict["MsgBoxText"] = config_list[13]
     return config_dict
 
+
 """
 def decrypt_XOR(enckey, data):
     # ToDo fix it yourself, XOR not defined
     cipher = XOR.new(enckey)  # set the cipher
     return cipher.decrypt(data)  # decrpyt the data
 """
+
 
 def snortRule(md5, config_dict):
     rules = []

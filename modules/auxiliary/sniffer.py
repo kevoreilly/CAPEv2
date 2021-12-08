@@ -141,7 +141,7 @@ class Sniffer(Auxiliary):
         )
 
         # TODO fix this, temp fix to not get all that noise
-        #pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
+        # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
 
         if remote and bpf:
             pargs.extend(["and", "("] + bpf.split(" ") + [")"])
@@ -195,7 +195,9 @@ class Sniffer(Auxiliary):
                 log.exception("Failed to start sniffer (interface=%s, host=%s, " "dump path=%s)", interface, host, file_path)
                 return
 
-            log.info("Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)", self.proc.pid, interface, host, file_path)
+            log.info(
+                "Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)", self.proc.pid, interface, host, file_path
+            )
 
     def stop(self):
         """Stop sniffing.

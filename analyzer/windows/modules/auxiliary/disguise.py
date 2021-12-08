@@ -5,13 +5,17 @@
 from __future__ import absolute_import
 import io
 import os
-import re
 import subprocess
 import logging
 from random import randint
 from winreg import *
 from uuid import uuid4
 import platform
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
@@ -246,7 +250,7 @@ class Disguise(Auxiliary):
         keyPath = "SOFTWARE\\Microsoft\\Cryptography"
 
         # Determing if the machine is 32 or 64 bit and open the registry key
-        if platform.machine().endswith('64'):
+        if platform.machine().endswith("64"):
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
         else:
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)

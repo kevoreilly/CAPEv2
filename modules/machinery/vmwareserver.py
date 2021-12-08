@@ -70,7 +70,9 @@ class VMwareServer(Machinery):
             if output:
                 return snapshot in output
             else:
-                raise CuckooMachineError("Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path)
+                raise CuckooMachineError(
+                    "Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path
+                )
 
     def start(self, vmx_path):
         """Start a virtual machine.

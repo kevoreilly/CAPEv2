@@ -84,8 +84,7 @@ def init_yara():
 
 
 def compile_yara(rulepath=""):
-    """Compile Yara signatures.
-    """
+    """Compile Yara signatures."""
     if not HAVE_YARA:
         if not File.notified_yara:
             File.notified_yara = True

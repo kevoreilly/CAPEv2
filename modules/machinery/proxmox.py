@@ -37,7 +37,9 @@ class Proxmox(Machinery):
         @raise CuckooCriticalError: if no credentials were provided
         """
         if not self.options.proxmox.username or not self.options.proxmox.password:
-            raise CuckooCriticalError("Proxmox credentials are missing, please add them to " "the Proxmox machinery configuration file.")
+            raise CuckooCriticalError(
+                "Proxmox credentials are missing, please add them to " "the Proxmox machinery configuration file."
+            )
         if not self.options.proxmox.hostname:
             raise CuckooCriticalError("Proxmox hostname not set")
 
@@ -51,7 +53,10 @@ class Proxmox(Machinery):
                       Proxmox.
         @raise CuckooMachineError: if the VM cannot be found."""
         proxmox = ProxmoxAPI(
-            self.options.proxmox.hostname, user=self.options.proxmox.username, password=self.options.proxmox.password, verify_ssl=False
+            self.options.proxmox.hostname,
+            user=self.options.proxmox.username,
+            password=self.options.proxmox.password,
+            verify_ssl=False,
         )
 
         # /cluster/resources[type=vm] will give us all VMs no matter which node

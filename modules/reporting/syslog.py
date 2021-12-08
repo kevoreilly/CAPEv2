@@ -56,8 +56,8 @@ dnwhitelist = [
 
 class Syslog(Report):
     """Creates the syslog data to be sent.
-       @param results: Cuckoo results dict
-       @return: String containing syslog data built from the results dict.
+    @param results: Cuckoo results dict
+    @return: String containing syslog data built from the results dict.
     """
 
     def createLog(self, results):
@@ -204,7 +204,7 @@ class Syslog(Report):
         return syslog
 
     def run(self, results):
-        """ Sends report.
+        """Sends report.
         @param results: Cuckoo results dict.
         @raise CuckooReportError: if fails to write report.
         """

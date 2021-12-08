@@ -17,11 +17,15 @@ import struct
 import socket
 import pefile
 import yara
-import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
 from itertools import cycle
 import base64
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 rule_source = """
 rule Emotet
@@ -63,6 +67,7 @@ rule Emotet
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 
+
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
@@ -74,36 +79,39 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def xor_data(data, key):
     key = [q for q in key]
     data = [q for q in data]
     return bytes([c ^ k for c, k in zip(data, cycle(key))])
 
+
 def emotet_decode(data, size, xor_key):
     offset = 8
-    res = b''
-    for count in range(int(size/4)):
-        off_from = offset+count*4
-        off_to = off_from+4
-        encoded_dw = int.from_bytes(data[off_from:off_to], byteorder='little')
+    res = b""
+    for count in range(int(size / 4)):
+        off_from = offset + count * 4
+        off_to = off_from + 4
+        encoded_dw = int.from_bytes(data[off_from:off_to], byteorder="little")
         decoded = xor_key ^ encoded_dw
-        res = res + decoded.to_bytes(4, byteorder='little')
+        res = res + decoded.to_bytes(4, byteorder="little")
     return res
+
 
 # Thanks to Jason Reaves (@sysopfb), @pollo290987, phate1.
 def extract_emotet_rsakey(pe):
     for section in pe.sections:
-        if section.Name.replace(b'\x00',b'') == b'.data':
+        if section.Name.replace(b"\x00", b"") == b".data":
             data_section = section.get_data()
             data_size = len(data_section)
     res_list = []
     if data_size:
         delta = 0
         while delta < data_size:
-            xor_key = int.from_bytes(data_section[delta:delta+4], byteorder='little')
-            encoded_size = int.from_bytes(data_section[delta+4:delta+8], byteorder='little')
-            decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
-            if decoded_size == 0x6c:
+            xor_key = int.from_bytes(data_section[delta : delta + 4], byteorder="little")
+            encoded_size = int.from_bytes(data_section[delta + 4 : delta + 8], byteorder="little")
+            decoded_size = ((xor_key ^ encoded_size) & 0xFFFFFFFC) + 4
+            if decoded_size == 0x6C:
                 res_list.append(emotet_decode(data_section[delta:], decoded_size, xor_key))
                 break
             delta += 4
@@ -114,16 +122,16 @@ def extract_emotet_rsakey(pe):
             seq.decode(pub_key)
             return RSA.construct((seq[0], seq[1]))
     for section in pe.sections:
-        if section.Name.replace(b'\x00',b'') == b'.text':
+        if section.Name.replace(b"\x00", b"") == b".text":
             code_section = section.get_data()
             code_size = len(code_section)
     if code_size:
         delta = 0
         while delta < code_size:
-            xor_key = int.from_bytes(code_section[delta:delta+4], byteorder='little')
-            encoded_size = int.from_bytes(code_section[delta+4:delta+8], byteorder='little')
-            decoded_size = ((xor_key ^ encoded_size)&0xfffffffc)+4
-            if decoded_size == 0x6c:
+            xor_key = int.from_bytes(code_section[delta : delta + 4], byteorder="little")
+            encoded_size = int.from_bytes(code_section[delta + 4 : delta + 8], byteorder="little")
+            decoded_size = ((xor_key ^ encoded_size) & 0xFFFFFFFC) + 4
+            if decoded_size == 0x6C:
                 res_list.append(emotet_decode(code_section[delta:], decoded_size, xor_key))
                 break
             delta += 4
@@ -136,6 +144,7 @@ def extract_emotet_rsakey(pe):
             except Exception:
                 return
             return RSA.construct((seq[0], seq[1]))
+
 
 class Emotet(Parser):
     # def __init__(self, reporter=None):
@@ -239,7 +248,7 @@ class Emotet(Parser):
                     refc2list = yara_scan(filebuf, snippet)
                     if refc2list:
                         c2list_va_offset = int(refc2list[snippet])
-                        tb = struct.unpack("b", filebuf[c2list_va_offset+5:c2list_va_offset+6])[0]
+                        tb = struct.unpack("b", filebuf[c2list_va_offset + 5 : c2list_va_offset + 6])[0]
                         if tb == 0x48:
                             delta += 1
                 if not refc2list:
@@ -407,14 +416,19 @@ class Emotet(Parser):
                                                         delta = -4
                                                         c2list_va_offset = int(refc2list["$snippetI"])
                                 if c2list_va_offset:
-                                    c2_list_va = struct.unpack("I", filebuf[c2list_va_offset+delta:c2list_va_offset+delta+4])[0]
+                                    c2_list_va = struct.unpack(
+                                        "I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4]
+                                    )[0]
                                     c2_list_rva = c2_list_va - image_base
                                     try:
                                         c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
                                     except pefile.PEFormatError as err:
                                         pass
-                                    key = filebuf[c2_list_offset:c2_list_offset+4]
-                                    size = struct.unpack("I", filebuf[c2_list_offset+4:c2_list_offset+8])[0] ^ struct.unpack("I", key)[0]
+                                    key = filebuf[c2_list_offset : c2_list_offset + 4]
+                                    size = (
+                                        struct.unpack("I", filebuf[c2_list_offset + 4 : c2_list_offset + 8])[0]
+                                        ^ struct.unpack("I", key)[0]
+                                    )
                                     c2_list_offset += 8
                                     c2_list = xor_data(filebuf[c2_list_offset:], key)
                                     offset = 0
@@ -426,7 +440,7 @@ class Emotet(Parser):
                                         if ip == struct.unpack(">I", key)[0]:
                                             break
                                         c2_address = socket.inet_ntoa(struct.pack("!L", ip))
-                                        port = str(struct.unpack(">H", c2_list[offset+4:offset+6])[0])
+                                        port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
                                         if c2_address and port:
                                             self.reporter.add_metadata("address", c2_address + ":" + port)
                                             c2found = True
@@ -438,7 +452,7 @@ class Emotet(Parser):
             return
         pem_key = extract_emotet_rsakey(pe)
         if pem_key:
-            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
+            self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode("utf8")})
         else:
             ref_rsa = yara_scan(filebuf, "$ref_rsa")
             if ref_rsa:
@@ -509,20 +523,20 @@ class Emotet(Parser):
                                         delta1 = -4
                                         delta2 = 48
                 if ref_ecc_offset:
-                    ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta1:ref_ecc_offset+delta1+4])[0] - image_base
-                    ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset+delta2:ref_ecc_offset+delta2+4])[0] - image_base
+                    ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
+                    ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base
                     try:
                         eck_offset = pe.get_offset_from_rva(ref_eck_rva)
                         ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
                     except Exception:
                         return
-                    key = filebuf[eck_offset:eck_offset+4]
-                    size = struct.unpack("I", filebuf[eck_offset+4:eck_offset+8])[0] ^ struct.unpack("I", key)[0]
+                    key = filebuf[eck_offset : eck_offset + 4]
+                    size = struct.unpack("I", filebuf[eck_offset + 4 : eck_offset + 8])[0] ^ struct.unpack("I", key)[0]
                     eck_offset += 8
-                    eck_key = base64.b64encode(xor_data(filebuf[eck_offset:eck_offset+size], key))
+                    eck_key = base64.b64encode(xor_data(filebuf[eck_offset : eck_offset + size], key))
                     self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
-                    key = filebuf[ecs_offset:ecs_offset+4]
-                    size = struct.unpack("I", filebuf[ecs_offset+4:ecs_offset+8])[0] ^ struct.unpack("I", key)[0]
+                    key = filebuf[ecs_offset : ecs_offset + 4]
+                    size = struct.unpack("I", filebuf[ecs_offset + 4 : ecs_offset + 8])[0] ^ struct.unpack("I", key)[0]
                     ecs_offset += 8
-                    ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset:ecs_offset+size], key))
+                    ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset : ecs_offset + size], key))
                     self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})

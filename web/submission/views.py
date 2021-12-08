@@ -378,9 +378,7 @@ def index(request, resubmit_hash=False):
                     return render(
                         request,
                         "error.html",
-                        {
-                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
-                        },
+                        {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."},
                     )
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to

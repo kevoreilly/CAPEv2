@@ -8,6 +8,7 @@ import shutil
 
 from lib.common.abstracts import Package
 
+
 class Shellcode_x64(Package):
     """64-bit Shellcode analysis package."""
 

@@ -22,6 +22,7 @@ import sys
 
 try:
     from flor import BloomFilter
+
     HAVE_FLOR = True
 except ImportError:
     HAVE_FLOR = False
@@ -100,7 +101,7 @@ if __name__ == "__main__":
 
     # 5. write bloomfilter and dga dict to a file so that the sandbox can use it in the python signature
     logging.info("Write bloomfilter and dga dict to files")
-    bloom_path = os.path.join(CUCKOO_ROOT, "data",  "dga.bloom")
+    bloom_path = os.path.join(CUCKOO_ROOT, "data", "dga.bloom")
     with open(bloom_path, "wb") as f:
         bloom.write(f)
 

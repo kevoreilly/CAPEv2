@@ -38,8 +38,7 @@ def buildBehaviors(entry, behaviorTags):
     behaviorCol = {}
 
     codeInject = [
-        ["VirtualAlloc", "NtAllocateVirtualMemory",
-            "ZwAllocateVirtualMemory", "HeapAlloc"],
+        ["VirtualAlloc", "NtAllocateVirtualMemory", "ZwAllocateVirtualMemory", "HeapAlloc"],
         [
             "CallWindowProcA",
             "CallWindowProcW",
@@ -109,8 +108,11 @@ def buildBehaviors(entry, behaviorTags):
         ["Get-Content"],
     ]
 
-    behaviorCol["Starts Process"] = [["Start-Process"], ["New-Object",
-                                                         "IO.MemoryStream", "IO.StreamReader"], ["Diagnostics.Process]::Start"]]
+    behaviorCol["Starts Process"] = [
+        ["Start-Process"],
+        ["New-Object", "IO.MemoryStream", "IO.StreamReader"],
+        ["Diagnostics.Process]::Start"],
+    ]
 
     behaviorCol["Compression"] = [
         ["Convert", "FromBase64String", "System.Text.Encoding"],
@@ -119,8 +121,11 @@ def buildBehaviors(entry, behaviorTags):
         ["IO.Compression.DeflateStream"],
     ]
 
-    behaviorCol["Uses Stealth"] = [["WindowStyle", "Hidden"], [
-        "CreateNoWindow=$true"], ["ErrorActionPreference", "SilentlyContinue"]]
+    behaviorCol["Uses Stealth"] = [
+        ["WindowStyle", "Hidden"],
+        ["CreateNoWindow=$true"],
+        ["ErrorActionPreference", "SilentlyContinue"],
+    ]
 
     behaviorCol["Key Logging"] = [["GetAsyncKeyState", "Windows.Forms.Keys"]]
 
@@ -130,11 +135,9 @@ def buildBehaviors(entry, behaviorTags):
         ["CopyFroMScreen", "Location", "[Drawing.Point]::Empty", "Size"],
     ]
 
-    behaviorCol["Custom Web Fields"] = [
-        ["Headers.Add"], ["SessionKey", "SessiodID"]]
+    behaviorCol["Custom Web Fields"] = [["Headers.Add"], ["SessionKey", "SessiodID"]]
 
-    behaviorCol["Persistence"] = [
-        ["New-Object", "-COMObject", "Schedule.Service"], ["SCHTASKS"]]
+    behaviorCol["Persistence"] = [["New-Object", "-COMObject", "Schedule.Service"], ["SCHTASKS"]]
 
     behaviorCol["Sleeps"] = [["Start-Sleep"]]
 
@@ -143,8 +146,7 @@ def buildBehaviors(entry, behaviorTags):
     behaviorCol["Obfuscation"] = [["-Join", "[int]", "-as", "[char]"]]
 
     behaviorCol["Crypto"] = [
-        ["New-Object", "Security.Cryptography.AESCryptoServiceProvider",
-            "Mode", "Key", "IV"],
+        ["New-Object", "Security.Cryptography.AESCryptoServiceProvider", "Mode", "Key", "IV"],
         ["CreateEncryptor().TransformFinalBlock"],
         ["CreateDecryptor().TransformFinalBlock"],
     ]
@@ -173,15 +175,13 @@ def buildBehaviors(entry, behaviorTags):
         ["[Windows.Forms.SystemInformation]::VirtualScreen"],
     ]
 
-    behaviorCol["Registry"] = [["HKCU:\\"], ["HKLM:\\"], [
-        "New-ItemProperty", "-Path", "-Name", "-PropertyType", "-Value"]]
+    behaviorCol["Registry"] = [["HKCU:\\"], ["HKLM:\\"], ["New-ItemProperty", "-Path", "-Name", "-PropertyType", "-Value"]]
 
     behaviorCol["Sends Data"] = [["UploadData", "POST"]]
 
     behaviorCol["AppLocker Bypass"] = [["regsvr32", "/i:http", "scrobj.dll"]]
 
-    behaviorCol["AMSI Bypass"] = [
-        ["Management.Automation.AMSIUtils", "amsiInitFailed"], ["Expect100Continue"]]
+    behaviorCol["AMSI Bypass"] = [["Management.Automation.AMSIUtils", "amsiInitFailed"], ["Expect100Continue"]]
 
     behaviorCol["Disables Windows Defender"] = [
         ["DisableBehaviorMonitoring"],
@@ -242,8 +242,7 @@ def formatReplace(inputString, MODFLAG):
     # OLD: ("{1}{0}{2}" -F"AMP","EX","LE")
     # NEW: "EXAMPLE"
     # Find group of obfuscated string
-    obfGroup = re.search(
-        "(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", inputString).group()
+    obfGroup = re.search("(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", inputString).group()
     # There are issues with multiple nested groupings that I haven't been able to solve yet, but doesn't change the final output of the PS script
     # obfGroup = re.search("(\"|\')(\{[0-9]{1,2}\})+(\"|\')[ -fF]+?(\"|\').+?(\"|\')(?=\)([!.\"\';)( ]))", inputString).group()
 
@@ -251,15 +250,13 @@ def formatReplace(inputString, MODFLAG):
     indexList = [int(x) for x in re.findall("\d+", obfGroup.split("-")[0])]
 
     # This is to address scenarios where the string built is more PS commands with quotes
-    stringList = re.search(
-        "(\"|').+", "-".join(obfGroup.split("-")[1:])[:-1]).group()
+    stringList = re.search("(\"|').+", "-".join(obfGroup.split("-")[1:])[:-1]).group()
     stringChr = stringList[0]
     stringList = stringList.replace(stringChr + "," + stringChr, "\x00")
     stringList = stringList[1:-1]
     stringList = stringList.replace("'", "\x01").replace('"', "\x02")
     stringList = stringList.replace("\x00", stringChr + "," + stringChr)
-    stringList = ast.literal_eval(
-        "[" + stringChr + stringList + stringChr + "]")
+    stringList = ast.literal_eval("[" + stringChr + stringList + stringChr + "]")
 
     for index, entry in enumerate(stringList):
         stringList[index] = entry.replace("\x01", "'").replace("\x02", '"')
@@ -283,8 +280,7 @@ def charReplace(inputString, MODFLAG):
     # OLD: [char]101
     # NEW: e
     for value in re.findall("\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", inputString):
-        inputString = inputString.replace(
-            value, '"%s"' % chr(int(value.split("]")[1])))
+        inputString = inputString.replace(value, '"%s"' % chr(int(value.split("]")[1])))
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString, MODFLAG
@@ -349,24 +345,23 @@ def adjustCase(inputString, MODFLAG):
 def removeParenthesis(inputString, MODFLAG):
     # OLD ('ls11, ')+('tls'))
     # NEW: tls11,tls
-    matches = re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+\')\)", inputString)
+    matches = re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", inputString)
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace(
-            "("+pattern+")", pattern)  # .replace("'", "")
+        inputString = inputString.replace("(" + pattern + ")", pattern)  # .replace("'", "")
 
     matches = re.findall("\('[\w\d\s,\/\-\/\*\.:]+", inputString)
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace("("+pattern, pattern)
+        inputString = inputString.replace("(" + pattern, pattern)
 
     matches += re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", inputString)
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace(pattern+")", pattern)
+        inputString = inputString.replace(pattern + ")", pattern)
 
     return inputString, MODFLAG
 
@@ -408,26 +403,20 @@ def replaceDecoder(inputString, MODFLAG):
             replaceString = inputString.split("-")[-1]
 
             if "[" in replaceString.split(",")[0]:
-                firstPart = " ".join(replaceString.split(",")[0].split("[")[
-                                     1:]).replace("'", "").replace('"', "")
+                firstPart = " ".join(replaceString.split(",")[0].split("[")[1:]).replace("'", "").replace('"', "")
 
             elif "'" in replaceString.split(",")[0].strip() or '"' in replaceString.split(",")[0].strip():
-                firstPart = re.search(
-                    "('.+?'|\".+?\")", replaceString.split(",")[0]).group().replace("'", "").replace('"', "")
+                firstPart = re.search("('.+?'|\".+?\")", replaceString.split(",")[0]).group().replace("'", "").replace('"', "")
 
             else:
-                firstPart = replaceString.split(",")[0].split(
-                    "'")[1].replace("'", "").replace('"', "")
+                firstPart = replaceString.split(",")[0].split("'")[1].replace("'", "").replace('"', "")
 
-            secondPart = replaceString.split(",")[1].split(
-                ")")[0].replace("'", "").replace('"', "")
+            secondPart = replaceString.split(",")[1].split(")")[0].replace("'", "").replace('"', "")
         else:
             tempString = ".".join(inputString.split(".")[0:-1])
             replaceString = inputString.split(".")[-1]
-            firstPart = replaceString.split(",")[0].split(
-                "(")[-1].replace("'", "").replace('"', "")
-            secondPart = replaceString.split(",")[1].split(
-                ")")[0].replace("'", "").replace('"', "")
+            firstPart = replaceString.split(",")[0].split("(")[-1].replace("'", "").replace('"', "")
+            secondPart = replaceString.split(",")[1].split(")")[0].replace("'", "").replace('"', "")
 
         if "+" in firstPart:
 
@@ -467,17 +456,17 @@ def replaceDecoder(inputString, MODFLAG):
 
 def deobfuscate(MESSAGE):
     """
-        This can be used as standalone, for testing and dev of new deobfuscation technics
-        Example:
-            from modules.processing.curtain import deobfuscate
-            message = '''powershell blob goes here'''
-            print(deobfuscate(message))
+    This can be used as standalone, for testing and dev of new deobfuscation technics
+    Example:
+        from modules.processing.curtain import deobfuscate
+        message = '''powershell blob goes here'''
+        print(deobfuscate(message))
 
-        Parameters:
-            MESSAGE (str): powershell code to deobfuscate
+    Parameters:
+        MESSAGE (str): powershell code to deobfuscate
 
-        Returns:
-            ALTMSG (str): deobfuscated powershell
+    Returns:
+        ALTMSG (str): deobfuscated powershell
     """
 
     MODFLAG = 0
@@ -499,8 +488,12 @@ def deobfuscate(MESSAGE):
         ALTMSG, MODFLAG = removeCaret(ALTMSG, MODFLAG)
 
     # strip - ('ls11, ')+('tls'))
-    #import code;code.interact(local=dict(locals(), **globals()))
-    if re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+\')\)", ALTMSG) or re.findall("\('[\w\d\s,\/\-\/\*\.:]+", ALTMSG) or re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", ALTMSG):
+    # import code;code.interact(local=dict(locals(), **globals()))
+    if (
+        re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", ALTMSG)
+        or re.findall("\('[\w\d\s,\/\-\/\*\.:]+", ALTMSG)
+        or re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", ALTMSG)
+    ):
         ALTMSG, MODFLAG = removeParenthesis(ALTMSG, MODFLAG)
 
     while re.search("[\x20]{2,}", ALTMSG):
@@ -533,20 +526,17 @@ def deobfuscate(MESSAGE):
         MODFLAG = 1
 
     if re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I):
-        xorkey = re.findall(
-            "join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I)[0]
+        xorkey = re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I)[0]
         chars = re.findall("\d{1,3}", MESSAGE)
         ALTMSG = "".join([chr(int(i) ^ int(xorkey, 16)) for i in chars])
         MODFLAG = 1
 
     if re.findall('"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I):
-        res = re.findall(
-            '"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I)
+        res = re.findall('"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I)
         formated, data, replaces = res[0]
         r = formated.format(*data.split("','")).replace("'", "")
         # split by blocks
-        blocks = re.findall(
-            "([\[cHAR\]\d{1,3}\+']+\)),(\[char\]\d{1,3})", MESSAGE, re.I)
+        blocks = re.findall("([\[cHAR\]\d{1,3}\+']+\)),(\[char\]\d{1,3})", MESSAGE, re.I)
         for i in blocks:
             ALTMSG = r.replace(
                 "".join([chr(int(i)) for i in re.findall("\d{1,3}", i[0])]),
@@ -636,11 +626,9 @@ class Curtain(Processing):
         root = False
         for curtain_log in curtLog[::-1]:
             try:
-                tree = ET.parse("%s/curtain/%s" %
-                                (self.analysis_path, curtain_log))
+                tree = ET.parse("%s/curtain/%s" % (self.analysis_path, curtain_log))
                 root = tree.getroot()
-                os.rename("%s/curtain/%s" % (self.analysis_path, curtain_log),
-                          "%s/curtain/curtain.log" % self.analysis_path)
+                os.rename("%s/curtain/%s" % (self.analysis_path, curtain_log), "%s/curtain/curtain.log" % self.analysis_path)
                 break
             except Exception as e:
                 # malformed file
@@ -683,15 +671,12 @@ class Curtain(Processing):
                         if entry in MESSAGE:
                             FILTERFLAG = 1
                             FILTERED += 1
-                            pids[PID]["filter"].append(
-                                {str(FILTERED): MESSAGE.strip()})
+                            pids[PID]["filter"].append({str(FILTERED): MESSAGE.strip()})
 
                 if task in messages_by_task:
-                    messages_by_task[task]["message"] = MESSAGE + \
-                        messages_by_task[task]["message"]
+                    messages_by_task[task]["message"] = MESSAGE + messages_by_task[task]["message"]
                 else:
-                    messages_by_task.setdefault(task, dict()).update(
-                        {"message": MESSAGE, "pid": PID})
+                    messages_by_task.setdefault(task, dict()).update({"message": MESSAGE, "pid": PID})
 
         new_dict = [block_dict for block_dict in messages_by_task.values()]
 
@@ -705,8 +690,7 @@ class Curtain(Processing):
                 ALTMSG = deobfuscate(MESSAGE)
 
                 # Save the output
-                pids[pid]["events"].append(
-                    {str(COUNTER): {"original": MESSAGE.strip(), "altered": ALTMSG}})
+                pids[pid]["events"].append({str(COUNTER): {"original": MESSAGE.strip(), "altered": ALTMSG}})
 
         remove = []
 
@@ -714,7 +698,10 @@ class Curtain(Processing):
         for pid in pids:
             for event in pids[pid]["events"]:
                 for entry in event.values():
-                    if "Process { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog" in entry["original"]:
+                    if (
+                        "Process { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog"
+                        in entry["original"]
+                    ):
                         if pid not in remove:
                             remove.append(pid)
 
@@ -733,15 +720,13 @@ class Curtain(Processing):
             tempEvents = []
             eventCount = len(pids[pid]["events"])
             for index, entry in enumerate(pids[pid]["events"]):
-                tempEvents.append(
-                    {"%02d" % (eventCount - index): list(entry.values())[0]})
+                tempEvents.append({"%02d" % (eventCount - index): list(entry.values())[0]})
             pids[pid]["events"] = tempEvents
 
             tempEvents = []
             eventCount = len(pids[pid]["filter"])
             for index, entry in enumerate(pids[pid]["filter"]):
-                tempEvents.append(
-                    {"%02d" % (eventCount - index): list(entry.values())[0]})
+                tempEvents.append({"%02d" % (eventCount - index): list(entry.values())[0]})
             pids[pid]["filter"] = tempEvents
 
         # Identify behaviors per PID

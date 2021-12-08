@@ -28,6 +28,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDStage1.yar")
 yara_rule = open(yara_path, "r").read()
 
+
 def yara_scan(raw_data):
     try:
         addresses = {}
@@ -37,18 +38,20 @@ def yara_scan(raw_data):
     except Exception as e:
         print(e)
 
+
 def decode_stage1_config(data):
     out = ""
-    for i in range(len(data)//2):
-        t1 = data[i*2]
-        t2 = data[(i*2)+1]
-        t1 &= 0xf0
+    for i in range(len(data) // 2):
+        t1 = data[i * 2]
+        t2 = data[(i * 2) + 1]
+        t1 &= 0xF0
         t2 = t2 >> 4
         t1 |= t2
-        t1 ^= (i & 0xff)
-        out += chr(t1&0xff)
+        t1 ^= i & 0xFF
+        out += chr(t1 & 0xFF)
 
     return out
+
 
 def parse_stage_1_domains(data):
     fakes = []
@@ -56,17 +59,18 @@ def parse_stage_1_domains(data):
     t = data[4:]
     print(type(t))
 
-    (next, f) = struct.unpack_from('<BB', bytearray(t.encode()))
+    (next, f) = struct.unpack_from("<BB", bytearray(t.encode()))
 
     while next != 0 and next < 100:
         if f == 0:
-            real.append(t[2:].split('\x00')[0])
+            real.append(t[2:].split("\x00")[0])
         else:
-            fakes.append(t[2:].split('\00')[0])
+            fakes.append(t[2:].split("\00")[0])
         t = t[next:]
-        (next, f) = struct.unpack_from(b'<BB', bytearray(t.encode()))
+        (next, f) = struct.unpack_from(b"<BB", bytearray(t.encode()))
 
-    return(fakes,real)
+    return (fakes, real)
+
 
 def rol(a, i):
     a &= 0xFFFFFFFF
@@ -99,11 +103,12 @@ def iced_decode(data, key, l):
         output += chr(struct.unpack("B", data[i : i + 1])[0] ^ (key & 0xFF))
     return output
 
+
 def new_decode(data):
     n = 0
     new = []
     for x in data:
-        k = data[n] ^ data[n+64]
+        k = data[n] ^ data[n + 64]
         new.append(k)
         if n > 32:
             break
@@ -111,6 +116,7 @@ def new_decode(data):
     gads, d = struct.unpack("I30s", bytes(new))
     hostname = d.split(b"\00")[0]
     return hostname
+
 
 class IcedIDStage1(Parser):
 
@@ -125,17 +131,17 @@ class IcedIDStage1(Parser):
             if hit.rule == "IcedIDStage1":
                 pe = pefile.PE(data=filebuf, fast_load=False)
                 for section in pe.sections:
-                    if section.Name == b'.rdata\x00\x00':
+                    if section.Name == b".rdata\x00\x00":
                         config_section = bytearray(section.get_data())
                         cfg = decode_stage1_config(config_section[256:])
-                        (f,r) = parse_stage_1_domains(cfg)
+                        (f, r) = parse_stage_1_domains(cfg)
                         if r:
                             for cnc in r:
-                                self.reporter.add_metadata("other", {"CNC": cnc })
+                                self.reporter.add_metadata("other", {"CNC": cnc})
                             if f:
                                 for decoy in f:
-                                    self.reporter.add_metadata("other", {"Decoy": decoy })
-                    elif section.Name == b'.data\x00\x00\x00':
+                                    self.reporter.add_metadata("other", {"Decoy": decoy})
+                    elif section.Name == b".data\x00\x00\x00":
                         config_section = bytearray(section.get_data())
                         cfg = new_decode(config_section)
                         self.reporter.add_metadata("address", cfg)

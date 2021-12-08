@@ -17,8 +17,7 @@ class Process:
     first_process_pid = None
 
     def __init__(self, pid=0):
-        """@param pid: PID.
-        """
+        """@param pid: PID."""
         self.pid = pid
 
     def is_alive(self):

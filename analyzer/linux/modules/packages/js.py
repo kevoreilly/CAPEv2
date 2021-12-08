@@ -7,7 +7,7 @@ from lib.core.packages import Package
 
 
 class Js(Package):
-    """ Java script analysys package. """
+    """Java script analysys package."""
 
     def prepare(self):
         self.args = [self.target] + self.args

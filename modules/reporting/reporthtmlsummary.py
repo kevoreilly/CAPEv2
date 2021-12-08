@@ -26,6 +26,7 @@ except ImportError:
 
 from web.analysis.templatetags.analysis_tags import malware_config
 
+
 class ReportHTMLSummary(Report):
     """Stores summary report in HTML format."""
 
@@ -75,7 +76,7 @@ class ReportHTMLSummary(Report):
             results["shots"] = []
 
         env = Environment(autoescape=True)
-        env.globals['malware_config'] = malware_config
+        env.globals["malware_config"] = malware_config
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
         try:
             tpl = env.get_template("report.html")

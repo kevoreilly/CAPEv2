@@ -8,8 +8,12 @@
 from __future__ import absolute_import
 import os
 import hashlib
-import re
 from collections import defaultdict
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
@@ -50,7 +54,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "File"},
             },
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "NtOpenFile": {
@@ -63,7 +71,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "File"},
             },
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
         },
     },
     "NtReadFile": {
@@ -94,7 +106,11 @@ api_call_mappings = {
         "action_name": "delete file",
         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "NtDeviceIoControlFile": {
@@ -119,7 +135,11 @@ api_call_mappings = {
                 "association_type": "input",
                 "forced": {"associated_object_element": "Type", "value": "File"},
             },
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
         },
     },
     "NtQueryInformationFile": {
@@ -184,14 +204,22 @@ api_call_mappings = {
         "action_name": "delete directory",
         "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "DirectoryName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "DirectoryName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "RemoveDirectoryW": {
         "action_name": "delete directory",
         "action_vocab": "maecVocabs:DirectoryActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "DirectoryName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "DirectoryName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "MoveFileWithProgressW": {
@@ -203,21 +231,33 @@ api_call_mappings = {
                 "associated_object_element": "File_Path",
                 "association_type": "input",
             },
-            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "NewFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "FindFirstFileExA": {
         "action_name": "find file",
         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "FindFirstFileExW": {
         "action_name": "find file",
         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "CopyFileA": {
@@ -229,7 +269,11 @@ api_call_mappings = {
                 "associated_object_element": "File_Path",
                 "association_type": "input",
             },
-            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "NewFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "CopyFileW": {
@@ -241,7 +285,11 @@ api_call_mappings = {
                 "associated_object_element": "File_Path",
                 "association_type": "input",
             },
-            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "NewFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "CopyFileExW": {
@@ -253,21 +301,33 @@ api_call_mappings = {
                 "associated_object_element": "File_Path",
                 "association_type": "input",
             },
-            "NewFileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "NewFileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "DeleteFileA": {
         "action_name": "delete file",
         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "DeleteFileW": {
         "action_name": "delete file",
         "action_vocab": "maecVocabs:FileActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "RegOpenKeyExA": {
@@ -956,7 +1016,11 @@ api_call_mappings = {
     "NtSaveKey": {
         "action_name": "save registry key subtree to file",
         "parameter_associated_objects": {
-            "KeyHandle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            },
             "FileHandle": {
                 "associated_object_type": "WindowsHandleObjectType",
                 "associated_object_element": "ID",
@@ -968,7 +1032,11 @@ api_call_mappings = {
     "NtSaveKeyEx": {
         "action_name": "save registry key subtree to file",
         "parameter_associated_objects": {
-            "KeyHandle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "KeyHandle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            },
             "FileHandle": {
                 "associated_object_type": "WindowsHandleObjectType",
                 "associated_object_element": "ID",
@@ -987,7 +1055,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "Process"},
             },
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
         },
     },
     "NtCreateProcessEx": {
@@ -1000,7 +1072,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "Process"},
             },
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            },
         },
     },
     "NtCreateUserProcess": {
@@ -1026,7 +1102,10 @@ api_call_mappings = {
             },
             "group_together_nested": {
                 "parameter_mappings": [
-                    {"parameter_name": "ProcessFileName", "element_name": "File_Name",},
+                    {
+                        "parameter_name": "ProcessFileName",
+                        "element_name": "File_Name",
+                    },
                     {"parameter_name": "ImagePathName", "element_name": "Path"},
                 ],
                 "associated_object_type": "ProcessObjectType",
@@ -1152,7 +1231,11 @@ api_call_mappings = {
         "action_name": "create process",
         "action_vocab": "maecVocabs:ProcessActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FilePath": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "input"}
+            "FilePath": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "input",
+            }
         },
     },
     "NtUnmapViewOfSection": {
@@ -1377,7 +1460,11 @@ api_call_mappings = {
         "action_name": "load library",
         "action_vocab": "maecVocabs:LibraryActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "LibraryObjectType", "associated_object_element": "Name", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "LibraryObjectType",
+                "associated_object_element": "Name",
+                "association_type": "input",
+            },
             "BaseAddress": {
                 "associated_object_type": "WindowsHandleObjectType",
                 "associated_object_element": "ID",
@@ -1389,7 +1476,11 @@ api_call_mappings = {
     "LdrGetDllHandle": {
         "action_name": "get dll handle",
         "parameter_associated_objects": {
-            "FileName": {"associated_object_type": "LibraryObjectType", "associated_object_element": "Name", "association_type": "input"},
+            "FileName": {
+                "associated_object_type": "LibraryObjectType",
+                "associated_object_element": "Name",
+                "association_type": "input",
+            },
             "ModuleHandle": {
                 "associated_object_type": "WindowsHandleObjectType",
                 "associated_object_element": "ID",
@@ -1445,20 +1536,31 @@ api_call_mappings = {
     "ExitWindowsEx": {
         "action_name": "shutdown system",
         "action_vocab": "maecVocabs:SystemActionNameVocab-1.0",
-        "parameter_associated_arguments": {"Flags": {"associated_argument_name": "Flags"}, "Reason": {"associated_argument_name": "Reason"}},
+        "parameter_associated_arguments": {
+            "Flags": {"associated_argument_name": "Flags"},
+            "Reason": {"associated_argument_name": "Reason"},
+        },
     },
     "IsDebuggerPresent": {"action_name": "check for remote debugger", "action_vocab": "maecVocabs:DebuggingActionNameVocab-1.0"},
     "LookupPrivilegeValueW": {
         "action_name": "find privilege value",
         "parameter_associated_objects": {
-            "SystemName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+            "SystemName": {
+                "associated_object_type": "SystemObjectType",
+                "associated_object_element": "Hostname",
+                "association_type": "input",
+            }
         },
         "parameter_associated_arguments": {"PrivilegeName": {"associated_argument_name": "Privilege Name"}},
     },
     "NtClose": {
         "action_name": "close handle",
         "parameter_associated_objects": {
-            "Handle": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"}
+            "Handle": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            }
         },
     },
     "WriteConsoleA": {
@@ -1500,7 +1602,10 @@ api_call_mappings = {
             },
         },
         "parameter_associated_arguments": {
-            "BaseAddress": {"associated_argument_name": "Base Address", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "BaseAddress": {
+                "associated_argument_name": "Base Address",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
             "SectionOffset": {"associated_argument_name": "Section Offset"},
         },
     },
@@ -1720,7 +1825,11 @@ api_call_mappings = {
     "TransmitFile": {
         "action_name": "send file over socket",
         "parameter_associated_objects": {
-            "socket": {"associated_object_type": "WindowsHandleObjectType", "associated_object_element": "ID", "association_type": "input"},
+            "socket": {
+                "associated_object_type": "WindowsHandleObjectType",
+                "associated_object_element": "ID",
+                "association_type": "input",
+            },
             "FileHandle": {
                 "associated_object_type": "WindowsHandleObjectType",
                 "associated_object_element": "ID",
@@ -1763,7 +1872,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "Mutex"},
             },
-            "MutexName": {"associated_object_type": "WindowsMutexObjectType", "associated_object_element": "Name", "association_type": "input"},
+            "MutexName": {
+                "associated_object_type": "WindowsMutexObjectType",
+                "associated_object_element": "Name",
+                "association_type": "input",
+            },
         },
     },
     "NtCreateNamedPipeFile": {
@@ -1776,7 +1889,11 @@ api_call_mappings = {
                 "association_type": "output",
                 "forced": {"associated_object_element": "Type", "value": "NamedPipe"},
             },
-            "PipeName": {"associated_object_type": "WindowsPipeObjectType", "associated_object_element": "Name", "association_type": "output"},
+            "PipeName": {
+                "associated_object_type": "WindowsPipeObjectType",
+                "associated_object_element": "Name",
+                "association_type": "output",
+            },
         },
         "parameter_associated_arguments": {
             "DesiredAccess": {
@@ -1789,7 +1906,11 @@ api_call_mappings = {
     "OpenSCManagerA": {
         "action_name": "open service control manager",
         "parameter_associated_objects": {
-            "MachineName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+            "MachineName": {
+                "associated_object_type": "SystemObjectType",
+                "associated_object_element": "Hostname",
+                "association_type": "input",
+            }
         },
         "parameter_associated_arguments": {
             "DesiredAccess": {
@@ -1802,7 +1923,11 @@ api_call_mappings = {
     "OpenSCManagerW": {
         "action_name": "open service control manager",
         "parameter_associated_objects": {
-            "MachineName": {"associated_object_type": "SystemObjectType", "associated_object_element": "Hostname", "association_type": "input"}
+            "MachineName": {
+                "associated_object_type": "SystemObjectType",
+                "associated_object_element": "Hostname",
+                "association_type": "input",
+            }
         },
         "parameter_associated_arguments": {
             "DesiredAccess": {
@@ -1929,7 +2054,10 @@ api_call_mappings = {
             },
         },
         "parameter_associated_arguments": {
-            "DesiredAccess": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            }
         },
     },
     "OpenServiceW": {
@@ -1949,7 +2077,10 @@ api_call_mappings = {
             },
         },
         "parameter_associated_arguments": {
-            "DesiredAccess": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+            "DesiredAccess": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            }
         },
     },
     "StartServiceA": {
@@ -1990,7 +2121,10 @@ api_call_mappings = {
             }
         },
         "parameter_associated_arguments": {
-            "ControlCode": {"associated_argument_name": "Control Code", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+            "ControlCode": {
+                "associated_argument_name": "Control Code",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            }
         },
     },
     "DeleteService": {
@@ -2023,7 +2157,10 @@ api_call_mappings = {
             },
         },
         "parameter_associated_arguments": {
-            "ObjectAttributes": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"}
+            "ObjectAttributes": {
+                "associated_argument_name": "Options",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            }
         },
     },
     "NtOpenThread": {
@@ -2041,7 +2178,10 @@ api_call_mappings = {
                 "associated_argument_name": "Access Mode",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
             },
-            "ObjectAttributes": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "ObjectAttributes": {
+                "associated_argument_name": "Options",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
         },
     },
     "NtGetContextThread": {
@@ -2117,7 +2257,10 @@ api_call_mappings = {
                 "associated_argument_name": "Code Address",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
             },
-            "Parameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "Parameter": {
+                "associated_argument_name": "Options",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
             "CreationFlags": {
                 "associated_argument_name": "Creation Flags",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
@@ -2144,7 +2287,10 @@ api_call_mappings = {
                 "associated_argument_name": "Code Address",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
             },
-            "Parameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "Parameter": {
+                "associated_argument_name": "Options",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
             "CreationFlags": {
                 "associated_argument_name": "Creation Flags",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
@@ -2182,7 +2328,10 @@ api_call_mappings = {
                 "associated_argument_name": "Code Address",
                 "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
             },
-            "StartParameter": {"associated_argument_name": "Options", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "StartParameter": {
+                "associated_argument_name": "Options",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
         },
     },
     "URLDownloadToFileW": {
@@ -2190,7 +2339,11 @@ api_call_mappings = {
         "action_vocab": "maecVocabs:NetworkActionNameVocab-1.0",
         "parameter_associated_objects": {
             "URL": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
-            "FileName": {"associated_object_type": "FileObjectType", "associated_object_element": "File_Path", "association_type": "output"},
+            "FileName": {
+                "associated_object_type": "FileObjectType",
+                "associated_object_element": "File_Path",
+                "association_type": "output",
+            },
         },
     },
     "InternetOpenA": {
@@ -2203,7 +2356,10 @@ api_call_mappings = {
             }
         },
         "parameter_associated_arguments": {
-            "AccessType": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "AccessType": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
             "ProxyName": {"associated_argument_name": "Proxy Name"},
             "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
             "Flags": {"associated_argument_name": "Flags"},
@@ -2219,7 +2375,10 @@ api_call_mappings = {
             }
         },
         "parameter_associated_arguments": {
-            "AccessType": {"associated_argument_name": "Access Mode", "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0"},
+            "AccessType": {
+                "associated_argument_name": "Access Mode",
+                "associated_argument_vocab": "cyboxVocabs:ActionArgumentNameVocab-1.0",
+            },
             "ProxyName": {"associated_argument_name": "Proxy Name"},
             "ProxyBypass": {"associated_argument_name": "Proxy Bypass"},
             "Flags": {"associated_argument_name": "Flags"},
@@ -2234,8 +2393,16 @@ api_call_mappings = {
                 "association_type": "input",
                 "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
             },
-            "ServerName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
-            "ServerPort": {"associated_object_type": "PortObjectType", "associated_object_element": "Port_Value", "association_type": "input"},
+            "ServerName": {
+                "associated_object_type": "URIObjectType",
+                "associated_object_element": "Value",
+                "association_type": "input",
+            },
+            "ServerPort": {
+                "associated_object_type": "PortObjectType",
+                "associated_object_element": "Port_Value",
+                "association_type": "input",
+            },
         },
         "parameter_associated_arguments": {
             "Username": {"associated_argument_name": "Username"},
@@ -2253,8 +2420,16 @@ api_call_mappings = {
                 "association_type": "input",
                 "forced": {"associated_object_element": "Type", "value": "Internet Resource"},
             },
-            "ServerName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"},
-            "ServerPort": {"associated_object_type": "PortObjectType", "associated_object_element": "Port_Value", "association_type": "input"},
+            "ServerName": {
+                "associated_object_type": "URIObjectType",
+                "associated_object_element": "Value",
+                "association_type": "input",
+            },
+            "ServerPort": {
+                "associated_object_type": "PortObjectType",
+                "associated_object_element": "Port_Value",
+                "association_type": "input",
+            },
         },
         "parameter_associated_arguments": {
             "Username": {"associated_argument_name": "Username"},
@@ -2446,7 +2621,11 @@ api_call_mappings = {
         "action_name": "get host by name",
         "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "NodeName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"}
+            "NodeName": {
+                "associated_object_type": "URIObjectType",
+                "associated_object_element": "Value",
+                "association_type": "input",
+            }
         },
         "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}},
     },
@@ -2454,7 +2633,11 @@ api_call_mappings = {
         "action_name": "get host by name",
         "action_vocab": "maecVocabs:SocketActionNameVocab-1.0",
         "parameter_associated_objects": {
-            "NodeName": {"associated_object_type": "URIObjectType", "associated_object_element": "Value", "association_type": "input"}
+            "NodeName": {
+                "associated_object_type": "URIObjectType",
+                "associated_object_element": "Value",
+                "association_type": "input",
+            }
         },
         "parameter_associated_arguments": {"ServiceName": {"associated_argument_name": "Service Name"}},
     },
@@ -2590,21 +2773,21 @@ def regStringToKey(reg_string):
 
 class MAEC41Report(Report):
     """Generates a MAEC 4.1 report.
-       --Output modes (set in reporting.conf):
-           mode = "full": Output fully mapped Actions (see maec41), including Windows Handle mapped/substituted objects,
-                          along with API call/parameter capture via Action Implementations.
-           mode = "overview": Output only fully mapped Actions, without any Action Implementations. Default mode.
-           mode = "api": Output only Actions with Action Implementations, but no mapped components.
-       --Other configuration parameters:
-           processtree = "true" | "false". Output captured ProcessTree as part of dynamic analysis MAEC Bundle. Default = "true".
-           output_handles = "true" | "false". Output the Windows Handles used to  construct the Object-Handle mappings as a
-                                              separate Object Collection in the dynamic analysis MAEC Bundle. Only applicable
-                                              for mode = "full" or mode = "overview". Default = "false".
-           static = "true" | "false". Output Cuckoo static analysis (PEfile) output as a separate MAEC Bundle in the document.
-                                      Default = "true".
-           strings = "true" | "false". Output Cuckoo strings output as a separate MAEC Bundle in the document. Default = "true".
-           virustotal = "true" | "false". Output VirusTotal output as a separate MAEC Bundle in the document. Default = "true".
-           deduplicate = "true" | "false". Deduplicate the CybOX Objects in the generated dynamic analysis MAEC Bundle. Default = "true".
+    --Output modes (set in reporting.conf):
+        mode = "full": Output fully mapped Actions (see maec41), including Windows Handle mapped/substituted objects,
+                       along with API call/parameter capture via Action Implementations.
+        mode = "overview": Output only fully mapped Actions, without any Action Implementations. Default mode.
+        mode = "api": Output only Actions with Action Implementations, but no mapped components.
+    --Other configuration parameters:
+        processtree = "true" | "false". Output captured ProcessTree as part of dynamic analysis MAEC Bundle. Default = "true".
+        output_handles = "true" | "false". Output the Windows Handles used to  construct the Object-Handle mappings as a
+                                           separate Object Collection in the dynamic analysis MAEC Bundle. Only applicable
+                                           for mode = "full" or mode = "overview". Default = "false".
+        static = "true" | "false". Output Cuckoo static analysis (PEfile) output as a separate MAEC Bundle in the document.
+                                   Default = "true".
+        strings = "true" | "false". Output Cuckoo strings output as a separate MAEC Bundle in the document. Default = "true".
+        virustotal = "true" | "false". Output VirusTotal output as a separate MAEC Bundle in the document. Default = "true".
+        deduplicate = "true" | "false". Deduplicate the CybOX Objects in the generated dynamic analysis MAEC Bundle. Default = "true".
     """
 
     def run(self, results):
@@ -2686,7 +2869,9 @@ class MAEC41Report(Report):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["udp"]:
                     self.createActionNet(
-                        network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "UDP"
+                        network_data,
+                        {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"},
+                        "UDP",
                     )
             if (
                 "dns" in self.results["network"]
@@ -2706,7 +2891,9 @@ class MAEC41Report(Report):
                 self.dynamic_bundle.add_named_action_collection("Network Actions")
                 for network_data in self.results["network"]["tcp"]:
                     self.createActionNet(
-                        network_data, {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"}, "TCP"
+                        network_data,
+                        {"value": "connect to socket address", "xsi:type": "maecVocabs:NetworkActionNameVocab-1.0"},
+                        "TCP",
                     )
             if (
                 "http" in self.results["network"]
@@ -2788,7 +2975,10 @@ class MAEC41Report(Report):
                                 "http_request_header": {
                                     "parsed_header": {
                                         "user_agent": network_data["user-agent"],
-                                        "host": {"domain_name": {"value": network_data["host"]}, "port": {"port_value": network_data["port"]}},
+                                        "host": {
+                                            "domain_name": {"value": network_data["host"]},
+                                            "port": {"port_value": network_data["port"]},
+                                        },
                                     }
                                 },
                                 "http_message_body": {"message_body": network_data["body"]},
@@ -2797,7 +2987,11 @@ class MAEC41Report(Report):
                     ]
                 }
             }
-        action_dict = {"id": mixbox.idgen.create_id(prefix="action"), "name": action_name, "associated_objects": [associated_object]}
+        action_dict = {
+            "id": mixbox.idgen.create_id(prefix="action"),
+            "name": action_name,
+            "associated_objects": [associated_object],
+        }
         # Add the Action to the dynamic analysis bundle.
         self.dynamic_bundle.add_action(MalwareAction.from_dict(action_dict), "Network Actions")
 
@@ -2865,7 +3059,9 @@ class MAEC41Report(Report):
         # Add the action parameter arguments.
         apos = 1
         for arg in call["arguments"]:
-            parameter_list.append({"ordinal_position": apos, "name": arg["name"], "value": self._illegal_xml_chars_RE.sub("?", arg["value"])})
+            parameter_list.append(
+                {"ordinal_position": apos, "name": arg["name"], "value": self._illegal_xml_chars_RE.sub("?", arg["value"])}
+            )
             apos = apos + 1
         # Try to add the mapped Action Name.
         if call["api"] in api_call_mappings:
@@ -2944,11 +3140,17 @@ class MAEC41Report(Report):
                         },
                     }
                 )
-            elif parameter_name in parameter_mappings_dict and "associated_argument_vocab" not in parameter_mappings_dict[parameter_name]:
+            elif (
+                parameter_name in parameter_mappings_dict
+                and "associated_argument_vocab" not in parameter_mappings_dict[parameter_name]
+            ):
                 arguments_list.append(
                     {
                         "argument_value": argument_value,
-                        "argument_name": {"value": parameter_mappings_dict[parameter_name]["associated_argument_name"], "xsi:type": None},
+                        "argument_name": {
+                            "value": parameter_mappings_dict[parameter_name]["associated_argument_name"],
+                            "xsi:type": None,
+                        },
                     }
                 )
         if arguments_list:
@@ -3024,7 +3226,9 @@ class MAEC41Report(Report):
         # Add the named object collections if they do not exist.
         if not self.dynamic_bundle.collections.object_collections.has_collection("Handle-mapped Objects"):
             self.dynamic_bundle.add_named_object_collection("Handle-mapped Objects", mixbox.idgen.create_id(prefix="object"))
-        if self.options["output_handles"] and not self.dynamic_bundle.collections.object_collections.has_collection("Windows Handles"):
+        if self.options["output_handles"] and not self.dynamic_bundle.collections.object_collections.has_collection(
+            "Windows Handles"
+        ):
             self.dynamic_bundle.add_named_object_collection("Windows Handles", mixbox.idgen.create_id(prefix="object"))
         # Determine the types of objects we're dealing with.
         for associated_object_dict in associated_objects_list:
@@ -3147,7 +3351,10 @@ class MAEC41Report(Report):
             # This is optional, as the handles themselves may not be very useful.
             if self.options["output_handles"]:
                 handle_reference_dict = {}
-                handle_reference_dict["relationship"] = {"value": "Related_To", "xsi:type": "cyboxVocabs:ObjectRelationshipVocab-1.0"}
+                handle_reference_dict["relationship"] = {
+                    "value": "Related_To",
+                    "xsi:type": "cyboxVocabs:ObjectRelationshipVocab-1.0",
+                }
                 handle_reference_dict["idref"] = handle_dict["id"]
                 object_dict["related_objects"] = [handle_reference_dict]
                 # Add the Objects to their corresponding Collections.
@@ -3175,7 +3382,9 @@ class MAEC41Report(Report):
             if "key" in handle_mapped_key["properties"]:
                 if "key" not in current_dict["properties"]:
                     current_dict["properties"]["key"] = ""
-                current_dict["properties"]["key"] = handle_mapped_key["properties"]["key"] + "\\" + current_dict["properties"]["key"]
+                current_dict["properties"]["key"] = (
+                    handle_mapped_key["properties"]["key"] + "\\" + current_dict["properties"]["key"]
+                )
             if "hive" in handle_mapped_key["properties"]:
                 # If we find the "HKEY_" then we assume we're done.
                 if "HKEY_" in handle_mapped_key["properties"]["hive"]:
@@ -3220,13 +3429,17 @@ class MAEC41Report(Report):
                         self.createNestedDict(split_elements[1:], parameter_value)
                     ]
                 else:
-                    associated_object_dict["properties"][split_elements[0].lower()] = self.createNestedDict(split_elements[1:], parameter_value)
+                    associated_object_dict["properties"][split_elements[0].lower()] = self.createNestedDict(
+                        split_elements[1:], parameter_value
+                    )
         # Corner case for some Registry Keys
         else:
             associated_object_dict["properties"] = parameter_value
         # Set any "forced" properties that should be set alongside the current
         if "forced" in parameter_mapping_dict:
-            self.processAssociatedObject(parameter_mapping_dict["forced"], parameter_mapping_dict["forced"]["value"], associated_object_dict)
+            self.processAssociatedObject(
+                parameter_mapping_dict["forced"], parameter_mapping_dict["forced"]["value"], associated_object_dict
+            )
         # Finally, set the XSI type if it has not been set already.
         if "associated_object_type" in parameter_mapping_dict and "xsi:type" not in associated_object_dict["properties"]:
             associated_object_dict["properties"]["xsi:type"] = parameter_mapping_dict["associated_object_type"]
@@ -3306,8 +3519,7 @@ class MAEC41Report(Report):
             return None
 
     def createWinExecFileObj(self):
-        """Creates a Windows Executable File (PE) object for capturing static analysis output.
-        """
+        """Creates a Windows Executable File (PE) object for capturing static analysis output."""
 
         # A mapping of Cuckoo resource type names to their name in MAEC
         resource_type_mappings = {

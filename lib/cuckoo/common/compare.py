@@ -56,7 +56,9 @@ def helper_percentages_mongo(results_db, tid1, tid2, ignore_categories=["misc"])
     for tid in [tid1, tid2]:
         counts[tid] = {}
 
-        pids_calls = results_db.analysis.find_one({"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1})
+        pids_calls = results_db.analysis.find_one(
+            {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
+        )
 
         if not pids_calls:
             continue

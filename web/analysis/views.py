@@ -91,6 +91,7 @@ if processing_cfg.flare_capa.on_demand:
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
     from modules.processing.strings import extract_strings
+
     HAVE_STRINGS = True
 
 
@@ -493,10 +494,10 @@ def pending(request):
     return render(request, "analysis/pending.html", {"tasks": pending})
 
 
-#@require_safe
-#@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+# @require_safe
+# @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+# @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def _load_file(task_id, sha256, existen_details, name):
     filepath = False
     if name == "bingraph":
@@ -529,8 +530,8 @@ def _load_file(task_id, sha256, existen_details, name):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-#@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-#@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+# @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
@@ -1319,7 +1320,6 @@ def report(request, task_id):
             },
             "on_demand": on_demand_conf,
             "existent_tasks": existent_tasks,
-
         },
     )
 
@@ -1968,7 +1968,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 id = response.json().get("data", {}).get("id")
                 if id:
                     hashbytes, _ = base64.b64decode(id).split(b":")
-                    md5hash = hashbytes.decode('utf8')
+                    md5hash = hashbytes.decode("utf8")
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)}
                     )
@@ -2002,6 +2002,7 @@ on_demand_config_mapper = {
 str_nulltermonly = processing_cfg.strings.get("nullterminated_only", True)
 str_minchars = processing_cfg.strings.get("minchars", 5)
 
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
@@ -2021,9 +2022,18 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf", "strings") and not on_demand_config_mapper.get(
-        service, {}
-    ).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
@@ -2046,7 +2056,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "strings" and HAVE_STRINGS:
-        details = extract_strings(path,  str_nulltermonly, str_minchars)
+        details = extract_strings(path, str_nulltermonly, str_minchars)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)

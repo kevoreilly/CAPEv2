@@ -8,4 +8,3 @@ class MWCP_TEST(Parser):
 
     def run(self):
         pass
-

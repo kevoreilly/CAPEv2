@@ -21,7 +21,7 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 class Usage(Processing):
     """Converts collected usage data to image for web display
-       and performs other processing on usage data
+    and performs other processing on usage data
     """
 
     def run(self):
@@ -48,7 +48,9 @@ class Usage(Processing):
 
         usage["log"] = usage_log
 
-        line_chart = pygal.Line(fill=True, height=150, range=[0, 100], y_labels_major_every=1, show_dots=False, y_labels=[0, 25, 50, 75, 100])
+        line_chart = pygal.Line(
+            fill=True, height=150, range=[0, 100], y_labels_major_every=1, show_dots=False, y_labels=[0, 25, 50, 75, 100]
+        )
         line_chart.add("CPU", cpu_points)
         line_chart.add("MEM", mem_points)
 

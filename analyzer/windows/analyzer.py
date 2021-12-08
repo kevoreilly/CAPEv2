@@ -783,8 +783,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category,
-                           duplicated=duplicated)
+            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -1261,8 +1260,13 @@ class CommandPipeHandler(object):
         # Syntax -> PATH|PID|PPID|Metadata
         file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")],
-                                          ppids=[ppid.decode("utf-8")], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(
+                file_path.decode("utf-8"),
+                pids=[pid.decode("utf-8")],
+                ppids=[ppid.decode("utf-8")],
+                metadata=metadata,
+                category="CAPE",
+            )
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1281,8 +1285,13 @@ class CommandPipeHandler(object):
             # Syntax -> PATH|PID|PPID|Metadata
             file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")],
-                                              ppids=[ppid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(
+                    file_path.decode("utf-8"),
+                    pids=[pid.decode("utf-8")],
+                    ppids=[ppid.decode("utf-8")],
+                    metadata=metadata,
+                    category="procdump",
+                )
 
         else:
             if os.path.exists(file_path):

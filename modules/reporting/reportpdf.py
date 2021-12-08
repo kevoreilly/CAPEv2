@@ -46,7 +46,9 @@ class ReportPDF(Report):
             return True
 
         if not HAVE_WEASYPRINT:
-            raise CuckooReportError("Failed to generate PDF report: " "Neither wkhtmltopdf nor Weasyprint Python library are installed")
+            raise CuckooReportError(
+                "Failed to generate PDF report: " "Neither wkhtmltopdf nor Weasyprint Python library are installed"
+            )
 
         logger = logging.getLogger("weasyprint")
         logger.handlers = []

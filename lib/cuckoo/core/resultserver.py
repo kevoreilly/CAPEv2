@@ -62,7 +62,7 @@ RESULT_UPLOADABLE = (
     b"shots",
     b"sysmon",
     b"stap",
-    b"evtx"
+    b"evtx",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -215,7 +215,9 @@ class FileUpload(ProtocolHandler):
             except OSError as e:
                 log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError(f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}")
+                    raise CuckooOperationalError(
+                        f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
+                    )
                 raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
@@ -334,7 +336,21 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger", "tlsdump", "evtx")
+        folders = (
+            "CAPE",
+            "aux",
+            "curtain",
+            "files",
+            "logs",
+            "memory",
+            "shots",
+            "sysmon",
+            "stap",
+            "procdump",
+            "debugger",
+            "tlsdump",
+            "evtx",
+        )
 
         for folder in folders:
             try:

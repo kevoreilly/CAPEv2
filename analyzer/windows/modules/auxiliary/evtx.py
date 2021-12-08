@@ -175,9 +175,7 @@ class Evtx(Thread, Auxiliary):
                     log.debug(f"Enabling advanced logging -> {cmd}")
                     os.system(cmd)
                 except Exception as err:
-                    log.error(
-                        f"Cannot enable advanced logging for subcategory {subcategory} - {err}"
-                    )
+                    log.error(f"Cannot enable advanced logging for subcategory {subcategory} - {err}")
                     pass
 
     def collect_windows_logs(self):

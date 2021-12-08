@@ -65,7 +65,9 @@ def logo():
     _log(" ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   ")
     _log('/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  ')
     _log('\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ ')
-    _log(' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\')
+    _log(
+        ' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\'
+    )
     _log("  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/")
     _log("\n")
     _log(" Find the C&C for this Ratty mallie!")
@@ -78,7 +80,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description, epilog="--file and --directory are mutually exclusive")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-f", "--file", action="store", nargs=1, dest="szFilename", help="filename", metavar="filename")
-    group.add_argument("-d", "--directory", action="store", nargs=1, dest="szDirectory", help="Location of directory.", metavar="directory")
+    group.add_argument(
+        "-d", "--directory", action="store", nargs=1, dest="szDirectory", help="Location of directory.", metavar="directory"
+    )
 
     args = parser.parse_args()
     Filename = args.szFilename

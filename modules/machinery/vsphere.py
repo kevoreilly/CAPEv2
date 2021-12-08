@@ -98,12 +98,16 @@ class vSphere(Machinery):
                 for machine in self.machines():
                     if not machine.snapshot:
                         raise CuckooCriticalError(
-                            "Snapshot name not specified " "for machine {0}, please add " "it to the config file.".format(machine.label)
+                            "Snapshot name not specified "
+                            "for machine {0}, please add "
+                            "it to the config file.".format(machine.label)
                         )
                     vm = self._get_virtual_machine_by_label(conn, machine.label)
                     if not vm:
                         raise CuckooCriticalError(
-                            "Unable to find machine {0} " "on vSphere host, please " "update your configuration.".format(machine.label)
+                            "Unable to find machine {0} "
+                            "on vSphere host, please "
+                            "update your configuration.".format(machine.label)
                         )
                     state = self._get_snapshot_power_state(vm, machine.snapshot)
                     if not state:
@@ -219,7 +223,7 @@ class vSphere(Machinery):
 
     def _get_snapshot_by_name(self, vm, name):
         """Return the named VirtualMachineSnapshot managed object for
-           a virtual machine"""
+        a virtual machine"""
         root = vm.snapshot.rootSnapshotList
         sg = (ss.snapshot for ss in self._traverseSnapshots(root) if ss.name == name)
         return next(sg, None)

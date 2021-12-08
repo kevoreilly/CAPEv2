@@ -149,6 +149,6 @@ class ProcessMemory(Processing):
                 results.append(proc)
 
                 cape_name = cape_name_from_yara(proc, process_id, self.results)
-                if  cape_name and "detections" not in self.results:
+                if cape_name and "detections" not in self.results:
                     self.results["detections"] = cape_name
         return results

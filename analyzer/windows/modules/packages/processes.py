@@ -19,13 +19,13 @@ class PROCESSES(Package):
 
     def start(self, path):
         """
-            for i in xrange(20):
-                #calc
-                calc = os.path.join("c:\\windows", "system32", "calc.exe")
-                #cl = Process()
-                self.execute(calc, "", path)
-            #cl.close()
-            """
+        for i in xrange(20):
+            #calc
+            calc = os.path.join("c:\\windows", "system32", "calc.exe")
+            #cl = Process()
+            self.execute(calc, "", path)
+        #cl.close()
+        """
         iexplore = os.path.join("c:\\Program Files", "Internet Explorer", "iexplore.exe")
         # ie = Process()
         self.execute(iexplore, "", path)

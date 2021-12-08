@@ -15,28 +15,31 @@
 from mwcp.parser import Parser
 import pefile
 
+
 def decrypt_string(string):
-	enc=[]
-	for i in range(0, len(string)):
-		enc.append(chr(ord(string[i]) - 6))
-	return "".join(enc)
+    enc = []
+    for i in range(0, len(string)):
+        enc.append(chr(ord(string[i]) - 6))
+    return "".join(enc)
+
 
 class BuerLoader(Parser):
     DESCRIPTION = "BuerLoader configuration parser."
     AUTHOR = "kevoreilly"
+
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf)
-        data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]
+        data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
         if not data_sections:
             return None
         data = data_sections[0].get_data()
         count = 0
-        for item in data.split(b'\x00\x00'):
+        for item in data.split(b"\x00\x00"):
             try:
-                dec = decrypt_string(item.lstrip(b'\x00').rstrip(b'\x00').decode('utf8'))
+                dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode("utf8"))
             except:
                 pass
-            if 'dll' not in dec and ' ' not in dec and ';' not in dec and '.' in dec:
+            if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
                 self.reporter.add_metadata("address", dec)
         return

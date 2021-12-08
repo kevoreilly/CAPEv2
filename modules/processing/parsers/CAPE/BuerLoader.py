@@ -14,6 +14,8 @@
 
 import pefile
 
+DESCRIPTION = "BuerLoader configuration parser."
+AUTHOR = "kevoreilly"
 
 def decrypt_string(string):
     enc = []
@@ -23,8 +25,6 @@ def decrypt_string(string):
 
 
 def config(filebuf):
-    DESCRIPTION = "BuerLoader configuration parser."
-    AUTHOR = "kevoreilly"
     cfg = dict()
     pe = pefile.PE(data=filebuf)
     data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]

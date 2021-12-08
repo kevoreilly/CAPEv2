@@ -508,8 +508,8 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
             log.error(e, exc_info=True)
 
 
-def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tmp_prefix, dict_key):
-    with tempfile.TemporaryDirectory(prefix=tmp_prefix) as tempdir:
+def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tool_name):
+    with tempfile.TemporaryDirectory(prefix=tool_name) as tempdir:
         decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
         with open(decoded_file_path, "wb") as f:
             f.write(decoded)
@@ -520,7 +520,8 @@ def _generic_post_extraction_process(file, decoded, destination_folder, data_dic
         for meta in metadata:
             is_text_file(meta, destination_folder, 8192)
 
-        data_dictionary.setdefault(dict_key, metadata)
+        data_dictionary.setdefault("decoded_files", metadata)
+        data_dictionary.setdefault("decoded_files_tool", tool_name)
 
 
 def batch_extract(file, destination_folder, filetype, data_dictionary):
@@ -544,7 +545,7 @@ def batch_extract(file, destination_folder, filetype, data_dictionary):
     if original_sha256 == decoded_sha256:
         return
 
-    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "batchdecoded_", "batch_decoded")
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Batch")
 
 
 def vbe_extract(file, destination_folder, filetype, data_dictionary):
@@ -571,7 +572,7 @@ def vbe_extract(file, destination_folder, filetype, data_dictionary):
         log.debug("VBE content wasn't decoded")
         return
 
-    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "vbedecoded_", "vbe_decoded")
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Vbe")
 
 
 def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract="/usr/bin/msiextract"):  # dropped_path
@@ -600,7 +601,8 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         for meta in metadata:
             is_text_file(meta, destination_folder, 8192)
 
-        data_dictionary.setdefault("msitools", metadata)
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
 
 
 def kixtart_extract(file, destination_folder, filetype, data_dictionary):
@@ -628,4 +630,5 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
         for meta in metadata:
             is_text_file(meta, destination_folder, 8192)
 
-        data_dictionary.setdefault("kixtart", metadata)
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "Kixtart")

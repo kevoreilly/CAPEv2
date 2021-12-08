@@ -12,9 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mwcp.parser import Parser
 import pefile
 
+DESCRIPTION = "BuerLoader configuration parser."
+AUTHOR = "kevoreilly"
 
 def decrypt_string(string):
     enc = []
@@ -23,23 +24,20 @@ def decrypt_string(string):
     return "".join(enc)
 
 
-class BuerLoader(Parser):
-    DESCRIPTION = "BuerLoader configuration parser."
-    AUTHOR = "kevoreilly"
-
-    def run(self):
-        filebuf = self.file_object.file_data
-        pe = pefile.PE(data=filebuf)
-        data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
-        if not data_sections:
-            return None
-        data = data_sections[0].get_data()
-        count = 0
-        for item in data.split(b"\x00\x00"):
-            try:
-                dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode("utf8"))
-            except Exception:
-                pass
-            if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
-                self.reporter.add_metadata("address", dec)
+def config(filebuf):
+    cfg = dict()
+    pe = pefile.PE(data=filebuf)
+    data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]
+    if not data_sections:
+        return None
+    data = data_sections[0].get_data()
+    count = 0
+    for item in data.split(b'\x00\x00'):
+        try:
+            dec = decrypt_string(item.lstrip(b'\x00').rstrip(b'\x00').decode('utf8'))
+        except:
+            pass
+        if 'dll' not in dec and ' ' not in dec and ';' not in dec and '.' in dec:
+            cfg.setdefault("address", list())
+            cfg["address"].appent(dec)
         return

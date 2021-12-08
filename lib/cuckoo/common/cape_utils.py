@@ -294,9 +294,35 @@ def static_config_parsers(yara_hit, file_data):
     cape_config = dict()
     cape_config[cape_name] = dict()
     parser_loaded = False
+    # CAPE - pure python parsers
+    # MWCP
+    # RatDecoders
+    # MalDuck
     # Attempt to import a parser for the hit
+    if HAVE_CAPE_EXTRACTORS and cape_name in cape_malware_parsers:
+        logging.debug("Running CAPE")
+        try:
+            # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
+            if isinstance(cape_configraw, list):
+                for (key, value) in cape_configraw[0].items():
+                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
+            elif isinstance(cape_configraw, dict):
+                for (key, value) in cape_configraw.items():
+                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
+        except Exception as e:
+            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
+
     # DC3-MWCP
-    if HAS_MWCP and cape_name and cape_name in malware_parsers:
+    if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
         logging.debug("Running MWCP")
         try:
             reporter = mwcp.Reporter()
@@ -327,28 +353,6 @@ def static_config_parsers(yara_hit, file_data):
             logging.error("pefile PEFormatError")
         except Exception as e:
             logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
-
-    if HAVE_CAPE_EXTRACTORS and not parser_loaded and cape_name in cape_malware_parsers:
-        logging.debug("Running CAPE")
-        try:
-            # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
-            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
-            if isinstance(cape_configraw, list):
-                for (key, value) in cape_configraw[0].items():
-                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
-                    if isinstance(value, map):
-                        value = list(value)
-                    cape_config[cape_name].update({key: [value]})
-                parser_loaded = True
-            elif isinstance(cape_configraw, dict):
-                for (key, value) in cape_configraw.items():
-                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
-                    if isinstance(value, map):
-                        value = list(value)
-                    cape_config[cape_name].update({key: [value]})
-                parser_loaded = True
-        except Exception as e:
-            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         logging.debug("Running Malwareconfigs")

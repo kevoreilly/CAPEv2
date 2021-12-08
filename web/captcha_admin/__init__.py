@@ -1,7 +1,7 @@
 VERSION = (1, 0, 0, "final", 0)
-__author__ = u"Daniel Barreto"
-__license__ = u"MIT"
-__maintainer__ = u"Micah Mangione"
+__author__ = "Daniel Barreto"
+__license__ = "MIT"
+__maintainer__ = "Micah Mangione"
 __email__ = "micah@connectio.us"
 __status__ = "RC"
 

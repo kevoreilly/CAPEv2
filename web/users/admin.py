@@ -10,14 +10,14 @@ def make_active(modeladmin, news, queryset):
     queryset.update(is_active=True)
 
 
-make_active.short_description = u"Activate selected Users"
+make_active.short_description = "Activate selected Users"
 
 
 def make_deactivated(modeladmin, news, queryset):
     queryset.update(is_active=False)
 
 
-make_deactivated.short_description = u"Deactivate selected Users"
+make_deactivated.short_description = "Deactivate selected Users"
 
 
 class ProfileInline(admin.StackedInline):

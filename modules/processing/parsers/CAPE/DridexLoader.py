@@ -20,7 +20,7 @@ import pefile
 import yara
 from Crypto.Cipher import ARC4
 
-rule_source = '''
+rule_source = """
 rule DridexLoader
 {
     meta:
@@ -42,23 +42,26 @@ rule DridexLoader
         uint16(0) == 0x5A4D and any of them
 }
 
-'''
+"""
 
-MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
+MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
 LEN_BLOB_KEY = 40
 LEN_BOT_KEY = 107
 
 yara_rules = yara.compile(source=rule_source)
 
+
 def decrypt_rc4(key, data):
     cipher = ARC4.new(key)
     return cipher.decrypt(data)
 
+
 def extract_rdata(pe):
     for section in pe.sections:
-        if b'.rdata' in section.Name:
+        if b".rdata" in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
     return None
+
 
 def config(filebuf):
     DESCRIPTION = "DridexDropper configuration parser."
@@ -80,12 +83,12 @@ def config(filebuf):
         if match.rule != "DridexLoader":
             continue
         for item in match.strings:
-            if '$c2parse' in item[1]:
+            if "$c2parse" in item[1]:
                 c2va_offset = int(item[0])
                 line = item[1]
-            elif '$botnet_id' in item[1]:
+            elif "$botnet_id" in item[1]:
                 botnet_code = int(item[0])
-            elif '$rc4_key' in item[1] and not rc4_decode:
+            elif "$rc4_key" in item[1] and not rc4_decode:
                 rc4_decode = int(item[0])
 
     if line == "$c2parse_6":
@@ -127,26 +130,31 @@ def config(filebuf):
         c2_offset += 6 + delta
 
     if rc4_decode:
-        zb = struct.unpack("B", filebuf[rc4_decode+8:rc4_decode+9])[0]
+        zb = struct.unpack("B", filebuf[rc4_decode + 8 : rc4_decode + 9])[0]
         if not zb:
-            rc4_rva = struct.unpack('i', filebuf[rc4_decode+5:rc4_decode+9])[0] - image_base
+            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 5 : rc4_decode + 9])[0] - image_base
         else:
-            rc4_rva = struct.unpack('i', filebuf[rc4_decode+3:rc4_decode+7])[0] - image_base
+            rc4_rva = struct.unpack("i", filebuf[rc4_decode + 3 : rc4_decode + 7])[0] - image_base
         if rc4_rva:
             rc4_offset = pe.get_offset_from_rva(rc4_rva)
             if not zb:
-                raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY][::-1], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                raw = decrypt_rc4(
+                    filebuf[rc4_offset : rc4_offset + LEN_BLOB_KEY][::-1],
+                    filebuf[rc4_offset + LEN_BLOB_KEY : rc4_offset + LEN_BOT_KEY],
+                )
             else:
-                raw = decrypt_rc4(filebuf[rc4_offset:rc4_offset+LEN_BLOB_KEY], filebuf[rc4_offset+LEN_BLOB_KEY:rc4_offset+LEN_BOT_KEY])
+                raw = decrypt_rc4(
+                    filebuf[rc4_offset : rc4_offset + LEN_BLOB_KEY], filebuf[rc4_offset + LEN_BLOB_KEY : rc4_offset + LEN_BOT_KEY]
+                )
             for item in raw.split(b"\x00"):
-                if len(item) == LEN_BLOB_KEY-1:
-                   cfg['RC4 key'] = item.split(b';')[0]
+                if len(item) == LEN_BLOB_KEY - 1:
+                    cfg["RC4 key"] = item.split(b";")[0]
 
     if botnet_code:
-        botnet_rva = struct.unpack('i', filebuf[botnet_code+23:botnet_code+27])[0] - image_base
+        botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base
     if botnet_rva:
         botnet_offset = pe.get_offset_from_rva(botnet_rva)
-        botnet_id = struct.unpack('H', filebuf[botnet_offset:botnet_offset+2])[0]
-        cfg['Botnet ID'] = str(botnet_id)
+        botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
+        cfg["Botnet ID"] = str(botnet_id)
 
         return

@@ -212,14 +212,14 @@ def main():
 
         if task_id:
             if not args.quiet:
-                print((bold(green("Success")) + u': URL "{0}" added as task with ID {1}'.format(target, task_id)))
+                print((bold(green("Success")) + ': URL "{0}" added as task with ID {1}'.format(target, task_id)))
         else:
             print((bold(red("Error")) + ": adding task to database"))
     else:
         # Get absolute path to deal with relative.
         path = to_unicode(os.path.abspath(target))
         if not os.path.exists(path):
-            print((bold(red("Error")) + u': the specified file/folder does not exist at path "{0}"'.format(path)))
+            print((bold(red("Error")) + ': the specified file/folder does not exist at path "{0}"'.format(path)))
             return False
 
         files = []
@@ -335,10 +335,10 @@ def main():
             tasks_count = len(task_ids)
             if tasks_count > 1:
                 if not args.quiet:
-                    print((bold(green("Success")) + u': File "{0}" added as task with IDs {1}'.format(file_path, task_ids)))
+                    print((bold(green("Success")) + ': File "{0}" added as task with IDs {1}'.format(file_path, task_ids)))
             elif tasks_count > 0:
                 if not args.quiet:
-                    print((bold(green("Success")) + u': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])))
+                    print((bold(green("Success")) + ': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])))
             else:
                 print((bold(red("Error")) + ": adding task to database"))
 

@@ -256,14 +256,14 @@ class CAPE(Processing):
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
                                 outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                #with open(filepath + "_info.txt", "w") as infofd:
+                                # with open(filepath + "_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
                                 outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                #with open(filepath + "_info.txt", "w") as infofd:
+                                # with open(filepath + "_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)

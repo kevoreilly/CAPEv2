@@ -17,6 +17,7 @@ import pefile
 DESCRIPTION = "BuerLoader configuration parser."
 AUTHOR = "kevoreilly"
 
+
 def decrypt_string(string):
     enc = []
     for i in range(0, len(string)):
@@ -27,17 +28,17 @@ def decrypt_string(string):
 def config(filebuf):
     cfg = dict()
     pe = pefile.PE(data=filebuf)
-    data_sections = [s for s in pe.sections if s.Name.find(b'.data') != -1]
+    data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
     if not data_sections:
         return None
     data = data_sections[0].get_data()
     count = 0
-    for item in data.split(b'\x00\x00'):
+    for item in data.split(b"\x00\x00"):
         try:
-            dec = decrypt_string(item.lstrip(b'\x00').rstrip(b'\x00').decode('utf8'))
+            dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode("utf8"))
         except:
             pass
-        if 'dll' not in dec and ' ' not in dec and ';' not in dec and '.' in dec:
+        if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
             cfg.setdefault("address", list())
             cfg["address"].appent(dec)
         return

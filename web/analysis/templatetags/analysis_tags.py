@@ -105,7 +105,7 @@ def flare_capa_capabilities(obj, *args, **kwargs):
     result = StringIO()
 
     def _print(lvl, s):
-        result.write((lvl * u"  ") + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
     _print(1, "<thead>\n")
@@ -134,7 +134,7 @@ def flare_capa_attck(obj, *args, **kwargs):
     result = StringIO()
 
     def _print(lvl, s):
-        result.write((lvl * u"  ") + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
     _print(1, "<thead>\n")
@@ -164,7 +164,7 @@ def flare_capa_mbc(obj, *args, **kwargs):
     result = StringIO()
 
     def _print(lvl, s):
-        result.write((lvl * u"  ") + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
     _print(1, "<thead>\n")
@@ -201,7 +201,7 @@ def malware_config(obj, *args, **kwargs):
     result = StringIO()
 
     def _print(lvl, s):
-        result.write((lvl * u"  ") + str(s))
+        result.write((lvl * "  ") + str(s))
 
     if isinstance(obj, dict):
         if obj:

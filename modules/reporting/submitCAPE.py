@@ -131,16 +131,16 @@ class SubmitCAPE(Report):
                 return
 
             if "procdump=1" in self.task_options:
-                self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)
+                self.task_options = self.task_options.replace("procdump=1", "procdump=0", 1)
 
             if "extraction=1" in self.task_options:
-                self.task_options = self.task_options.replace(u"extraction=1", u"extraction=0", 1)
+                self.task_options = self.task_options.replace("extraction=1", "extraction=0", 1)
 
             if "combo=1" in self.task_options:
-                self.task_options = self.task_options.replace(u"combo=1", u"combo=0", 1)
+                self.task_options = self.task_options.replace("combo=1", "combo=0", 1)
 
             if "file-offsets" in self.task_options:
-                self.task_options = self.task_options.replace(u"file-offsets=0", u"file-offsets=0", 1)
+                self.task_options = self.task_options.replace("file-offsets=0", "file-offsets=0", 1)
             else:
                 self.task_options = self.task_options + ",file-offsets=1"
 
@@ -219,7 +219,7 @@ class SubmitCAPE(Report):
                     tlp=tlp,
                 )
             if task_id:
-                log.info(u'CAPE detection on file "{0}": {1} - added as CAPE task with ID {2}'.format(target, package, task_id))
+                log.info('CAPE detection on file "{0}": {1} - added as CAPE task with ID {2}'.format(target, package, task_id))
                 return task_id
             else:
                 log.warn("Error adding CAPE task to database: {0}".format(package))
@@ -349,7 +349,7 @@ class SubmitCAPE(Report):
 
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and "procdump=1" in self.task_options:
-            self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)
+            self.task_options = self.task_options.replace("procdump=1", "procdump=0", 1)
         if self.task_options_stack:
             self.task_options = ",".join(self.task_options_stack)
 

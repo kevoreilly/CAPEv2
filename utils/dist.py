@@ -624,7 +624,7 @@ class Retriever(threading.Thread):
                 )
 
                 if not copied:
-                    log.error("Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
+                    log.error(f"Can't copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}")
                     continue
 
                 if os.path.exists(t.path):

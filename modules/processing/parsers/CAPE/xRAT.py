@@ -1,13 +1,9 @@
 from __future__ import absolute_import
 from base64 import b64decode
 import hashlib
+import re
 import pefile
 from Crypto.Cipher import AES, XOR
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 
 def string_print(line):

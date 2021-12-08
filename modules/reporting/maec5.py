@@ -9,6 +9,7 @@ import io
 import sys
 import json
 import os
+import re
 import uuid
 import logging
 import dateutil.parser
@@ -16,11 +17,6 @@ from collections import OrderedDict
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 import six
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 

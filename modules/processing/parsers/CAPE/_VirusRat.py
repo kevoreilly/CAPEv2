@@ -1,12 +1,8 @@
 from __future__ import absolute_import
 import pefile
 import database
+import re
 import ioc
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 
 def run(md5, data):

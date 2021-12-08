@@ -4,12 +4,7 @@
 
 from __future__ import absolute_import
 import os
-
-try:
-    import re2 as re
-except ImportError:
-    import re
-
+import re
 from lib.common.decode_vbe_jse import DecodeVBEJSE
 
 

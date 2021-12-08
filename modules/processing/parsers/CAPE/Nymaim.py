@@ -1,13 +1,9 @@
 from __future__ import absolute_import
 from __future__ import print_function
+import re
 import struct
 import string
 from io import StringIO
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 
 class Stream(StringIO):

@@ -29,13 +29,9 @@ import sys
 import os
 import signal
 import textwrap
+import re
 import zipfile
 import binascii
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 MALWARE_PASSWORD = "infected"
 

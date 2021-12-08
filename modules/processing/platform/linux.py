@@ -6,12 +6,8 @@ import datetime
 import dateutil.parser
 import os
 import logging
+import re
 from functools import reduce
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 from lib.cuckoo.common.abstracts import BehaviorHandler
 

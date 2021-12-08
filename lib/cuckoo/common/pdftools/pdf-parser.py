@@ -79,6 +79,7 @@ Todo:
 
 """
 
+import re
 import optparse
 import zlib
 import binascii
@@ -88,11 +89,6 @@ import zipfile
 import time
 import os
 import textwrap
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 if sys.version_info[0] >= 3:
     from io import StringIO

@@ -1,11 +1,7 @@
 import os
+import re
 import sys
 import argparse
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 #
 #   VPN intergrator for CAPE

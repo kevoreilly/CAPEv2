@@ -209,9 +209,9 @@ class Syslog(Report):
         @raise CuckooReportError: if fails to write report.
         """
         # Get server options from reporting.conf
-        server = self.options.get("host", None)
-        port = self.options.get("port", None)
-        proto = self.options.get("protocol", None).lower()
+        server = self.options.get("host")
+        port = self.options.get("port")
+        proto = self.options.get("protocol").lower()
         # A few validations...
         if not server:
             raise CuckooReportError("Syslog Server IP not defined")
@@ -228,7 +228,7 @@ class Syslog(Report):
             raise CuckooReportError("Error creating syslog formatted log.")
 
         # Check if the user wants it stored in the reports directory as well
-        do_log = self.options.get("logfile", None)
+        do_log = self.options.get("logfile")
         if do_log:
             logfile = self.options.get("logname", "syslog.txt")
             # Log syslog results to the reports directory

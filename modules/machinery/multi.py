@@ -85,19 +85,19 @@ class MultiMachinery(Machinery):
 
     def start(self, label):
         machine_name = self._machine_labels.get(label)
-        machine = self._machines.get(machine_name, None)
+        machine = self._machines.get(machine_name)
         machinery = self._machineries.get(machine["machinery"])
         machinery["module"].start(label)
 
     def stop(self, label=None):
         if label:
             machine_name = self._machine_labels.get(label)
-            machine = self._machines.get(machine_name, None)
+            machine = self._machines.get(machine_name)
             machinery = self._machineries.get(machine["machinery"])
             machinery["module"].stop(label)
 
     def _status(self, label):
         machine_name = self._machine_labels.get(label)
-        machine = self._machines.get(machine_name, None)
+        machine = self._machines.get(machine_name)
         machinery = self._machineries.get(machine["machinery"])
         return machinery["module"]._status(label)

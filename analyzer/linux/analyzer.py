@@ -75,7 +75,7 @@ class Analyzer:
         # Initialize logging.
         init_logging()
 
-        if self.config.get("clock", None):
+        if self.config.get("clock"):
             # Set virtual machine clock.
             clock = datetime.datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
             # Setting date and time.

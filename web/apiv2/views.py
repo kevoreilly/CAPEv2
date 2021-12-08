@@ -391,7 +391,7 @@ def tasks_create_url(request):
     if request.method == "POST":
         resp["error"] = False
 
-        url = request.data.get("url", None)
+        url = request.data.get("url")
         (
             static,
             package,
@@ -501,7 +501,7 @@ def tasks_create_dlnexec(request):
             return Response(resp)
 
         resp["error"] = False
-        url = request.data.get("dlnexec", None)
+        url = request.data.get("dlnexec")
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
             return Response(resp)
@@ -509,7 +509,7 @@ def tasks_create_dlnexec(request):
         options = request.data.get("options", "")
         custom = request.data.get("custom", "")
         machine = request.data.get("machine", "")
-        referrer = validate_referrer(request.data.get("referrer", None))
+        referrer = validate_referrer(request.data.get("referrer"))
 
         details = {}
         task_machines = []
@@ -541,7 +541,7 @@ def tasks_create_dlnexec(request):
             options += "referrer=%s" % (referrer)
 
         url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-        response = _download_file(request.data.get("route", None), url, options)
+        response = _download_file(request.data.get("route"), url, options)
         if not response:
             return Response({"error": "Was impossible to retrieve url"})
 
@@ -607,9 +607,9 @@ def tasks_vtdl(request):
             resp = {"error": True, "error_value": "VTDL Create API is Disabled"}
             return Response(resp)
 
-        hashes = request.data.get("vtdl".strip(), None)
+        hashes = request.data.get("vtdl".strip())
         if not hashes:
-            hashes = request.data.get("hashes".strip(), None)
+            hashes = request.data.get("hashes".strip())
 
         if not hashes:
             resp = {"error": True, "error_value": "vtdl (hash list) value is empty"}
@@ -869,7 +869,7 @@ def ext_tasks_search(request):
 @api_view(["GET"])
 def tasks_list(request, offset=None, limit=None, window=None):
 
-    if not apiconf.tasklist.get("enabled", None):
+    if not apiconf.tasklist.get("enabled"):
         resp = {"error": True, "error_value": "Task List API is Disabled"}
         return Response(resp)
 

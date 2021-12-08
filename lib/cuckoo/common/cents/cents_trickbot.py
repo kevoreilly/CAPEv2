@@ -79,7 +79,7 @@ def cents_trickbot(config_dict, suricata_dict, sid_counter, md5, date, task_link
         )
         log.debug(f"[CENTS - TrickBot] Found {len(matching_tls)} certs for {s}")
         for tls in matching_tls:
-            _tmp_obj = {"subject": tls.get("subject", None), "issuerdn": tls.get("issuerdn", None)}
+            _tmp_obj = {"subject": tls.get("subject", None), "issuerdn": tls.get("issuerdn")}
             if _tmp_obj not in trickbot_c2_certs:
                 trickbot_c2_certs.append(_tmp_obj)
 

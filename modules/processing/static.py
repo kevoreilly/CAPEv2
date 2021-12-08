@@ -731,7 +731,7 @@ class PortableExecutable(object):
                                 for resource_lang in resource_id.directory.entries:
                                     data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
-                                    language = pefile.LANG.get(resource_lang.data.lang, None)
+                                    language = pefile.LANG.get(resource_lang.data.lang)
                                     sublanguage = pefile.get_sublang_name_for_lang(
                                         resource_lang.data.lang, resource_lang.data.sublang
                                     )
@@ -2728,7 +2728,7 @@ class Static(Processing):
             # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
-                decomp_jar = self.options.get("procyon_path", None)
+                decomp_jar = self.options.get("procyon_path")
                 if decomp_jar and not os.path.exists(decomp_jar):
                     log.error("procyon_path specified in processing.conf but the file does not exist.")
                 static = Java(self.file_path, decomp_jar).run()

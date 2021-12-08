@@ -484,7 +484,7 @@ def pretty_print_retval(status, retval):
         0xC0000142: "DLL_INIT_FAILED",
         0xC000014B: "PIPE_BROKEN",
         0xC0000225: "NOT_FOUND",
-    }.get(val, None)
+    }.get(val)
 
 
 def pretty_print_arg(category, api_name, arg_name, arg_val):

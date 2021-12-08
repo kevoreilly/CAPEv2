@@ -279,7 +279,7 @@ def main():
                     return False
 
                 json = response.json()
-                task_ids = [json.get("task_ids", None)]
+                task_ids = [json.get("task_ids")]
 
             else:
                 if args.unique and db.check_file_uniq(File(file_path).get_sha256()):

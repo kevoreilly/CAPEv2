@@ -71,7 +71,7 @@ class XenServerMachinery(Machinery):
     @property
     def session(self):
         tid = threading.current_thread().ident
-        sess = self._sessions.get(tid, None)
+        sess = self._sessions.get(tid)
         if sess is None:
             sess = self._make_xenapi_session(tid)
         return sess

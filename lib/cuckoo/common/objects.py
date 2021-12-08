@@ -203,7 +203,7 @@ class Dictionary(dict):
     """Cuckoo custom dict."""
 
     def __getattr__(self, key):
-        return self.get(key, None)
+        return self.get(key)
 
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
@@ -600,7 +600,7 @@ class File(object):
         # Get list of @Comp.IDs and counts from Rich header
         # Elements in rich_fields at even indices are @Comp.IDs
         # Elements in rich_fields at odd indices are counts
-        rich_fields = rich_header.get("values", None)
+        rich_fields = rich_header.get("values")
         if len(rich_fields) % 2 != 0:
             return None
 

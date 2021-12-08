@@ -63,25 +63,25 @@ class Suricata(Processing):
         """
         self.key = "suricata"
         # General
-        SURICATA_CONF = self.options.get("conf", None)
-        SURICATA_EVE_LOG = self.options.get("evelog", None)
-        SURICATA_ALERT_LOG = self.options.get("alertlog", None)
-        SURICATA_TLS_LOG = self.options.get("tlslog", None)
-        SURICATA_HTTP_LOG = self.options.get("httplog", None)
-        SURICATA_SSH_LOG = self.options.get("sshlog", None)
-        SURICATA_DNS_LOG = self.options.get("dnslog", None)
-        SURICATA_FILE_LOG = self.options.get("fileslog", None)
-        SURICATA_FILES_DIR = self.options.get("filesdir", None)
-        SURICATA_RUNMODE = self.options.get("runmode", None)
+        SURICATA_CONF = self.options.get("conf")
+        SURICATA_EVE_LOG = self.options.get("evelog")
+        SURICATA_ALERT_LOG = self.options.get("alertlog")
+        SURICATA_TLS_LOG = self.options.get("tlslog")
+        SURICATA_HTTP_LOG = self.options.get("httplog")
+        SURICATA_SSH_LOG = self.options.get("sshlog")
+        SURICATA_DNS_LOG = self.options.get("dnslog")
+        SURICATA_FILE_LOG = self.options.get("fileslog")
+        SURICATA_FILES_DIR = self.options.get("filesdir")
+        SURICATA_RUNMODE = self.options.get("runmode")
         SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
-        Z7_PATH = self.options.get("7zbin", None)
-        FILES_ZIP_PASS = self.options.get("zippass", None)
+        Z7_PATH = self.options.get("7zbin")
+        FILES_ZIP_PASS = self.options.get("zippass")
 
         # Socket
-        SURICATA_SOCKET_PATH = self.options.get("socket_file", None)
+        SURICATA_SOCKET_PATH = self.options.get("socket_file")
 
         # Command Line
-        SURICATA_BIN = self.options.get("bin", None)
+        SURICATA_BIN = self.options.get("bin")
 
         suricata = dict()
         suricata["alerts"] = []

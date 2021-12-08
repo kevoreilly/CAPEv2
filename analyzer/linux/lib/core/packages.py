@@ -87,7 +87,7 @@ class Package(object):
         # Any analysis options?
         self.options = kwargs.get("options", {})
         # A timeout for analysis
-        self.timeout = kwargs.get("timeout", None)
+        self.timeout = kwargs.get("timeout")
         # Command-line arguments for the target.
 
         self.args = self.options.get("args", [])
@@ -96,7 +96,7 @@ class Package(object):
         # Should our target be launched as root or not
         self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
         # free: do not inject our monitor.
-        self.free = self.options.get("free", None)
+        self.free = self.options.get("free")
         self.proc = None
         self.pids = []
 

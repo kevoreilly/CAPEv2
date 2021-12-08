@@ -90,7 +90,7 @@ def gen_rnd_data(func, lower, upper, arg_name=None):
     print_end()
 
 
-if not os.environ.get("GEN_DATA", None):
+if not os.environ.get("GEN_DATA"):
     import utils_pretty_print_funcs_data as data
 else:
     try:
@@ -101,7 +101,7 @@ else:
 
 
 def test_calls():
-    if not os.environ.get("GEN_DATA", None):
+    if not os.environ.get("GEN_DATA"):
         for val, ret in data.api_name_ntcreatesection_arg_name_desiredaccess_data():
             assert pp_fn.api_name_ntcreatesection_arg_name_desiredaccess(val) == ret
         for val, ret in data.api_name_shgetfolderpathw_arg_name_folder_data():

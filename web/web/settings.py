@@ -48,8 +48,8 @@ WEB_OAUTH = web_cfg.oauth
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
 MONGO_PORT = cfg.mongodb.get("port", 27017)
 MONGO_DB = cfg.mongodb.get("db", "cuckoo")
-MONGO_USER = cfg.mongodb.get("username", None)
-MONGO_PASS = cfg.mongodb.get("password", None)
+MONGO_USER = cfg.mongodb.get("username")
+MONGO_PASS = cfg.mongodb.get("password")
 MONGO_AUTHSOURCE = cfg.mongodb.get("authsource", "cuckoo")
 
 ELASTIC_HOST = cfg.elasticsearchdb.get("host", "127.0.0.1")
@@ -65,13 +65,13 @@ DLNEXEC = web_cfg.dlnexec.get("enabled", False)
 ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
 if not isinstance(ZIP_PWD, bytes):
     ZIP_PWD = ZIP_PWD.encode("utf-8")
-MOLOCH_BASE = moloch_cfg.get("base", None)
-MOLOCH_NODE = moloch_cfg.get("node", None)
+MOLOCH_BASE = moloch_cfg.get("base")
+MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 
 VTDL_ENABLED = vtdl_cfg.get("enabled", False)
-VTDL_KEY = vtdl_cfg.get("dlintelkey", None)
-VTDL_PATH = vtdl_cfg.get("dlpath", None)
+VTDL_KEY = vtdl_cfg.get("dlintelkey")
+VTDL_PATH = vtdl_cfg.get("dlpath")
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 

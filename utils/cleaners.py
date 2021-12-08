@@ -55,11 +55,11 @@ def connect_to_mongo():
         from pymongo import MongoClient
         try:
             conn = MongoClient(
-                host = repconf.mongodb.get("host", "127.0.0.1"),
-                port = repconf.mongodb.get("port", 27017),
-                username = repconf.mongodb.get("username", None),
-                password = repconf.mongodb.get("password", None),
-                authSource = repconf.mongodb.get("authsource", "cuckoo")
+                host=repconf.mongodb.get("host", "127.0.0.1"),
+                port=repconf.mongodb.get("port", 27017),
+                username=repconf.mongodb.get("username"),
+                password=repconf.mongodb.get("password"),
+                authSource=repconf.mongodb.get("authsource", "cuckoo"),
             )
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: {}, {}".format(mdb, e))

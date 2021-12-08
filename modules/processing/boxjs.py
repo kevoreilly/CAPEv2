@@ -76,7 +76,7 @@ class BoxJS(Processing):
         while not done:
             time.sleep(2)
             result = self.request_json(base_url)
-            code = result.get("code", None)
+            code = result.get("code")
             retry = False
 
             # Read the status code, and retry with different flags if necessary

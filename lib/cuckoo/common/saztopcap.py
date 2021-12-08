@@ -217,6 +217,6 @@ def saz_to_pcap(sazpath):
     if tmpdir:
         try:
             shutil.rmtree(tmpdir)
-        except:
+        except Exception:
             pass
     return pcappath

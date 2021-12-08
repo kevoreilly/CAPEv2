@@ -109,7 +109,7 @@ def Hex2Bytes(hexadecimal):
         hexadecimal = "0" + hexadecimal
     try:
         return binascii.a2b_hex(hexadecimal)
-    except:
+    except Exception:
         return None
 
 
@@ -404,7 +404,7 @@ def InterpretInteger(token):
         return None
     try:
         return int(token[1])
-    except:
+    except Exception:
         return None
 
 
@@ -585,7 +585,7 @@ def FilenameCheckHash(filename, literalfilename):
     elif filename.startswith("#b#"):
         try:
             return FCH_DATA, binascii.a2b_base64(filename[3:])
-        except:
+        except Exception:
             return FCH_ERROR, "base64"
     elif filename.startswith("#e#"):
         result = Interpret(filename[3:])
@@ -618,14 +618,14 @@ class cBinaryFile:
             try:
                 self.zipfile = zipfile.ZipFile(file, "r")
                 self.infile = self.zipfile.open(self.zipfile.infolist()[0], "r", C2BIP3("infected"))
-            except:
+            except Exception:
                 print("Error opening file %s" % file)
                 print(sys.exc_info()[1])
                 sys.exit()
         else:
             try:
                 self.infile = open(file, "rb")
-            except:
+            except Exception:
                 print("Error opening file %s" % file)
                 print(sys.exc_info()[1])
                 sys.exit()
@@ -1097,7 +1097,7 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
 
     except SystemExit:
         sys.exit()
-    except:
+    except Exception:
         attErrorOccured.nodeValue = "True"
         attErrorMessage.nodeValue = traceback.format_exc()
 
@@ -1455,11 +1455,11 @@ def PDFiD2JSON(xmlDoc, force):
 def File2Strings(filename):
     try:
         f = open(filename, "r")
-    except:
+    except Exception:
         return None
     try:
         return list(map(lambda line: line.rstrip("\n"), f.readlines()))
-    except:
+    except Exception:
         return None
     finally:
         f.close()

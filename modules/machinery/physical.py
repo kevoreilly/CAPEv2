@@ -82,7 +82,7 @@ class Physical(Machinery):
                 if (task["host"]["id"]) == hostID:
                     flag = False
             return flag
-        except:
+        except Exception:
             raise CuckooMachineError("Error while checking for fog task state for hostID " + str(hostID) + ": " + sys.exc_info()[0])
 
     def start(self, label):
@@ -140,7 +140,7 @@ class Physical(Machinery):
                             "http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT) + "/execute",
                             data={"command": "shutdown -r -f -t 0"},
                         )
-                    except:
+                    except Exception:
                         # The reboot will start immediately which may kill our socket so we just ignore this exception
                         log.debug("Socket killed from analysis machine due to reboot")
 
@@ -159,7 +159,7 @@ class Physical(Machinery):
                 r = requests.get(url + "/status")
                 print(r.text)
                 connection_succesful = True
-            except:
+            except Exception:
                 log.debug("Machine not reachable yet after reset")
                 sleep(3)
 
@@ -195,7 +195,7 @@ class Physical(Machinery):
             r = requests.get(url + "/status")
             print(r.text)
             return self.RUNNING
-        except:
+        except Exception:
             return self.STOPPED
 
         return self.ERROR

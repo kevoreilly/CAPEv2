@@ -68,7 +68,7 @@ class NymCfgStream(Stream):
     def next(self):
         try:
             h = self.dword()
-        except:
+        except Exception:
             raise StopIteration
 
         s = self.dword()

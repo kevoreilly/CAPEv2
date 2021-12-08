@@ -11,13 +11,13 @@ try:
     import pycares
 
     HAVE_CARES = True
-except:
+except Exception:
     HAVE_CARES = False
 
 # try:
 #    import gevent, gevent.socket
 #    HAVE_GEVENT = True
-# except:
+# except Exception:
 HAVE_GEVENT = False
 
 

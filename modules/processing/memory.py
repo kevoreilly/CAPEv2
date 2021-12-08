@@ -222,12 +222,12 @@ class VolatilityManager(object):
         if self.voptions.idt.enabled:
             try:
                 results["idt"] = vol.idt()
-            except:
+            except Exception:
                 pass
         if self.voptions.gdt.enabled:
             try:
                 results["gdt"] = vol.gdt()
-            except:
+            except Exception:
                 pass
         if self.voptions.timers.enabled:
             results["timers"] = vol.timers()

@@ -224,7 +224,7 @@ class Syslog(Report):
         # Generate the syslog string
         try:
             result = self.createLog(results)
-        except:
+        except Exception:
             raise CuckooReportError("Error creating syslog formatted log.")
 
         # Check if the user wants it stored in the reports directory as well
@@ -235,7 +235,7 @@ class Syslog(Report):
             try:
                 syslogfile = open(str(os.path.join(self.reports_path, logfile)), "w")
                 syslogfile.write(result)
-            except:
+            except Exception:
                 raise CuckooReportError("Error writing the syslog output file.")
             finally:
                 syslogfile.close()
@@ -248,7 +248,7 @@ class Syslog(Report):
                 # Attempt to send the syslog string to the syslog server
                 try:
                     sock.sendall(bytes(result, encoding="UTF-8"))
-                except:
+                except Exception:
                     raise CuckooReportError("Failed to send data to syslog server")
                 finally:
                     sock.close()
@@ -256,7 +256,7 @@ class Syslog(Report):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 try:
                     sock.sendto(bytes(result, encoding="UTF-8"), server_address)
-                except:
+                except Exception:
                     raise CuckooReportError("Failed to send data to syslog server")
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError("Failed to send syslog data: %s" % e)

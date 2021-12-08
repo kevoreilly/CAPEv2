@@ -286,7 +286,7 @@ class AnalysisManager(threading.Thread):
             for dirname in dirnames:
                 try:
                     os.makedirs(os.path.join(self.storage, dirname))
-                except:
+                except Exception:
                     pass
             return True
 

@@ -60,7 +60,7 @@ def check_apk_file(apk_file):
             if fn.lower() == "androidmanifest.xml":
                 bJar = True
                 return bJar
-    except:
+    except Exception:
         return bJar
 
 
@@ -98,11 +98,11 @@ if __name__ == "__main__":
     is_dir = False
     try:
         is_file = os.path.isfile(Filename[0])
-    except:
+    except Exception:
         pass
     try:
         is_dir = os.path.isdir(Directory[0])
-    except:
+    except Exception:
         pass
     logo()
     if Filename is not None and is_file:

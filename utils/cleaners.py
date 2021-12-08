@@ -85,7 +85,7 @@ def connect_to_es():
             ],
             timeout=60,
         )
-    except:
+    except Exception:
         log.warning("Unable to connect to ElasticSearch")
 
     return es, delidx
@@ -150,7 +150,7 @@ def delete_data(tid):
     try:
         log.info("removing %s from analysis db" % (tid))
         delete_mongo_data(tid)
-    except:
+    except Exception:
         log.info("failed to remove analysis info (may not exist) %s" % (tid))
     if db.delete_task(tid):
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
@@ -217,7 +217,7 @@ def cuckoo_clean():
     try:
         conn.drop_database(mdb)
         conn.close()
-    except:
+    except Exception:
         log.warning("Unable to drop MongoDB database: %s", mdb)
 
     if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -488,7 +488,7 @@ def cuckoo_clean_sorted_pcap_dump():
                     log.info((e["info"]["id"]))
                     try:
                         results_db.analysis.update({"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}})
-                    except:
+                    except Exception:
                         log.info(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap")

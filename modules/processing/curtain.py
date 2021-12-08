@@ -266,7 +266,7 @@ def formatReplace(inputString, MODFLAG):
     for value in indexList:
         try:
             stringOutput += stringList[value]
-        except:
+        except Exception:
             pass
     stringOutput = '"' + stringOutput + '")'
     # Replace original input with obfuscated group replaced
@@ -642,7 +642,7 @@ class Curtain(Processing):
             if file != "curtain.log":
                 try:
                     os.remove("%s/curtain/%s" % (self.analysis_path, file))
-                except:
+                except Exception:
                     pass
 
         pids = {}

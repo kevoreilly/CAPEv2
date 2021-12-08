@@ -38,7 +38,7 @@ class Process:
             status = open("/proc/%u/status" % self.pid).readlines()
             status_values = dict((i[0], i[1]) for i in [j.strip().split(None, 1) for j in status])
             return status_values
-        except:
+        except Exception:
             log.critical("could not get process status for pid %u", self.pid)
         return {}
 

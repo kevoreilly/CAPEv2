@@ -85,7 +85,7 @@ def decode_resource(rc_data, key_end, fname):
         rc4key = rc_data[-RC4_KEY_LENGTH:-4] + key_end
         dec_data = rc4(enc_data, rc4key)
         open(fname, "wb").write(dec_data)
-    except:
+    except Exception:
         return
     return dec_data
 
@@ -116,7 +116,7 @@ def load_resource(pe, data):
                 if resource_id == 104:
                     resource_id = ord(unpack("c", data[mr.start() + 21])[0])
                 break
-            except:
+            except Exception:
                 return
     if not mr:
         sys.exit("[!] Resource id not found.")
@@ -129,7 +129,7 @@ def load_resource(pe, data):
                         data_rva = entry.directory.entries[0].data.struct.OffsetToData
                         size = entry.directory.entries[0].data.struct.Size
                         rc_data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
-                    except:
+                    except Exception:
                         return
 
     return rc_data
@@ -138,7 +138,7 @@ def load_resource(pe, data):
 def config(data):
     try:
         dll = pefile.PE(data=data)
-    except:
+    except Exception:
         return None
 
     for pattern in CONFIG_PATTERNS:
@@ -148,7 +148,7 @@ def config(data):
                 (config_rva,) = unpack("=I", data[mc.start() + 3 : mc.start() + 7])
                 config_addr = dll.get_physical_by_rva(config_rva - dll.NT_HEADERS.OPTIONAL_HEADER.ImageBase)
                 enc_config_data = data[config_addr : config_addr + CONFIG_SIZE]
-            except:
+            except Exception:
                 return
 
     for pattern in RESOURCE_PATTERNS:
@@ -163,7 +163,7 @@ def config(data):
         enc_config = enc_config_data[4:]
         rc4key = enc_config_data[:4]
         config = rc4(enc_config, rc4key)
-    except:
+    except Exception:
         return
 
     return parse_config(config)

@@ -335,7 +335,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.terminate()
-                    except:
+                    except Exception:
                         continue
 
         # Run the finish callback of every available Auxiliary module.

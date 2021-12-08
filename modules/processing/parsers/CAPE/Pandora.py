@@ -74,7 +74,7 @@ def get_config(data):
                 cleaned = data.replace("\x00", "")
                 raw_config = cleaned.split("##")
                 return raw_config
-    except:
+    except Exception:
         return
 
 

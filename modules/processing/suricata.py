@@ -127,12 +127,12 @@ class Suricata(Processing):
             if os.path.exists(log_path):
                 try:
                     os.unlink(log_path)
-                except:
+                except Exception:
                     pass
         if os.path.isdir(SURICATA_FILES_DIR_FULL_PATH):
             try:
                 shutil.rmtree(SURICATA_FILES_DIR_FULL_PATH, ignore_errors=True)
-            except:
+            except Exception:
                 pass
 
         if not os.path.exists(SURICATA_CONF):
@@ -234,7 +234,7 @@ class Suricata(Processing):
             for line in data.splitlines():
                 try:
                     parsed = json.loads(line)
-                except:
+                except Exception:
                     log.warning("Suricata: Failed to parse line {} as json".format(line))
                     continue
 
@@ -259,12 +259,12 @@ class Suricata(Processing):
                             alog["sid"] = parsed["alert"]["signature_id"]
                             try:
                                 alog["srcport"] = parsed["src_port"]
-                            except:
+                            except Exception:
                                 alog["srcport"] = "None"
                             alog["srcip"] = parsed["src_ip"]
                             try:
                                 alog["dstport"] = parsed["dest_port"]
-                            except:
+                            except Exception:
                                 alog["dstport"] = "None"
                             alog["dstip"] = parsed["dest_ip"]
                             alog["protocol"] = parsed["proto"]
@@ -297,7 +297,7 @@ class Suricata(Processing):
                         for key, key_s in zip(keyword, keyword_suri):
                             try:
                                 hlog[key] = parsed["http"].get(key_s, "None")
-                            except:
+                            except Exception:
                                 hlog[key] = "None"
                         suricata["http"].append(hlog)
 

@@ -79,7 +79,7 @@ class PlugXConfig:
         protos = ["???", "???", "????", "TCP", "HTTP", "DNS", "UDP", "ICMP", "RAW", "???", "???"]
         try:
             ret = protos[proto] + "(%d)" % proto
-        except:
+        except Exception:
             ret = "UNKNOWN (%d)" % proto
         return ret
 

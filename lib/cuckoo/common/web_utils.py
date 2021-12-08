@@ -937,7 +937,7 @@ def perform_search(term, value, search_limit=False):
     elif term in ("surisid", "id"):
         try:
             query_val = int(value)
-        except:
+        except Exception:
             pass
     elif term in ("ids", "options", "tags_tasks"):
         try:
@@ -992,7 +992,7 @@ def perform_search(term, value, search_limit=False):
 def force_int(value):
     try:
         value = int(value)
-    except:
+    except Exception:
         value = 0
     finally:
         return value

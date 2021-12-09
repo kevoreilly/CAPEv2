@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import configparser
 
 
@@ -42,36 +43,31 @@ class Config:
         """Get analysis options.
         @return: options dict.
         """
-        # The analysis package can be provided with some options in the
-        # following format:
-        #   option1=value1,option2=value2,option3=value3
-        #
-        # Here we parse such options and provide a dictionary that will be made
-        # accessible to the analysis package.
         options = {}
         if hasattr(self, "options") and isinstance(self.options, str):
-            # Split the options by comma.
-            fields = self.options.split(",")
-            for field in fields:
-                # Split the name and the value of the option.
-                key, value = field.split("=", 1)
-                # If the parsing went good, we add the option to the dictionary.
-                options[key.strip()] = value.strip()
+            options = self.parse_options(self.options)
 
         return options
 
-    def parse_options(self, options):
+    @staticmethod
+    def parse_options(options):
         """Get analysis options.
         @return: options dict.
         """
         # The analysis package can be provided with some options in the
         # following format:
         #   option1=value1,option2=value2,option3=value3
+
+        # Here we parse such options and provide a dictionary that will be made
+        # accessible to the analysis package.
         ret = {}
+        # Split the options by comma.
         for field in options.split(","):
             if "=" not in field:
                 continue
 
+            # Split the name and the value of the option.
             key, value = field.split("=", 1)
+            # If the parsing went good, we add the option to the dictionary.
             ret[key.strip()] = value.strip()
         return ret

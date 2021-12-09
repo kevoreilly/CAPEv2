@@ -3,9 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
+import logging
 import os
 import subprocess
-import logging
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class Process:
         self.pid = pid
 
     def is_alive(self):
-        if not os.path.exists("/proc/%u" % self.pid):
+        if not os.path.exists(f"/proc/{self.pid}"):
             return False
         status = self.get_proc_status()
         if not status:
@@ -35,11 +36,12 @@ class Process:
 
     def get_proc_status(self):
         try:
-            status = open("/proc/%u/status" % self.pid).readlines()
-            status_values = dict((i[0], i[1]) for i in [j.strip().split(None, 1) for j in status])
+            with open(f"/proc/{self.pid}/status") as tempfile:
+                status = tempfile.readlines()
+            status_values = dict([j.strip().split(maxsplit=1) for j in status])
             return status_values
         except Exception:
-            log.critical("could not get process status for pid %u", self.pid)
+            log.critical(f"Could not get process status for pid {self.pid}")
         return {}
 
     def execute(self, cmd):

@@ -3,14 +3,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import random
 import logging
-from threading import Thread
-import time
-import subprocess
-import os
-from Xlib.display import Display
 import pyautogui
+import random
+import time
+from threading import Thread
+from Xlib.display import Display
 
 from lib.common.abstracts import Auxiliary
 
@@ -53,7 +51,7 @@ def destroyOfficeWindows(window):
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
         ]:
-            log.debug("Destroying: %s" % w.get_wm_class()[1])
+            log.debug(f"Destroying: {w.get_wm_class()[1]}")
             w.destroy()
         destroyOfficeWindows(w)
 
@@ -73,7 +71,7 @@ class Human(Thread, Auxiliary):
         self.initComplete = False
         self.thread = Thread(target=self.run)
         self.thread.start()
-        while self.initComplete == False:
+        while not self.initComplete:
             self.thread.join(0.5)
 
         log.debug("Human init complete")

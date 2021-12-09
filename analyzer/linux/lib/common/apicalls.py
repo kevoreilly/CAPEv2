@@ -3,18 +3,17 @@
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
 from __future__ import absolute_import
-import os
-import json
-from getpass import getuser
+
 import logging
+import os
+# from getpass import getuser
+
 from lib.core.config import Config
-from lib.common.common import sanitize_path, path_for_script, filelines, current_directory
 
 log = logging.getLogger(__name__)
 
 
 def apicalls(target, **kwargs):
-    """ """
     if not target:
         raise Exception("Invalid target for apicalls()")
 
@@ -34,36 +33,29 @@ def _stap_command_line(target, **kwargs):
     path_cfg = config.get("analyzer_stap_path")
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
-    elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
-        path = has_stap("/root/.cuckoo")
-    elif os.path.exists("/home/user/.cuckoo") and has_stap("/home/user/.cuckoo"):
-        path = has_stap("/home/user/.cuckoo")
+    elif os.path.exists(os.path.join("/root", ".cuckoo")) and has_stap(os.path.join("/root", ".cuckoo")):
+        path = has_stap(os.path.join("/root", ".cuckoo"))
+    elif os.path.exists(os.path.join("/home", "user", ".cuckoo")) and has_stap(os.path.join("/home", "user", ".cuckoo")):
+        path = has_stap(os.path.join("/home", "user", ".cuckoo"))
     else:
-        log.warning("Could not find STAP LKM, aborting systemtap analysis.")
+        log.warning("Could not find STAP LKM, aborting systemtap analysis")
         return False
 
-    run_as_root = kwargs.get("run_as_root", False)
+    # cmd = ["sudo", "staprun", "-vv", "-o", "stap.log", path]
+    cmd = f"sudo staprun -vv -o stap.log {path}"
 
-    # cmd = ["sudo"]
-    # cmd += ["staprun"]
-    # cmd += ["-vv"]
-    # cmd += ["-o"]
-    # cmd += ["stap.log"]
-    # cmd += [path]
-    cmd = "sudo staprun -vv -o stap.log " + path
-
-    run_as_root = kwargs.get("run_as_root", False)
-
+    target_cmd = f'"{target}"'
     if "args" in kwargs:
-        target_cmd = '"%s %s"' % (target, " ".join(kwargs["args"]))
-    else:
-        target_cmd = '"%s"' % (target)
+        target_cmd += f'" {" ".join(kwargs["args"])}"'
 
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
+
+    # run_as_root = kwargs.get("run_as_root", False)
     # if not run_as_root:
-    #    target_cmd = '"sudo -u %s %s"' % (getuser(), target_cmd)
-    #    cmd += "-DSUDO=1"
+    #    target_cmd = f'"sudo -u {getuser()} {target_cmd}"'
+    #    cmd += " -DSUDO=1"
+
     # cmd += ["-c", target_cmd]
-    cmd += " -c " + target_cmd
+    cmd += f" -c {target_cmd}"
     return cmd

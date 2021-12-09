@@ -1,15 +1,15 @@
+import hashlib
+import logging
 import os
 import time
-import logging
-import hashlib
 from threading import Thread
+
 from lib.common.abstracts import Auxiliary
-from lib.common.results import upload_to_host
 from lib.common.hashing import hash_file
+from lib.common.results import upload_to_host
 
 try:
     import pyinotify
-
     HAVE_PYINOTIFY = True
 except ImportError:
     HAVE_PYINOTIFY = False
@@ -42,7 +42,7 @@ class FileCollector(Auxiliary, Thread):
         self.initComplete = False
         self.thread = Thread(target=self.run)
         self.thread.start()
-        while self.initComplete == False:
+        while not self.initComplete:
             self.thread.join(0.5)
 
         log.info("FileCollector init complete")
@@ -51,6 +51,7 @@ class FileCollector(Auxiliary, Thread):
 
         if not HAVE_PYINOTIFY:
             log.info("Missed dependency: pip3 install pyinotify")
+            return False
 
         log.info("FileCollector run started")
 
@@ -78,18 +79,18 @@ class FileCollector(Auxiliary, Thread):
             "var",  # we don't want to collect log files
             "lib",
             "lib64",
-            #                 "sbin",
-            #                 "etc",
+            # "sbin",
+            # "etc",
             "run",  # lots of spurious files
-            #                 "bin",
-            #                 "boot",
-            #                 "media",
-            #                 "srv"
+            # "bin",
+            # "boot",
+            # "media",
+            # "srv"
         ]
 
         for filename in os.listdir("/"):
             if os.path.isdir("/" + filename) and filename not in ignore:
-                log.info("FileCollector trying to watch dir %s" % (filename))
+                log.info(f"FileCollector trying to watch dir {filename}")
                 watch_this = os.path.abspath("/" + filename)
                 self.watch_manager.add_watch(watch_this, flags, rec=True, auto_add=True)
 
@@ -102,28 +103,28 @@ class FileCollector(Auxiliary, Thread):
                 if self.event_notifier.check_events():
                     self.event_notifier.read_events()
         except Exception as e:
-            log.error("Exception in loop %s", e)
+            log.error(f"Exception in loop {e}")
 
         log.info("FileCollector run completed")
 
         return True
 
     def process_generator(self, cls, method):
-        # log.info("Generating message %s", method)
+        # log.info(f"Generating message {method}", )
         def _method_name(self, event):
             try:
-                # log.info("Got file %s %s", event.pathname, method)
+                # log.info(f"Got file {event.pathname} {method}")
 
                 if not self.do_collect:
-                    # log.info("Not currently set to collect %s", event.pathname)
+                    # log.info(f"Not currently set to collect {event.pathname}")
                     return
 
                 if event.pathname.startswith("/tmp/#"):
-                    # log.info("skipping wierd file %s", event.pathname)
+                    # log.info(f"Skipping wierd file {event.pathname}")
                     return
 
                 if not os.path.isfile(event.pathname):
-                    # log.info("Path is a directory or does not exist, ignoring: %s", event.pathname)
+                    # log.info(f"Path is a directory or does not exist, ignoring: {event.pathname}")
                     return
 
                 if os.path.basename(event.pathname) == "stap.log":
@@ -131,26 +132,26 @@ class FileCollector(Auxiliary, Thread):
 
                 for x in range(0, 1):
                     try:
-                        # log.info("trying to collect file %s", event.pathname)
+                        # log.info(f"Trying to collect file {event.pathname}")
                         sha256 = hash_file(hashlib.sha256, event.pathname)
-                        filename = "%s_%s" % (sha256[:16], os.path.basename(event.pathname))
+                        filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
                         if filename in self.uploadedHashes:
-                            # log.info("already collected file %s", event.pathname)
+                            # log.info(f"Already collected file {event.pathname}")
                             return
                         upload_path = os.path.join("files", filename)
                         upload_to_host(event.pathname, upload_path)
                         self.uploadedHashes.append(filename)
                         return
                     except Exception as e:
-                        log.info('Error dumping file from path "%s": %s', event.pathname, e)
+                        log.info(f'Error dumping file from path "{event.pathname}": {e}')
 
-                    # log.info("retrying %s", event.pathname)
+                    # log.info(f"Retrying {event.pathname}")
                     time.sleep(1)
 
             except Exception as e:
-                log.error("Exception processing event %s", e)
+                log.error(f"Exception processing event {e}")
 
-        _method_name.__name__ = "process_{}".format(method)
+        _method_name.__name__ = f"process_{method}"
         setattr(cls, _method_name.__name__, _method_name)
 
 

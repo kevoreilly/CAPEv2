@@ -3,8 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
+
 import logging
+import os
 import socket
 import time
 
@@ -18,24 +19,22 @@ BUFSIZE = 1024 * 1024
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
     if not os.path.exists(file_path):
-        log.warning("File not exist: {}".format(file_path))
+        log.warning(f"File not exist: {file_path}")
         return
 
     try:
         nc = NetlogFile()
-        # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
+        # nc = NetlogBinary(file_path.encode(errors="replace"), dump_path, duplicate)
         nc.init(dump_path, file_path, pids, metadata, category)
-        infd = open(file_path, "rb")  # rb
-        buf = infd.read(BUFSIZE)
-        log.info("Uploading file {} to host -> {}".format(file_path, dump_path))
-        while buf:
-            nc.send(buf, retry=True)
+        with open(file_path, "rb") as infd:
             buf = infd.read(BUFSIZE)
+            log.info(f"Uploading file {file_path} to host -> {dump_path}")
+            while buf:
+                nc.send(buf, retry=True)
+                buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
+        log.error(f"Exception uploading file {file_path} to host: {e}", exc_info=True)
     finally:
-        if infd:
-            infd.close()
         if nc:
             nc.close()
 
@@ -74,9 +73,9 @@ class NetlogConnection(object):
                 self.connect()
                 self.send(data, retry=False)
             else:
-                print(("Unhandled exception in NetlogConnection:", str(e)))
+                print(f"Unhandled exception in NetlogConnection: {e}")
         except Exception as e:
-            log.error(("Unhandled exception in NetlogConnection:", str(e)))
+            log.error(f"Unhandled exception in NetlogConnection: {e}")
             # We really have nowhere to log this, if the netlog connection
             # does not work, we can assume that any logging won't work either.
             # So we just fail silently.
@@ -96,10 +95,10 @@ class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
             NetlogConnection.__init__(
-                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
+                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode(errors="replace"), guest_path)
             )
         else:
-            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
+            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode(errors="replace"), guest_path))
         self.connect()
 
 
@@ -114,14 +113,14 @@ class NetlogFile(NetlogConnection):
             pids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n" % (
-                dump_path.encode("utf8"),
-                filepath.encode("utf-8", "replace"),
-                pids.encode("utf8") if isinstance(pids, str) else pids,
-                metadata.encode("utf8") if isinstance(metadata, str) else metadata,
-                category.encode("utf8") if isinstance(category, str) else category,
+                dump_path.encode(),
+                filepath.encode(errors="replace"),
+                pids.encode() if isinstance(pids, str) else pids,
+                metadata.encode() if isinstance(metadata, str) else metadata,
+                category.encode() if isinstance(category, str) else category,
             )
         else:
-            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
+            self.proto = b"FILE\n%s\n" % dump_path.encode()
         self.connect()
 
 
@@ -133,4 +132,4 @@ class NetlogHandler(logging.Handler, NetlogConnection):
 
     def emit(self, record):
         msg = self.format(record)
-        self.send(msg.encode("utf-8") + b"\n")
+        self.send(msg.encode() + b"\n")

@@ -302,7 +302,7 @@
                 <th></th><td>
                 <div class="collapse" id="text_{{sub_file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{sub_file.data|safe}}</pre>
+                    <pre>{{sub_file.data|escape}}</pre>
                     </div>
                 </div>
             </td>
@@ -313,7 +313,7 @@
                 <th></th><td>
                 <div class="collapse" id="decoded_files_{{sub_file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{sub_file.decoded_files|safe}}</pre>
+                    <pre>{{sub_file.decoded_files|escape}}</pre>
                     </div>
                 </div>
             </td>

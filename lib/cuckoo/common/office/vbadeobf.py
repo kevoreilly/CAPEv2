@@ -17,7 +17,12 @@ from os.path import exists
 
 # Regexs from Decalages olevba.py + a commonly observed path regex.
 PATTERNS = (
-    ("URL", re.compile(r"(http|https|ftp)\://[a-zA-Z0-9\-\.]+(:[a-zA-Z0-9]*)?/?([a-zA-Z0-9\-\._\?\,/\\\+&amp;%\$#\=~])*[^\.\,\)\(\'\s]")),
+    (
+        "URL",
+        re.compile(
+            r"(http|https|ftp)\://[a-zA-Z0-9\-\.]+(:[a-zA-Z0-9]*)?/?([a-zA-Z0-9\-\._\?\,/\\\+&amp;%\$#\=~])*[^\.\,\)\(\'\s]"
+        ),
+    ),
     (
         "IPv4 address",
         re.compile(r"\b(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\b"),
@@ -79,7 +84,7 @@ def decode_base64(m):
 
     try:
         decoded = s.decode("base64")
-    except:
+    except Exception:
         return s
 
     if not is_printable(decoded):
@@ -124,7 +129,7 @@ def decrypt_sub(m):
         second = int([c for c in m.group(2) if c.isdigit()])
         if first and second:
             return chr(first - second)
-    except:
+    except Exception:
         pass
     return m.group()
 

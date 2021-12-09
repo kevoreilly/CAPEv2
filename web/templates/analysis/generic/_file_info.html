@@ -238,42 +238,14 @@
                 {% if file.data %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                 {% endif %}
-                {% if file.msitools %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#msitools_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="msitools_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display MSI extracted files"><span class="fas fa-archive"></span> MSI</a>
+                {% if file.decoded_files %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
-                {% if file.kixtart %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#kixtart_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="kixtart_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Kixtart extracted files"><span class="fas fa-archive"></span> Kixtart</a>
+                {% if file.extracted_files %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}}</a>
                 {% endif %}
             </td>
         </tr>
-        {% endif %}
-        {% if file.msitools %}
-            <tr>
-                <th></th><td>
-                <div class="collapse" id="msitools_{{file.sha256}}">
-                    <div class="card card-body">
-                        {% for sub_file in file.msitools %}
-                            {% include "analysis/generic/_subfile_info.html" %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </td>
-            </tr>
-            </br>
-        {% endif %}
-        {% if file.kixtart %}
-            <tr>
-                <th></th><td>
-                <div class="collapse" id="kixtart_{{file.sha256}}">
-                    <div class="card card-body">
-                        {% for sub_file in file.kixtart %}
-                            {% include "analysis/generic/_subfile_info.html" %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </td>
-            </tr>
-            </br>
         {% endif %}
         {% if file.flare_capa %}
             <tr>
@@ -331,11 +303,36 @@
                 <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{file.data|safe}}</pre>
+                    <pre>{{file.data|escape}}</pre>
                     </div>
                 </div>
             </td>
             </tr>
+        {% endif %}
+        {% if file.decoded_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="decoded_files_{{file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{file.decoded_files|escape}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+        {% if file.extracted_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="extracted_files_{{file.sha256}}">
+                    <div class="card card-body">
+                        {% for sub_file in file.extracted_files %}
+                            {% include "analysis/overview/_subfile_info.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
         {% endif %}
     </table>
 </div>

@@ -11,8 +11,8 @@ Create Date: 2020-11-19 15:14:27.973963
 """
 
 # revision identifiers, used by Alembic.
-revision = 'c554ed5f32a0'
-down_revision = '2996ec5ea15c'
+revision = "c554ed5f32a0"
+down_revision = "2996ec5ea15c"
 
 import sys
 import os.path

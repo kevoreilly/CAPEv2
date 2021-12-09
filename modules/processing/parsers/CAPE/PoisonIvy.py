@@ -6,7 +6,7 @@ from struct import unpack
 def calc_length(byte_str):
     try:
         return unpack("<H", byte_str)[0]
-    except:
+    except Exception:
         return None
 
 
@@ -45,7 +45,7 @@ def walk_data(data):
             this.append((date_type, "".join(temp)))
             offset += length + 4
             max_count += 1
-        except:
+        except Exception:
             return this
     return this
 
@@ -135,5 +135,5 @@ def config(data):
         final_config = extract_config(two)
         domain_data = domain_parse(final_config)
         return [final_config, domain_data]
-    except:
+    except Exception:
         return None

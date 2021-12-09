@@ -246,7 +246,7 @@ class Disguise(Auxiliary):
         keyPath = "SOFTWARE\\Microsoft\\Cryptography"
 
         # Determing if the machine is 32 or 64 bit and open the registry key
-        if platform.machine().endswith('64'):
+        if platform.machine().endswith("64"):
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
         else:
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)

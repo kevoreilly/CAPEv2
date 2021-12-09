@@ -240,9 +240,9 @@ class CAPE(Processing):
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
-                    log.debug("CAPE: Imported malwareconfig.com parser %s", cape_name)
+                    log.debug("CAPE: Imported parser %s", cape_name)
                 except ImportError:
-                    log.debug("CAPE: malwareconfig.com parser: No module named %s", cape_name)
+                    log.debug("CAPE: parser: No module named %s", cape_name)
                 if malwareconfig_loaded:
                     try:
                         script_data = module.config(self, data)
@@ -256,15 +256,15 @@ class CAPE(Processing):
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
                                 outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
+                                # with open(filepath + "_info.txt", "w") as infofd:
+                                #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
                                 outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
+                                # with open(filepath + "_info.txt", "w") as infofd:
+                                #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
                             if os.path.exists(filepath):
@@ -392,6 +392,7 @@ class CAPE(Processing):
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
                     "pids": entry["pids"],
+                    "ppids": entry["ppids"],
                     "filepath": entry["filepath"],
                     "metadata": entry["metadata"],
                 }

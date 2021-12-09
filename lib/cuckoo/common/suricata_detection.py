@@ -77,14 +77,8 @@ suricata_blocklist = (
     "suspicious",
 )
 
-et_categories = (
-    "ET TROJAN",
-    "ETPRO TROJAN",
-    "ET MALWARE",
-    "ETPRO MALWARE",
-    "ET CNC",
-    "ETPRO CNC"
-)
+et_categories = ("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ETPRO MALWARE", "ET CNC", "ETPRO CNC")
+
 
 def get_suricata_family(signature):
     """

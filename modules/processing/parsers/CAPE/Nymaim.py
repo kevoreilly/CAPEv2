@@ -68,7 +68,7 @@ class NymCfgStream(Stream):
     def next(self):
         try:
             h = self.dword()
-        except:
+        except Exception:
             raise StopIteration
 
         s = self.dword()
@@ -214,7 +214,9 @@ class NymaimExtractor:
                     parsed["fake_error_message"] = raw
                 elif hash == self.CFG_PEER_DOMAINS:
                     parsed["domains"] += [{"cnc": x} for x in raw.split(";") if x]
-                elif (all(c in string.printable for c in raw) and len(raw) > 3) or len([c for c in raw if c in string.printable]) > 10:
+                elif (all(c in string.printable for c in raw) and len(raw) > 3) or len(
+                    [c for c in raw if c in string.printable]
+                ) > 10:
                     if "other_strings" not in parsed:
                         parsed["other_strings"] = {}
                     parsed["other_strings"][hex(hash)] = raw.encode("hex")

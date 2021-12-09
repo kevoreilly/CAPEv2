@@ -48,7 +48,7 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
 
 
 def _found_target_class(module, name):
-    """ Searches for a class with the specific name: it should be
+    """Searches for a class with the specific name: it should be
     equal to capitalized $name.
     """
     members = inspect.getmembers(module, inspect.isclass)
@@ -77,7 +77,7 @@ def _guess_package_name(file_type, file_name):
 
 
 class Package(object):
-    """ Base analysis package """
+    """Base analysis package"""
 
     def __init__(self, target, **kwargs):
         if not target:
@@ -87,7 +87,7 @@ class Package(object):
         # Any analysis options?
         self.options = kwargs.get("options", {})
         # A timeout for analysis
-        self.timeout = kwargs.get("timeout", None)
+        self.timeout = kwargs.get("timeout")
         # Command-line arguments for the target.
 
         self.args = self.options.get("args", [])
@@ -96,7 +96,7 @@ class Package(object):
         # Should our target be launched as root or not
         self.run_as_root = _string_to_bool(self.options.get("run_as_root", "False"))
         # free: do not inject our monitor.
-        self.free = self.options.get("free", None)
+        self.free = self.options.get("free")
         self.proc = None
         self.pids = []
 
@@ -107,11 +107,11 @@ class Package(object):
         self.pids = pids
 
     def prepare(self):
-        """ Preparation routine. Do anything you want here. """
+        """Preparation routine. Do anything you want here."""
         pass
 
     def start(self):
-        """ Runs an analysis process.
+        """Runs an analysis process.
         This function is a generator.
         """
         target_name = self.options.get("filename")
@@ -135,6 +135,7 @@ class Package(object):
         else:
             raise Exception("Unsupported analysis method. Try `apicalls`.")
         """
+
     def check(self):
         """Check."""
         return True
@@ -167,7 +168,9 @@ class Package(object):
         cmd = apicalls(self.target, **kwargs)
         stap_start = time.time()
         log.info(cmd)
-        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
+        self.proc = subprocess.Popen(
+            cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
+        )
 
         while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
             # log.debug(self.proc.stderr.readline())
@@ -183,7 +186,9 @@ class Package(object):
         # cmd = apicalls(self.target, **kwargs)
         cmd = "%s %s" % (self.target, " ".join(kwargs["args"]))
         stap_start = time.time()
-        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
+        self.proc = subprocess.Popen(
+            cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
+        )
 
         log.debug(self.proc.stderr.readline())
 

@@ -31,7 +31,7 @@ def main():
                 extra += ", HAS PE"
             print("0x%x: " % offset + "(0x%x" % addr + " -> " + "0x%x)" % (addr + size) + extra)
             f.seek(size - 2, 1)
-    except:
+    except Exception:
         print("Unable to open {0}.".format(sys.argv[1]))
         return None
 

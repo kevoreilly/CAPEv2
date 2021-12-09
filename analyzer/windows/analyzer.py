@@ -100,7 +100,7 @@ def add_pid_to_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.add_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -108,7 +108,7 @@ def del_pid_from_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.del_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -623,7 +623,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()
-                    except:
+                    except Exception:
                         log.error("Unable to set terminate event for process %d.", proc.pid)
                         continue
                     log.info("Terminate event set for process %d.", proc.pid)
@@ -637,7 +637,7 @@ class Analyzer:
                             if proc_counter > 5:
                                 try:
                                     proc.terminate()
-                                except:
+                                except Exception:
                                     continue
                             log.info("Waiting for process %d to exit.", proc.pid)
                             KERNEL32.Sleep(1000)
@@ -783,8 +783,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category,
-                           duplicated=duplicated)
+            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -872,14 +871,14 @@ class CommandPipeHandler(object):
         """Debug message from the monitor."""
         try:
             log.debug(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
         try:
             log.info(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_warning(self, data):
@@ -1261,8 +1260,13 @@ class CommandPipeHandler(object):
         # Syntax -> PATH|PID|PPID|Metadata
         file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")],
-                                          ppids=[ppid.decode("utf-8")], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(
+                file_path.decode("utf-8"),
+                pids=[pid.decode("utf-8")],
+                ppids=[ppid.decode("utf-8")],
+                metadata=metadata,
+                category="CAPE",
+            )
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1281,8 +1285,13 @@ class CommandPipeHandler(object):
             # Syntax -> PATH|PID|PPID|Metadata
             file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")],
-                                              ppids=[ppid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(
+                    file_path.decode("utf-8"),
+                    pids=[pid.decode("utf-8")],
+                    ppids=[ppid.decode("utf-8")],
+                    metadata=metadata,
+                    category="procdump",
+                )
 
         else:
             if os.path.exists(file_path):

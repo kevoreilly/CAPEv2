@@ -32,20 +32,24 @@ yara_rules = yara.compile(source=rule_source)
 
 MAX_STRING_SIZE = 32
 
+
 def string_from_offset(data, offset):
     string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
     return string
 
+
 def extract_rdata(pe):
     for section in pe.sections:
-        if b'.rdata' in section.Name:
+        if b".rdata" in section.Name:
             return section.get_data(section.VirtualAddress, section.SizeOfRawData)
     return None
+
 
 def xor_data(data, key):
     key = [q for q in key]
     data = [q for q in data]
     return bytes([c ^ k for c, k in zip(data, cycle(key))])
+
 
 def config(data):
     config = dict()
@@ -59,16 +63,16 @@ def config(data):
         rdata = extract_rdata(pe)
         if len(rdata) == 0:
             return config
-        chunks = [x for x in rdata.split(b'\x00') if x != b'']
+        chunks = [x for x in rdata.split(b"\x00") if x != b""]
         for i in range(len(chunks)):
             if len(chunks[i]) > 100:
                 try:
-                    decrypted = xor_data(chunks[i], chunks[i+1]).decode("utf-8")
-                    if '\r\n' in decrypted and '|' not in decrypted:
+                    decrypted = xor_data(chunks[i], chunks[i + 1]).decode("utf-8")
+                    if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
-                    elif '|' in decrypted and '.' in decrypted and '\r\n' not in decrypted:
+                    elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:
                         config["URLs"] = list(filter(None, decrypted.split("|")))
-                except:
+                except Exception:
                     continue
         matches = yara_rules.match(data=data)
         if not matches:
@@ -77,7 +81,7 @@ def config(data):
             if match.rule != "SquirrelWaffle":
                 continue
             for item in match.strings:
-                if '$c2key' in item[1]:
+                if "$c2key" in item[1]:
                     c2key_offset = int(item[0])
                     key_rva = struct.unpack("i", data[c2key_offset + 28 : c2key_offset + 32])[0] - pe.OPTIONAL_HEADER.ImageBase
                     key_offset = pe.get_offset_from_rva(key_rva)

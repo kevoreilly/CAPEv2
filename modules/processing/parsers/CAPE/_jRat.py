@@ -53,7 +53,7 @@ def get_parts(data):
                     dropper = zip.read(name)
                 if name == "config.dat":  # this is the encrypted config file
                     conf = zip.read(name)
-    except:
+    except Exception:
         print("[+] Dropped File is not Jar File starts with Hex Chars: {0}".format(data[:5].encode("hex")))
         return None, None
     if enckey and conf:
@@ -74,7 +74,7 @@ def get_dropper(enckey, dropper):
         try:
             drop = b64decode(x).decode("hex")
             print("    [-] {0}".format(drop).replace("\x0d\x0a", ""))
-        except:
+        except Exception:
             drop = b64decode(x[16:]).decode("hex")
             print("    [-] {0}".format(drop))
     new_zipdata = decrypt_aes(key, dropper)

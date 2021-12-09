@@ -42,7 +42,9 @@ class Cents(Report):
         """
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")  # md5 of the sample
-        date = datetime_to_iso(results.get("info", {}).get("started", "")).split("T", 1)[0].replace("-", "_")  # timestamp of the sample run
+        date = (
+            datetime_to_iso(results.get("info", {}).get("started", "")).split("T", 1)[0].replace("-", "_")
+        )  # timestamp of the sample run
         task_id = int(results.get("info", {}).get("id", 0))  # task id of the analysis run
         task_link = f"{self.hostname}/analysis/{task_id}/"
         if self.hostname.endswith("/"):

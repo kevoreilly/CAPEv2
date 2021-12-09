@@ -36,6 +36,7 @@ log = logging.getLogger()
 
 check_linux_dist()
 
+
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)

@@ -9,10 +9,7 @@ from lib.common.abstracts import Package
 class Python(Package):
     """Python analysis package."""
 
-    PATHS = [
-        ("HomeDrive", "Python*", "python.exe"),
-        ("SystemRoot", "py.exe")
-    ]
+    PATHS = [("HomeDrive", "Python*", "python.exe"), ("SystemRoot", "py.exe")]
 
     def start(self, path):
         python = self.get_path_glob("Python")

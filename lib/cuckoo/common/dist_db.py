@@ -11,7 +11,8 @@ from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 
-schema = 'b0fa23c3c9c0'
+schema = "b0fa23c3c9c0"
+
 
 class ExitNodes(Base):
     """Exit nodes to route traffic."""
@@ -149,7 +150,7 @@ class Task(Base):
 
 def create_session(db_connectionn, echo=False):
     # ToDo add chema version check
-    engine = create_engine(db_connectionn, echo=echo) # pool_size=40, max_overflow=0,
+    engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
     Base.metadata.create_all(engine)
     session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
     return session

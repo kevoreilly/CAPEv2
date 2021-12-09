@@ -58,7 +58,7 @@ def decrypt_string(key, salt, coded):
     return value
 
 
-# except:
+# except Exception:
 # return False
 
 # Get a list of strings from a section

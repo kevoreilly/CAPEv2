@@ -62,7 +62,10 @@ class VMware(Machinery):
         """
         try:
             p = subprocess.Popen(
-                [self.options.vmware.path, "listSnapshots", vmx_path], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                [self.options.vmware.path, "listSnapshots", vmx_path],
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
             output, _ = p.communicate()
         except OSError as e:
@@ -71,7 +74,9 @@ class VMware(Machinery):
             if output:
                 return snapshot in output
             else:
-                raise CuckooMachineError("Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path)
+                raise CuckooMachineError(
+                    "Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path
+                )
 
     def start(self, vmx_path):
         """Start a virtual machine.
@@ -148,7 +153,9 @@ class VMware(Machinery):
         @return: running status
         """
         try:
-            p = subprocess.Popen([self.options.vmware.path, "list"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                [self.options.vmware.path, "list"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             output, error = p.communicate()
         except OSError as e:
             raise CuckooMachineError("Unable to check running status for %s. " "Reason: %s" % (vmx_path, e))
@@ -169,7 +176,9 @@ class VMware(Machinery):
         """Take a memory dump of the machine."""
         if not os.path.exists(vmx_path):
             raise CuckooMachineError(
-                "Can't find .vmx file {0}. Ensure to configure a fully qualified path in vmware.conf (key = vmx_path)".format(vmx_path)
+                "Can't find .vmx file {0}. Ensure to configure a fully qualified path in vmware.conf (key = vmx_path)".format(
+                    vmx_path
+                )
             )
 
         try:

@@ -61,7 +61,7 @@ class Sysmon(Processing):
             if f != lastlog:
                 try:
                     os.remove("%s/sysmon/%s" % (self.analysis_path, f))
-                except:
+                except Exception:
                     log.error("Failed to remove sysmon file log %s" % f)
 
         os.rename("%s/sysmon/%s" % (self.analysis_path, lastlog), "%s/sysmon/sysmon.xml" % self.analysis_path)

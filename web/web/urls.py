@@ -18,6 +18,7 @@ else:
 
 if settings.TWOFA:
     from django_otp.admin import OTPAdminSite
+
     admin.site.__class__ = OTPAdminSite
 
 admin.site.site_header = "CAPE Administration"
@@ -29,11 +30,11 @@ from compare import urls as compare
 from submission import urls as submission
 from apiv2 import urls as apiv2
 
-handler403 = 'web.views.handler403'
-handler404 = 'web.views.handler404'
+handler403 = "web.views.handler403"
+handler404 = "web.views.handler404"
 
 urlpatterns = [
-    path('accounts/', include('allauth.urls')),
+    path("accounts/", include("allauth.urls")),
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     url(r"^$", dashboard_views.index, name="dashboard"),
     url(r"^admin/", admin.site.urls),
@@ -42,10 +43,14 @@ urlpatterns = [
     url(r"^submit/", include(submission)),
     url(r"^apiv2/", include(apiv2)),
     url(r"^file/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", analysis_views.file, name="file"),
-    url(r"^vtupload/(?P<category>\w+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"),
+    url(
+        r"^vtupload/(?P<category>\w+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"
+    ),
     url(r"^filereport/(?P<task_id>\w+)/(?P<category>\w+)/$", analysis_views.filereport, name="filereport"),
     url(r"^full_memory/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_file, name="full_memory_dump_file"),
-    url(r"^full_memory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_strings, name="full_memory_dump_strings"),
+    url(
+        r"^full_memory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_strings, name="full_memory_dump_strings"
+    ),
     url(r"^dashboard/", include(dashboard)),
-    url(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name='statistics_data')
+    url(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
 ]

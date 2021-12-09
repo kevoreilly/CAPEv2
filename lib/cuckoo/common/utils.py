@@ -120,9 +120,12 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
 
         if len(file_data) > buf:
             data = file_data[:buf] + b" <truncated>"
-            file_info.setdefault("data", data.decode())
+            file_info.setdefault("data", data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
+
         else:
             file_info.setdefault("data", file_data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
 
 
 def create_zip(files=False, folder=False, encrypted=False):
@@ -481,7 +484,7 @@ def pretty_print_retval(status, retval):
         0xC0000142: "DLL_INIT_FAILED",
         0xC000014B: "PIPE_BROKEN",
         0xC0000225: "NOT_FOUND",
-    }.get(val, None)
+    }.get(val)
 
 
 def pretty_print_arg(category, api_name, arg_name, arg_val):

@@ -37,8 +37,8 @@ if repconf.mongodb.enabled:
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.db]
 
@@ -56,6 +56,22 @@ try:
     HAVE_KIXTART = True
 except ImportError:
     HAVE_KIXTART = False
+
+try:
+    from lib.cuckoo.common.integrations.vbe_decoder import decode_file as vbe_decode_file
+
+    HAVE_VBE_DECODER = True
+except ImportError:
+    HAVE_VBE_DECODER = False
+
+try:
+    from batch_deobfuscator.batch_interpreter import BatchDeobfuscator, handle_bat_file
+
+    batch_deobfuscator = BatchDeobfuscator()
+    HAVE_BAT_DECODER = True
+except ImportError:
+    HAVE_BAT_DECODER = False
+    print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 
 def init_yara():
@@ -278,9 +294,35 @@ def static_config_parsers(yara_hit, file_data):
     cape_config = dict()
     cape_config[cape_name] = dict()
     parser_loaded = False
+    # CAPE - pure python parsers
+    # MWCP
+    # RatDecoders
+    # MalDuck
     # Attempt to import a parser for the hit
+    if HAVE_CAPE_EXTRACTORS and cape_name in cape_malware_parsers:
+        logging.debug("Running CAPE")
+        try:
+            # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
+            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
+            if isinstance(cape_configraw, list):
+                for (key, value) in cape_configraw[0].items():
+                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
+            elif isinstance(cape_configraw, dict):
+                for (key, value) in cape_configraw.items():
+                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
+                    if isinstance(value, map):
+                        value = list(value)
+                    cape_config[cape_name].update({key: [value]})
+                parser_loaded = True
+        except Exception as e:
+            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
+
     # DC3-MWCP
-    if HAS_MWCP and cape_name and cape_name in malware_parsers:
+    if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
         logging.debug("Running MWCP")
         try:
             reporter = mwcp.Reporter()
@@ -311,28 +353,6 @@ def static_config_parsers(yara_hit, file_data):
             logging.error("pefile PEFormatError")
         except Exception as e:
             logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
-
-    if HAVE_CAPE_EXTRACTORS and not parser_loaded and cape_name in cape_malware_parsers:
-        logging.debug("Running CAPE")
-        try:
-            # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
-            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
-            if isinstance(cape_configraw, list):
-                for (key, value) in cape_configraw[0].items():
-                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
-                    if isinstance(value, map):
-                        value = list(value)
-                    cape_config[cape_name].update({key: [value]})
-                parser_loaded = True
-            elif isinstance(cape_configraw, dict):
-                for (key, value) in cape_configraw.items():
-                    # python3 map object returns iterator by default, not list and not serializeable in JSON.
-                    if isinstance(value, map):
-                        value = list(value)
-                    cape_config[cape_name].update({key: [value]})
-                parser_loaded = True
-        except Exception as e:
-            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         logging.debug("Running Malwareconfigs")
@@ -485,8 +505,77 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract):
-        funcname(file, destination_folder, filetype, data_dictionary)
+    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract):
+        try:
+            funcname(file, destination_folder, filetype, data_dictionary)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+
+def _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, tool_name):
+    with tempfile.TemporaryDirectory(prefix=tool_name) as tempdir:
+        decoded_file_path = os.path.join(tempdir, f"{os.path.basename(file)}_decoded")
+        with open(decoded_file_path, "wb") as f:
+            f.write(decoded)
+
+    metadata = list()
+    metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("decoded_files", metadata)
+        data_dictionary.setdefault("decoded_files_tool", tool_name)
+
+
+def batch_extract(file, destination_folder, filetype, data_dictionary):
+    # https://github.com/DissectMalware/batch_deobfuscator
+    # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
+
+    if not HAVE_BAT_DECODER or not file.endswith(".bat"):
+        return
+
+    decoded = handle_bat_file(batch_deobfuscator, file)
+    if not decoded:
+        return
+
+    # compare hashes to ensure that they are not the same
+    with open(file, "rb") as f:
+        data = f.read()
+
+    original_sha256 = hashlib.sha256(data).hexdigest()
+    decoded_sha256 = hashlib.sha256(decoded).hexdigest()
+
+    if original_sha256 == decoded_sha256:
+        return
+
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Batch")
+
+
+def vbe_extract(file, destination_folder, filetype, data_dictionary):
+
+    if not HAVE_VBE_DECODER:
+        log.debug("Missed VBE decoder")
+        return
+
+    decoded = False
+
+    with open(file, "rb") as f:
+        data = f.read()
+
+    if b"#@~^" not in data[:100]:
+        return
+
+    try:
+        decoded = vbe_decode_file(file, data)
+    except Exception as e:
+        log.error(e, exc_info=True)
+
+    if not decoded:
+        log.debug("VBE content wasn't decoded")
+        return
+
+    _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Vbe")
 
 
 def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract="/usr/bin/msiextract"):  # dropped_path
@@ -515,7 +604,8 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         for meta in metadata:
             is_text_file(meta, destination_folder, 8192)
 
-        data_dictionary.setdefault("msitools", metadata)
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
 
 
 def kixtart_extract(file, destination_folder, filetype, data_dictionary):
@@ -543,4 +633,5 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
         for meta in metadata:
             is_text_file(meta, destination_folder, 8192)
 
-        data_dictionary.setdefault("kixtart", metadata)
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "Kixtart")

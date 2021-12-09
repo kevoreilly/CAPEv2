@@ -432,7 +432,9 @@ class MaecReport(Report):
         elif re.match("^([0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])$", value):
             network_obj["type"] = "mac-addr"
         # Test for an IPv4 address
-        elif re.match("^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$", value):
+        elif re.match(
+            "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$", value
+        ):
             network_obj["type"] = "ipv4-addr"
             obj["protocols"] = ["ipv4", "tcp"]
         else:
@@ -457,7 +459,7 @@ class MaecReport(Report):
 
     def map_object_properties(self, obj, mapping_entry, arguments):
         """Map the properties of a Cuckoo-reported Object to its STIX
-         Cyber Observable Representation"""
+        Cyber Observable Representation"""
         obj_dict = {}
         # Handle object extensions
         if "extension" in mapping_entry:
@@ -708,7 +710,9 @@ class MaecReport(Report):
                         else:
                             names = [x["name"] for x in (capability["refined_capabilities"])]
                             if capability_mappings[name_chunk]["refined_capabilities"][0]["name"] not in names:
-                                (capability["refined_capabilities"]).append(capability_mappings[name_chunk]["refined_capabilities"][0])
+                                (capability["refined_capabilities"]).append(
+                                    capability_mappings[name_chunk]["refined_capabilities"][0]
+                                )
                         if capability not in capabilities:
                             capabilities.append(capability)
         if capabilities:

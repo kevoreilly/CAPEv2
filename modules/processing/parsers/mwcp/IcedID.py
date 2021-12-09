@@ -92,7 +92,7 @@ class IcedID(Parser):
             for section in pe.sections:
                 if section.Name.startswith("bss"):
                     enc_data = section.get_data()
-        except:
+        except Exception:
             pass
 
         if enc_data:

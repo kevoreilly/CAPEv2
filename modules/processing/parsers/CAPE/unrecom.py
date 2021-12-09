@@ -63,7 +63,7 @@ def parse_config(config):
     return new_config
 
 
-# except:
+# except Exception:
 # return None
 
 

@@ -17,6 +17,7 @@ from lib.cuckoo.common.utils import bytes2str
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
+
 def extract_strings(path, nulltermonly, minchars):
     strings = []
 
@@ -41,6 +42,7 @@ def extract_strings(path, nulltermonly, minchars):
         strings.append(str(ws.decode("utf-16le")))
 
     return strings
+
 
 class Strings(Processing):
     """Extract strings from analyzed file."""

@@ -63,7 +63,9 @@ class FileCollector(Auxiliary, Thread):
 
         self.event_processor.do_collect = False
 
-        flags = pyinotify.IN_CREATE | pyinotify.IN_MODIFY | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO | pyinotify.IN_MOVED_FROM
+        flags = (
+            pyinotify.IN_CREATE | pyinotify.IN_MODIFY | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO | pyinotify.IN_MOVED_FROM
+        )
 
         watch_this = os.path.abspath("/")
         self.watch_manager.add_watch(watch_this, flags, auto_add=True)

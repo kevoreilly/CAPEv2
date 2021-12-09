@@ -56,7 +56,7 @@ def api_name_shgetfolderpathw_arg_name_folder(arg_val):
     if val & 0x8000:
         res.append("CSIDL_FLAG_CREATE")
         val &= ~0x8000
-    folder = utils_dicts.FolderDict().get(val, None)
+    folder = utils_dicts.FolderDict().get(val)
     if folder:
         res.append(folder)
     else:
@@ -94,35 +94,35 @@ def api_name_createtoolhelp32snapshot_arg_name_flags(arg_val):
 
 def blobtype(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.BlobTypeDict().get(val, None)
+    return utils_dicts.BlobTypeDict().get(val)
 
 
 def algid(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.AlgidDict().get(val, None)
+    return utils_dicts.AlgidDict().get(val)
 
 
 def hookidentifer(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.HookIdentifierDict().get(val, None)
+    return utils_dicts.HookIdentifierDict().get(val)
 
 
 def infolevel(arg_val):
     try:
         val = int(arg_val, 16)
-    except:
+    except Exception:
         val = int(arg_val, 10)
-    return utils_dicts.InfoLevelDict().get(val, None)
+    return utils_dicts.InfoLevelDict().get(val)
 
 
 def disposition(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.DispositionDict().get(val, None)
+    return utils_dicts.DispositionDict().get(val)
 
 
 def createdisposition(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.CreateDispositionDict().get(val, None)
+    return utils_dicts.CreateDispositionDict().get(val)
 
 
 def shareaccess(arg_val):
@@ -144,12 +144,12 @@ def shareaccess(arg_val):
 
 def systeminformationclass(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.SystemInformationClassDict().get(val, None)
+    return utils_dicts.SystemInformationClassDict().get(val)
 
 
 def category_registry_arg_name_type(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.RegistryTypeDict().get(val, None)
+    return utils_dicts.RegistryTypeDict().get(val)
 
 
 def api_name_opensc_arg_name_desiredaccess(arg_val):
@@ -184,22 +184,22 @@ def api_name_opensc_arg_name_desiredaccess(arg_val):
 
 def category_services_arg_name_controlcode(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ServicesControlCodeDict().get(val, None)
+    return utils_dicts.ServicesControlCodeDict().get(val)
 
 
 def category_services_arg_name_errorcontrol(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ServicesErrorControlDict().get(val, None)
+    return utils_dicts.ServicesErrorControlDict().get(val)
 
 
 def category_services_arg_name_starttype(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ServicesStartTypeDict().get(val, None)
+    return utils_dicts.ServicesStartTypeDict().get(val)
 
 
 def category_services_arg_name_servicetype(arg_val):
     val = int(arg_val, 10)
-    retstr = utils_dicts.ServicesServiceTypeDict().get(val & 0x3F, None)
+    retstr = utils_dicts.ServicesServiceTypeDict().get(val & 0x3F)
     if val & 0x130:
         retstr += "|SERVICE_INTERACTIVE_PROCESS"
     return retstr
@@ -330,7 +330,7 @@ def arg_name_protection_and_others(arg_val):
 
 def arg_name_iocontrolcode(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.IoControlCodeDict().get(val, None)
+    return utils_dicts.IoControlCodeDict().get(val)
 
 
 def api_name_in_creation(arg_val):
@@ -689,7 +689,7 @@ def api_name_ntopenthread_arg_name_desiredaccess(arg_val):
 
 def api_name_cointernet_arg_name_featureentry(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.CoInternetSetFeatureEnabledDict().get(val, None)
+    return utils_dicts.CoInternetSetFeatureEnabledDict().get(val)
 
 
 def api_name_cointernet_arg_name_flags(arg_val):
@@ -727,45 +727,45 @@ def api_name_cointernet_arg_name_flags(arg_val):
 def api_name_socket(arg_val, arg_name):
     if arg_name == "af":
         val = int(arg_val, 10)
-        return utils_dicts.afWSASocketDict().get(val, None)
+        return utils_dicts.afWSASocketDict().get(val)
     elif arg_name == "type":
         val = int(arg_val, 10)
-        return utils_dicts.afWSASocketTypeDict().get(val, None)
+        return utils_dicts.afWSASocketTypeDict().get(val)
     elif arg_name == "protocol":
         val = int(arg_val, 10)
-        return utils_dicts.protocolWSASocketDict().get(val, None)
+        return utils_dicts.protocolWSASocketDict().get(val)
 
 
 def api_name_internetsetoptiona_arg_name_option(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.InternetSetOptionADict().get(val, None)
+    return utils_dicts.InternetSetOptionADict().get(val)
 
 
 def arg_name_fileinformationclass(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.FileInformationClassDict().get(val, None)
+    return utils_dicts.FileInformationClassDict().get(val)
 
 
 def arg_name_processinformationclass(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ProcessInformationClassDict().get(val, None)
+    return utils_dicts.ProcessInformationClassDict().get(val)
 
 
 def arg_name_threadinformationclass(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ThreadInformationClassDict().get(val, None)
+    return utils_dicts.ThreadInformationClassDict().get(val)
 
 
 def arg_name_memtype(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.MemTypeDict().get(val, None)
+    return utils_dicts.MemTypeDict().get(val)
 
 
 def arg_name_show(arg_val):
     val = int(arg_val, 10)
-    return utils_dicts.ShowDict().get(val, None)
+    return utils_dicts.ShowDict().get(val)
 
 
 def arg_name_registry(arg_val):
     val = int(arg_val, 16)
-    return utils_dicts.RegistryDict().get(val, None)
+    return utils_dicts.RegistryDict().get(val)

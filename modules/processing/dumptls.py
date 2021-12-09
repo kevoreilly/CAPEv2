@@ -8,7 +8,7 @@ from lib.cuckoo.common.abstracts import Processing
 
 try:
     import re2 as re
-except:
+except Exception:
     import re
 
 log = logging.getLogger(__name__)

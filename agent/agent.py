@@ -2,27 +2,29 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import re
-import sys
-import cgi
-import sys
-import json
-import stat
-import shutil
-import traceback
-import platform
-import tempfile
+from __future__ import absolute_import, print_function
+
 import argparse
-import subprocess
+import cgi
+import http.server
+import json
+import os
+import platform
+import shutil
 import socket
-from io import BytesIO, StringIO
+import socketserver
+import stat
+import subprocess
+import sys
+import tempfile
+import traceback
+from io import StringIO
 from zipfile import ZipFile
 
-import http.server
-import socketserver
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -47,7 +49,7 @@ STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
-state = dict()
+state = {}
 state["status"] = STATUS_INIT
 
 # To send output to stdin comment out this 2 lines
@@ -270,7 +272,7 @@ def do_mkdir():
 
     try:
         os.makedirs(request.form["dirpath"], mode=mode)
-    except:
+    except Exception:
         return json_exception("Error creating directory")
 
     return json_success("Successfully created directory")
@@ -284,7 +286,7 @@ def do_mktemp():
 
     try:
         fd, filepath = tempfile.mkstemp(suffix=suffix, prefix=prefix, dir=dirpath)
-    except:
+    except Exception:
         return json_exception("Error creating temporary file")
 
     os.close(fd)
@@ -300,7 +302,7 @@ def do_mkdtemp():
 
     try:
         dirpath = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dirpath)
-    except:
+    except Exception:
         return json_exception("Error creating temporary directory")
 
     return json_success("Successfully created temporary directory", dirpath=dirpath)
@@ -317,7 +319,7 @@ def do_store():
     try:
         with open(request.form["filepath"], "wb") as f:
             shutil.copyfileobj(request.files["file"], f, 10 * 1024 * 1024)
-    except:
+    except Exception:
         return json_exception("Error storing file")
 
     return json_success("Successfully stored file")
@@ -342,7 +344,7 @@ def do_extract():
     try:
         with ZipFile(request.files["zipfile"], "r") as archive:
             archive.extractall(request.form["dirpath"])
-    except:
+    except Exception:
         return json_exception("Error extracting zip file")
 
     return json_success("Successfully extracted zip file")
@@ -368,7 +370,7 @@ def do_remove():
             message = "Successfully deleted file"
         else:
             return json_error(404, "Path provided does not exist")
-    except:
+    except Exception:
         return json_exception("Error removing file or directory")
 
     return json_success(message)
@@ -378,7 +380,7 @@ def do_remove():
 def do_execute():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
-    
+
     if request.client_ip == "127.0.0.1" or request.client_ip == local_ip:
         return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:
@@ -397,7 +399,7 @@ def do_execute():
         else:
             p = subprocess.Popen(request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
-    except:
+    except Exception:
         state["status"] = STATUS_FAILED
         state["description"] = "Error execute command"
         return json_exception("Error executing command")
@@ -428,7 +430,7 @@ def do_execpy():
         else:
             p = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
-    except:
+    except Exception:
         state["status"] = STATUS_FAILED
         state["description"] = "Error executing command"
         return json_exception("Error executing command")

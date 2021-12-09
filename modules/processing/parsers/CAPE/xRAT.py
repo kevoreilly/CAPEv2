@@ -48,7 +48,7 @@ def get_long_line(data):
                         size = entry.directory.entries[0].data.struct.Size
                         data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
                         raw_config = data
-    except:
+    except Exception:
         raw_config = None
     if raw_config != None:
         return raw_config, "V1"
@@ -56,7 +56,7 @@ def get_long_line(data):
         m = re.search("\x69\x00\x6F\x00\x6E\x00\x00\x59(.*)\x6F\x43\x00\x61\x00\x6E", data)
         raw_config = m.group(0)[4:-12]
         return raw_config, "V2"
-    except:
+    except Exception:
         return None, None
 
 

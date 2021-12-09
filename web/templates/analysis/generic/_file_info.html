@@ -116,6 +116,12 @@
             <td style="word-wrap: break-word;">{{file.sha3_384}}</td>
         </tr>
         {% endif %}
+        {% if file.rh_hash %}
+            <tr>
+                <th>RichHeader Hash</th>
+                <td style="word-wrap: break-word;">{{file.rh_hash}}</td>
+            </tr>
+        {% endif %}
         <tr>
             <th>CRC32</th>
             <td>{{file.crc32}}</td>
@@ -201,6 +207,13 @@
                         <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
                     {% endif %}
                 {% endif %}
+                {% if config.strings %}
+                    {% if not file.strings %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "strings" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate strings"><span class="fas fa-cogs"></span> Strings</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
+                    {% endif %}
+                {% endif %}
                 {% if config.bingraph %}
                     {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
@@ -224,6 +237,12 @@
                 {% endif %}
                 {% if file.data %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                {% endif %}
+                {% if file.decoded_files %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
+                {% endif %}
+                {% if file.extracted_files %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}}</a>
                 {% endif %}
             </td>
         </tr>
@@ -266,16 +285,54 @@
                 <td>{% include "analysis/generic/_virustotal.html" %}</td>
             </tr>
         {% endif %}
+        {% if file.strings %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="strings_{{file.sha256}}">
+                    <div class="card card-body">
+                    {% for string in file.strings %}
+                        <div>{{string}}</div>
+                    {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
         {% if file.data %}
             <tr>
                 <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    {{file.data|safe}}
+                    <pre>{{file.data|escape}}</pre>
                     </div>
                 </div>
             </td>
             </tr>
+        {% endif %}
+        {% if file.decoded_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="decoded_files_{{file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{file.decoded_files|escape}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+        {% endif %}
+        {% if file.extracted_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="extracted_files_{{file.sha256}}">
+                    <div class="card card-body">
+                        {% for sub_file in file.extracted_files %}
+                            {% include "analysis/overview/_subfile_info.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
         {% endif %}
     </table>
 </div>

@@ -17,6 +17,7 @@ from ctypes import (
     byref,
 )
 
+
 class GRPICONDIR(Structure):
     _pack_ = 1
     _fields_ = [

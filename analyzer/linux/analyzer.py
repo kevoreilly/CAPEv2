@@ -75,7 +75,7 @@ class Analyzer:
         # Initialize logging.
         init_logging()
 
-        if self.config.get("clock", None):
+        if self.config.get("clock"):
             # Set virtual machine clock.
             clock = datetime.datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
             # Setting date and time.
@@ -221,7 +221,9 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_class, e))
         except Exception as e:
-            raise CuckooError('The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_class, e))
+            raise CuckooError(
+                'The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_class, e)
+            )
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -333,7 +335,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.terminate()
-                    except:
+                    except Exception:
                         continue
 
         # Run the finish callback of every available Auxiliary module.

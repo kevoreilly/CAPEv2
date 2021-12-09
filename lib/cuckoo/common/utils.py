@@ -12,6 +12,7 @@ import random
 import struct
 import fcntl
 import socket
+import zipfile
 import tempfile
 import xmlrpc.client
 import errno
@@ -87,20 +88,70 @@ if not isinstance(zippwd, bytes):
     zippwd = zippwd.encode("utf-8")
 
 
-def create_zip(files, folder=False):
-    """Utility function to create zip archive with file(s)"""
-    if not HAVE_PYZIPPER:
-        return False
+texttypes = [
+    "ASCII",
+    "Windows Registry text",
+    "XML document text",
+    "Unicode text",
+]
+
+# this doesn't work for bytes
+# textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
+# is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
+
+
+def is_text_file(file_info, destination_folder, buf, file_data=False):
+
+    # print(file_info, any([file_type in file_info.get("type", "") for file_type in texttypes]))
+    if any([file_type in file_info.get("type", "") for file_type in texttypes]):
+
+        extracted_path = os.path.join(
+            destination_folder,
+            file_info.get(
+                "sha256",
+            ),
+        )
+        if not file_data and not os.path.exists(extracted_path):
+            return
+
+        if not file_data:
+            with open(extracted_path, "rb") as f:
+                file_data = f.read()
+
+        if len(file_data) > buf:
+            data = file_data[:buf] + b" <truncated>"
+            file_info.setdefault("data", data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
+
+        else:
+            file_info.setdefault("data", file_data.decode("latin-1"))
+            # file_info.setdefault("data_file", file_info["sha256"])
+
+
+def create_zip(files=False, folder=False, encrypted=False):
+    """Utility function to create zip archive with file(s)
+    @param files: file or list of files
+    @param folder: path to folder to compress
+    @param encrypted: create password protected and AES encrypted file
+    """
 
     if folder:
-        files = [os.path.join(folder, file) for file in os.listdir(folder)]
+        # To avoid when we have only folder argument
+        if not files:
+            files = list()
+        files += [os.path.join(folder, file) for file in os.listdir(folder)]
 
     if not isinstance(files, list):
         files = [files]
 
     mem_zip = BytesIO()
-    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-        zf.setpassword(zippwd)
+    if encrypted and HAVE_PYZIPPER:
+        zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES)
+    else:
+        zipper = zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False)
+    with zipper as zf:
+        if encrypted:
+            zf.setpassword(zippwd)
         for file in files:
             if not os.path.exists(file):
                 log.error(f"File does't exist: {file}")
@@ -239,7 +290,7 @@ def convert_char(c):
 
 
 def is_printable(s):
-    """ Test if a string is printable."""
+    """Test if a string is printable."""
     for c in s:
         if isinstance(c, int):
             c = chr(c)
@@ -262,7 +313,7 @@ def convert_filename_char(c):
 
 
 def is_sane_filename(s):
-    """ Test if a filename is sane."""
+    """Test if a filename is sane."""
     for c in s:
         if isinstance(c, int):
             c = chr(c)
@@ -433,7 +484,7 @@ def pretty_print_retval(status, retval):
         0xC0000142: "DLL_INIT_FAILED",
         0xC000014B: "PIPE_BROKEN",
         0xC0000225: "NOT_FOUND",
-    }.get(val, None)
+    }.get(val)
 
 
 def pretty_print_arg(category, api_name, arg_name, arg_val):

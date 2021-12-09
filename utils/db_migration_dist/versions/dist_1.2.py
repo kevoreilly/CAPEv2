@@ -11,8 +11,8 @@ Create Date: 2021-06-10 13:39:01.310802
 """
 
 # revision identifiers, used by Alembic.
-revision = 'b0fa23c3c9c0'
-down_revision = '431b7f0b3240'
+revision = "b0fa23c3c9c0"
+down_revision = "431b7f0b3240"
 
 from alembic import op
 import sqlalchemy as sa
@@ -22,6 +22,7 @@ def upgrade():
     op.add_column("node", sa.Column("apikey", sa.String(length=255), nullable=True))
     op.drop_column("node", "ht_user")
     op.drop_column("node", "ht_pass")
+
 
 def downgrade():
     op.drop_column("node", "apikey")

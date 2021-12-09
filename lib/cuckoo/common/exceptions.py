@@ -70,7 +70,7 @@ class CuckooGuestError(CuckooOperationalError):
 
 
 class CuckooNetworkError(CuckooOperationalError):
-    """ Network issues """
+    """Network issues"""
 
     pass
 

@@ -57,7 +57,7 @@ import glob
 
 try:
     import yara
-except:
+except Exception:
     pass
 
 dumplinelength = 16
@@ -100,11 +100,11 @@ def IFF(expression, valueTrue, valueFalse):
 def File2String(filename):
     try:
         f = open(filename, "rb")
-    except:
+    except Exception:
         return None
     try:
         return f.read()
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -236,11 +236,11 @@ def IfWIN32SetBinary(io):
 def File2Strings(filename):
     try:
         f = open(filename, "r")
-    except:
+    except Exception:
         return None
     try:
         return map(lambda line: line.rstrip("\n"), f.readlines())
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -780,7 +780,10 @@ def RTFSub(oStringIO, prefix, rules, options):
     counter = 1
     rtfdata = oStringIO.read()
     if not rtfdata.startswith("{"):
-        print("This file does not start with an opening brace: {\nCheck if it is an RTF file.\nMAGIC: %s" % GenerateMAGIC(rtfdata[0:4]))
+        print(
+            "This file does not start with an opening brace: {\nCheck if it is an RTF file.\nMAGIC: %s"
+            % GenerateMAGIC(rtfdata[0:4])
+        )
         return -1
     sequence = []
     BuildTree(rtfdata, 0, 0, sequence, options)
@@ -830,16 +833,26 @@ def RTFSub(oStringIO, prefix, rules, options):
             if options.extract and len(data) > 0:
                 try:
                     data = ExtractPackage(data)
-                except:
+                except Exception:
                     data = ""
             object.append({"id": counter, "name": str(counter), "content": binascii.b2a_base64(data).strip("\n")})
-        print(json.dumps({"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object}))
+        print(
+            json.dumps(
+                {"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object}
+            )
+        )
         return
 
     if options.select == "":
         for counter in range(1, len(dAnalysis) + 1):
             hexcount, bincount = HexBinCount(dAnalysis[counter].hexstring)
-            if options.filter == "" or options.filter == "O" and dAnalysis[counter].oleInfo != [] or options.filter == "h" and hexcount > 0:
+            if (
+                options.filter == ""
+                or options.filter == "O"
+                and dAnalysis[counter].oleInfo != []
+                or options.filter == "h"
+                and hexcount > 0
+            ):
                 line = "%5d %s c=%5d p=%08x l=%8d h=%8d;%8d b=%8d %s u=%8d %s" % (
                     counter,
                     dAnalysis[counter].leader[0:15],
@@ -945,7 +958,9 @@ def RTFSub(oStringIO, prefix, rules, options):
         for key in sorted(dAnalysis.keys()):
             StdoutWriteChunked(
                 DumpFunction(
-                    ExtractFunction(DecodeFunction(decoders, options, CutData(HexDecodeIfRequested(dAnalysis[key], options), options.cut)))
+                    ExtractFunction(
+                        DecodeFunction(decoders, options, CutData(HexDecodeIfRequested(dAnalysis[key], options), options.cut))
+                    )
                 )
             )
 
@@ -1033,11 +1048,17 @@ def Main():
         help="decode hexadecimal data; append 0 in case of uneven number of hexadecimal digits",
     )
     oParser.add_option("-S", "--hexshift", action="store_true", default=False, help="shift one nibble")
-    oParser.add_option("-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)")
+    oParser.add_option(
+        "-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)"
+    )
     oParser.add_option("--pluginoptions", type=str, default="", help="options for the plugin")
     oParser.add_option("-q", "--quiet", action="store_true", default=False, help="only print output from plugins")
-    oParser.add_option("-y", "--yara", help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)")
-    oParser.add_option("-D", "--decoders", type=str, default="", help="decoders to load (separate decoders with a comma , ; @file supported)")
+    oParser.add_option(
+        "-y", "--yara", help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)"
+    )
+    oParser.add_option(
+        "-D", "--decoders", type=str, default="", help="decoders to load (separate decoders with a comma , ; @file supported)"
+    )
     oParser.add_option("--decoderoptions", type=str, default="", help="options for the decoder")
     oParser.add_option("--yarastrings", action="store_true", default=False, help="Print YARA strings")
     oParser.add_option("-V", "--verbose", action="store_true", default=False, help="verbose output with decoder errors")

@@ -20,6 +20,7 @@ from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITE
 
 try:
     import magic
+
     HAVE_MAGIC = True
 except ImportError:
     HAVE_MAGIC = False
@@ -59,6 +60,7 @@ except ImportError:
 
 try:
     import tlsh
+
     HAVE_TLSH = True
 except ImportError:
     print("Missed dependency: pip3 install python-tlsh")
@@ -129,6 +131,7 @@ IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
 
+
 def IsPEImage(buf, size=False):
     if not buf:
         return False
@@ -151,7 +154,7 @@ def IsPEImage(buf, size=False):
         while offset < PE_HEADER_LIMIT - 86:
             # ToDo
             try:
-                machine_probe = struct.unpack("<H", buf[offset: offset + 2])[0]
+                machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
             except struct.error:
                 machine_probe = ""
             if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
@@ -166,7 +169,11 @@ def IsPEImage(buf, size=False):
 
     try:
         # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
+        if (
+            struct.unpack("<H", nt_headers[4:6]) == 0
+            or struct.unpack("<H", nt_headers[20:22]) == 0
+            or struct.unpack("<H", nt_headers[84:86]) == 0
+        ):
             return False
 
         # if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
@@ -196,7 +203,7 @@ class Dictionary(dict):
     """Cuckoo custom dict."""
 
     def __getattr__(self, key):
-        return self.get(key, None)
+        return self.get(key)
 
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
@@ -308,7 +315,7 @@ class File(object):
                 self._tlsh_hash = tlsh_hash.hexdigest()
             except ValueError:
                 pass
-                #print("TLSH: less than 50 of input, ignoring")
+                # print("TLSH: less than 50 of input, ignoring")
 
     @property
     def file_data(self):
@@ -423,7 +430,7 @@ class File(object):
                         log.error(e, exc_info=True)
                 if not file_type and hasattr(magic, "open"):
                     try:
-                        ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                        ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
                         ms.load()
                         file_type = ms.file(self.file_path)
                         ms.close()
@@ -432,13 +439,14 @@ class File(object):
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                    p = subprocess.Popen(
+                        ["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE
+                    )
                     file_type = p.stdout.read().strip()
                 except Exception as e:
                     log.error(e, exc_info=True)
 
         return file_type
-
 
     def get_type(self):
         """Get MIME file type.
@@ -459,7 +467,7 @@ class File(object):
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
-                            log.error('Unable to instantiate pefile on image')
+                            log.error("Unable to instantiate pefile on image")
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
@@ -522,7 +530,14 @@ class File(object):
                 for s in match.strings:
                     addresses[s[1].strip("$")] = s[0]
 
-                results.append({"name": match.rule, "meta": match.meta, "strings": list(strings), "addresses": addresses,})
+                results.append(
+                    {
+                        "name": match.rule,
+                        "meta": match.meta,
+                        "strings": list(strings),
+                        "addresses": addresses,
+                    }
+                )
         except Exception as e:
             errcode = str(e).split()[-1]
             if errcode in yara_error:
@@ -573,6 +588,51 @@ class File(object):
         else:
             return False
 
+    def get_rh_hash(self):
+        if not self.pe:
+            return None
+
+        # source https://github.com/RichHeaderResearch/RichPE/blob/master/richpe.py#L34
+        rich_header = self.pe.parse_rich_header()
+        if rich_header is None:
+            return None
+
+        # Get list of @Comp.IDs and counts from Rich header
+        # Elements in rich_fields at even indices are @Comp.IDs
+        # Elements in rich_fields at odd indices are counts
+        rich_fields = rich_header.get("values")
+        if len(rich_fields) % 2 != 0:
+            return None
+
+        # The RichPE hash of a file is computed by computing the md5 of specific
+        # metadata within  the Rich header and the PE header
+        md5 = hashlib.md5()
+
+        # Update hash using @Comp.IDs and masked counts from Rich header
+        while len(rich_fields):
+            compid = rich_fields.pop(0)
+            count = rich_fields.pop(0)
+            mask = 2 ** (count.bit_length() // 2 + 1) - 1
+            count |= mask
+            md5.update(struct.pack("<L", compid))
+            md5.update(struct.pack("<L", count))
+
+        # Update hash using metadata from the PE header
+        md5.update(struct.pack("<L", self.pe.FILE_HEADER.Machine))
+        md5.update(struct.pack("<L", self.pe.FILE_HEADER.Characteristics))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.Subsystem))
+        md5.update(struct.pack("<B", self.pe.OPTIONAL_HEADER.MajorLinkerVersion))
+        md5.update(struct.pack("<B", self.pe.OPTIONAL_HEADER.MinorLinkerVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MajorImageVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MinorImageVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MajorSubsystemVersion))
+        md5.update(struct.pack("<L", self.pe.OPTIONAL_HEADER.MinorSubsystemVersion))
+
+        # Close PE file and return RichPE hash digest
+        return md5.hexdigest()
+
     def get_all(self):
         """Get all information available.
         @return: information dict.
@@ -588,6 +648,7 @@ class File(object):
         infos["sha1"] = self.get_sha1()
         infos["sha256"] = self.get_sha256()
         infos["sha512"] = self.get_sha512()
+        infos["rh_hash"] = self.get_rh_hash()
         infos["ssdeep"] = self.get_ssdeep()
         infos["type"] = self.get_type()
         infos["yara"] = self.get_yara()
@@ -696,7 +757,7 @@ class ProcDump(object):
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True
                 f.seek(size - 2, 1)
-            except:
+            except Exception:
                 break
             curchunk.append(alloc)
         if len(curchunk):

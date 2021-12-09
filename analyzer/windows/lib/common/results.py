@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from lib.core.config import Config
+
 config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
@@ -103,7 +104,9 @@ class NetlogConnection(object):
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
-            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
+            NetlogConnection.__init__(
+                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
+            )
         else:
             NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         self.connect()
@@ -112,7 +115,7 @@ class NetlogBinary(NetlogConnection):
 class NetlogFile(NetlogConnection):
     def init(self, dump_path, filepath=False, pids="", ppids="", metadata="", category="files", duplicated=0):
         """
-            All arguments should be strings
+        All arguments should be strings
         """
         if pids:
             pids = " ".join(pids)

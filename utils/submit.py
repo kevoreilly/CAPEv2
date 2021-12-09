@@ -34,7 +34,12 @@ def main():
     parser.add_argument("target", help="URL, path to the file or folder to analyze")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
-        "--remote", type=str, action="store", default=None, help="Specify IP:port to a Cuckoo API server to submit remotely", required=False
+        "--remote",
+        type=str,
+        action="store",
+        default=None,
+        help="Specify IP:port to a Cuckoo API server to submit remotely",
+        required=False,
     )
     parser.add_argument("--user", type=str, action="store", default=None, help="Username for Basic Auth", required=False)
     parser.add_argument("--password", type=str, action="store", default=None, help="Password for Basic Auth", required=False)
@@ -53,10 +58,20 @@ def main():
         required=False,
     )
     parser.add_argument(
-        "--priority", type=int, action="store", default=1, help="Specify a priority for the analysis represented by an integer", required=False
+        "--priority",
+        type=int,
+        action="store",
+        default=1,
+        help="Specify a priority for the analysis represented by an integer",
+        required=False,
     )
     parser.add_argument(
-        "--machine", type=str, action="store", default="", help="Specify the identifier of a machine you want to use", required=False
+        "--machine",
+        type=str,
+        action="store",
+        default="",
+        help="Specify the identifier of a machine you want to use",
+        required=False,
     )
     parser.add_argument(
         "--platform",
@@ -78,14 +93,25 @@ def main():
     )
     parser.add_argument("--clock", type=str, action="store", default=None, help="Set virtual machine clock", required=False)
     parser.add_argument(
-        "--tags", type=str, action="store", default=None, help="Specify tags identifier of a machine you want to use", required=False
+        "--tags",
+        type=str,
+        action="store",
+        default=None,
+        help="Specify tags identifier of a machine you want to use",
+        required=False,
     )
     parser.add_argument("--max", type=int, action="store", default=None, help="Maximum samples to add in a row", required=False)
     parser.add_argument("--pattern", type=str, action="store", default=None, help="Pattern of files to submit", required=False)
-    parser.add_argument("--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False)
-    parser.add_argument("--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False)
+    parser.add_argument(
+        "--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False
+    )
+    parser.add_argument(
+        "--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False
+    )
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
-    parser.add_argument("--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False)
+    parser.add_argument(
+        "--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False
+    )
 
     try:
         args = parser.parse_args()
@@ -186,14 +212,14 @@ def main():
 
         if task_id:
             if not args.quiet:
-                print((bold(green("Success")) + u': URL "{0}" added as task with ID {1}'.format(target, task_id)))
+                print((bold(green("Success")) + ': URL "{0}" added as task with ID {1}'.format(target, task_id)))
         else:
             print((bold(red("Error")) + ": adding task to database"))
     else:
         # Get absolute path to deal with relative.
         path = to_unicode(os.path.abspath(target))
         if not os.path.exists(path):
-            print((bold(red("Error")) + u': the specified file/folder does not exist at path "{0}"'.format(path)))
+            print((bold(red("Error")) + ': the specified file/folder does not exist at path "{0}"'.format(path)))
             return False
 
         files = []
@@ -279,7 +305,7 @@ def main():
                     return False
 
                 json = response.json()
-                task_ids = [json.get("task_ids", None)]
+                task_ids = [json.get("task_ids")]
 
             else:
                 if args.unique and db.check_file_uniq(File(file_path).get_sha256()):
@@ -309,10 +335,10 @@ def main():
             tasks_count = len(task_ids)
             if tasks_count > 1:
                 if not args.quiet:
-                    print((bold(green("Success")) + u': File "{0}" added as task with IDs {1}'.format(file_path, task_ids)))
+                    print((bold(green("Success")) + ': File "{0}" added as task with IDs {1}'.format(file_path, task_ids)))
             elif tasks_count > 0:
                 if not args.quiet:
-                    print((bold(green("Success")) + u': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])))
+                    print((bold(green("Success")) + ': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])))
             else:
                 print((bold(red("Error")) + ": adding task to database"))
 

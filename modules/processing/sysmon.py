@@ -53,13 +53,15 @@ class Sysmon(Processing):
         # Determine oldest sysmon log and remove the rest
         lastlog = os.listdir("%s/sysmon/" % self.analysis_path)
         lastlog.sort()
+        if not lastlog:
+            return
         lastlog = lastlog[-1]
         # Leave only the most recent file
         for f in os.listdir("%s/sysmon/" % self.analysis_path):
             if f != lastlog:
                 try:
                     os.remove("%s/sysmon/%s" % (self.analysis_path, f))
-                except:
+                except Exception:
                     log.error("Failed to remove sysmon file log %s" % f)
 
         os.rename("%s/sysmon/%s" % (self.analysis_path, lastlog), "%s/sysmon/sysmon.xml" % self.analysis_path)

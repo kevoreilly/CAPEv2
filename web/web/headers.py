@@ -9,7 +9,7 @@ from django.conf import settings
 
 try:
     from django.utils.deprecation import MiddlewareMixin
-except:
+except Exception:
     pass
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -32,5 +32,7 @@ class CuckooHeaders(MiddlewareMixin):
         response["Pragma"] = "no-cache"
         response["Cache-Control"] = "no-cache"
         response["Expires"] = "0"
-        response["Permissions-Policy"] = "accelerometer=(); autoplay=(); camera=(); encrypted-media=(); fullscreen=(); geolocation=(); gyroscope=(); magnetometer=(); microphone=(); midi=(); payment=(); picture-in-picture=(); sync-xhr=(); usb=();"
+        response[
+            "Permissions-Policy"
+        ] = "accelerometer=(); autoplay=(); camera=(); encrypted-media=(); fullscreen=(); geolocation=(); gyroscope=(); magnetometer=(); microphone=(); midi=(); payment=(); picture-in-picture=(); sync-xhr=(); usb=();"
         return response

@@ -24,9 +24,9 @@ if len(sys.argv) == 2:
         results_db = pymongo.MongoClient(
             repconf.mongodb.host,
             port=repconf.mongodb.port,
-            username=repconf.mongodb.get("username", None),
-            password=repconf.mongodb.get("password", None),
-            authSource = repconf.mongodb.get("authsource", "cuckoo"),
+            username=repconf.mongodb.get("username"),
+            password=repconf.mongodb.get("password"),
+            authSource=repconf.mongodb.get("authsource", "cuckoo"),
         )[repconf.mongodb.db]
         tasks = results_db.analysis.find({"dropped.sha256": sys.argv[1]})
         if tasks:

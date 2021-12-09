@@ -16,11 +16,15 @@ import base64
 import hashlib
 import requests
 import binascii
-import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
 from datetime import datetime
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     import bs4
@@ -63,8 +67,9 @@ except ImportError:
 
 try:
     from whois import whois
+
     HAVE_WHOIS = True
-except:
+except Exception:
     HAVE_WHOIS = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
@@ -75,6 +80,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 try:
     import olefile
@@ -87,7 +93,15 @@ except ImportError:
 try:
     from oletools import oleobj
     from oletools.oleid import OleID
-    from oletools.olevba import detect_autoexec, detect_hex_strings, detect_patterns, detect_suspicious, filter_vba, VBA_Parser, UnexpectedDataError
+    from oletools.olevba import (
+        detect_autoexec,
+        detect_hex_strings,
+        detect_patterns,
+        detect_suspicious,
+        filter_vba,
+        VBA_Parser,
+        UnexpectedDataError,
+    )
     from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
 
@@ -111,11 +125,21 @@ try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
     from elftools.elf.descriptions import (
-        describe_ei_class, describe_ei_data, describe_ei_version,
-        describe_ei_osabi, describe_e_type, describe_e_machine,
-        describe_e_version_numeric, describe_p_type, describe_p_flags,
-        describe_sh_type, describe_dyn_tag, describe_symbol_type,
-        describe_symbol_bind, describe_note, describe_reloc_type
+        describe_ei_class,
+        describe_ei_data,
+        describe_ei_version,
+        describe_ei_osabi,
+        describe_e_type,
+        describe_e_machine,
+        describe_e_version_numeric,
+        describe_p_type,
+        describe_p_flags,
+        describe_sh_type,
+        describe_dyn_tag,
+        describe_symbol_type,
+        describe_symbol_bind,
+        describe_note,
+        describe_reloc_type,
     )
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
@@ -146,6 +170,7 @@ log = logging.getLogger(__name__)
 HAVE_USERDB = False
 if processing_conf.static.get("userdb_signature", False):
     import peutils
+
     userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
     userdb_signatures = peutils.SignatureDatabase()
     if os.path.exists(userdb_path):
@@ -159,7 +184,7 @@ if processing_conf.static.get("userdb_signature", False):
 
 
 def _get_entropy(data):
-    """ Computes the entropy value for the provided data
+    """Computes the entropy value for the provided data
     @param data: data to be analyzed.
     @return: entropy value as float.
     """
@@ -197,7 +222,7 @@ def _get_filetype(data):
         ms = magic.open(magic.MAGIC_SYMLINK)
         ms.load()
         file_type = ms.buffer(data)
-    except:
+    except Exception:
         try:
             file_type = magic.from_buffer(data)
         except Exception:
@@ -205,7 +230,7 @@ def _get_filetype(data):
     finally:
         try:
             ms.close()
-        except:
+        except Exception:
             pass
 
     return file_type
@@ -220,13 +245,20 @@ class DotNETExecutable(object):
 
     def add_statistic(self, name, field, value):
         self.results["statistics"]["processing"].append(
-            {"name": name, field: value,}
+            {
+                "name": name,
+                field: value,
+            }
         )
 
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = (
+                Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True)
+                .stdout.read()
+                .split("\n")
+            )
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline or len(splitline) < 7:
@@ -258,7 +290,9 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True)
+                .stdout.read()
+                .split("\n")
             )
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
@@ -282,7 +316,11 @@ class DotNETExecutable(object):
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = (
+                Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
+                .stdout.read()
+                .split("\n")
+            )
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -296,7 +334,11 @@ class DotNETExecutable(object):
     def _get_type_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = (
+                Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True)
+                .stdout.read()
+                .split("\n")
+            )
             for line in output[1:]:
                 restline = "".join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -335,7 +377,7 @@ class DotNETExecutable(object):
             return results
         except Exception as e:
             log.error(e, exc_info=True)
-            return  None
+            return None
 
 
 class PortableExecutable(object):
@@ -360,9 +402,9 @@ class PortableExecutable(object):
 
         # To be able to add yara/capa and others time summary over all processing modules
         if field in self.results["temp_processing_stats"][name]:
-           self.results["temp_processing_stats"][name][field] += value
+            self.results["temp_processing_stats"][name][field] += value
         else:
-           self.results["temp_processing_stats"][name][field] = value
+            self.results["temp_processing_stats"][name][field] = value
 
     def _get_peid_signatures(self):
         """Gets PEID signatures.
@@ -594,8 +636,11 @@ class PortableExecutable(object):
 
         try:
             off = self.pe.get_overlay_data_start_offset()
-        except:
-            log.error("Your version of pefile is out of date.  " "Please update to the latest version on https://github.com/erocarrera/pefile")
+        except Exception:
+            log.error(
+                "Your version of pefile is out of date.  "
+                "Please update to the latest version on https://github.com/erocarrera/pefile"
+            )
             return None
 
         if off is None:
@@ -643,8 +688,11 @@ class PortableExecutable(object):
         retstr = None
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
-        except:
-            log.warning("Detected outdated version of pefile.  " "Please update to the latest version at https://github.com/erocarrera/pefile")
+        except Exception:
+            log.warning(
+                "Detected outdated version of pefile.  "
+                "Please update to the latest version at https://github.com/erocarrera/pefile"
+            )
         return retstr
 
     def _get_osversion(self):
@@ -654,7 +702,9 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
+        return "{0}.{1}".format(
+            self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion
+        )
 
     def _get_resources(self):
         """Get resources.
@@ -681,8 +731,10 @@ class PortableExecutable(object):
                                 for resource_lang in resource_id.directory.entries:
                                     data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
-                                    language = pefile.LANG.get(resource_lang.data.lang, None)
-                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
+                                    language = pefile.LANG.get(resource_lang.data.lang)
+                                    sublanguage = pefile.get_sublang_name_for_lang(
+                                        resource_lang.data.lang, resource_lang.data.sublang
+                                    )
                                     resource["name"] = name
                                     resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
                                     resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
@@ -697,9 +749,9 @@ class PortableExecutable(object):
 
         return resources
 
-    def _generate_icon_dhash(self, image, hash_size = 8):
+    def _generate_icon_dhash(self, image, hash_size=8):
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
-        image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
+        image = image.convert("L").resize((hash_size + 1, hash_size), Image.ANTIALIAS)
 
         difference = []
 
@@ -714,12 +766,12 @@ class PortableExecutable(object):
 
         for index, value in enumerate(difference):
             if value:
-                decimal_value += 2**(index % 8)
+                decimal_value += 2 ** (index % 8)
             if (index % 8) == 7:
-                hex_string.append(hex(decimal_value)[2:].rjust(2, '0'))
+                hex_string.append(hex(decimal_value)[2:].rjust(2, "0"))
                 decimal_value = 0
 
-        return ''.join(hex_string)
+        return "".join(hex_string)
 
     def _get_icon_info(self):
         """Get icon in PNG format and information for searching for similar icons
@@ -739,7 +791,7 @@ class PortableExecutable(object):
             entry = rt_group_icon_dir.directory.entries[0]
             offset = entry.directory.entries[0].data.struct.OffsetToData
             size = entry.directory.entries[0].data.struct.Size
-            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset: offset + size])
+            peicon = PEGroupIconDir(self.pe.get_memory_mapped_image()[offset : offset + size])
             bigwidth = 0
             bigheight = 0
             bigbpp = 0
@@ -907,7 +959,9 @@ class PortableExecutable(object):
             return []
 
         if not HAVE_CRYPTO:
-            log.critical("You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography")
+            log.critical(
+                "You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography"
+            )
             return []
 
         if not self.pe:
@@ -956,9 +1010,13 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
+                            extension.value.key_identifier
+                        ).decode("utf-8")
                     elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode(
+                            "utf-8"
+                        )
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
@@ -972,13 +1030,17 @@ class PortableExecutable(object):
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data["extensions_{}_caIssuers".format(extension.oid._name)] = authority_info.access_location.value
+                                cert_data[
+                                    "extensions_{}_caIssuers".format(extension.oid._name)
+                                ] = authority_info.access_location.value
                             elif authority_info.access_method._name == "OCSP":
                                 cert_data["extensions_{}_OCSP".format(extension.oid._name)] = authority_info.access_location.value
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value).decode("utf-8")
+                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(
+                                    name.value
+                                ).decode("utf-8")
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()
@@ -1083,7 +1145,7 @@ class PDF(object):
         try:
             if obj.type == "reference":
                 return self.pdf.body[version].getObject(obj.id)
-        except:
+        except Exception:
             pass
         return obj
 
@@ -1264,15 +1326,15 @@ class PDF(object):
 
 class Office(object):
     """Office Document Static Analysis
-        Supported formats:
-        - Word 97-2003 (.doc, .dot), Word 2007+ (.docm, .dotm)
-        - Excel 97-2003 (.xls), Excel 2007+ (.xlsm, .xlsb)
-        - PowerPoint 97-2003 (.ppt), PowerPoint 2007+ (.pptm, .ppsm)
-        - Word/PowerPoint 2007+ XML (aka Flat OPC)
-        - Word 2003 XML (.xml)
-        - Word/Excel Single File Web Page / MHTML (.mht)
-        - Publisher (.pub)
-        - Rich Text Format (.rtf)
+    Supported formats:
+    - Word 97-2003 (.doc, .dot), Word 2007+ (.docm, .dotm)
+    - Excel 97-2003 (.xls), Excel 2007+ (.xlsm, .xlsb)
+    - PowerPoint 97-2003 (.ppt), PowerPoint 2007+ (.pptm, .ppsm)
+    - Word/PowerPoint 2007+ XML (aka Flat OPC)
+    - Word 2003 XML (.xml)
+    - Word/Excel Single File Web Page / MHTML (.mht)
+    - Publisher (.pub)
+    - Rich Text Format (.rtf)
     """
 
     def __init__(self, file_path, results, options):
@@ -1405,7 +1467,7 @@ class Office(object):
             else:
                 try:
                     vba = VBA_Parser(filepath)
-                except:
+                except Exception:
                     return results
         else:
             return results
@@ -1518,9 +1580,8 @@ class Office(object):
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
                 metares["DocumentType"] = indicator.name
 
-
         if HAVE_XLM_DEOBF:
-            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"],  self.options.get("password", ""))
+            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"], self.options.get("password", ""))
             if tmp_xlmmacro:
                 results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
@@ -1792,7 +1853,10 @@ class ELF(object):
                     section_relocations.append(relocation)
 
             relocations.append(
-                {"name": section.name, "entries": section_relocations,}
+                {
+                    "name": section.name,
+                    "entries": section_relocations,
+                }
             )
         return relocations
 
@@ -1803,7 +1867,12 @@ class ELF(object):
                 continue
             for note in segment.iter_notes():
                 notes.append(
-                    {"owner": note["n_name"], "size": self._print_addr(note["n_descsz"]), "note": describe_note(note), "name": note["n_name"],}
+                    {
+                        "owner": note["n_name"],
+                        "size": self._print_addr(note["n_descsz"]),
+                        "note": describe_note(note),
+                        "name": note["n_name"],
+                    }
                 )
         return notes
 
@@ -1934,7 +2003,7 @@ class Java(object):
 
             try:
                 os.unlink(jar_file)
-            except:
+            except Exception:
                 pass
 
         return results
@@ -2010,7 +2079,7 @@ class URL(object):
                 for field in fields:
                     if field not in list(w.keys()) or not w[field]:
                         w[field] = ["None"]
-            except:
+            except Exception:
                 # No WHOIS data returned
                 log.warning("No WHOIS data for domain: " + self.domain)
                 return results
@@ -2574,7 +2643,7 @@ class EncodedScriptFile(object):
 
         while o < end:
             ch = source[o]
-            if source[o] == 64: # b"@":
+            if source[o] == 64:  # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
@@ -2610,7 +2679,7 @@ class WindowsScriptFile(object):
             try:
                 x = bs4.BeautifulSoup(script, "html.parser")
                 language = x.script.attrs.get("language", "").lower()
-            except:
+            except Exception:
                 language = None
 
             # We can't rely on bs4 or any other HTML/XML parser to provide us
@@ -2659,7 +2728,7 @@ class Static(Processing):
             # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
-                decomp_jar = self.options.get("procyon_path", None)
+                decomp_jar = self.options.get("procyon_path")
                 if decomp_jar and not os.path.exists(decomp_jar):
                     log.error("procyon_path specified in processing.conf but the file does not exist.")
                 static = Java(self.file_path, decomp_jar).run()
@@ -2679,6 +2748,8 @@ class Static(Processing):
             #    static["elf"] = ELF(self.file_path).run()
             #    static["keys"] = f.get_keys()
 
+            # Allows to put execute file extractors/unpackers
+            generic_file_extractors(self.file_path, self.dropped_path, thetype, static)
         elif self.task["category"] == "url":
             enabled_whois = self.options.get("whois", True)
             if HAVE_WHOIS and enabled_whois:

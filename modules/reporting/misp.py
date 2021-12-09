@@ -26,6 +26,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 try:
     from pymisp import MISPEvent, PyMISP, MISPObject
     from pymisp import logger as pymisp_logger
+
     HAVE_PYMISP = True
     pymisp_logger.setLevel(logging.ERROR)
 except ImportError:
@@ -56,26 +57,26 @@ name_update_shema = {
     "Agenttesla": "Agent Tesla",
     "AgentTeslaV2": "Agent Tesla",
     "WarzoneRAT": "Ave Maria",
-    "Nanocore":"Nanocore RAT",
-    "Netwire":"Netwire RC",
-    "Redline":"RedLine Stealer",
-    "Predatorthethief":"Predator The Thief",
-    "Njrat":"NjRAT",
-    "Revil":"REvil",
-    "Asyncrat":"AsyncRAT",
-    "Poullight":"Poulight Stealer",
-    "Lokibot":"Loki Password Stealer (PWS)",
-    "Loki":"Loki Password Stealer (PWS)",  
-    "Hawkeye":"HawkEye Keylogger",
-    "HawkEyev9":"HawkEye Keylogger",
-    "Oski":"Oski Stealer",
-    "DridexV4":"Dridex",
-    "Phoenix":"Phoenix Keylogger",
-    "Ursnif":"Gozi",
-    "Ursnif3":"Gozi",
-    "Extreme":"Extreme RAT",
-    "DridexLoader":"Dridex",
-    "Fareit":"Pony",
+    "Nanocore": "Nanocore RAT",
+    "Netwire": "Netwire RC",
+    "Redline": "RedLine Stealer",
+    "Predatorthethief": "Predator The Thief",
+    "Njrat": "NjRAT",
+    "Revil": "REvil",
+    "Asyncrat": "AsyncRAT",
+    "Poullight": "Poulight Stealer",
+    "Lokibot": "Loki Password Stealer (PWS)",
+    "Loki": "Loki Password Stealer (PWS)",
+    "Hawkeye": "HawkEye Keylogger",
+    "HawkEyev9": "HawkEye Keylogger",
+    "Oski": "Oski Stealer",
+    "DridexV4": "Dridex",
+    "Phoenix": "Phoenix Keylogger",
+    "Ursnif": "Gozi",
+    "Ursnif3": "Gozi",
+    "Extreme": "Extreme RAT",
+    "DridexLoader": "Dridex",
+    "Fareit": "Pony",
 }
 
 
@@ -177,7 +178,9 @@ class MISP(Report):
         # TODO: Use expanded
         for r in results.get("dropped", []) or []:
             with open(r.get("path"), "rb") as f:
-                event.add_attribute("malware-sample", value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand="binary")
+                event.add_attribute(
+                    "malware-sample", value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand="binary"
+                )
         event.run_expansions()
         self.misp.update_event(event)
         """
@@ -244,7 +247,9 @@ class MISP(Report):
                 if results.get("detections", ""):
                     malfamily = results["detections"]
 
-                response = self.misp.search("attributes", value=results["target"]["file"]["sha256"], return_format="json", pythonify=True)
+                response = self.misp.search(
+                    "attributes", value=results["target"]["file"]["sha256"], return_format="json", pythonify=True
+                )
                 if response:
                     event = self.misp.get_event(response[0].event_id, pythonify=True)
                 else:

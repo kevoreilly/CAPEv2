@@ -392,6 +392,7 @@ class TestAnalysisManager:
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
             "options": "foo=bar",
             "enforce_timeout": 1,
+            "evtx": False,
             "timeout": 10,
             "file_name": "5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b",
             "curtain": False,

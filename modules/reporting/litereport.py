@@ -12,9 +12,11 @@ from lib.cuckoo.common.exceptions import CuckooReportError
 
 try:
     import orjson
+
     HAVE_ORJSON = True
 except ImportError:
     import json
+
     HAVE_ORJSON = False
 
 repconf = Config("reporting")
@@ -25,7 +27,7 @@ class LiteReport(Report):
 
     def default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode('utf8')
+            return obj.decode("utf8")
         raise TypeError
 
     def run(self, results):
@@ -50,9 +52,11 @@ class LiteReport(Report):
         try:
             if HAVE_ORJSON:
                 with open(path, "wb") as report:
-                    report.write(orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)) # orjson.OPT_SORT_KEYS |
+                    report.write(
+                        orjson.dumps(lite_report, option=orjson.OPT_INDENT_2, default=self.default)
+                    )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(path, "w") as report:
-                    json.dump(lite_report, report, sort_keys=False, separators=(',', ':'), ensure_ascii=False)
+                    json.dump(lite_report, report, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError("Failed to generate JSON report: %s" % e)

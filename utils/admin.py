@@ -25,8 +25,8 @@ if repconf.mongodb.enabled:
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username", None),
-        password=repconf.mongodb.get("password", None),
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.db]
     FULL_DB = True

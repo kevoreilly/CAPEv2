@@ -18,11 +18,6 @@ import shutil
 import json
 import logging
 from datetime import datetime
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 import hashlib
 import imp
 
@@ -30,7 +25,8 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
+from lib.cuckoo.common.utils import is_text_file
+from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, generic_file_extractors
 
 try:
     import pydeep
@@ -89,9 +85,8 @@ unpack_map = {
     UNPACKED_SHELLCODE: "Unpacked Shellcode",
 }
 
-multi_block_config = (
-    "SquirrelWaffle",
-)
+multi_block_config = ("SquirrelWaffle",)
+
 
 class CAPE(Processing):
     """CAPE output file processing."""
@@ -140,14 +135,20 @@ class CAPE(Processing):
             return
 
         buf = self.options.get("buffer", BUFSIZE)
+
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
         if pefile_object:
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
+        # Allows to put execute file extractors/unpackers
+        generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
+
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
             file_data = file_open.read()
+
+        is_text_file(file_info, self.CAPE_path, buf, file_data)
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:
@@ -239,9 +240,9 @@ class CAPE(Processing):
                     file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
                     module = imp.load_module(cape_name, file, pathname, description)
                     malwareconfig_loaded = True
-                    log.debug("CAPE: Imported malwareconfig.com parser %s", cape_name)
+                    log.debug("CAPE: Imported parser %s", cape_name)
                 except ImportError:
-                    log.debug("CAPE: malwareconfig.com parser: No module named %s", cape_name)
+                    log.debug("CAPE: parser: No module named %s", cape_name)
                 if malwareconfig_loaded:
                     try:
                         script_data = module.config(self, data)
@@ -255,15 +256,15 @@ class CAPE(Processing):
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
                                 outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
+                                # with open(filepath + "_info.txt", "w") as infofd:
+                                #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
                                 outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
+                                # with open(filepath + "_info.txt", "w") as infofd:
+                                #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
                             if os.path.exists(filepath):
@@ -314,7 +315,7 @@ class CAPE(Processing):
             if tmp_config and tmp_config.get(cape_name):
                 config.update(tmp_config[cape_name])
 
-        if type_string :
+        if type_string:
             log.info("CAPE: type_string: %s", type_string)
             tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
             if tmp_config:
@@ -360,7 +361,7 @@ class CAPE(Processing):
             if cape_name in multi_block_config and self.cape["configs"]:
                 for conf in self.cape["configs"]:
                     if cape_name in conf:
-                        conf[cape_name].update(config[cape_name])
+                        conf[cape_name].update(config)
             else:
                 # in case if malware name is missed it will break conf visualization
                 if cape_name not in config:
@@ -391,6 +392,7 @@ class CAPE(Processing):
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
                     "pids": entry["pids"],
+                    "ppids": entry["ppids"],
                     "filepath": entry["filepath"],
                     "metadata": entry["metadata"],
                 }

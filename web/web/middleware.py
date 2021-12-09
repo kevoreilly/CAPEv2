@@ -7,9 +7,11 @@ logger = logging.getLogger()
 try:  # django 1.10+
     from django.utils.deprecation import MiddlewareMixin
 except ImportError:
+
     class MiddlewareMixin(object):
         def __init__(self, get_response=None):
             pass
+
 
 # You can learn more from those
 # https://docs.djangoproject.com/en/dev/topics/http/middleware/#process-request
@@ -19,8 +21,8 @@ redirect_url = "https://your_custom_auth_server?redirrect="
 
 # you need to uncomment in web/web/settings.py in Section MIDDLEWARE list -> "web.middleware.CustoAuth",
 
-class CustoAuth(MiddlewareMixin):
 
+class CustoAuth(MiddlewareMixin):
     def check_auth(self, request):
         """Place custom auth logic here
         Return True on authentificated user

@@ -8,7 +8,7 @@ from lib.core.packages import Package
 
 
 class Doc(Package):
-    """ LibreOffice document. """
+    """LibreOffice document."""
 
     def prepare(self):
         system('/bin/chmod +x "%s"' % self.target)

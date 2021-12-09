@@ -32,7 +32,7 @@ class STAP(Auxiliary):
                 return os.path.join(p, only_stap[0])
             return False
 
-        path_cfg = self.config.get("analyzer_stap_path", None)
+        path_cfg = self.config.get("analyzer_stap_path")
         if path_cfg and os.path.exists(path_cfg):
             path = path_cfg
         elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
@@ -44,7 +44,18 @@ class STAP(Auxiliary):
             return False
 
         stap_start = time.time()
-        self.proc = subprocess.Popen(["staprun", "-vv", "-x", str(os.getpid()), "-o", "stap.log", path,], stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(
+            [
+                "staprun",
+                "-vv",
+                "-x",
+                str(os.getpid()),
+                "-o",
+                "stap.log",
+                path,
+            ],
+            stderr=subprocess.PIPE,
+        )
 
         while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode("utf8"):
             pass

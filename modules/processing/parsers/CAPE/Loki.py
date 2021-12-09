@@ -20,13 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from mwcp.parser import Parser
 import pefile
 import sys
 import re
 import struct
 from Crypto.Cipher import DES3
 
+DESCRIPTION = "Loki configuration parser."
+AUTHOR = "sysopfb"
 
 def find_iv(pe):
     iv = -1
@@ -129,7 +130,7 @@ def decoder(data):
             if ".x" in sect.Name:
                 x_sect = sect
         img = pe.get_memory_mapped_image()
-    except:
+    except Exception:
         img = data
     if x_sect != None:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
@@ -164,12 +165,19 @@ def decoder(data):
     return urls
 
 
-class Loki(Parser):
+def config(filebuf):
 
-    DESCRIPTION = "Loki configuration parser."
-    AUTHOR = "sysopfb"
+    cfg = dict()
+    urls = decoder(filebuf)
+    if urls:
+        cfg.setdefault("address", list())
 
-    def run(self):
-        urls = decoder(self.file_object.file_data)
-        for url in urls:
-            self.reporter.add_metadata("address", url)
+    cfg["address"] = [url.decode("utf-8") for url in urls]
+    return cfg
+
+if __name__ == "__main__":
+    import sys
+    with open(sys.argv[1], "rb") as f:
+        data = f.read()
+
+    print(config(data))

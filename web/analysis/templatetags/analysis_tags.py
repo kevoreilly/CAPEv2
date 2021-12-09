@@ -13,6 +13,7 @@ from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.template.defaultfilters import register
 
+
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""
@@ -20,10 +21,12 @@ def network_rn_func(value):
         value = value.decode("utf-8")
     return list(filter(None, value.split("\r\n")))
 
+
 @register.filter("filename")
 def filename(value):
     """get basename from path"""
     return os.path.basename(value)
+
 
 @register.filter("mongo_id")
 def mongo_id(value):
@@ -48,7 +51,10 @@ def is_dict(value):
 def get_item(dictionary, key):
     return dictionary.get(key, "")
 
+
 malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}"><span style="color:#EE1B2F;font-weight: bold;">{malware_name}</span></a>"""
+
+
 @register.filter("get_detection_by_pid")
 def get_detection_by_pid(dictionary, key):
     if not dictionary:
@@ -93,30 +99,32 @@ def format_cli(cli, length):
         return ""
     return ret
 
+
 @register.filter(name="flare_capa_capability")
 def flare_capa_capabilities(obj, *args, **kwargs):
     result = StringIO()
+
     def _print(lvl, s):
-        result.write((lvl * u'  ') + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
-    _print(1, '<thead>\n')
-    _print(1, '<tr>\n')
+    _print(1, "<thead>\n")
+    _print(1, "<tr>\n")
     _print(1, '<th scope="col">Namespace</th>\n')
     _print(1, '<th scope="col">Capability</th>\n')
-    _print(2, '</tr>\n')
-    _print(3, '</thead>\n')
-    _print(3, '<tbody>\n')
+    _print(2, "</tr>\n")
+    _print(3, "</thead>\n")
+    _print(3, "<tbody>\n")
     for namespaces, capabilities in obj.get("CAPABILITY", {}).items():
-        _print(4, '<tr>\n')
-        _print(4, '<th width="25%" scope="row">'+namespaces+'</th>\n')
-        _print(4, '<td>\n')
+        _print(4, "<tr>\n")
+        _print(4, '<th width="25%" scope="row">' + namespaces + "</th>\n")
+        _print(4, "<td>\n")
         for capability in capabilities:
-            _print(5, '<li>'+capability+'</li>\n')
-        _print(4, '</td>\n')
-        _print(3, '</tr>\n')
-    _print(2, '</tbody>\n')
-    _print(1, '</table>\n')
+            _print(5, "<li>" + capability + "</li>\n")
+        _print(4, "</td>\n")
+        _print(3, "</tr>\n")
+    _print(2, "</tbody>\n")
+    _print(1, "</table>\n")
 
     return mark_safe(result.getvalue())
 
@@ -124,58 +132,62 @@ def flare_capa_capabilities(obj, *args, **kwargs):
 @register.filter(name="flare_capa_attck")
 def flare_capa_attck(obj, *args, **kwargs):
     result = StringIO()
+
     def _print(lvl, s):
-        result.write((lvl * u'  ') + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
-    _print(1, '<thead>\n')
-    _print(1, '<tr>\n')
+    _print(1, "<thead>\n")
+    _print(1, "<tr>\n")
     _print(1, '<th scope="col">ATT&CK Tactic</th>\n')
     _print(1, '<th scope="col">ATT&CK Technique</th>\n')
-    _print(2, '</tr>\n')
-    _print(3, '</thead>\n')
-    _print(3, '<tbody>\n')
+    _print(2, "</tr>\n")
+    _print(3, "</thead>\n")
+    _print(3, "<tbody>\n")
     for tactic, techniques in obj.get("ATTCK", {}).items():
-        _print(4, '<tr>\n')
-        _print(4, '<th scope="row">'+tactic+'</th>\n')
-        _print(4, '<td>\n')
+        _print(4, "<tr>\n")
+        _print(4, '<th scope="row">' + tactic + "</th>\n")
+        _print(4, "<td>\n")
         for technique in techniques:
-            _print(5, '<li>'+technique+'</li>\n')
+            _print(5, "<li>" + technique + "</li>\n")
 
-        _print(4, '</td>\n')
-        _print(3, '</tr>\n')
-    _print(2, '</tbody>\n')
-    _print(1, '</table>\n')
+        _print(4, "</td>\n")
+        _print(3, "</tr>\n")
+    _print(2, "</tbody>\n")
+    _print(1, "</table>\n")
 
     return mark_safe(result.getvalue())
+
 
 @register.filter(name="flare_capa_mbc")
 def flare_capa_mbc(obj, *args, **kwargs):
     result = StringIO()
+
     def _print(lvl, s):
-        result.write((lvl * u'  ') + s)
+        result.write((lvl * "  ") + s)
 
     _print(1, '<table class="table table-striped table-hover table-bordered">\n')
-    _print(1, '<thead>\n')
-    _print(1, '<tr>\n')
+    _print(1, "<thead>\n")
+    _print(1, "<tr>\n")
     _print(1, '<th scope="col">MBC Objective</th>\n')
     _print(1, '<th scope="col">MBC Behavior</th>\n')
-    _print(2, '</tr>\n')
-    _print(3, '</thead>\n')
-    _print(3, '<tbody>\n')
+    _print(2, "</tr>\n")
+    _print(3, "</thead>\n")
+    _print(3, "<tbody>\n")
     for objective, behaviors in obj.get("MBC", {}).items():
-        _print(4, '<tr>\n')
-        _print(4, '<th scope="row">'+objective+'</th>\n')
-        _print(4, '<td>\n')
+        _print(4, "<tr>\n")
+        _print(4, '<th scope="row">' + objective + "</th>\n")
+        _print(4, "<td>\n")
         for behavior in behaviors:
-            _print(5, '<li>'+behavior+'</li>\n')
+            _print(5, "<li>" + behavior + "</li>\n")
 
-        _print(4, '</td>\n')
-        _print(3, '</tr>\n')
-    _print(2, '</tbody>\n')
-    _print(1, '</table>\n')
+        _print(4, "</td>\n")
+        _print(3, "</tr>\n")
+    _print(2, "</tbody>\n")
+    _print(1, "</table>\n")
 
     return mark_safe(result.getvalue())
+
 
 # Thanks Sandor
 @register.simple_tag
@@ -185,32 +197,32 @@ def malware_config(obj, *args, **kwargs):
     unordered lists. Empty dicts and lists are rendered as empty fields.
     Single element lists are expanded and rendered as regular values.
     """
-    level = kwargs.get('level') or 0
+    level = kwargs.get("level") or 0
     result = StringIO()
 
     def _print(lvl, s):
-        result.write((lvl * u'  ') + str(s))
+        result.write((lvl * "  ") + str(s))
 
     if isinstance(obj, dict):
         if obj:
-            _print(0, '\n')
-            _print(level + 0, '<table>\n')
+            _print(0, "\n")
+            _print(level + 0, "<table>\n")
             for key, val in obj.items():
-                _print(level + 1, '<tr>\n')
-                _print(level + 2, '<td>' + malware_config(key, level=level + 3) + '</td>\n')
-                _print(level + 2, '<td>' + malware_config(val, level=level + 3) + '</td>\n')
-                _print(level + 1, '</tr>\n')
-            _print(level + 0, '</table>\n')
-            _print(level - 1, '')
+                _print(level + 1, "<tr>\n")
+                _print(level + 2, "<td>" + malware_config(key, level=level + 3) + "</td>\n")
+                _print(level + 2, "<td>" + malware_config(val, level=level + 3) + "</td>\n")
+                _print(level + 1, "</tr>\n")
+            _print(level + 0, "</table>\n")
+            _print(level - 1, "")
     elif isinstance(obj, list):
         if obj:
             if len(obj) > 1:
-                _print(0, '\n')
+                _print(0, "\n")
                 _print(level + 0, '<ul style="margin: 0;columns: 4;">\n')
                 for item in obj:
-                    _print(level + 1, '<li>' + malware_config(item, level=level + 2) + '</li>\n')
-                _print(level + 0, '</ul>\n')
-                _print(level - 1, '')
+                    _print(level + 1, "<li>" + malware_config(item, level=level + 2) + "</li>\n")
+                _print(level + 0, "</ul>\n")
+                _print(level - 1, "")
             else:
                 result.write(malware_config(obj[0]))
     else:

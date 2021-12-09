@@ -90,8 +90,8 @@ LINUX_ENABLED = web_conf.linux.enabled
 results_db = pymongo.MongoClient(
     repconf.mongodb.host,
     port=repconf.mongodb.port,
-    username=repconf.mongodb.get("username", None),
-    password=repconf.mongodb.get("password", None),
+    username=repconf.mongodb.get("username"),
+    password=repconf.mongodb.get("password"),
     authSource=repconf.mongodb.get("authsource", "cuckoo"),
 )[repconf.mongodb.db]
 
@@ -140,6 +140,8 @@ tasks_tags = Table(
 
 
 VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
+
+
 def _get_linux_vm_tag(mgtype):
     mgtype = mgtype.lower()
     if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
@@ -150,13 +152,13 @@ def _get_linux_vm_tag(mgtype):
         return "mips"
     elif "arm" in mgtype:
         return "arm"
-    #elif "armhl" in mgtype:
+    # elif "armhl" in mgtype:
     #    return {"tags":"armhl"}
     elif "sparc" in mgtype:
         return "sparc"
-    #elif "motorola" in mgtype:
+    # elif "motorola" in mgtype:
     #    return "motorola"
-    #elif "renesas sh" in mgtype:
+    # elif "renesas sh" in mgtype:
     #    return "renesassh"
     elif "powerpc" in mgtype:
         return "powerpc"
@@ -812,6 +814,7 @@ class Database(object, metaclass=Singleton):
                     .filter(cond)
                     .first()
             )
+
 
             if row:
                 if row.machine and row.machine != machine.label:
@@ -1945,7 +1948,6 @@ class Database(object, metaclass=Singleton):
         limit=None,
         details=False,
         category=None,
-
         offset=None,
         status=None,
         sample_id=None,
@@ -2314,7 +2316,9 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     # search in Suricata files folder
-                    tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0})
+                    tasks = results_db.analysis.find(
+                        {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
+                    )
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:

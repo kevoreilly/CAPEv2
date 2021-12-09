@@ -2,13 +2,13 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os, sys
 
-if sys.version_info[:2] < (3, 5):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.core.plugins import get_suricata_family
+from lib.cuckoo.common.suricata_detection import get_suricata_family
 
 assert "Sharik" == get_suricata_family("ET MALWARE Sharik/Smoke CnC Beacon 11")
 assert "Revenge-Rat" == get_suricata_family("ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin")
@@ -58,3 +58,4 @@ assert False is get_suricata_family("ET MALWARE ABX Toolbar ActiveX Install")
 assert "Tinba" == get_suricata_family("ET MALWARE [PTsecurity] Tinba Checkin 4")
 assert False is get_suricata_family("ET TROJAN Suspicious User-Agent (WindowsNT) With No Separating Space")
 assert "Photoloader" == get_suricata_family("ET MALWARE W32/Photoloader.Downloader Request Cookie")
+assert "Pcrat" == get_suricata_family("ET MALWARE Backdoor family PCRat/Gh0st CnC traffic")

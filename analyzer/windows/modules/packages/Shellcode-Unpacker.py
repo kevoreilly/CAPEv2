@@ -11,6 +11,7 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class Shellcode_Unpacker(Package):
     """32-bit Shellcode Unpacker package."""
 

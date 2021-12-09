@@ -19,14 +19,17 @@ from lib.common.abstracts import Package
 class INP(Package):
     """Inpage (Urdu/Arabic) Word Processor analysis package."""
 
-    PATHS = [("ProgramFiles", "InPage Urdu Professional", "Inpage.exe"), ("ProgramFiles", "Concept Software Pvt. Ltd", "InPage Urdu Professional", "Inpage.exe")]
+    PATHS = [
+        ("ProgramFiles", "InPage Urdu Professional", "Inpage.exe"),
+        ("ProgramFiles", "Concept Software Pvt. Ltd", "InPage Urdu Professional", "Inpage.exe"),
+    ]
 
     def start(self, path):
         inp = self.get_path("Inpage.exe")
-        #Rename file to file.inp so it can open properly.
+        # Rename file to file.inp so it can open properly.
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".inp":
-          new_path = path + ".inp"
-          os.rename(path, new_path)
-          path = new_path
+            new_path = path + ".inp"
+            os.rename(path, new_path)
+            path = new_path
         return self.execute(inp, '"%s"' % path, path)

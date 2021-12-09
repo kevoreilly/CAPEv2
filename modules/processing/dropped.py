@@ -8,6 +8,8 @@ import json
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
+from lib.cuckoo.common.cape_utils import generic_file_extractors
+
 
 class Dropped(Processing):
     """Dropped files analysis."""
@@ -31,10 +33,12 @@ class Dropped(Processing):
                 entry = json.loads(line)
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta.setdefault(filepath, [])
-                meta[filepath].append({
-                    "pids": entry["pids"],
-                    "filepath": entry["filepath"],
-                })
+                meta[filepath].append(
+                    {
+                        "pids": entry["pids"],
+                        "filepath": entry["filepath"],
+                    }
+                )
 
         for dir_name, _, file_names in os.walk(self.dropped_path):
             for file_name in file_names:
@@ -44,10 +48,16 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                 file_info.update(meta.get(file_info["path"][0], {}))
-                guest_paths = list(set([path["filepath"] for path in meta[file_path]]))
-                guest_names = list(set([path["filepath"].split("\\")[-1] for path in meta[file_path]]))
+                if file_path in meta:
+                    guest_paths = list(set([path.get("filepath") for path in meta[file_path]]))
+                    guest_names = list(set([path.get("filepath", "").split("\\")[-1] for path in meta[file_path]]))
+                else:
+                    guest_paths = list()
+                    guest_names = list()
+
                 file_info["guest_paths"] = guest_paths if isinstance(guest_paths, list) else [guest_paths]
                 file_info["name"] = guest_names
+
                 try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
@@ -61,13 +71,17 @@ class Dropped(Processing):
                     pass
                 dropped_files.append(file_info)
 
-        for dir_name, dir_names, file_names in os.walk(self.package_files):
+        for dir_name, _, file_names in os.walk(self.package_files):
             for file_name in file_names:
                 file_path = os.path.join(dir_name, file_name)
                 file_info, pefile_object = File(file_path=file_path).get_all()
                 if pefile_object:
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+
+                # Allows to put execute file extractors/unpackers
+                generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
+
                 dropped_files.append(file_info)
 
         return dropped_files

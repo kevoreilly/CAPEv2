@@ -23,7 +23,95 @@ log = logging.getLogger()
 # ToDo store list of exclude files if conf enable to store them
 proc_cfg = Config("processing")
 skip_number = proc_cfg["antiransomware"]["skip_number"]
-do_not_skip = ('txt', 'dll', 'msi', 'msp', 'appx', 'pub', 'doc', 'dot', 'docx', 'dotx', 'docm', 'dotm', 'docb', 'rtf', 'mht', 'mso', 'wbk', 'wiz', 'xls', 'xlt', 'xlm', 'xlsx', 'xltx', 'xlsm', 'xltm', 'xlsb', 'xla', 'xlam', 'xll', 'xlw', 'slk', 'xll', 'csv', 'ppt', 'ppa', 'pot', 'pps', 'pptx', 'pptm', 'potx', 'potm', 'ppam', 'ppsx', 'ppsm', 'sldx', 'sldm', 'jar', 'reg', 'swf', 'fws', 'py', 'pyc', 'pyw', 'ps1', 'js', 'jse', 'html', 'url', 'xps', 'hta', 'mht', 'lnk', 'chm', 'hwp', 'hwpx', 'hwt', 'hml', 'inp', 'int', 'xsl', 'xslt', 'wsf', 'pdf', 'vbs', 'vbe', 'csproj', 'vbproj', 'vcxproj', 'dbproj', 'fsproj', 'zip', 'cpl', 'jtd', 'jtdc', 'jttc', 'jtt')
+do_not_skip = (
+    "txt",
+    "dll",
+    "msi",
+    "msp",
+    "appx",
+    "pub",
+    "doc",
+    "dot",
+    "docx",
+    "dotx",
+    "docm",
+    "dotm",
+    "docb",
+    "rtf",
+    "mht",
+    "mso",
+    "wbk",
+    "wiz",
+    "xls",
+    "xlt",
+    "xlm",
+    "xlsx",
+    "xltx",
+    "xlsm",
+    "xltm",
+    "xlsb",
+    "xla",
+    "xlam",
+    "xll",
+    "xlw",
+    "slk",
+    "xll",
+    "csv",
+    "ppt",
+    "ppa",
+    "pot",
+    "pps",
+    "pptx",
+    "pptm",
+    "potx",
+    "potm",
+    "ppam",
+    "ppsx",
+    "ppsm",
+    "sldx",
+    "sldm",
+    "jar",
+    "reg",
+    "swf",
+    "fws",
+    "py",
+    "pyc",
+    "pyw",
+    "ps1",
+    "js",
+    "jse",
+    "html",
+    "url",
+    "xps",
+    "hta",
+    "mht",
+    "lnk",
+    "chm",
+    "hwp",
+    "hwpx",
+    "hwt",
+    "hml",
+    "inp",
+    "int",
+    "xsl",
+    "xslt",
+    "wsf",
+    "pdf",
+    "vbs",
+    "vbe",
+    "csproj",
+    "vbproj",
+    "vcxproj",
+    "dbproj",
+    "fsproj",
+    "zip",
+    "cpl",
+    "jtd",
+    "jtdc",
+    "jttc",
+    "jtt",
+)
+
 
 class AntiRansomware(Processing):
     """Disable processing encrypted files."""
@@ -41,16 +129,14 @@ class AntiRansomware(Processing):
                 if filename and not "." in filename:
                     continue
                 ext = filename.rsplit(".")
-                # do not count interesting extensions
+                # do not count interesting extensions
                 if ext and ext[-1] not in do_not_skip:
                     extensions.setdefault(ext[-1], 0)
                     extensions[ext[-1]] += 1
                     tmp_ext_list.setdefault(ext[-1], list())
                     tmp_ext_list[ext[-1]].append(filename)
 
-
         for ext, count in extensions.iteritems():
             if count > skip_number:
                 log.debug(f"Skipping all files with extension: {ext}")
                 self.report["ransom_exclude_files"] += tmp_ext_list.get(ext, [])
-

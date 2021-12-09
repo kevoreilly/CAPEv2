@@ -11,8 +11,8 @@ Create Date: 2021-02-02 07:28:09.576652
 """
 
 # revision identifiers, used by Alembic.
-revision = '6ab863a3b510'
-down_revision = 'c554ed5f32a0'
+revision = "6ab863a3b510"
+down_revision = "c554ed5f32a0"
 
 
 import sys
@@ -25,6 +25,7 @@ import sqlalchemy as sa
 
 def upgrade():
     op.add_column("tasks", sa.Column("user_id", sa.Integer, nullable=True))
+
 
 def downgrade():
     op.drop_column("tasks", "user_id")

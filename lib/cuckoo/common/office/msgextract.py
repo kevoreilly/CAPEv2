@@ -72,7 +72,9 @@ class Attachment:
             import random
             import string
 
-            filename = "UnknownAttachment" + "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5)) + ".bin"
+            filename = (
+                "UnknownAttachment" + "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5)) + ".bin"
+            )
 
         base, ext = os.path.splitext(filename)
         basename = os.path.basename(filename)

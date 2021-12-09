@@ -48,7 +48,7 @@
             {% if analysis.info.source_url %}
             <tr>
                 <th style="border-top: 0; width: 15%;">File downloaded from</th>
-                <td style="border-top: 0; word-wrap: break-word;">{{analysis.info.source_url|safe}}</td>
+                <td style="border-top: 0; word-wrap: break-word;">{{analysis.info.source_url|escape}}</td>
             </tr>
             {% endif %}
             <tr>
@@ -89,6 +89,12 @@
             <tr>
                 <th>SHA3-384</th>
                 <td style="word-wrap: break-word;">{{analysis.target.file.sha3_384}}</td>
+            </tr>
+            {% endif %}
+            {% if analysis.target.file.rh_hash %}
+            <tr>
+                <th>RichHeader Hash</th>
+                <td style="word-wrap: break-word;">{{analysis.target.file.rh_hash}}</td>
             </tr>
             {% endif %}
             <tr>
@@ -170,7 +176,6 @@
                 </td>
             </tr>
             {% endif %}
-
             <tr>
                 <th></th>
                 <td>
@@ -188,25 +193,38 @@
                             {% endif %}
                         {% endif %}
                     {% endif %}
-
-                        {% if config.xlsdeobf %}
-                            {% if not analysis.static.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
-                                <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
-                            {% elif analysis.static.office.XLMMacroDeobfuscator %}
-                                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
-                             {% endif %}
-                            <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
-                                {% if analysis.static.office.XLMMacroDeobfuscator.msg %}
-                                    <pre>No results</pre>
-                                {% else %}
-                                    <pre>
-                                        {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
-                                            {{line}}
-                                        {% endfor %}
-                                    </pre>
-                                {% endif %}
+                    {% if analysis.target.file.msitools %}
+                        <tr>
+                            <th></th><td>
+                            <div class="collapse" id="msitools_{{file.sha256}}">
+                                <div class="card card-body">
+                                    {% for msi_file in  analysis.target.file.msitools %}
+                                        {% include "analysis/overview/_subfile_info.html" %}
+                                    {% endfor %}
+                                </div>
                             </div>
-                        {% endif %}
+                        </td>
+                        </tr>
+                        </br>
+                    {% endif %}
+                    {% if config.xlsdeobf %}
+                        {% if not analysis.static.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
+                            <a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "xlsdeobf" analysis.info.id "static" analysis.target.file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate XLMMacroDeobfuscator findings"><span class="fas fa-cogs"></span> <i class="far fa-file-excel"></i></a>
+                        {% elif analysis.static.office.XLMMacroDeobfuscator %}
+                            <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#main_XLMMacroDeobfuscator" role="button" aria-expanded="false" aria-controls="main_XLMMacroDeobfuscator"><i class="far fa-file-excel"></i></a>
+                            {% endif %}
+                        <div id="main_XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
+                            {% if analysis.static.office.XLMMacroDeobfuscator.msg %}
+                                <pre>No results</pre>
+                            {% else %}
+                                <pre>
+                                    {% for line in analysis.static.office.XLMMacroDeobfuscator.Code %}
+                                        {{line}}
+                                    {% endfor %}
+                                </pre>
+                            {% endif %}
+                        </div>
+                    {% endif %}
 
                     {% if graphs.bingraph.enabled %}
                         {% if not graphs.bingraph.content|getkey:analysis.target.file.sha256 and on_demand.bingraph %}
@@ -229,9 +247,17 @@
                         <a class="btn btn-secondary btn-sm" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}"><span class="fas fa-exclamation-triangle" data-bs-toggle="tooltip" title="Upload file to VirusTotal"></span> <span class="fas fa-upload"></span> VirusTotal</a>
                     {% endif %}
                     {% if config.evtx_download %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "file" "evtx"  analysis.info.id analysis.target.file.sha256 %}" data-bs-toggle="tooltip" title="Download evtx files"><span class="fas fa-eye"></span> Evtx</a>
-                {% endif %}
-
+                        <a class="btn btn-secondary btn-sm" href="{% url "file" "evtx"  analysis.info.id analysis.target.file.sha256 %}" data-bs-toggle="tooltip" title="Download evtx files"><span class="fas fa-eye"></span> Evtx</a>
+                    {% endif %}
+                    {% if analysis.target.file.data %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    {% endif %}
+                    {% if analysis.target.file.decoded_files %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{analysis.target.file.decoded_files_tool}}</a>
+                    {% endif %}
+                    {% if analysis.static.extracted_files %}
+                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{analysis.target.file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{analysis.target.file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{analysis.target.file.extracted_files_tool}}</a>
+                    {% endif %}
                 </td>
             </tr>
             {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:analysis.target.file.sha256 %}
@@ -244,7 +270,6 @@
                     <td>{{ graphs.vba2graph.content|getkey:analysis.target.file.sha256|safe }}</td>
                 </tr>
             {% endif %}
-
             {% if analysis.static.flare_capa %}
                 <tr><th></th><td>
                 <div class="collapse" id="flare_capa_{{analysis.target.file.sha256}}">
@@ -267,6 +292,42 @@
             </tr>
             {% endif %}
 
+            {% if analysis.target.file.data %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="text_{{analysis.target.file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{analysis.target.file.data|escape}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+            {% endif %}
+            {% if analysis.target.file.decoded_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="decoded_files_{{analysis.target.file.sha256}}">
+                    <div class="card card-body">
+                    <pre>{{analysis.target.file.decoded_files|escape}}</pre>
+                    </div>
+                </div>
+            </td>
+            </tr>
+            {% endif %}
+            {% if analysis.static.extracted_files %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="extracted_files_{{analysis.target.file.sha256}}">
+                    <div class="card card-body">
+                        {% for sub_file in analysis.static.extracted_files %}
+                            {% include "analysis/overview/_subfile_info.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
+            {% endif %}
             {% if existent_tasks %}
             <tr><th></th><td>
             <div id="existent_tasks" class="collapse bg-dark" style="text-align: left;">

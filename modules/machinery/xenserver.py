@@ -71,7 +71,7 @@ class XenServerMachinery(Machinery):
     @property
     def session(self):
         tid = threading.current_thread().ident
-        sess = self._sessions.get(tid, None)
+        sess = self._sessions.get(tid)
         if sess is None:
             sess = self._make_xenapi_session(tid)
         return sess
@@ -80,14 +80,14 @@ class XenServerMachinery(Machinery):
         tid = tid or threading.current_thread().ident
         try:
             sess = XenAPI.Session(self.options.xenserver.url)
-        except:
+        except Exception:
             raise CuckooMachineError(
                 "Could not connect to XenServer: invalid " "or incorrect url, please ensure the url " "is correct in xenserver.conf"
             )
 
         try:
             sess.xenapi.login_with_password(self.options.xenserver.user, self.options.xenserver.password)
-        except:
+        except Exception:
             raise CuckooMachineError(
                 "Could not connect to XenServer: "
                 "incorrect credentials, please ensure "
@@ -150,7 +150,7 @@ class XenServerMachinery(Machinery):
         try:
             snapshot_ref = self._get_vm_ref(snapshot_uuid)
             snapshot = self._get_vm_record(snapshot_ref)
-        except:
+        except Exception:
             raise CuckooMachineError("Snapshot not found: %s" % snapshot_uuid)
 
         if not snapshot["is_a_snapshot"]:
@@ -158,7 +158,7 @@ class XenServerMachinery(Machinery):
 
         try:
             parent = self._get_vm_record(snapshot["snapshot_of"])
-        except:
+        except Exception:
             raise CuckooMachineError("Invalid snapshot: %s" % snapshot_uuid)
 
         parent_uuid = parent["uuid"]
@@ -173,7 +173,7 @@ class XenServerMachinery(Machinery):
         for ref in vm["VBDs"]:
             try:
                 vbd = self.session.xenapi.VBD.get_record(ref)
-            except:
+            except Exception:
                 log.warning("Invalid VBD for vm %s: %s", vm["uuid"], ref)
                 continue
 
@@ -181,7 +181,7 @@ class XenServerMachinery(Machinery):
                 vdi_ref = vbd["VDI"]
                 try:
                     vdi = self.session.xenapi.VDI.get_record(vdi_ref)
-                except:
+                except Exception:
                     log.warning("Invalid VDI for vm %s: %s", vm["uuid"], vdi_ref)
                     continue
 
@@ -266,7 +266,7 @@ class XenServerMachinery(Machinery):
             for ref in self.session.xenapi.VM.get_all():
                 vm = self._get_vm_record(ref)
                 vm_list.append(vm["uuid"])
-        except:
+        except Exception:
             raise CuckooMachineError("Cannot list domains")
         else:
             return vm_list

@@ -78,8 +78,8 @@ def check_webgui_mongo():
             conn = pymongo.MongoClient(
                 repconf.mongodb.host,
                 port=repconf.mongodb.port,
-                username=repconf.mongodb.get("username", None),
-                password=repconf.mongodb.get("password", None),
+                username=repconf.mongodb.get("username"),
+                password=repconf.mongodb.get("password"),
                 authSource=repconf.mongodb.get("authsource", "cuckoo"),
             )
             # ToDo check how to give user permission to read this without admin
@@ -316,7 +316,7 @@ def init_yara():
                 mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
             except yara.Error as e:
                 if "could not open file" in str(e):
-                    log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
                 else:
                     log.error(e)
 

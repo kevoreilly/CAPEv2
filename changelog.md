@@ -1,3 +1,28 @@
+### [07-12-2021] Decode them all
+* VBE/JSE/BATCH decoded and shown on WebGui
+* __ACTION REQUIRED__
+    * `pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator`
+* Monitor: Add support for parent pid in payload capture (thanks to Intezer)
+
+### [02-12-2021] - API changes
+* We spot that pyzipper adds huge overhead specially to distributed cape.
+* Repors now are just zips, screens also now zips, anything that is not contains malicious code is just pure zip, the rest is keeps the same.
+
+### [01-12-2021]
+* Monitor: Bcrypt hooks, disable yara scans in IE, silent rdtscp emulation, other misc tweaks
+
+### [23-11-2021]
+* Integrate [Kixtart-Detokenizer](https://github.com/jhumble/Kixtart-Detokenizer)
+* Simplify integration of another tools to unpack/extract files
+
+### [18-11-2021]
+* Add [RichHeader](https://github.com/RichHeaderResearch/RichPE) MD5
+* Improve Suricata family detection
+* Extract strings on demand feature
+
+### [08-11-2021]
+* Monitor: rdtscp emulation, optional exception & breakpoint logging
+
 ### [04-11-2021]
 * Move Office hook options from packages to monitor
 * Monitor: Disable NtWaitForSingleObject hook for 32-bit Windows 8+ due to crashes

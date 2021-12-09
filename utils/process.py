@@ -49,7 +49,15 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
+    es = Elasticsearch(
+        hosts=[
+            {
+                "host": repconf.elasticsearchdb.host,
+                "port": repconf.elasticsearchdb.port,
+            }
+        ],
+        timeout=60,
+    )
 
 check_linux_dist()
 
@@ -59,20 +67,22 @@ pending_task_id_map = {}
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
     if platform.system() != "Linux":
-        print('Only works on linux!')
+        print("Only works on linux!")
         return
     _, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
 
+
 def get_memory():
-    with open('/proc/meminfo', 'r') as mem:
+    with open("/proc/meminfo", "r") as mem:
         free_memory = 0
         for i in mem:
             sline = i.split()
-            if str(sline[0]) == 'MemAvailable:':
+            if str(sline[0]) == "MemAvailable:":
                 free_memory = int(sline[1])
                 break
     return free_memory
+
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
@@ -125,11 +135,15 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                         for process in analysis["_source"]["behavior"]["processes"]:
                             for call in process["calls"]:
                                 es.delete(
-                                    index=esidx, doc_type="calls", id=call,
+                                    index=esidx,
+                                    doc_type="calls",
+                                    id=call,
                                 )
                     # Delete the analysis results
                     es.delete(
-                        index=esidx, doc_type="analysis", id=esid,
+                        index=esidx,
+                        doc_type="analysis",
+                        id=esid,
                     )
         if auto or capeproc:
             reprocess = False
@@ -208,6 +222,7 @@ def processing_finished(future):
     del pending_future_map[future]
     del pending_task_id_map[task_id]
 
+
 def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
@@ -229,7 +244,10 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
                     need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
                     if need_space:
-                        log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                        log.error(
+                            "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                            space_available,
+                        )
                         time.sleep(60)
                         continue
 
@@ -278,23 +296,25 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         raise
     except MemoryError:
         mem = get_memory() / 1024 / 1024
-        print('Remain: %.2f GB' % mem)
-        sys.stderr.write('\n\nERROR: Memory Exception\n')
+        print("Remain: %.2f GB" % mem)
+        sys.stderr.write("\n\nERROR: Memory Exception\n")
         sys.exit(1)
     except Exception as e:
         import traceback
+
         traceback.print_exc()
     finally:
         pool.close()
         pool.join()
 
+
 def _load_mongo_report(task_id: int, return_one: bool = False):
     conn = MongoClient(
-        host = repconf.mongodb.get("host", "127.0.0.1"),
-        port = repconf.mongodb.get("port", 27017),
-        username = repconf.mongodb.get("username", None),
-        password = repconf.mongodb.get("password", None),
-        authSource = repconf.mongodb.get("authsource", "cuckoo"),
+        host=repconf.mongodb.get("host", "127.0.0.1"),
+        port=repconf.mongodb.get("port", 27017),
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
+        authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )
     mdata = conn[repconf.mongodb.get("db", "cuckoo")]
 
@@ -321,11 +341,22 @@ def main():
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
-    parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1)
-    parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
-    parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7)
     parser.add_argument(
-        "-md", "--memory-debugging", help="Enable logging garbage collection related info", action="store_true", required=False, default=False
+        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1
+    )
+    parser.add_argument(
+        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False
+    )
+    parser.add_argument(
+        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7
+    )
+    parser.add_argument(
+        "-md",
+        "--memory-debugging",
+        help="Enable logging garbage collection related info",
+        action="store_true",
+        required=False,
+        default=False,
     )
     parser.add_argument(
         "-pt",
@@ -336,10 +367,31 @@ def main():
         required=False,
         default=300,
     )
-    testing_args = parser.add_argument_group('Signature testing options')
-    testing_args.add_argument("-sig", "--signatures", help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument", action="store_true", default=False, required=False)
-    testing_args.add_argument("-sn", "--signature-name", help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat", action="store", default=False, required=False)
-    testing_args.add_argument("-jr", "--json-report", help="Path to json report, only if data not in mongo/default report location", action="store", default=False, required=False)
+    testing_args = parser.add_argument_group("Signature testing options")
+    testing_args.add_argument(
+        "-sig",
+        "--signatures",
+        help="Re-execute signatures on the report, doesn't work for signature with self.get_raw_argument, use self.get_argument",
+        action="store_true",
+        default=False,
+        required=False,
+    )
+    testing_args.add_argument(
+        "-sn",
+        "--signature-name",
+        help="Run only one signature. To be used with --signature. Example -sig -sn cape_detected_threat",
+        action="store",
+        default=False,
+        required=False,
+    )
+    testing_args.add_argument(
+        "-jr",
+        "--json-report",
+        help="Path to json report, only if data not in mongo/default report location",
+        action="store",
+        default=False,
+        required=False,
+    )
     args = parser.parse_args()
 
     init_yara()
@@ -363,7 +415,7 @@ def main():
             report = False
             # check mongo
             if repconf.mongodb.enabled:
-                conn, _, results = _load_mongo_report(int(args.id), return_one = True)
+                conn, _, results = _load_mongo_report(int(args.id), return_one=True)
             if not results:
                 # fallback to json
                 report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")

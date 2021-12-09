@@ -12,6 +12,7 @@ mispips = set()
 mispurls = set()
 misphashes = set()
 
+
 def _load_safelist(wlset, wl_file):
     wl_path = os.path.join(CUCKOO_ROOT, "data", "safelist", wl_file)
 
@@ -26,12 +27,14 @@ def _load_safelist(wlset, wl_file):
         if entry and not entry.startswith("#"):
             wlset.add(entry)
 
+
 def is_safelisted_domain(domain):
     if not domains:
         # Initialize the domain safelist.
         _load_safelist(domains, "domain.txt")
 
     return domain in domains
+
 
 def is_safelisted_ip(ip):
     if not ips:
@@ -40,12 +43,14 @@ def is_safelisted_ip(ip):
 
     return ip in ips
 
+
 def is_safelisted_mispdomain(domain):
     if not mispdomains:
         # Initialize the misp domain safelist.
         _load_safelist(mispdomains, "mispdomain.txt")
 
     return domain in mispdomains
+
 
 def is_safelisted_mispip(ip):
     if not mispips:
@@ -54,12 +59,14 @@ def is_safelisted_mispip(ip):
 
     return ip in mispips
 
+
 def is_safelisted_mispurl(url):
     if not mispurls:
         # Initialize the misp url safelist.
         _load_safelist(mispurls, "mispurl.txt")
 
     return url in mispurls
+
 
 def is_safelisted_misphash(hash):
     if not misphashes:

@@ -2,7 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 # TODO
-#  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
+#  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
 from __future__ import absolute_import
 import os
@@ -15,26 +15,21 @@ import hashlib
 import traceback
 import subprocess
 from ctypes import create_string_buffer, create_unicode_buffer, POINTER
-from ctypes import c_wchar_p, byref, c_int, sizeof, cast, c_void_p, c_ulong, addressof
+from ctypes import byref, c_int, sizeof, cast, c_void_p, c_ulong
 
-from threading import Lock, Thread
+from threading import Lock
 from datetime import datetime, timedelta
 from shutil import copy
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from lib.common.rand import random_string
 from lib.api.process import Process
 from lib.common.abstracts import Package, Auxiliary
 from lib.common.constants import PATHS, PIPE, SHUTDOWN_MUTEX, TERMINATE_EVENT, LOGSERVER_PREFIX
 from lib.common.constants import CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME
 from lib.common.defines import ADVAPI32, KERNEL32, NTDLL
-from lib.common.defines import ERROR_MORE_DATA, ERROR_PIPE_CONNECTED
-from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE
-from lib.common.defines import PIPE_READMODE_MESSAGE, PIPE_WAIT
-from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
 from lib.common.defines import SYSTEM_PROCESS_INFORMATION
-from lib.common.defines import EVENT_MODIFY_STATE, SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SYSTEMTIME
+from lib.common.defines import EVENT_MODIFY_STATE
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -105,7 +100,7 @@ def add_pid_to_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.add_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -113,7 +108,7 @@ def del_pid_from_aux_modules(pid):
     for aux in AUX_ENABLED:
         try:
             aux.del_pid(pid)
-        except:
+        except Exception:
             continue
 
 
@@ -366,7 +361,7 @@ class Analyzer:
         try:
             log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
-            #log.debug('Imported analysis package "%s".', package)
+            # log.debug('Imported analysis package "%s".', package)
         # If it fails, we need to abort the analysis.
         except ImportError:
             raise CuckooError('Unable to import package "{0}", does ' "not exist.".format(package_name))
@@ -385,7 +380,7 @@ class Analyzer:
         # Initialize the analysis package.
         log.debug('Initializing analysis package "%s"...', package)
         self.package = package_class(self.options, self.config)
-        #log.debug('Initialized analysis package "%s".', package)
+        # log.debug('Initialized analysis package "%s".', package)
 
         # Move the sample to the current working directory as provided by the
         # task - one is able to override the starting path of the sample.
@@ -455,7 +450,7 @@ class Analyzer:
             try:
                 log.debug('Importing auxiliary module "%s"...', name)
                 __import__(name, globals(), locals(), ["dummy"])
-                #log.debug('Imported auxiliary module "%s".', name)
+                # log.debug('Imported auxiliary module "%s".', name)
             except ImportError as e:
                 log.warning("Unable to import the auxiliary module " '"%s": %s', name, e)
         # Walk through the available auxiliary modules.
@@ -468,9 +463,9 @@ class Analyzer:
             try:
                 log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                #log.debug('Initialized auxiliary module "%s".', module.__name__)
+                # log.debug('Initialized auxiliary module "%s".', module.__name__)
                 aux_avail.append(aux)
-                #log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                # log.debug('Trying to start auxiliary module "%s"...', module.__name__)
                 aux.start()
             except (NotImplementedError, AttributeError):
                 log.warning("Auxiliary module %s was not implemented", module.__name__)
@@ -504,14 +499,14 @@ class Analyzer:
         si.dwFlags = 1
         # SW_HIDE
         si.wShowWindow = 0
-        #log.info("Stopping WMI Service")
+        # log.info("Stopping WMI Service")
         subprocess.call(["net", "stop", "winmgmt", "/y"], startupinfo=si)
-        #log.info("Stopped WMI Service")
+        # log.info("Stopped WMI Service")
         subprocess.call("sc config winmgmt type= own", startupinfo=si)
 
         log.info("Restarting WMI Service")
         subprocess.call("net start winmgmt", startupinfo=si)
-        #log.info("Started WMI Service")
+        # log.info("Started WMI Service")
 
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
@@ -522,7 +517,9 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_name, e))
         except Exception as e:
-            raise CuckooError('The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e))
+            raise CuckooError(
+                'The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e)
+            )
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -626,7 +623,7 @@ class Analyzer:
                 if proc.is_alive():
                     try:
                         proc.set_terminate_event()
-                    except:
+                    except Exception:
                         log.error("Unable to set terminate event for process %d.", proc.pid)
                         continue
                     log.info("Terminate event set for process %d.", proc.pid)
@@ -640,7 +637,7 @@ class Analyzer:
                             if proc_counter > 5:
                                 try:
                                     proc.terminate()
-                                except:
+                                except Exception:
                                     continue
                             log.info("Waiting for process %d to exit.", proc.pid)
                             KERNEL32.Sleep(1000)
@@ -749,7 +746,7 @@ class Files(object):
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath, metadata="", pids=False, category="files"):
+    def dump_file(self, filepath, metadata="", pids=False, ppids=False, category="files"):
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %r does not exist, skip.", filepath)
@@ -786,7 +783,7 @@ class Files(object):
 
         try:
             # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, metadata=metadata, category=category, duplicated=duplicated)
+            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
             self.dumped.append(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
@@ -874,14 +871,14 @@ class CommandPipeHandler(object):
         """Debug message from the monitor."""
         try:
             log.debug(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
         try:
             log.info(data.decode("utf-8"))
-        except:
+        except Exception:
             log.debug(data)
 
     def _handle_warning(self, data):
@@ -1209,7 +1206,11 @@ class CommandPipeHandler(object):
                         INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id, suspended=suspended
+                        options=self.analyzer.options,
+                        config=self.analyzer.config,
+                        pid=process_id,
+                        thread_id=thread_id,
+                        suspended=suspended,
                     )
                     filepath = proc.get_filepath()  # .encode('utf8', 'replace')
                     # if it's a URL analysis, provide the URL to all processes as
@@ -1256,10 +1257,16 @@ class CommandPipeHandler(object):
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
-        # Syntax -> PATH|PID|Metadata
-        file_path, pid, metadata = data.split(b"|")
+        # Syntax -> PATH|PID|PPID|Metadata
+        file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
+            self.analyzer.files.dump_file(
+                file_path.decode("utf-8"),
+                pids=[pid.decode("utf-8")],
+                ppids=[ppid.decode("utf-8")],
+                metadata=metadata,
+                category="CAPE",
+            )
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1275,10 +1282,16 @@ class CommandPipeHandler(object):
         # We extract the file path.
         # We dump immediately.
         if b"\\CAPE\\" in file_path:
-            # Syntax -> PATH|PID|Metadata
-            file_path, pid, metadata = file_path.split(b"|")
+            # Syntax -> PATH|PID|PPID|Metadata
+            file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+                self.analyzer.files.dump_file(
+                    file_path.decode("utf-8"),
+                    pids=[pid.decode("utf-8")],
+                    ppids=[ppid.decode("utf-8")],
+                    metadata=metadata,
+                    category="procdump",
+                )
 
         else:
             if os.path.exists(file_path):
@@ -1373,7 +1386,7 @@ if __name__ == "__main__":
 
     # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
     except CuckooError:
-        log.info("You probably submitted the job with wrong package")
+        log.info("You probably submitted the job with wrong package", exc_info=True)
         data["status"] = "exception"
         data["description"] = "You probably submitted the job with wrong package"
         try:

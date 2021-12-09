@@ -24,7 +24,9 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n" "sudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\n" "pip3 install -U SFlock2")
+    print(
+        "You must install sflock\n" "sudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\n" "pip3 install -U SFlock2"
+    )
     HAS_SFLOCK = False
 
 if sf_version:

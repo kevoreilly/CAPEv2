@@ -25,6 +25,7 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 
 from lib.cuckoo.common.dist_db import Base
 from lib.cuckoo.common.config import Config
+
 reporting_conf = Config("reporting")
 
 # Get database connection string from cuckoo configuration.

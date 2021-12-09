@@ -564,7 +564,6 @@ def vbe_extract(file, destination_folder, filetype, data_dictionary):
         data = f.read()
 
     if b"#@~^" not in data[:100]:
-        log.debug("Not appers to be VBE file")
         return
 
     try:

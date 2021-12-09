@@ -26,6 +26,8 @@ import re
 import struct
 from Crypto.Cipher import DES3
 
+DESCRIPTION = "Loki configuration parser."
+AUTHOR = "sysopfb"
 
 def find_iv(pe):
     iv = -1
@@ -164,12 +166,18 @@ def decoder(data):
 
 
 def config(filebuf):
-    DESCRIPTION = "Loki configuration parser."
-    AUTHOR = "sysopfb"
 
     cfg = dict()
     urls = decoder(filebuf)
     if urls:
         cfg.setdefault("address", list())
 
-    cfg["address"] = urls
+    cfg["address"] = [url.decode("utf-8") for url in urls]
+    return cfg
+
+if __name__ == "__main__":
+    import sys
+    with open(sys.argv[1], "rb") as f:
+        data = f.read()
+
+    print(config(data))

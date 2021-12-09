@@ -22,10 +22,10 @@ def config(filebuf):
                 ENCRYPT_DATA = DATA_SECTION[24:2000]
                 DECRYPTED_DATA = ARC4.new(RC4_KEY).decrypt(ENCRYPT_DATA)
                 build_id, controllers = list(filter(None, DECRYPTED_DATA.split(b"\x00")))
-                cfg.setdefault("Build ID", build_id)
+                cfg.setdefault("Build ID", build_id.decode("utf-8"))
                 controllers = list(filter(None, controllers.split(b"|")))
                 if controllers:
-                    cfg.setdefault("address", controllers)
+                    cfg.setdefault("address", [url.decode("utf-8") for url in controllers])
     except Exception as e:
         log.warning(e)
 

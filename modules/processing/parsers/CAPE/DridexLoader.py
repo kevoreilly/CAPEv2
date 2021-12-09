@@ -12,9 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import struct
-import string
 import socket
 import pefile
 import yara
@@ -90,7 +88,6 @@ def config(filebuf):
                 botnet_code = int(item[0])
             elif "$rc4_key" in item[1] and not rc4_decode:
                 rc4_decode = int(item[0])
-
     if line == "$c2parse_6":
         c2_rva = struct.unpack("i", filebuf[c2va_offset + 44 : c2va_offset + 48])[0] - image_base
         botnet_rva = struct.unpack("i", filebuf[c2va_offset - 7 : c2va_offset - 3])[0] - image_base
@@ -157,4 +154,11 @@ def config(filebuf):
         botnet_id = struct.unpack("H", filebuf[botnet_offset : botnet_offset + 2])[0]
         cfg["Botnet ID"] = str(botnet_id)
 
-        return
+        return cfg
+
+if __name__ == "__main__":
+    import sys
+    with open(sys.argv[1], "rb") as f:
+        data = f.read()
+
+    print(config(data))

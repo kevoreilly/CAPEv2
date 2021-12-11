@@ -28,8 +28,11 @@ repconf = Config("reporting")
 process_cfg = Config("processing")
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
+unautoit_bin = os.path.joint(CUCKOO_ROOT, "data", "unautoit")
+
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -505,7 +508,7 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract):
+    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract, UnAutoIt_extract):
         try:
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
@@ -527,6 +530,31 @@ def _generic_post_extraction_process(file, decoded, destination_folder, data_dic
         data_dictionary.setdefault("decoded_files", metadata)
         data_dictionary.setdefault("decoded_files_tool", tool_name)
 
+def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
+
+    if not os.path.exists(unautoit_bin):
+        log.error(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+        return
+
+    # ToDo how to detect AutoIT
+    metadata = list()
+
+    with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
+        try:
+            output = subprocess.check_output([unautoit_bin, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
+            if output:
+                files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir]
+                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
 def batch_extract(file, destination_folder, filetype, data_dictionary):
     # https://github.com/DissectMalware/batch_deobfuscator

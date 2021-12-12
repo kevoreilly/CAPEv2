@@ -2,15 +2,15 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
-import os
-import shutil
+
+import ctypes
+import logging
 import sys
+
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.defines import ADVAPI32, KERNEL32
-import logging
-import traceback
-import ctypes
+from lib.common.rename import check_file_extension
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
@@ -64,17 +64,13 @@ class Service(Package):
 
     def start(self, path):
         try:
-            sc = self.get_path("sc.exe")
             servicename = self.options.get("servicename", "CAPEService")
             servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
-            if "." not in os.path.basename(path):
-                new_path = path + ".exe"
-                os.rename(path, new_path)
-                path = new_path
-            binPath = '"{0}"'.format(path)
+            path = check_file_extension(path, ".exe")
+            binPath = f'"{path}"'
             if arguments:
-                binPath += " {0}".format(arguments)
+                binPath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")
@@ -99,18 +95,14 @@ class Service(Package):
                 log.info("Failed to create service")
                 log.info(ctypes.FormatError())
                 return
-            log.info("Created service (handle: 0x%x)", service_handle)
+            log.info(f"Created service (handle: {hex(service_handle)})")
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
             filepath = servproc.get_filepath()
-            is_64bit = servproc.is_64bit()
-            if is_64bit:
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-            else:
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+            servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(500)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)
-            if service_launched == True:
+            if service_launched:
                 log.info("Successfully started service")
             else:
                 log.info(ctypes.FormatError())

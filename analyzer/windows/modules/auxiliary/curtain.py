@@ -1,8 +1,9 @@
 from __future__ import absolute_import
-import os
-import time
+
 import logging
+import os
 import subprocess
+import time
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
@@ -43,7 +44,7 @@ class Curtain(Thread, Auxiliary):
                 stdout=open("C:\\curtain.log", "w"),
             )
         except Exception as e:
-            log.error("Curtain - Error collecting PowerShell events - %s " % e)
+            log.error(f"Curtain - Error collecting PowerShell events - {e}")
 
         # time.sleep(5)
 
@@ -60,7 +61,7 @@ class Curtain(Thread, Auxiliary):
                 startupinfo=self.startupinfo,
             )
         except Exception as e:
-            log.error("Curtain - Error clearing PowerShell events - %s" % e)
+            log.error(f"Curtain - Error clearing PowerShell events - {e}")
 
     def run(self):
         if self.enabled:

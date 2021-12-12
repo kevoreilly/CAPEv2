@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import configparser
 
 
@@ -45,7 +46,7 @@ class Config:
             for field in fields:
                 try:
                     key, value = field.split("=", 1)
-                except ValueError as e:
+                except ValueError:
                     pass
                 else:
                     # If the parsing went good, we add the option to the

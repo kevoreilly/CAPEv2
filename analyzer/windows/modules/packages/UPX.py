@@ -3,10 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import os
 import shutil
 
 from lib.common.abstracts import Package
+from lib.common.rename import check_file_extension
 
 
 class UPX(Package):
@@ -28,10 +30,7 @@ class UPX(Package):
         appdata = self.options.get("appdata")
 
         # If the file doesn't have an extension, add .exe
-        if "." not in os.path.basename(path):
-            new_path = path + ".exe"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".exe")
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware

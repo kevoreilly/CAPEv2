@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import os
 import shutil
 
@@ -23,7 +24,7 @@ class Shellcode_x64(Package):
         loaderpath = "bin\\loader_x64.exe"
         args = "shellcode " + path
         if offset:
-            args += " {0}".format(offset)
+            args += f" {offset}"
         # we need to move out of the analyzer directory
         # due to a check in monitor dll
         basepath = os.path.dirname(path)

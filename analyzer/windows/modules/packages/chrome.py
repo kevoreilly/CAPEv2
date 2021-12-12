@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.common.abstracts import Package
 
 
@@ -16,4 +17,4 @@ class Chrome(Package):
     def start(self, url):
         chrome = self.get_path("Google Chrome")
         # pass the URL instead of a filename in this case
-        return self.execute(chrome, '"%s"' % url, url)
+        return self.execute(chrome, f'"{url}"', url)

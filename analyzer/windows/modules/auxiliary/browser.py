@@ -3,9 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import time
-import os
+
 import logging
+import os
+import time
 from threading import Thread
 
 from lib.api.process import Process
@@ -29,7 +30,7 @@ class Browser(Auxiliary, Thread):
     def run(self):
         self.do_run = self.options.get("startbrowser", False)
         url = self.options.get("url")
-        browserdelay = int(self.options.get("browserdelay", "30"))
+        browserdelay = int(self.options.get("browserdelay", 30))
         while self.do_run:
             time.sleep(1)
             self.seconds_elapsed = self.seconds_elapsed + 1
@@ -38,5 +39,5 @@ class Browser(Auxiliary, Thread):
                 ie = Process()
                 if not url:
                     url = "https://www.yahoo.com/"
-                ie.execute(path=iexplore, args='"' + url + '"', suspended=False)
+                ie.execute(path=iexplore, args=f'"{url}"', suspended=False)
                 ie.close()

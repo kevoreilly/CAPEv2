@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.common.abstracts import Package
 
 
@@ -17,4 +18,4 @@ class EML(Package):
 
     def start(self, path):
         outlook = self.get_path_glob("Microsoft Office Outlook")
-        return self.execute(outlook, '/eml "%s"' % path, path)
+        return self.execute(outlook, f'/eml "{path}"', path)

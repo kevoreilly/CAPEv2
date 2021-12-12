@@ -3,20 +3,21 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import shutil
+
 import logging
+import os
 import re
+import shutil
 
 try:
-    from rarfile import RarFile, BadRarFile
-
+    from rarfile import BadRarFile, RarFile
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
+from lib.common.rename import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class Rar(Package):
         """
         # Test if rar file contains a file named as itself.
         if self.is_overwritten(rar_path):
-            log.debug("RAR file contains a file with the same name, original is going to be overwrite")
+            log.debug("RAR file contains a file with the same name, original is going to be overwritten")
             # TODO: add random string.
             new_rar_path = rar_path + ".old"
             shutil.move(rar_path, new_rar_path)
@@ -52,7 +53,7 @@ class Rar(Package):
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as e:
-                    raise CuckooPackageError("Unable to extract Rar file: " "{0}".format(e))
+                    raise CuckooPackageError(f"Unable to extract Rar file: {e}")
             finally:
                 # Extract nested archives.
                 for name in archive.namelist():
@@ -88,14 +89,10 @@ class Rar(Package):
 
     def start(self, path):
         if not HAS_RARFILE:
-            raise CuckooPackageError("rarfile Python module not installed in guest.")
+            raise CuckooPackageError("rarfile Python module not installed in guest")
 
         # Check file extension.
-        ext = os.path.splitext(path)[-1].lower()
-        if ext != ".rar":
-            new_path = path + ".rar"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".rar")
 
         root = os.environ["TEMP"]
         password = self.options.get("password")
@@ -106,7 +103,7 @@ class Rar(Package):
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if not file_name:
+        if file_name is None:
             # No name provided try to find a better name.
             if len(rarinfos):
                 # Attempt to find a valid exe extension in the archive
@@ -116,14 +113,14 @@ class Rar(Package):
                         break
                 # Default to the first one if none found
                 file_name = file_name if file_name else rarinfos[0].filename
-                log.debug("Missing file option, auto executing: {0}".format(file_name))
+                log.debug(f"Missing file option, auto executing: {file_name}")
             else:
                 raise CuckooPackageError("Empty RAR archive")
 
         file_path = os.path.join(root, file_name)
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = '/c start /wait "" "{0}"'.format(file_path)
+            cmd_args = f'/c start /wait "" "{file_path}"'
             return self.execute(cmd_path, cmd_args, file_path)
         else:
             return self.execute(file_path, self.options.get("arguments"), file_path)

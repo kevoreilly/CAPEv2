@@ -1,8 +1,9 @@
 from __future__ import absolute_import
-from threading import Thread
+
 import logging
-import zipfile
 import os
+import zipfile
+from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
@@ -188,14 +189,13 @@ class Evtx(Thread, Auxiliary):
             logs_folder = "C:/windows/Sysnative/winevt/Logs"
             os.listdir(logs_folder)
         except Exception:
-            logs_folder = "c:/Windows/System32/winevt/Logs"
+            logs_folder = "C:/Windows/System32/winevt/Logs"
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
             for evtx_file_name in os.listdir(logs_folder):
                 for selected_evtx in self.windows_logs:
-                    _selected_evtx = selected_evtx + ".evtx"
-                    if "/" in _selected_evtx:
-                        _selected_evtx = "%4".join(_selected_evtx.split("/"))
+                    _selected_evtx = f"{selected_evtx}.evtx"
+                    _selected_evtx = _selected_evtx.replace("/", "%4")
                     if _selected_evtx == evtx_file_name:
                         full_path = os.path.join(logs_folder, evtx_file_name)
                         if os.path.exists(full_path):

@@ -3,19 +3,20 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
+import logging
 import os
 import shutil
-import logging
+from zipfile import BadZipfile, ZipFile
 
 try:
     import re2 as re
 except ImportError:
     import re
 
-from zipfile import ZipFile, BadZipfile
-
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
+from lib.common.rename import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class Zip(Package):
         """
         # Test if zip file contains a file named as itself.
         if self.is_overwritten(zip_path):
-            log.debug("ZIP file contains a file with the same name, original is going to be overwrite")
+            log.debug("ZIP file contains a file with the same name, original is going to be overwritten")
             # TODO: add random string.
             new_zip_path = zip_path + ".old"
             shutil.move(zip_path, new_zip_path)
@@ -48,11 +49,10 @@ class Zip(Package):
 
         # requires bytes not str
         if not isinstance(password, bytes):
-            password = password.encode("utf-8")
+            password = password.encode()
 
         # Extraction.
         with ZipFile(zip_path, "r") as archive:
-
             # Check if the archive is encrypted
             for zip_info in archive.infolist():
                 is_encrypted = zip_info.flag_bits & 0x1
@@ -71,7 +71,7 @@ class Zip(Package):
                 try:
                     archive.extractall(path=extract_path, pwd=password)
                 except RuntimeError as e:
-                    raise CuckooPackageError("Unable to extract Zip file: " "{0}".format(e))
+                    raise CuckooPackageError(f"Unable to extract Zip file: {e}")
             finally:
                 if recursion_depth < 4:
                     # Extract nested archives.
@@ -87,10 +87,10 @@ class Zip(Package):
                                 )
                             except BadZipfile:
                                 log.warning(
-                                    "Nested zip file '%s' name end with 'zip' extension is not a valid zip. Skip extracting" % name
+                                    f"Nested zip file '{name}' name end with 'zip' extension is not a valid zip. Skip extracting"
                                 )
                             except RuntimeError as run_err:
-                                log.error("Error to extract nested zip file %s with details: %s" % name, run_err)
+                                log.error(f"Error to extract nested zip file {name} with details: {run_err}")
 
     def is_overwritten(self, zip_path):
         """Checks if the ZIP file contains another file with the same name, so it is going to be overwritten.
@@ -119,9 +119,7 @@ class Zip(Package):
             raise CuckooPackageError("Invalid Zip file")
 
     def start(self, path):
-        password = self.options.get("password")
-        if password is None:
-            password = b""
+        password = self.options.get("password", "")
         appdata = self.options.get("appdata")
         if appdata:
             root = os.environ["APPDATA"]
@@ -133,7 +131,7 @@ class Zip(Package):
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if not file_name:
+        if file_name is None:
             # No name provided try to find a better name.
             if len(zipinfos):
                 # Attempt to find a valid exe extension in the archive
@@ -143,32 +141,32 @@ class Zip(Package):
                         break
                 # Default to the first one if none found
                 file_name = file_name if file_name else zipinfos[0].filename
-                log.debug("Missing file option, auto executing: {0}".format(file_name))
+                log.debug(f"Missing file option, auto executing: {file_name}")
             else:
                 raise CuckooPackageError("Empty ZIP archive")
 
         file_path = os.path.join(root, file_name)
-        log.debug('file_name: "%s"' % (file_name))
+        log.debug(f'file_name: "{file_name}"')
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = '/c start /wait "" "{0}"'.format(file_path)
+            cmd_args = f'/c start /wait "" "{file_path}"'
             return self.execute(cmd_path, cmd_args, file_path)
         elif file_name.lower().endswith(".msi"):
             msi_path = self.get_path("msiexec.exe")
-            msi_args = '/I "{0}"'.format(file_path)
+            msi_args = f'/I "{file_path}"'
             return self.execute(msi_path, msi_args, file_path)
         elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
             wscript = self.get_path_app_in_path("wscript.exe")
-            wscript_args = '"{0}"'.format(file_path)
+            wscript_args = f'"{file_path}"'
             return self.execute(wscript, wscript_args, file_path)
         elif file_name.lower().endswith(".dll"):
             rundll32 = self.get_path_app_in_path("rundll32.exe")
             function = self.options.get("function", "#1")
             arguments = self.options.get("arguments")
             dllloader = self.options.get("dllloader")
-            dll_args = '"{0}",{1}'.format(file_path, function)
+            dll_args = f'"{file_path}",{function}'
             if arguments:
-                dll_args += " {0}".format(arguments)
+                dll_args += f" {arguments}"
             if dllloader:
                 newname = os.path.join(os.path.dirname(rundll32), dllloader)
                 shutil.copy(rundll32, newname)
@@ -176,11 +174,8 @@ class Zip(Package):
             return self.execute(rundll32, dll_args, file_path)
         elif file_name.lower().endswith(".ps1"):
             powershell = self.get_path_app_in_path("powershell.exe")
-            args = '-NoProfile -ExecutionPolicy bypass -File "{0}"'.format(path)
+            args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
         else:
-            if "." not in os.path.basename(file_path):
-                new_path = file_path + ".exe"
-                os.rename(file_path, new_path)
-                file_path = new_path
+            file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

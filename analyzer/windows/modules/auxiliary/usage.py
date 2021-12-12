@@ -3,9 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import *
+
 import logging
 import time
+from ctypes import *
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary

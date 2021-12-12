@@ -7,7 +7,7 @@ import logging
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
 from lib.common.exceptions import CuckooError
-from ctypes import byref, c_ulong, create_string_buffer, create_unicode_buffer, c_int, sizeof
+from ctypes import byref, sizeof
 from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
 
 log = logging.getLogger(__name__)
@@ -30,11 +30,11 @@ class TLSDumpMasterSecrets(Auxiliary):
         while flag:
             if proc_info.sz_exeFile == b"lsass.exe":
                 pid = proc_info.th32ProcessID
-                log.info("lsass.exe found, pid %d", pid)
+                log.info(f"lsass.exe found, pid {pid}")
                 flag = 0
             flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
         if not pid:
-            log.warning("Unable to find lsass.exe process.")
+            log.warning("Unable to find lsass.exe process")
             return
         try:
             p = Process(options=self.options, config=self.config, pid=pid)
@@ -42,10 +42,9 @@ class TLSDumpMasterSecrets(Auxiliary):
             p.inject(injectmode=0, interest=filepath, nosleepskip=True)
         except CuckooError as e:
             if "process access denied" in e.message:
-                log.warning("You're not running the Agent as Administrator.")
+                log.warning("You're not running the Agent as Administrator")
             else:
                 log.warning(
-                    "An unknown error occurred while trying to inject into " "the lsass.exe process to dump TLS master secrets: %s",
-                    e,
+                    f"An unknown error occurred while trying to inject into the lsass.exe process to dump TLS master secrets: {e}"
                 )
         del self.options["tlsdump"]

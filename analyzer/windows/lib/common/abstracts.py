@@ -3,21 +3,19 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import glob
-import os
 import logging
+import os
 import shutil
+
+from lib.api.process import Process
+from lib.common.exceptions import CuckooPackageError
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
 
 log = logging.getLogger(__name__)
-log.info("Started imports")
-from lib.api.process import Process
-from lib.api.utils import Utils
-from lib.common.exceptions import CuckooPackageError
-
-log.info("End imports")
 
 
 class Package(object):
@@ -81,7 +79,7 @@ class Package(object):
             if os.path.isfile(path):
                 return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def get_path_glob(self, application):
         """Search for the application in all available paths with glob support.
@@ -93,7 +91,7 @@ class Package(object):
                 if os.path.isfile(path):
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def get_path_app_in_path(self, application):
         """Search for the application in all available paths.
@@ -107,7 +105,7 @@ class Package(object):
                 else:
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def execute(self, path, args, interest):
         """Starts an executable for analysis.
@@ -116,15 +114,14 @@ class Package(object):
         @param interest: file of interest, passed to the cuckoomon config
         @return: process pid
         """
-        free = self.options.get("free")
-        suspended = True if not free else False
+        free = self.options.get("free", False)
+        suspended = not free
 
-        kernel_analysis = self.options.get("kernel_analysis")
-        kernel_analysis = True if kernel_analysis else False
+        kernel_analysis = bool(self.options.get("kernel_analysis", False))
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         if free:
             return None
@@ -149,7 +146,7 @@ class Package(object):
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         is_64bit = p.is_64bit()
 
@@ -167,7 +164,7 @@ class Package(object):
         The list should be a list of tuples (<path on guest>, <name of file in package_files folder>).
         (package_files is a folder that will be created in analysis folder).
         """
-        return None
+        return []
 
     def finish(self):
         """Finish run.

@@ -3,10 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import logging
-import os
 
 from lib.common.abstracts import Package
+from lib.common.rename import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -22,8 +23,6 @@ class WSF(Package):
         wscript = self.get_path("WScript")
 
         # Enforce the .wsf file extension as is required by wscript.
-        if not path.endswith(".wsf"):
-            os.rename(path, path + ".wsf")
-            path += ".wsf"
+        path = check_file_extension(path, ".wsf")
 
-        return self.execute(wscript, '"%s"' % path, path)
+        return self.execute(wscript, f'"{path}"', path)

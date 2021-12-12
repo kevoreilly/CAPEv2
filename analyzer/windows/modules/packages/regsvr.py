@@ -3,10 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import shutil
 
 from lib.common.abstracts import Package
+from lib.common.rename import check_file_extension
 
 
 class Regsvr(Package):
@@ -20,19 +19,14 @@ class Regsvr(Package):
         regsvr32 = self.get_path("regsvr32.exe")
         arguments = self.options.get("arguments")
 
-        # Check file extension.
-        ext = os.path.splitext(path)[-1].lower()
         # If the file doesn't have the proper .dll extension force it
         # and rename it. This is needed for rundll32 to execute correctly.
         # See ticket #354 for details.
-        if ext != ".dll":
-            new_path = path + ".dll"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".dll")
 
         args = ""
         if arguments:
-            args += "{0} ".format(arguments)
+            args += f"{arguments} "
         args += path
 
         return self.execute(regsvr32, args, path)

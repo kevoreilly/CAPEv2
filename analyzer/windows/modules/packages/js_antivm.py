@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import os
 
 from lib.common.abstracts import Package
@@ -22,20 +23,22 @@ class JS_ANTIVM(Package):
         # fuck antivm
         for _ in range(50):
             # calc
-            calc = os.path.join("c:\\windows", "system32", "calc.exe")
+            calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        if free is False:
+        if not free:
             self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
-        args = '"%s"' % path
+        args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
-        if ext != ".js" and ext != ".jse":
-            if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
-                os.rename(path, path + ".jse")
-                path = path + ".jse"
+        if ext not in (".js", ".jse"):
+            with open(path, "r") as tmpfile:
+                magic_bytes = tmpfile.read(4)
+            if magic_bytes == "#@~^":
+                os.rename(path, f"{path}.jse")
+                path += ".jse"
             else:
-                os.rename(path, path + ".js")
-                path = path + ".js"
-        args = '"%s"' % path
+                os.rename(path, f"{path}.js")
+                path += ".js"
+        args = f'"{path}"'
         return self.execute(wscript, args, path)

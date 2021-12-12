@@ -179,7 +179,7 @@ def execute_command_on_all(remote_command):
         try:
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
-            ssh_out = ssh_stdout.read().decode("utf-8").strip()
+            ssh_out = ssh_stdout.read().decode().strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] Service " + green("restarted successfully and is UP"))
             else:
@@ -227,11 +227,11 @@ def deploy_file(queue):
                 if remote_command:
                     _, ssh_stdout, _ = ssh.exec_command(remote_command)
 
-                    ssh_out = ssh_stdout.read().decode("utf-8")
+                    ssh_out = ssh_stdout.read().decode()
                     log.info(ssh_out)
 
                 _, ssh_stdout, _ = ssh.exec_command(f"sha256sum {remote_file} | cut -d ' ' -f1")
-                remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
+                remote_sha256 = ssh_stdout.read().strip().decode()
 
                 if local_sha256 == remote_sha256:
                     log.info(f"[+] {server} - Hashes are {green('correct')}: {local_sha256} - {remote_file}")
@@ -357,7 +357,7 @@ if __name__ == "__main__":
             http = urllib3.PoolManager()
             r = http.request("GET", CAPE_DIST_URL)
             if r.status == 200:
-                res = json.loads(r.data.decode("utf-8")).get("nodes", [])
+                res = json.loads(r.data.decode()).get("nodes", [])
                 servers = [urlparse(res[server]["url"]).hostname for server in res] + [MASTER_NODE]
         except (urllib3.exceptions.NewConnectionError, urllib3.exceptions.MaxRetryError):
             sys.exit("Can't retrieve list of servers")
@@ -376,22 +376,22 @@ if __name__ == "__main__":
     elif args.copy_file:
         local_file, remote_file = args.copy_file
         with open(local_file, "r") as f:
-            local_sha256 = sha256(f.read().encode("utf-8")).hexdigest()
+            local_sha256 = sha256(f.read().encode()).hexdigest()
         queue = Queue()
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)
     elif args.deploy_local_changes:
         out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-        files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
     elif args.deploy_remote_changes:
         out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
-        files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
     elif args.sync_community:
         community_folder, destiny_folder, head = args.sync_community
         cwd = os.getcwd()
         os.chdir(os.path.expandvars(community_folder))
         out = subprocess.check_output(["git", "diff", "--name-only", f"HEAD~{head}"])
-        community_files = [file.decode("utf-8") for file in list(filter(None, out.split(b"\n")))]
+        community_files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
         os.chdir(cwd)
         files = []
         for file in community_files:

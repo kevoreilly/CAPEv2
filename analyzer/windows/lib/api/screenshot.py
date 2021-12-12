@@ -2,26 +2,16 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
+
 import logging
-
-log = logging.getLogger(__name__)
-
-log.debug("Importing 'math'")
 import math
-import logging
 
 log = logging.getLogger(__name__)
 
 try:
-    log.debug("Importing 'PIL.ImageChops'")
     # from PIL import ImageChops
+    from PIL import ImageDraw, ImageGrab
     from PIL.ImageChops import difference
-
-    log.debug("Importing 'PIL.ImageGrab'")
-    from PIL import ImageGrab
-
-    log.debug("Importing 'PIL.ImageDraw'")
-    from PIL import ImageDraw
 
     try:
         from PIL import __version__

@@ -1,10 +1,13 @@
 # Andriy :P
 
 from __future__ import absolute_import
+
 import os
 import shutil
 from subprocess import call
+
 from lib.common.abstracts import Package
+from lib.common.rename import check_file_extension
 
 
 class IE(Package):
@@ -17,7 +20,7 @@ class IE(Package):
     def start(self, path):
         iexplore = self.get_path("Internet Explorer")
         # pass the URL instead of a filename in this case
-        self.execute(iexplore, '"%s"' % "about:blank", "about:blank")
+        self.execute(iexplore, '"about:blank"', "about:blank")
 
         args = self.options.get("arguments")
         appdata = self.options.get("appdata")
@@ -27,10 +30,7 @@ class IE(Package):
         # See CWinApp::SetCurrentHandles(), it will throw
         # an exception that will crash the app if it does
         # not find an extension on the main exe's filename
-        if "." not in os.path.basename(path):
-            new_path = path + ".exe"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".exe")
 
         if appdata:
             # run the executable from the APPDATA directory, required for some malware

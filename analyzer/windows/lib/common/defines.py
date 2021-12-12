@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from ctypes import *
 
 NTDLL = windll.ntdll
@@ -108,7 +109,6 @@ PDH_FMT_DOUBLE = 0x00000200
 FILE_SHARE_READ = 0x00000001
 FILE_SHARE_WRITE = 0x00000002
 FILE_SHARE_DELETE = 0x00000004
-
 
 CREATE_NEW = 1
 CREATE_ALWAYS = 2

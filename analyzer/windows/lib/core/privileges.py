@@ -3,7 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import wintypes, POINTER
+
+from ctypes import POINTER, wintypes
 
 from lib.common.defines import ADVAPI32, KERNEL32, SE_PRIVILEGE_ENABLED
 from lib.common.defines import LUID, TOKEN_PRIVILEGES, PROCESS_ALL_ACCESS

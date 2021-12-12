@@ -3,10 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
+
 import logging
 
 from lib.common.abstracts import Package
+from lib.common.rename import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -22,8 +23,6 @@ class XLST(Package):
     def start(self, path):
         wmic = self.get_path("wmic.exe")
 
-        if not path.endswith(".xsl"):
-            os.rename(path, path + ".xsl")
-            path += ".xsl"
+        path = check_file_extension(path, ".xsl")
 
-        return self.execute(wmic, 'process LIST /FORMAT:"%s"' % path, path)
+        return self.execute(wmic, f'process LIST /FORMAT:"{path}"', path)

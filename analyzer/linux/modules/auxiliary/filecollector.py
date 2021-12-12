@@ -130,23 +130,22 @@ class FileCollector(Auxiliary, Thread):
                 if os.path.basename(event.pathname) == "stap.log":
                     return
 
-                for x in range(0, 1):
-                    try:
-                        # log.info(f"Trying to collect file {event.pathname}")
-                        sha256 = hash_file(hashlib.sha256, event.pathname)
-                        filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
-                        if filename in self.uploadedHashes:
-                            # log.info(f"Already collected file {event.pathname}")
-                            return
-                        upload_path = os.path.join("files", filename)
-                        upload_to_host(event.pathname, upload_path)
-                        self.uploadedHashes.append(filename)
+                try:
+                    # log.info(f"Trying to collect file {event.pathname}")
+                    sha256 = hash_file(hashlib.sha256, event.pathname)
+                    filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
+                    if filename in self.uploadedHashes:
+                        # log.info(f"Already collected file {event.pathname}")
                         return
-                    except Exception as e:
-                        log.info(f'Error dumping file from path "{event.pathname}": {e}')
+                    upload_path = os.path.join("files", filename)
+                    upload_to_host(event.pathname, upload_path)
+                    self.uploadedHashes.append(filename)
+                    return
+                except Exception as e:
+                    log.info(f'Error dumping file from path "{event.pathname}": {e}')
 
-                    # log.info(f"Retrying {event.pathname}")
-                    time.sleep(1)
+                # log.info(f"Retrying {event.pathname}")
+                time.sleep(1)
 
             except Exception as e:
                 log.error(f"Exception processing event {e}")

@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.common.abstracts import Package
 
 
@@ -21,4 +22,4 @@ class PPT(Package):
 
     def start(self, path):
         powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
-        return self.execute(powerpoint, '/s "%s"' % path, path)
+        return self.execute(powerpoint, f'/s "{path}"', path)

@@ -2,6 +2,7 @@
 # Copyright (C) 2015 Dmitry Rodionov
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
+
 from __future__ import absolute_import
 
 import inspect
@@ -50,8 +51,9 @@ def _found_target_class(module, name):
     """Searches for a class with the specific name: it should be
     equal to capitalized $name.
     """
-    members = inspect.getmembers(module, inspect.isclass)
-    return [x[1] for x in members if x[0] == name.capitalize()][0]
+    for member in inspect.getmembers(module, inspect.isclass):
+        if member[0] == name.capitalize():
+            return member[1]
 
 
 def _guess_package_name(file_type, file_name):
@@ -168,7 +170,7 @@ class Package(object):
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
+        while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
             # log.debug(self.proc.stderr.readline())
             pass
 
@@ -207,7 +209,7 @@ class Package(object):
             r = self.proc.poll()
             log.debug(f"stap subprocess retval {r}")
             self.proc.kill()
-            # subprocess.check_call(["sudo","kill", str(self.proc.pid)])
+            # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
             waitpid(self.proc.pid, 0)
             self._upload_file("stap.log", path.join("logs", "all.stap"))
         except Exception as e:

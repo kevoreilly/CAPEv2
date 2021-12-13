@@ -22,7 +22,7 @@ class Shellcode_x64(Package):
     def start(self, path):
         offset = self.options.get("offset")
         loaderpath = "bin\\loader_x64.exe"
-        args = "shellcode " + path
+        args = f"shellcode {path}"
         if offset:
             args += f" {offset}"
         # we need to move out of the analyzer directory

@@ -19,15 +19,13 @@ class JS_ANTIVM(Package):
     def start(self, path):
         free = self.options.get("free", False)
         # to not track calcs
-        self.options["free"] = 1
+        self.options["free"] = 1 if free else 0
         # fuck antivm
         for _ in range(50):
             # calc
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        if not free:
-            self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()

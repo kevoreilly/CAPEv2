@@ -227,7 +227,7 @@ def get_office_window_click_around(hwnd, lparm):
                         KERNEL32.Sleep(50)
                     else:
                         break
-                    x = x + random.randint(150, 200)
+                    x += random.randint(150, 200)
                     KERNEL32.Sleep(50)
                 else:
                     log.info("Breaking out of office click loop as our window went away")

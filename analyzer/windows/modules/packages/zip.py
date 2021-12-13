@@ -16,7 +16,7 @@ except ImportError:
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.common.rename import check_file_extension
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Zip(Package):
         if self.is_overwritten(zip_path):
             log.debug("ZIP file contains a file with the same name, original is going to be overwritten")
             # TODO: add random string.
-            new_zip_path = zip_path + ".old"
+            new_zip_path = f"{zip_path}.old"
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 

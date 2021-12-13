@@ -33,7 +33,7 @@ class Browser(Auxiliary, Thread):
         browserdelay = int(self.options.get("browserdelay", 30))
         while self.do_run:
             time.sleep(1)
-            self.seconds_elapsed = self.seconds_elapsed + 1
+            self.seconds_elapsed += 1
             if self.seconds_elapsed == browserdelay:
                 iexplore = os.path.join(os.getenv("ProgramFiles"), "Internet Explorer", "iexplore.exe")
                 ie = Process()

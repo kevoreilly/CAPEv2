@@ -318,9 +318,8 @@ class Process:
             return False
 
         config_path = os.path.join(os.getenv("TEMP"), f"{self.pid}.ini")
+        cfg = Config("analysis.conf")
         with open(config_path, "w") as config:
-            cfg = Config("analysis.conf")
-
             config.write(f"host-ip={cfg.ip}\n")
             config.write(f"host-port={cfg.port}\n")
             config.write(f"pipe={PIPE}\n")
@@ -617,7 +616,7 @@ class Process:
                 return True
 
         except Exception as e:
-            log.error(f"Process {e}")
+            log.error(f"Error running process: {e}")
             return False
 
     def upload_memdump(self):

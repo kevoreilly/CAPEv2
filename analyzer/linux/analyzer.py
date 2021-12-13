@@ -16,6 +16,8 @@ import zipfile
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+from django.http import response
+
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
 from lib.common.constants import PATHS
@@ -89,7 +91,8 @@ class Analyzer:
         # If it's a URL, well.. we store the URL.
         elif self.config.category == "archive":
             zip_path = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.file_name)
-            zipfile.ZipFile(zip_path).extractall(os.environ.get("TEMP", "/tmp"))
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(os.environ.get("TEMP", "/tmp"))
             self.target = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.options["filename"])
         else:
             self.target = self.config.target
@@ -381,6 +384,7 @@ if __name__ == "__main__":
                 "status": "complete",
                 "description": success,
             }
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
+            with urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()) as url:
+                url.read()
         except Exception as e:
             print(e)

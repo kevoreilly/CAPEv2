@@ -6,7 +6,7 @@ from __future__ import absolute_import
 
 import logging
 import time
-from ctypes import *
+from ctypes import byref, create_string_buffer, sizeof
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary

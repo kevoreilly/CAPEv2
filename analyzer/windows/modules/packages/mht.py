@@ -8,7 +8,7 @@ import logging
 import shutil
 
 from lib.common.abstracts import Package
-from lib.common.rename import check_file_extension
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 

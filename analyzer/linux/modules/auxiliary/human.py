@@ -43,14 +43,14 @@ def destroyOfficeWindows(window):
     except Exception:
         return
     for w in children:
-        if w.get_wm_class() in [
+        if w.get_wm_class() in (
             ("libreoffice", "libreoffice-writer"),
             # ('soffice.bin', 'soffice.bin'),
             ("libreoffice", "libreoffice-calc"),
             ("libreoffice", "libreoffice-draw"),
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
-        ]:
+        ):
             log.debug(f"Destroying: {w.get_wm_class()[1]}")
             w.destroy()
         destroyOfficeWindows(w)

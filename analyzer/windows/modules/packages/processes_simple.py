@@ -25,7 +25,7 @@ class PROCESSES_simply(Package):
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        # cl.close()
+            # cl.close()
         """
             iexplore = os.path.join("C:\\Program Files", "Internet Explorer", "iexplore.exe")
             # ie = Process()

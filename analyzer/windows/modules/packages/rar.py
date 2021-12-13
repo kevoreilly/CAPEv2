@@ -17,7 +17,7 @@ except ImportError:
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
-from lib.common.rename import check_file_extension
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class Rar(Package):
         if self.is_overwritten(rar_path):
             log.debug("RAR file contains a file with the same name, original is going to be overwritten")
             # TODO: add random string.
-            new_rar_path = rar_path + ".old"
+            new_rar_path = f"{rar_path}.old"
             shutil.move(rar_path, new_rar_path)
             rar_path = new_rar_path
 

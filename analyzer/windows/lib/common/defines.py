@@ -4,7 +4,9 @@
 
 from __future__ import absolute_import
 
-from ctypes import *
+from ctypes import c_bool, c_char, c_double, c_int, c_ubyte, c_uint
+from ctypes import c_ulonglong, c_ushort, c_void_p, c_wchar_p
+from ctypes import POINTER, Structure, Union, WINFUNCTYPE, windll
 
 NTDLL = windll.ntdll
 KERNEL32 = windll.kernel32

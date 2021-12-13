@@ -147,7 +147,7 @@ def file_recon(file, yara_category="CAPE"):
     REMOTE_COMMAND = f"chown {OWNER} {TARGET}; chmod 644 {TARGET};"
     if filename.endswith(".py") and TARGET:
         REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(TARGET.rstrip(".py"))
-    return TARGET, REMOTE_COMMAND, LOCAL_SHA256
+    return [TARGET, REMOTE_COMMAND, LOCAL_SHA256]
 
 
 def _connect_via_jump_box(server):
@@ -181,7 +181,7 @@ def execute_command_on_all(remote_command):
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode().strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
-                log.info("[+] Service " + green("restarted successfully and is UP"))
+                log.info(f"[+] Service {green('restarted successfully and is UP')}")
             else:
                 if ssh_out:
                     log.info(green(f"[+] {server} - {ssh_out}"))
@@ -199,7 +199,7 @@ def bulk_deploy(files, yara_category):
         parameters = file_recon(file, yara_category)
         if not parameters:
             continue
-        queue.put([servers, file] + list(parameters))
+        queue.put([servers, file, *parameters])
 
     for _ in range(NUM_THREADS):
         worker = Thread(target=deploy_file, args=(queue,))
@@ -368,15 +368,16 @@ if __name__ == "__main__":
         if not parameters:
             sys.exit()
         queue = Queue()
-        queue.put([servers, args.deploy_file, *list(parameters)])
+        queue.put([servers, args.deploy_file, *parameters])
         _ = deploy_file(queue)
     elif args.execute_command:
         execute_command_on_all(args.execute_command)
 
     elif args.copy_file:
         local_file, remote_file = args.copy_file
-        with open(local_file, "r") as f:
-            local_sha256 = sha256(f.read().encode()).hexdigest()
+        with open(local_file, "rb") as f:
+            file_bytes = f.read()
+        local_sha256 = sha256(file_bytes).hexdigest()
         queue = Queue()
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)

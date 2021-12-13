@@ -35,15 +35,13 @@ class JS(Package):
             # antivm fix
             free = self.options.get("free", False)
             # to not track calcs
-            self.options["free"] = 1
+            self.options["free"] = 1 if free else 0
             # fuck antivm
             for i in range(20):
                 # calc
                 calc = os.path.join("C:\\windows", "system32", "calc.exe")
                 # cl = Process()
                 self.execute(calc, "", path)
-            if not free:
-                self.options["free"] = 0
 
         args = f'"{path}"'
         return self.execute(wscript, args, path)

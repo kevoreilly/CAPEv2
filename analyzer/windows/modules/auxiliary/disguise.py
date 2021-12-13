@@ -11,7 +11,21 @@ import re
 import subprocess
 from random import randint
 from uuid import uuid4
-from winreg import *
+from winreg import (
+    OpenKey,
+    CreateKeyEx,
+    SetValueEx,
+    QueryInfoKey,
+    EnumKey,
+    EnumValue,
+    HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE,
+    KEY_SET_VALUE,
+    KEY_READ,
+    KEY_WOW64_64KEY,
+    REG_DWORD,
+    REG_SZ
+)
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
@@ -141,7 +155,7 @@ class Disguise(Auxiliary):
                 mruKeyPath = ""
                 productPath = r"{0}\{1}\{2}".format(baseOfficeKeyPath, oVersion, software)
                 try:
-                    with OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ) as productKey:
+                    with OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ):
                         pass
                     mruKeyPath = r"{0}\File MRU".format(productPath)
                     with CreateKeyEx(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ) as mruKey:
@@ -163,10 +177,7 @@ class Disguise(Auxiliary):
 
                         for i in range(1, randint(10, 30)):
                             rString = random_string(minimum=11, charset="0123456789ABCDEF")
-                            if i % 2:
-                                baseId = "T01D1C" + rString
-                            else:
-                                baseId = "T01D1D" + rString
+                            baseId = f"T01D1C{rString}" if i % 2 else f"T01D1D{rString}"
                             setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
                                 baseId,
                                 basePaths[randint(0, len(basePaths) - 1)],

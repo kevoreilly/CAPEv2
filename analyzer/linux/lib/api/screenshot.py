@@ -1,6 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
 
 import logging
@@ -76,7 +77,7 @@ class Screenshot:
         h = diff.histogram()
         sq = (value * ((idx % 256) ** 2) for idx, value in enumerate(h))
         sum_of_squares = sum(sq)
-        rms = math.sqrt(sum_of_squares / float(img1.size[0] * img1.size[1]))
+        rms = math.sqrt(sum_of_squares / img1.size[0] * img1.size[1])
 
         # Might need to tweak the threshold.
         return rms < 8

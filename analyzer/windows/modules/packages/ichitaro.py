@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from lib.common.abstracts import Package
-from lib.common.rename import check_file_extension
+from lib.common.common import check_file_extension
 
 
 # While this should work, it is an experimental rule - do a PR if you see fit! Viewer only.

@@ -122,7 +122,7 @@ def add_protected_path(name):
 
 def upload_files(folder):
     """Create a copy of the given file path."""
-    log_folder = PATHS["root"] + "\\" + folder
+    log_folder = f"{PATHS['root']}\\{folder}"
     try:
         if os.path.exists(log_folder):
             log.info(f'Uploading files at path "{log_folder}"')
@@ -491,7 +491,7 @@ class Analyzer:
         zer0m0n.yarald("bin/rules.yarac")
 
         # Propagate the requested dump interval, if set.
-        zer0m0n.dumpint(int(self.options.get("dumpint", "0")))
+        zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
         """
 
         si = subprocess.STARTUPINFO()

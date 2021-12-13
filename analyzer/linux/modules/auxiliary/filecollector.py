@@ -36,8 +36,7 @@ class FileCollector(Auxiliary, Thread):
 
     def __init__(self):
         log.info("FileCollector init started")
-        if HAVE_PYINOTIFY:
-            self.do_run = True
+        self.do_run = HAVE_PYINOTIFY
 
         self.initComplete = False
         self.thread = Thread(target=self.run)
@@ -103,14 +102,14 @@ class FileCollector(Auxiliary, Thread):
                 if self.event_notifier.check_events():
                     self.event_notifier.read_events()
         except Exception as e:
-            log.error(f"Exception in loop {e}")
+            log.error(f"Exception in loop: {e}")
 
         log.info("FileCollector run completed")
 
         return True
 
     def process_generator(self, cls, method):
-        # log.info(f"Generating message {method}", )
+        # log.info(f"Generating message {method}")
         def _method_name(self, event):
             try:
                 # log.info(f"Got file {event.pathname} {method}")
@@ -148,7 +147,7 @@ class FileCollector(Auxiliary, Thread):
                 time.sleep(1)
 
             except Exception as e:
-                log.error(f"Exception processing event {e}")
+                log.error(f"Exception processing event: {e}")
 
         _method_name.__name__ = f"process_{method}"
         setattr(cls, _method_name.__name__, _method_name)

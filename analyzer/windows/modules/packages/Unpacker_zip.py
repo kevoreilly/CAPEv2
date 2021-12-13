@@ -47,7 +47,7 @@ class Unpacker_zip(Package):
         if self.is_overwritten(zip_path):
             log.debug("ZIP file contains a file with the same name, original is going to be overwritten")
             # TODO: add random string.
-            new_zip_path = zip_path + ".old"
+            new_zip_path = f"{zip_path}.old"
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
@@ -72,7 +72,7 @@ class Unpacker_zip(Package):
                                 self.extract_zip(os.path.join(extract_path, name), extract_path, password, recursion_depth + 1)
                             except BadZipfile:
                                 log.warning(
-                                    f"Nested zip file '{name}' name end with 'zip' extension is not a valid zip. Skip extracting"
+                                    f"Nested zip file '{name}' name end with 'zip' extension is not a valid zip, skipping extraction"
                                 )
                             except RuntimeError as run_err:
                                 log.error(f"Error to extract nested zip file {name} with details: {run_err}")

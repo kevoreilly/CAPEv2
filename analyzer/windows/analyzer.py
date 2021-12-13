@@ -546,8 +546,8 @@ class Analyzer:
         emptytime = None
 
         while self.do_run:
-            self.time_counter = int(timeit.default_timer() - time_start)
-            if self.time_counter.total_seconds() >= int(self.config.timeout):
+            self.time_counter = timeit.default_timer() - time_start
+            if self.time_counter >= int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis.")
                 ANALYSIS_TIMED_OUT = True
                 break

@@ -17,7 +17,6 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from bson.objectid import ObjectId
-from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.config import Config
@@ -27,7 +26,6 @@ from lib.cuckoo.core.database import (
     Database,
     Task,
     Sample,
-    TASK_RUNNING,
     TASK_PENDING,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
@@ -120,8 +118,8 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             except Exception as e:
                 log.info(e)
 
-            if db.delete_tasks(ids_tmp):
-                for id in ids_tmp:
+            for id in ids_tmp:
+                if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
                         if os.path.isdir(path):
@@ -458,7 +456,7 @@ def cuckoo_clean_before_day(args):
         )
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
+    delete_bulk_tasks_n_folders(id_arr, args.dont_delete_mongo)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -615,7 +613,7 @@ if __name__ == "__main__":
         type=int,
         required=False,
     )
-    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo", required=False, default=False, action="store_true")
+    parser.add_argument("-dm", "--dont-delete-mongo", help="Don't delete data in mongo", required=False, default=False, action="store_true")
     parser.add_argument(
         "-drs",
         "--delete-range-start",

@@ -41,4 +41,4 @@ def config(filebuf):
         if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
             cfg.setdefault("address", list())
             cfg["address"].appent(dec)
-        return
+        return cfg

@@ -514,9 +514,7 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError(f'The package "{package_name}" start function raised an error: {e}')
         except Exception as e:
-            raise CuckooError(
-                f'The package "{package_name}" start function encountered an unhandled exception: {e}'
-            )
+            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}')
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -860,7 +858,7 @@ class CommandPipeHandler(object):
     decides what to do with them.
     """
 
-    ignore_list = {'pid': []}
+    ignore_list = {"pid": []}
 
     def __init__(self, analyzer):
         self.analyzer = analyzer
@@ -1139,7 +1137,9 @@ class CommandPipeHandler(object):
             # This pid is already on the notrack list, move it to the
             # list of tracked pids.
             if not self.analyzer.process_list.has_pid(process_id, notrack=False):
-                log.debug(f"Received request to inject pid={process_id}. It was already on our notrack list, moving it to the track list")
+                log.debug(
+                    f"Received request to inject pid={process_id}. It was already on our notrack list, moving it to the track list"
+                )
 
                 self.analyzer.process_list.remove_pid(process_id)
                 self.analyzer.process_list.add_pid(process_id)

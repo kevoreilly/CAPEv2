@@ -125,7 +125,7 @@ class Zip(Package):
             root = os.environ["APPDATA"]
         else:
             root = os.environ["TEMP"]
-        exe_regex = re.compile("(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 

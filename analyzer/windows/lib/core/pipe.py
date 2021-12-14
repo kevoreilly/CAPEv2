@@ -16,6 +16,7 @@ from lib.common.defines import PIPE_READMODE_BYTE
 from lib.common.defines import ERROR_BROKEN_PIPE, PIPE_TYPE_MESSAGE
 from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_READMODE_MESSAGE
 from lib.common.defines import SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, ADVAPI32
+
 # from lib.common.defines import FILE_FLAG_WRITE_THROUGH
 
 log = logging.getLogger(__name__)

@@ -7,7 +7,6 @@ from __future__ import absolute_import
 import io
 import logging
 import os
-import re
 import subprocess
 from random import randint
 from uuid import uuid4
@@ -24,8 +23,13 @@ from winreg import (
     KEY_READ,
     KEY_WOW64_64KEY,
     REG_DWORD,
-    REG_SZ
+    REG_SZ,
 )
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string

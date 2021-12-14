@@ -6,11 +6,16 @@ from __future__ import absolute_import
 
 import logging
 import os
-import re
 import shutil
 
 try:
+    import re2 as re
+except ImportError:
+    import re
+
+try:
     from rarfile import BadRarFile, RarFile
+
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False
@@ -96,7 +101,7 @@ class Rar(Package):
 
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile("(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
 
         rarinfos = self.get_infos(path)
         self.extract_rar(path, root, password)

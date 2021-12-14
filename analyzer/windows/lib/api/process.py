@@ -31,6 +31,7 @@ from lib.common.rand import random_string
 from lib.common.results import upload_to_host
 from lib.core.config import Config
 from lib.core.log import LogServer
+
 # from lib.common.defines import STILL_ACTIVE
 
 INJECT_CREATEREMOTETHREAD = 0
@@ -528,10 +529,7 @@ class Process:
             config.write(f"terminate-event={TERMINATE_EVENT}{self.pid}\n")
 
             if nosleepskip or (
-                "force-sleepskip" not in self.options
-                and len(interest) > 2
-                and interest[:2] != "\\:"
-                and Process.process_num <= 2
+                "force-sleepskip" not in self.options and len(interest) > 2 and interest[:2] != "\\:" and Process.process_num <= 2
             ):
                 config.write("force-sleepskip=0\n")
 

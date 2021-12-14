@@ -16,8 +16,6 @@ import zipfile
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from django.http import response
-
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
 from lib.common.constants import PATHS

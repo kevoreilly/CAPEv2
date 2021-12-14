@@ -147,7 +147,7 @@ def file_recon(file, yara_category="CAPE"):
     REMOTE_COMMAND = f"chown {OWNER} {TARGET}; chmod 644 {TARGET};"
     if filename.endswith(".py") and TARGET:
         REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(TARGET.rstrip(".py"))
-    return [TARGET, REMOTE_COMMAND, LOCAL_SHA256]
+    return TARGET, REMOTE_COMMAND, LOCAL_SHA256
 
 
 def _connect_via_jump_box(server):

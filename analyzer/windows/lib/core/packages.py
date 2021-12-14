@@ -4,7 +4,10 @@
 
 from __future__ import absolute_import
 
-import re
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.common.decode_vbe_jse import DecodeVBEJSE
 
@@ -112,9 +115,9 @@ def choose_package(file_type, file_name, exports, target):
         return "wsf"
     elif "PDF" in file_type or file_name.endswith(".pdf"):
         return "pdf"
-    elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
+    elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.IGNORECASE):
         return "wsf"
-    elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.I):
+    elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.IGNORECASE):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"
@@ -127,7 +130,7 @@ def choose_package(file_type, file_name, exports, target):
     elif b"#@~^" in file_content[:100]:
         data = DecodeVBEJSE(file_content, "")
         if data:
-            if re.findall(br"\s?Dim\s", data, re.I):
+            if re.findall(br"\s?Dim\s", data, re.IGNORECASE):
                 return "vbs"
             else:
                 return "js"

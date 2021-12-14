@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 
 import logging
-import shutil
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension

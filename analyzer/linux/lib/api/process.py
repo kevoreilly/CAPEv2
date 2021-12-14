@@ -36,8 +36,8 @@ class Process:
 
     def get_proc_status(self):
         try:
-            with open(f"/proc/{self.pid}/status") as tempfile:
-                status = tempfile.readlines()
+            with open(f"/proc/{self.pid}/status") as file:
+                status = file.readlines()
             status_values = dict([j.strip().split(maxsplit=1) for j in status])
             return status_values
         except Exception:

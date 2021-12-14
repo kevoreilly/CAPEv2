@@ -35,16 +35,14 @@ class Config:
             self.options = {}
 
     def get(self, name, default=None):
-        if hasattr(self, name):
-            return getattr(self, name)
-        return default
+        return getattr(self, name, default)
 
     def get_options(self):
         """Get analysis options.
         @return: options dict.
         """
         options = {}
-        if hasattr(self, "options") and isinstance(self.options, str):
+        if isinstance(getattr(self, "options", None), str):
             options = self.parse_options(self.options)
 
         return options

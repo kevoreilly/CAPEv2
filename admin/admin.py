@@ -383,16 +383,16 @@ if __name__ == "__main__":
         _ = deploy_file(queue)
     elif args.deploy_local_changes:
         out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.deploy_remote_changes:
         out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
-        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.sync_community:
         community_folder, destiny_folder, head = args.sync_community
         cwd = os.getcwd()
         os.chdir(os.path.expandvars(community_folder))
         out = subprocess.check_output(["git", "diff", "--name-only", f"HEAD~{head}"])
-        community_files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        community_files = [file.decode() for file in filter(None, out.split(b"\n"))]
         os.chdir(cwd)
         files = []
         for file in community_files:

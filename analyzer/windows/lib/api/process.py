@@ -521,7 +521,7 @@ class Process:
             config.write(f"results={PATHS['root']}\n")
             config.write(f"analyzer={os.getcwd()}\n")
             config.write(f"pythonpath={os.path.dirname(sys.executable)}\n")
-            config.write(f"first-process={'1' if firstproc else '0'}\n")
+            config.write(f"first-process={1 if firstproc else 0}\n")
             config.write(f"startup-time={Process.startup_time}\n")
             config.write(f"file-of-interest={interest}\n")
             config.write(f"shutdown-mutex={SHUTDOWN_MUTEX}\n")
@@ -530,8 +530,7 @@ class Process:
             if nosleepskip or (
                 "force-sleepskip" not in self.options
                 and len(interest) > 2
-                and interest[0] != "\\"
-                and interest[1] != ":"
+                and interest[:2] != "\\:"
                 and Process.process_num <= 2
             ):
                 config.write("force-sleepskip=0\n")

@@ -32,12 +32,14 @@ def _stap_command_line(target, **kwargs):
         return False
 
     path_cfg = config.get("analyzer_stap_path")
+    root_cuckoo_path = os.path.join("/root", ".cuckoo")
+    user_cuckoo_path = os.path.join("/home", "user", ".cuckoo")
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
-    elif os.path.exists(os.path.join("/root", ".cuckoo")) and has_stap(os.path.join("/root", ".cuckoo")):
-        path = has_stap(os.path.join("/root", ".cuckoo"))
-    elif os.path.exists(os.path.join("/home", "user", ".cuckoo")) and has_stap(os.path.join("/home", "user", ".cuckoo")):
-        path = has_stap(os.path.join("/home", "user", ".cuckoo"))
+    elif os.path.exists(root_cuckoo_path) and has_stap(root_cuckoo_path):
+        path = has_stap(root_cuckoo_path)
+    elif os.path.exists(user_cuckoo_path) and has_stap(user_cuckoo_path):
+        path = has_stap(user_cuckoo_path)
     else:
         log.warning("Could not find STAP LKM, aborting systemtap analysis")
         return False

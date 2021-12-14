@@ -71,7 +71,7 @@ class Zip(Package):
         with ZipFile(archive_path, "r") as archive:
             try:
                 archive.extractall(path=extract_path, pwd=password)
-                log.info("extractall")
+                log.info("Extract all")
             except BadZipfile:
                 raise Exception("Invalid Zip file")
             # Try to extract it again, but with a default password

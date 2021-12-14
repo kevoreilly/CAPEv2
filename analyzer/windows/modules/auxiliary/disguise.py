@@ -85,9 +85,9 @@ class Disguise(Auxiliary):
         try:
             with OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ) as officeKey:
                 for currentKey in range(QueryInfoKey(officeKey)[0]):
-                    isVersion = True
                     officeVersion = EnumKey(officeKey, currentKey)
                     if "." in officeVersion:
+                        isVersion = True
                         for intCheck in officeVersion.split("."):
                             if not intCheck.isdigit():
                                 isVersion = False
@@ -135,9 +135,9 @@ class Disguise(Auxiliary):
         try:
             with OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ) as officeKey:
                 for currentKey in range(QueryInfoKey(officeKey)[0]):
-                    isVersion = True
                     officeVersion = EnumKey(officeKey, currentKey)
                     if "." in officeVersion:
+                        isVersion = True
                         for intCheck in officeVersion.split("."):
                             if not intCheck.isdigit():
                                 isVersion = False

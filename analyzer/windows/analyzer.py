@@ -311,10 +311,7 @@ class Analyzer:
         log.info("Analysis completed")
 
     def get_completion_key(self):
-        if hasattr(self.config, "completion_key"):
-            return self.config.completion_key
-        else:
-            return ""
+        return getattr(self.config, "completion_key", "")
 
     def run(self):
         """Run analysis.
@@ -575,7 +572,7 @@ class Analyzer:
                                     except Exception as e:
                                         log.error(e, exc_info=True)
                                 else:
-                                    log.info("procdump not enabled")
+                                    log.info("Procdump not enabled")
                                 log.info(f"Process with pid {pid} appears to have terminated")
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)

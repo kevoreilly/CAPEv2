@@ -1,5 +1,6 @@
 ### [14-12-2021]
 * Monitor: Add Add debugger actions: 'nop' and 'wret' to patch instructions with nop and ret
+* Yara dynamic bypass for latest Emotet packer anti-vm trick
 
 ### [11-12-2021]
 * Monitor: Add RDTSCP NOP option as alternative for when emulation is too slow (and timestamp counter value not needed)

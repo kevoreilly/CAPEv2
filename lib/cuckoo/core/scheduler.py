@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import gc
 import time
 import shutil
 import signal
@@ -364,7 +363,7 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except CuckooMachineError as e:
+        except (CuckooMachineError, CuckooNetworkError) as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)

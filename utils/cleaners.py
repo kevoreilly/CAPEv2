@@ -456,7 +456,7 @@ def cuckoo_clean_before_day(args):
         )
         id_arr = [entry["info"]["id"] for entry in result]
     log.info("number of matching records %s" % len(id_arr))
-    delete_bulk_tasks_n_folders(id_arr, args.dont_delete_mongo)
+    delete_bulk_tasks_n_folders(id_arr, args.delete_mongo)
     # resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 
@@ -613,7 +613,7 @@ if __name__ == "__main__":
         type=int,
         required=False,
     )
-    parser.add_argument("-dm", "--dont-delete-mongo", help="Don't delete data in mongo", required=False, default=False, action="store_true")
+    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true")
     parser.add_argument(
         "-drs",
         "--delete-range-start",

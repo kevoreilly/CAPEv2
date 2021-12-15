@@ -2101,7 +2101,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             tasks_dict_count = session.query(Task.column, func.count(Task.column)).group_by(Task.column).all()
-            return tasks_dict_count
+            return dict(tasks_dict_count)
         except SQLAlchemyError as e:
             log.debug("Database error counting all tasks: {0}".format(e))
             return 0

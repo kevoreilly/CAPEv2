@@ -157,7 +157,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             if cfg.cuckoo.delete_original and os.path.exists(target):
                 os.unlink(target)
 
-            if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_path):
+            if copy_path is not None and cfg.cuckoo.delete_bin_copy and os.path.exists(copy_path):
                 os.unlink(copy_path)
 
     if memory_debugging:
@@ -266,7 +266,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     if pending_task_id_map.get(task.id):
                         continue
                     log.info("Processing analysis data for Task #%d", task.id)
-                    if task.category == "file":
+                    if task.category != "url":
                         sample = db.view_sample(task.sample_id)
                         copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                     else:

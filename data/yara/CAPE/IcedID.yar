@@ -14,5 +14,5 @@ rule IcedID
         $stage_2_request_binary = "id="
         $stage_2_request_img = ".png"
     condition:
-        any of them
+        any of ($crypt*, $download*, $major_ver) and all of ($stage_2_request_*)
 }

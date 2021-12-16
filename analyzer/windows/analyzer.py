@@ -12,13 +12,13 @@ import struct
 import pkgutil
 import logging
 import hashlib
+import timeit
 import traceback
 import subprocess
 from ctypes import create_string_buffer, create_unicode_buffer, POINTER
 from ctypes import byref, c_int, sizeof, cast, c_void_p, c_ulong
 
 from threading import Lock
-from datetime import datetime, timedelta
 from shutil import copy
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -540,14 +540,14 @@ class Analyzer:
             log.info("Enabled timeout enforce, running for the full timeout.")
             pid_check = False
 
-        time_start = datetime.now()
+        time_start = timeit.default_timer()
         kernel_analysis = self.options.get("kernel_analysis", False)
 
         emptytime = None
 
         while self.do_run:
-            self.time_counter = datetime.now() - time_start
-            if self.time_counter.total_seconds() < 0 or self.time_counter.total_seconds() >= int(self.config.timeout):
+            self.time_counter = timeit.default_timer() - time_start
+            if self.time_counter >= int(self.config.timeout):
                 log.info("Analysis timeout hit, terminating analysis.")
                 ANALYSIS_TIMED_OUT = True
                 break
@@ -583,13 +583,13 @@ class Analyzer:
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
                         if not self.process_list.pids and (
-                            not self.LASTINJECT_TIME or (datetime.now() >= (self.LASTINJECT_TIME + timedelta(seconds=15)))
+                            not self.LASTINJECT_TIME or (timeit.default_timer() >= (self.LASTINJECT_TIME + 15))  # Add 15 seconds
                         ):
-                            if emptytime and (datetime.now() >= (emptytime + timedelta(seconds=5))):
+                            if emptytime and (timeit.default_timer() >= (emptytime + 5)):  # Add 5 seconds
                                 log.info("Process list is empty, terminating analysis.")
                                 break
                             elif not emptytime:
-                                emptytime = datetime.now()
+                                emptytime = timeit.default_timer()
                         else:
                             emptytime = None
 
@@ -960,7 +960,7 @@ class CommandPipeHandler(object):
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = datetime.now()
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
 
@@ -975,7 +975,7 @@ class CommandPipeHandler(object):
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
                     servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = datetime.now()
+                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
 
@@ -985,7 +985,7 @@ class CommandPipeHandler(object):
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = datetime.now()
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
 
@@ -1012,7 +1012,7 @@ class CommandPipeHandler(object):
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = datetime.now()
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
 
@@ -1039,7 +1039,7 @@ class CommandPipeHandler(object):
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
                     servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = datetime.now()
+                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(2000)
 
@@ -1052,7 +1052,7 @@ class CommandPipeHandler(object):
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = datetime.now()
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 servproc.close()
                 KERNEL32.Sleep(2000)
 
@@ -1079,7 +1079,7 @@ class CommandPipeHandler(object):
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
                     servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = datetime.now()
+                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
                     KERNEL32.Sleep(1000)
                     self.analyzer.MONITORED_SERVICES = True
@@ -1088,7 +1088,7 @@ class CommandPipeHandler(object):
 
     def _handle_resume(self, data):
         # RESUME:2560,3728'
-        self.analyzer.LASTINJECT_TIME = datetime.now()
+        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
 
     # Handle attempted shutdowns/restarts -- flush logs for all monitored processes
     # additional handling can be added later
@@ -1228,7 +1228,7 @@ class CommandPipeHandler(object):
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
                         _ = proc.inject(INJECT_QUEUEUSERAPC, interest)
-                        self.LASTINJECT_TIME = datetime.now()
+                        self.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1
                     proc.close()
             else:

@@ -2094,6 +2094,21 @@ class Database(object, metaclass=Singleton):
         return res
 
     @classlock
+    def get_tasks_status_count(self):
+        """Count all tasks in the database
+        @return: dict with status and number of tasks found example: {'failed_analysis': 2, 'running': 100, 'reported': 400}
+        """
+        session = self.Session()
+        try:
+            tasks_dict_count = session.query(Task.column, func.count(Task.column)).group_by(Task.column).all()
+            return dict(tasks_dict_count)
+        except SQLAlchemyError as e:
+            log.debug("Database error counting all tasks: {0}".format(e))
+            return 0
+        finally:
+            session.close()
+
+    @classlock
     def count_tasks(self, status=None, mid=None):
         """Count tasks in the database
         @param status: apply a filter according to the task status

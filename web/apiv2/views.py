@@ -1085,7 +1085,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "maec": "report.maec-4.1.xml",
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
-        "litereport": "lite.json"
+        "litereport": "lite.json",
     }
 
     report_formats = {

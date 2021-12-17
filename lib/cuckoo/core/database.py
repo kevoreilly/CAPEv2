@@ -799,7 +799,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         row = None
 
-        #set filter to get tasks with acceptable arch
+        # set filter to get tasks with acceptable arch
         if "x64" in machine.arch:
             cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
         else:
@@ -807,14 +807,13 @@ class Database(object, metaclass=Singleton):
         try:
             row = (
                 session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                    .filter(cond)
-                    .first()
+                .filter_by(status=TASK_PENDING)
+                .order_by(Task.priority.desc(), Task.added_on)
+                # distributed cape
+                .filter(not_(Task.options.contains("node=")))
+                .filter(cond)
+                .first()
             )
-
 
             if row:
                 if row.machine and row.machine != machine.label:

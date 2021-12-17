@@ -613,7 +613,9 @@ if __name__ == "__main__":
         type=int,
         required=False,
     )
-    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true")
+    parser.add_argument(
+        "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
+    )
     parser.add_argument(
         "-drs",
         "--delete-range-start",

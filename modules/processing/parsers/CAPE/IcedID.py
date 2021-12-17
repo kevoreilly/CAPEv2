@@ -34,28 +34,30 @@ with open(yara_path, "r") as yara_rule:
 
 log = logging.getLogger(__name__)
 
+
 def yara_scan(raw_data):
     try:
         return yara_rules.match(data=raw_data)
     except Exception as e:
         print(e)
 
+
 def config(filebuf):
     yara_hit = yara_scan(filebuf)
 
     for hit in yara_hit:
-        if hit.rule == "IcedID": #can be either a dll or a exe
+        if hit.rule == "IcedID":  # can be either a dll or a exe
             enc_data = None
             cfg = dict()
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 for section in pe.sections:
-                    if section.Name == b'.data\x00\x00\x00':
+                    if section.Name == b".data\x00\x00\x00":
                         enc_data = section.get_data()
                         key = enc_data[:8]
                         enc_config = enc_data[8:592]
                         decrypted_data = ARC4.new(key).decrypt(enc_config)
-                        config = list(filter(None, decrypted_data.split(b"\x00") ))
+                        config = list(filter(None, decrypted_data.split(b"\x00")))
                         cfg = {
                             "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
                             "Minor Version": str(struct.unpack("I", decrypted_data[4:8])[0]),

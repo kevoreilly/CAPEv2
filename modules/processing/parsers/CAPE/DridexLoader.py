@@ -156,8 +156,10 @@ def config(filebuf):
 
         return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 

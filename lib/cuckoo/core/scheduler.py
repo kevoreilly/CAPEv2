@@ -186,11 +186,16 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id))
+                log.debug(
+                    "Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id)
+                )
                 time.sleep(1)
             else:
-                log.info("Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(self.task.id, machine.name, machine.label,
-                                                                                                 machine.arch, machine.platform))
+                log.info(
+                    "Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(
+                        self.task.id, machine.name, machine.label, machine.arch, machine.platform
+                    )
+                )
                 break
 
         self.machine = machine

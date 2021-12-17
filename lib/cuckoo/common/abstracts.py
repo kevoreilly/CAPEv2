@@ -165,6 +165,7 @@ class Machinery(object):
                 machine.platform = machine_opts["platform"]
                 machine.tags = machine_opts.get("tags")
                 machine.ip = machine_opts["ip"]
+                machine.arch = machine_opts["arch"]
 
                 # If configured, use specific network interface for this
                 # machine, else use the default value.
@@ -206,6 +207,7 @@ class Machinery(object):
                 self.db.add_machine(
                     name=machine.id,
                     label=machine.label,
+                    arch=machine.arch,
                     ip=machine.ip,
                     platform=machine.platform,
                     tags=machine.tags,
@@ -215,7 +217,7 @@ class Machinery(object):
                     resultserver_port=port,
                 )
             except (AttributeError, CuckooOperationalError) as e:
-                log.warning("Configuration details about machine %s " "are missing: %s", machine_id.strip(), e)
+                log.warning("Configuration details about machine {} are missing: {}".format(machine_id.strip(), e))
                 continue
 
     def _initialize_check(self):

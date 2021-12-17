@@ -186,18 +186,11 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug(
-                    "Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(
-                        self.task.id
-                    )
-                )
+                log.debug("Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id))
                 time.sleep(1)
             else:
-                log.info(
-                    "Task #{}: acquired machine {} (label={}, platform={})".format(
-                        self.task.id, machine.name, machine.label, machine.platform
-                    )
-                )
+                log.info("Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(self.task.id, machine.name, machine.label,
+                                                                                                 machine.arch, machine.platform))
                 break
 
         self.machine = machine
@@ -803,7 +796,7 @@ class Scheduler:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine.name, machine.label)
+                    task = self.db.fetch(machine)
                     if task:
                         break
 

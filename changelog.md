@@ -1,3 +1,8 @@
+### [17-12-2021]
+* Add new field to DB `arch`. To avoid problems with pendings tasks when user didn't read config and set tags
+* __ACTION REQUIRED__
+    * `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
+
 ### [14-12-2021]
 * Monitor: Add Add debugger actions: 'nop' and 'wret' to patch instructions with nop and ret
 * Yara dynamic bypass for latest Emotet packer anti-vm trick

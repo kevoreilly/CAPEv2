@@ -30,9 +30,8 @@ from lib.cuckoo.common.exceptions import CuckooResultError
 from lib.cuckoo.common.utils import create_folder, Singleton, logtime, sanitize_pathname
 from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.core.log import task_log_start, task_log_stop
-import six
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 cfg = Config()
 
 # Maximum line length to read for netlog messages, to avoid memory exhaustion

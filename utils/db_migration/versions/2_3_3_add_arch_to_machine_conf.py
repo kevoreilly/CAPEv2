@@ -19,7 +19,8 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column("machines", sa.Column("arch", sa.String(length=255), nullable=False))
+    op.add_column("machines", sa.Column("arch", sa.String(length=255), nullable=False, server_default='lorem ipsum'))
+    op.alter_column('machines', 'arch', server_default=None)
 
 def downgrade():
     op.drop_column("machines", "arch")

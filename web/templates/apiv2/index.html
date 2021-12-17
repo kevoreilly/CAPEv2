@@ -596,15 +596,15 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr>
         <td>Get tasks ids finished in latest X hours</td>
-        {% if config.latests.enabled %}
+        {% if config.tasks_latest.enabled %}
         <td><span class="badge badge-success">Yes</span></td>
         {% else %}
         <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
-            <li>RPS: {{ config.latests.rps }}</li>
-            <li>RPM: {{ config.latests.rpm }}</li>
+            <li>RPS: {{ config.tasks_latest.rps }}</li>
+            <li>RPM: {{ config.tasks_latest.rpm }}</li>
           </ul>
         </td>
         <td>View ids of tasks finished on latest X hours.</td>

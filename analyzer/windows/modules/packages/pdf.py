@@ -21,4 +21,4 @@ class PDF(Package):
 
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")
-        return self.execute(reader, '"%s"' % path, path)
+        return self.execute(reader, f'"{path}"', path)

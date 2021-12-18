@@ -49,12 +49,12 @@ class PipeForwarder(threading.Thread):
         success = KERNEL32.ReadFile(self.pipe_handle, byref(pid), sizeof(pid), byref(bytes_read), None)
 
         if not success or bytes_read.value != sizeof(pid):
-            log.warning("Unable to read the process identifier of this log pipe instance.")
+            log.warning("Unable to read the process identifier of this log pipe instance")
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
         if self.active.get(pid.value):
-            log.warning("A second log pipe handler for an active process is " "being requested, denying request.")
+            log.warning("A second log pipe handler for an active process is being requested, denying request")
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
@@ -89,7 +89,7 @@ class PipeForwarder(threading.Thread):
             elif KERNEL32.GetLastError() == ERROR_BROKEN_PIPE:
                 break
             else:
-                log.warning("The log pipe handler has failed, last error %d.", KERNEL32.GetLastError())
+                log.warning("The log pipe handler has failed, last error %d", KERNEL32.GetLastError())
                 break
 
         if pid.value:
@@ -194,7 +194,7 @@ class PipeServer(threading.Thread):
                 )
 
             if pipe_handle == INVALID_HANDLE_VALUE:
-                log.warning("Error opening logging pipe server.")
+                log.warning("Error opening logging pipe server")
                 continue
 
             if KERNEL32.ConnectNamedPipe(pipe_handle, None) or KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:

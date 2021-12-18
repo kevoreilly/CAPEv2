@@ -23,7 +23,7 @@ class WSF(Package):
 
         # Enforce the .wsf file extension as is required by wscript.
         if not path.endswith(".wsf"):
-            os.rename(path, path + ".wsf")
+            os.rename(path, f"{path}.wsf")
             path += ".wsf"
 
-        return self.execute(wscript, '"%s"' % path, path)
+        return self.execute(wscript, f'"{path}"', path)

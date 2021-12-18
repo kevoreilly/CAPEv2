@@ -29,7 +29,7 @@ class INP(Package):
         # Rename file to file.inp so it can open properly.
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".inp":
-            new_path = path + ".inp"
+            new_path = f"{path}.inp"
             os.rename(path, new_path)
             path = new_path
-        return self.execute(inp, '"%s"' % path, path)
+        return self.execute(inp, f'"{path}"', path)

@@ -21,9 +21,9 @@ class Shellcode(Package):
     def start(self, path):
         offset = self.options.get("offset")
         loaderpath = "bin\\loader.exe"
-        args = "shellcode " + path
+        args = f"shellcode {path}"
         if offset:
-            args += " {0}".format(offset)
+            args += f" {offset}"
         # we need to move out of the analyzer directory
         # due to a check in monitor dll
         basepath = os.path.dirname(path)

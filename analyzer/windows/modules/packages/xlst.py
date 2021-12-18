@@ -23,7 +23,7 @@ class XLST(Package):
         wmic = self.get_path("wmic.exe")
 
         if not path.endswith(".xsl"):
-            os.rename(path, path + ".xsl")
+            os.rename(path, f"{path}.xsl")
             path += ".xsl"
 
-        return self.execute(wmic, 'process LIST /FORMAT:"%s"' % path, path)
+        return self.execute(wmic, f'process LIST /FORMAT:"{path}"', path)

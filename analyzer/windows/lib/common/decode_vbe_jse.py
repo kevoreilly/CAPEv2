@@ -347,7 +347,7 @@ def DecodeVBEJSE(content, options):
 
 
 def Main():
-    oParser = optparse.OptionParser(usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__)
+    oParser = optparse.OptionParser(usage=f"usage: %prog [options] [file]\n{__description__}", version=f"%prog {__version__}")
     oParser.add_option("-m", "--man", action="store_true", default=False, help="Print manual")
     (options, args) = oParser.parse_args()
 

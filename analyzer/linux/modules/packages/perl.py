@@ -13,4 +13,4 @@ class Perl(Package):
     def prepare(self):
         # Make sure that our target is executable
         # /usr/bin/open will handle it
-        system('/bin/chmod +x "%s"' % self.target)
+        system(f'/bin/chmod +x "{self.target}"')

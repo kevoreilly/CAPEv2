@@ -40,7 +40,7 @@ class STAP(Auxiliary):
         elif os.path.exists("/root/.cape") and has_stap("/root/.cape"):
             path = has_stap("root/.cape")
         else:
-            log.warning("Could not find STAP LKM, aborting systemtap analysis.")
+            log.warning("Could not find STAP LKM, aborting systemtap analysis")
             return False
 
         stap_start = time.time()
@@ -64,13 +64,13 @@ class STAP(Auxiliary):
         self.proc.wait()
 
         stap_stop = time.time()
-        log.info("STAP aux module startup took %.2f seconds" % (stap_stop - stap_start))
+        log.info("STAP aux module startup took %.2f seconds", stap_stop - stap_start)
         return True
 
     def stop(self):
         try:
             r = self.proc.poll()
-            log.debug("stap subprocess retval %r", r)
+            log.debug("stap subprocess retval %d", r)
             self.proc.kill()
         except Exception as e:
             log.warning("Exception killing stap: %s", e)

@@ -11,6 +11,6 @@ class Doc(Package):
     """LibreOffice document."""
 
     def prepare(self):
-        system('/bin/chmod +x "%s"' % self.target)
+        system(f'/bin/chmod +x "{self.target}"')
         self.args = [self.target] + self.args
         self.target = "/usr/bin/libreoffice --writer"

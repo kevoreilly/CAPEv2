@@ -41,7 +41,7 @@ class Package(object):
         """
         p = Process()
         if not p.execute(cmd):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         return p.pid
 

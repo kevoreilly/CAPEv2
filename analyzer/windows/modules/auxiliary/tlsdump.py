@@ -34,7 +34,7 @@ class TLSDumpMasterSecrets(Auxiliary):
                 flag = 0
             flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
         if not pid:
-            log.warning("Unable to find lsass.exe process.")
+            log.warning("Unable to find lsass.exe process")
             return
         try:
             p = Process(options=self.options, config=self.config, pid=pid)
@@ -42,10 +42,10 @@ class TLSDumpMasterSecrets(Auxiliary):
             p.inject(injectmode=0, interest=filepath, nosleepskip=True)
         except CuckooError as e:
             if "process access denied" in e.message:
-                log.warning("You're not running the Agent as Administrator.")
+                log.warning("You're not running the Agent as Administrator")
             else:
                 log.warning(
-                    "An unknown error occurred while trying to inject into " "the lsass.exe process to dump TLS master secrets: %s",
+                    "An unknown error occurred while trying to inject into the lsass.exe process to dump TLS master secrets: %s",
                     e,
                 )
         del self.options["tlsdump"]

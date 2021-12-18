@@ -53,7 +53,7 @@ def destroyOfficeWindows(window):
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
         ]:
-            log.debug("Destroying: %s" % w.get_wm_class()[1])
+            log.debug("Destroying: %s", w.get_wm_class()[1])
             w.destroy()
         destroyOfficeWindows(w)
 

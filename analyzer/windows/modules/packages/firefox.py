@@ -16,4 +16,4 @@ class Firefox(Package):
     def start(self, url):
         firefox = self.get_path("Mozilla Firefox")
         # pass the URL instead of a filename in this case
-        return self.execute(firefox, '"%s"' % url, url)
+        return self.execute(firefox, f'"{url}"', url)

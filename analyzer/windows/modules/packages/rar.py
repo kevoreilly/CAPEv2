@@ -38,7 +38,7 @@ class Rar(Package):
         if self.is_overwritten(rar_path):
             log.debug("RAR file contains a file with the same name, original is going to be overwrite")
             # TODO: add random string.
-            new_rar_path = rar_path + ".old"
+            new_rar_path = f"{rar_path}.old"
             shutil.move(rar_path, new_rar_path)
             rar_path = new_rar_path
 
@@ -52,7 +52,7 @@ class Rar(Package):
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as e:
-                    raise CuckooPackageError("Unable to extract Rar file: " "{0}".format(e))
+                    raise CuckooPackageError(f"Unable to extract Rar file: {e}")
             finally:
                 # Extract nested archives.
                 for name in archive.namelist():
@@ -88,12 +88,12 @@ class Rar(Package):
 
     def start(self, path):
         if not HAS_RARFILE:
-            raise CuckooPackageError("rarfile Python module not installed in guest.")
+            raise CuckooPackageError("rarfile Python module not installed in guest")
 
         # Check file extension.
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".rar":
-            new_path = path + ".rar"
+            new_path = f"{path}.rar"
             os.rename(path, new_path)
             path = new_path
 
@@ -116,14 +116,14 @@ class Rar(Package):
                         break
                 # Default to the first one if none found
                 file_name = file_name if file_name else rarinfos[0].filename
-                log.debug("Missing file option, auto executing: {0}".format(file_name))
+                log.debug("Missing file option, auto executing: %s", file_name)
             else:
                 raise CuckooPackageError("Empty RAR archive")
 
         file_path = os.path.join(root, file_name)
         if file_name.lower().endswith(".lnk"):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = '/c start /wait "" "{0}"'.format(file_path)
+            cmd_args = f'/c start /wait "" "{file_path}"'
             return self.execute(cmd_path, cmd_args, file_path)
         else:
             return self.execute(file_path, self.options.get("arguments"), file_path)

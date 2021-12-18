@@ -43,7 +43,7 @@ class Utils:
             return False
 
     def cmd_wrapper(self, cmd):
-        # print("running command and waiting for it to finish %s" % (cmd))
+        # print(f"Running command and waiting for it to finish {cmd}")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = p.communicate()
         return (p.returncode, stdout, stderr)

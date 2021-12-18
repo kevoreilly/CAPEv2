@@ -17,17 +17,14 @@ class Applet(Package):
     ]
 
     def make_html(self, path, class_name):
-        html = """
+        html = f"""
         <html>
             <body>
-                <applet archive="%s" code="%s" width="1" height="1">
+                <applet archive="{path}" code="{class_name}" width="1" height="1">
                 </applet>
             </body>
         </html>
-        """ % (
-            path,
-            class_name,
-        )
+        """
 
         _, file_path = tempfile.mkstemp(suffix=".html")
         with open(file_path, "w") as file_handle:
@@ -39,4 +36,4 @@ class Applet(Package):
         browser = self.get_path("browser")
         class_name = self.options.get("class")
         html_path = self.make_html(path, class_name)
-        return self.execute(browser, '"%s"' % html_path, html_path)
+        return self.execute(browser, f'"{html_path}"', html_path)

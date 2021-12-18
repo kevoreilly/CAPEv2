@@ -35,13 +35,13 @@ class Unpacker_dll(Package):
         # and rename it. This is needed for rundll32 to execute correctly.
         # See ticket #354 for details.
         if ext != ".dll":
-            new_path = path + ".dll"
+            new_path = f"{path}.dll"
             os.rename(path, new_path)
             path = new_path
 
-        args = "{0},{1}".format(path, function)
+        args = f"{path},{function}"
         if arguments:
-            args += " {0}".format(arguments)
+            args += f" {arguments}"
 
         if dllloader:
             newname = os.path.join(os.path.dirname(rundll32), dllloader)

@@ -181,7 +181,7 @@ def execute_command_on_all(remote_command):
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
-                log.info("[+] Service " + green("restarted successfully and is UP"))
+                log.info("[+] Service %s", green("restarted successfully and is UP"))
             else:
                 if ssh_out:
                     log.info(green(f"[+] {server} - {ssh_out}"))

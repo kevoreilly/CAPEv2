@@ -266,7 +266,7 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.thread_map = dict()
             self.lastprocess = process
 
-        if "process_name" in process and process["process_name"] in self.allow_list:
+        if process.get("process_name") in self.allow_list:
             return False
 
         if call["api"] == "CreateProcessInternalW":

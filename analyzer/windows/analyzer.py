@@ -390,28 +390,28 @@ class Analyzer:
             self.target = self.package.move_curdir(self.target)
 
         # Set the DLL to that specified by package
-        if "dll" in self.package.options and self.package.options["dll"] is not None:
+        if self.package.options.get("dll") is not None:
             MONITOR_DLL = self.package.options["dll"]
             log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a DLL option", package_name)
 
         # Set the DLL_64 to that specified by package
-        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
+        if self.package.options.get("dll_64") is not None:
             MONITOR_DLL_64 = self.package.options["dll_64"]
             log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
 
         # Set the loader to that specified by package
-        if "loader" in self.package.options and self.package.options["loader"] is not None:
+        if self.package.options.get("loader") is not None:
             LOADER32 = self.package.options["loader"]
             log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a loader option", package_name)
 
         # Set the loader_64 to that specified by package
-        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
+        if self.package.options.get("loader_64") is not None:
             LOADER64 = self.package.options["loader_64"]
             log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
         else:
@@ -440,7 +440,7 @@ class Analyzer:
         prefix = f"{auxiliary.__name__}."
 
         # disable_screens = True
-        # if "disable_screens" in self.options and self.options["disable_screens"] == "0":
+        # if self.options.get("disable_screens") == "0":
         #    disable_screens = False
 
         for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):

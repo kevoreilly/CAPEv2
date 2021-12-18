@@ -225,10 +225,12 @@ class AnalysisManager(threading.Thread):
             options["timeout"] = self.task.timeout
 
         if self.task.category == "file":
-            options["file_name"] = File(self.task.target).get_name()
-            options["file_type"] = File(self.task.target).get_type()
+            file_obj = File(self.task.target)
+            options["file_name"] = file_obj.get_name()
+            options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = File(self.task.target).get_dll_exports(options["file_type"])
+            options["exports"] = file_obj.get_dll_exports(options["file_type"])
+            del file_obj
 
         # options from auxiliar.conf
         for plugin in self.aux_cfg.auxiliar_modules.keys():
@@ -734,7 +736,6 @@ class Scheduler:
         # This loop runs forever.
         while self.running:
             time.sleep(1)
-
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions
@@ -742,7 +743,6 @@ class Scheduler:
             # manager or having two analyses pick the same machine.
             if not machine_lock.acquire(False):
                 continue
-
             machine_lock.release()
 
             # If not enough free disk space is available, then we print an
@@ -770,7 +770,6 @@ class Scheduler:
             # pending tasks. Loop over.
             if not machinery.availables():
                 continue
-
             # Exits if max_analysis_count is defined in the configuration
             # file and has been reached.
             if self.maxcount and self.total_analysis_count >= self.maxcount:
@@ -783,8 +782,8 @@ class Scheduler:
                     task = self.db.fetch(machine)
                     if task:
                         break
-
                 if task:
+
                     log.debug("Task #{0}: Processing task".format(task.id))
                     self.total_analysis_count += 1
                     # Initialize and start the analysis manager.

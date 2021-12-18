@@ -798,7 +798,6 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         row = None
-
         # set filter to get tasks with acceptable arch
         if "x64" in machine.arch:
             cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
@@ -1548,7 +1547,6 @@ class Database(object, metaclass=Singleton):
                         package = "regsvr"
                     elif "xlAutoOpen" in dll_exports:
                         package = "xls"
-
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers

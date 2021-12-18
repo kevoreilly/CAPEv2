@@ -56,9 +56,7 @@ class PUB2007(Package):
             return
 
         for oVersion in installedVersions:
-            key = CreateKeyEx(
-                HKEY_CURRENT_USER, rf"{baseOfficeKeyPath}\{oVersion}\Publisher\Security", 0, KEY_SET_VALUE
-            )
+            key = CreateKeyEx(HKEY_CURRENT_USER, rf"{baseOfficeKeyPath}\{oVersion}\Publisher\Security", 0, KEY_SET_VALUE)
 
             SetValueEx(key, "VBAWarnings", 0, REG_DWORD, 1)
             SetValueEx(key, "AccessVBOM", 0, REG_DWORD, 1)

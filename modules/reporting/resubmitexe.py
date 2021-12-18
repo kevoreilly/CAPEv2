@@ -167,9 +167,9 @@ class ReSubmitExtractedEXE(Report):
         report = dict(results)
         self.results = results
 
-        if (
-            report["info"].get("options", {}).get("resubmitjob")
-        ) or ("Parent_Task_ID" in results.get("info", {}).get("custom", "")):
+        if (report["info"].get("options", {}).get("resubmitjob")) or (
+            "Parent_Task_ID" in results.get("info", {}).get("custom", "")
+        ):
             log.warning("Bailing out of resubexe this is a child task")
             return
         if results.get("signatures"):

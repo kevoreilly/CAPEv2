@@ -179,6 +179,14 @@ Configuration settings
 Our setup will require a couple of updates with regards to the configuration
 files.
 
+Note about VMs tags in hypervisor conf as kvm.conf::
+
+* If you have **x64** and **x86** VMs:
+* **x64** VMs should have both **x64** and **x86** tags. Otherwise only **x64** tag
+* **x86** VMs should have only **x86** tag.
+* You can use any other tags, just to work properly you need those two.
+* Probably will be improved in future for better solution
+
 conf/cuckoo.conf
 ^^^^^^^^^^^^^^^^
 

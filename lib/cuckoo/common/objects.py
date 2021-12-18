@@ -657,7 +657,6 @@ class File(object):
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
-
     def get_all(self):
         """Get all information available.
         @return: information dict.

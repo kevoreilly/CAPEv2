@@ -309,7 +309,7 @@ def node_submit_task(task_id, node_id):
             ):
                 task.task_id = r.json().get("data", {})["task_ids"][0]
                 check = True
-            elif "task_id" in r.json() and r.json()["task_id"] > 0 and r.json()["task_id"] is not None:
+            elif r.json().get("task_id", 0) > 0 and r.json()["task_id"] is not None:
                 task.task_id = r.json()["task_id"]
                 check = True
             else:

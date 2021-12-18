@@ -810,7 +810,7 @@ class Signature(object):
                         yield sub_keyword, block["path"], sub_block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
-            if keyword in self.results and self.results[keyword] is not None:
+            if self.results.get(keyword) is not None:
                 for block in self.results.get(keyword, []):
                     if not isinstance(block, dict):
                         continue
@@ -868,9 +868,9 @@ class Signature(object):
             pids += [int(pidb.replace(".bson", "")) for pidb in os.listdir(logs) if ".bson" in pidb]
 
         #  in case if injection not follows
-        if "procmemory" in self.results and self.results["procmemory"] is not None:
+        if self.results.get("procmemory") is not None:
             pids += [int(block["pid"]) for block in self.results["procmemory"]]
-        if "procdump" in self.results and self.results["procdump"] is not None:
+        if self.results.get("procdump") is not None:
             pids += [int(block["pid"]) for block in self.results["procdump"]]
 
         log.debug(list(set(pids)))

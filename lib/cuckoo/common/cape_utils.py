@@ -389,7 +389,7 @@ def static_config_parsers(yara_hit, file_data):
                     e,
                 )
 
-        if cape_name in cape_config and cape_config[cape_name] == {}:
+        if cape_config.get(cape_name) == {}:
             return {}
 
     elif HAVE_MALDUCK and not parser_loaded and cape_name.lower() in malduck_modules_names:

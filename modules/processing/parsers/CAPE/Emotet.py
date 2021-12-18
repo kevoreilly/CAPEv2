@@ -98,7 +98,7 @@ def emotet_decode(data, size, xor_key):
         off_to = off_from + 4
         encoded_dw = int.from_bytes(data[off_from:off_to], byteorder="little")
         decoded = xor_key ^ encoded_dw
-        res = res + decoded.to_bytes(4, byteorder="little")
+        res += decoded.to_bytes(4, byteorder="little")
     return res
 
 

@@ -102,7 +102,7 @@ class SmokeLoader(Parser):
                         table_loop = False
                 else:
                     table_loop = False
-                table_offset = table_offset + 8
+                table_offset += 8
             return
         else:
             table_ref = yara_scan(filebuf, "$ref64_2")
@@ -125,7 +125,7 @@ class SmokeLoader(Parser):
                         self.reporter.add_metadata("address", c2_url)
                 except Exception:
                     pass
-                table_offset = table_offset + 8
+                table_offset += 8
             return
         else:
             table_ref = yara_scan(filebuf, "$ref32_1")
@@ -160,5 +160,5 @@ class SmokeLoader(Parser):
                         table_loop = False
                 else:
                     table_loop = False
-                table_offset = table_offset + 4
+                table_offset += 4
             return

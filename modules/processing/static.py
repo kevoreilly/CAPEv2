@@ -2650,10 +2650,10 @@ class EncodedScriptFile(object):
             elif ch < 128:
                 r.append(self.lookup[self.encoding[m % 64]][ch])
                 c += r[-1]
-                m = m + 1
+                m += 1
             else:
                 r.append(ch)
-            o = o + 1
+            o += 1
 
         if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")

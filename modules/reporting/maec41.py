@@ -3058,7 +3058,7 @@ class MAEC41Report(Report):
             parameter_list.append(
                 {"ordinal_position": apos, "name": arg["name"], "value": self._illegal_xml_chars_RE.sub("?", arg["value"])}
             )
-            apos = apos + 1
+            apos += 1
         # Try to add the mapped Action Name.
         if call["api"] in api_call_mappings:
             mapping_dict = api_call_mappings[call["api"]]
@@ -3503,7 +3503,7 @@ class MAEC41Report(Report):
             # Add the action to the dynamic analysis Bundle.
             self.dynamic_bundle.add_action(MalwareAction.from_dict(action_dict), action_collection_name)
             # Update the action position
-            pos = pos + 1
+            pos += 1
 
     # Map the Cuckoo status to that used in the MAEC/CybOX action_status field.
     def mapActionStatus(self, status):

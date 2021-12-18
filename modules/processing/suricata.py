@@ -189,7 +189,7 @@ class Suricata(Processing):
                         log.debug("Pcap not in list and not current pcap lets assume it's processed")
                         break
                     else:
-                        loopcnt = loopcnt + 1
+                        loopcnt += 1
                         time.sleep(loopsleep)
                 except Exception as e:
                     log.warning("Failed to get pcap status breaking out of loop {}".format(e))

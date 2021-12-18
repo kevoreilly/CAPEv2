@@ -228,7 +228,7 @@ def decode_data(data: str):
     for char in data:
         byte = ord(char)
         if byte < 128:
-            index = index + 1
+            index += 1
         if (byte == decoding_offset) or (byte > 31 and byte < 128) and (byte not in bad_bytes):
 
             # Do the translation to get the right byte

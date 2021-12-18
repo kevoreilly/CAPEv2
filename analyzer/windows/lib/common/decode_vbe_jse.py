@@ -317,7 +317,7 @@ def Decode(data):
     for char in data.replace("@&", chr(10)).replace("@#", chr(13)).replace("@*", ">").replace("@!", "<").replace("@$", "@"):
         byte = ord(char)
         if byte < 128:
-            index = index + 1
+            index += 1
         if (byte == 9 or byte > 31 and byte < 128) and byte != 60 and byte != 62 and byte != 64:
             char = [c for c in dDecode[byte]][dCombination[index % 64]]
         result += char

@@ -71,7 +71,7 @@ def decode(ciphertext, size, key):
             decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ ((key + count) & 0xFF)
         else:
             decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ key
-        count = count + 1
+        count += 1
 
     return decoded_chars
 

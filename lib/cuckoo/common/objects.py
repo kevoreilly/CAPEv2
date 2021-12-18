@@ -160,7 +160,7 @@ def IsPEImage(buf, size=False):
             if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
                 nt_headers = buf[offset - 4 : offset + 252]
                 break
-            offset = offset + 2
+            offset += 2
     else:
         nt_headers = buf[e_lfanew : e_lfanew + 256]
 

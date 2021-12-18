@@ -44,7 +44,7 @@ class SmtpSink(SMTPServer):
             while os.path.exists(os.path.join(self.mail_dir, file_name + str(i))):
                 i += 1
 
-            file_name = file_name + str(i)
+            file_name += str(i)
             with open(os.path.join(self.mail_dir, file_name), "w") as mail:
                 mail.write(data)
 

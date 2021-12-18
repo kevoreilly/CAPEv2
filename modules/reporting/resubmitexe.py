@@ -391,7 +391,7 @@ class ReSubmitExtractedEXE(Report):
                                             )
                                         )
                                         self.results.setdefault("resubs", list()).append(task_id)
-                                        self.resubcnt = self.resubcnt + 1
+                                        self.resubcnt += 1
                                         subbed_hash = True
 
             else:
@@ -443,6 +443,6 @@ class ReSubmitExtractedEXE(Report):
                             )
                         )
                         self.results.setdefault("resubs", list()).append(task_id)
-                        self.resubcnt = self.resubcnt + 1
+                        self.resubcnt += 1
                 else:
                     log.warn("Error adding resubmitexe task to database")

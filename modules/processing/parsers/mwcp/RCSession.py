@@ -74,7 +74,7 @@ def decode(ciphertext, size, key):
         else:
             key = (key * 9) & UINT_MAX
         decoded_chars[v4] = struct.unpack("B", ciphertext[v4 : v4 + 1])[0] ^ (key & 0xFF)
-        v4 = v4 + 1
+        v4 += 1
 
     return decoded_chars
 

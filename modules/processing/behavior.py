@@ -905,7 +905,7 @@ class Enhanced(object):
         # Not sure I really want this, way too noisy anyway and doesn't bring
         # much value.
         # if self.details:
-        #    gendata = gendata + [{"event" : "get",
+        #    gendata += [{"event" : "get",
         #           "object" : "procedure",
         #           "apis" : ["LdrGetProcedureAddress"],
         #           "args": [("name", "FunctionName"), ("ordinal", "Ordinal")]

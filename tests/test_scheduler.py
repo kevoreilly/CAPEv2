@@ -182,7 +182,7 @@ class TestAnalysisManager:
 
     def test_store_file_wrong_path(self, caplog):
         mock_task_wrong_path = mock_task()
-        mock_task_wrong_path.target = mock_task_wrong_path.target + "foobar"
+        mock_task_wrong_path.target += "foobar"
         analysis_man = AnalysisManager(task=mock_task_wrong_path, error_queue=queue.Queue())
         analysis_man.store_file(sha256="e3be3b") is False
         assert "analysis aborted" in caplog.text

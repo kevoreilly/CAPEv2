@@ -678,7 +678,7 @@ class Pcap:
             server = reqs.getServerMessagesFilter(tcpdata, filters_sc)
             for message in server:
                 message.update(conn)
-            self.irc_requests = self.irc_requests + client + server
+            self.irc_requests += client + server
         except Exception:
             return False
 

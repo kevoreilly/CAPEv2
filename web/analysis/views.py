@@ -281,7 +281,7 @@ def get_analysis_info(db, id=-1, task=None):
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
-                settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+                settings.MOLOCH_BASE += "/"
             new["moloch_url"] = (
                 settings.MOLOCH_BASE
                 + "?date=-1&expression=tags"
@@ -933,7 +933,7 @@ def surialert(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_alerts(suricata)
 
@@ -967,7 +967,7 @@ def surihttp(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_http(suricata)
 
@@ -987,7 +987,7 @@ def suritls(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_tls(suricata)
 
@@ -1007,7 +1007,7 @@ def surifiles(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_file_info(suricata)
 
@@ -1024,7 +1024,7 @@ def antivirus(request, task_id):
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
         if "virustotal" in rtmp:
             rtmp["virustotal"] = gen_moloch_from_antivirus(rtmp["virustotal"])
 
@@ -1207,7 +1207,7 @@ def report(request, task_id):
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
         report["moloch_url"] = (
             settings.MOLOCH_BASE
             + "?date=-1&expression=tags"
@@ -1332,13 +1332,13 @@ def file_nl(request, category, task_id, dlfile):
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
     if category == "screenshot":
-        file_name = file_name + ".jpg"
+        file_name += ".jpg"
         path = os.path.join(base_path, "shots", file_name)
         cd = "image/jpeg"
 
     elif category == "bingraph":
         path = os.path.join(base_path, "bingraph", file_name + "-ent.svg")
-        file_name = file_name + "-ent.svg"
+        file_name += "-ent.svg"
         cd = "image/svg+xml"
 
     elif category == "vba2graph":

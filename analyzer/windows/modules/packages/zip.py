@@ -180,7 +180,7 @@ class Zip(Package):
             return self.execute(powershell, args, file_path)
         else:
             if "." not in os.path.basename(file_path):
-                new_path = file_f"{path}.exe"
+                new_path = f"{file_path}.exe"
                 os.rename(file_path, new_path)
                 file_path = new_path
             return self.execute(file_path, self.options.get("arguments"), file_path)

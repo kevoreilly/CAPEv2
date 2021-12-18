@@ -227,29 +227,8 @@ class AnalysisManager(threading.Thread):
         if self.task.category == "file":
             options["file_name"] = File(self.task.target).get_name()
             options["file_type"] = File(self.task.target).get_type()
-            # if it's a PE file, collect export information to use in more smartly determining the right
-            # package to use
-            options["exports"] = ""
-            if HAVE_PEFILE and ("PE32" in options["file_type"] or "MS-DOS executable" in options["file_type"]):
-                try:
-                    pe = pefile.PE(self.task.target)
-                    if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
-                        exports = []
-                        for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            try:
-                                if not exported_symbol.name:
-                                    continue
-                                if isinstance(exported_symbol.name, bytes):
-                                    exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8"))
-                                else:
-                                    exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
-                            except Exception as e:
-                                log.error(e, exc_info=True)
-
-                        options["exports"] = ",".join(exports)
-                except Exception as e:
-                    log.error("PE type not recognised")
-                    log.error(e, exc_info=True)
+            # if it's a PE file, collect export information to use in more smartly determining the right package to use
+            options["exports"] = File(self.task.target).get_dll_exports(options["file_type"])
 
         # options from auxiliar.conf
         for plugin in self.aux_cfg.auxiliar_modules.keys():

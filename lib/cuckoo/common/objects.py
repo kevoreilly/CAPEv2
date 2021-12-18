@@ -588,6 +588,30 @@ class File(object):
         else:
             return False
 
+    def get_dll_exports(self, file_type):
+        if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
+            try:
+                pe = pefile.PE(self.file_path)
+                if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
+                    exports = []
+                    for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
+                        try:
+                            if not exported_symbol.name:
+                                continue
+                            if isinstance(exported_symbol.name, bytes):
+                                exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8"))
+                            else:
+                                exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
+                        except Exception as e:
+                            log.error(e, exc_info=True)
+
+                    return ",".join(exports)
+            except Exception as e:
+                log.error("PE type not recognised")
+                log.error(e, exc_info=True)
+
+        return ""
+
     def get_rh_hash(self):
         if not self.pe:
             return None
@@ -632,6 +656,7 @@ class File(object):
 
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
+
 
     def get_all(self):
         """Get all information available.

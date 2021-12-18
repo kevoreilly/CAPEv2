@@ -14,4 +14,4 @@ class Python(Package):
     def start(self, path):
         python = self.get_path_glob("Python")
         arguments = self.options.get("arguments", "")
-        return self.execute(python, "%s %s" % (path, arguments), path)
+        return self.execute(python, f"{path} {arguments}", path)

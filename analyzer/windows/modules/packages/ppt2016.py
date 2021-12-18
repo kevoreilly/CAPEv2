@@ -19,4 +19,4 @@ class PPT2007(Package):
 
     def start(self, path):
         powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
-        return self.execute(powerpoint, '/s "%s"' % path, path)
+        return self.execute(powerpoint, f'/s "{path}"', path)

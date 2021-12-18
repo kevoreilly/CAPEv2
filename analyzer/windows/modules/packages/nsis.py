@@ -17,9 +17,9 @@ class NSIS(Package):
 
     def start(self, path):
         if "." not in os.path.basename(path):
-            new_path = path + ".exe"
+            new_path = f"{path}.exe"
             os.rename(path, new_path)
             path = new_path
         cmd_path = self.get_path("cmd.exe")
-        cmd_args = '/c start /wait "" "{0}" /NCRC'.format(path)
+        cmd_args = f'/c start /wait "" "{path}" /NCRC'
         return self.execute(cmd_path, cmd_args, path)

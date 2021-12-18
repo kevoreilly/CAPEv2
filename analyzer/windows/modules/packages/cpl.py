@@ -15,4 +15,4 @@ class CPL(Package):
 
     def start(self, path):
         control = self.get_path("control.exe")
-        return self.execute(control, '"%s"' % path, path)
+        return self.execute(control, f'"{path}"', path)

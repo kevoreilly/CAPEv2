@@ -25,8 +25,8 @@ class DOC(Package):
     def start(self, path):
         word = self.get_path_glob("Microsoft Office Word")
         if "." not in os.path.basename(path):
-            new_path = path + ".doc"
+            new_path = f"{path}.doc"
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(word, '"%s" /q' % path, path)
+        return self.execute(word, f'"{path}" /q', path)

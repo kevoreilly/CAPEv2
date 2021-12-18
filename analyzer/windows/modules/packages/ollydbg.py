@@ -7,4 +7,4 @@ class OllyDbg(Package):
 
     def start(self, path):
         arguments = self.options.get("arguments", "")
-        return self.execute("bin\\OllyDbg\\OLLYDBG.EXE", "%s %s" % (path, arguments), path)
+        return self.execute("bin\\OllyDbg\\OLLYDBG.EXE", f"{path} {arguments}", path)

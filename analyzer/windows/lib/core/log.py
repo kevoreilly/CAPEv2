@@ -61,7 +61,7 @@ class LogServerThread(Thread):
                 try:
                     data += buf.raw[: bytes_read.value]
                 except MemoryError:
-                    log.error("MemoryError just happend")
+                    log.error("MemoryError just occurred")
                     break
                 if success or KERNEL32.GetLastError() != ERROR_MORE_DATA:
                     break
@@ -118,7 +118,7 @@ class LogServer(object):
         )
 
         if h_pipe == INVALID_HANDLE_VALUE:
-            log.warning("Unable to create log server pipe.")
+            log.warning("Unable to create log server pipe")
             return False
 
         logserver = LogServerThread(h_pipe, result_ip, result_port)

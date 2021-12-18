@@ -57,7 +57,7 @@ class PUB2007(Package):
 
         for oVersion in installedVersions:
             key = CreateKeyEx(
-                HKEY_CURRENT_USER, r"{0}\{1}\Publisher\Security".format(baseOfficeKeyPath, oVersion), 0, KEY_SET_VALUE
+                HKEY_CURRENT_USER, rf"{baseOfficeKeyPath}\{oVersion}\Publisher\Security", 0, KEY_SET_VALUE
             )
 
             SetValueEx(key, "VBAWarnings", 0, REG_DWORD, 1)
@@ -69,6 +69,6 @@ class PUB2007(Package):
         self.set_keys()
         publisher = self.get_path_glob("Microsoft Office Publisher")
         if not path.endswith(".pub"):
-            os.rename(path, path + ".pub")
+            os.rename(path, f"{path}.pub")
             path += ".pub"
-        return self.execute(publisher, '"%s"' % path, path)
+        return self.execute(publisher, f'"{path}"', path)

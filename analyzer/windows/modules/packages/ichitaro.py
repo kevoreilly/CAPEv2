@@ -26,7 +26,7 @@ class ichitaro(Package):
         # Rename file to file.inp so it can open properly.
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".jtd":
-            new_path = path + ".jtd"
+            new_path = f"{path}.jtd"
             os.rename(path, new_path)
             path = new_path
-        return self.execute(ichitaro, '"%s"' % path, path)
+        return self.execute(ichitaro, f'"{path}"', path)

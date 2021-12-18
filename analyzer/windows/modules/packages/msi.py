@@ -15,5 +15,5 @@ class Msi(Package):
 
     def start(self, path):
         msi_path = self.get_path("msiexec.exe")
-        msi_args = '/I "{0}" /qb ACCEPTEULA=1 LicenseAccepted=1'.format(path)
+        msi_args = f'/I "{path}" /qb ACCEPTEULA=1 LicenseAccepted=1'
         return self.execute(msi_path, msi_args, path)

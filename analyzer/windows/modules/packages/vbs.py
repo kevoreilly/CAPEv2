@@ -27,10 +27,10 @@ class VBS(Package):
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".vbs" and ext != ".vbe":
             if os.path.isfile(path) and b"#@~^" in open(path, "rb").read(100):
-                os.rename(path, path + ".vbe")
-                path = path + ".vbe"
+                os.rename(path, f"{path}.vbe")
+                path = f"{path}.vbe"
             else:
-                os.rename(path, path + ".vbs")
-                path = path + ".vbs"
+                os.rename(path, f"{path}.vbs")
+                path = f"{path}.vbs"
 
-        return self.execute(wscript, '"%s"' % path, path)
+        return self.execute(wscript, f'"{path}"', path)

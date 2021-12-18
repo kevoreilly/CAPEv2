@@ -50,7 +50,7 @@ class Screenshots(Auxiliary, Thread):
         @return: operation status.
         """
         if not Screenshot().have_pil():
-            log.warning("Python Image Library is not installed, " "screenshots are disabled")
+            log.warning("Python Image Library is not installed, screenshots are disabled")
             return False
 
         img_counter = 0
@@ -77,7 +77,7 @@ class Screenshots(Auxiliary, Thread):
 
             # now upload to host from the StringIO
             nf = NetlogFile()
-            nf.init("shots/%s.jpg" % str(img_counter).rjust(4, "0"))
+            nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")
             for chunk in tmpio:
                 nf.sock.send(chunk)
             nf.close()

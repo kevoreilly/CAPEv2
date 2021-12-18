@@ -29,7 +29,7 @@ class UPX(Package):
 
         # If the file doesn't have an extension, add .exe
         if "." not in os.path.basename(path):
-            new_path = path + ".exe"
+            new_path = f"{path}.exe"
             os.rename(path, new_path)
             path = new_path
 

@@ -43,8 +43,8 @@ class MongoDB(Report):
             self.conn = MongoClient(
                 self.options.get("host", "127.0.0.1"),
                 port=self.options.get("port", 27017),
-                username=self.options.get("username", None),
-                password=self.options.get("password", None),
+                username=self.options.get("username"),
+                password=self.options.get("password"),
                 authSource=self.options.get("authsource", "cuckoo"),
             )
             self.db = self.conn[self.options.get("db", "cuckoo")]
@@ -300,7 +300,7 @@ class MongoDB(Report):
                                 parent_key, psize = self.debug_dict_size(report)[0]
                                 log.error(str(e))
                                 log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
-                                size_filter = size_filter - MEGABYTE
+                                size_filter -= MEGABYTE
                     except Exception as e:
                         log.error("Failed to delete child key: %s" % str(e))
                         error_saved = False

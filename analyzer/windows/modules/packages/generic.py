@@ -19,5 +19,5 @@ class Generic(Package):
 
     def start(self, path):
         cmd_path = self.get_path("cmd.exe")
-        cmd_args = '/c start /wait "" "{0}"'.format(path)
+        cmd_args = f'/c start /wait "" "{path}"'
         return self.execute(cmd_path, cmd_args, path)

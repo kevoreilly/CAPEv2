@@ -153,7 +153,7 @@ class CAPE_Unpacker(Signature):
             protection = int(self.get_argument(call, "NewAccessProtection"), 0)
             size = self.get_argument(call, "NumberOfBytesProtected")
             handle = self.get_argument(call, "ProcessHandle")
-            if handle == 0xffffffff and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
+            if handle == 0xFFFFFFFF and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
 
 
@@ -249,6 +249,7 @@ class CAPE_InjectionProcessHollowing(Signature):
     minimum = "1.3"
     evented = True
     ttp = ["T1055", "T1093"]
+    allow_list = ["acrord32.exe"]
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
@@ -264,6 +265,9 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.process_map = dict()
             self.thread_map = dict()
             self.lastprocess = process
+
+        if process.get("process_name") in self.allow_list:
+            return False
 
         if call["api"] == "CreateProcessInternalW":
             phandle = self.get_argument(call, "ProcessHandle")
@@ -286,10 +290,10 @@ class CAPE_InjectionProcessHollowing(Signature):
             or call["api"] == "NtMapViewOfSection"
         ) and (self.sequence == 1 or self.sequence == 2):
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
-                self.sequence = self.sequence + 1
+                self.sequence += 1
         elif (call["api"] == "NtSetContextThread") and (self.sequence == 1 or self.sequence == 2):
             if self.get_argument(call, "ThreadHandle") in self.thread_handles:
-                self.sequence = self.sequence + 1
+                self.sequence += 1
         elif call["api"] == "NtResumeThread" and (self.sequence == 2 or self.sequence == 3):
             handle = self.get_argument(call, "ThreadHandle")
             if handle in self.thread_handles:

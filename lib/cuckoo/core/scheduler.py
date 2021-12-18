@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import gc
 import time
 import shutil
 import signal
@@ -21,6 +20,7 @@ except ImportError:
 HAVE_NETWORKIFACES = False
 try:
     import psutil
+
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
@@ -93,7 +93,10 @@ class AnalysisManager(threading.Thread):
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
         if os.path.exists(self.storage):
-            log.error("Task #{0}: Analysis results folder already exists at path '{1}', " "analysis aborted".format(self.task.id, self.storage))
+            log.error(
+                "Task #{0}: Analysis results folder already exists at path '{1}', "
+                "analysis aborted".format(self.task.id, self.storage)
+            )
             return False
 
         # If we're not able to create the analysis storage folder, we have to
@@ -137,7 +140,11 @@ class AnalysisManager(threading.Thread):
             try:
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
-                log.error("Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(self.task.id, self.task.target, self.binary))
+                log.error(
+                    "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(
+                        self.task.id, self.task.target, self.binary
+                    )
+                )
                 return False
 
         try:
@@ -148,7 +155,11 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to '{2}': {3}".format(self.task.id, self.binary, self.storage, e))
+            log.error(
+                "Task #{0}: Unable to create symlink/copy from '{1}' to '{2}': {3}".format(
+                    self.task.id, self.binary, self.storage, e
+                )
+            )
 
         return True
 
@@ -175,10 +186,16 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug("Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(self.task.id))
+                log.debug(
+                    "Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id)
+                )
                 time.sleep(1)
             else:
-                log.info("Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform))
+                log.info(
+                    "Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(
+                        self.task.id, machine.name, machine.label, machine.arch, machine.platform
+                    )
+                )
                 break
 
         self.machine = machine
@@ -201,7 +218,6 @@ class AnalysisManager(threading.Thread):
         options["terminate_processes"] = self.cfg.cuckoo.terminate_processes
         options["upload_max_size"] = self.cfg.resultserver.upload_max_size
         options["do_upload_max_size"] = int(self.cfg.resultserver.do_upload_max_size)
-
 
         if not self.task.timeout or self.task.timeout == 0:
             options["timeout"] = self.cfg.timeouts.default
@@ -246,7 +262,7 @@ class AnalysisManager(threading.Thread):
             for dirname in dirnames:
                 try:
                     os.makedirs(os.path.join(self.storage, dirname))
-                except:
+                except Exception:
                     pass
             return True
 
@@ -256,7 +272,11 @@ class AnalysisManager(threading.Thread):
         dead_machine = False
         self.socks5s = _load_socks5_operational()
 
-        log.info("Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)))
+        log.info(
+            "Task #{0}: Starting analysis of {1} '{2}'".format(
+                self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)
+            )
+        )
 
         # Initialize the analysis folders.
         if not self.init_storage():
@@ -320,7 +340,7 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except CuckooMachineError as e:
+        except (CuckooMachineError, CuckooNetworkError) as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
@@ -483,7 +503,8 @@ class AnalysisManager(threading.Thread):
         # some reason, its tunX interface will no longer be available.
         if self.interface and not rooter("nic_available", self.interface):
             log.error(
-                "The network interface '%s' configured for this analysis is " "not available at the moment, switching to route=none mode.",
+                "The network interface '%s' configured for this analysis is "
+                "not available at the moment, switching to route=none mode.",
                 self.interface,
             )
             self.route = "none"
@@ -502,7 +523,11 @@ class AnalysisManager(threading.Thread):
 
         elif self.route == "tor":
             self.rooter_response = rooter(
-                "socks5_enable", self.machine.ip, str(self.cfg.resultserver.port), str(routing.tor.dnsport), str(routing.tor.proxyport)
+                "socks5_enable",
+                self.machine.ip,
+                str(self.cfg.resultserver.port),
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -555,7 +580,11 @@ class AnalysisManager(threading.Thread):
 
         elif self.route == "tor":
             self.rooter_response = rooter(
-                "socks5_disable", self.machine.ip, str(self.cfg.resultserver.port), str(routing.tor.dnsport), str(routing.tor.proxyport),
+                "socks5_disable",
+                self.machine.ip,
+                str(self.cfg.resultserver.port),
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -626,7 +655,9 @@ class Scheduler:
         conf = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery_name)
 
         if not os.path.exists(conf):
-            raise CuckooCriticalError("The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf))
+            raise CuckooCriticalError(
+                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
+            )
 
         # Provide a dictionary with the configuration options to the
         # machine manager instance.
@@ -721,9 +752,12 @@ class Scheduler:
                 # Resolve the full base path to the analysis folder, just in
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                need_space, space_available = free_space_monitor(dir_path,  return_value=True, analysis=True)
+                need_space, space_available = free_space_monitor(dir_path, return_value=True, analysis=True)
                 if need_space:
-                    log.error("Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available)
+                    log.error(
+                        "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
+                        space_available,
+                    )
                     continue
 
             # Have we limited the number of concurrently executing machines?
@@ -746,7 +780,7 @@ class Scheduler:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine.name, machine.label)
+                    task = self.db.fetch(machine)
                     if task:
                         break
 

@@ -42,7 +42,7 @@ def click_mouse():
 def destroyOfficeWindows(window):
     try:
         children = window.query_tree().children
-    except:
+    except Exception:
         return
     for w in children:
         if w.get_wm_class() in [
@@ -53,7 +53,7 @@ def destroyOfficeWindows(window):
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
         ]:
-            log.debug("Destroying: %s" % w.get_wm_class()[1])
+            log.debug("Destroying: %s", w.get_wm_class()[1])
             w.destroy()
         destroyOfficeWindows(w)
 

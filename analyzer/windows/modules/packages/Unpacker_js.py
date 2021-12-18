@@ -25,14 +25,14 @@ class Unpacker_JS(Package):
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")
-        args = '"%s"' % path
+        args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
             if os.path.isfile(path) and "#@~^" in open(path, "rb").read(100):
-                os.rename(path, path + ".jse")
-                path = path + ".jse"
+                os.rename(path, f"{path}.jse")
+                path = f"{path}.jse"
             else:
-                os.rename(path, path + ".js")
-                path = path + ".js"
-        args = '"%s"' % path
+                os.rename(path, f"{path}.js")
+                path = f"{path}.js"
+        args = f'"{path}"'
         return self.execute(wscript, args, path)

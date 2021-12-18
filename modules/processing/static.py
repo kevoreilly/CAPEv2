@@ -16,11 +16,15 @@ import base64
 import hashlib
 import requests
 import binascii
-import re2 as re
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
 from datetime import datetime
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     import bs4
@@ -65,7 +69,7 @@ try:
     from whois import whois
 
     HAVE_WHOIS = True
-except:
+except Exception:
     HAVE_WHOIS = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
@@ -76,7 +80,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.cape_utils import msi_extract
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 try:
     import olefile
@@ -218,7 +222,7 @@ def _get_filetype(data):
         ms = magic.open(magic.MAGIC_SYMLINK)
         ms.load()
         file_type = ms.buffer(data)
-    except:
+    except Exception:
         try:
             file_type = magic.from_buffer(data)
         except Exception:
@@ -226,7 +230,7 @@ def _get_filetype(data):
     finally:
         try:
             ms.close()
-        except:
+        except Exception:
             pass
 
     return file_type
@@ -632,7 +636,7 @@ class PortableExecutable(object):
 
         try:
             off = self.pe.get_overlay_data_start_offset()
-        except:
+        except Exception:
             log.error(
                 "Your version of pefile is out of date.  "
                 "Please update to the latest version on https://github.com/erocarrera/pefile"
@@ -684,7 +688,7 @@ class PortableExecutable(object):
         retstr = None
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
-        except:
+        except Exception:
             log.warning(
                 "Detected outdated version of pefile.  "
                 "Please update to the latest version at https://github.com/erocarrera/pefile"
@@ -727,7 +731,7 @@ class PortableExecutable(object):
                                 for resource_lang in resource_id.directory.entries:
                                     data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
-                                    language = pefile.LANG.get(resource_lang.data.lang, None)
+                                    language = pefile.LANG.get(resource_lang.data.lang)
                                     sublanguage = pefile.get_sublang_name_for_lang(
                                         resource_lang.data.lang, resource_lang.data.sublang
                                     )
@@ -1141,7 +1145,7 @@ class PDF(object):
         try:
             if obj.type == "reference":
                 return self.pdf.body[version].getObject(obj.id)
-        except:
+        except Exception:
             pass
         return obj
 
@@ -1463,7 +1467,7 @@ class Office(object):
             else:
                 try:
                     vba = VBA_Parser(filepath)
-                except:
+                except Exception:
                     return results
         else:
             return results
@@ -1999,7 +2003,7 @@ class Java(object):
 
             try:
                 os.unlink(jar_file)
-            except:
+            except Exception:
                 pass
 
         return results
@@ -2075,7 +2079,7 @@ class URL(object):
                 for field in fields:
                     if field not in list(w.keys()) or not w[field]:
                         w[field] = ["None"]
-            except:
+            except Exception:
                 # No WHOIS data returned
                 log.warning("No WHOIS data for domain: " + self.domain)
                 return results
@@ -2646,10 +2650,10 @@ class EncodedScriptFile(object):
             elif ch < 128:
                 r.append(self.lookup[self.encoding[m % 64]][ch])
                 c += r[-1]
-                m = m + 1
+                m += 1
             else:
                 r.append(ch)
-            o = o + 1
+            o += 1
 
         if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
@@ -2675,7 +2679,7 @@ class WindowsScriptFile(object):
             try:
                 x = bs4.BeautifulSoup(script, "html.parser")
                 language = x.script.attrs.get("language", "").lower()
-            except:
+            except Exception:
                 language = None
 
             # We can't rely on bs4 or any other HTML/XML parser to provide us
@@ -2724,7 +2728,7 @@ class Static(Processing):
             # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
-                decomp_jar = self.options.get("procyon_path", None)
+                decomp_jar = self.options.get("procyon_path")
                 if decomp_jar and not os.path.exists(decomp_jar):
                     log.error("procyon_path specified in processing.conf but the file does not exist.")
                 static = Java(self.file_path, decomp_jar).run()
@@ -2744,10 +2748,8 @@ class Static(Processing):
             #    static["elf"] = ELF(self.file_path).run()
             #    static["keys"] = f.get_keys()
 
-            if "MSI Installer" in thetype:
-                msi_data = msi_extract(self.file_path, self.dropped_path)
-                static.setdefault("msitools", msi_data)
-
+            # Allows to put execute file extractors/unpackers
+            generic_file_extractors(self.file_path, self.dropped_path, thetype, static)
         elif self.task["category"] == "url":
             enabled_whois = self.options.get("whois", True)
             if HAVE_WHOIS and enabled_whois:

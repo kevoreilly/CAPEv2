@@ -52,7 +52,7 @@ class Deduplicate(Processing):
         return dd_img_set
 
     def run(self):
-        """Creates a new key in the report dict for 
+        """Creates a new key in the report dict for
         the deuplicated screenshots.
         """
         self.key = "deduplicated_shots"

@@ -40,8 +40,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"CAPE Sandbox"
-copyright = u"2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly"
+project = "CAPE Sandbox"
+copyright = "2010-2015, Cuckoo Foundation, 2016-2020, kevoreilly"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -178,7 +178,7 @@ htmlhelp_basename = "CAPESandboxdoc"
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ("index", "CAPESandbox.tex", u"CAPE Sandbox Book", u"CAPE Sandbox", "manual"),
+    ("index", "CAPESandbox.tex", "CAPE Sandbox Book", "CAPE Sandbox", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -209,4 +209,4 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [("index", "capesandbox", u"CAPE Sandbox Book", [u"CAPE Sandbox"], 1)]
+man_pages = [("index", "capesandbox", "CAPE Sandbox Book", ["CAPE Sandbox"], 1)]

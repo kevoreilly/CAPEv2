@@ -498,6 +498,47 @@ User authentication and roles::
     security:
         authorization: enabled
 
+NFS data fetching::
+
+    Nice comparision between NFS, SSHFS, SMB
+    https://blog.ja-ke.tech/2019/08/27/nas-performance-sshfs-nfs-smb.html
+
+To configure NFS on main server (NFS calls it client)
+
+    On client create folder per worker:
+        mkdir -p /mnt/cape_worker_<worker_name>
+
+    Add workers to fstab:
+    ```
+    <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
+    ```
+
+    Example:
+    ```
+    192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
+    ```
+
+CAPE worker(s) (NFS calls it servers)::
+
+    Install NFS:
+        * sudo apt install nfs-kernel-server
+        * systemctl enable nfs-kernel-server
+
+    Run `id cape`:
+        * to get uid and gid to place inside of the file, Example:
+            * `uid=997(cape) gid=1005(cape) groups=1005(cape),1002(libvirt),1003(kvm),1004(pcap)`
+
+    Add entry to `/etc/exports`
+        /opt/CAPEv2 <clinet_ip/hostname>(rw,no_subtree_check,all_squash,anonuid=<uid>,anongid=<gid>)
+    Example:
+        /opt/CAPEv2 192.168.1.1(rw,no_subtree_check,all_squash,anonuid=997,anongid=1005)
+
+    systemctl enable nfs-kernel-server
+
+On CAPE main server run:
+    Run `mount -a` to mount all NFS
+    Edit `conf/reporting.conf` -> distributed -> nfs=yes
+
 Online:
 
     Mongo Auth:

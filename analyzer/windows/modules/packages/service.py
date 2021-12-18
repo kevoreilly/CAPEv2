@@ -69,12 +69,12 @@ class Service(Package):
             servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
             if "." not in os.path.basename(path):
-                new_path = path + ".exe"
+                new_path = f"{path}.exe"
                 os.rename(path, new_path)
                 path = new_path
-            binPath = '"{0}"'.format(path)
+            binPath = f'"{path}"'
             if arguments:
-                binPath += " {0}".format(arguments)
+                binPath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")

@@ -244,7 +244,7 @@ def get_office_window(hwnd, lparam):
         USER32.GetWindowTextW(hwnd, text, 1024)
         if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             # send ALT+F4 equivalent
-            log.info("Closing Office window.")
+            log.info("Closing Office window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
             CLOSED_OFFICE = True
     return True
@@ -330,7 +330,7 @@ class Human(Auxiliary, Thread):
                     other_hwnds = INITIAL_HWNDS[:]
                     try:
                         other_hwnds.remove(USER32.GetForegroundWindow())
-                    except:
+                    except Exception:
                         pass
                     if len(other_hwnds):
                         USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds) - 1)])

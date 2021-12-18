@@ -4,11 +4,11 @@ CAPE's debugger
 
 * Is unique among Windows debuggers, and is one of the most powerful features of the sandbox, having been built from scratch with the overriding design principles of minimal (almost zero) use of Windows debugging interfaces, maximal use of the processor's debugging hardware, and to be quick and easy to use.
 * Here is a quick guide on getting started with the debugger:
-* For starters it's worth emphasising that the debugger is programmable but not interactive; thus you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).
+* For starters it's worth emphasising that the debugger is programmable but not interactive; you configure it when submitting a sample, allow it to run, then check the results at the end in the form of the debugger log (in the debugger tab).
 
-Breakpoints: bp0, bp1, bp2
-==========================
-* Perhaps the simplest of the debugger options is bp to set one of three cpu breakpoints. While the hardware does technically provide four breakpoints, one must be reserved for the debugger to maintain the ability to step-over during tracing (this is essential for single-step mode).
+Breakpoints: bp0, bp1, bp2, bp3
+===============================
+* Perhaps the simplest of the debugger options is bp to set one of three cpu breakpoints. (In order for instruction traces to function properly, bp3 should be reserved for the debugger to maintain the ability to step-over certain instructions during tracing.)
 * The simplest form of this option is to set it to 'ep': ``bp0=ep``
 
 * This will instruct the debugger to break on the entry point of the main executable of each process and begin tracing. (In the case of a DLL, this breakpoint will also be set on the entrypoint of the DLL). When the breakpoint hits, any corresponding actions will be performed (see later) and the instruction broken upon will be output to the log. As long as the count (see later) hasn't been set to zero, the debugger will then proceed to trace the instruction flow in single-step mode.
@@ -52,8 +52,8 @@ Base-on-alloc
 
 Actions
 =======
-* Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the options: action0, action1 and action2, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if need arises for further actions, they can be simply added.
-* For example, we might wish to divert the execution flow upon a conditional jump JZ - 'flip' the direction of a branch. Since this is one of the most useful actions, there are a number of actions to choose from.
+* Often we might wish to perform an action when a breakpoint is hit. These actions can be defined by the actions: action0, action1, action2 and action3, each corresponding to a respective breakpoint. The action is specified by a simple string (not case sensitive). The list of actions is constantly growing, so if need arises for further actions, they can be simply added.
+* To divert the execution flow upon a conditional jump JZ - 'flip' the direction of a branch. Since this is one of the most useful actions, there are a number of actions to choose from.
 * For direct control over the instruction pointer:
     * Skip
     * Jmp
@@ -71,9 +71,11 @@ Actions
 
 * Here upon breaking on the instruction at 0x1234, the instruction will be skipped.
 
+* Instruction traces can grow to be huge so often it's important to be able to stop at a chosen point. To stop the trace at a given breakpoint, the action is simply:
+    * Stop
 Type
 ====
-* Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read only, or both read & write. This is specified with the options: type0, type1 and type2 for the corresponding breakpoint. The type option uses the following values:
+* Although the debugger defaults to execution breakpoints, it is also possible to set data breakpoints either for read only, or both read & write. This is specified with the options: type0, type1, type2 and type3 for the corresponding breakpoint. The type option uses the following values:
 
 * r - read only
 * w - write and read
@@ -82,8 +84,8 @@ Type
     * type0=w,type1=r
 
 
-br1, br2, br3
-=============
+br0, br1, br2, br3
+==================
 * Sometimes it may be convenient to set a breakpoint on the return address of a function, for example when it might be easier to write a YARA signature to detect a function but when you wish to break after it has executed.
 * For this the br options exist, where br0 will set a breakpoint on the return address of the function at the supplied address.
 * For example:
@@ -160,8 +162,8 @@ Practical examples
             ($golden_ratio) and any of ($crypto32*)
     }
 
-Debugger to disassembler
-========================
+Importing instruction traces into disassembler
+==============================================
 
 * Highlight CFG in disassembler:
 

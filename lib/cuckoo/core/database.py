@@ -90,12 +90,12 @@ LINUX_ENABLED = web_conf.linux.enabled
 results_db = pymongo.MongoClient(
     repconf.mongodb.host,
     port=repconf.mongodb.port,
-    username=repconf.mongodb.get("username", None),
-    password=repconf.mongodb.get("password", None),
+    username=repconf.mongodb.get("username"),
+    password=repconf.mongodb.get("password"),
     authSource=repconf.mongodb.get("authsource", "cuckoo"),
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "6dc79a3ee6e4"
+SCHEMA_VERSION = "8537286ff4d5"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -140,6 +140,8 @@ tasks_tags = Table(
 
 
 VALID_LINUX_TYPES = ("Bourne-Again", "POSIX shell script", "ELF", "Python")
+
+
 def _get_linux_vm_tag(mgtype):
     mgtype = mgtype.lower()
     if mgtype.startswith(VALID_LINUX_TYPES) and "motorola" not in mgtype and "renesas" not in mgtype:
@@ -150,13 +152,13 @@ def _get_linux_vm_tag(mgtype):
         return "mips"
     elif "arm" in mgtype:
         return "arm"
-    #elif "armhl" in mgtype:
+    # elif "armhl" in mgtype:
     #    return {"tags":"armhl"}
     elif "sparc" in mgtype:
         return "sparc"
-    #elif "motorola" in mgtype:
+    # elif "motorola" in mgtype:
     #    return "motorola"
-    #elif "renesas sh" in mgtype:
+    # elif "renesas sh" in mgtype:
     #    return "renesassh"
     elif "powerpc" in mgtype:
         return "powerpc"
@@ -176,6 +178,7 @@ class Machine(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
+    arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
     tags = relationship("Tag", secondary=machines_tags, backref="machines")
@@ -213,9 +216,10 @@ class Machine(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
+    def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
         self.name = name
         self.label = label
+        self.arch = arch
         self.ip = ip
         self.platform = platform
         self.interface = interface
@@ -543,15 +547,6 @@ class Database(object, metaclass=Singleton):
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)
-        # load vms tags
-        self.vms_tags = dict()
-        self.tasks_filters = dict()
-        session = self.Session()
-        machines = session.query(Machine).options(joinedload("tags")).all()
-        for machine in machines:
-            self.vms_tags[machine.name] = [tag.name for tag in machine.tags]
-            self.tasks_filters[machine.name] = or_(*[Task.tags.any(name=tag.name) for tag in machine.tags])
-        session.close()
 
         @event.listens_for(self.Session, "after_flush")
         def delete_tag_orphans(session, ctx):
@@ -666,10 +661,11 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def add_machine(self, name, label, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
+    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
+        @param arch: machine arch
         @param ip: machine IP address
         @param platform: machine supported platform
         @param tags: list of comma separated tags
@@ -682,6 +678,7 @@ class Database(object, metaclass=Singleton):
         machine = Machine(
             name=name,
             label=label,
+            arch=arch,
             ip=ip,
             platform=platform,
             interface=interface,
@@ -795,44 +792,37 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, machine, label):
+    def fetch(self, machine):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
+
+        # set filter to get tasks with acceptable arch
+        if "x64" in machine.arch:
+            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
+        else:
+            cond = or_(*[Task.tags.any(name=machine.arch)])
         try:
-            # if 64-bit machine select any pending task
-            if "x64" in self.vms_tags.get(machine, ""):
-                row = (
-                    session.query(Task)
-                        .filter_by(status=TASK_PENDING)
-                        .order_by(Task.priority.desc(), Task.added_on)
-                        # distributed cape
-                        .filter(not_(Task.options.contains("node=")))
-                        .first()
-                )
-            else:
-                # 32-bit machine select only 32-bit pending tasks
-                # filter all tasks with 64-bit tag, then invert in filter
-                cond = or_(*[Task.tags.any(name="x64")])
-                row = (
-                 session.query(Task)
-                     .options(joinedload("tags"))
-                     .filter_by(status=TASK_PENDING)
-                     # distributed cape
-                     .filter(not_(Task.options.contains("node=")))
-                     .order_by(Task.priority.desc(), Task.added_on)
-                     .filter(not_(cond))
-                     .first()
-                )
+            row = (
+                session.query(Task)
+                .filter_by(status=TASK_PENDING)
+                .order_by(Task.priority.desc(), Task.added_on)
+                # distributed cape
+                .filter(not_(Task.options.contains("node=")))
+                .filter(cond)
+                .first()
+            )
+
             if row:
-                if row.machine and machine != row.machine and label != row.machine:
+                if row.machine and row.machine != machine.label:
                     return None
             else:
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
+            self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row
@@ -1286,21 +1276,26 @@ class Database(object, metaclass=Singleton):
                 session.close()
                 return None
 
-            # force a special tag for 64-bit binaries to prevent them from being
-            # analyzed by default on VM types that can't handle them
+            # Assign architecture to task to fetch correct VM type
+            # This isn't 100% full proof
             if "PE32+" in file_type or "64-bit" in file_type:
                 if tags:
                     tags += ",x64"
                 else:
                     tags = "x64"
-
-            if LINUX_ENABLED:
-                linux_arch = _get_linux_vm_tag(file_type)
-                if linux_arch:
+            else:
+                if LINUX_ENABLED:
+                    linux_arch = _get_linux_vm_tag(file_type)
+                    if linux_arch:
+                        if tags:
+                            tags += f",{linux_arch}"
+                        else:
+                            tags = linux_arch
+                else:
                     if tags:
-                        tags += f",{linux_arch}"
+                        tags += ",x86"
                     else:
-                        tags = linux_arch
+                        tags = "x86"
 
             try:
                 task = Task(obj.file_path)
@@ -1960,7 +1955,6 @@ class Database(object, metaclass=Singleton):
         limit=None,
         details=False,
         category=None,
-
         offset=None,
         status=None,
         sample_id=None,
@@ -2099,6 +2093,21 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
         return res
+
+    @classlock
+    def get_tasks_status_count(self):
+        """Count all tasks in the database
+        @return: dict with status and number of tasks found example: {'failed_analysis': 2, 'running': 100, 'reported': 400}
+        """
+        session = self.Session()
+        try:
+            tasks_dict_count = session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
+            return dict(tasks_dict_count)
+        except SQLAlchemyError as e:
+            log.debug("Database error counting all tasks: {0}".format(e))
+            return 0
+        finally:
+            session.close()
 
     @classlock
     def count_tasks(self, status=None, mid=None):
@@ -2329,7 +2338,9 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     # search in Suricata files folder
-                    tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0})
+                    tasks = results_db.analysis.find(
+                        {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
+                    )
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:

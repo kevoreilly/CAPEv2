@@ -75,7 +75,15 @@ def rooter(command, *args, **kwargs):
             log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s.", e)
             return
 
-        s.send(json.dumps({"command": command, "args": args, "kwargs": kwargs,}).encode("utf-8"))
+        s.send(
+            json.dumps(
+                {
+                    "command": command,
+                    "args": args,
+                    "kwargs": kwargs,
+                }
+            ).encode("utf-8")
+        )
 
         try:
             ret = json.loads(s.recv(0x10000))

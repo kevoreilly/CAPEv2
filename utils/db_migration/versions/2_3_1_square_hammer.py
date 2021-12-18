@@ -11,11 +11,12 @@ Create Date: 2021-05-02 18:24:43.075702
 """
 
 # revision identifiers, used by Alembic.
-revision = '703266a6bbc5'
-down_revision = '6ab863a3b510'
+revision = "703266a6bbc5"
+down_revision = "6ab863a3b510"
 
 from alembic import op
 import sqlalchemy as sa
+
 
 def upgrade():
     op.execute("ALTER TABLE tasks alter status drop default")

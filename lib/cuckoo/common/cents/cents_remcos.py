@@ -9,7 +9,7 @@ def _chunk_stuff(stuff, group_size=20):
     # really just need to chunk out the ip into groups of....20?
     # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
     for i in range(0, len(stuff), group_size):
-        yield ','.join(stuff[i:i + group_size])
+        yield ",".join(stuff[i : i + group_size])
 
 
 def _build_rc4_rule(passphrase):
@@ -38,7 +38,7 @@ def _build_rc4_rule(passphrase):
 
 def _parse_mwcp(remcos_config):
     remcos_config_list = []
-    control = remcos_config.get('control', [])
+    control = remcos_config.get("control", [])
     for c in control:
         if c and c.startswith("tcp://"):
             # maxsplit here incase the passphrase includes :
@@ -69,10 +69,11 @@ def _parse_ratdecoders(remcos_config):
             remcos_config_list.append(
                 # notice the typo here including the colon after c2:
                 # https://github.com/kevthehermit/RATDecoders/blob/master/malwareconfig/decoders/remcos.py#L56
-                {"C2": nested_domain.get("c2:", ""),
-                 "Port": nested_domain.get("port", ""),
-                 "Password": nested_domain.get("password", ""),
-                 }
+                {
+                    "C2": nested_domain.get("c2:", ""),
+                    "Port": nested_domain.get("port", ""),
+                    "Password": nested_domain.get("password", ""),
+                }
             )
 
     return remcos_config_list
@@ -116,7 +117,7 @@ def cents_remcos(config_dict, sid_counter, md5, date, task_link):
     #    which is an optional configuration that can be enabled in the processing.conf file
     # 2) MWCP - https://github.com/kevoreilly/CAPEv2/blob/master/modules/processing/parsers/mwcp/Remcos.py
     #    which is an optional configuration that can be enabled in the processing.conf file
-    if 'control' in remcos_config and 'domains' not in remcos_config:
+    if "control" in remcos_config and "domains" not in remcos_config:
         # we have an MWCP config
         log.debug("[CENTS - Remcos] Parsing DC3-MWCP based config")
         parsed_remcos_config = _parse_mwcp(remcos_config)
@@ -124,7 +125,7 @@ def cents_remcos(config_dict, sid_counter, md5, date, task_link):
             if _config not in remcos_config_list:
                 remcos_config_list.append(_config)
 
-    if 'domains' in remcos_config and 'control' not in remcos_config:
+    if "domains" in remcos_config and "control" not in remcos_config:
         # we have a RATDecoders config
         log.debug("[CENTS - Remcos] Parsing RATDecoders based config")
         parsed_remcos_config = _parse_ratdecoders(remcos_config)
@@ -142,7 +143,7 @@ def cents_remcos(config_dict, sid_counter, md5, date, task_link):
     rule_list = []
     ip_list = set()
     domain_list = set()
-    for c2_server in list(map(lambda x: x.get('C2'), remcos_config_list)):
+    for c2_server in list(map(lambda x: x.get("C2"), remcos_config_list)):
         try:
             c2_ip = ip_address(c2_server)
         except ValueError:
@@ -156,20 +157,24 @@ def cents_remcos(config_dict, sid_counter, md5, date, task_link):
 
     log.debug("[CENTS - Remcos] Building IP based rules")
     for ip_group in _chunk_stuff(list(ip_list)):
-        rule = f"alert tcp $HOME_NET any -> {ip_group} any (msg:\"ET CENTS Remcos RAT (C2 IP Address) " \
-               f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
-               f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
-               f"metadata:created_at {date};)"
+        rule = (
+            f'alert tcp $HOME_NET any -> {ip_group} any (msg:"ET CENTS Remcos RAT (C2 IP Address) '
+            f'C2 Communication - CAPE sandbox config extraction"; flow:established,to_server; '
+            f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; "
+            f"metadata:created_at {date};)"
+        )
         rule_list.append(rule)
         next_sid += 1
 
     log.debug("[CENTS - Remcos] Building Domain based rules")
     for c2_domain in domain_list:
-        rule = f"alert dns $HOME_NET any -> any any (msg:\"ET CENTS Remcos RAT (C2 Domain) " \
-               f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
-               f"dns.query; content:\"{c2_domain}\"; " \
-               f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
-               f"metadata:created_at {date};)"
+        rule = (
+            f'alert dns $HOME_NET any -> any any (msg:"ET CENTS Remcos RAT (C2 Domain) '
+            f'C2 Communication - CAPE sandbox config extraction"; flow:established,to_server; '
+            f'dns.query; content:"{c2_domain}"; '
+            f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; "
+            f"metadata:created_at {date};)"
+        )
         rule_list.append(rule)
         next_sid += 1
 
@@ -177,13 +182,15 @@ def cents_remcos(config_dict, sid_counter, md5, date, task_link):
     for parsed_config in remcos_config_list:
         # if we have a password, we should create a rule for the RC4 encrypted stuff
         if parsed_config.get("Password", ""):
-            first, second = _build_rc4_rule(parsed_config.get('Password'))
-            rule = f"alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"ET CENTS Remcos RAT " \
-                   f"(passphrase {parsed_config.get('Password')}) " \
-                   f"C2 Communication - CAPE sandbox config extraction\"; flow:established,to_server; " \
-                   f"content:\"|{first}|\"; startswith; fast_pattern; content:\"|{second}|\"; distance:2; within:2; " \
-                   f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; " \
-                   f"metadata:created_at {date};)"
+            first, second = _build_rc4_rule(parsed_config.get("Password"))
+            rule = (
+                f'alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"ET CENTS Remcos RAT '
+                f"(passphrase {parsed_config.get('Password')}) "
+                f'C2 Communication - CAPE sandbox config extraction"; flow:established,to_server; '
+                f'content:"|{first}|"; startswith; fast_pattern; content:"|{second}|"; distance:2; within:2; '
+                f"reference:md5,{md5}; reference:url,{task_link}; sid:{next_sid}; rev:1; "
+                f"metadata:created_at {date};)"
+            )
             rule_list.append(rule)
             next_sid += 1
 

@@ -13,5 +13,6 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.core.plugins import get_suricata_family
+
 if __name__ == "__main__":
     print("Suricata detects as:", get_suricata_family(sys.argv[1]))

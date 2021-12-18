@@ -71,11 +71,11 @@ def C2BIP3(string):
 def File2String(filename):
     try:
         f = open(filename, "rb")
-    except:
+    except Exception:
         return None
     try:
         return f.read()
-    except:
+    except Exception:
         return None
     finally:
         f.close()
@@ -112,7 +112,7 @@ def File2StringHash(filename):
 def FixPipe():
     try:
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except:
+    except Exception:
         pass
 
 
@@ -317,7 +317,7 @@ def Decode(data):
     for char in data.replace("@&", chr(10)).replace("@#", chr(13)).replace("@*", ">").replace("@!", "<").replace("@$", "@"):
         byte = ord(char)
         if byte < 128:
-            index = index + 1
+            index += 1
         if (byte == 9 or byte > 31 and byte < 128) and byte != 60 and byte != 62 and byte != 64:
             char = [c for c in dDecode[byte]][dCombination[index % 64]]
         result += char
@@ -347,7 +347,7 @@ def DecodeVBEJSE(content, options):
 
 
 def Main():
-    oParser = optparse.OptionParser(usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__)
+    oParser = optparse.OptionParser(usage=f"usage: %prog [options] [file]\n{__description__}", version=f"%prog {__version__}")
     oParser.add_option("-m", "--man", action="store_true", default=False, help="Print manual")
     (options, args) = oParser.parse_args()
 

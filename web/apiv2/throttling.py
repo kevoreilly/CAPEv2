@@ -14,6 +14,7 @@ duration_map = {
     "d": 24 * 60 * 60,
 }
 
+
 class SubscriptionRateThrottle(UserRateThrottle):
     # Define a custom scope name to be referenced by DRF in settings.py
     scope = "subscription"

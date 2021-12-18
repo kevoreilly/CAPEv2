@@ -50,7 +50,7 @@ def disconnect_logger():
 
 def set_clock(clock, timeout):
     # Output key info to analysis log
-    log.info("Date set to: {0}, timeout set to: {1}".format(clock, timeout))
+    log.info("Date set to: %s, timeout set to: %s", clock, timeout)
 
     clock = datetime.strptime(clock, "%Y%m%dT%H:%M:%S")
     st = SYSTEMTIME()

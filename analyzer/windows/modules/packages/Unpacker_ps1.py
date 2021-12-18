@@ -27,8 +27,8 @@ class PS1(Package):
         powershell = self.get_path_glob("PowerShell")
 
         if not path.endswith(".ps1"):
-            os.rename(path, path + ".ps1")
+            os.rename(path, f"{path}.ps1")
             path += ".ps1"
 
-        args = '-NoProfile -ExecutionPolicy bypass -File "{0}"'.format(path)
+        args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
         return self.execute(powershell, args, path)

@@ -17,4 +17,4 @@ class MSG(Package):
 
     def start(self, path):
         outlook = self.get_path_glob("Microsoft Office Outlook")
-        return self.execute(outlook, '/f "%s"' % path, path)
+        return self.execute(outlook, f'/f "{path}"', path)

@@ -58,7 +58,7 @@ class Disguise(Auxiliary):
         """
         key = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE)
 
-        value = "{0}-{1}-{2}-{3}".format(random_integer(5), random_integer(3), random_integer(7), random_integer(5))
+        value = f"{random_integer(5)}-{random_integer(3)}-{random_integer(7)}-{random_integer(5)}"
 
         SetValueEx(key, "ProductId", 0, REG_SZ, value)
         CloseKey(key)
@@ -95,17 +95,17 @@ class Disguise(Auxiliary):
         self._office_helper("Software\\Microsoft\\Office\\Common\\Security", "UFIControls", REG_DWORD, 1)
         for oVersion in installedVersions:
             for software in ("Word", "Excel", "PowerPoint", "Publisher", "Outlook"):
-                productPath = r"{0}\{1}\{2}".format(baseOfficeKeyPath, oVersion, software)
-                self._office_helper(productPath + "\\Common\\General", "ShownOptIn", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security", "VBAWarnings", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security", "AccessVBOM", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security", "DisableDDEServerLaunch", REG_DWORD, 0)
-                self._office_helper(productPath + "\\Security", "MarkInternalAsUnsafe", REG_DWORD, 0)
-                self._office_helper(productPath + "\\Security\\ProtectedView", "DisableAttachmentsInPV", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security\\ProtectedView", "DisableInternetFilesInPV", REG_DWORD, 1)
-                self._office_helper(productPath + "\\Security\\ProtectedView", "DisableUnsafeLocationsInPV", REG_DWORD, 1)
-                # self._office_helper("HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Office\\{}\\{}\\Security".format(oVersion, software), "MarkInternalAsUnsafe", REG_DWORD, 0)
-                self._office_helper(productPath + "\\Security", "ExtensionHardening", 0)
+                productPath = rf"{baseOfficeKeyPath}\{oVersion}\{software}"
+                self._office_helper(f"{productPath}\\Common\\General", "ShownOptIn", REG_DWORD, 1)
+                self._office_helper(f"{productPath}\\Security", "VBAWarnings", REG_DWORD, 1)
+                self._office_helper(f"{productPath}\\Security", "AccessVBOM", REG_DWORD, 1)
+                self._office_helper(f"{productPath}\\Security", "DisableDDEServerLaunch", REG_DWORD, 0)
+                self._office_helper(f"{productPath}\\Security", "MarkInternalAsUnsafe", REG_DWORD, 0)
+                self._office_helper(f"{productPath}\\Security\\ProtectedView", "DisableAttachmentsInPV", REG_DWORD, 1)
+                self._office_helper(f"{productPath}\\Security\\ProtectedView", "DisableInternetFilesInPV", REG_DWORD, 1)
+                self._office_helper(f"{productPath}\\Security\\ProtectedView", "DisableUnsafeLocationsInPV", REG_DWORD, 1)
+                # self._office_helper(f"HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Office\\{oVersion}\\{software}\\Security", "MarkInternalAsUnsafe", REG_DWORD, 0)
+                self._office_helper(f"{productPath}\\Security", "ExtensionHardening", 0)
 
     def set_office_mrus(self):
         """Adds randomized MRU's to Office software(s).
@@ -147,11 +147,11 @@ class Disguise(Auxiliary):
             for software in extensions:
                 values = list()
                 mruKeyPath = ""
-                productPath = r"{0}\{1}\{2}".format(baseOfficeKeyPath, oVersion, software)
+                productPath = rf"{baseOfficeKeyPath}\{oVersion}\{software}"
                 try:
                     productKey = OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ)
                     CloseKey(productKey)
-                    mruKeyPath = r"{0}\File MRU".format(productPath)
+                    mruKeyPath = rf"{productPath}\File MRU"
                     try:
                         mruKey = OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ)
                     except WindowsError:
@@ -176,16 +176,16 @@ class Disguise(Auxiliary):
                     for i in range(1, randint(10, 30)):
                         rString = random_string(minimum=11, charset="0123456789ABCDEF")
                         if i % 2:
-                            baseId = "T01D1C" + rString
+                            baseId = f"T01D1C{rString}"
                         else:
-                            baseId = "T01D1D" + rString
-                        setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
+                            baseId = f"T01D1D{rString}"
+                        setVal = f"[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
                             baseId,
                             basePaths[randint(0, len(basePaths) - 1)],
                             random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
                             extensions[software][randint(0, len(extensions[software]) - 1)],
                         )
-                        name = "Item {0}".format(i)
+                        name = f"Item {i}"
                         SetValueEx(mruKey, name, 0, REG_SZ, setVal)
                     CloseKey(mruKey)
 
@@ -200,12 +200,12 @@ class Disguise(Auxiliary):
         try:
             # get netbios interface
             for path in ("CurrentControlSet", "ControlSet001", "ControlSet002"):
-                netbios_init = "System\\{}\\Services\\NetBT\\Parameters\\Interfaces\\".format(path)
+                netbios_init = f"System\\{path}\\Services\\NetBT\\Parameters\\Interfaces\\"
                 netbios = OpenKey(HKEY_LOCAL_MACHINE, netbios_init,0, KEY_READ)
                 for currentKey in xrange(0, QueryInfoKey(netbios)[0]):
                     subkey = EnumKey(netbios, currentKey)
                     if  subkey.startswith("Tcpip_"):
-                        sub_netbios = OpenKey(HKEY_LOCAL_MACHINE, netbios_init+"\\"+subkey, 0, KEY_SET_VALUE)
+                        sub_netbios = OpenKey(HKEY_LOCAL_MACHINE, f"{netbios_init}\\{subkey}", 0, KEY_SET_VALUE)
                         SetValueEx(sub_netbios, "NetbiosOptions", 0, REG_DWORD, 2)
                         CloseKey(sub_netbios)
                 CloseKey(netbios)
@@ -242,11 +242,11 @@ class Disguise(Auxiliary):
     def randomizeUUID(self):
         createdUUID = str(uuid4())
 
-        log.info("Disguising GUID to " + str(createdUUID))
+        log.info("Disguising GUID to %s", createdUUID)
         keyPath = "SOFTWARE\\Microsoft\\Cryptography"
 
         # Determing if the machine is 32 or 64 bit and open the registry key
-        if platform.machine().endswith('64'):
+        if platform.machine().endswith("64"):
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
         else:
             key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)

@@ -30,9 +30,8 @@ from lib.cuckoo.common.exceptions import CuckooResultError
 from lib.cuckoo.common.utils import create_folder, Singleton, logtime, sanitize_pathname
 from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.core.log import task_log_start, task_log_stop
-import six
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 cfg = Config()
 
 # Maximum line length to read for netlog messages, to avoid memory exhaustion
@@ -62,7 +61,7 @@ RESULT_UPLOADABLE = (
     b"shots",
     b"sysmon",
     b"stap",
-    b"evtx"
+    b"evtx",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -204,7 +203,7 @@ class FileUpload(ProtocolHandler):
             category = self.handler.read_newline()
             duplicated = int(self.handler.read_newline()) or 0
         else:
-            filepath, pids, ppid, metadata, category, duplicated = None, [], [], b"", b"", False
+            filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         if not duplicated:
@@ -215,7 +214,9 @@ class FileUpload(ProtocolHandler):
             except OSError as e:
                 log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError(f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}")
+                    raise CuckooOperationalError(
+                        f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
+                    )
                 raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
@@ -334,7 +335,21 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ("CAPE", "aux", "curtain", "files", "logs", "memory", "shots", "sysmon", "stap", "procdump", "debugger", "tlsdump", "evtx")
+        folders = (
+            "CAPE",
+            "aux",
+            "curtain",
+            "files",
+            "logs",
+            "memory",
+            "shots",
+            "sysmon",
+            "stap",
+            "procdump",
+            "debugger",
+            "tlsdump",
+            "evtx",
+        )
 
         for folder in folders:
             try:

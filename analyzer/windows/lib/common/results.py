@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from lib.core.config import Config
+
 config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
@@ -22,12 +23,12 @@ def upload_to_host(file_path, dump_path, pids=[], ppids=[], metadata="", categor
     infd = None
     we_open = False
     if not os.path.exists(file_path):
-        log.warning("File {} doesn't exist anymore".format(file_path))
+        log.warning("File %s doesn't exist anymore", file_path)
         return
     file_size = Path(file_path).stat().st_size
-    log.info(f"File {file_path} size is {file_size}, Max size: {config.upload_max_size}")
+    log.info("File %s size is %d, Max size: %s", file_path, file_size, config.upload_max_size)
     if int(config.upload_max_size) < int(file_size) and config.do_upload_max_size is False:
-        log.warning("File {} size is too big: {}, ignoring".format(file_path, file_size))
+        log.warning("File %s size is too big: %d, ignoring", file_path, file_size)
         return
     try:
         nc = NetlogFile()
@@ -42,7 +43,7 @@ def upload_to_host(file_path, dump_path, pids=[], ppids=[], metadata="", categor
                 nc.send(buf, retry=True)
                 buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
+        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
         if infd and we_open:
             infd.close()
@@ -82,9 +83,9 @@ class NetlogConnection(object):
                 self.connect()
                 self.send(data, retry=False)
             else:
-                print(("Unhandled exception in NetlogConnection:", str(e)))
+                print(f"Unhandled exception in NetlogConnection: {e}")
         except Exception as e:
-            log.error(("Unhandled exception in NetlogConnection:", str(e)))
+            log.error("Unhandled exception in NetlogConnection: %s", e)
             # We really have nowhere to log this, if the netlog connection
             # does not work, we can assume that any logging won't work either.
             # So we just fail silently.
@@ -103,7 +104,9 @@ class NetlogConnection(object):
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
-            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
+            NetlogConnection.__init__(
+                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
+            )
         else:
             NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         self.connect()
@@ -112,7 +115,7 @@ class NetlogBinary(NetlogConnection):
 class NetlogFile(NetlogConnection):
     def init(self, dump_path, filepath=False, pids="", ppids="", metadata="", category="files", duplicated=0):
         """
-            All arguments should be strings
+        All arguments should be strings
         """
         if pids:
             pids = " ".join(pids)

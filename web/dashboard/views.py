@@ -37,7 +37,9 @@ class conditional_login_required(object):
 def index(request):
     db = Database()
 
-    report = dict(total_samples=db.count_samples(), total_tasks=db.count_tasks(), states_count={}, estimate_hour=None, estimate_day=None)
+    report = dict(
+        total_samples=db.count_samples(), total_tasks=db.count_tasks(), states_count={}, estimate_hour=None, estimate_day=None
+    )
 
     states = (
         TASK_PENDING,

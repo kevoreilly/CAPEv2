@@ -12,4 +12,4 @@ class HWP(Package):
 
     def start(self, path):
         word = self.get_path("Hangul (Korean) Word Processor File 5.x")
-        return self.execute(word, args=[path], mode="office", trigger="file:%s" % path)
+        return self.execute(word, args=[path], mode="office", trigger=f"file:{path}")

@@ -20,12 +20,12 @@ def _fileinfo(target):
 
 
 class Wget(Package):
-    """ Mach-O executable analysys package. """
+    """Mach-O executable analysys package."""
 
     def prepare(self):
         # todo use random tempfile
         # ToDo random name
-        ret = system('wget "%s" -O /tmp/file_malwr --no-check-certificate' % self.target)
+        ret = system(f'wget "{self.target}" -O /tmp/file_malwr --no-check-certificate')
         log.info(ret)
         # py3 permission
         chmod("/tmp/file_malwr", 0o755)

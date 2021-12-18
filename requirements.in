@@ -28,7 +28,8 @@ pyattck==4.1.1
 distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==1.0.1
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/c6e4cbcb84847e840322616220a65856bfa60820.zip
+XLMMacroDeobfuscator==0.2.3
+https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4

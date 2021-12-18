@@ -43,6 +43,7 @@ rule TrickBot
 }
 """
 
+
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
@@ -54,6 +55,7 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def xor_data(data, key, key_len):
     i = 0
     decrypted_blob = b""
@@ -62,6 +64,7 @@ def xor_data(data, key, key_len):
         decrypted_blob += struct.pack("<L", xor)
         i += 1
     return decrypted_blob
+
 
 def derive_key(n_rounds, input_bf):
     intermediate = input_bf
@@ -72,6 +75,7 @@ def derive_key(n_rounds, input_bf):
         intermediate += current
     return current
 
+
 # expects a str of binary data open().read()
 def trick_decrypt(data):
     key = derive_key(128, data[:32])
@@ -81,6 +85,7 @@ def trick_decrypt(data):
     if mod != 0:
         data += "0" * (16 - mod)
     return aes.decrypt(data[48:])[: -(16 - mod)]
+
 
 def get_rsrc(pe):
     ret = []
@@ -100,11 +105,13 @@ def get_rsrc(pe):
                             ret.append((name, data, resource_lang.data.struct.Size, resource_type))
     return ret
 
+
 def va_to_fileoffset(pe, va):
     rva = va - pe.OPTIONAL_HEADER.ImageBase
     for section in pe.sections:
         if rva >= section.VirtualAddress and rva < section.VirtualAddress + section.Misc_VirtualSize:
             return rva - section.VirtualAddress + section.PointerToRawData
+
 
 # Thanks Robert Giczewski - https://malware.love/malware_analysis/reverse_engineering/2020/11/17/trickbots-latest-trick.html
 def convert_to_real_ip(ip_str):
@@ -114,24 +121,26 @@ def convert_to_real_ip(ip_str):
     o2 = int(octets[2])
     o3 = int(octets[3])
     o4 = int(octets[1])
-    x = ((~o1 & 0xFF) & 0xb8 | (o1 & 0x47)) ^ ((~o2 & 0xFF) & 0xb8 | (o2 & 0x47))
+    x = ((~o1 & 0xFF) & 0xB8 | (o1 & 0x47)) ^ ((~o2 & 0xFF) & 0xB8 | (o2 & 0x47))
     result_octets.append(str(x))
-    o = (o3 & (~o2 & 0xFF)) | ((~o3 & 0xff) & o2)
-    result_octets.append(str(((~o & 0xff) & o4) | (o & (~o4 & 0xff))))
+    o = (o3 & (~o2 & 0xFF)) | ((~o3 & 0xFF) & o2)
+    result_octets.append(str(((~o & 0xFF) & o4) | (o & (~o4 & 0xFF))))
     result_octets.append(str(o))
-    result_octets.append(str(((~o2 & 0xFF) & o4) | ((~o4 & 0xff) & o2)))
+    result_octets.append(str(((~o2 & 0xFF) & o4) | ((~o4 & 0xFF) & o2)))
     return ".".join(result_octets) + ":443"
 
+
 def get_ip(ip_str, tag):
-    if tag == 'srva':
-        return convert_to_real_ip(ip_str.split(':')[0])
+    if tag == "srva":
+        return convert_to_real_ip(ip_str.split(":")[0])
     return ip_str
+
 
 def decode_onboard_config(data):
     try:
         pe = pefile.PE(data=data)
         rsrcs = get_rsrc(pe)
-    except:
+    except Exception:
         return
     if rsrcs != []:
         a = rsrcs[0][1]
@@ -167,11 +176,12 @@ def decode_onboard_config(data):
     if length < 4000:
         return data[8 : length + 8]
 
+
 def config(data):
     xml = decode_onboard_config(data)
     try:
         root = ET.fromstring(xml)
-    except:
+    except Exception:
         return
     raw_config = {}
     for child in root:

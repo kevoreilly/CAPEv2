@@ -35,12 +35,18 @@ ERRORS = {
     29: {"description": "The system cannot write to the specified device", "name": "ERROR_WRITE_FAULT"},
     30: {"description": "The system cannot read from the specified device", "name": "ERROR_READ_FAULT"},
     31: {"description": "A device attached to the system is not functioning", "name": "ERROR_GEN_FAILURE"},
-    32: {"description": "The process cannot access the file because it is being used by another process", "name": "ERROR_SHARING_VIOLATION"},
+    32: {
+        "description": "The process cannot access the file because it is being used by another process",
+        "name": "ERROR_SHARING_VIOLATION",
+    },
     33: {
         "description": "The process cannot access the file because another process has locked a portion of the file",
         "name": "ERROR_LOCK_VIOLATION",
     },
-    34: {"description": "The wrong diskette is in the drive. Insert %2 (Volume Serial Number: %3) into drive %1", "name": "ERROR_WRONG_DISK"},
+    34: {
+        "description": "The wrong diskette is in the drive. Insert %2 (Volume Serial Number: %3) into drive %1",
+        "name": "ERROR_WRONG_DISK",
+    },
     36: {"description": "Too many files opened for sharing", "name": "ERROR_SHARING_BUFFER_EXCEEDED"},
     38: {"description": "Reached the end of the file", "name": "ERROR_HANDLE_EOF"},
     39: {"description": "The disk is full", "name": "ERROR_HANDLE_DISK_FULL"},
@@ -62,7 +68,10 @@ ERRORS = {
     59: {"description": "An unexpected network error occurred", "name": "ERROR_UNEXP_NET_ERR"},
     60: {"description": "The remote adapter is not compatible", "name": "ERROR_BAD_REM_ADAP"},
     61: {"description": "The printer queue is full", "name": "ERROR_PRINTQ_FULL"},
-    62: {"description": "Space to store the file waiting to be printed is not available on the server", "name": "ERROR_NO_SPOOL_SPACE"},
+    62: {
+        "description": "Space to store the file waiting to be printed is not available on the server",
+        "name": "ERROR_NO_SPOOL_SPACE",
+    },
     63: {"description": "Your file waiting to be printed was deleted", "name": "ERROR_PRINT_CANCELLED"},
     64: {"description": "The specified network name is no longer available", "name": "ERROR_NETNAME_DELETED"},
     65: {"description": "Network access is denied", "name": "ERROR_NETWORK_ACCESS_DENIED"},
@@ -117,7 +126,10 @@ ERRORS = {
         "description": "Attempt to use a file handle to an open disk partition for an operation other than raw disk I/O",
         "name": "ERROR_DIRECT_ACCESS_HANDLE",
     },
-    131: {"description": "An attempt was made to move the file pointer before the beginning of the file", "name": "ERROR_NEGATIVE_SEEK"},
+    131: {
+        "description": "An attempt was made to move the file pointer before the beginning of the file",
+        "name": "ERROR_NEGATIVE_SEEK",
+    },
     132: {"description": "The file pointer cannot be set on the specified device or file", "name": "ERROR_SEEK_ON_DEVICE"},
     133: {
         "description": "A JOIN or SUBST command cannot be used for a drive that contains previously joined drives",
@@ -132,13 +144,22 @@ ERRORS = {
         "name": "ERROR_IS_SUBSTED",
     },
     136: {"description": "The system tried to delete the JOIN of a drive that is not joined", "name": "ERROR_NOT_JOINED"},
-    137: {"description": "The system tried to delete the substitution of a drive that is not substituted", "name": "ERROR_NOT_SUBSTED"},
+    137: {
+        "description": "The system tried to delete the substitution of a drive that is not substituted",
+        "name": "ERROR_NOT_SUBSTED",
+    },
     138: {"description": "The system tried to join a drive to a directory on a joined drive", "name": "ERROR_JOIN_TO_JOIN"},
-    139: {"description": "The system tried to substitute a drive to a directory on a substituted drive", "name": "ERROR_SUBST_TO_SUBST"},
+    139: {
+        "description": "The system tried to substitute a drive to a directory on a substituted drive",
+        "name": "ERROR_SUBST_TO_SUBST",
+    },
     140: {"description": "The system tried to join a drive to a directory on a substituted drive", "name": "ERROR_JOIN_TO_SUBST"},
     141: {"description": "The system tried to SUBST a drive to a directory on a joined drive", "name": "ERROR_SUBST_TO_JOIN"},
     142: {"description": "The system cannot perform a JOIN or SUBST at this time", "name": "ERROR_BUSY_DRIVE"},
-    143: {"description": "The system cannot join or substitute a drive to or for a directory on the same drive", "name": "ERROR_SAME_DRIVE"},
+    143: {
+        "description": "The system cannot join or substitute a drive to or for a directory on the same drive",
+        "name": "ERROR_SAME_DRIVE",
+    },
     144: {"description": "The directory is not a subdirectory of the root directory", "name": "ERROR_DIR_NOT_ROOT"},
     145: {"description": "The directory is not empty", "name": "ERROR_DIR_NOT_EMPTY"},
     146: {"description": "The path specified is being used in a substitute", "name": "ERROR_IS_SUBST_PATH"},
@@ -152,7 +173,10 @@ ERRORS = {
         "description": "System trace information was not specified in your CONFIG.SYS file, or tracing is disallowed",
         "name": "ERROR_SYSTEM_TRACE",
     },
-    151: {"description": "The number of specified semaphore events for DosMuxSemWait is not correct", "name": "ERROR_INVALID_EVENT_COUNT"},
+    151: {
+        "description": "The number of specified semaphore events for DosMuxSemWait is not correct",
+        "name": "ERROR_INVALID_EVENT_COUNT",
+    },
     152: {"description": "DosMuxSemWait did not execute; too many semaphores are already set", "name": "ERROR_TOO_MANY_MUXWAITERS"},
     153: {"description": "The DosMuxSemWait list is not correct", "name": "ERROR_INVALID_LIST_FORMAT"},
     154: {
@@ -172,7 +196,10 @@ ERRORS = {
     170: {"description": "The requested resource is in use", "name": "ERROR_BUSY"},
     171: {"description": "Device's command support detection is in progress", "name": "ERROR_DEVICE_SUPPORT_IN_PROGRESS"},
     173: {"description": "A lock request was not outstanding for the supplied cancel region", "name": "ERROR_CANCEL_VIOLATION"},
-    174: {"description": "The file system does not support atomic changes to the lock type", "name": "ERROR_ATOMIC_LOCKS_NOT_SUPPORTED"},
+    174: {
+        "description": "The file system does not support atomic changes to the lock type",
+        "name": "ERROR_ATOMIC_LOCKS_NOT_SUPPORTED",
+    },
     180: {"description": "The system detected a segment number that was not correct", "name": "ERROR_INVALID_SEGMENT_NUMBER"},
     182: {"description": "The operating system cannot run %1", "name": "ERROR_INVALID_ORDINAL"},
     183: {"description": "Cannot create a file when that file already exists", "name": "ERROR_ALREADY_EXISTS"},
@@ -187,7 +214,10 @@ ERRORS = {
     194: {"description": "The operating system cannot run %1", "name": "ERROR_ITERATED_DATA_EXCEEDS_64k"},
     195: {"description": "The operating system cannot run %1", "name": "ERROR_INVALID_MINALLOCSIZE"},
     196: {"description": "The operating system cannot run this application program", "name": "ERROR_DYNLINK_FROM_INVALID_RING"},
-    197: {"description": "The operating system is not presently configured to run this application", "name": "ERROR_IOPL_NOT_ENABLED"},
+    197: {
+        "description": "The operating system is not presently configured to run this application",
+        "name": "ERROR_IOPL_NOT_ENABLED",
+    },
     198: {"description": "The operating system cannot run %1", "name": "ERROR_INVALID_SEGDPL"},
     199: {"description": "The operating system cannot run this application program", "name": "ERROR_AUTODATASEG_EXCEEDS_64k"},
     200: {"description": "The code segment cannot be greater than or equal to 64K", "name": "ERROR_RING2SEG_MUST_BE_MOVABLE"},
@@ -204,14 +234,20 @@ ERRORS = {
     209: {"description": "The signal being posted is not correct", "name": "ERROR_INVALID_SIGNAL_NUMBER"},
     210: {"description": "The signal handler cannot be set", "name": "ERROR_THREAD_1_INACTIVE"},
     212: {"description": "The segment is locked and cannot be reallocated", "name": "ERROR_LOCKED"},
-    214: {"description": "Too many dynamic-link modules are attached to this program or dynamic-link module", "name": "ERROR_TOO_MANY_MODULES"},
+    214: {
+        "description": "Too many dynamic-link modules are attached to this program or dynamic-link module",
+        "name": "ERROR_TOO_MANY_MODULES",
+    },
     215: {"description": "Cannot nest calls to LoadModule", "name": "ERROR_NESTING_NOT_ALLOWED"},
     216: {
         "description": "This version of %1 is not compatible with the version of Windows you're running. Check your computer's system information to see whether you need a x86 (32-bit) or x64 (64-bit) version of the program, and then contact the software publisher",
         "name": "ERROR_EXE_MACHINE_TYPE_MISMATCH",
     },
     217: {"description": "The image file %1 is signed, unable to modify", "name": "ERROR_EXE_CANNOT_MODIFY_SIGNED_BINARY"},
-    218: {"description": "The image file %1 is strong signed, unable to modify", "name": "ERROR_EXE_CANNOT_MODIFY_STRONG_SIGNED_BINARY"},
+    218: {
+        "description": "The image file %1 is strong signed, unable to modify",
+        "name": "ERROR_EXE_CANNOT_MODIFY_STRONG_SIGNED_BINARY",
+    },
     220: {"description": "This file is checked out or locked for editing by another user", "name": "ERROR_FILE_CHECKED_OUT"},
     221: {"description": "The file must be checked out before saving changes", "name": "ERROR_CHECKOUT_REQUIRED"},
     222: {"description": "The file type being saved or retrieved has been blocked", "name": "ERROR_BAD_FILE_TYPE"},
@@ -248,7 +284,10 @@ ERRORS = {
     282: {"description": "The mounted file system does not support extended attributes", "name": "ERROR_EAS_NOT_SUPPORTED"},
     288: {"description": "Attempt to release mutex not owned by caller", "name": "ERROR_NOT_OWNER"},
     298: {"description": "Too many posts were made to a semaphore", "name": "ERROR_TOO_MANY_POSTS"},
-    299: {"description": "Only part of a ReadProcessMemory or WriteProcessMemory request was completed", "name": "ERROR_PARTIAL_COPY"},
+    299: {
+        "description": "Only part of a ReadProcessMemory or WriteProcessMemory request was completed",
+        "name": "ERROR_PARTIAL_COPY",
+    },
     300: {"description": "The oplock request is denied", "name": "ERROR_OPLOCK_NOT_GRANTED"},
     301: {"description": "An invalid oplock acknowledgment was received by the system", "name": "ERROR_INVALID_OPLOCK_PROTOCOL"},
     302: {"description": "The volume is too fragmented to complete this operation", "name": "ERROR_DISK_TOO_FRAGMENTED"},
@@ -266,7 +305,10 @@ ERRORS = {
         "description": "A requested file lock operation cannot be processed due to an invalid byte range",
         "name": "ERROR_INVALID_LOCK_RANGE",
     },
-    308: {"description": "The subsystem needed to support the image type is not present", "name": "ERROR_IMAGE_SUBSYSTEM_NOT_PRESENT"},
+    308: {
+        "description": "The subsystem needed to support the image type is not present",
+        "name": "ERROR_IMAGE_SUBSYSTEM_NOT_PRESENT",
+    },
     309: {
         "description": "The specified file already has a notification GUID associated with it",
         "name": "ERROR_NOTIFICATION_GUID_ALREADY_DEFINED",
@@ -283,11 +325,20 @@ ERRORS = {
         "name": "ERROR_MR_MID_NOT_FOUND",
     },
     318: {"description": "The scope specified was not found", "name": "ERROR_SCOPE_NOT_FOUND"},
-    319: {"description": "The Central Access Policy specified is not defined on the target machine", "name": "ERROR_UNDEFINED_SCOPE"},
+    319: {
+        "description": "The Central Access Policy specified is not defined on the target machine",
+        "name": "ERROR_UNDEFINED_SCOPE",
+    },
     320: {"description": "The Central Access Policy obtained from Active Directory is invalid", "name": "ERROR_INVALID_CAP"},
     321: {"description": "The device is unreachable", "name": "ERROR_DEVICE_UNREACHABLE"},
-    322: {"description": "The target device has insufficient resources to complete the operation", "name": "ERROR_DEVICE_NO_RESOURCES"},
-    323: {"description": "A data integrity checksum error occurred. Data in the file stream is corrupt", "name": "ERROR_DATA_CHECKSUM_ERROR"},
+    322: {
+        "description": "The target device has insufficient resources to complete the operation",
+        "name": "ERROR_DEVICE_NO_RESOURCES",
+    },
+    323: {
+        "description": "A data integrity checksum error occurred. Data in the file stream is corrupt",
+        "name": "ERROR_DATA_CHECKSUM_ERROR",
+    },
     324: {
         "description": "An attempt was made to modify both a KERNEL and normal Extended Attribute (EA) in the same operation",
         "name": "ERROR_INTERMIXED_KERNEL_EA_OPERATION",
@@ -297,7 +348,10 @@ ERRORS = {
         "description": "The command specified a data offset that does not align to the device's granularity/alignment",
         "name": "ERROR_OFFSET_ALIGNMENT_VIOLATION",
     },
-    328: {"description": "The command specified an invalid field in its parameter list", "name": "ERROR_INVALID_FIELD_IN_PARAMETER_LIST"},
+    328: {
+        "description": "The command specified an invalid field in its parameter list",
+        "name": "ERROR_INVALID_FIELD_IN_PARAMETER_LIST",
+    },
     329: {"description": "An operation is currently in progress with the device", "name": "ERROR_OPERATION_IN_PROGRESS"},
     330: {
         "description": "An attempt was made to send down the command via an invalid path to the target device",
@@ -330,6 +384,6 @@ def get_error_string(error_code):
     @return: error description if found.
     """
     if error_code in ERRORS:
-        return "%s (%s)" % (ERRORS[error_code]["description"], ERRORS[error_code]["name"])
+        return f"{ERRORS[error_code]['description']} ({ERRORS[error_code]['name']})"
     else:
         return str(error_code)

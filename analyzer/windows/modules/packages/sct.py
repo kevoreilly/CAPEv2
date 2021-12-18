@@ -15,6 +15,6 @@ class SCT(Package):
 
     def start(self, path):
         regsvr32 = self.get_path("regsvr32.exe")
-        args = "/u /n /i:{0} scrobj.dll".format(path)
+        args = f"/u /n /i:{path} scrobj.dll"
 
         return self.execute(regsvr32, args, path)

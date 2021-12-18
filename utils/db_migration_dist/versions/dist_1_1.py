@@ -11,7 +11,7 @@ Create Date: 2021-03-08 13:39:01.310802
 """
 
 # revision identifiers, used by Alembic.
-revision = '431b7f0b3240'
+revision = "431b7f0b3240"
 down_revision = None
 
 from alembic import op

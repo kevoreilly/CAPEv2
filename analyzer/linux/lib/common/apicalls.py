@@ -14,8 +14,6 @@ log = logging.getLogger(__name__)
 
 
 def apicalls(target, **kwargs):
-    """
-    """
     if not target:
         raise Exception("Invalid target for apicalls()")
 
@@ -32,7 +30,7 @@ def _stap_command_line(target, **kwargs):
             return os.path.join(p, only_stap[0])
         return False
 
-    path_cfg = config.get("analyzer_stap_path", None)
+    path_cfg = config.get("analyzer_stap_path")
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
     elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
@@ -51,20 +49,19 @@ def _stap_command_line(target, **kwargs):
     # cmd += ["-o"]
     # cmd += ["stap.log"]
     # cmd += [path]
-    cmd = "sudo staprun -vv -o stap.log " + path
+    cmd = f"sudo staprun -vv -o stap.log {path}"
 
     run_as_root = kwargs.get("run_as_root", False)
 
+    target_cmd = f'"{target}"'
     if "args" in kwargs:
-        target_cmd = '"%s %s"' % (target, " ".join(kwargs["args"]))
-    else:
-        target_cmd = '"%s"' % (target)
+        target_cmd += f'" {" ".join(kwargs["args"])}"'
 
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
     # if not run_as_root:
-    #    target_cmd = '"sudo -u %s %s"' % (getuser(), target_cmd)
-    #    cmd += "-DSUDO=1"
+    #    target_cmd = f'"sudo -u {getuser()} {target_cmd}"'
+    #    cmd += " -DSUDO=1"
     # cmd += ["-c", target_cmd]
-    cmd += " -c " + target_cmd
+    cmd += f" -c {target_cmd}"
     return cmd

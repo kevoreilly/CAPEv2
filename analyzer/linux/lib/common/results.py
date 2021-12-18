@@ -18,7 +18,7 @@ BUFSIZE = 1024 * 1024
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
     if not os.path.exists(file_path):
-        log.warning("File not exist: {}".format(file_path))
+        log.warning("File not exist: %s", file_path)
         return
 
     try:
@@ -27,12 +27,12 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
         nc.init(dump_path, file_path, pids, metadata, category)
         infd = open(file_path, "rb")  # rb
         buf = infd.read(BUFSIZE)
-        log.info("Uploading file {} to host -> {}".format(file_path, dump_path))
+        log.info("Uploading file %s to host -> %s", file_path, dump_path)
         while buf:
             nc.send(buf, retry=True)
             buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
+        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
         if infd:
             infd.close()
@@ -74,9 +74,9 @@ class NetlogConnection(object):
                 self.connect()
                 self.send(data, retry=False)
             else:
-                print(("Unhandled exception in NetlogConnection:", str(e)))
+                print(f"Unhandled exception in NetlogConnection: {e}")
         except Exception as e:
-            log.error(("Unhandled exception in NetlogConnection:", str(e)))
+            log.error("Unhandled exception in NetlogConnection: %s", e)
             # We really have nowhere to log this, if the netlog connection
             # does not work, we can assume that any logging won't work either.
             # So we just fail silently.
@@ -95,7 +95,9 @@ class NetlogConnection(object):
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
-            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
+            NetlogConnection.__init__(
+                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
+            )
         else:
             NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         self.connect()
@@ -104,7 +106,7 @@ class NetlogBinary(NetlogConnection):
 class NetlogFile(NetlogConnection):
     def init(self, dump_path, filepath=False, pids="", metadata="", category="files"):
         """
-            All arguments should be strings
+        All arguments should be strings
         """
         if pids:
             pids = " ".join(pids)

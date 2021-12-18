@@ -20,7 +20,7 @@ def get_config(data):
                 data = pe.get_memory_mapped_image()[data_rva : data_rva + size]
                 raw_config = data.split("####@####")
                 return raw_config
-    except:
+    except Exception:
         return None
 
 

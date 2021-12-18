@@ -22,6 +22,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.suricata_detection import get_suricata_family, et_categories
 from lib.cuckoo.core.database import Database
 
 try:
@@ -40,6 +41,7 @@ config_mapper = {
     "processing": processing_cfg,
     "reporting": reporting_cfg,
 }
+
 
 def import_plugin(name):
     try:
@@ -63,7 +65,11 @@ def import_package(package):
 
         # Disable initialization of disabled plugins, performance++
         _, category, module_name = name.split(".")
-        if category in config_mapper and module_name in config_mapper[category].fullconfig and config_mapper[category].get(module_name).get("enabled", False) is False:
+        if (
+            category in config_mapper
+            and module_name in config_mapper[category].fullconfig
+            and config_mapper[category].get(module_name).get("enabled", False) is False
+        ):
             continue
 
         try:
@@ -102,121 +108,6 @@ def list_plugins(group=None):
         return _modules
 
 
-suricata_passlist = (
-    "agenttesla",
-    "medusahttp",
-    "vjworm",
-)
-
-suricata_blocklist = (
-    "abuse",
-    "agent",
-    "base64",
-    "common",
-    "custom",
-    "dropper",
-    "downloader",
-    "evil",
-    "executable",
-    "f-av",
-    "fake",
-    "fileless",
-    "filename",
-    "generic",
-    "fireeye",
-    "google",
-    "hacking",
-    "injector",
-    "known",
-    "likely",
-    "magic",
-    "malicious",
-    "media",
-    "msil",
-    "multi",
-    "observed",
-    "owned",
-    "perfect",
-    "possible",
-    "potential",
-    "powershell",
-    "probably",
-    "python",
-    "rogue",
-    "self-signed",
-    "shadowserver",
-    "single",
-    "suspect",
-    "suspected",
-    "supicious",
-    "targeted",
-    "team",
-    "terse",
-    "troj",
-    "trojan",
-    "unit42",
-    "unknown",
-    "user",
-    "vbinject",
-    "vbscript",
-    "virus",
-    "w2km",
-    "w97m",
-    "w32",
-    "win32",
-    "win64",
-    "windows",
-    "worm",
-    "wscript",
-    "http",
-    "ptsecurity",
-    "request",
-    "suspicious",
-)
-
-et_categories = ("ET TROJAN",
-                 "ETPRO TROJAN",
-                 "ET MALWARE",
-                 "ETPRO MALWARE",
-                 "ET CNC",
-                 "ETPRO CNC")
-
-def get_suricata_family(signature):
-    """
-    Args:
-        signature: suricata alert string
-    Return
-        family: family name or False
-    """
-    # ToDo Trojan-Proxy
-    family = False
-    words = re.findall(r"[A-Za-z0-9/\-]+", signature)
-    famcheck = words[2]
-    if "/" in famcheck:
-        famcheck_list = famcheck.split("/")  # [-1]
-        for fam_name in famcheck_list:
-            if not any([block in fam_name.lower() for block in suricata_blocklist]):
-                famcheck = fam_name
-                break
-    famchecklower = famcheck.lower()
-    if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
-        famchecklower = famchecklower.split(".")[-1]
-        famcheck = famcheck.split(".")[-1]
-    if famchecklower in ("win32", "w32", "ransomware"):
-        famcheck = words[3]
-        famchecklower = famcheck.lower()
-    if famchecklower == "ptsecurity":
-        famcheck = words[3]
-        famchecklower = famcheck.lower()
-    isbad = any([block in famchecklower for block in suricata_blocklist])
-    if not isbad and len(famcheck) >= 4:
-        family = famcheck.title()
-    isgood = any([allow in famchecklower for allow in suricata_passlist])
-    if isgood and len(famcheck) >= 4:
-        family = famcheck.title()
-    return family
-
-
 class RunAuxiliary(object):
     """Auxiliary modules manager."""
 
@@ -232,7 +123,7 @@ class RunAuxiliary(object):
             for module in auxiliary_list:
                 try:
                     current = module()
-                except:
+                except Exception:
                     log.exception("Failed to load the auxiliary module " '"{0}":'.format(module))
                     return
 
@@ -275,9 +166,12 @@ class RunAuxiliary(object):
                 pass
             except CuckooDisableModule:
                 continue
-            except:
+            except Exception:
                 log.exception(
-                    "Error performing callback %r on auxiliary module %r", name, module.__class__.__name__, extra={"task_id": self.task["id"]}
+                    "Error performing callback %r on auxiliary module %r",
+                    name,
+                    module.__class__.__name__,
+                    extra={"task_id": self.task["id"]},
                 )
 
             enabled.append(module)
@@ -319,7 +213,7 @@ class RunProcessing(object):
         # Initialize the specified processing module.
         try:
             current = module(self.results)
-        except:
+        except Exception:
             log.exception("Failed to load the processing module " '"{0}":'.format(module))
             return
 
@@ -353,7 +247,9 @@ class RunProcessing(object):
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.results["statistics"]["processing"].append({"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))})
+            self.results["statistics"]["processing"].append(
+                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))}
+            )
 
             # If succeeded, return they module's key name and the data to be
             # appended to it.
@@ -362,7 +258,7 @@ class RunProcessing(object):
             log.warning('The processing module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooProcessingError as e:
             log.warning('The processing module "%s" returned the following ' "error: %s", current.__class__.__name__, e)
-        except:
+        except Exception:
             log.exception('Failed to run the processing module "%s":', current.__class__.__name__)
 
         return None
@@ -398,7 +294,9 @@ class RunProcessing(object):
         # Add temp_processing stats to global processing stats
         if self.results["temp_processing_stats"]:
             for plugin_name in self.results["temp_processing_stats"]:
-                self.results["statistics"]["processing"].append({"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)})
+                self.results["statistics"]["processing"].append(
+                    {"name": plugin_name, "time": self.results["temp_processing_stats"][plugin_name].get("time", 0)}
+                )
 
         del self.results["temp_processing_stats"]
 
@@ -415,7 +313,9 @@ class RunProcessing(object):
                     if not hasattr(self.results, "debug"):
                         self.results.setdefault("debug", dict()).setdefault("errors", list())
                     self.results["debug"]["errors"].append(
-                        "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(file_name)
+                        "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(
+                            file_name
+                        )
                     )
                     continue
         else:
@@ -513,7 +413,9 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) < StrictVersion(current.minimum.split("-")[0]):
                     log.debug(
-                        "You are running an older incompatible version " 'of Cuckoo, the signature "%s" requires ' "minimum version %s",
+                        "You are running an older incompatible version "
+                        'of Cuckoo, the signature "%s" requires '
+                        "minimum version %s",
                         current.name,
                         current.minimum,
                     )
@@ -530,7 +432,9 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) > StrictVersion(current.maximum.split("-")[0]):
                     log.debug(
-                        "You are running a newer incompatible version " 'of Cuckoo, the signature "%s" requires ' "maximum version %s",
+                        "You are running a newer incompatible version "
+                        'of Cuckoo, the signature "%s" requires '
+                        "maximum version %s",
                         current.name,
                         current.maximum,
                     )
@@ -553,7 +457,7 @@ class RunSignatures(object):
         # Initialize the current signature.
         try:
             current = signature(self.results)
-        except:
+        except Exception:
             log.exception("Failed to load signature " '"{0}":'.format(signature))
             return
 
@@ -576,7 +480,10 @@ class RunSignatures(object):
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["signatures"].append(
-                {"name": current.name, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
+                {
+                    "name": current.name,
+                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                }
             )
 
             if data:
@@ -585,7 +492,7 @@ class RunSignatures(object):
                 return current.as_result()
         except NotImplementedError:
             return None
-        except:
+        except Exception:
             log.exception('Failed to run signature "%s":', current.name)
 
         return None
@@ -680,7 +587,7 @@ class RunSignatures(object):
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
-                except:
+                except Exception:
                     log.exception('Failed run on_complete() method for signature "%s":', sig.name)
                     continue
                 else:
@@ -699,7 +606,10 @@ class RunSignatures(object):
         for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": float("%d.%03d" % (value.seconds, value.microseconds / 1000)),}
+                    {
+                        "name": key,
+                        "time": float("%d.%03d" % (value.seconds, value.microseconds / 1000)),
+                    }
                 )
         # Compat loop for old-style (non evented) signatures.
         if complete_list:
@@ -734,9 +644,13 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "Yara" and self.cfg_processing.detections.enabled and self.cfg_processing.detections.behavior:
+        if (
+            self.results.get("malfamily_tag", "") != "Yara"
+            and self.cfg_processing.detections.enabled
+            and self.cfg_processing.detections.behavior
+        ):
             for match in matched:
-                if "families" in match and match["families"]:
+                if match.get("families"):
                     self.results["detections"] = match["families"][0]
                     self.results["malfamily_tag"] = "Behavior"
                     break
@@ -776,7 +690,7 @@ class RunReporting:
         # Initialize current reporting module.
         try:
             current = module()
-        except:
+        except Exception:
             log.exception('Failed to load the reporting module "{0}":'.format(module))
             return
 
@@ -818,14 +732,17 @@ class RunReporting:
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["reporting"].append(
-                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
+                {
+                    "name": current.__class__.__name__,
+                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                }
             )
 
         except CuckooDependencyError as e:
             log.warning('The reporting module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooReportError as e:
             log.warning('The reporting module "%s" returned the following error: %s', current.__class__.__name__, e)
-        except:
+        except Exception:
             log.exception('Failed to run the reporting module "%s":', current.__class__.__name__)
 
     def run(self):
@@ -870,7 +787,7 @@ class GetFeeds(object):
         try:
             current = feed()
             log.debug('Loading feed "{0}"'.format(current.name))
-        except:
+        except Exception:
             log.exception('Failed to load feed "{0}":'.format(current.name))
             return
 
@@ -881,7 +798,7 @@ class GetFeeds(object):
                 log.debug('"{0}" has been updated'.format(current.name))
             except NotImplementedError:
                 current.run(modified=False)
-            except:
+            except Exception:
                 log.exception('Failed to run feed "%s"', current.name)
                 return
 

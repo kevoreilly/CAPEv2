@@ -43,7 +43,7 @@ class Curtain(Thread, Auxiliary):
                 stdout=open("C:\\curtain.log", "w"),
             )
         except Exception as e:
-            log.error("Curtain - Error collecting PowerShell events - %s " % e)
+            log.error("Curtain - Error collecting PowerShell events - %s", e)
 
         # time.sleep(5)
 
@@ -56,10 +56,11 @@ class Curtain(Thread, Auxiliary):
     def clearLogs(self):
         try:
             subprocess.call(
-                ["C:\\Windows\\System32\\wevtutil.exe", "clear-log", "microsoft-windows-powershell/operational"], startupinfo=self.startupinfo
+                ["C:\\Windows\\System32\\wevtutil.exe", "clear-log", "microsoft-windows-powershell/operational"],
+                startupinfo=self.startupinfo,
             )
         except Exception as e:
-            log.error("Curtain - Error clearing PowerShell events - %s" % e)
+            log.error("Curtain - Error clearing PowerShell events - %s", e)
 
     def run(self):
         if self.enabled:

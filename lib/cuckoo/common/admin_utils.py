@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 
 # admin utils
 def disable_user(user_id: int):
-    user = User.objects.get(id = user_id)
+    user = User.objects.get(id=user_id)
     if user:
         user.is_active = False
         user.save()

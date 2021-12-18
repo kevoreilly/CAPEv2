@@ -17,6 +17,7 @@ from lib.common.defines import FILE_FLAG_WRITE_THROUGH, PIPE_READMODE_BYTE
 from lib.common.defines import ERROR_BROKEN_PIPE, PIPE_TYPE_MESSAGE
 from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_READMODE_MESSAGE
 from lib.common.defines import SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, ADVAPI32
+
 log = logging.getLogger(__name__)
 
 BUFSIZE = 0x10000
@@ -48,12 +49,12 @@ class PipeForwarder(threading.Thread):
         success = KERNEL32.ReadFile(self.pipe_handle, byref(pid), sizeof(pid), byref(bytes_read), None)
 
         if not success or bytes_read.value != sizeof(pid):
-            log.warning("Unable to read the process identifier of this log pipe instance.")
+            log.warning("Unable to read the process identifier of this log pipe instance")
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
         if self.active.get(pid.value):
-            log.warning("A second log pipe handler for an active process is " "being requested, denying request.")
+            log.warning("A second log pipe handler for an active process is being requested, denying request")
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
@@ -70,8 +71,7 @@ class PipeForwarder(threading.Thread):
         open_handles.add(sock)
 
         while self.do_run:
-            success = KERNEL32.ReadFile(self.pipe_handle, byref(
-                buf), sizeof(buf), byref(bytes_read), None)
+            success = KERNEL32.ReadFile(self.pipe_handle, byref(buf), sizeof(buf), byref(bytes_read), None)
 
             if success or KERNEL32.GetLastError() == ERROR_MORE_DATA:
                 try:
@@ -89,8 +89,7 @@ class PipeForwarder(threading.Thread):
             elif KERNEL32.GetLastError() == ERROR_BROKEN_PIPE:
                 break
             else:
-                log.warning(
-                    "The log pipe handler has failed, last error %d.", KERNEL32.GetLastError())
+                log.warning("The log pipe handler has failed, last error %d", KERNEL32.GetLastError())
                 break
 
         if pid.value:
@@ -195,7 +194,7 @@ class PipeServer(threading.Thread):
                 )
 
             if pipe_handle == INVALID_HANDLE_VALUE:
-                log.warning("Error opening logging pipe server.")
+                log.warning("Error opening logging pipe server")
                 continue
 
             if KERNEL32.ConnectNamedPipe(pipe_handle, None) or KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:
@@ -222,5 +221,5 @@ def disconnect_pipes():
         try:
             sock.shutdown(socket.SHUT_RDWR)
             sock.close()
-        except:
+        except Exception:
             log.exception("Could not close socket")

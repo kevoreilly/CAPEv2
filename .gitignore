@@ -11,3 +11,4 @@ tests/test_objects/
 log/*
 storage/*
 web/web/secret_key.py
+.idea

@@ -11,13 +11,13 @@ try:
     import pycares
 
     HAVE_CARES = True
-except:
+except Exception:
     HAVE_CARES = False
 
 # try:
 #    import gevent, gevent.socket
 #    HAVE_GEVENT = True
-# except:
+# except Exception:
 HAVE_GEVENT = False
 
 
@@ -113,6 +113,7 @@ def resolve_cares(name):
 class Resultholder:
     pass
 
+
 """
 # gevent based resolver with timeout
 def resolve_gevent(name):
@@ -140,7 +141,7 @@ def resolve_gevent_real(name):
 def resolve(name):
     if HAVE_CARES:
         return resolve_cares(name)
-    #elif HAVE_GEVENT:
+    # elif HAVE_GEVENT:
     #    return resolve_gevent(name)
     else:
         return resolve_thread(name)

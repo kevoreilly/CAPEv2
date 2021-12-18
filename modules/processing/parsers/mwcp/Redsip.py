@@ -52,7 +52,7 @@ def yara_scan(raw_data, rule_name):
 def unicode_string_from_offset(buffer, offset, max):
     try:
         string = buffer[offset : offset + max].decode("utf-16")
-    except:
+    except Exception:
         return
     return string
 
@@ -71,7 +71,7 @@ def decode(ciphertext, size, key):
             decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ ((key + count) & 0xFF)
         else:
             decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ key
-        count = count + 1
+        count += 1
 
     return decoded_chars
 
@@ -136,6 +136,6 @@ class Redsip(Parser):
             try:
                 missionid.decode("ascii")
                 self.reporter.add_metadata("missionid", missionid)
-            except:
+            except Exception:
                 pass
         return

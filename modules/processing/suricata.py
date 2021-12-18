@@ -19,6 +19,7 @@ except ImportError:
 
 try:
     import orjson
+
     HAVE_ORJSON = True
 except ImportError:
     HAVE_ORJSON = False
@@ -54,7 +55,7 @@ class Suricata(Processing):
 
     def json_default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode('utf8')
+            return obj.decode("utf8")
         raise TypeError
 
     def run(self):
@@ -63,25 +64,25 @@ class Suricata(Processing):
         """
         self.key = "suricata"
         # General
-        SURICATA_CONF = self.options.get("conf", None)
-        SURICATA_EVE_LOG = self.options.get("evelog", None)
-        SURICATA_ALERT_LOG = self.options.get("alertlog", None)
-        SURICATA_TLS_LOG = self.options.get("tlslog", None)
-        SURICATA_HTTP_LOG = self.options.get("httplog", None)
-        SURICATA_SSH_LOG = self.options.get("sshlog", None)
-        SURICATA_DNS_LOG = self.options.get("dnslog", None)
-        SURICATA_FILE_LOG = self.options.get("fileslog", None)
-        SURICATA_FILES_DIR = self.options.get("filesdir", None)
-        SURICATA_RUNMODE = self.options.get("runmode", None)
+        SURICATA_CONF = self.options.get("conf")
+        SURICATA_EVE_LOG = self.options.get("evelog")
+        SURICATA_ALERT_LOG = self.options.get("alertlog")
+        SURICATA_TLS_LOG = self.options.get("tlslog")
+        SURICATA_HTTP_LOG = self.options.get("httplog")
+        SURICATA_SSH_LOG = self.options.get("sshlog")
+        SURICATA_DNS_LOG = self.options.get("dnslog")
+        SURICATA_FILE_LOG = self.options.get("fileslog")
+        SURICATA_FILES_DIR = self.options.get("filesdir")
+        SURICATA_RUNMODE = self.options.get("runmode")
         SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
-        Z7_PATH = self.options.get("7zbin", None)
-        FILES_ZIP_PASS = self.options.get("zippass", None)
+        Z7_PATH = self.options.get("7zbin")
+        FILES_ZIP_PASS = self.options.get("zippass")
 
         # Socket
-        SURICATA_SOCKET_PATH = self.options.get("socket_file", None)
+        SURICATA_SOCKET_PATH = self.options.get("socket_file")
 
         # Command Line
-        SURICATA_BIN = self.options.get("bin", None)
+        SURICATA_BIN = self.options.get("bin")
 
         suricata = dict()
         suricata["alerts"] = []
@@ -101,9 +102,7 @@ class Suricata(Processing):
         suricata["ssh_log_full_path"] = None
         suricata["dns_log_full_path"] = None
 
-        tls_items = [
-            "fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"
-        ]
+        tls_items = ["fingerprint", "issuerdn", "version", "subject", "sni", "ja3", "ja3s", "serial", "notbefore", "notafter"]
 
         SURICATA_ALERT_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_ALERT_LOG)
         SURICATA_TLS_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_TLS_LOG)
@@ -128,12 +127,12 @@ class Suricata(Processing):
             if os.path.exists(log_path):
                 try:
                     os.unlink(log_path)
-                except:
+                except Exception:
                     pass
         if os.path.isdir(SURICATA_FILES_DIR_FULL_PATH):
             try:
                 shutil.rmtree(SURICATA_FILES_DIR_FULL_PATH, ignore_errors=True)
-            except:
+            except Exception:
                 pass
 
         if not os.path.exists(SURICATA_CONF):
@@ -190,7 +189,7 @@ class Suricata(Processing):
                         log.debug("Pcap not in list and not current pcap lets assume it's processed")
                         break
                     else:
-                        loopcnt = loopcnt + 1
+                        loopcnt += 1
                         time.sleep(loopsleep)
                 except Exception as e:
                     log.warning("Failed to get pcap status breaking out of loop {}".format(e))
@@ -235,7 +234,7 @@ class Suricata(Processing):
             for line in data.splitlines():
                 try:
                     parsed = json.loads(line)
-                except:
+                except Exception:
                     log.warning("Suricata: Failed to parse line {} as json".format(line))
                     continue
 
@@ -260,12 +259,12 @@ class Suricata(Processing):
                             alog["sid"] = parsed["alert"]["signature_id"]
                             try:
                                 alog["srcport"] = parsed["src_port"]
-                            except:
+                            except Exception:
                                 alog["srcport"] = "None"
                             alog["srcip"] = parsed["src_ip"]
                             try:
                                 alog["dstport"] = parsed["dest_port"]
-                            except:
+                            except Exception:
                                 alog["dstport"] = "None"
                             alog["dstip"] = parsed["dest_ip"]
                             alog["protocol"] = parsed["proto"]
@@ -298,7 +297,7 @@ class Suricata(Processing):
                         for key, key_s in zip(keyword, keyword_suri):
                             try:
                                 hlog[key] = parsed["http"].get(key_s, "None")
-                            except:
+                            except Exception:
                                 hlog[key] = "None"
                         suricata["http"].append(hlog)
 
@@ -367,7 +366,9 @@ class Suricata(Processing):
 
             if HAVE_ORJSON:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
-                    drop_log.write(orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)) # orjson.OPT_SORT_KEYS |
+                    drop_log.write(
+                        orjson.dumps(suricata["files"], option=orjson.OPT_INDENT_2, default=self.json_default)
+                    )  # orjson.OPT_SORT_KEYS |
             else:
                 with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                     json.dump(suricata["files"], drop_log, indent=4)

@@ -5,6 +5,7 @@ from lib.cuckoo.common.abstracts import Report
 
 log = logging.getLogger(__name__)
 
+
 class MITRE_TTPS(Report):
     def run(self, results):
         if not results.get("ttps") or not hasattr(self, "mitre"):

@@ -24,7 +24,9 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n" "sudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\n" "pip3 install -U SFlock2")
+    print(
+        "You must install sflock\n" "sudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\n" "pip3 install -U SFlock2"
+    )
     HAS_SFLOCK = False
 
 if sf_version:
@@ -34,7 +36,7 @@ if sf_version:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
         sys.exit()
     # Latest release
-    if int(sf_version_splited[-1]) < 27:
+    if int(sf_version_splited[-1]) < 28:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)

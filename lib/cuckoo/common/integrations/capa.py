@@ -23,6 +23,7 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled:
     try:
         from capa.version import __version__ as capa_version
+
         if capa_version[0] != "3":
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
@@ -30,7 +31,9 @@ if processing_conf.flare_capa.enabled:
             import capa.rules
             import capa.engine
             import capa.features
-            from capa.render.result_document import convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document
+            from capa.render.result_document import (
+                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document,
+            )
             from capa.engine import *
             import capa.render.utils as rutils
             from capa.main import UnsupportedRuntimeError
@@ -64,6 +67,7 @@ if processing_conf.flare_capa.enabled:
         HAVE_FLARE_CAPA = False
         print(e)
         print("FLARE-CAPA missed, pip3 install -U flare-capa")
+
 
 def render_meta(doc, ostream):
 
@@ -217,7 +221,9 @@ def flare_capa_details(file_path, category=False, on_demand=False, disable_progr
         and (processing_conf.flare_capa.on_demand is False or on_demand is True)
     ):
         try:
-            extractor = capa.main.get_extractor(file_path, "auto", capa.main.BACKEND_VIV, signatures, disable_progress=disable_progress)
+            extractor = capa.main.get_extractor(
+                file_path, "auto", capa.main.BACKEND_VIV, signatures, disable_progress=disable_progress
+            )
             meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, extractor)
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
             meta["analysis"].update(counts)

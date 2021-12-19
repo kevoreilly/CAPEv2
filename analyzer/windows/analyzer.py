@@ -5,40 +5,35 @@
 #  https://github.com/cuckoosandbox/cuckoo/blob/ad5bf8939fb4b86d03c4d96014b174b8b56885e3/cuckoo/core/plugins.py#L29
 
 from __future__ import absolute_import
+import hashlib
+import logging
 import os
-import sys
+import pkgutil
 import socket
 import struct
-import pkgutil
-import logging
-import hashlib
+import subprocess
+import sys
 import timeit
 import traceback
-import subprocess
-from ctypes import create_string_buffer, create_unicode_buffer, POINTER
-from ctypes import byref, c_int, sizeof, cast, c_void_p, c_ulong
-
-from threading import Lock
+from ctypes import POINTER, byref, c_int, c_ulong, c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof
 from shutil import copy
+from threading import Lock
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from lib.api.process import Process
-from lib.common.abstracts import Package, Auxiliary
-from lib.common.constants import PATHS, PIPE, SHUTDOWN_MUTEX, TERMINATE_EVENT, LOGSERVER_PREFIX
-from lib.common.constants import CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME
-from lib.common.defines import ADVAPI32, KERNEL32, NTDLL
-from lib.common.defines import SYSTEM_PROCESS_INFORMATION
-from lib.common.defines import EVENT_MODIFY_STATE
+from lib.common.abstracts import Auxiliary, Package
+from lib.common.constants import (CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME, LOGSERVER_PREFIX, PATHS, PIPE,
+                                  SHUTDOWN_MUTEX, TERMINATE_EVENT)
+from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SYSTEM_PROCESS_INFORMATION
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 from lib.core.config import Config
-from lib.core.pipe import PipeServer, PipeForwarder, PipeDispatcher
-from lib.core.pipe import disconnect_pipes
 from lib.core.packages import choose_package
+from lib.core.pipe import PipeDispatcher, PipeForwarder, PipeServer, disconnect_pipes
 from lib.core.privileges import grant_debug_privilege
-from lib.core.startup import create_folders, init_logging, disconnect_logger, set_clock
+from lib.core.startup import create_folders, disconnect_logger, init_logging, set_clock
 from modules import auxiliary
 
 log = logging.getLogger()

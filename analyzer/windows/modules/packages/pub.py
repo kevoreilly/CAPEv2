@@ -4,23 +4,10 @@
 
 from __future__ import absolute_import
 import os
-from lib.common.abstracts import Package
+from winreg import (HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, CloseKey, CreateKeyEx, EnumKey, OpenKey, QueryInfoKey,
+                    SetValueEx)
 
-from winreg import (
-    OpenKey,
-    CreateKeyEx,
-    SetValueEx,
-    CloseKey,
-    QueryInfoKey,
-    EnumKey,
-    EnumValue,
-    HKEY_LOCAL_MACHINE,
-    HKEY_CURRENT_USER,
-    KEY_SET_VALUE,
-    KEY_READ,
-    REG_SZ,
-    REG_DWORD,
-)
+from lib.common.abstracts import Package
 
 
 class PUB(Package):

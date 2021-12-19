@@ -4,14 +4,15 @@
 
 from __future__ import absolute_import
 import io
+import logging
 import os
+import platform
 import re
 import subprocess
-import logging
 from random import randint
-from winreg import *
 from uuid import uuid4
-import platform
+from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CloseKey,
+                    CreateKeyEx, EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string

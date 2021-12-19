@@ -1,30 +1,18 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
 import logging
-
-log = logging.getLogger(__name__)
-
-log.debug("Importing 'time'")
 import time
-
-log.debug("Importing 'StringIO'")
 from io import BytesIO
-
-log.debug("Importing 'Thread'")
 from threading import Thread
 
-log.debug("Importing 'Auxiliary'")
+from lib.api.screenshot import Screenshot
 from lib.common.abstracts import Auxiliary
-
-log.debug("Importing 'NetlogFile'")
 from lib.common.results import NetlogFile
 
-log.debug("Importing 'Screenshot'")
-from lib.api.screenshot import Screenshot
-
-log.debug("Imports OK")
+log = logging.getLogger(__name__)
 
 SHOT_DELAY = 1
 # Skip the following area when comparing screen shots.

@@ -1,8 +1,8 @@
 from __future__ import absolute_import
-from threading import Thread
 import logging
-import zipfile
 import os
+import zipfile
+from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host

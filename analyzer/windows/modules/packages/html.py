@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import shutil
 import logging
+import shutil
 
 from lib.common.abstracts import Package
 

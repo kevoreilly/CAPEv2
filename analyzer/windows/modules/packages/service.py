@@ -1,16 +1,16 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
+import ctypes
+import logging
 import os
-import shutil
 import sys
+
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.defines import ADVAPI32, KERNEL32
-import logging
-import traceback
-import ctypes
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1

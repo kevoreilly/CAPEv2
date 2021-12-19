@@ -4,20 +4,17 @@
 
 from __future__ import absolute_import
 import glob
-import os
 import logging
+import os
 import shutil
+
+from lib.api.process import Process
+from lib.common.exceptions import CuckooPackageError
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
 
 log = logging.getLogger(__name__)
-log.info("Started imports")
-from lib.api.process import Process
-from lib.api.utils import Utils
-from lib.common.exceptions import CuckooPackageError
-
-log.info("End imports")
 
 
 class Package(object):

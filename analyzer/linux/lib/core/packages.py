@@ -2,18 +2,17 @@
 # Copyright (C) 2015 Dmitry Rodionov
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
+
 from __future__ import absolute_import
-
-from lib.common.apicalls import apicalls
-
 import inspect
-from os import sys, path, waitpid, environ
 import logging
-import time
 import subprocess
-from lib.common.results import NetlogFile
-from lib.core.config import Config
+import time
+from os import environ, path, sys, waitpid
+
 from lib.api.process import Process
+from lib.common.apicalls import apicalls
+from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)
 

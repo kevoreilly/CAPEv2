@@ -22,11 +22,12 @@ import os
 import shutil
 import subprocess
 import sys
-import urllib3
 from hashlib import sha256
 from queue import Queue
 from threading import Thread
 from urllib import urlparse
+
+import urllib3
 
 try:
     import re2 as re
@@ -42,17 +43,8 @@ except ImportError:
     sys.exit()
 
 try:
-    from admin_conf import (
-        REMOTE_SERVER_USER,
-        CAPE_PATH,
-        VOL_PATH,
-        JUMP_BOX,
-        MASTER_NODE,
-        CAPE_DIST_URL,
-        JUMP_BOX_USERNAME,
-        JUMP_BOX_PORT,
-        SERVERS_STATIC_LIST,
-    )
+    from admin_conf import (CAPE_DIST_URL, CAPE_PATH, JUMP_BOX, JUMP_BOX_PORT, JUMP_BOX_USERNAME, MASTER_NODE, REMOTE_SERVER_USER,
+                            SERVERS_STATIC_LIST, VOL_PATH)
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 

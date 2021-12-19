@@ -13,10 +13,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
 import logging
-import subprocess
 import socket
+import subprocess
 
 try:
     import re2 as re

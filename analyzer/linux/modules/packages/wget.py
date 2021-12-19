@@ -3,11 +3,11 @@
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
 
-from os import system, chmod
 import logging
+from os import chmod, system
 from subprocess import check_output
-from lib.core.packages import Package, choose_package_class
 
+from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)
 

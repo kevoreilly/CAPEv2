@@ -12,8 +12,11 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
+
 from lib.common.abstracts import Package
+
 
 # While this should work, it is an experimental rule - do a PR if you see fit! Viewer only.
 class ichitaro(Package):

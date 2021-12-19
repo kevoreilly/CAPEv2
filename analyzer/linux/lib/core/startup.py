@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 from lib.common.constants import PATHS
 from lib.common.results import NetlogHandler

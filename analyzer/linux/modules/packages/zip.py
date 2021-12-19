@@ -4,12 +4,13 @@
 # of the MIT license. See the LICENSE file for details.
 
 import logging
-from shutil import move
-from os import path, environ
+from os import environ, path
 from random import SystemRandom
+from shutil import move
 from string import ascii_letters
 from subprocess import check_output
-from zipfile import ZipFile, BadZipfile
+from zipfile import BadZipfile, ZipFile
+
 from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)

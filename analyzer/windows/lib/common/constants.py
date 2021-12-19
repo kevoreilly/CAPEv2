@@ -4,8 +4,8 @@
 
 from __future__ import absolute_import
 import os
-from lib.common.rand import random_string
 
+from lib.common.rand import random_string
 
 ROOT = os.path.join(os.getenv("SystemDrive"), "\\", random_string(6, 10))
 

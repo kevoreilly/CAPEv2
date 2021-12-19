@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import shutil
 
 from lib.common.abstracts import Package
 

@@ -3,12 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
+from ctypes import byref, sizeof
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
-from lib.common.exceptions import CuckooError
-from ctypes import byref, c_ulong, create_string_buffer, create_unicode_buffer, c_int, sizeof
 from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
+from lib.common.exceptions import CuckooError
 
 log = logging.getLogger(__name__)
 

@@ -1,15 +1,15 @@
+import hashlib
+import logging
 import os
 import time
-import logging
-import hashlib
 from threading import Thread
+
 from lib.common.abstracts import Auxiliary
-from lib.common.results import upload_to_host
 from lib.common.hashing import hash_file
+from lib.common.results import upload_to_host
 
 try:
     import pyinotify
-
     HAVE_PYINOTIFY = True
 except ImportError:
     HAVE_PYINOTIFY = False

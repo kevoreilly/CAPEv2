@@ -4,6 +4,7 @@
 # of the MIT license. See the LICENSE file for details.
 
 from os import system
+
 from lib.core.packages import Package
 
 

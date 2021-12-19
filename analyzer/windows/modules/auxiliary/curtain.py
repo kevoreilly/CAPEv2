@@ -1,8 +1,8 @@
 from __future__ import absolute_import
-import os
-import time
 import logging
+import os
 import subprocess
+import time
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary

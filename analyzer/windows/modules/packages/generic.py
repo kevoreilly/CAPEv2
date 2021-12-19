@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from random import randint
 
 from lib.common.abstracts import Package
 

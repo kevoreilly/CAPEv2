@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import time
-import os
 import logging
+import os
+import time
 from threading import Thread
 
 from lib.api.process import Process

@@ -35,7 +35,7 @@ def config(filebuf):
     count = 0
     for item in data.split(b"\x00\x00"):
         try:
-            dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode("utf8"))
+            dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode())
         except:
             pass
         if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:

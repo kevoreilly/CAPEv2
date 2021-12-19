@@ -36,7 +36,7 @@ unpad = lambda s: s[0 : -s[-1]]
 def unzip_config(filepath):
     data = ""
     try:
-        z = zipfile.ZipFile(filepath.decode("utf8"))
+        z = zipfile.ZipFile(filepath.decode())
         for name in z.namelist():
             if "config.txt" in name:
                 data = z.read(name)
@@ -65,7 +65,7 @@ def decode(data):
             decoded = aesdecrypt(data, passkey)
         except Exception:
             return
-    return decoded.decode("utf8")
+    return decoded.decode()
 
 
 def config(data):

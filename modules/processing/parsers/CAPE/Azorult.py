@@ -77,6 +77,6 @@ def config(filebuf):
 
     c2_domain = string_from_offset(filebuf, c2_list_offset)
     if c2_domain:
-        config.setdefault("address", c2_domain.decode("utf-8"))
+        config.setdefault("address", c2_domain.decode())
 
     return config

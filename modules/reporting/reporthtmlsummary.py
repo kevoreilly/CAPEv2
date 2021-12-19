@@ -64,7 +64,7 @@ class ReportHTMLSummary(Report):
 
                 shot = {}
                 shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
-                shot["data"] = base64.b64encode(output.getvalue()).decode("utf-8")
+                shot["data"] = base64.b64encode(output.getvalue()).decode()
                 shots.append(shot)
                 output.close()
 

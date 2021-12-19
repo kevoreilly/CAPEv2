@@ -55,7 +55,7 @@ class Suricata(Processing):
 
     def json_default(self, obj):
         if isinstance(obj, bytes):
-            return obj.decode("utf8")
+            return obj.decode()
         raise TypeError
 
     def run(self):

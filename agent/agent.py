@@ -136,7 +136,7 @@ class MiniHTTPServer(object):
         obj.end_headers()
 
         if isinstance(ret, jsonify):
-            obj.wfile.write(ret.json().encode("utf-8"))
+            obj.wfile.write(ret.json().encode())
         elif isinstance(ret, send_file):
             ret.write(obj.wfile)
 

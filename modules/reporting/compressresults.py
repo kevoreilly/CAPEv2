@@ -35,7 +35,7 @@ class CompressResults(Report):
         for keyword in ("CAPE", "procdump"):
             if keyword in results:
                 try:
-                    cape_json = json.dumps(results[keyword], encoding="latin-1", ensure_ascii=False).encode("utf8")
+                    cape_json = json.dumps(results[keyword], encoding="latin-1", ensure_ascii=False).encode()
                     compressed_data = zlib.compress(cape_json)
                     results[keyword] = Binary(compressed_data)
                 except UnicodeDecodeError as e:
@@ -43,7 +43,7 @@ class CompressResults(Report):
         # compress behaviour analysis (enhanced & summary)
         if "enhanced" in results["behavior"]:
             try:
-                compressed_behavior_enhanced = zlib.compress(JSONEncoder().encode(results["behavior"]["enhanced"]).encode("utf8"))
+                compressed_behavior_enhanced = zlib.compress(JSONEncoder().encode(results["behavior"]["enhanced"]).encode())
                 results["behavior"]["enhanced"] = Binary(compressed_behavior_enhanced)
             except UnicodeDecodeError as e:
                 log.warn("Failed to compress Enhanced Behaviour: {}".format(e.reason))

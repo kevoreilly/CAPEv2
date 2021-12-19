@@ -848,7 +848,7 @@ class PortableExecutable(object):
                     m = hashlib.md5()
                     m.update(simplified)
                     simphash = m.hexdigest()
-                    icon = base64.b64encode(output.getvalue()).decode("utf-8")
+                    icon = base64.b64encode(output.getvalue()).decode()
                     output.close()
                     img.close()
                     return icon, fullhash, simphash, dhash
@@ -1012,7 +1012,7 @@ class PortableExecutable(object):
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
                             extension.value.key_identifier
-                        ).decode("utf-8")
+                        ).decode()
                     elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode(
                             "utf-8"
@@ -1040,7 +1040,7 @@ class PortableExecutable(object):
                             if isinstance(name.value, bytes):
                                 cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(
                                     name.value
-                                ).decode("utf-8")
+                                ).decode()
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()

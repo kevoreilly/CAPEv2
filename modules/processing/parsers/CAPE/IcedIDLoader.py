@@ -55,7 +55,7 @@ def config(filebuf):
             for section in pe.sections:
                 if section.Name == b".d\x00\x00\x00\x00\x00\x00":
                     config_section = bytearray(section.get_data())
-                    decoded = iced_decode(config_section).decode("utf-8")
+                    decoded = iced_decode(config_section).decode()
                     cfg["address"] = decoded
                     return cfg
 

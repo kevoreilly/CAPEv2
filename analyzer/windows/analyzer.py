@@ -223,8 +223,8 @@ class Analyzer:
         # Create the folders used for storing the results.
         create_folders()
 
-        add_protected_path(os.getcwd().encode("utf-8"))
-        add_protected_path(PATHS["root"].encode("utf-8"))
+        add_protected_path(os.getcwd().encode())
+        add_protected_path(PATHS["root"].encode())
 
         # Initialize logging.
         init_logging()
@@ -868,14 +868,14 @@ class CommandPipeHandler(object):
     def _handle_debug(self, data):
         """Debug message from the monitor."""
         try:
-            log.debug(data.decode("utf-8"))
+            log.debug(data.decode())
         except Exception:
             log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
         try:
-            log.info(data.decode("utf-8"))
+            log.info(data.decode())
         except Exception:
             log.debug(data)
 
@@ -1063,7 +1063,7 @@ class CommandPipeHandler(object):
             si.dwFlags = 1
             # SW_HIDE
             si.wShowWindow = 0
-            subprocess.call(f"sc config {servname.decode('utf-8')} type= own", startupinfo=si)
+            subprocess.call(f"sc config {servname.decode()} type= own", startupinfo=si)
             log.info('Announced starting service "%s"', servname)
             if not self.analyzer.MONITORED_SERVICES:
                 # Inject into services.exe so we can monitor service creation
@@ -1252,7 +1252,7 @@ class CommandPipeHandler(object):
     def _handle_file_new(self, file_path):
         """Notification of a new dropped file."""
         if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
+            self.analyzer.files.add_file(file_path.decode(), self.pid)
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
@@ -1260,9 +1260,9 @@ class CommandPipeHandler(object):
         file_path, pid, ppid, metadata = data.split(b"|")
         if os.path.exists(file_path):
             self.analyzer.files.dump_file(
-                file_path.decode("utf-8"),
-                pids=[pid.decode("utf-8")],
-                ppids=[ppid.decode("utf-8")],
+                file_path.decode(),
+                pids=[pid.decode()],
+                ppids=[ppid.decode()],
                 metadata=metadata,
                 category="CAPE",
             )
@@ -1273,7 +1273,7 @@ class CommandPipeHandler(object):
     def _handle_file_del(self, data):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
-        file_path = data.decode("utf8")
+        file_path = data.decode()
         if os.path.exists(file_path):
             self.analyzer.files.delete_file(file_path, self.pid)
 
@@ -1285,9 +1285,9 @@ class CommandPipeHandler(object):
             file_path, pid, ppid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
                 self.analyzer.files.dump_file(
-                    file_path.decode("utf-8"),
-                    pids=[pid.decode("utf-8")],
-                    ppids=[ppid.decode("utf-8")],
+                    file_path.decode(),
+                    pids=[pid.decode()],
+                    ppids=[ppid.decode()],
                     metadata=metadata,
                     category="procdump",
                 )
@@ -1295,9 +1295,9 @@ class CommandPipeHandler(object):
         else:
             if os.path.exists(file_path):
                 if b"\\memory\\" in file_path:
-                    self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+                    self.analyzer.files.dump_file(file_path.decode(), category="memory")
                 else:
-                    self.analyzer.files.add_file(file_path.decode("utf-8"), self.pid)
+                    self.analyzer.files.add_file(file_path.decode(), self.pid)
             else:
                 log.info("File doesn't exist, %s", file_path)
 
@@ -1335,8 +1335,8 @@ class CommandPipeHandler(object):
             return
 
         old_filepath, new_filepath = data.split(b"::", 1)
-        new_filepath = new_filepath.decode("utf8")
-        self.analyzer.files.move_file(old_filepath.decode("utf8"), new_filepath, self.pid)
+        new_filepath = new_filepath.decode()
+        self.analyzer.files.move_file(old_filepath.decode(), new_filepath, self.pid)
 
     def dispatch(self, data):
         response = "NOPE"
@@ -1389,7 +1389,7 @@ if __name__ == "__main__":
         data["status"] = "exception"
         data["description"] = "You probably submitted the job with wrong package"
         try:
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
         except Exception as e:
             print(e)
         sys.exit()
@@ -1425,6 +1425,6 @@ if __name__ == "__main__":
             else:
                 data["description"] = complete_excp
         try:
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
         except Exception as e:
             print(e)

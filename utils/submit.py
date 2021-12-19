@@ -316,7 +316,7 @@ def main():
 
                 try:
                     task_ids, extra_details = db.demux_sample_and_add_to_db(
-                        file_path=file_path.encode("utf-8"),
+                        file_path=file_path.encode(),
                         package=args.package,
                         timeout=sane_timeout,
                         options=args.options,

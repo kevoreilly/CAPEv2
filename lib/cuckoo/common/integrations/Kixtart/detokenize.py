@@ -58,11 +58,11 @@ class Kixtart:
 
     def decrypt(self):
         arc4 = ARC4.new(key=self.session_key)
-        self.logger.info(f'[*]\tdecrypting with session key {hexlify(self.session_key).decode("utf-8")}')
+        self.logger.info(f'[*]\tdecrypting with session key {hexlify(self.session_key).decode()}')
         token_data = arc4.decrypt(bytes(self.ciphertext))
         self.code_length = int.from_bytes(token_data[:4], byteorder="little")
         self.tokenized = token_data[4:]
-        self.logger.debug(f'raw tokenized script: {hexlify(self.tokenized).decode("utf-8")}')
+        self.logger.debug(f'raw tokenized script: {hexlify(self.tokenized).decode()}')
         self.parse()
         return self.tokenized
 
@@ -84,7 +84,7 @@ class Kixtart:
     def parse_functions(self):
         i = 0
         buf = self.function_data
-        self.logger.debug(f'Parsing function data {hexlify(buf).decode("utf-8")}')
+        self.logger.debug(f'Parsing function data {hexlify(buf).decode()}')
         # TODO have not looked into parsing scripts relying on multiple files
         filename = ""
         while buf[i] != 0:
@@ -133,7 +133,7 @@ class Kixtart:
 
                 # func = f'{filename}.{function_name}({",".join(parameters)})'
                 func = f'{function_name}({",".join(parameters)})'
-                # self.logger.debug(f'{func}: {hexlify(function_data).decode("utf-8")}')
+                # self.logger.debug(f'{func}: {hexlify(function_data).decode()}')
                 self.detokenize(function_data, labels, func)
                 i += 1
             except Exception:
@@ -193,7 +193,7 @@ class Kixtart:
         self.detokenize(self.tokenized, labels=labels, function=None)
 
         if self.function_data:
-            # self.logger.debug(f'Function data: {hexlify(self.function_data).decode("utf-8")}')
+            # self.logger.debug(f'Function data: {hexlify(self.function_data).decode()}')
             self.parse_functions()
         self.trim_script()
 
@@ -276,21 +276,21 @@ class Kixtart:
             if b == 0xE7:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
-                self.script[line_num] += "$" + self.variables[offset].decode("utf-8")
+                self.script[line_num] += "$" + self.variables[offset].decode()
                 i += 3
                 continue
             # object method -  Fetch method name from vars table
             if b == 0xE8:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
-                self.script[line_num] += "." + self.variables[offset].decode("utf-8")
+                self.script[line_num] += "." + self.variables[offset].decode()
                 i += 3
                 continue
             # Function? name from var table
             if b == 0xE9:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
-                self.script[line_num] += self.variables[offset].decode("utf-8")
+                self.script[line_num] += self.variables[offset].decode()
                 i += 3
                 continue
             # Keyword

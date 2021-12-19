@@ -141,7 +141,7 @@ def convert_to_unicode(input):
     elif isinstance(input, list):
         return [convert_to_unicode(element) for element in input]
     elif isinstance(input, str) or isinstance(input, int) or isinstance(input, float):
-        return six.text_type(input).decode("utf-8")
+        return six.text_type(input).decode()
     else:
         return input
 

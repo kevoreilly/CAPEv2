@@ -173,7 +173,7 @@ def config(filebuf):
     if urls:
         cfg.setdefault("address", list())
 
-    cfg["address"] = [url.decode("utf-8") for url in urls]
+    cfg["address"] = [url.decode() for url in urls]
     return cfg
 
 

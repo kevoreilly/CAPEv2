@@ -140,7 +140,7 @@ def IsPEImage(buf, size=False):
     if size < DOS_HEADER_LIMIT:
         return False
     if isinstance(buf, str):
-        buf = buf.encode("utf-8")
+        buf = buf.encode()
     dos_header = buf[:DOS_HEADER_LIMIT]
     nt_headers = None
 
@@ -393,7 +393,7 @@ class File(object):
             return None
 
         try:
-            return pydeep.hash_file(self.file_path).decode("utf-8")
+            return pydeep.hash_file(self.file_path).decode()
         except Exception:
             return None
 
@@ -412,7 +412,7 @@ class File(object):
         @return: entry point bytes (16).
         """
         try:
-            return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10)).decode("utf-8")
+            return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10)).decode()
         except Exception:
             return None
 
@@ -492,12 +492,12 @@ class File(object):
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
         try:
-            new = yara_string.decode("utf-8")
+            new = yara_string.decode()
         except UnicodeDecodeError as e:
             # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
             yara_string = binascii.hexlify(yara_string).upper()
             yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
-            new = "{ %s }" % yara_string.decode("utf-8")
+            new = "{ %s }" % yara_string.decode()
 
         return new
 
@@ -518,7 +518,7 @@ class File(object):
         try:
             results, rule = [], File.yara_rules[category]
             if isinstance(self.file_path, bytes):
-                path = self.file_path.decode("utf-8")
+                path = self.file_path.decode()
             else:
                 path = self.file_path
             for match in rule.match(path, externals=externals):
@@ -599,7 +599,7 @@ class File(object):
                             if not exported_symbol.name:
                                 continue
                             if isinstance(exported_symbol.name, bytes):
-                                exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8"))
+                                exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode())
                             else:
                                 exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
                         except Exception as e:

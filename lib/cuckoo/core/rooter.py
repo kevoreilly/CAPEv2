@@ -82,7 +82,7 @@ def rooter(command, *args, **kwargs):
                     "args": args,
                     "kwargs": kwargs,
                 }
-            ).encode("utf-8")
+            ).encode()
         )
 
         try:

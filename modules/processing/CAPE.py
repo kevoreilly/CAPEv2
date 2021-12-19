@@ -335,7 +335,7 @@ class CAPE(Processing):
         for cape_file in self.cape["payloads"] or []:
             if file_info["size"] == cape_file["size"]:
                 if HAVE_PYDEEP:
-                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode("utf-8"), cape_file["ssdeep"].encode("utf-8"))
+                    ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode(), cape_file["ssdeep"].encode())
                     if ssdeep_grade >= ssdeep_threshold:
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):

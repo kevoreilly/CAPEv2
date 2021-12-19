@@ -61,9 +61,9 @@ def get_referrer_url(interest):
 
     escapedurl = urllib.parse.quote(interest, "")
     itemidx = random.randint(1, 30)
-    vedstr = b"0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3).encode("utf-8"))
-    eistr = base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
-    usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode("utf-8"))
+    vedstr = b"0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3).encode())
+    eistr = base64.urlsafe_b64encode(random_string(12).encode())
+    usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode())
     referrer = f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
     return referrer
 

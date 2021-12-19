@@ -575,6 +575,6 @@ if __name__ == "__main__":
                         "output": output,
                         "exception": error,
                     }
-                ).encode("utf-8"),
+                ).encode(),
                 addr,
             )

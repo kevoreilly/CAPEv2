@@ -1298,7 +1298,7 @@ def next_connection_packets(piter, linktype=1):
             "dst": dip,
             "sport": sport,
             "dport": dport,
-            "raw": b64encode(payload_from_raw(raw, linktype)).decode("utf-8"),
+            "raw": b64encode(payload_from_raw(raw, linktype)).decode(),
             "direction": first_ft == ft,
         }
 

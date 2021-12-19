@@ -386,6 +386,6 @@ if __name__ == "__main__":
                 "status": "complete",
                 "description": success,
             }
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
         except Exception as e:
             print(e)

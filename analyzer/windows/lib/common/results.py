@@ -127,16 +127,16 @@ class NetlogFile(NetlogConnection):
             ppids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (
-                dump_path.encode("utf8"),
+                dump_path.encode(),
                 filepath.encode("utf-8", "replace"),
-                pids.encode("utf8") if isinstance(pids, str) else pids,
-                ppids.encode("utf8") if isinstance(ppids, str) else ppids,
-                metadata.encode("utf8") if isinstance(metadata, str) else metadata,
-                category.encode("utf8") if isinstance(category, str) else category,
+                pids.encode() if isinstance(pids, str) else pids,
+                ppids.encode() if isinstance(ppids, str) else ppids,
+                metadata.encode() if isinstance(metadata, str) else metadata,
+                category.encode() if isinstance(category, str) else category,
                 1 if duplicated else 0,
             )
         else:
-            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
+            self.proto = b"FILE\n%s\n" % dump_path.encode()
         self.connect()
 
 
@@ -148,4 +148,4 @@ class NetlogHandler(logging.Handler, NetlogConnection):
 
     def emit(self, record):
         msg = self.format(record)
-        self.send(msg.encode("utf-8") + b"\n")
+        self.send(msg.encode() + b"\n")

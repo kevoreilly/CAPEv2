@@ -54,11 +54,11 @@ def config(memdump_path, read=False):
                 if url is None:
                     continue
                 if gate_url.match(url):
-                    artifacts_raw["controllers"].append(url.lower().decode("utf-8"))
+                    artifacts_raw["controllers"].append(url.lower().decode())
                 elif exe_url.match(url):
-                    artifacts_raw["downloads"].append(url.lower().decode("utf-8"))
+                    artifacts_raw["downloads"].append(url.lower().decode())
                 elif dll_url.match(url):
-                    artifacts_raw["downloads"].append(url.lower().decode("utf-8"))
+                    artifacts_raw["downloads"].append(url.lower().decode())
         except Exception as e:
             print(e, sys.exc_info(), "PONY")
     artifacts_raw["controllers"] = list(set(artifacts_raw["controllers"]))

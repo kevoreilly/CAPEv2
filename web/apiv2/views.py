@@ -343,13 +343,13 @@ def tasks_create_file(request):
                 try:
                     File(path).get_type()
                 except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): "Error submitting file - bad file type"})
+                    details["errors"].append({os.path.basename(tmp_path).decode(): "Error submitting file - bad file type"})
                     continue
             else:
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): task_ids_tmp})
+                    details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
@@ -570,7 +570,7 @@ def tasks_create_dlnexec(request):
 
         status, task_ids_tmp = download_file(**details)
         if status == "error":
-            details["errors"].append({os.path.basename(path).decode("utf-8"): task_ids_tmp})
+            details["errors"].append({os.path.basename(path).decode(): task_ids_tmp})
         else:
             details["task_ids"] = task_ids_tmp
 

@@ -48,7 +48,7 @@ class Zip(Package):
 
         # requires bytes not str
         if not isinstance(password, bytes):
-            password = password.encode("utf-8")
+            password = password.encode()
 
         # Extraction.
         with ZipFile(zip_path, "r") as archive:

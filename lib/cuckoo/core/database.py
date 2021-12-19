@@ -1503,7 +1503,7 @@ class Database(object, metaclass=Singleton):
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
-            file_path = file_path.encode("utf-8")
+            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
@@ -1514,7 +1514,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode("utf-8")
+                runfile = runfile.encode()
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1672,7 +1672,7 @@ class Database(object, metaclass=Singleton):
         sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
-            file_path = file_path.encode("utf-8")
+            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:

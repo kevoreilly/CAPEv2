@@ -135,7 +135,7 @@ class DigiSig(Auxiliary):
             else:
                 self.json_data["error"] = True
                 errmsg = b" ".join(b"".join(err.split(b":")[1:]).split())
-                self.json_data["error_desc"] = errmsg.decode("utf-8")
+                self.json_data["error_desc"] = errmsg.decode()
                 if b"file format cannot be verified" in err:
                     log.debug("File format not recognized")
                 elif b"No signature found" not in err:
@@ -149,7 +149,7 @@ class DigiSig(Auxiliary):
             if self.json_data:
                 log.info("Uploading signature results to aux/%s.json", self.__class__.__name__)
                 upload = BytesIO()
-                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode("utf-8"))
+                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
                 upload.seek(0)
                 nf = NetlogFile()
                 nf.init("aux/DigiSig.json")

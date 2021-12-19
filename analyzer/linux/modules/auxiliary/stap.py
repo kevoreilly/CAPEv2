@@ -57,7 +57,7 @@ class STAP(Auxiliary):
             stderr=subprocess.PIPE,
         )
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode("utf8"):
+        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
             pass
 
         self.proc.terminate()

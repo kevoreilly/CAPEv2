@@ -64,7 +64,7 @@ URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
 ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
 if not isinstance(ZIP_PWD, bytes):
-    ZIP_PWD = ZIP_PWD.encode("utf-8")
+    ZIP_PWD = ZIP_PWD.encode()
 MOLOCH_BASE = moloch_cfg.get("base")
 MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)

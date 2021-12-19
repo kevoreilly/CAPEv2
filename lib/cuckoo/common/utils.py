@@ -85,7 +85,7 @@ referrer_url_re = re.compile(
 # change to read from config
 zippwd = web_cfg.zipped_download.get("zip_pwd", b"infected")
 if not isinstance(zippwd, bytes):
-    zippwd = zippwd.encode("utf-8")
+    zippwd = zippwd.encode()
 
 
 texttypes = [
@@ -330,7 +330,7 @@ def bytes2str(convert):
     """
     if isinstance(convert, bytes):
         try:
-            convert = convert.decode("utf-8")
+            convert = convert.decode()
         except UnicodeDecodeError:
             convert = "".join(chr(_) for _ in convert)
 
@@ -343,7 +343,7 @@ def bytes2str(convert):
         for k, v in items:
             if type(v) is bytes:
                 try:
-                    tmp_dict[k] = v.decode("utf-8")
+                    tmp_dict[k] = v.decode()
                 except UnicodeDecodeError:
                     tmp_dict[k] = "".join(str(ord(_)) for _ in v)
         return tmp_dict
@@ -353,7 +353,7 @@ def bytes2str(convert):
         for k, v in items:
             if type(v) is bytes:
                 try:
-                    converted_list.append(v.decode("utf-8"))
+                    converted_list.append(v.decode())
                 except UnicodeDecodeError:
                     converted_list.append("".join(str(ord(_)) for _ in v))
 
@@ -382,7 +382,7 @@ def wide2str(string: Tuple[str, bytes]):
         if type(string) is bytes:
             return string.decode("utf-16")
         else:
-            return string.encode("utf-8").decode("utf-16")
+            return string.encode().decode("utf-16")
     else:
         return string
 

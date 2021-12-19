@@ -56,7 +56,7 @@ reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
 if type(zip_pwd) is not bytes:
-    zip_pwd = zip_pwd.encode("utf-8")
+    zip_pwd = zip_pwd.encode()
 
 # init
 logging.getLogger("elasticsearch").setLevel(logging.WARNING)

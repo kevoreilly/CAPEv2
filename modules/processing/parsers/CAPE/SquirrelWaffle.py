@@ -67,7 +67,7 @@ def config(data):
         for i in range(len(chunks)):
             if len(chunks[i]) > 100:
                 try:
-                    decrypted = xor_data(chunks[i], chunks[i + 1]).decode("utf-8")
+                    decrypted = xor_data(chunks[i], chunks[i + 1]).decode()
                     if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:
@@ -85,5 +85,5 @@ def config(data):
                     c2key_offset = int(item[0])
                     key_rva = struct.unpack("i", data[c2key_offset + 28 : c2key_offset + 32])[0] - pe.OPTIONAL_HEADER.ImageBase
                     key_offset = pe.get_offset_from_rva(key_rva)
-                    config["C2 key"] = string_from_offset(data, key_offset).decode("utf-8")
+                    config["C2 key"] = string_from_offset(data, key_offset).decode()
                     return config

@@ -426,8 +426,8 @@ def config(filebuf):
     except ValueError as e:
         log.error(e)
     if pem_key:
-        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
-        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode("utf8"))
+        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode()})
+        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
     else:
         if yara_matches.get("$ref_rsa"):
             ref_rsa_offset = int(yara_matches["$ref_rsa"])

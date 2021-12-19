@@ -163,7 +163,7 @@ class Remcos(Parser):
                         elif i in [0]:
                             host, port, password = cont.split(b"|")[0].split(b":")
                             p_data["Control"] = "tcp://{}:{}:{}".format(
-                                host.decode("utf-8"), port.decode("utf-8"), password.decode("utf-8")
+                                host.decode(), port.decode(), password.decode()
                             )
 
                         else:

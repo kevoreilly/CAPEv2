@@ -768,13 +768,13 @@ def gen_moloch_from_suri_http(suricata):
                 e["moloch_http_uri_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=http.uri"
-                    + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode("utf8")), safe="")
+                    + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode()), safe="")
                 )
             if e.get("ua"):
                 e["moloch_http_ua_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=http.user-agent"
-                    + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode("utf8")), safe="")
+                    + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode()), safe="")
                 )
             if e.get("method"):
                 e["moloch_http_method_url"] = (
@@ -1233,7 +1233,7 @@ def report(request, task_id):
 
         if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
             with open(vba2graph_svg_path, "rb") as f:
-                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
+                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode())
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1968,7 +1968,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 id = response.json().get("data", {}).get("id")
                 if id:
                     hashbytes, _ = base64.b64decode(id).split(b":")
-                    md5hash = hashbytes.decode("utf8")
+                    md5hash = hashbytes.decode()
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)}
                     )

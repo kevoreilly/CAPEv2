@@ -245,7 +245,7 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = file_obj.get_dll_exports(options["file_type"])
+            options["exports"] = file_obj.get_dll_exports()
             del file_obj
 
         # options from auxiliar.conf

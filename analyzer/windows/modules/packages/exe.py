@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import os
 import shutil
 from subprocess import call
+
 from lib.common.abstracts import Package
 
 
@@ -22,7 +23,7 @@ class Exe(Package):
         # an exception that will crash the app if it does
         # not find an extension on the main exe's filename
         if "." not in os.path.basename(path):
-            new_path = path + ".exe"
+            new_path = f"{path}.exe"
             os.rename(path, new_path)
             path = new_path
 

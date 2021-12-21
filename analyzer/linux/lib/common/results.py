@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
 import socket
 import time
 
@@ -18,7 +18,7 @@ BUFSIZE = 1024 * 1024
 def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
     nc = infd = None
     if not os.path.exists(file_path):
-        log.warning("File not exist: {}".format(file_path))
+        log.warning("File not exist: %s", file_path)
         return
 
     try:
@@ -27,12 +27,12 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
         nc.init(dump_path, file_path, pids, metadata, category)
         infd = open(file_path, "rb")  # rb
         buf = infd.read(BUFSIZE)
-        log.info("Uploading file {} to host -> {}".format(file_path, dump_path))
+        log.info("Uploading file %s to host -> %s", file_path, dump_path)
         while buf:
             nc.send(buf, retry=True)
             buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
+        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
         if infd:
             infd.close()
@@ -74,9 +74,9 @@ class NetlogConnection(object):
                 self.connect()
                 self.send(data, retry=False)
             else:
-                print(("Unhandled exception in NetlogConnection:", str(e)))
+                print(f"Unhandled exception in NetlogConnection: {e}")
         except Exception as e:
-            log.error(("Unhandled exception in NetlogConnection:", str(e)))
+            log.error("Unhandled exception in NetlogConnection: %s", e)
             # We really have nowhere to log this, if the netlog connection
             # does not work, we can assume that any logging won't work either.
             # So we just fail silently.
@@ -114,14 +114,14 @@ class NetlogFile(NetlogConnection):
             pids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n" % (
-                dump_path.encode("utf8"),
+                dump_path.encode(),
                 filepath.encode("utf-8", "replace"),
-                pids.encode("utf8") if isinstance(pids, str) else pids,
-                metadata.encode("utf8") if isinstance(metadata, str) else metadata,
-                category.encode("utf8") if isinstance(category, str) else category,
+                pids.encode() if isinstance(pids, str) else pids,
+                metadata.encode() if isinstance(metadata, str) else metadata,
+                category.encode() if isinstance(category, str) else category,
             )
         else:
-            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
+            self.proto = b"FILE\n%s\n" % dump_path.encode()
         self.connect()
 
 
@@ -133,4 +133,4 @@ class NetlogHandler(logging.Handler, NetlogConnection):
 
     def emit(self, record):
         msg = self.format(record)
-        self.send(msg.encode("utf-8") + b"\n")
+        self.send(msg.encode() + b"\n")

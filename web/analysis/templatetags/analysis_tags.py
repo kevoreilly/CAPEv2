@@ -18,7 +18,7 @@ from django.template.defaultfilters import register
 def network_rn_func(value):
     """get basename from path"""
     if isinstance(value, bytes):
-        value = value.decode("utf-8")
+        value = value.decode()
     return list(filter(None, value.split("\r\n")))
 
 

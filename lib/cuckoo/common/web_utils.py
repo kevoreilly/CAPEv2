@@ -409,7 +409,7 @@ def statistics(s_days: int) -> dict:
             day = task.clock.strftime("%Y-%m-%d")
             if day not in details["distributed_tasks"]:
                 details["distributed_tasks"].setdefault(day, {})
-            if task.node_id in id2name and id2name[task.node_id] not in details["distributed_tasks"][day]:
+            if id2name.get(task.node_id) not in details["distributed_tasks"][day]:
                 details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
         dist_db.close()

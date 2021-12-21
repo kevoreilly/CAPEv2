@@ -916,7 +916,7 @@ def find_keywords_in_graph(vba_func_dict, DG):
                             if list_item not in dict_items:
                                 dict_items[list_item] = 1
                             else:
-                                dict_items[list_item] = dict_items[list_item] + 1
+                                dict_items[list_item] += 1
 
         # add keywords to graph
         for dic_key in dict_items:
@@ -927,7 +927,7 @@ def find_keywords_in_graph(vba_func_dict, DG):
 
             keyword_count = dict_items[dic_key]
             if DG.nodes[func_name]["keywords"] != "":
-                DG.nodes[func_name]["keywords"] = DG.nodes[func_name]["keywords"] + ","
+                DG.nodes[func_name]["keywords"] += ","
 
             DG.nodes[func_name]["keywords"] = (
                 DG.nodes[func_name]["keywords"]

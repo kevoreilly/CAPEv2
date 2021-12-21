@@ -207,7 +207,7 @@ def get_analysis_info(db, id=-1, task=None):
 
     new.update({"user_task_tags": get_tags_tasks([new["id"]])})
 
-    if "machine" in new and new["machine"]:
+    if new.get("machine"):
         machine = new["machine"]
         machine = machine.strip(".vmx")
         machine = os.path.basename(machine)
@@ -281,7 +281,7 @@ def get_analysis_info(db, id=-1, task=None):
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
-                settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+                settings.MOLOCH_BASE += "/"
             new["moloch_url"] = (
                 settings.MOLOCH_BASE
                 + "?date=-1&expression=tags"
@@ -738,45 +738,45 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
 
 
 def gen_moloch_from_suri_http(suricata):
-    if "http" in suricata and suricata["http"]:
+    if suricata.get("http"):
         for e in suricata["http"]:
-            if "srcip" in e and e["srcip"]:
+            if e.get("srcip"):
                 e["moloch_src_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
                 )
-            if "dstip" in e and e["dstip"]:
+            if e.get("dstip"):
                 e["moloch_dst_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
                 )
-            if "dstport" in e and e["dstport"]:
+            if e.get("dstport"):
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22tcp\x22" % (str(e["dstport"])), safe="")
                 )
-            if "srcport" in e and e["srcport"]:
+            if e.get("srcport"):
                 e["moloch_src_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22tcp\x22" % (str(e["srcport"])), safe="")
                 )
-            if "hostname" in e and e["hostname"]:
+            if e.get("hostname"):
                 e["moloch_http_host_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=host.http" + quote("\x3d\x3d\x22%s\x22" % (e["hostname"]), safe="")
                 )
-            if "uri" in e and e["uri"]:
+            if e.get("uri"):
                 e["moloch_http_uri_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=http.uri"
-                    + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode("utf8")), safe="")
+                    + quote("\x3d\x3d\x22%s\x22" % (e["uri"].encode()), safe="")
                 )
-            if "ua" in e and e["ua"]:
+            if e.get("ua"):
                 e["moloch_http_ua_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=http.user-agent"
-                    + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode("utf8")), safe="")
+                    + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode()), safe="")
                 )
-            if "method" in e and e["method"]:
+            if e.get("method"):
                 e["moloch_http_method_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (e["method"]), safe="")
                 )
@@ -784,35 +784,35 @@ def gen_moloch_from_suri_http(suricata):
 
 
 def gen_moloch_from_suri_alerts(suricata):
-    if "alerts" in suricata and suricata["alerts"]:
+    if suricata.get("alerts"):
         for e in suricata["alerts"]:
-            if "srcip" in e and e["srcip"]:
+            if e.get("srcip"):
                 e["moloch_src_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
                 )
-            if "dstip" in e and e["dstip"]:
+            if e.get("dstip"):
                 e["moloch_dst_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
                 )
-            if "dstport" in e and e["dstport"]:
+            if e.get("dstport"):
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["dstport"]), e["protocol"].lower()), safe="")
                 )
-            if "srcport" in e and e["srcport"]:
+            if e.get("srcport"):
                 e["moloch_src_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["srcport"]), e["protocol"].lower()), safe="")
                 )
-            if "sid" in e and e["sid"]:
+            if e.get("sid"):
                 e["moloch_sid_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=tags"
                     + quote("\x3d\x3d\x22suri_sid\x3a%s\x22" % (e["sid"]), safe="")
                 )
-            if "signature" in e and e["signature"]:
+            if e.get("signature"):
                 e["moloch_msg_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=tags"
@@ -822,56 +822,56 @@ def gen_moloch_from_suri_alerts(suricata):
 
 
 def gen_moloch_from_suri_file_info(suricata):
-    if "files" in suricata and suricata["files"]:
+    if suricata.get("files"):
         for e in suricata["files"]:
-            if "srcip" in e and e["srcip"]:
+            if e.get("srcip"):
                 e["moloch_src_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
                 )
-            if "dstip" in e and e["dstip"]:
+            if e.get("dstip"):
                 e["moloch_dst_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
                 )
-            if "dp" in e and e["dp"]:
+            if e.get("dp"):
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["dp"]), "tcp"), safe="")
                 )
-            if "sp" in e and e["sp"]:
+            if e.get("sp"):
                 e["moloch_src_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["sp"]), "tcp"), safe="")
                 )
-            if "http_uri" in e and e["http_uri"]:
+            if e.get("http_uri"):
                 e["moloch_uri_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=http.uri" + quote("\x3d\x3d\x22%s\x22" % (e["http_uri"]), safe="")
                 )
-            if "http_host" in e and e["http_host"]:
+            if e.get("http_host"):
                 e["moloch_host_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=http.host" + quote("\x3d\x3d\x22%s\x22" % (e["http_host"]), safe="")
                 )
             if "file_info" in e:
-                if "clamav" in e["file_info"] and e["file_info"]["clamav"]:
+                if e["file_info"].get("clamav"):
                     e["moloch_clamav_url"] = (
                         settings.MOLOCH_BASE
                         + "?date=-1&expression=tags"
                         + quote("\x3d\x3d\x22clamav\x3a%s\x22" % (re.sub(r"[\W]", "_", e["file_info"]["clamav"])), safe="")
                     )
-                if "md5" in e["file_info"] and e["file_info"]["md5"]:
+                if e["file_info"].get("md5"):
                     e["moloch_md5_url"] = (
                         settings.MOLOCH_BASE
                         + "?date=-1&expression=tags"
                         + quote("\x3d\x3d\x22md5\x3a%s\x22" % (e["file_info"]["md5"]), safe="")
                     )
-                if "sha256" in e["file_info"] and e["file_info"]["sha256"]:
+                if e["file_info"].get("sha256"):
                     e["moloch_sha256_url"] = (
                         settings.MOLOCH_BASE
                         + "?date=-1&expression=tags"
                         + quote("\x3d\x3d\x22sha256\x3a%s\x22" % (e["file_info"]["sha256"]), safe="")
                     )
-                if "yara" in e["file_info"] and e["file_info"]["yara"]:
+                if e["file_info"].get("yara"):
                     for sign in e["file_info"]["yara"]:
                         if "name" in sign:
                             sign["moloch_yara_url"] = (
@@ -883,23 +883,23 @@ def gen_moloch_from_suri_file_info(suricata):
 
 
 def gen_moloch_from_suri_tls(suricata):
-    if "tls" in suricata and suricata["tls"]:
+    if suricata.get("tls"):
         for e in suricata["tls"]:
-            if "srcip" in e and e["srcip"]:
+            if e.get("srcip"):
                 e["moloch_src_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["srcip"])), safe="")
                 )
-            if "dstip" in e and e["dstip"]:
+            if e.get("dstip"):
                 e["moloch_dst_ip_url"] = (
                     settings.MOLOCH_BASE + "?date=-1&expression=ip" + quote("\x3d\x3d%s" % (str(e["dstip"])), safe="")
                 )
-            if "dstport" in e and e["dstport"]:
+            if e.get("dstport"):
                 e["moloch_dst_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
                     + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["dstport"]), "tcp"), safe="")
                 )
-            if "srcport" in e and e["srcport"]:
+            if e.get("srcport"):
                 e["moloch_src_port_url"] = (
                     settings.MOLOCH_BASE
                     + "?date=-1&expression=port"
@@ -933,7 +933,7 @@ def surialert(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_alerts(suricata)
 
@@ -967,7 +967,7 @@ def surihttp(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_http(suricata)
 
@@ -987,7 +987,7 @@ def suritls(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_tls(suricata)
 
@@ -1007,7 +1007,7 @@ def surifiles(request, task_id):
 
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
 
         suricata = gen_moloch_from_suri_file_info(suricata)
 
@@ -1024,7 +1024,7 @@ def antivirus(request, task_id):
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
     if settings.MOLOCH_ENABLED:
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
         if "virustotal" in rtmp:
             rtmp["virustotal"] = gen_moloch_from_antivirus(rtmp["virustotal"])
 
@@ -1207,7 +1207,7 @@ def report(request, task_id):
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
         if settings.MOLOCH_BASE[-1] != "/":
-            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            settings.MOLOCH_BASE += "/"
         report["moloch_url"] = (
             settings.MOLOCH_BASE
             + "?date=-1&expression=tags"
@@ -1233,7 +1233,7 @@ def report(request, task_id):
 
         if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
             with open(vba2graph_svg_path, "rb") as f:
-                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
+                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode())
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1332,13 +1332,13 @@ def file_nl(request, category, task_id, dlfile):
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
     if category == "screenshot":
-        file_name = file_name + ".jpg"
+        file_name += ".jpg"
         path = os.path.join(base_path, "shots", file_name)
         cd = "image/jpeg"
 
     elif category == "bingraph":
         path = os.path.join(base_path, "bingraph", file_name + "-ent.svg")
-        file_name = file_name + "-ent.svg"
+        file_name += "-ent.svg"
         cd = "image/svg+xml"
 
     elif category == "vba2graph":
@@ -1968,7 +1968,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 id = response.json().get("data", {}).get("id")
                 if id:
                     hashbytes, _ = base64.b64decode(id).split(b":")
-                    md5hash = hashbytes.decode("utf8")
+                    md5hash = hashbytes.decode()
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/gui/file/{id}".format(id=md5hash)}
                     )

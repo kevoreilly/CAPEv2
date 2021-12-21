@@ -3,11 +3,11 @@
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
 
-from os import system, chmod
 import logging
+from os import chmod, system
 from subprocess import check_output
-from lib.core.packages import Package, choose_package_class
 
+from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class Wget(Package):
     def prepare(self):
         # todo use random tempfile
         # ToDo random name
-        ret = system('wget "%s" -O /tmp/file_malwr --no-check-certificate' % self.target)
+        ret = system(f'wget "{self.target}" -O /tmp/file_malwr --no-check-certificate')
         log.info(ret)
         # py3 permission
         chmod("/tmp/file_malwr", 0o755)

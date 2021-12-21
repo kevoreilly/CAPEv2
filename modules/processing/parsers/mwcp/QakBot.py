@@ -193,7 +193,7 @@ class QakBot(Parser):
                             # we found the parent process and still need to decrypt/(blzpack) decompress the main DLL
                             dec_bytes = decrypt_data(res_data)
                             decompressed = decompress(dec_bytes)
-                            self.reporter.add_metadata("other", {"Loader Build": parse_build(pe).decode("utf-8")})
+                            self.reporter.add_metadata("other", {"Loader Build": parse_build(pe).decode()})
                             pe2 = pefile.PE(data=decompressed)
                             for rsrc in pe2.DIRECTORY_ENTRY_RESOURCE.entries:
                                 for entry in rsrc.directory.entries:
@@ -206,7 +206,7 @@ class QakBot(Parser):
                                             config = parse_config(dec_bytes)
                                             # log.info("qbot_config:{}".format(config))
                                             self.reporter.add_metadata(
-                                                "other", {"Core DLL Build": parse_build(pe2).decode("utf-8")}
+                                                "other", {"Core DLL Build": parse_build(pe2).decode()}
                                             )
 
                                         elif entry.name.__str__() == "311":
@@ -239,10 +239,10 @@ class QakBot(Parser):
                             dec_bytes = decrypt_data2(res_data)
                             config = parse_config(dec_bytes)
 
-                        self.reporter.add_metadata("other", {"Loader Build": parse_build(pe).decode("utf-8")})
+                        self.reporter.add_metadata("other", {"Loader Build": parse_build(pe).decode()})
 
                         for k, v in config.items():
-                            # log.info( { k.decode("utf-8"): v.decode("utf-8") })
+                            # log.info( { k.decode(): v.decode() })
                             self.reporter.add_metadata("other", {k: v})
 
                         # log.info("controllers:{}".format(controllers))

@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import shutil
 import logging
+import shutil
 
 from lib.common.abstracts import Package
 
@@ -28,8 +28,8 @@ class MHT(Package):
         # be executed.
         # We help you sample to execute renaming it with a proper extension.
         if not path.endswith(".mht"):
-            shutil.copy(path, path + ".mht")
+            shutil.copy(path, f"{path}.mht")
             path += ".mht"
             log.info("Submitted file is missing extension, adding .mht")
 
-        return self.execute(iexplore, '"%s"' % path, path)
+        return self.execute(iexplore, f'"{path}"', path)

@@ -343,13 +343,13 @@ def tasks_create_file(request):
                 try:
                     File(path).get_type()
                 except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): "Error submitting file - bad file type"})
+                    details["errors"].append({os.path.basename(tmp_path).decode(): "Error submitting file - bad file type"})
                     continue
             else:
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(tmp_path).decode("utf-8"): task_ids_tmp})
+                    details["errors"].append({os.path.basename(tmp_path).decode(): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
 
@@ -570,7 +570,7 @@ def tasks_create_dlnexec(request):
 
         status, task_ids_tmp = download_file(**details)
         if status == "error":
-            details["errors"].append({os.path.basename(path).decode("utf-8"): task_ids_tmp})
+            details["errors"].append({os.path.basename(path).decode(): task_ids_tmp})
         else:
             details["task_ids"] = task_ids_tmp
 
@@ -1085,7 +1085,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "maec": "report.maec-4.1.xml",
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
-        "litereport": "lite.json"
+        "litereport": "lite.json",
     }
 
     report_formats = {
@@ -1300,25 +1300,25 @@ def tasks_iocs(request, task_id, detail=None):
         pe = {}
         pdf = {}
         office = {}
-        if "peid_signatures" in buf["static"] and buf["static"]["peid_signatures"]:
+        if buf["static"].get("peid_signatures"):
             pe["peid_signatures"] = buf["static"]["peid_signatures"]
-        if "pe_timestamp" in buf["static"] and buf["static"]["pe_timestamp"]:
+        if buf["static"].get("pe_timestamp"):
             pe["pe_timestamp"] = buf["static"]["pe_timestamp"]
-        if "pe_imphash" in buf["static"] and buf["static"]["pe_imphash"]:
+        if buf["static"].get("pe_imphash"):
             pe["pe_imphash"] = buf["static"]["pe_imphash"]
-        if "pe_icon_hash" in buf["static"] and buf["static"]["pe_icon_hash"]:
+        if buf["static"].get("pe_icon_hash"):
             pe["pe_icon_hash"] = buf["static"]["pe_icon_hash"]
-        if "pe_icon_fuzzy" in buf["static"] and buf["static"]["pe_icon_fuzzy"]:
+        if buf["static"].get("pe_icon_fuzzy"):
             pe["pe_icon_fuzzy"] = buf["static"]["pe_icon_fuzzy"]
-        if "Objects" in buf["static"] and buf["static"]["Objects"]:
+        if buf["static"].get("Objects"):
             pdf["objects"] = len(buf["static"]["Objects"])
-        if "Info" in buf["static"] and buf["static"]["Info"]:
+        if buf["static"].get("Info"):
             if "PDF Header" in list(buf["static"]["Info"].keys()):
                 pdf["header"] = buf["static"]["Info"]["PDF Header"]
         if "Streams" in buf["static"]:
             if "/Page" in list(buf["static"]["Streams"].keys()):
                 pdf["pages"] = buf["static"]["Streams"]["/Page"]
-        if "Macro" in buf["static"] and buf["static"]["Macro"]:
+        if buf["static"].get("Macro"):
             if "Analysis" in buf["static"]["Macro"]:
                 office["signatures"] = {}
                 for item in buf["static"]["Macro"]["Analysis"]:
@@ -1388,7 +1388,7 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
 
     if "static" in buf:
-        if "pe_versioninfo" in buf["static"] and buf["static"]["pe_versioninfo"]:
+        if buf["static"].get("pe_versioninfo"):
             data["static"]["pe"]["pe_versioninfo"] = buf["static"]["pe_versioninfo"]
 
     if "behavior" in buf and "summary" in buf["behavior"]:
@@ -1642,7 +1642,7 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
         tmp["shrike_msg"] = e["info"]["shrike_msg"]
         tmp["shrike_sid"] = e["info"]["shrike_sid"]
         tmp["shrike_url"] = e["info"]["shrike_url"]
-        if "shrike_refer" in e["info"] and e["info"]["shrike_refer"]:
+        if e["info"].get("shrike_refer"):
             tmp["shrike_refer"] = e["info"]["shrike_refer"]
         resp.append(tmp)
 

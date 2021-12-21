@@ -21,6 +21,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDLoader.yar")
 yara_rule = open(yara_path, "r").read()
 
+
 def yara_scan(raw_data):
     try:
         addresses = {}
@@ -29,6 +30,7 @@ def yara_scan(raw_data):
         return matches
     except Exception as e:
         print(e)
+
 
 def iced_decode(data):
     n = 0
@@ -43,6 +45,7 @@ def iced_decode(data):
     hostname = d.split(b"\00")[0]
     return hostname
 
+
 def config(filebuf):
     cfg = dict()
     yara_hit = yara_scan(filebuf)
@@ -50,14 +53,16 @@ def config(filebuf):
         if hit.rule == "IcedIDLoader":
             pe = pefile.PE(data=filebuf, fast_load=False)
             for section in pe.sections:
-                if section.Name == b'.d\x00\x00\x00\x00\x00\x00':
+                if section.Name == b".d\x00\x00\x00\x00\x00\x00":
                     config_section = bytearray(section.get_data())
-                    decoded = iced_decode(config_section).decode("utf-8")
+                    decoded = iced_decode(config_section).decode()
                     cfg["address"] = decoded
                     return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 

@@ -30,9 +30,8 @@ from lib.cuckoo.common.exceptions import CuckooResultError
 from lib.cuckoo.common.utils import create_folder, Singleton, logtime, sanitize_pathname
 from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.core.log import task_log_start, task_log_stop
-import six
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 cfg = Config()
 
 # Maximum line length to read for netlog messages, to avoid memory exhaustion
@@ -208,7 +207,7 @@ class FileUpload(ProtocolHandler):
 
         log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         if not duplicated:
-            file_path = os.path.join(self.storagepath, dump_path.decode("utf-8"))
+            file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
                 self.fd = open_exclusive(file_path)
@@ -232,7 +231,7 @@ class FileUpload(ProtocolHandler):
                             "pids": pids,
                             "ppids": ppids,
                             "metadata": metadata.decode("utf-8", "replace"),
-                            "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
+                            "category": category.decode() if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
                         },
                         ensure_ascii=False,
                     ),

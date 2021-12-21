@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import shutil
 import logging
+import shutil
 
 from lib.common.abstracts import Package
 
@@ -28,8 +28,8 @@ class HTML(Package):
         # be executed.
         # We help you sample to execute renaming it with a proper extension.
         if not path.endswith((".htm", ".html")):
-            shutil.copy(path, path + ".html")
+            shutil.copy(path, f"{path}.html")
             path += ".html"
             log.info("Submitted file is missing extension, adding .html")
 
-        return self.execute(iexplore, '"%s"' % path, path)
+        return self.execute(iexplore, f'"{path}"', path)

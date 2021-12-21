@@ -82,7 +82,7 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                 slashsplit.append("")
             target = "/".join(slashsplit)
 
-            sha256 = hashlib.sha256(target.encode("utf-8")).hexdigest()
+            sha256 = hashlib.sha256(target.encode()).hexdigest()
             url = VIRUSTOTAL_URL_URL.format(id=target)
 
         try:

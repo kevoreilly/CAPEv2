@@ -82,8 +82,8 @@ if __name__ == "__main__":
             first_entry = True
         for domain in domain_list:
             # insert domain into bloomfilter
-            if not domain.lower().encode("utf8") in bloom:
-                bloom.add(domain.lower().encode("utf8"))
+            if not domain.lower().encode() in bloom:
+                bloom.add(domain.lower().encode())
 
             # insert into family/domain lookup table
             dga_lookup_dict[domain] = family
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     if not (first_entry and test_domain and test_family):
         logging.error("Unknown error while creating bloomfilter and DGA dict")
         sys.exit(-1)
-    if test_domain.lower().encode("utf8") in bloom and dga_lookup_dict.get(test_domain.lower(), "") == test_family:
+    if test_domain.lower().encode() in bloom and dga_lookup_dict.get(test_domain.lower(), "") == test_family:
         logging.info("%s (%s)", test_domain, test_family)
         logging.info("Bloomfilter and DGA dict successfully created")
     else:
@@ -107,6 +107,6 @@ if __name__ == "__main__":
 
     lookup_path = os.path.join(CUCKOO_ROOT, "data", "dga_lookup_dict.json.gz")
     with gzip.GzipFile(lookup_path, "w") as fout:
-        fout.write(json.dumps(dga_lookup_dict).encode("utf8"))
+        fout.write(json.dumps(dga_lookup_dict).encode())
 
     logging.info("Successfully generated bloomfilter and dga dict file")

@@ -56,7 +56,7 @@ reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
 if type(zip_pwd) is not bytes:
-    zip_pwd = zip_pwd.encode("utf-8")
+    zip_pwd = zip_pwd.encode()
 
 # init
 logging.getLogger("elasticsearch").setLevel(logging.WARNING)
@@ -177,6 +177,20 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
+# For older systems as ubuntu 18.04 and lower than py3.8
+# ToDo remvoe in future
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        if item in ("binary", "dump_sorted.pcap", "memory.dmp", "logs"):
+            continue
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d, follow_symlinks=False)
+
+
 def node_get_report_nfs(task_id, worker_name, main_task_id):
 
     worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
@@ -189,7 +203,13 @@ def node_get_report_nfs(task_id, worker_name, main_task_id):
         os.makedirs(analyses_path, mode=0o755)
 
     try:
-        shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+        # py 3.8
+        if sys.version_info[:2] >= (3, 8):
+            shutil.copytree(
+                worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True
+            )
+        else:
+            copytree(worker_path, analyses_path, True, dist_ignore_patterns)
     except Exception as e:
         log.exception(e)
         return False
@@ -309,7 +329,7 @@ def node_submit_task(task_id, node_id):
             ):
                 task.task_id = r.json().get("data", {})["task_ids"][0]
                 check = True
-            elif "task_id" in r.json() and r.json()["task_id"] > 0 and r.json()["task_id"] is not None:
+            elif r.json().get("task_id", 0) > 0:
                 task.task_id = r.json()["task_id"]
                 check = True
             else:

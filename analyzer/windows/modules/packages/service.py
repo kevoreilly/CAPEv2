@@ -1,16 +1,16 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
+import ctypes
+import logging
 import os
-import shutil
 import sys
+
 from lib.api.process import Process
 from lib.common.abstracts import Package
 from lib.common.defines import ADVAPI32, KERNEL32
-import logging
-import traceback
-import ctypes
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
@@ -69,12 +69,12 @@ class Service(Package):
             servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
             if "." not in os.path.basename(path):
-                new_path = path + ".exe"
+                new_path = f"{path}.exe"
                 os.rename(path, new_path)
                 path = new_path
-            binPath = '"{0}"'.format(path)
+            binPath = f'"{path}"'
             if arguments:
-                binPath += " {0}".format(arguments)
+                binPath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
             if scm_handle == 0:
                 log.info("Failed to open SCManager")

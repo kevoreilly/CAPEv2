@@ -129,7 +129,7 @@ class Physical(Machinery):
                             taskID_Deploy = t["id"]
 
                     # Deploy Task to reset physical machine to former state
-                    payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode("utf8")
+                    payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode()
 
                     r_deploy = requests.post(
                         "http://" + self.options.fog.hostname + "/fog/host/" + hostID + "/task", headers=headers, data=payload

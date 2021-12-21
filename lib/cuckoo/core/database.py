@@ -95,7 +95,7 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.get("authsource", "cuckoo"),
 )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "6dc79a3ee6e4"
+SCHEMA_VERSION = "8537286ff4d5"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -178,6 +178,7 @@ class Machine(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(255), nullable=False)
     label = Column(String(255), nullable=False)
+    arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
     tags = relationship("Tag", secondary=machines_tags, backref="machines")
@@ -215,9 +216,10 @@ class Machine(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, name, label, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
+    def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port):
         self.name = name
         self.label = label
+        self.arch = arch
         self.ip = ip
         self.platform = platform
         self.interface = interface
@@ -545,15 +547,6 @@ class Database(object, metaclass=Singleton):
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)
-        # load vms tags
-        self.vms_tags = dict()
-        self.tasks_filters = dict()
-        session = self.Session()
-        machines = session.query(Machine).options(joinedload("tags")).all()
-        for machine in machines:
-            self.vms_tags[machine.name] = [tag.name for tag in machine.tags]
-            self.tasks_filters[machine.name] = or_(*[Task.tags.any(name=tag.name) for tag in machine.tags])
-        session.close()
 
         @event.listens_for(self.Session, "after_flush")
         def delete_tag_orphans(session, ctx):
@@ -668,10 +661,11 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def add_machine(self, name, label, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
+    def add_machine(self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port):
         """Add a guest machine.
         @param name: machine id
         @param label: machine label
+        @param arch: machine arch
         @param ip: machine IP address
         @param platform: machine supported platform
         @param tags: list of comma separated tags
@@ -684,6 +678,7 @@ class Database(object, metaclass=Singleton):
         machine = Machine(
             name=name,
             label=label,
+            arch=arch,
             ip=ip,
             platform=platform,
             interface=interface,
@@ -797,44 +792,39 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, machine, label):
+    def fetch(self, machine):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
         session = self.Session()
         row = None
+        # set filter to get tasks with acceptable arch
+        # Task.tags == None
+        #   == can't be repaced with is None as is SQLALCHEMY!
+        #   To pick tasks without any tag
+        if "x64" in machine.arch:
+            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags == None])
+        else:
+            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags == None])
         try:
-            # if 64-bit machine select any pending task
-            if "x64" in self.vms_tags.get(machine, ""):
-                row = (
-                    session.query(Task)
-                    .filter_by(status=TASK_PENDING)
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                    .first()
-                )
-            else:
-                # 32-bit machine select only 32-bit pending tasks
-                # filter all tasks with 64-bit tag, then invert in filter
-                cond = or_(*[Task.tags.any(name="x64")])
-                row = (
-                    session.query(Task)
-                    .options(joinedload("tags"))
-                    .filter_by(status=TASK_PENDING)
-                    # distributed cape
-                    .filter(not_(Task.options.contains("node=")))
-                    .order_by(Task.priority.desc(), Task.added_on)
-                    .filter(not_(cond))
-                    .first()
-                )
+            row = (
+                session.query(Task)
+                .filter_by(status=TASK_PENDING)
+                .order_by(Task.priority.desc(), Task.added_on)
+                # distributed cape
+                .filter(not_(Task.options.contains("node=")))
+                .filter(cond)
+                .first()
+            )
+
             if row:
-                if row.machine and machine != row.machine and label != row.machine:
+                if row.machine and row.machine != machine.label:
                     return None
             else:
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
+            self.set_task_vm(task_id=row.id, vmname=machine.label, vm_id=machine.id)
             session.refresh(row)
 
             return row
@@ -1288,21 +1278,26 @@ class Database(object, metaclass=Singleton):
                 session.close()
                 return None
 
-            # force a special tag for 64-bit binaries to prevent them from being
-            # analyzed by default on VM types that can't handle them
+            # Assign architecture to task to fetch correct VM type
+            # This isn't 100% full proof
             if "PE32+" in file_type or "64-bit" in file_type:
                 if tags:
                     tags += ",x64"
                 else:
                     tags = "x64"
-
-            if LINUX_ENABLED:
-                linux_arch = _get_linux_vm_tag(file_type)
-                if linux_arch:
+            else:
+                if LINUX_ENABLED:
+                    linux_arch = _get_linux_vm_tag(file_type)
+                    if linux_arch:
+                        if tags:
+                            tags += f",{linux_arch}"
+                        else:
+                            tags = linux_arch
+                else:
                     if tags:
-                        tags += f",{linux_arch}"
+                        tags += ",x86"
                     else:
-                        tags = linux_arch
+                        tags = "x86"
 
             try:
                 task = Task(obj.file_path)
@@ -1508,7 +1503,7 @@ class Database(object, metaclass=Singleton):
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
-            file_path = file_path.encode("utf-8")
+            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
@@ -1519,7 +1514,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode("utf-8")
+                runfile = runfile.encode()
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1548,6 +1543,13 @@ class Database(object, metaclass=Singleton):
                     else:
                         log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
+
+                if package == "dll":
+                    dll_exports = File(self.task.target).get_dll_exports(options["file_type"])
+                    if "DllRegisterServer" in dll_exports:
+                        package = "regsvr"
+                    elif "xlAutoOpen" in dll_exports:
+                        package = "xls"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
@@ -1670,7 +1672,7 @@ class Database(object, metaclass=Singleton):
         sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
-            file_path = file_path.encode("utf-8")
+            file_path = file_path.encode()
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
@@ -2100,7 +2102,7 @@ class Database(object, metaclass=Singleton):
         """
         session = self.Session()
         try:
-            tasks_dict_count = session.query(Task.column, func.count(Task.column)).group_by(Task.column).all()
+            tasks_dict_count = session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
             return dict(tasks_dict_count)
         except SQLAlchemyError as e:
             log.debug("Database error counting all tasks: {0}".format(e))

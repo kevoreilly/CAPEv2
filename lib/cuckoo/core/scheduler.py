@@ -187,15 +187,13 @@ class AnalysisManager(threading.Thread):
             if not machine:
                 machine_lock.release()
                 log.debug(
-                    "Task #{0}: no machine available yet. To analyze x64 samples ensure to have set tags=x64 in hypervisor config".format(
-                        self.task.id
-                    )
+                    "Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id)
                 )
                 time.sleep(1)
             else:
                 log.info(
-                    "Task #{}: acquired machine {} (label={}, platform={})".format(
-                        self.task.id, machine.name, machine.label, machine.platform
+                    "Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(
+                        self.task.id, machine.name, machine.label, machine.arch, machine.platform
                     )
                 )
                 break
@@ -227,31 +225,12 @@ class AnalysisManager(threading.Thread):
             options["timeout"] = self.task.timeout
 
         if self.task.category == "file":
-            options["file_name"] = File(self.task.target).get_name()
-            options["file_type"] = File(self.task.target).get_type()
-            # if it's a PE file, collect export information to use in more smartly determining the right
-            # package to use
-            options["exports"] = ""
-            if HAVE_PEFILE and ("PE32" in options["file_type"] or "MS-DOS executable" in options["file_type"]):
-                try:
-                    pe = pefile.PE(self.task.target)
-                    if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
-                        exports = []
-                        for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            try:
-                                if not exported_symbol.name:
-                                    continue
-                                if isinstance(exported_symbol.name, bytes):
-                                    exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8"))
-                                else:
-                                    exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
-                            except Exception as e:
-                                log.error(e, exc_info=True)
-
-                        options["exports"] = ",".join(exports)
-                except Exception as e:
-                    log.error("PE type not recognised")
-                    log.error(e, exc_info=True)
+            file_obj = File(self.task.target)
+            options["file_name"] = file_obj.get_name()
+            options["file_type"] = file_obj.get_type()
+            # if it's a PE file, collect export information to use in more smartly determining the right package to use
+            options["exports"] = file_obj.get_dll_exports(options["file_type"])
+            del file_obj
 
         # options from auxiliar.conf
         for plugin in self.aux_cfg.auxiliar_modules.keys():
@@ -757,7 +736,6 @@ class Scheduler:
         # This loop runs forever.
         while self.running:
             time.sleep(1)
-
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions
@@ -765,7 +743,6 @@ class Scheduler:
             # manager or having two analyses pick the same machine.
             if not machine_lock.acquire(False):
                 continue
-
             machine_lock.release()
 
             # If not enough free disk space is available, then we print an
@@ -793,7 +770,6 @@ class Scheduler:
             # pending tasks. Loop over.
             if not machinery.availables():
                 continue
-
             # Exits if max_analysis_count is defined in the configuration
             # file and has been reached.
             if self.maxcount and self.total_analysis_count >= self.maxcount:
@@ -803,11 +779,11 @@ class Scheduler:
                 # Fetch a pending analysis task.
                 # TODO: this fixes only submissions by --machine, need to add other attributes (tags etc.)
                 for machine in self.db.get_available_machines():
-                    task = self.db.fetch(machine.name, machine.label)
+                    task = self.db.fetch(machine)
                     if task:
                         break
-
                 if task:
+
                     log.debug("Task #{0}: Processing task".format(task.id))
                     self.total_analysis_count += 1
                     # Initialize and start the analysis manager.

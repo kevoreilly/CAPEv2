@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 from lib.common.abstracts import Package
 
@@ -23,7 +23,7 @@ class XLST(Package):
         wmic = self.get_path("wmic.exe")
 
         if not path.endswith(".xsl"):
-            os.rename(path, path + ".xsl")
+            os.rename(path, f"{path}.xsl")
             path += ".xsl"
 
-        return self.execute(wmic, 'process LIST /FORMAT:"%s"' % path, path)
+        return self.execute(wmic, f'process LIST /FORMAT:"{path}"', path)

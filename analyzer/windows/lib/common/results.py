@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
 import socket
 import time
 from pathlib import Path
@@ -23,12 +23,12 @@ def upload_to_host(file_path, dump_path, pids=[], ppids=[], metadata="", categor
     infd = None
     we_open = False
     if not os.path.exists(file_path):
-        log.warning("File {} doesn't exist anymore".format(file_path))
+        log.warning("File %s doesn't exist anymore", file_path)
         return
     file_size = Path(file_path).stat().st_size
-    log.info(f"File {file_path} size is {file_size}, Max size: {config.upload_max_size}")
+    log.info("File %s size is %d, Max size: %s", file_path, file_size, config.upload_max_size)
     if int(config.upload_max_size) < int(file_size) and config.do_upload_max_size is False:
-        log.warning("File {} size is too big: {}, ignoring".format(file_path, file_size))
+        log.warning("File %s size is too big: %d, ignoring", file_path, file_size)
         return
     try:
         nc = NetlogFile()
@@ -43,7 +43,7 @@ def upload_to_host(file_path, dump_path, pids=[], ppids=[], metadata="", categor
                 nc.send(buf, retry=True)
                 buf = infd.read(BUFSIZE)
     except Exception as e:
-        log.error("Exception uploading file {0} to host: {1}".format(file_path, e), exc_info=True)
+        log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
         if infd and we_open:
             infd.close()
@@ -83,9 +83,9 @@ class NetlogConnection(object):
                 self.connect()
                 self.send(data, retry=False)
             else:
-                print(("Unhandled exception in NetlogConnection:", str(e)))
+                print(f"Unhandled exception in NetlogConnection: {e}")
         except Exception as e:
-            log.error(("Unhandled exception in NetlogConnection:", str(e)))
+            log.error("Unhandled exception in NetlogConnection: %s", e)
             # We really have nowhere to log this, if the netlog connection
             # does not work, we can assume that any logging won't work either.
             # So we just fail silently.
@@ -127,16 +127,16 @@ class NetlogFile(NetlogConnection):
             ppids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (
-                dump_path.encode("utf8"),
+                dump_path.encode(),
                 filepath.encode("utf-8", "replace"),
-                pids.encode("utf8") if isinstance(pids, str) else pids,
-                ppids.encode("utf8") if isinstance(ppids, str) else ppids,
-                metadata.encode("utf8") if isinstance(metadata, str) else metadata,
-                category.encode("utf8") if isinstance(category, str) else category,
+                pids.encode() if isinstance(pids, str) else pids,
+                ppids.encode() if isinstance(ppids, str) else ppids,
+                metadata.encode() if isinstance(metadata, str) else metadata,
+                category.encode() if isinstance(category, str) else category,
                 1 if duplicated else 0,
             )
         else:
-            self.proto = b"FILE\n%s\n" % dump_path.encode("utf8")
+            self.proto = b"FILE\n%s\n" % dump_path.encode()
         self.connect()
 
 
@@ -148,4 +148,4 @@ class NetlogHandler(logging.Handler, NetlogConnection):
 
     def emit(self, record):
         msg = self.format(record)
-        self.send(msg.encode("utf-8") + b"\n")
+        self.send(msg.encode() + b"\n")

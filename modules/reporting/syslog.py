@@ -102,7 +102,7 @@ class Syslog(Report):
 
         if "malscore" in results:
             syslog += 'MalScore="' + str(results["malscore"]) + '" '
-        if "malfamily" in results and results["malfamily"]:
+        if results.get("malfamily"):
             syslog += 'MalFamily="' + str(results["malfamily"]) + '" '
 
         if "network" in results:

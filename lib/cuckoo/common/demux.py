@@ -36,12 +36,12 @@ if sf_version:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
         sys.exit()
     # Latest release
-    if int(sf_version_splited[-1]) < 27:
+    if int(sf_version_splited[-1]) < 28:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
-tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode("utf8")
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
 demux_extensions_list = [
     "",
@@ -120,7 +120,7 @@ def options2passwd(options):
     if "password=" in options:
         password = get_options(options).get("password")
         if password and isinstance(password, bytes):
-            password = password.decode("utf8")
+            password = password.decode()
 
     return password
 
@@ -223,7 +223,7 @@ def demux_sample(filename, package, options, use_sflock=True):
     """
     # sflock requires filename to be bytes object for Py3
     if isinstance(filename, str) and use_sflock:
-        filename = filename.encode("utf8")
+        filename = filename.encode()
     # if a package was specified, then don't do anything special
     if package:
         return [filename]

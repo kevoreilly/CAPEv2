@@ -2,19 +2,20 @@
 # Copyright (C) 2015 Dmitry Rodionov
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
+
 from __future__ import absolute_import
-import os
-import json
-from getpass import getuser
 import logging
+import os
+
 from lib.core.config import Config
-from lib.common.common import sanitize_path, path_for_script, filelines, current_directory
+
+# from getpass import getuser
+
 
 log = logging.getLogger(__name__)
 
 
 def apicalls(target, **kwargs):
-    """ """
     if not target:
         raise Exception("Invalid target for apicalls()")
 
@@ -50,20 +51,19 @@ def _stap_command_line(target, **kwargs):
     # cmd += ["-o"]
     # cmd += ["stap.log"]
     # cmd += [path]
-    cmd = "sudo staprun -vv -o stap.log " + path
+    cmd = f"sudo staprun -vv -o stap.log {path}"
 
     run_as_root = kwargs.get("run_as_root", False)
 
+    target_cmd = f'"{target}"'
     if "args" in kwargs:
-        target_cmd = '"%s %s"' % (target, " ".join(kwargs["args"]))
-    else:
-        target_cmd = '"%s"' % (target)
+        target_cmd += f'" {" ".join(kwargs["args"])}"'
 
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
     # if not run_as_root:
-    #    target_cmd = '"sudo -u %s %s"' % (getuser(), target_cmd)
-    #    cmd += "-DSUDO=1"
+    #    target_cmd = f'"sudo -u {getuser()} {target_cmd}"'
+    #    cmd += " -DSUDO=1"
     # cmd += ["-c", target_cmd]
-    cmd += " -c " + target_cmd
+    cmd += f" -c {target_cmd}"
     return cmd

@@ -2,7 +2,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 
 from lib.common.abstracts import Package
 
@@ -20,4 +19,4 @@ class MSBUILD(Package):
 
     def start(self, path):
         msbuild = self.get_path_glob("msbuild.exe")
-        return self.execute(msbuild, '"%s"' % path, path)
+        return self.execute(msbuild, f'"{path}"', path)

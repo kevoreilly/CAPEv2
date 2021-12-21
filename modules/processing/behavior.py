@@ -530,7 +530,7 @@ class Summary:
             fileinfo = self.get_raw_argument(call, "FileInformation")
             if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
                 if not isinstance(fileinfo, bytes):
-                    fileinfo = fileinfo.encode("utf-8")
+                    fileinfo = fileinfo.encode()
                 disp = struct.unpack_from("B", fileinfo)[0]
                 if disp and filename not in self.delete_files:
                     self.delete_files.append(filename)
@@ -905,7 +905,7 @@ class Enhanced(object):
         # Not sure I really want this, way too noisy anyway and doesn't bring
         # much value.
         # if self.details:
-        #    gendata = gendata + [{"event" : "get",
+        #    gendata += [{"event" : "get",
         #           "object" : "procedure",
         #           "apis" : ["LdrGetProcedureAddress"],
         #           "args": [("name", "FunctionName"), ("ordinal", "Ordinal")]

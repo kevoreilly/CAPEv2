@@ -12,8 +12,11 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
+
 from lib.common.abstracts import Package
+
 
 # While this should work, it is an experimental rule - do a PR if you see fit!
 class INP(Package):
@@ -29,7 +32,7 @@ class INP(Package):
         # Rename file to file.inp so it can open properly.
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".inp":
-            new_path = path + ".inp"
+            new_path = f"{path}.inp"
             os.rename(path, new_path)
             path = new_path
-        return self.execute(inp, '"%s"' % path, path)
+        return self.execute(inp, f'"{path}"', path)

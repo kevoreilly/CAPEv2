@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+
 from lib.common.abstracts import Package
 
 
@@ -16,10 +17,10 @@ class LNK(Package):
 
     def start(self, path):
         if "." not in os.path.basename(path):
-            new_path = path + ".lnk"
+            new_path = f"{path}.lnk"
             os.rename(path, new_path)
             path = new_path
 
         cmd_path = self.get_path("cmd.exe")
-        cmd_args = '/c start /wait "" "{0}"'.format(path)
+        cmd_args = f'/c start /wait "" "{path}"'
         return self.execute(cmd_path, cmd_args, path)

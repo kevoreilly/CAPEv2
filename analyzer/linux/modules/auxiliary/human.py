@@ -3,14 +3,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import random
 import logging
-from threading import Thread
+import random
 import time
-import subprocess
-import os
-from Xlib.display import Display
+from threading import Thread
+
 import pyautogui
+from Xlib.display import Display
 
 from lib.common.abstracts import Auxiliary
 
@@ -53,7 +52,7 @@ def destroyOfficeWindows(window):
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
         ]:
-            log.debug("Destroying: %s" % w.get_wm_class()[1])
+            log.debug("Destroying: %s", w.get_wm_class()[1])
             w.destroy()
         destroyOfficeWindows(w)
 

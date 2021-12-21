@@ -145,7 +145,7 @@ def config(filebuf):
                 )
             for item in raw.split(b"\x00"):
                 if len(item) == LEN_BLOB_KEY - 1:
-                    cfg["RC4 key"] = item.split(b";")[0].decode("utf-8")
+                    cfg["RC4 key"] = item.split(b";")[0].decode()
 
     if botnet_code:
         botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base
@@ -156,8 +156,10 @@ def config(filebuf):
 
         return cfg
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 

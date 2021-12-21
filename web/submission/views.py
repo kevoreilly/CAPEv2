@@ -90,10 +90,9 @@ def get_form_data(platform):
         for tag in machine.tags:
             tags.append(tag.name)
 
+        label = f"{machine.label}:{machine.arch}"
         if tags:
-            label = "{}:{}".format(machine.label, ",".join(tags))
-        else:
-            label = "{}".format(machine.label)
+            label = f"{label}:{','.join(tags)}"
 
         if web_conf.linux.enabled:
             label = machine.platform + ":" + label

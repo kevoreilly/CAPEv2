@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.common.abstracts import Package
 
 
@@ -18,8 +19,8 @@ class Jar(Package):
         class_path = self.options.get("class")
 
         if class_path:
-            args = '-cp "%s" %s' % (path, class_path)
+            args = f'-cp "{path}" {class_path}'
         else:
-            args = '-jar "%s"' % path
+            args = f'-jar "{path}"'
 
         return self.execute(java, args, path)

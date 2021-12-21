@@ -167,19 +167,19 @@ class ReSubmitExtractedEXE(Report):
         report = dict(results)
         self.results = results
 
-        if (
-            "options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]
-        ) or ("Parent_Task_ID" in results.get("info", {}).get("custom", "")):
+        if (report["info"].get("options", {}).get("resubmitjob")) or (
+            "Parent_Task_ID" in results.get("info", {}).get("custom", "")
+        ):
             log.warning("Bailing out of resubexe this is a child task")
             return
-        if "signatures" in results and results["signatures"]:
+        if results.get("signatures"):
             for entry in results.get("signatures", []):
                 if entry.get("name", "") == "zwhitelistedcerts":
                     if entry.get("data", []):
                         log.info("Skipping resub our top listed object was signed by a whitelisted cert")
                         return
         try:
-            if "signatures" in results and results["signatures"]:
+            if results.get("signatures"):
                 for entry in results.get("signatures", []):
                     if entry.get("name", "") == "office_write_exe":
                         exe_writes = entry.get("data", [])
@@ -192,11 +192,11 @@ class ReSubmitExtractedEXE(Report):
         except Exception as e:
             log.info("Problem hunting for office exe magic files {0}".format(e))
 
-        if "options" in report["info"] and report["info"]["options"]:
+        if report["info"].get("options"):
             for key, val in list(report["info"]["options"].items()):
                 self.task_options_stack.append(key + "=" + str(val))
 
-        if "machine" in report["info"] and report["info"]["machine"]:
+        if report["info"].get("machine"):
             self.machine = report["info"]["machine"]["label"]
 
         # copy TLP from current
@@ -283,27 +283,26 @@ class ReSubmitExtractedEXE(Report):
                                     except Exception:
                                         filesdict[dropped["sha256"]] = dropped["path"]
 
-        if "suricata" in report and report["suricata"]:
-            if "files" in report["suricata"] and report["suricata"]["files"]:
-                for suricata_file_e in results["suricata"]["files"]:
-                    if not suricata_file_e.get("file_info", {}):
-                        continue
-                    # don't resubmit truncated files
-                    if suricata_file_e.get("file_info", {}).get("size", -1) != suricata_file_e.get("size", -2):
-                        continue
-                    if (
-                        results["target"]["category"] == "file"
-                        and results["target"]["file"]["sha256"] == suricata_file_e["file_info"]["sha256"]
-                    ):
-                        continue
+        if report.get("suricata", {}).get("files"):
+            for suricata_file_e in results["suricata"]["files"]:
+                if not suricata_file_e.get("file_info", {}):
+                    continue
+                # don't resubmit truncated files
+                if suricata_file_e.get("file_info", {}).get("size", -1) != suricata_file_e.get("size", -2):
+                    continue
+                if (
+                    results["target"]["category"] == "file"
+                    and results["target"]["file"]["sha256"] == suricata_file_e["file_info"]["sha256"]
+                ):
+                    continue
 
-                    if "file_info" in suricata_file_e:
-                        tmp_suricata_file_d = dict(suricata_file_e)
-                        if os.path.isfile(suricata_file_e["file_info"]["path"]):
-                            ftype = suricata_file_e["file_info"]["type"]
-                            if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:
-                                if suricata_file_e["file_info"]["sha256"] not in filesdict:
-                                    filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"]["path"]
+                if "file_info" in suricata_file_e:
+                    tmp_suricata_file_d = dict(suricata_file_e)
+                    if os.path.isfile(suricata_file_e["file_info"]["path"]):
+                        ftype = suricata_file_e["file_info"]["type"]
+                        if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:
+                            if suricata_file_e["file_info"]["sha256"] not in filesdict:
+                                filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"]["path"]
 
         db = Database()
 
@@ -343,7 +342,7 @@ class ReSubmitExtractedEXE(Report):
                         else:
                             if not added_previous and not subbed_hash:
                                 self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
-                                if "custom" in report["info"] and report["info"]["custom"]:
+                                if report["info"].get("custom"):
                                     self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
                                 task_ids_new = None
                                 if self.distributed and self.resuburl:
@@ -391,12 +390,12 @@ class ReSubmitExtractedEXE(Report):
                                             )
                                         )
                                         self.results.setdefault("resubs", list()).append(task_id)
-                                        self.resubcnt = self.resubcnt + 1
+                                        self.resubcnt += 1
                                         subbed_hash = True
 
             else:
                 self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
-                if "custom" in report["info"] and report["info"]["custom"]:
+                if report["info"].get("custom"):
                     self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
                 task_ids_new = None
                 if self.distributed and self.resuburl:
@@ -443,6 +442,6 @@ class ReSubmitExtractedEXE(Report):
                             )
                         )
                         self.results.setdefault("resubs", list()).append(task_id)
-                        self.resubcnt = self.resubcnt + 1
+                        self.resubcnt += 1
                 else:
                     log.warn("Error adding resubmitexe task to database")

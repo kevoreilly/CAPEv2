@@ -22,20 +22,20 @@ class JS_ANTIVM(Package):
         # fuck antivm
         for _ in range(50):
             # calc
-            calc = os.path.join("c:\\windows", "system32", "calc.exe")
+            calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
         if free is False:
             self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
-        args = '"%s"' % path
+        args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
             if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
-                os.rename(path, path + ".jse")
-                path = path + ".jse"
+                os.rename(path, f"{path}.jse")
+                path = f"{path}.jse"
             else:
-                os.rename(path, path + ".js")
-                path = path + ".js"
-        args = '"%s"' % path
+                os.rename(path, f"{path}.js")
+                path = f"{path}.js"
+        args = f'"{path}"'
         return self.execute(wscript, args, path)

@@ -76,7 +76,7 @@ class ProcessMemory(Processing):
         results = []
         do_strings = self.options.get("strings", False)
         nulltermonly = self.options.get("nullterminated_only", True)
-        minchars = str(self.options.get("minchars", 5)).encode("utf-8")
+        minchars = str(self.options.get("minchars", 5)).encode()
 
         if os.path.exists(self.pmemory_path):
             for dmp in os.listdir(self.pmemory_path):
@@ -137,7 +137,7 @@ class ProcessMemory(Processing):
                     matchdict = procdump.search(upat, all=True)
                     ustrings = matchdict["matches"]
                     for ws in ustrings:
-                        strings.append(ws.decode("utf-16le").encode("utf-8"))
+                        strings.append(ws.decode("utf-16le").encode())
 
                     proc["strings_path"] = dmp_path + ".strings"
                     proc["extracted_pe"] = extracted_pes

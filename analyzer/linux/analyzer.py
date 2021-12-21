@@ -3,14 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import pkgutil
-import logging
-import tempfile
-import traceback
-import time
 import datetime
+import logging
+import os
+import pkgutil
+import sys
+import tempfile
+import time
+import traceback
 import zipfile
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -21,8 +21,8 @@ from lib.common.constants import PATHS
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.results import upload_to_host
 from lib.core.config import Config
-from lib.core.startup import create_folders, init_logging
 from lib.core.packages import choose_package_class
+from lib.core.startup import create_folders, init_logging
 from modules import auxiliary
 
 log = logging.getLogger()
@@ -79,7 +79,7 @@ class Analyzer:
             # Set virtual machine clock.
             clock = datetime.datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
             # Setting date and time.
-            os.system('date -s "{0}"'.format(clock.strftime("%y-%m-%d %H:%M:%S")))
+            os.system(f'date -s "{clock.strftime("%y-%m-%d %H:%M:%S")}"')
 
         # We update the target according to its category. If it's a file, then
         # we store the path.
@@ -99,7 +99,7 @@ class Analyzer:
         dump_files()
 
         # Hell yeah.
-        log.info("Analysis completed.")
+        log.info("Analysis completed")
         return True
 
     def run(self):
@@ -115,7 +115,7 @@ class Analyzer:
         # one automatically.
         """
         if not self.config.package:
-            log.debug("No analysis package specified, trying to detect it automagically.")
+            log.debug("No analysis package specified, trying to detect it automagically")
 
             if self.config.category == "file":
                 package = "generic"
@@ -125,24 +125,22 @@ class Analyzer:
             # If we weren't able to automatically determine the proper package,
             # we need to abort the analysis.
             if not package:
-                raise CuckooError("No valid package available for file "
-                                  "type: {0}".format(self.config.file_type))
+                raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
 
-            log.info("Automatically selected analysis package \"%s\"", package)
+            log.info('Automatically selected analysis package "%s"', package)
         # Otherwise just select the specified package.
         else:
             package = self.config.package
 
         # Generate the package path.
-        package_name = "modules.packages.%s" % package
+        package_name = f"modules.packages.{package}"
 
         # Try to import the analysis package.
         try:
             __import__(package_name, globals(), locals(), ["dummy"], 0)
         # If it fails, we need to abort the analysis.
         except ImportError:
-            raise CuckooError("Unable to import package \"{0}\", does "
-                              "not exist.".format(package_name))
+            raise CuckooError('Unable to import package "{package_name}", does not exist')
 
         # Initialize the package parent abstract.
         Package()
@@ -151,8 +149,7 @@ class Analyzer:
         try:
             package_class = Package.__subclasses__()[0]
         except IndexError as e:
-            raise CuckooError("Unable to select package class "
-                              "(package={0}): {1}".format(package_name, e))
+            raise CuckooError(f"Unable to select package class (package={package_name}): {e}")
         """
         if self.config.package:
             suggestion = self.config.package
@@ -180,7 +177,7 @@ class Analyzer:
         pack = package_class(self.target, **kwargs)
         # Initialize Auxiliary modules
         Auxiliary()
-        prefix = auxiliary.__name__ + "."
+        prefix = f"{auxiliary.__name__}."
         for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
             if ispkg:
                 continue
@@ -189,7 +186,7 @@ class Analyzer:
             try:
                 __import__(name, globals(), locals(), ["dummy"], 0)
             except ImportError as e:
-                log.warning("Unable to import the auxiliary module " '"%s": %s', name, e)
+                log.warning('Unable to import the auxiliary module "%s": %s', name, e)
 
         # Walk through the available auxiliary modules.
         aux_enabled, aux_avail = [], []
@@ -217,13 +214,11 @@ class Analyzer:
             # pids = pack.start(self.target)
             pids = pack.start()
         except NotImplementedError:
-            raise CuckooError('The package "{0}" doesn\'t contain a run ' "function.".format(package_class))
+            raise CuckooError(f'The package "{package_class}" doesn\'t contain a run function')
         except CuckooPackageError as e:
-            raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_class, e))
+            raise CuckooError(f'The package "{package_class}" start function raised an error: {e}')
         except Exception as e:
-            raise CuckooError(
-                'The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_class, e)
-            )
+            raise CuckooError(f'The package "{package_class}" start function encountered an unhandled exception: {e}')
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -235,13 +230,13 @@ class Analyzer:
         # where the package isn't enabling any behavioral analysis), we don't
         # enable the process monitor.
         else:
-            log.info("No process IDs returned by the package, running " "for the full timeout.")
+            log.info("No process IDs returned by the package, running for the full timeout")
             pid_check = False
 
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.
         if self.config.enforce_timeout:
-            log.info("Enabled timeout enforce, running for the full timeout.")
+            log.info("Enabled timeout enforce, running for the full timeout")
             pid_check = False
 
         time_counter = 0
@@ -249,7 +244,7 @@ class Analyzer:
         while True:
             time_counter += 1
             if time_counter > int(self.config.timeout):
-                log.info("Analysis timeout hit, terminating analysis.")
+                log.info("Analysis timeout hit, terminating analysis")
                 break
 
             try:
@@ -272,7 +267,7 @@ class Analyzer:
                     # If none of the monitored processes are still alive, we
                     # can terminate the analysis.
                     if not PROCESS_LIST:
-                        log.info("Process list is empty, " "terminating analysis.")
+                        log.info("Process list is empty, terminating analysis")
                         break
 
                     # Update the list of monitored processes available to the
@@ -286,14 +281,14 @@ class Analyzer:
                     # returns False, it means that it requested the analysis
                     # to be terminate.
                     if not pack.check():
-                        log.info("The analysis package requested the " "termination of the analysis.")
+                        log.info("The analysis package requested the termination of the analysis")
                         break
 
                 # If the check() function of the package raised some exception
                 # we don't care, we can still proceed with the analysis but we
                 # throw a warning.
                 except Exception as e:
-                    log.warning('The package "%s" check function raised ' "an exception: %s", package_class, e)
+                    log.warning('The package "%s" check function raised an exception: %s', package_class, e)
             except Exception as e:
                 log.exception("The PID watching loop raised an exception: %s", e)
             finally:
@@ -305,7 +300,7 @@ class Analyzer:
             # final operations through the finish() function.
             pack.finish()
         except Exception as e:
-            log.warning('The package "%s" finish function raised an ' "exception: %s", package_class, e)
+            log.warning('The package "%s" finish function raised an exception: %s', package_class, e)
 
         try:
             # Upload files the package created to files in the results folder
@@ -314,7 +309,7 @@ class Analyzer:
                 for package in package_files:
                     upload_to_host(package[0], os.path.join("files", package[1]))
         except Exception as e:
-            log.warning('The package "%s" package_files function raised an ' "exception: %s", package_class, e)
+            log.warning('The package "%s" package_files function raised an exception: %s', package_class, e)
 
         # Terminate the Auxiliary modules.
         for aux in sorted(aux_enabled, key=lambda x: x.priority):
@@ -328,7 +323,7 @@ class Analyzer:
         if self.config.terminate_processes:
             # Try to terminate remaining active processes. We do this to make sure
             # that we clean up remaining open handles (sockets, files, etc.).
-            log.info("Terminating remaining processes before shutdown.")
+            log.info("Terminating remaining processes before shutdown")
 
             for pid in PROCESS_LIST:
                 proc = Process(pid=pid)
@@ -345,7 +340,7 @@ class Analyzer:
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:
-                log.warning("Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e)
+                log.warning("Exception running finish callback of auxiliary module %s: %s", aux.__class__.__name__, e)
 
         # Let's invoke the completion procedure.
         self.complete()
@@ -381,7 +376,7 @@ if __name__ == "__main__":
         if len(log.handlers):
             log.exception(error_exc)
         else:
-            sys.stderr.write("{0}\n".format(error_exc))
+            sys.stderr.write(f"{error_exc}\n")
 
     # Once the analysis is completed or terminated for any reason, we report
     # back to the agent, notifying that it can report back to the host.
@@ -391,6 +386,6 @@ if __name__ == "__main__":
                 "status": "complete",
                 "description": success,
             }
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode("utf-8")).read()
+            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
         except Exception as e:
             print(e)

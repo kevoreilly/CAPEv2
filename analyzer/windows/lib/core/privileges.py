@@ -3,11 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import wintypes, POINTER
+from ctypes import POINTER, wintypes
 
-from lib.common.defines import ADVAPI32, KERNEL32, SE_PRIVILEGE_ENABLED
-from lib.common.defines import LUID, TOKEN_PRIVILEGES, PROCESS_ALL_ACCESS
-from lib.common.defines import TOKEN_ALL_ACCESS, LUID_AND_ATTRIBUTES
+from lib.common.defines import (ADVAPI32, KERNEL32, LUID, LUID_AND_ATTRIBUTES, PROCESS_ALL_ACCESS, SE_PRIVILEGE_ENABLED,
+                                TOKEN_ALL_ACCESS, TOKEN_PRIVILEGES)
 
 
 def grant_debug_privilege(pid=None):

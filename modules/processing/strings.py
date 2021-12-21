@@ -31,11 +31,11 @@ def extract_strings(path, nulltermonly, minchars):
         endlimit = b"8192"
 
     if nulltermonly:
-        apat = b"([\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00"
-        upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"})\x00\x00"
+        apat = b"([\x20-\x7e]{" + str(minchars).encode() + b"," + endlimit + b"})\x00"
+        upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode() + b"," + endlimit + b"})\x00\x00"
     else:
-        apat = b"[\x20-\x7e]{" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
-        upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode("utf-8") + b"," + endlimit + b"}"
+        apat = b"[\x20-\x7e]{" + str(minchars).encode() + b"," + endlimit + b"}"
+        upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode() + b"," + endlimit + b"}"
 
     strings = [bytes2str(string) for string in re.findall(apat, data)]
     for ws in re.findall(upat, data):

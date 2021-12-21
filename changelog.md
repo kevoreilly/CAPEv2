@@ -1,3 +1,18 @@
+### [17-12-2021]
+* Add new field to DB `arch`. To avoid problems with pendings tasks when user didn't read config and set tags
+* If you using `dist.py` ensure next:
+    * If you have `x64` and `x86` VMs:
+        * `x64` VMs should have both `x64` and `x86` tags. Otherwise only `x64` tag
+    * `x86` VMs should have only `x86` tag.
+    * You can use any other tags, just to work properly you need those two.
+    * Tags requires update in `machine` table in distributed database if your server contains only x64 VMs.
+    * Probably will be improved in future for better solution
+* __ACTION REQUIRED__
+    * `cd /opt/CAPEv2/utils/db_migration && alembic upgrade head`
+    * Restart:
+        * CAPE service `systemctl restart cape`
+        * Web: uwsgi or cape-web
+
 ### [14-12-2021]
 * Monitor: Add Add debugger actions: 'nop' and 'wret' to patch instructions with nop and ret
 * Yara dynamic bypass for latest Emotet packer anti-vm trick

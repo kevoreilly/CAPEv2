@@ -2,18 +2,17 @@
 # Copyright (C) 2015 Dmitry Rodionov
 # This software may be modified and distributed under the terms
 # of the MIT license. See the LICENSE file for details.
+
 from __future__ import absolute_import
-
-from lib.common.apicalls import apicalls
-
 import inspect
-from os import sys, path, waitpid, environ
 import logging
-import time
 import subprocess
-from lib.common.results import NetlogFile
-from lib.core.config import Config
+import time
+from os import environ, path, sys, waitpid
+
 from lib.api.process import Process
+from lib.common.apicalls import apicalls
+from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
             log.info(file_name)
             name = "generic"
 
-    full_name = "modules.packages.%s" % name
+    full_name = f"modules.packages.{name}"
     try:
         # FIXME(rodionovd):
         # I couldn't figure out how to make __import__ import anything from
@@ -39,11 +38,11 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
         # from this module and then try to figure out the required member class
         module = __import__(full_name, globals(), locals(), ["*"])
     except ImportError:
-        raise Exception('Unable to import package "{0}": it does not ' "exist.".format(name))
+        raise Exception(f'Unable to import package "{name}": it does not exist')
     try:
         pkg_class = _found_target_class(module, name)
     except IndexError as err:
-        raise Exception("Unable to select package class (package={0}): " "{1}".format(full_name, err))
+        raise Exception(f"Unable to select package class (package={full_name}): {err}")
     return pkg_class
 
 
@@ -81,7 +80,7 @@ class Package(object):
 
     def __init__(self, target, **kwargs):
         if not target:
-            raise Exception("Package(): `target` and `host` arguments are required")
+            raise Exception("Package(): 'target' and 'host' arguments are required")
 
         self.target = target
         # Any analysis options?
@@ -133,7 +132,7 @@ class Package(object):
             self.apicalls_analysis()
             return self.proc.pid
         else:
-            raise Exception("Unsupported analysis method. Try `apicalls`.")
+            raise Exception("Unsupported analysis method. Try 'apicalls'")
         """
 
     def check(self):
@@ -177,14 +176,14 @@ class Package(object):
             pass
 
         stap_stop = time.time()
-        log.info("Process startup took %.2f seconds" % (stap_stop - stap_start))
+        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
         return True
 
     def normal_analysis(self):
         kwargs = {"args": self.args, "timeout": self.timeout, "run_as_root": self.run_as_root}
 
         # cmd = apicalls(self.target, **kwargs)
-        cmd = "%s %s" % (self.target, " ".join(kwargs["args"]))
+        cmd = f"{self.target} {' '.join(kwargs['args'])}"
         stap_start = time.time()
         self.proc = subprocess.Popen(
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
@@ -193,7 +192,7 @@ class Package(object):
         log.debug(self.proc.stderr.readline())
 
         stap_stop = time.time()
-        log.info("Process startup took %.2f seconds" % (stap_stop - stap_start))
+        log.info("Process startup took %.2f seconds", stap_stop - stap_start)
         return True
 
     @staticmethod
@@ -209,9 +208,9 @@ class Package(object):
         log.info("Package requested stop")
         try:
             r = self.proc.poll()
-            log.debug("stap subprocess retval %r", r)
+            log.debug("stap subprocess retval %d", r)
             self.proc.kill()
-            # subprocess.check_call(["sudo","kill", str(self.proc.pid)])
+            # subprocess.check_call(["sudo", "kill", str(self.proc.pid)])
             waitpid(self.proc.pid, 0)
             self._upload_file("stap.log", "logs/all.stap")
         except Exception as e:

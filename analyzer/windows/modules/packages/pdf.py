@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.common.abstracts import Package
 
 
@@ -21,4 +22,4 @@ class PDF(Package):
 
     def start(self, path):
         reader = self.get_path_glob("Adobe Reader")
-        return self.execute(reader, '"%s"' % path, path)
+        return self.execute(reader, f'"{path}"', path)

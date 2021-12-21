@@ -650,7 +650,7 @@ class RunSignatures(object):
             and self.cfg_processing.detections.behavior
         ):
             for match in matched:
-                if "families" in match and match["families"]:
+                if match.get("families"):
                     self.results["detections"] = match["families"][0]
                     self.results["malfamily_tag"] = "Behavior"
                     break

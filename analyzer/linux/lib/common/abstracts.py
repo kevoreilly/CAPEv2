@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
 
@@ -41,7 +42,7 @@ class Package(object):
         """
         p = Process()
         if not p.execute(cmd):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         return p.pid
 

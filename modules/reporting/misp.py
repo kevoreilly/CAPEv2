@@ -118,7 +118,7 @@ class MISP(Report):
         if self.options.get("network", False) and "network" in results.keys():
             urls = set()
             for req in results["network"].get("http", []):
-                if "uri" in req and req["uri"] not in whitelist:
+                if req.get("uri") not in whitelist:
                     urls.add(req["uri"])
                 if "user-agent" in req:
                     event.add_attribute("user-agent", req["user-agent"])

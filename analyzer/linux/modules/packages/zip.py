@@ -4,12 +4,13 @@
 # of the MIT license. See the LICENSE file for details.
 
 import logging
-from shutil import move
-from os import path, environ
+from os import environ, path
 from random import SystemRandom
+from shutil import move
 from string import ascii_letters
 from subprocess import check_output
-from zipfile import ZipFile, BadZipfile
+from zipfile import BadZipfile, ZipFile
+
 from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class Zip(Package):
         password = self.options.get("password")
         files = self._extract(self.target, password)
         if not files or len(files) == 0:
-            raise Exception("Invalid (or empty) zip archive: %s" % self.target)
+            raise Exception(f"Invalid (or empty) zip archive: {self.target}")
         # Look for a file to analyse
         target_name = self.options.get("file")
         if not target_name:
@@ -47,9 +48,9 @@ class Zip(Package):
         pkg_class = choose_package_class(file_info, target_name)
 
         if not pkg_class:
-            raise Exception("Unable to detect analysis package for the file %s" % target_name)
+            raise Exception(f"Unable to detect analysis package for the file {target_name}")
         else:
-            log.info('Analysing file "%s" using package "%s"', target_name, str(pkg_class))
+            log.info('Analysing file "%s" using package "%s"', target_name, pkg_class)
 
         kwargs = {"options": self.options, "timeout": self.timeout}
         # We'll forward start() method invocation to the proper package later
@@ -73,7 +74,7 @@ class Zip(Package):
         with ZipFile(archive_path, "r") as archive:
             try:
                 archive.extractall(path=extract_path, pwd=password)
-                log.info("extractall")
+                log.info("Extracted all")
             except BadZipfile:
                 raise Exception("Invalid Zip file")
             # Try to extract it again, but with a default password
@@ -81,7 +82,7 @@ class Zip(Package):
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as err:
-                    raise Exception("Unable to extract Zip file: %s" % err)
+                    raise Exception(f"Unable to extract Zip file: {err}")
             finally:
                 self._extract_nested_archives(archive, extract_path, password)
         return archive.namelist()
@@ -106,10 +107,7 @@ def _prepare_archive_at_path(filename):
         return None
     # Test if zip file contains a file named as itself
     if _is_overwritten(filename):
-        log.debug(
-            "ZIP file contains a file with the same name, original is \
-        going to be overwrite"
-        )
+        log.debug("ZIP file contains a file with the same name, original is going to be overwritten")
         # In this case we just change the file name
         new_zip_path = filename + _random_extension()
         move(filename, new_zip_path)
@@ -127,7 +125,7 @@ def _is_overwritten(zip_path):
 
 
 def _random_extension(length=5):
-    return "." + "".join(SystemRandom().choice(ascii_letters) for _ in range(length))
+    return f".{''.join(SystemRandom().choice(ascii_letters) for _ in range(length))}"
 
 
 def _fileinfo(target):

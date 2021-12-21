@@ -1,8 +1,8 @@
 from __future__ import absolute_import
-from threading import Thread
 import logging
-import zipfile
 import os
+import zipfile
+from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
@@ -172,10 +172,10 @@ class Evtx(Thread, Auxiliary):
                         f'auditpol /set /subcategory:"{subcategory}"'
                         f'/success:{settings["success"]} /failure:{settings["failure"]}'
                     )
-                    log.debug(f"Enabling advanced logging -> {cmd}")
+                    log.debug("Enabling advanced logging -> %s", cmd)
                     os.system(cmd)
                 except Exception as err:
-                    log.error(f"Cannot enable advanced logging for subcategory {subcategory} - {err}")
+                    log.error("Cannot enable advanced logging for subcategory %s - %s", subcategory, err)
                     pass
 
     def collect_windows_logs(self):
@@ -188,21 +188,21 @@ class Evtx(Thread, Auxiliary):
             logs_folder = "C:/windows/Sysnative/winevt/Logs"
             os.listdir(logs_folder)
         except Exception:
-            logs_folder = "c:/Windows/System32/winevt/Logs"
+            logs_folder = "C:/Windows/System32/winevt/Logs"
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
             for evtx_file_name in os.listdir(logs_folder):
                 for selected_evtx in self.windows_logs:
-                    _selected_evtx = selected_evtx + ".evtx"
+                    _selected_evtx = f"{selected_evtx}.evtx"
                     if "/" in _selected_evtx:
                         _selected_evtx = "%4".join(_selected_evtx.split("/"))
                     if _selected_evtx == evtx_file_name:
                         full_path = os.path.join(logs_folder, evtx_file_name)
                         if os.path.exists(full_path):
-                            log.debug(f"Adding {full_path} to zip dump")
+                            log.debug("Adding %s to zip dump", full_path)
                             zip_obj.write(full_path, evtx_file_name)
 
-        log.debug(f"Uploading {self.evtx_dump} to host")
+        log.debug("Uploading %s to host", self.evtx_dump)
         upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}", False)
 
     def wipe_windows_logs(self):
@@ -212,10 +212,10 @@ class Evtx(Thread, Auxiliary):
         try:
             for evtx_channel in self.windows_logs:
                 cmd = f"wevtutil cl {evtx_channel}"
-                log.debug(f"wiping {evtx_channel}")
+                log.debug("Wiping %s", evtx_channel)
                 os.system(cmd)
         except Exception as err:
-            log.error(f"module error - {err}")
+            log.error("Module error - %s", err)
             pass
 
     def run(self):

@@ -4,23 +4,10 @@
 
 from __future__ import absolute_import
 import os
-from lib.common.abstracts import Package
+from winreg import (HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, CloseKey, CreateKeyEx, EnumKey, OpenKey, QueryInfoKey,
+                    SetValueEx)
 
-from winreg import (
-    OpenKey,
-    CreateKeyEx,
-    SetValueEx,
-    CloseKey,
-    QueryInfoKey,
-    EnumKey,
-    EnumValue,
-    HKEY_LOCAL_MACHINE,
-    HKEY_CURRENT_USER,
-    KEY_SET_VALUE,
-    KEY_READ,
-    REG_SZ,
-    REG_DWORD,
-)
+from lib.common.abstracts import Package
 
 
 class PUB(Package):
@@ -60,9 +47,7 @@ class PUB(Package):
             return
 
         for oVersion in installedVersions:
-            key = CreateKeyEx(
-                HKEY_CURRENT_USER, r"{0}\{1}\Publisher\Security".format(baseOfficeKeyPath, oVersion), 0, KEY_SET_VALUE
-            )
+            key = CreateKeyEx(HKEY_CURRENT_USER, rf"{baseOfficeKeyPath}\{oVersion}\Publisher\Security", 0, KEY_SET_VALUE)
 
             SetValueEx(key, "VBAWarnings", 0, REG_DWORD, 1)
             SetValueEx(key, "AccessVBOM", 0, REG_DWORD, 1)
@@ -73,6 +58,6 @@ class PUB(Package):
         self.set_keys()
         publisher = self.get_path_glob("Microsoft Office Publisher")
         if not path.endswith(".pub"):
-            os.rename(path, path + ".pub")
+            os.rename(path, f"{path}.pub")
             path += ".pub"
-        return self.execute(publisher, '"%s"' % path, path)
+        return self.execute(publisher, f'"{path}"', path)

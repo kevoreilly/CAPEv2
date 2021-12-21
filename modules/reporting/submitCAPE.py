@@ -120,12 +120,12 @@ class SubmitCAPE(Report):
                         if value.strip("$") in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
                             address = cape_yara["addresses"][hit]
                             option = "{0}{1}={2}{3}".format(name, bp, address, suffix)
-                            bp = bp + 1
+                            bp += 1
                 if option not in self.task_options:
                     if new_options == "":
                         new_options = option
                     else:
-                        new_options = new_options + "," + option
+                        new_options += "," + option
 
             if not address:
                 return
@@ -142,12 +142,12 @@ class SubmitCAPE(Report):
             if "file-offsets" in self.task_options:
                 self.task_options = self.task_options.replace("file-offsets=0", "file-offsets=0", 1)
             else:
-                self.task_options = self.task_options + ",file-offsets=1"
+                self.task_options += ",file-offsets=1"
 
             log.info("options = %s", new_options)
-            self.task_options = self.task_options + "," + new_options
+            self.task_options += "," + new_options
             if "auto=" not in self.task_options:
-                self.task_options = self.task_options + ",auto=1"
+                self.task_options += ",auto=1"
 
             return
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 __description__ = "Decode VBE script"
 __author__ = "Didier Stevens"
@@ -24,14 +23,14 @@ Reference:
   https://gallery.technet.microsoft.com/Encode-and-Decode-a-VB-a480d74c
 """
 
-import optparse
-import sys
-import os
-import signal
-import textwrap
-import re
-import zipfile
 import binascii
+import optparse
+import os
+import re
+import signal
+import sys
+import textwrap
+import zipfile
 
 MALWARE_PASSWORD = "infected"
 
@@ -317,7 +316,7 @@ def Decode(data):
     for char in data.replace("@&", chr(10)).replace("@#", chr(13)).replace("@*", ">").replace("@!", "<").replace("@$", "@"):
         byte = ord(char)
         if byte < 128:
-            index = index + 1
+            index += 1
         if (byte == 9 or byte > 31 and byte < 128) and byte != 60 and byte != 62 and byte != 64:
             char = [c for c in dDecode[byte]][dCombination[index % 64]]
         result += char
@@ -347,7 +346,7 @@ def DecodeVBEJSE(content, options):
 
 
 def Main():
-    oParser = optparse.OptionParser(usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__)
+    oParser = optparse.OptionParser(usage=f"usage: %prog [options] [file]\n{__description__}", version=f"%prog {__version__}")
     oParser.add_option("-m", "--man", action="store_true", default=False, help="Print manual")
     (options, args) = oParser.parse_args()
 

@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import json
-import logging
 import locale
+import logging
+import os
 from io import BytesIO
 
 from lib.api.utils import Utils
@@ -87,7 +87,7 @@ class DigiSig(Auxiliary):
         lastnum = "0"
         for item in signers:
             num = str(item.split(":")[0].count("-"))
-            signed = signType + " " + num
+            signed = f"{signType} {num}"
             if lastnum != num and buf:
                 self.json_data["signers"].append(buf)
                 buf = dict()
@@ -110,17 +110,17 @@ class DigiSig(Auxiliary):
 
         try:
             if self.config.category != "file":
-                log.debug("Skipping authenticode validation, analysis is not " "a file.")
+                log.debug("Skipping authenticode validation, analysis is not a file")
                 return True
 
             sign_path = os.path.join(os.getcwd(), "bin", "signtool.exe")
             if not os.path.exists(sign_path):
-                log.info("Skipping authenticode validation, signtool.exe was " "not found in bin/")
+                log.info("Skipping authenticode validation, signtool.exe was not found in bin/")
                 return True
 
-            log.debug("Checking for a digital signature.")
+            log.debug("Checking for a digital signature")
             file_path = os.path.join(os.environ["TEMP"] + os.sep, str(self.config.file_name))
-            cmd = '{0} verify /pa /v "{1}"'.format(sign_path, file_path)
+            cmd = f'{sign_path} verify /pa /v "{file_path}"'
             ret, out, err = util.cmd_wrapper(cmd)
             out = out.decode(locale.getpreferredencoding(), errors="ignore")
 
@@ -130,26 +130,26 @@ class DigiSig(Auxiliary):
                 self.jsonify("Certificate Chain", self.cert_build)
                 self.jsonify("Timestamp Chain", self.time_build)
                 self.json_data["valid"] = True
-                log.debug("File has a valid signature.")
+                log.debug("File has a valid signature")
             # Non-zero return, it didn't validate or exist
             else:
                 self.json_data["error"] = True
                 errmsg = b" ".join(b"".join(err.split(b":")[1:]).split())
-                self.json_data["error_desc"] = errmsg.decode("utf-8")
+                self.json_data["error_desc"] = errmsg.decode()
                 if b"file format cannot be verified" in err:
-                    log.debug("File format not recognized.")
+                    log.debug("File format not recognized")
                 elif b"No signature found" not in err:
-                    log.debug("File has an invalid signature.")
+                    log.debug("File has an invalid signature")
                     _ = self.parse_digisig(out)
                     self.jsonify("Certificate Chain", self.cert_build)
                     self.jsonify("Timestamp Chain", self.time_build)
                 else:
-                    log.debug("File is not signed.")
+                    log.debug("File is not signed")
 
             if self.json_data:
-                log.info("Uploading signature results to aux/{0}.json".format(self.__class__.__name__))
+                log.info("Uploading signature results to aux/%s.json", self.__class__.__name__)
                 upload = BytesIO()
-                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode("utf-8"))
+                upload.write(json.dumps(self.json_data, ensure_ascii=False).encode())
                 upload.seek(0)
                 nf = NetlogFile()
                 nf.init("aux/DigiSig.json")

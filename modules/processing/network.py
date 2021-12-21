@@ -678,7 +678,7 @@ class Pcap:
             server = reqs.getServerMessagesFilter(tcpdata, filters_sc)
             for message in server:
                 message.update(conn)
-            self.irc_requests = self.irc_requests + client + server
+            self.irc_requests += client + server
         except Exception:
             return False
 
@@ -1298,7 +1298,7 @@ def next_connection_packets(piter, linktype=1):
             "dst": dip,
             "sport": sport,
             "dport": dport,
-            "raw": b64encode(payload_from_raw(raw, linktype)).decode("utf-8"),
+            "raw": b64encode(payload_from_raw(raw, linktype)).decode(),
             "direction": first_ft == ft,
         }
 

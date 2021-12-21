@@ -2,9 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-
 from __future__ import absolute_import
 import os
+
 from lib.common.abstracts import Package
 
 
@@ -23,9 +23,9 @@ class XLS(Package):
 
     def start(self, path):
         if "." not in os.path.basename(path):
-            new_path = path + ".xls"
+            new_path = f"{path}.xls"
             os.rename(path, new_path)
             path = new_path
 
         excel = self.get_path_glob("Microsoft Office Excel")
-        return self.execute(excel, '"%s" /dde' % path, path)
+        return self.execute(excel, f'"{path}" /dde', path)

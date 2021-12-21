@@ -1,9 +1,11 @@
 # Copyright (C) 2014-2016 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
 import os
 import tempfile
+
 from lib.common.rand import random_string
 
 ROOT = os.path.join(tempfile.gettempdir(), random_string(6, 10))

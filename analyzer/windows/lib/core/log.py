@@ -3,19 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import socket
 import logging
+import socket
 import traceback
-from ctypes import create_string_buffer, create_unicode_buffer
-from ctypes import byref, c_int, sizeof, addressof
+from ctypes import addressof, byref, c_int, create_string_buffer, sizeof
 from threading import Thread
 
-from lib.common.defines import ADVAPI32, KERNEL32
-from lib.common.defines import ERROR_MORE_DATA, ERROR_PIPE_CONNECTED
-from lib.common.defines import PIPE_ACCESS_INBOUND, PIPE_TYPE_MESSAGE
-from lib.common.defines import PIPE_READMODE_MESSAGE, PIPE_WAIT
-from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
-from lib.common.defines import SECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES
+from lib.common.defines import (ADVAPI32, ERROR_MORE_DATA, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE, KERNEL32,
+                                PIPE_ACCESS_INBOUND, PIPE_READMODE_MESSAGE, PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
+                                SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR)
 
 log = logging.getLogger()
 
@@ -61,7 +57,7 @@ class LogServerThread(Thread):
                 try:
                     data += buf.raw[: bytes_read.value]
                 except MemoryError:
-                    log.error("MemoryError just happend")
+                    log.error("MemoryError just occurred")
                     break
                 if success or KERNEL32.GetLastError() != ERROR_MORE_DATA:
                     break
@@ -118,7 +114,7 @@ class LogServer(object):
         )
 
         if h_pipe == INVALID_HANDLE_VALUE:
-            log.warning("Unable to create log server pipe.")
+            log.warning("Unable to create log server pipe")
             return False
 
         logserver = LogServerThread(h_pipe, result_ip, result_port)

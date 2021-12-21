@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 from lib.common.abstracts import Package
 
@@ -22,7 +22,7 @@ class HTA(Package):
         mshta = self.get_path("mshta.exe")
 
         if not path.endswith(".hta"):
-            os.rename(path, path + ".hta")
+            os.rename(path, f"{path}.hta")
             path += ".hta"
 
-        return self.execute(mshta, '"%s"' % path, path)
+        return self.execute(mshta, f'"{path}"', path)

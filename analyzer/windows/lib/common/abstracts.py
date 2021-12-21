@@ -4,20 +4,17 @@
 
 from __future__ import absolute_import
 import glob
-import os
 import logging
+import os
 import shutil
+
+from lib.api.process import Process
+from lib.common.exceptions import CuckooPackageError
 
 INJECT_CREATEREMOTETHREAD = 0
 INJECT_QUEUEUSERAPC = 1
 
 log = logging.getLogger(__name__)
-log.info("Started imports")
-from lib.api.process import Process
-from lib.api.utils import Utils
-from lib.common.exceptions import CuckooPackageError
-
-log.info("End imports")
 
 
 class Package(object):
@@ -67,7 +64,7 @@ class Package(object):
             elif basedir == "HomeDrive":
                 # os.path.join() does not work well when giving just C:
                 # instead of C:\\, so we manually add the backslash.
-                homedrive = os.getenv("HomeDrive") + "\\"
+                homedrive = f"{os.getenv('HomeDrive')}\\"
                 yield os.path.join(homedrive, *path[1:])
             else:
                 yield os.path.join(*path)
@@ -81,7 +78,7 @@ class Package(object):
             if os.path.isfile(path):
                 return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def get_path_glob(self, application):
         """Search for the application in all available paths with glob support.
@@ -93,7 +90,7 @@ class Package(object):
                 if os.path.isfile(path):
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def get_path_app_in_path(self, application):
         """Search for the application in all available paths.
@@ -107,7 +104,7 @@ class Package(object):
                 else:
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." % application)
+        raise CuckooPackageError(f"Unable to find any {application} executable")
 
     def execute(self, path, args, interest):
         """Starts an executable for analysis.
@@ -124,7 +121,7 @@ class Package(object):
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         if free:
             return None
@@ -149,7 +146,7 @@ class Package(object):
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
-            raise CuckooPackageError("Unable to execute the initial process, " "analysis aborted.")
+            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
         is_64bit = p.is_64bit()
 

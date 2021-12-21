@@ -16,5 +16,5 @@ class Reg(Package):
 
     def start(self, path):
         regexe = self.get_path("reg.exe")
-        reg_args = 'import "{0}"'.format(path)
+        reg_args = f'import "{path}"'
         return self.execute(regexe, reg_args, path)

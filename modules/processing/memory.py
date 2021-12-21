@@ -298,7 +298,7 @@ class VolatilityManager(object):
                 raise CuckooProcessingError("Error opening file %s" % e)
 
             nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
-            minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode("utf-8")
+            minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode()
 
             if nulltermonly:
                 apat = b"([\x20-\x7e]{" + minchars + b",})\x00"
@@ -309,7 +309,7 @@ class VolatilityManager(object):
 
             strings = re.findall(apat, data)
             for ws in re.findall(upat, data):
-                strings.append(ws.decode("utf-16le").encode("utf-8"))
+                strings.append(ws.decode("utf-16le").encode())
             f = open(self.memfile + ".strings", "wb")
             f.write(b"\n".join(strings))
             f.close()

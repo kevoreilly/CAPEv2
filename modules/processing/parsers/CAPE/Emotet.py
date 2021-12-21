@@ -98,7 +98,7 @@ def emotet_decode(data, size, xor_key):
         off_to = off_from + 4
         encoded_dw = int.from_bytes(data[off_from:off_to], byteorder="little")
         decoded = xor_key ^ encoded_dw
-        res = res + decoded.to_bytes(4, byteorder="little")
+        res += decoded.to_bytes(4, byteorder="little")
     return res
 
 
@@ -426,8 +426,8 @@ def config(filebuf):
     except ValueError as e:
         log.error(e)
     if pem_key:
-        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode('utf8')})
-        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode("utf8"))
+        # self.reporter.add_metadata("other", {"RSA public key": pem_key.exportKey().decode()})
+        conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
     else:
         if yara_matches.get("$ref_rsa"):
             ref_rsa_offset = int(yara_matches["$ref_rsa"])

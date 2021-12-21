@@ -384,6 +384,6 @@ def get_error_string(error_code):
     @return: error description if found.
     """
     if error_code in ERRORS:
-        return "%s (%s)" % (ERRORS[error_code]["description"], ERRORS[error_code]["name"])
+        return f"{ERRORS[error_code]['description']} ({ERRORS[error_code]['name']})"
     else:
         return str(error_code)

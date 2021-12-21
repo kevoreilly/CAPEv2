@@ -4,17 +4,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import random
 import logging
+import random
 import traceback
+from ctypes import POINTER, WINFUNCTYPE, c_bool, c_int, create_unicode_buffer, memmove, sizeof
 from threading import Thread
-from ctypes import WINFUNCTYPE, POINTER
-from ctypes import c_bool, c_int, create_unicode_buffer, create_string_buffer, memmove, sizeof
 
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import KERNEL32, USER32
-from lib.common.defines import WM_GETTEXT, WM_GETTEXTLENGTH, WM_CLOSE, BM_CLICK
-from lib.common.defines import GMEM_MOVEABLE, CF_TEXT
+from lib.common.defines import BM_CLICK, CF_TEXT, GMEM_MOVEABLE, KERNEL32, USER32, WM_CLOSE, WM_GETTEXT, WM_GETTEXTLENGTH
 
 log = logging.getLogger(__name__)
 
@@ -244,7 +241,7 @@ def get_office_window(hwnd, lparam):
         USER32.GetWindowTextW(hwnd, text, 1024)
         if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             # send ALT+F4 equivalent
-            log.info("Closing Office window.")
+            log.info("Closing Office window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
             CLOSED_OFFICE = True
     return True

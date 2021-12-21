@@ -2821,9 +2821,9 @@ class MAEC41Report(Report):
         NS = Namespace("http://www.cuckoosandbox.org", "Cuckoosandbox")
         mixbox.idgen.set_id_namespace(NS)
         # Setup the MAEC components
-        if "target" in self.results and self.results["target"]["category"] == "file":
+        if self.results.get("target")["category"] == "file":
             self.tool_id = mixbox.idgen.create_id(prefix=self.results["target"]["file"]["md5"])
-        elif "target" in self.results and self.results["target"]["category"] == "url":
+        elif self.results.get("target")["category"] == "url":
             self.tool_id = mixbox.idgen.create_id(prefix=hashlib.md5(self.results["target"]["file"]).hexdigest())
         else:
             raise CuckooReportError("Unknown target type or targetinfo module disabled")
@@ -2839,13 +2839,13 @@ class MAEC41Report(Report):
         # Add the Bundle to the Subject.
         self.subject.add_findings_bundle(self.dynamic_bundle)
         # Generate Static Analysis Bundles, if static results exist.
-        if self.options["static"] and "static" in self.results and self.results["static"]:
+        if self.options["static"] and self.results.get("static"):
             self.static_bundle = Bundle(None, False, "4.1", "static analysis tool output")
             self.subject.add_findings_bundle(self.static_bundle)
-        if self.options["strings"] and "strings" in self.results and self.results["strings"]:
+        if self.options["strings"] and self.results.get("strings"):
             self.strings_bundle = Bundle(None, False, "4.1", "static analysis tool output")
             self.subject.add_findings_bundle(self.strings_bundle)
-        if self.options["virustotal"] and "virustotal" in self.results and self.results["virustotal"]:
+        if self.options["virustotal"] and self.results.get("virustotal"):
             self.virustotal_bundle = Bundle(None, False, "4.1", "static analysis tool output")
             self.subject.add_findings_bundle(self.virustotal_bundle)
 
@@ -3058,7 +3058,7 @@ class MAEC41Report(Report):
             parameter_list.append(
                 {"ordinal_position": apos, "name": arg["name"], "value": self._illegal_xml_chars_RE.sub("?", arg["value"])}
             )
-            apos = apos + 1
+            apos += 1
         # Try to add the mapped Action Name.
         if call["api"] in api_call_mappings:
             mapping_dict = api_call_mappings[call["api"]]
@@ -3271,17 +3271,17 @@ class MAEC41Report(Report):
                 object_list = output_objects
 
             for object in object_list:
-                if "properties" in object and object["properties"]["xsi:type"] == "WindowsThreadObjectType":
+                if object.get("properties", {}).get("xsi:type") == "WindowsThreadObjectType":
                     for output_handle in output_handles:
-                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] == "Thread":
+                        if output_handle["properties"].get("type") == "Thread":
                             substituted_object = self.addHandleToMap(output_handle, object)
                             if substituted_object:
                                 associated_objects_list.remove(object)
                                 associated_objects_list.remove(output_handle)
                                 associated_objects_list.append(substituted_object)
-                elif "properties" in object and object["properties"]["xsi:type"] == "ProcessObjectType":
+                elif object.get("properties", {}).get("xsi:type") == "ProcessObjectType":
                     for output_handle in output_handles:
-                        if "type" in output_handle["properties"] and output_handle["properties"]["type"] == "Process":
+                        if output_handle["properties"].get("type") == "Process":
                             substituted_object = self.addHandleToMap(output_handle, object)
                             if substituted_object:
                                 associated_objects_list.remove(object)
@@ -3413,7 +3413,7 @@ class MAEC41Report(Report):
             parameter_value = globals()[parameter_mapping_dict["post_processing"]](parameter_value)
 
         # Handle the actual element value
-        if "associated_object_element" in parameter_mapping_dict and parameter_mapping_dict["associated_object_element"]:
+        if parameter_mapping_dict.get("associated_object_element"):
             # Handle simple (non-nested) elements
             if "/" not in parameter_mapping_dict["associated_object_element"]:
                 associated_object_dict["properties"][parameter_mapping_dict["associated_object_element"].lower()] = parameter_value
@@ -3503,7 +3503,7 @@ class MAEC41Report(Report):
             # Add the action to the dynamic analysis Bundle.
             self.dynamic_bundle.add_action(MalwareAction.from_dict(action_dict), action_collection_name)
             # Update the action position
-            pos = pos + 1
+            pos += 1
 
     # Map the Cuckoo status to that used in the MAEC/CybOX action_status field.
     def mapActionStatus(self, status):
@@ -3659,7 +3659,7 @@ class MAEC41Report(Report):
         @param file: file dict from Cuckoo dict.
         @requires: file object.
         """
-        if "ssdeep" in file and file["ssdeep"] is not None:
+        if file.get("ssdeep") is not None:
             hashes_list = [
                 {"type": "MD5", "simple_hash_value": file["md5"]},
                 {"type": "SHA1", "simple_hash_value": file["sha1"]},
@@ -3726,7 +3726,7 @@ class MAEC41Report(Report):
         self.subject.add_analysis(dynamic_analysis)
 
         # Add the static analysis.
-        if "static" in self.options and self.options["static"] and "static" in self.results and self.results["static"]:
+        if self.options.get("static") and self.results.get("static"):
             static_analysis = Analysis(
                 mixbox.idgen.create_id(prefix="analysis"),
                 "static",
@@ -3750,7 +3750,7 @@ class MAEC41Report(Report):
             # Add the static file results.
             self.static_bundle.add_object(self.createWinExecFileObj())
         # Add the strings analysis.
-        if "strings" in self.options and self.options["strings"] and "strings" in self.results and self.results["strings"]:
+        if self.options.get("strings") and self.results.get("strings"):
             strings_analysis = Analysis(
                 mixbox.idgen.create_id(prefix="analysis"),
                 "static",
@@ -3774,7 +3774,7 @@ class MAEC41Report(Report):
             # Add the strings results.
             self.strings_bundle.add_object(self.createFileStringsObj())
         # Add the VirusTotal analysis.
-        if self.options["virustotal"] and "virustotal" in self.results and self.results["virustotal"]:
+        if self.options["virustotal"] and self.results.get("virustotal"):
             virustotal_analysis = Analysis(
                 mixbox.idgen.create_id(prefix="analysis"),
                 "static",

@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import shutil
 
 from lib.common.abstracts import Package
 
@@ -24,8 +23,8 @@ class CHM(Package):
         # If the file doesn't have the proper .chm extension force it
         # and rename it. This is needed for hh to open correctly.
         if ext != ".chm":
-            new_path = path + ".chm"
+            new_path = f"{path}.chm"
             os.rename(path, new_path)
             path = new_path
 
-        return self.execute(hh, '"%s"' % path, path)
+        return self.execute(hh, f'"{path}"', path)

@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 from shutil import copyfile
+
 from lib.common.abstracts import Package
 
 
@@ -18,7 +18,7 @@ class VBSJSE(Package):
     def start(self, path):
         wscript = self.get_path("WScript")
         # We are here bcz of no extension
-        copyfile(path, path + ".vbe")
-        copyfile(path, path + ".jse")
-        self.execute(wscript, '"%s.vbe"' % path, path + ".vbe")
-        return self.execute(wscript, '"%s.jse"' % path, path + ".jse")
+        copyfile(path, f"{path}.vbe")
+        copyfile(path, f"{path}.jse")
+        self.execute(wscript, f'"{path}.vbe"', f"{path}.vbe")
+        return self.execute(wscript, f'"{path}.jse"', f"{path}.jse")

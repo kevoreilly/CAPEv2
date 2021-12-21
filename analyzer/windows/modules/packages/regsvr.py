@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-import shutil
 
 from lib.common.abstracts import Package
 
@@ -26,13 +25,13 @@ class Regsvr(Package):
         # and rename it. This is needed for rundll32 to execute correctly.
         # See ticket #354 for details.
         if ext != ".dll":
-            new_path = path + ".dll"
+            new_path = f"{path}.dll"
             os.rename(path, new_path)
             path = new_path
 
         args = ""
         if arguments:
-            args += "{0} ".format(arguments)
+            args += f"{arguments} "
         args += path
 
         return self.execute(regsvr32, args, path)

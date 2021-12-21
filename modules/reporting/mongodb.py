@@ -97,9 +97,9 @@ class MongoDB(Report):
             # we do not want to convert that.
             if type(v) is str:
                 try:
-                    v.encode("utf-8")
+                    v.encode()
                 except UnicodeEncodeError:
-                    obj[k] = "".join(str(ord(_)) for _ in v).encode("utf-8")
+                    obj[k] = "".join(str(ord(_)) for _ in v).encode()
             else:
                 cls.ensure_valid_utf8(v)
 
@@ -300,7 +300,7 @@ class MongoDB(Report):
                                 parent_key, psize = self.debug_dict_size(report)[0]
                                 log.error(str(e))
                                 log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
-                                size_filter = size_filter - MEGABYTE
+                                size_filter -= MEGABYTE
                     except Exception as e:
                         log.error("Failed to delete child key: %s" % str(e))
                         error_saved = False

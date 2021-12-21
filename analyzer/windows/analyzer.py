@@ -737,7 +737,7 @@ class Files(object):
 
         self.add_pid(filepath, pid, verbose=False)
 
-    def dump_file(self, filepath, metadata="", pids=False, ppids=False, category="files"):
+    def dump_file(self, filepath, metadata="", pids="", ppids="", category="files"):
         """Dump a file to the host."""
         if not os.path.isfile(filepath):
             log.warning("File at path %s does not exist, skipping", filepath)
@@ -758,7 +758,8 @@ class Files(object):
             file_details = self.files_orig.get(filepath.lower())
             category = file_details["category"]
             metadata = file_details["metadata"]
-            pids = self.files.get(filepath.lower(), [])
+            # Do not remove or, as if no it will return empty list instead of string
+            pids = self.files.get(filepath.lower(), "") or ""
             filepath = self.files_orig.get(filepath.lower(), {}).get("path", filepath)
 
         if category == "memory":

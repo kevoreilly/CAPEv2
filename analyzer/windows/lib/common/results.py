@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 BUFSIZE = 1024 * 1024
 
 
-def upload_to_host(file_path, dump_path, pids=[], ppids=[], metadata="", category="", duplicated=False):
+def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", category="", duplicated=False):
     nc = None
     if not os.path.exists(file_path):
         log.warning("File %s doesn't exist anymore", file_path)
@@ -113,12 +113,8 @@ class NetlogFile(NetlogConnection):
         """
         if pids and not isinstance(pids, str):
             pids = " ".join(pids)
-        else:
-            pids = ""
         if ppids and not isinstance(ppids, str):
             ppids = " ".join(ppids)
-        else:
-            ppids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (
                 dump_path.encode(),

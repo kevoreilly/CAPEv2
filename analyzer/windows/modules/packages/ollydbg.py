@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from lib.common.abstracts import Package
 
 

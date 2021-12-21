@@ -2,13 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import logging
-import shutil
-
 from lib.common.abstracts import Package
-
-log = logging.getLogger(__name__)
+from lib.common.common import check_file_extension
 
 
 class MHT(Package):
@@ -27,9 +22,5 @@ class MHT(Package):
         # IE is going to open it as a text file, so your precious sample will not
         # be executed.
         # We help you sample to execute renaming it with a proper extension.
-        if not path.endswith(".mht"):
-            shutil.copy(path, f"{path}.mht")
-            path += ".mht"
-            log.info("Submitted file is missing extension, adding .mht")
-
+        path = check_file_extension(path, ".mht")
         return self.execute(iexplore, f'"{path}"', path)

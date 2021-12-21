@@ -7,6 +7,7 @@ import os
 import shutil
 
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 class UPX_dll(Package):
@@ -28,15 +29,7 @@ class UPX_dll(Package):
         arguments = self.options.get("arguments")
         dllloader = self.options.get("dllloader")
 
-        # Check file extension.
-        ext = os.path.splitext(path)[-1].lower()
-        # If the file doesn't have the proper .dll extension force it
-        # and rename it. This is needed for rundll32 to execute correctly.
-        # See ticket #354 for details.
-        if ext != ".dll":
-            new_path = f"{path}.dll"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".dll")
 
         args = f"{path},{function}"
         if arguments:

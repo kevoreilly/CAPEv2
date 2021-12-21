@@ -2,13 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import logging
-import os
-
 from lib.common.abstracts import Package
-
-log = logging.getLogger(__name__)
+from lib.common.common import check_file_extension
 
 
 class WSF(Package):
@@ -20,10 +15,6 @@ class WSF(Package):
 
     def start(self, path):
         wscript = self.get_path("WScript")
-
         # Enforce the .wsf file extension as is required by wscript.
-        if not path.endswith(".wsf"):
-            os.rename(path, f"{path}.wsf")
-            path += ".wsf"
-
+        path = check_file_extension(path, ".wsf")
         return self.execute(wscript, f'"{path}"', path)

@@ -2,10 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import os
-
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 class CHM(Package):
@@ -17,14 +15,5 @@ class CHM(Package):
 
     def start(self, path):
         hh = self.get_path_glob("hh.exe")
-
-        # Check file extension.
-        ext = os.path.splitext(path)[-1].lower()
-        # If the file doesn't have the proper .chm extension force it
-        # and rename it. This is needed for hh to open correctly.
-        if ext != ".chm":
-            new_path = f"{path}.chm"
-            os.rename(path, new_path)
-            path = new_path
-
+        path = check_file_extension(path, ".chm")
         return self.execute(hh, f'"{path}"', path)

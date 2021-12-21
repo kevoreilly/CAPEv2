@@ -18,8 +18,8 @@ class Dll(Package):
 
     def start(self, path):
         rundll32 = self.get_path("rundll32.exe")
-        function = self.options.get("function") or "#1"
-        arguments = self.options.get("arguments") or ""
+        function = self.options.get("function", "#1")
+        arguments = self.options.get("arguments", "")
         dllloader = self.options.get("dllloader")
 
         # Check file extension.

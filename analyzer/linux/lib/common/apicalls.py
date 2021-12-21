@@ -33,27 +33,20 @@ def _stap_command_line(target, **kwargs):
         return False
 
     path_cfg = config.get("analyzer_stap_path")
+    root_cuckoo_path = os.path.join("/root", ".cuckoo")
+    user_cuckoo_path = os.path.join("/home", "user", ".cuckoo")
     if path_cfg and os.path.exists(path_cfg):
         path = path_cfg
-    elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
-        path = has_stap("/root/.cuckoo")
-    elif os.path.exists("/home/user/.cuckoo") and has_stap("/home/user/.cuckoo"):
-        path = has_stap("/home/user/.cuckoo")
+    elif os.path.exists(root_cuckoo_path) and has_stap(root_cuckoo_path):
+        path = has_stap(root_cuckoo_path)
+    elif os.path.exists(user_cuckoo_path) and has_stap(user_cuckoo_path):
+        path = has_stap(user_cuckoo_path)
     else:
-        log.warning("Could not find STAP LKM, aborting systemtap analysis.")
+        log.warning("Could not find STAP LKM, aborting systemtap analysis")
         return False
 
-    run_as_root = kwargs.get("run_as_root", False)
-
-    # cmd = ["sudo"]
-    # cmd += ["staprun"]
-    # cmd += ["-vv"]
-    # cmd += ["-o"]
-    # cmd += ["stap.log"]
-    # cmd += [path]
+    # cmd = ["sudo", "staprun", "-vv", "-o", "stap.log", path]
     cmd = f"sudo staprun -vv -o stap.log {path}"
-
-    run_as_root = kwargs.get("run_as_root", False)
 
     target_cmd = f'"{target}"'
     if "args" in kwargs:
@@ -61,7 +54,7 @@ def _stap_command_line(target, **kwargs):
 
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
-    # if not run_as_root:
+    # if not kwargs.get("run_as_root", False):
     #    target_cmd = f'"sudo -u {getuser()} {target_cmd}"'
     #    cmd += " -DSUDO=1"
     # cmd += ["-c", target_cmd]

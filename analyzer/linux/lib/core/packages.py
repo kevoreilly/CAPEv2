@@ -50,8 +50,9 @@ def _found_target_class(module, name):
     """Searches for a class with the specific name: it should be
     equal to capitalized $name.
     """
-    members = inspect.getmembers(module, inspect.isclass)
-    return [x[1] for x in members if x[0] == name.capitalize()][0]
+    for member in inspect.getmembers(module, inspect.isclass):
+        if member[0] == name.capitalize():
+            return member[1]
 
 
 def _guess_package_name(file_type, file_name):
@@ -117,10 +118,7 @@ class Package(object):
         if target_name:
             filepath = path.join(environ.get("TEMP", "/tmp"), target_name)
             # Remove the trailing slash (if any)
-            if filepath.endswith("/"):
-                self.target = filepath[:-1]
-            else:
-                self.target = filepath
+            self.target = filepath.rstrip("/")
         self.prepare()
         self.normal_analysis()
         return self.proc.pid
@@ -171,7 +169,7 @@ class Package(object):
             cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
         )
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
+        while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
             # log.debug(self.proc.stderr.readline())
             pass
 

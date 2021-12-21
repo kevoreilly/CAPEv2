@@ -27,18 +27,20 @@ class STAP(Auxiliary):
     def start(self):
         # helper function locating the stap module
         def has_stap(p):
-            only_stap = [fn for fn in os.listdir(p) if fn.startswith("stap_") and fn.endswith(".ko")]
-            if only_stap:
-                return os.path.join(p, only_stap[0])
+            for fn in os.listdir(p):
+                if fn.startswith("stap_") and fn.endswith(".ko"):
+                    return os.path.join(p, fn)
             return False
 
         path_cfg = self.config.get("analyzer_stap_path")
+        cuckoo_path = os.path.join("/root", ".cuckoo")
+        cape_path = os.path.join("/root", ".cape")
         if path_cfg and os.path.exists(path_cfg):
             path = path_cfg
-        elif os.path.exists("/root/.cuckoo") and has_stap("/root/.cuckoo"):
-            path = has_stap("/root/.cuckoo")
-        elif os.path.exists("/root/.cape") and has_stap("/root/.cape"):
-            path = has_stap("root/.cape")
+        elif os.path.exists(cuckoo_path) and has_stap(cuckoo_path):
+            path = has_stap(cuckoo_path)
+        elif os.path.exists(cape_path) and has_stap(cape_path):
+            path = has_stap(cape_path)
         else:
             log.warning("Could not find STAP LKM, aborting systemtap analysis")
             return False
@@ -57,7 +59,7 @@ class STAP(Auxiliary):
             stderr=subprocess.PIPE,
         )
 
-        while "systemtap_module_init() returned 0" not in self.proc.stderr.readline().decode():
+        while b"systemtap_module_init() returned 0" not in self.proc.stderr.readline():
             pass
 
         self.proc.terminate()

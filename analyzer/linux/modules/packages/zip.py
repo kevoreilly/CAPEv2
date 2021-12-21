@@ -34,10 +34,7 @@ class Zip(Package):
 
         filepath = path.join(environ.get("TEMP", "/tmp"), target_name)
         # Remove the trailing slash (if any)
-        if filepath.endswith("/"):
-            self.target = filepath[:-1]
-        else:
-            self.target = filepath
+        self.target = filepath.rstrip("/")
 
         # Since we don't know what kind of file we're going to analyse, let's
         # detect it automatically and create an appropriate analysis package
@@ -101,8 +98,8 @@ def _prepare_archive_at_path(filename):
     """
     # Verify that the archive is actually readable
     try:
-        with ZipFile(filename, "r") as archive:
-            archive.close()
+        with ZipFile(filename, "r"):
+            pass
     except BadZipfile:
         return None
     # Test if zip file contains a file named as itself
@@ -116,10 +113,10 @@ def _prepare_archive_at_path(filename):
 
 
 def _is_overwritten(zip_path):
-    archive = ZipFile(zip_path, "r")
     try:
-        # Test if zip file contains a file named as itself
-        return any(n == path.basename(zip_path) for n in archive.namelist())
+        with ZipFile(zip_path, "r") as archive:
+            # Test if zip file contains a file named as itself
+            return any(n == path.basename(zip_path) for n in archive.namelist())
     except BadZipfile:
         raise Exception("Invalid Zip file")
 

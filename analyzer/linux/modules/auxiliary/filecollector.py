@@ -36,13 +36,12 @@ class FileCollector(Auxiliary, Thread):
 
     def __init__(self):
         log.info("FileCollector init started")
-        if HAVE_PYINOTIFY:
-            self.do_run = True
+        self.do_run = HAVE_PYINOTIFY
 
         self.initComplete = False
         self.thread = Thread(target=self.run)
         self.thread.start()
-        while self.initComplete == False:
+        while not self.initComplete:
             self.thread.join(0.5)
 
         log.info("FileCollector init complete")
@@ -51,6 +50,7 @@ class FileCollector(Auxiliary, Thread):
 
         if not HAVE_PYINOTIFY:
             log.info("Missed dependency: pip3 install pyinotify")
+            return False
 
         log.info("FileCollector run started")
 
@@ -78,13 +78,13 @@ class FileCollector(Auxiliary, Thread):
             "var",  # we don't want to collect log files
             "lib",
             "lib64",
-            #                 "sbin",
-            #                 "etc",
+            # "sbin",
+            # "etc",
             "run",  # lots of spurious files
-            #                 "bin",
-            #                 "boot",
-            #                 "media",
-            #                 "srv"
+            # "bin",
+            # "boot",
+            # "media",
+            # "srv"
         ]
 
         for filename in os.listdir("/"):
@@ -129,23 +129,22 @@ class FileCollector(Auxiliary, Thread):
                 if os.path.basename(event.pathname) == "stap.log":
                     return
 
-                for x in range(0, 1):
-                    try:
-                        # log.info("Trying to collect file %s", event.pathname)
-                        sha256 = hash_file(hashlib.sha256, event.pathname)
-                        filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
-                        if filename in self.uploadedHashes:
-                            # log.info("Already collected file %s", event.pathname)
-                            return
-                        upload_path = os.path.join("files", filename)
-                        upload_to_host(event.pathname, upload_path)
-                        self.uploadedHashes.append(filename)
+                try:
+                    # log.info("Trying to collect file %s", event.pathname)
+                    sha256 = hash_file(hashlib.sha256, event.pathname)
+                    filename = f"{sha256[:16]}_{os.path.basename(event.pathname)}"
+                    if filename in self.uploadedHashes:
+                        # log.info("Already collected file %s", event.pathname)
                         return
-                    except Exception as e:
-                        log.info('Error dumping file from path "%s": %s', event.pathname, e)
+                    upload_path = os.path.join("files", filename)
+                    upload_to_host(event.pathname, upload_path)
+                    self.uploadedHashes.append(filename)
+                    return
+                except Exception as e:
+                    log.info('Error dumping file from path "%s": %s', event.pathname, e)
 
-                    # log.info("Retrying %s", event.pathname)
-                    time.sleep(1)
+                # log.info("Retrying %s", event.pathname)
+                time.sleep(1)
 
             except Exception as e:
                 log.error("Exception processing event %s", e)

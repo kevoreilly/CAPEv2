@@ -191,7 +191,7 @@ def bulk_deploy(files, yara_category):
         parameters = file_recon(file, yara_category)
         if not parameters:
             continue
-        queue.put([servers, file] + list(parameters))
+        queue.put([servers, file, *parameters])
 
     for _ in range(NUM_THREADS):
         worker = Thread(target=deploy_file, args=(queue,))
@@ -360,30 +360,31 @@ if __name__ == "__main__":
         if not parameters:
             sys.exit()
         queue = Queue()
-        queue.put([servers, args.deploy_file, *list(parameters)])
+        queue.put([servers, args.deploy_file, *parameters])
         _ = deploy_file(queue)
     elif args.execute_command:
         execute_command_on_all(args.execute_command)
 
     elif args.copy_file:
         local_file, remote_file = args.copy_file
-        with open(local_file, "r") as f:
-            local_sha256 = sha256(f.read().encode()).hexdigest()
+        with open(local_file, "rb") as f:
+            file_contents = f.read()
+        local_sha256 = sha256(file_contents).hexdigest()
         queue = Queue()
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)
     elif args.deploy_local_changes:
         out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
-        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.deploy_remote_changes:
         out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
-        files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.sync_community:
         community_folder, destiny_folder, head = args.sync_community
         cwd = os.getcwd()
         os.chdir(os.path.expandvars(community_folder))
         out = subprocess.check_output(["git", "diff", "--name-only", f"HEAD~{head}"])
-        community_files = [file.decode() for file in list(filter(None, out.split(b"\n")))]
+        community_files = [file.decode() for file in filter(None, out.split(b"\n"))]
         os.chdir(cwd)
         files = []
         for file in community_files:

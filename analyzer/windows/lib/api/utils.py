@@ -30,7 +30,7 @@ class Utils:
 
     def is_valid_ipv4(self, ip):
         if ip:
-            if re.match("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) == None:
+            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) is None:
                 return False
             else:
                 try:
@@ -45,4 +45,4 @@ class Utils:
         # print(f"Running command and waiting for it to finish {cmd}")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = p.communicate()
-        return (p.returncode, stdout, stderr)
+        return p.returncode, stdout, stderr

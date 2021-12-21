@@ -106,14 +106,14 @@ class Unpacker_zip(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile("(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
-        dll_regex = re.compile("(\.dll|\.ocx)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        dll_regex = re.compile(r"(\.dll|\.ocx)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if not file_name:
+        if file_name is None:
             # No name provided try to find a better name.
             if len(zipinfos):
                 # Attempt to find a valid exe extension in the archive
@@ -121,7 +121,7 @@ class Unpacker_zip(Package):
                     if exe_regex.search(f.filename):
                         file_name = f.filename
                         break
-                if not file_name:
+                if file_name is None:
                     for f in zipinfos:
                         if dll_regex.search(f.filename):
                             file_name = f.filename

@@ -36,9 +36,9 @@ IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
 PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
 
-LOGSERVER_POOL = dict()
-ATTEMPTED_APC_INJECTS = dict()
-ATTEMPTED_THREAD_INJECTS = dict()
+LOGSERVER_POOL = {}
+ATTEMPTED_APC_INJECTS = {}
+ATTEMPTED_THREAD_INJECTS = {}
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +62,10 @@ def get_referrer_url(interest):
     usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode())
     referrer = f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
     return referrer
+
+
+def NT_SUCCESS(val):
+    return val >= 0
 
 
 class Process:
@@ -122,7 +126,6 @@ class Process:
         @return: operation status.
         """
         ret = bool(self.h_process or self.h_thread)
-        NT_SUCCESS = lambda val: val >= 0
 
         if self.h_process:
             ret = NT_SUCCESS(KERNEL32.CloseHandle(self.h_process))
@@ -153,8 +156,6 @@ class Process:
         if not self.h_process:
             self.open()
 
-        NT_SUCCESS = lambda val: val >= 0
-
         pbi = create_string_buffer(530)
         size = c_int()
 
@@ -170,7 +171,6 @@ class Process:
                 return fbuf.decode("utf16", errors="ignore")
             except Exception as e:
                 log.info(e)
-                return ""
 
         return ""
 
@@ -187,8 +187,6 @@ class Process:
         if not self.h_process:
             self.open()
 
-        NT_SUCCESS = lambda val: val >= 0
-
         val = c_ulong(0)
         retlen = c_ulong(0)
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 29, byref(val), sizeof(val), byref(retlen))
@@ -200,8 +198,6 @@ class Process:
         """Get the Parent Process ID."""
         if not self.h_process:
             self.open()
-
-        NT_SUCCESS = lambda val: val >= 0
 
         pbi = (ULONG_PTR * 6)()
         size = c_ulong()
@@ -225,7 +221,7 @@ class Process:
         else:
             sys_file = os.path.join(os.getcwd(), "dll", "zer0m0n.sys")
         exe_file = os.path.join(os.getcwd(), "dll", "logs_dispatcher.exe")
-        if not sys_file or not exe_file or not os.path.exists(sys_file) or not os.path.exists(exe_file):
+        if not os.path.isfile(sys_file) or not os.path.isfile(exe_file):
             log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
             return False
 
@@ -294,9 +290,8 @@ class Process:
         log.info("[-] Application name : %s", new_exe)
         log.info("[-] Service : %s", service_name)
 
-        fh = open(new_inf, "w")
-        fh.write(inf_data)
-        fh.close()
+        with open(new_inf, "w") as fh:
+            fh.write(inf_data)
 
         os_is_64bit = is_os_64bit()
         if os_is_64bit:
@@ -319,9 +314,8 @@ class Process:
             return False
 
         config_path = os.path.join(os.getenv("TEMP"), f"{self.pid}.ini")
+        cfg = Config("analysis.conf")
         with open(config_path, "w") as config:
-            cfg = Config("analysis.conf")
-
             config.write(f"host-ip={cfg.ip}\n")
             config.write(f"host-port={cfg.port}\n")
             config.write(f"pipe={PIPE}\n")
@@ -346,19 +340,15 @@ class Process:
                 if proc_info.sz_exeFile == "VBoxService.exe":
                     log.info("VBoxService.exe found!")
                     pid_vboxservice = proc_info.th32ProcessID
-                    flag = 0
                 elif proc_info.sz_exeFile == "VBoxTray.exe":
                     pid_vboxtray = proc_info.th32ProcessID
                     log.info("VBoxTray.exe found!")
-                    flag = 0
                 flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
             bytes_returned = c_ulong(0)
             msg = f"{self.pid}_{ppid}_{os.getpid()}_{pi.dwProcessId}_{pid_vboxservice}_{pid_vboxtray}\0"
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
             msg = f"{os.getcwd()}\0"
-            KERNEL32.DeviceIoControl(
-                hFile, IOCTL_CUCKOO_PATH, str(msg, "utf-8"), len(str(msg, "utf-8")), None, 0, byref(bytes_returned), None
-            )
+            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, msg, len(msg), None, 0, byref(bytes_returned), None)
         else:
             log.warning("Failed to access kernel driver")
 
@@ -513,16 +503,16 @@ class Process:
         config_path = os.path.join(os.getcwd(), "dll", f"{self.pid}.ini")
         log.info("Monitor config for process %s: %s", self.pid, config_path)
 
+        # start the logserver for this monitored process
+        logserver_path = f"{LOGSERVER_PREFIX}{self.pid}"
+        if logserver_path not in LOGSERVER_POOL:
+            LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
+
+        if "tlsdump" not in self.options:
+            Process.process_num += 1
+        firstproc = Process.process_num == 1
+
         with open(config_path, "w", encoding="utf-8") as config:
-            # start the logserver for this monitored process
-            logserver_path = LOGSERVER_PREFIX + str(self.pid)
-            if logserver_path not in LOGSERVER_POOL:
-                LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
-
-            if "tlsdump" not in self.options:
-                Process.process_num += 1
-            firstproc = Process.process_num == 1
-
             config.write(f"host-ip={self.config.ip}\n")
             config.write(f"host-port={self.config.port}\n")
             config.write(f"pipe={PIPE}\n")
@@ -634,7 +624,6 @@ class Process:
 
         file_path = os.path.join(PATHS["memory"], f"{self.pid}.dmp")
         try:
-            file_path = os.path.join(PATHS["memory"], f"{self.pid}.dmp")
             upload_to_host(file_path, os.path.join("memory", f"{self.pid}.dmp"), category="memory")
         except Exception as e:
             print(e)
@@ -688,7 +677,6 @@ class Process:
             file_path = os.path.join(PATHS["memory"], f"{self.pid}.dmp")
             upload_to_host(file_path, os.path.join("memory", f"{self.pid}.dmp"))
         except Exception as e:
-            print(e)
             log.error(e, exc_info=True)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)

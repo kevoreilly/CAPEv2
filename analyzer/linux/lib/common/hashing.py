@@ -18,12 +18,10 @@ def hash_file(method, path):
     @param path: file path
     @return: computed hash string
     """
-    f = open(path, "rb")
     h = method()
-    while True:
+    with open(path, "rb") as f:
         buf = f.read(BUFSIZE)
-        if not buf:
-            break
-        h.update(buf)
-    f.close()
+        while buf:
+            h.update(buf)
+            buf = f.read(BUFSIZE)
     return h.hexdigest()

@@ -6,13 +6,12 @@ from __future__ import absolute_import
 import logging
 import os
 import shutil
+from zipfile import BadZipfile, ZipFile
 
 try:
     import re2 as re
 except ImportError:
     import re
-
-from zipfile import BadZipfile, ZipFile
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
@@ -119,21 +118,19 @@ class Zip(Package):
             raise CuckooPackageError("Invalid Zip file")
 
     def start(self, path):
-        password = self.options.get("password")
-        if password is None:
-            password = b""
+        password = self.options.get("password", "")
         appdata = self.options.get("appdata")
         if appdata:
             root = os.environ["APPDATA"]
         else:
             root = os.environ["TEMP"]
-        exe_regex = re.compile("(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if not file_name:
+        if file_name is None:
             # No name provided try to find a better name.
             if len(zipinfos):
                 # Attempt to find a valid exe extension in the archive

@@ -113,11 +113,10 @@ class Package(object):
         @param interest: file of interest, passed to the cuckoomon config
         @return: process pid
         """
-        free = self.options.get("free")
-        suspended = True if not free else False
+        free = self.options.get("free", False)
+        suspended = not free
 
-        kernel_analysis = self.options.get("kernel_analysis")
-        kernel_analysis = True if kernel_analysis else False
+        kernel_analysis = bool(self.options.get("kernel_analysis", False))
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
@@ -164,7 +163,7 @@ class Package(object):
         The list should be a list of tuples (<path on guest>, <name of file in package_files folder>).
         (package_files is a folder that will be created in analysis folder).
         """
-        return None
+        return []
 
     def finish(self):
         """Finish run.

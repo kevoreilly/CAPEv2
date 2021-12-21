@@ -88,7 +88,8 @@ class Analyzer:
         # If it's a URL, well.. we store the URL.
         elif self.config.category == "archive":
             zip_path = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.file_name)
-            zipfile.ZipFile(zip_path).extractall(os.environ.get("TEMP", "/tmp"))
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(os.environ.get("TEMP", "/tmp"))
             self.target = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.options["filename"])
         else:
             self.target = self.config.target
@@ -117,10 +118,7 @@ class Analyzer:
         if not self.config.package:
             log.debug("No analysis package specified, trying to detect it automagically")
 
-            if self.config.category == "file":
-                package = "generic"
-            else:
-                package = "wget"
+            package = "generic" if self.config.category == "file" else "wget"
 
             # If we weren't able to automatically determine the proper package,
             # we need to abort the analysis.
@@ -152,14 +150,12 @@ class Analyzer:
             raise CuckooError(f"Unable to select package class (package={package_name}): {e}")
         """
         if self.config.package:
-            suggestion = self.config.package
+            suggestion = "ff" if self.config.package == "ie" else self.config.package
         elif self.config.category != "file":
             suggestion = "url"
         else:
             suggestion = None
 
-        if self.config.package == "ie":
-            suggestion = "ff"
         # Try to figure out what analysis package to use with this target
         kwargs = {"suggestion": suggestion}
         if self.config.category == "file":
@@ -386,6 +382,7 @@ if __name__ == "__main__":
                 "status": "complete",
                 "description": success,
             }
-            urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()).read()
+            with urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()) as response:
+                response.read()
         except Exception as e:
             print(e)

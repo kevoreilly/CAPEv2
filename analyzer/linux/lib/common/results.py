@@ -25,17 +25,15 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
         nc = NetlogFile()
         # nc = NetlogBinary(file_path.encode("utf-8", "replace"), dump_path, duplicate)
         nc.init(dump_path, file_path, pids, metadata, category)
-        infd = open(file_path, "rb")  # rb
-        buf = infd.read(BUFSIZE)
-        log.info("Uploading file %s to host -> %s", file_path, dump_path)
-        while buf:
-            nc.send(buf, retry=True)
+        with open(file_path, "rb") as infd:
             buf = infd.read(BUFSIZE)
+            log.info("Uploading file %s to host -> %s", file_path, dump_path)
+            while buf:
+                nc.send(buf, retry=True)
+                buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %s to host: %s", file_path, e, exc_info=True)
     finally:
-        if infd:
-            infd.close()
         if nc:
             nc.close()
 
@@ -96,10 +94,10 @@ class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
             NetlogConnection.__init__(
-                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
+                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode(errors="replace"), guest_path)
             )
         else:
-            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
+            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode(errors="replace"), guest_path))
         self.connect()
 
 
@@ -108,15 +106,13 @@ class NetlogFile(NetlogConnection):
         """
         All arguments should be strings
         """
-        if pids:
+        if pids and not isinstance(pids, str):
             pids = " ".join(pids)
-        else:
-            pids = ""
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n" % (
                 dump_path.encode(),
-                filepath.encode("utf-8", "replace"),
-                pids.encode() if isinstance(pids, str) else pids,
+                filepath.encode(errors="replace"),
+                pids.encode(),
                 metadata.encode() if isinstance(metadata, str) else metadata,
                 category.encode() if isinstance(category, str) else category,
             )

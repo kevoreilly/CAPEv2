@@ -194,8 +194,7 @@ class Evtx(Thread, Auxiliary):
             for evtx_file_name in os.listdir(logs_folder):
                 for selected_evtx in self.windows_logs:
                     _selected_evtx = f"{selected_evtx}.evtx"
-                    if "/" in _selected_evtx:
-                        _selected_evtx = "%4".join(_selected_evtx.split("/"))
+                    _selected_evtx = _selected_evtx.replace("/", "%4")
                     if _selected_evtx == evtx_file_name:
                         full_path = os.path.join(logs_folder, evtx_file_name)
                         if os.path.exists(full_path):

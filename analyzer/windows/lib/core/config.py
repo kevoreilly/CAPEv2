@@ -39,13 +39,13 @@ class Config:
         # Here we parse such options and provide a dictionary that will be made
         # accessible to the analysis package.
         options = {}
-        if hasattr(self, "options") and isinstance(self.options, str):
+        if isinstance(getattr(self, "options", None), str):
             # Split the options by comma.
             fields = self.options.split(",")
             for field in fields:
                 try:
                     key, value = field.split("=", 1)
-                except ValueError as e:
+                except ValueError:
                     pass
                 else:
                     # If the parsing went good, we add the option to the

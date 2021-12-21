@@ -44,14 +44,14 @@ def destroyOfficeWindows(window):
     except Exception:
         return
     for w in children:
-        if w.get_wm_class() in [
+        if w.get_wm_class() in (
             ("libreoffice", "libreoffice-writer"),
             # ('soffice.bin', 'soffice.bin'),
             ("libreoffice", "libreoffice-calc"),
             ("libreoffice", "libreoffice-draw"),
             ("libreoffice", "libreoffice-impress"),
             ("win", "Xpdf"),
-        ]:
+        ):
             log.debug("Destroying: %s", w.get_wm_class()[1])
             w.destroy()
         destroyOfficeWindows(w)
@@ -72,7 +72,7 @@ class Human(Thread, Auxiliary):
         self.initComplete = False
         self.thread = Thread(target=self.run)
         self.thread.start()
-        while self.initComplete == False:
+        while not self.initComplete:
             self.thread.join(0.5)
 
         log.debug("Human init complete")

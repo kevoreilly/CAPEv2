@@ -116,7 +116,7 @@ class MiniHTTPServer(object):
         return register
 
     def handle(self, obj):
-        if "client_ip" in state and request.client_ip != state["client_ip"]:
+        if state.get("client_ip") != request.client_ip:
             if request.client_ip != "127.0.0.1":
                 return
             if obj.path != "/status" or request.method != "POST":
@@ -181,12 +181,10 @@ class send_file(object):
             return
 
         with open(self.path, "r") as f:
-            while True:
-                buf = f.read(1024 * 1024)
-                if not buf:
-                    break
-
+            buf = f.read(1024 * 1024)
+            while buf:
                 sock.write(buf)
+                buf = f.read(1024 * 1024)
 
     def headers(self, obj):
         obj.send_header("Content-Length", self.length)

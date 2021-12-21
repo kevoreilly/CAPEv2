@@ -64,7 +64,6 @@ class Service(Package):
 
     def start(self, path):
         try:
-            sc = self.get_path("sc.exe")
             servicename = self.options.get("servicename", "CAPEService")
             servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
@@ -102,15 +101,11 @@ class Service(Package):
             log.info("Created service (handle: 0x%x)", service_handle)
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid, suspended=False)
             filepath = servproc.get_filepath()
-            is_64bit = servproc.is_64bit()
-            if is_64bit:
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
-            else:
-                servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
+            servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
             servproc.close()
             KERNEL32.Sleep(500)
             service_launched = ADVAPI32.StartServiceA(service_handle, 0, None)
-            if service_launched == True:
+            if service_launched:
                 log.info("Successfully started service")
             else:
                 log.info(ctypes.FormatError())

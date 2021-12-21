@@ -35,13 +35,13 @@ class DigiSig(Auxiliary):
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)
-        self.cert_build = list()
-        self.time_build = list()
-        self.json_data = {"sha1": None, "signers": list(), "timestamp": None, "valid": False, "error": None, "error_desc": None}
+        self.cert_build = []
+        self.time_build = []
+        self.json_data = {"sha1": None, "signers": [], "timestamp": None, "valid": False, "error": None, "error_desc": None}
         self.enabled = True
 
     def build_output(self, outputType, line):
-        if line and line != "":
+        if line:
             if outputType == "cert":
                 self.cert_build.append(line.replace("    ", "-"))
             elif outputType == "time":
@@ -52,7 +52,7 @@ class DigiSig(Auxiliary):
         for line in data.splitlines():
             if line.startswith("Hash of file (sha1)") or line.startswith("SHA1 hash of file"):
                 if not self.json_data["sha1"]:
-                    self.json_data["sha1"] = line.split(": ")[-1].lower()
+                    self.json_data["sha1"] = line.rsplit(": ", 1)[-1].lower()
             # Start of certificate chain information
             if line.startswith("Signing Certificate Chain:"):
                 parser_switch = "cert"
@@ -61,7 +61,7 @@ class DigiSig(Auxiliary):
             if line.startswith("The signature is timestamped:"):
                 parser_switch = None
                 if not self.json_data["timestamp"]:
-                    self.json_data["timestamp"] = line.split(": ")[-1]
+                    self.json_data["timestamp"] = line.rsplit(": ", 1)[-1]
             if line.startswith("File is not timestamped."):
                 parser_switch = None
             # Start of timestamp verification
@@ -83,22 +83,20 @@ class DigiSig(Auxiliary):
                 self.build_output("time", line)
 
     def jsonify(self, signType, signers):
-        buf = dict()
-        lastnum = "0"
+        buf = {}
+        lastnum = 0
         for item in signers:
-            num = str(item.split(":")[0].count("-"))
+            key, value = item.split(":", 1)
+            num = key.count("-")
             signed = f"{signType} {num}"
             if lastnum != num and buf:
                 self.json_data["signers"].append(buf)
-                buf = dict()
-            key = item.split(":")[0].replace("-", "")
-            value = "".join(item.split(":")[1:]).strip()
+                buf = {}
+            key = key.replace("-", "")
+            value = value.strip()
             buf["name"] = signed
             # Lower case hashes to match the format of other hashes in Django
-            if key == "SHA1 hash":
-                buf[key] = value.lower()
-            else:
-                buf[key] = value
+            buf[key] = value.lower() if key == "SHA1 hash" else value
             lastnum = num
 
         if buf:
@@ -134,7 +132,7 @@ class DigiSig(Auxiliary):
             # Non-zero return, it didn't validate or exist
             else:
                 self.json_data["error"] = True
-                errmsg = b" ".join(b"".join(err.split(b":")[1:]).split())
+                errmsg = b" ".join(err.split(b":", 1)[1].split())
                 self.json_data["error_desc"] = errmsg.decode()
                 if b"file format cannot be verified" in err:
                     log.debug("File format not recognized")

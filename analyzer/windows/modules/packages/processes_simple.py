@@ -23,100 +23,102 @@ class PROCESSES_simply(Package):
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        # cl.close()
+            # cl.close()
         """
             iexplore = os.path.join("C:\\Program Files", "Internet Explorer", "iexplore.exe")
-            #ie = Process()
+            # ie = Process()
             self.execute(iexplore, "", path)
-            #ie.close()
+            # ie.close()
 
-            #firefox
+            # firefox
             firefox = os.path.join("C:\\Program Files", "Mozilla Firefox", "firefox.exe")
-            #ff = Process()
+            # ff = Process()
             self.execute(firefox, "", path)
-            #ff.close()
+            # ff.close()
 
-            #winrar
-            #winrar = os.path.join("C:\\Program Files", "WinRAR", "WinRAR.exe")
-            #wr = Process()
-            #self.execute(winrar, "", path)
-            #wr.close()
+            # winrar
+            # winrar = os.path.join("C:\\Program Files", "WinRAR", "WinRAR.exe")
+            # wr = Process()
+            # self.execute(winrar, "", path)
+            # wr.close()
 
-            #media player
+            # media player
             mc = os.path.join("C:\\Program Files", "Windows Media Player", "wmplayer.exe")
-            #mc_p = Process()
+            # mc_p = Process()
             self.execute(mc, "/prefetch:1", path)
-            #mc_p.close()
+            # mc_p.close()
 
-            #adobe pdf reader
+            # adobe pdf reader
             pdf = os.path.join("C:\\Program Files", "Adobe", "Reader 11.0", "Reader", "AcroRd32.exe")
-            #pdf_p = Process()
+            # pdf_p = Process()
             self.execute(mc, "", path)
-            #pdf_p.close()
+            # pdf_p.close()
 
-            #snipping tool
-            #snt = os.path.join("C:\\windows", "system32", "Snipping Tool.exe")
-            #snt_p = Process()
-            #self.execute(snt, "", path)
-            #snt_p.close()
+            # snipping tool
+            # snt = os.path.join("C:\\windows", "system32", "Snipping Tool.exe")
+            # snt_p = Process()
+            # self.execute(snt, "", path)
+            # snt_p.close()
 
-            #backup and restore tool
+            # backup and restore tool
             bnr = os.path.join("C:\\windows", "system32", "control.exe")
-            #bnr_p = Process()
+            # bnr_p = Process()
             self.execute(bnr, "/name Microsoft.BackupAndRestore", path)
-            #bnr_p.close()
+            # bnr_p.close()
 
-            #on screen keyboard
+            # on screen keyboard
             konscr = os.path.join("C:\\windows", "system32", "osk.exe")
-            #konscr_p = Process()
+            # konscr_p = Process()
             self.execute(konscr, "", path)
-            #konscr_p.close()
+            # konscr_p.close()
 
-            #sync center
+            # sync center
             mobs = os.path.join("C:\\windows", "system32", "mobsync.exe")
-            #mobs_p = Process()
+            # mobs_p = Process()
             self.execute(mobs, "", path)
-            #mobs_p.close()
+            # mobs_p.close()
 
-            #rdp
+            # rdp
             rdp = os.path.join("C:\\windows", "system32", "mstsc.exe")
-            #rdp_p = Process()
+            # rdp_p = Process()
             self.execute(rdp, "", path)
-            #rdp_p.close()
+            # rdp_p.close()
 
-            #char map
+            # char map
             chrm = os.path.join("C:\\windows", "system32", "charmap.exe")
-            #chrm_p = Process()
+            # chrm_p = Process()
             self.execute(chrm, "", path)
-            #chrm_p.close()
+            # chrm_p.close()
 
-            #media center
-            #mc = os.path.join("C:\\windows", "system32", "ehshell.exe")
-            #mc_p = Process()
-            #self.execute(mc, "", path)
-            #mc_p.close()
+            # media center
+            # mc = os.path.join("C:\\windows", "system32", "ehshell.exe")
+            # mc_p = Process()
+            # self.execute(mc, "", path)
+            # mc_p.close()
             #xps viewer
+
             xps = os.path.join("C:\\windows", "system32", "xpschvw.exe")
-            #xps_v = Process()
+            # xps_v = Process()
             self.execute(xps, "", path)
-            #xps_v.close()
-            #notepad
-            #notepad = os.path.join("C:\\windows", "system32", "notepad32.exe")
-            #np = Process()
-            #self.execute(notepad, "", path)
-            #np.close()
+            # xps_v.close()
 
-            #calc
+            # notepad
+            # notepad = os.path.join("C:\\windows", "system32", "notepad32.exe")
+            # np = Process()
+            # self.execute(notepad, "", path)
+            # np.close()
+
+            # calc
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
-            #cl = Process()
+            # cl = Process()
             self.execute(calc, "", path)
-            #cl.close()
+            # cl.close()
 
-            #paint
+            # paint
             paint = os.path.join("C:\\windows", "system32", "mspaint.exe")
-            #pnt = Process()
+            # pnt = Process()
             self.execute(paint, "", path)
-            #pnt.close()
+            # pnt.close()
             """
         time.sleep(5)
         word = self.get_path_glob("Microsoft Office Word")

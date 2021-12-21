@@ -98,14 +98,14 @@ class Rar(Package):
 
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile("(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
+        exe_regex = re.compile(r"(\.exe|\.scr|\.msi|\.bat|\.lnk)$", flags=re.IGNORECASE)
 
         rarinfos = self.get_infos(path)
         self.extract_rar(path, root, password)
 
         file_name = self.options.get("file")
         # If no file name is provided via option, take the first file.
-        if not file_name:
+        if file_name is None:
             # No name provided try to find a better name.
             if len(rarinfos):
                 # Attempt to find a valid exe extension in the archive

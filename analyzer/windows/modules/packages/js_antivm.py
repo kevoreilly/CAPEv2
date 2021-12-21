@@ -25,7 +25,7 @@ class JS_ANTIVM(Package):
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        if free is False:
+        if not free:
             self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'

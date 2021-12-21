@@ -18,12 +18,12 @@ class PROCESSES(Package):
 
     def start(self, path):
         """
-        for i in xrange(20):
-            #calc
+        for i in range(20):
+            # calc
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
-            #cl = Process()
+            # cl = Process()
             self.execute(calc, "", path)
-        #cl.close()
+            # cl.close()
         """
         iexplore = os.path.join("C:\\Program Files", "Internet Explorer", "iexplore.exe")
         # ie = Process()
@@ -51,7 +51,7 @@ class PROCESSES(Package):
         # adobe pdf reader
         pdf = os.path.join("C:\\Program Files", "Adobe", "Reader 11.0", "Reader", "AcroRd32.exe")
         # pdf_p = Process()
-        self.execute(mc, "", path)
+        self.execute(pdf, "", path)
         # pdf_p.close()
 
         # snipping tool
@@ -95,13 +95,13 @@ class PROCESSES(Package):
         # mc_p = Process()
         # self.execute(mc, "", path)
         # mc_p.close()
-        """
-            #xps viewer
-            xps = os.path.join("C:\\windows", "system32", "xpschvw.exe")
-            #xps_v = Process()
-            self.execute(xps, "", path)
-            #xps_v.close()
-            """
+
+        # xps viewer
+        # xps = os.path.join("C:\\windows", "system32", "xpschvw.exe")
+        # xps_v = Process()
+        # self.execute(xps, "", path)
+        # xps_v.close()
+
         # notepad
         # notepad = os.path.join("C:\\windows", "system32", "notepad32.exe")
         # np = Process()

@@ -28,7 +28,9 @@ class Unpacker_JS(Package):
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext not in (".js", ".jse"):
-            if os.path.isfile(path) and "#@~^" in open(path, "rb").read(100):
+            with open(path, "r") as tmpfile:
+                magic_bytes = tmpfile.read(4)
+            if magic_bytes == "#@~^":
                 os.rename(path, f"{path}.jse")
                 path = f"{path}.jse"
             else:

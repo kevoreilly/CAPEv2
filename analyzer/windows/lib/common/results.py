@@ -114,7 +114,7 @@ class NetlogFile(NetlogConnection):
         if pids and not isinstance(pids, str):
             pids = " ".join(pids)
         if ppids and not isinstance(ppids, str):
-            pids = " ".join(ppids)
+            ppids = " ".join(ppids)
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (
                 dump_path.encode(),

@@ -11,8 +11,8 @@ import re
 import subprocess
 from random import randint
 from uuid import uuid4
-from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CloseKey,
-                    CreateKeyEx, EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
+from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CreateKeyEx,
+                    EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
@@ -57,37 +57,30 @@ class Disguise(Auxiliary):
         The Windows ProductId is occasionally used by malware
         to detect public setups of Cuckoo, e.g., Malwr.com.
         """
-        key = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE)
-
         value = f"{random_integer(5)}-{random_integer(3)}-{random_integer(7)}-{random_integer(5)}"
-
-        SetValueEx(key, "ProductId", 0, REG_SZ, value)
-        CloseKey(key)
+        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+            SetValueEx(key, "ProductId", 0, REG_SZ, value)
 
     def _office_helper(self, key, subkey, value, size=REG_SZ):
-        tmp_key = OpenKey(HKEY_CURRENT_USER, key, 0, KEY_SET_VALUE)
-        SetValueEx(tmp_key, subkey, 0, size, value)
-        CloseKey(tmp_key)
+        with OpenKey(HKEY_CURRENT_USER, key, 0, KEY_SET_VALUE) as tmp_key:
+            SetValueEx(tmp_key, subkey, 0, size, value)
 
     def set_office_params(self):
         baseOfficeKeyPath = r"Software\Microsoft\Office"
-        installedVersions = list()
+        installedVersions = []
 
         try:
-            officeKey = OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ)
-            for currentKey in range(0, QueryInfoKey(officeKey)[0]):
-                isVersion = True
-                officeVersion = EnumKey(officeKey, currentKey)
-                if "." in officeVersion:
-                    for intCheck in officeVersion.split("."):
-                        if not intCheck.isdigit():
-                            isVersion = False
-                            break
-
-                    if isVersion:
-                        installedVersions.append(officeVersion)
-
-            CloseKey(officeKey)
+            with OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ) as officeKey:
+                for currentKey in range(QueryInfoKey(officeKey)[0]):
+                    officeVersion = EnumKey(officeKey, currentKey)
+                    if "." in officeVersion:
+                        isVersion = True
+                        for intCheck in officeVersion.split("."):
+                            if not intCheck.isdigit():
+                                isVersion = False
+                                break
+                        if isVersion:
+                            installedVersions.append(officeVersion)
         except WindowsError:
             # Office isn't installed at all
             return
@@ -113,7 +106,7 @@ class Disguise(Auxiliary):
         Occasionally used by macros to detect sandbox environments.
         """
         baseOfficeKeyPath = r"Software\Microsoft\Office"
-        installedVersions = list()
+        installedVersions = []
         basePaths = [
             "C:\\",
             "C:\\Windows\\Logs\\",
@@ -126,75 +119,62 @@ class Disguise(Auxiliary):
             "PowerPoint": ["ppt", "pptx"],
         }
         try:
-            officeKey = OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ)
-            for currentKey in range(0, QueryInfoKey(officeKey)[0]):
-                isVersion = True
-                officeVersion = EnumKey(officeKey, currentKey)
-                if "." in officeVersion:
-                    for intCheck in officeVersion.split("."):
-                        if not intCheck.isdigit():
-                            isVersion = False
-                            break
-
-                    if isVersion:
-                        installedVersions.append(officeVersion)
-
-            CloseKey(officeKey)
+            with OpenKey(HKEY_CURRENT_USER, baseOfficeKeyPath, 0, KEY_READ) as officeKey:
+                for currentKey in range(QueryInfoKey(officeKey)[0]):
+                    officeVersion = EnumKey(officeKey, currentKey)
+                    if "." in officeVersion:
+                        isVersion = True
+                        for intCheck in officeVersion.split("."):
+                            if not intCheck.isdigit():
+                                isVersion = False
+                                break
+                        if isVersion:
+                            installedVersions.append(officeVersion)
         except WindowsError:
             # Office isn't installed at all
             return
 
         for oVersion in installedVersions:
             for software in extensions:
-                values = list()
+                values = []
                 mruKeyPath = ""
                 productPath = rf"{baseOfficeKeyPath}\{oVersion}\{software}"
                 try:
-                    productKey = OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ)
-                    CloseKey(productKey)
+                    with OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ):
+                        pass
                     mruKeyPath = rf"{productPath}\File MRU"
-                    try:
-                        mruKey = OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ)
-                    except WindowsError:
-                        mruKey = CreateKeyEx(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ)
-                    displayValue = False
-                    for mruKeyInfo in range(0, QueryInfoKey(mruKey)[1]):
-                        currentValue = EnumValue(mruKey, mruKeyInfo)
-                        if currentValue[0] == "Max Display":
-                            displayValue = True
-                        values.append(currentValue)
-                    CloseKey(mruKey)
+                    with CreateKeyEx(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ) as mruKey:
+                        displayValue = False
+                        for mruKeyInfo in range(QueryInfoKey(mruKey)[1]):
+                            currentValue = EnumValue(mruKey, mruKeyInfo)
+                            if currentValue[0] == "Max Display":
+                                displayValue = True
+                            values.append(currentValue)
                 except WindowsError:
                     # An Office version was found in the registry but the
                     # software (Word/Excel/PowerPoint) was not installed.
                     values = "notinstalled"
 
                 if values != "notinstalled" and len(values) < 5:
-                    mruKey = OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_SET_VALUE)
-                    if not displayValue:
-                        SetValueEx(mruKey, "Max Display", 0, REG_DWORD, 25)
+                    with OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_SET_VALUE) as mruKey:
+                        if not displayValue:
+                            SetValueEx(mruKey, "Max Display", 0, REG_DWORD, 25)
 
-                    for i in range(1, randint(10, 30)):
-                        rString = random_string(minimum=11, charset="0123456789ABCDEF")
-                        if i % 2:
-                            baseId = f"T01D1C{rString}"
-                        else:
-                            baseId = f"T01D1D{rString}"
-                        setVal = f"[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
-                            baseId,
-                            basePaths[randint(0, len(basePaths) - 1)],
-                            random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
-                            extensions[software][randint(0, len(extensions[software]) - 1)],
-                        )
-                        name = f"Item {i}"
-                        SetValueEx(mruKey, name, 0, REG_SZ, setVal)
-                    CloseKey(mruKey)
+                        for i in range(1, randint(10, 30)):
+                            rString = random_string(minimum=11, charset="0123456789ABCDEF")
+                            baseId = f"T01D1C{rString}" if i % 2 else f"T01D1D{rString}"
+                            setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
+                                baseId,
+                                basePaths[randint(0, len(basePaths) - 1)],
+                                random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
+                                extensions[software][randint(0, len(extensions[software]) - 1)],
+                            )
+                            name = f"Item {i}"
+                            SetValueEx(mruKey, name, 0, REG_SZ, setVal)
 
     def ramnit(self):
-        key = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE)
-
-        SetValueEx(key, "jfghdug_ooetvtgk", 0, REG_SZ, "TRUE")
-        CloseKey(key)
+        with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:
+            SetValueEx(key, "jfghdug_ooetvtgk", 0, REG_SZ, "TRUE")
 
     """
     def netbios(self):
@@ -202,19 +182,16 @@ class Disguise(Auxiliary):
             # get netbios interface
             for path in ("CurrentControlSet", "ControlSet001", "ControlSet002"):
                 netbios_init = f"System\\{path}\\Services\\NetBT\\Parameters\\Interfaces\\"
-                netbios = OpenKey(HKEY_LOCAL_MACHINE, netbios_init,0, KEY_READ)
-                for currentKey in xrange(0, QueryInfoKey(netbios)[0]):
-                    subkey = EnumKey(netbios, currentKey)
-                    if  subkey.startswith("Tcpip_"):
-                        sub_netbios = OpenKey(HKEY_LOCAL_MACHINE, f"{netbios_init}\\{subkey}", 0, KEY_SET_VALUE)
-                        SetValueEx(sub_netbios, "NetbiosOptions", 0, REG_DWORD, 2)
-                        CloseKey(sub_netbios)
-                CloseKey(netbios)
+                with OpenKey(HKEY_LOCAL_MACHINE, netbios_init,0, KEY_READ) as netbios:
+                    for currentKey in range(QueryInfoKey(netbios)[0]):
+                        subkey = EnumKey(netbios, currentKey)
+                        if  subkey.startswith("Tcpip_"):
+                            with OpenKey(HKEY_LOCAL_MACHINE, f"{netbios_init}\\{subkey}", 0, KEY_SET_VALUE) as sub_netbios:
+                                SetValueEx(sub_netbios, "NetbiosOptions", 0, REG_DWORD, 2)
 
             # disable lmhosts
-            lmhosts = OpenKey(HKEY_LOCAL_MACHINE, "System\\CurrentControlSet\\Services\\NetBT\\Parameters\\", 0, KEY_SET_VALUE)
-            SetValueEx(lmhosts, "EnableLMHOSTS", 0, REG_DWORD, 0)
-            CloseKey(sub_netbios)
+            with OpenKey(HKEY_LOCAL_MACHINE, "System\\CurrentControlSet\\Services\\NetBT\\Parameters\\", 0, KEY_SET_VALUE) as lmhosts:
+                SetValueEx(lmhosts, "EnableLMHOSTS", 0, REG_DWORD, 0)
 
         except Exception as e:
             print(e)
@@ -246,15 +223,9 @@ class Disguise(Auxiliary):
         log.info("Disguising GUID to %s", createdUUID)
         keyPath = "SOFTWARE\\Microsoft\\Cryptography"
 
-        # Determing if the machine is 32 or 64 bit and open the registry key
-        if platform.machine().endswith("64"):
-            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY)
-        else:
-            key = OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE)
-
-        # Replace the UUID with the new UUID
-        SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
-        CloseKey(key)
+        with OpenKey(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_SET_VALUE | KEY_WOW64_64KEY) as key:
+            # Replace the UUID with the new UUID
+            SetValueEx(key, "MachineGuid", 0, REG_SZ, createdUUID)
 
     def start(self):
         self.change_productid()

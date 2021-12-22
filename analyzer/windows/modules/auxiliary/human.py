@@ -110,7 +110,7 @@ def foreach_child(hwnd, lparam):
         text = create_unicode_buffer(length + 1)
         USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
         textval = text.value.replace("&", "")
-        if "Microsoft" in textval and (classname.value in ("NUIDialog", "bosa_sdm_msword")):
+        if "Microsoft" in textval and classname.value in ("NUIDialog", "bosa_sdm_msword"):
             log.info("Issuing keypress on Office dialog")
             USER32.SetForegroundWindow(hwnd)
             # enter key down/up
@@ -189,7 +189,7 @@ def get_office_window_click_around(hwnd, lparm):
         if any([value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")]):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
-            USER32.SetCursorPos(int(RESOLUTION["x"] / 2), int(RESOLUTION["y"] / 2))
+            USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
             click_mouse()
             KERNEL32.Sleep(50)
             click_mouse()
@@ -200,14 +200,14 @@ def get_office_window_click_around(hwnd, lparm):
                 # make sure the window still exists
                 if USER32.IsWindowVisible(hwnd):
                     USER32.SetForegroundWindow(hwnd)
-                    USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2))
+                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2)
                     click_mouse()
                     KERNEL32.Sleep(50)
                     click_mouse()
                     KERNEL32.Sleep(50)
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) + random.randint(80, 200))
+                        USER32.SetCursorPos(x, RESOLUTION["y"] // 2 + random.randint(80, 200))
                         click_mouse()
                         KERNEL32.Sleep(50)
                         click_mouse()
@@ -216,14 +216,14 @@ def get_office_window_click_around(hwnd, lparm):
                         break
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) - random.randint(80, 200))
+                        USER32.SetCursorPos(x, RESOLUTION["y"] // 2 - random.randint(80, 200))
                         click_mouse()
                         KERNEL32.Sleep(50)
                         click_mouse()
                         KERNEL32.Sleep(50)
                     else:
                         break
-                    x = x + random.randint(150, 200)
+                    x += random.randint(150, 200)
                     KERNEL32.Sleep(50)
                 else:
                     log.info("Breaking out of office click loop as our window went away")
@@ -237,7 +237,7 @@ def get_office_window_click_around(hwnd, lparm):
 def get_office_window(hwnd, lparam):
     global CLOSED_OFFICE
     if USER32.IsWindowVisible(hwnd):
-        text = create_unicode_buffer(1024)  # create_unicode_buffer(1024)
+        text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
         if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             # send ALT+F4 equivalent
@@ -318,12 +318,12 @@ class Human(Auxiliary, Thread):
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
                 if random.randint(0, 7) > 1:
-                    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
+                    USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
                     click_mouse()
                     move_mouse()
 
                 if (seconds % (15 + randoff)) == 0:
-                    curwind = USER32.GetForegroundWindow()
+                    # curwind = USER32.GetForegroundWindow()
                     other_hwnds = INITIAL_HWNDS[:]
                     try:
                         other_hwnds.remove(USER32.GetForegroundWindow())
@@ -335,6 +335,6 @@ class Human(Auxiliary, Thread):
                 USER32.EnumWindows(EnumWindowsProc(foreach_window), 0)
                 KERNEL32.Sleep(1000)
                 seconds += 1
-        except Exception as e:
+        except Exception:
             error_exc = traceback.format_exc()
             log.exception(error_exc)

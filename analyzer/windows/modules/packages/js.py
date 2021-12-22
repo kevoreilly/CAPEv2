@@ -40,7 +40,7 @@ class JS(Package):
                 calc = os.path.join("C:\\windows", "system32", "calc.exe")
                 # cl = Process()
                 self.execute(calc, "", path)
-            if free is False:
+            if not free:
                 self.options["free"] = 0
 
         args = f'"{path}"'

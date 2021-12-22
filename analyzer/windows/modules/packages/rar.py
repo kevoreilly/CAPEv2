@@ -10,6 +10,7 @@ import logging
 
 try:
     from rarfile import RarFile, BadRarFile
+
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False

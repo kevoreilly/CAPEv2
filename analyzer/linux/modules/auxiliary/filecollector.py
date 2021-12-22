@@ -10,6 +10,7 @@ from lib.common.abstracts import Auxiliary
 
 try:
     import pyinotify
+
     HAVE_PYINOTIFY = True
 except ImportError:
     HAVE_PYINOTIFY = False

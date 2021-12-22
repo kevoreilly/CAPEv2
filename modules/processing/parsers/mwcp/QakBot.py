@@ -205,9 +205,7 @@ class QakBot(Parser):
                                             dec_bytes = decrypt_data(res_data)
                                             config = parse_config(dec_bytes)
                                             # log.info("qbot_config:{}".format(config))
-                                            self.reporter.add_metadata(
-                                                "other", {"Core DLL Build": parse_build(pe2).decode()}
-                                            )
+                                            self.reporter.add_metadata("other", {"Core DLL Build": parse_build(pe2).decode()})
 
                                         elif entry.name.__str__() == "311":
                                             dec_bytes = decrypt_data(res_data)

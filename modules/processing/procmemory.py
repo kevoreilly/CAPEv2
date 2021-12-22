@@ -6,7 +6,6 @@ import os
 # See the file 'docs/LICENSE' for copying permission.
 
 
-
 try:
     import re2 as re
 

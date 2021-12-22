@@ -1,8 +1,6 @@
 # This file is part of CAPE Sandbox - https://github.com/kevoreilly/CAPEv2
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-
 from lib.common.abstracts import Package
 
 

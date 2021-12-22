@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 
-from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.abstracts import Package
 
 
 class WSF(Package):

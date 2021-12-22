@@ -3,12 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
 from winreg import KEY_READ, REG_DWORD, KEY_SET_VALUE, HKEY_CURRENT_USER, EnumKey, OpenKey, SetValueEx, CreateKeyEx, QueryInfoKey
 
-
-from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
+from lib.common.abstracts import Package
 
 
 class PUB2007(Package):

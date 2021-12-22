@@ -3,15 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
-import ctypes
-import logging
 import sys
 import ctypes
 import logging
 
 from lib.api.process import Process
-from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.defines import ADVAPI32, KERNEL32
 from lib.common.abstracts import Package

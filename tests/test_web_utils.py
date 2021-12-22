@@ -2,14 +2,14 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 import os
 import tempfile
 
-import pytest
 import httpretty
+import pytest
 
-from lib.cuckoo.common.web_utils import force_int, _download_file, get_file_content, parse_request_arguments
+from lib.cuckoo.common.web_utils import _download_file, force_int, get_file_content, parse_request_arguments
 
 
 @pytest.fixture

@@ -4,17 +4,17 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import logging
-import smtplib
 import argparse
 import asyncore
-from email import encoders
-from smtpd import SMTPServer
+import logging
+import os
+import smtplib
+import sys
 from datetime import datetime
+from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
+from smtpd import SMTPServer
 
 # Cuckoo root
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))

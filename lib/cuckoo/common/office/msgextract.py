@@ -32,11 +32,11 @@ __version__ = "0.2"
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import email.utils
+import glob
 import os
 import sys
-import glob
 import traceback
-import email.utils
 from email.parser import Parser as EmailParser
 
 import olefile as OleFile

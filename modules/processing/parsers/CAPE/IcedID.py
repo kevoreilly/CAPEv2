@@ -20,12 +20,12 @@
 DESCRIPTION = "IcedID Stage 2 configuration parser."
 AUTHOR = "kevoreilly,threathive,sysopfb"
 
+import logging
 import os
 import struct
-import logging
 
-import yara
 import pefile
+import yara
 from Crypto.Cipher import ARC4
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT

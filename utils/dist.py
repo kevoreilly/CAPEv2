@@ -5,27 +5,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 # ToDo
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
-from __future__ import print_function, absolute_import
-import os
-import sys
+from __future__ import absolute_import, print_function
+import argparse
+import distutils.util
+import hashlib
 import json
-import time
+import logging
+import os
 import queue
 import shutil
-import hashlib
-import logging
-import zipfile
-import argparse
+import sys
 import threading
-import distutils.util
+import time
+import zipfile
+from datetime import datetime, timedelta
 from io import BytesIO
+from itertools import combinations
 from logging import handlers
 from zipfile import ZipFile
-from datetime import datetime, timedelta
-from itertools import combinations
 
-from sqlalchemy import or_, and_
-from sqlalchemy.exc import SQLAlchemyError, OperationalError
+from sqlalchemy import and_, or_
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 try:
     import pyzipper
@@ -36,13 +36,12 @@ except ImportError:
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import (TASK_PENDING, TASK_RUNNING, TASK_REPORTED, TASK_DISTRIBUTED, TASK_FAILED_REPORTING,
-                                      TASK_DISTRIBUTED_COMPLETED)
+from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.core.database import (TASK_DISTRIBUTED, TASK_DISTRIBUTED_COMPLETED, TASK_FAILED_REPORTING, TASK_PENDING,
+                                      TASK_REPORTED, TASK_RUNNING, Database)
 from lib.cuckoo.core.database import Task as MD_Task
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.dist_db import Node, Task, Machine, ExitNodes, create_session
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
@@ -90,7 +89,7 @@ def required(package):
 
 
 try:
-    from flask import Flask, jsonify, request, make_response
+    from flask import Flask, jsonify, make_response, request
 except ImportError:
     required("flask")
 

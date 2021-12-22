@@ -1,7 +1,7 @@
 from __future__ import absolute_import
+import logging
 import os
 import re
-import logging
 import xml.etree.ElementTree as ET
 
 import xmltodict

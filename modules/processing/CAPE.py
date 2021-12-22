@@ -13,20 +13,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
+import hashlib
 import imp
 import json
-import shutil
-import hashlib
 import logging
+import os
+import shutil
 from datetime import datetime
 
-from lib.cuckoo.common.utils import is_text_file
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import BUFSIZE, generic_file_extractors, pe_map, plugx_parser, static_config_parsers, upx_harness
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, upx_harness, plugx_parser, static_config_parsers, generic_file_extractors
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import is_text_file
 
 try:
     import pydeep

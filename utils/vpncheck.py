@@ -3,17 +3,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
-import sys
+from __future__ import absolute_import, print_function
+import argparse
 import fcntl
+import os
 import socket
 import struct
-import argparse
+import sys
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
-from lib.cuckoo.core.rooter import vpns, rooter
+from lib.cuckoo.core.rooter import rooter, vpns
 from lib.cuckoo.core.startup import init_rooter, init_routing
 
 SIOCGIFADDR = 0x8915

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 
 __description__ = "Analyze RTF files"
 __author__ = "Didier Stevens"
@@ -40,18 +40,18 @@ History:
 Todo:
 """
 
+import binascii
+import collections
+import glob
+import hashlib
+import json
+import optparse
 import os
 import re
-import sys
-import glob
-import json
 import string
-import hashlib
-import zipfile
-import binascii
-import optparse
+import sys
 import textwrap
-import collections
+import zipfile
 from io import StringIO
 
 try:

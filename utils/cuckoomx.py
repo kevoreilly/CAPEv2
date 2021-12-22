@@ -1,23 +1,23 @@
 #!/bin/python
-from __future__ import print_function, absolute_import
-import os
-import sys
+from __future__ import absolute_import, print_function
 import email
 import hashlib
 import imaplib
-import smtplib
-import tempfile
 import mimetypes
-from time import sleep
+import os
+import smtplib
+import sys
+import tempfile
 from email import Encoders
-from email.MIMEBase import MIMEBase
 from email.mime.text import MIMEText
+from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
+from time import sleep
 
 try:
+    from sflock.abstracts import File
     from sflock.main import unpack
     from sflock.unpack import ZipFile
-    from sflock.abstracts import File
 except ImportError:
     print(
         "Missed deps"
@@ -28,13 +28,13 @@ except ImportError:
 # Cuckoo root
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, create_engine
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
-from sqlalchemy.ext.declarative import declarative_base
 
-from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database
 
 main_db = Database()

@@ -15,8 +15,8 @@
 import socket
 import struct
 
-import yara
 import pefile
+import yara
 from Crypto.Cipher import ARC4
 
 rule_source = """

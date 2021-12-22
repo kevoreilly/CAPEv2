@@ -1,6 +1,6 @@
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 log = logging.getLogger(__name__)
 

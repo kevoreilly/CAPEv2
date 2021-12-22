@@ -4,22 +4,22 @@
 
 from __future__ import absolute_import
 import gc
-import os
 import logging
+import os
 
 from six.moves import zip
 
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooReportError, CuckooDependencyError
+from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
+from lib.cuckoo.common.objects import File
 
 MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
 
 try:
-    from pymongo import TEXT, MongoClient
     from bson.objectid import ObjectId
-    from pymongo.errors import InvalidDocument, ConnectionFailure
+    from pymongo import TEXT, MongoClient
+    from pymongo.errors import ConnectionFailure, InvalidDocument
 
     HAVE_MONGO = True
 except ImportError:

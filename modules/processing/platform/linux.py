@@ -2,10 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import datetime
+import logging
 import os
 import re
-import logging
-import datetime
 from functools import reduce
 
 import dateutil.parser

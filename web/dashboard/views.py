@@ -6,15 +6,15 @@ from __future__ import absolute_import
 import sys
 
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
-from django.contrib.auth.decorators import login_required
 
 sys.path.append(settings.CUCKOO_PATH)
 
-from lib.cuckoo.core.database import (TASK_PENDING, TASK_RUNNING, TASK_REPORTED, TASK_COMPLETED, TASK_RECOVERED, TASK_DISTRIBUTED,
-                                      TASK_FAILED_ANALYSIS, TASK_FAILED_REPORTING, TASK_FAILED_PROCESSING, Database)
 from lib.cuckoo.common.web_utils import top_detections
+from lib.cuckoo.core.database import (TASK_COMPLETED, TASK_DISTRIBUTED, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING,
+                                      TASK_FAILED_REPORTING, TASK_PENDING, TASK_RECOVERED, TASK_REPORTED, TASK_RUNNING, Database)
 
 
 # Conditional decorator for web authentication

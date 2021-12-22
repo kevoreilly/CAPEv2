@@ -4,18 +4,18 @@
 
 from __future__ import absolute_import
 import io
-import os
-import re
 import logging
+import os
 import platform
+import re
 import subprocess
-from uuid import uuid4
 from random import randint
-from winreg import (REG_SZ, KEY_READ, REG_DWORD, KEY_SET_VALUE, KEY_WOW64_64KEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, EnumKey,
-                    OpenKey, EnumValue, SetValueEx, CreateKeyEx, QueryInfoKey)
+from uuid import uuid4
+from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CreateKeyEx,
+                    EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
 
-from lib.common.rand import random_string, random_integer
 from lib.common.abstracts import Auxiliary
+from lib.common.rand import random_integer, random_string
 
 log = logging.getLogger(__name__)
 

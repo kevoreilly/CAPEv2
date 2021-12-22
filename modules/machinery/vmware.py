@@ -5,11 +5,11 @@
 
 from __future__ import absolute_import
 import glob
-import time
-import shutil
 import logging
 import os.path
+import shutil
 import subprocess
+import time
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError

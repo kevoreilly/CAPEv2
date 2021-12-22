@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import shutil
 import logging
+import shutil
 import zipfile
 from xml.dom.minidom import parse, parseString
 
@@ -15,8 +15,8 @@ try:
     HAVE_SCAPY = True
 except ImportError:
     HAVE_SCAPY = False
-import os
 import glob
+import os
 import random
 import tempfile
 

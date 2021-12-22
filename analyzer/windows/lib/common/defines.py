@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import (POINTER, WINFUNCTYPE, Union, Structure, c_int, c_bool, c_char, c_uint, windll, c_ubyte, c_double, c_ushort,
-                    c_void_p, c_wchar_p, c_ulonglong)
+from ctypes import (POINTER, WINFUNCTYPE, Structure, Union, c_bool, c_char, c_double, c_int, c_ubyte, c_uint, c_ulonglong, c_ushort,
+                    c_void_p, c_wchar_p, windll)
 
 NTDLL = windll.ntdll
 KERNEL32 = windll.kernel32

@@ -5,8 +5,8 @@ import os
 import shutil
 from subprocess import call
 
-from lib.common.common import check_file_extension
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 class IE(Package):

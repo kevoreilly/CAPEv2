@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 
-from lib.cuckoo.common.colors import red, blue, bold, cyan, black, color, green, white, yellow, magenta  # noqa: F401
+from lib.cuckoo.common.colors import black, blue, bold, color, cyan, green, magenta, red, white, yellow  # noqa: F401
 
 
 def test_return_text():

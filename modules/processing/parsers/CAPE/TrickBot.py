@@ -22,12 +22,12 @@
 # SOFTWARE.
 
 from __future__ import absolute_import
-import struct
 import hashlib
+import struct
 import xml.etree.ElementTree as ET
 
-import yara
 import pefile
+import yara
 from Crypto.Cipher import AES
 
 rule_source = """

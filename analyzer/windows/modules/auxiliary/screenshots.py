@@ -3,14 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import time
 import logging
+import time
 from io import BytesIO
 from threading import Thread
 
 from lib.api.screenshot import Screenshot
-from lib.common.results import NetlogFile
 from lib.common.abstracts import Auxiliary
+from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)
 

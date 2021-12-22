@@ -1,16 +1,16 @@
 from __future__ import absolute_import
-import os
-import shutil
 import hashlib
 import logging
-import tempfile
+import os
+import shutil
 import subprocess
-from collections.abc import Mapping, Iterable
+import tempfile
+from collections.abc import Iterable, Mapping
 
-from lib.cuckoo.common.utils import is_text_file
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import is_text_file
 
 try:
     import yara
@@ -184,9 +184,9 @@ HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:
     try:
         # from malduck.extractor.loaders import load_modules
-        from malduck.yara import Yara
         from malduck.extractor import ExtractManager, ExtractorModules
         from malduck.extractor.extractor import Extractor
+        from malduck.yara import Yara
 
         from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
 

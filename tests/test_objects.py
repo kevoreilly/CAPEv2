@@ -2,17 +2,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
+from __future__ import absolute_import, print_function
 import logging
+import os
 import pathlib
 import tempfile
 
-import yara
 import pytest
+import yara
 from tcr_misc import get_sample, random_string
 
-from lib.cuckoo.common.objects import File, ProcDump, Dictionary
+from lib.cuckoo.common.objects import Dictionary, File, ProcDump
 
 
 @pytest.fixture

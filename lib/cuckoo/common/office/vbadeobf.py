@@ -12,8 +12,8 @@ try:
 except ImportError:
     import re
 
-from os.path import exists
 from itertools import chain, repeat
+from os.path import exists
 
 from lib.cuckoo.common.utils import convert_to_printable
 

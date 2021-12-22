@@ -5,8 +5,8 @@
 from __future__ import absolute_import
 import os
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooReportError
 
 try:

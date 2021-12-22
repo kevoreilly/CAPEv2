@@ -14,8 +14,8 @@
 
 import struct
 
-import yara
 import pefile
+import yara
 
 rule_source = """
 rule Azorult

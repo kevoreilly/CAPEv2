@@ -14,10 +14,10 @@
 
 import string
 
-import yara
 import pefile
-from mwcp.parser import Parser
+import yara
 from Crypto.Cipher import ARC4
+from mwcp.parser import Parser
 
 rule_source = """
 rule BitPaymer

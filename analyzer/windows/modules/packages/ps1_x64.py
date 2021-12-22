@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from lib.common.common import check_file_extension
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 # Originally proposed by David Maciejak.
 

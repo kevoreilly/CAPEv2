@@ -8,7 +8,7 @@ import tempfile
 
 from nose.tools import assert_equals
 
-from lib.cuckoo.common.abstracts import Signature, Processing
+from lib.cuckoo.common.abstracts import Processing, Signature
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 
 

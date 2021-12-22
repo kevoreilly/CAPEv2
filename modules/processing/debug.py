@@ -3,12 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import codecs
+import os
 
-from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.core.database import Database
 
 
 class Debug(Processing):

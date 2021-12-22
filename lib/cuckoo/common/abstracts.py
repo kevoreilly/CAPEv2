@@ -3,16 +3,16 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
-import time
-import socket
-import logging
+from __future__ import absolute_import, print_function
 import datetime
+import logging
+import os
+import socket
 import threading
+import time
 
-import requests
 import dns.resolver
+import requests
 
 try:
     import re2 as re
@@ -21,14 +21,14 @@ except ImportError:
 
 import xml.etree.ElementTree as ET
 
-from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import (CuckooReportError, CuckooMachineError, CuckooCriticalError, CuckooDependencyError,
-                                          CuckooOperationalError)
+from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooDependencyError, CuckooMachineError, CuckooOperationalError,
+                                          CuckooReportError)
+from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.url_validate import url as url_validator
+from lib.cuckoo.common.utils import create_folder, get_memdump_path
+from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
 cfg = Config()

@@ -11,13 +11,13 @@ Create Date: 2015-03-05 07:39:21.036983
 """
 
 # revision identifiers, used by Alembic.
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 
 revision = "4b09c454108c"
 down_revision = "495d5a6edef3"
 
-import sys
 import os.path
+import sys
 from datetime import datetime
 
 import sqlalchemy as sa

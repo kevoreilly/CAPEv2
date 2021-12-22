@@ -3,21 +3,21 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
+import binascii
 import copy
-import mmap
-import time
-import struct
 import hashlib
 import logging
-import binascii
+import mmap
+import os
+import struct
 import subprocess
+import sys
+import time
 
-from lib.cuckoo.common.defines import (PAGE_GUARD, PAGE_EXECUTE, PAGE_NOCACHE, PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE,
-                                       PAGE_WRITECOPY, PAGE_EXECUTE_READ, PAGE_WRITECOMBINE, PAGE_EXECUTE_READWRITE,
-                                       PAGE_EXECUTE_WRITECOPY)
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.defines import (PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
+                                       PAGE_NOACCESS, PAGE_NOCACHE, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOMBINE,
+                                       PAGE_WRITECOPY)
 
 try:
     import magic

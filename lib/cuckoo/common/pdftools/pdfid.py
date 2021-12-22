@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 
 __description__ = "Tool to test a PDF file"
 __author__ = "Didier Stevens"
@@ -63,22 +63,22 @@ Todo:
   - code review, cleanup
 """
 
-import os
-import re
-import sys
+import binascii
+import collections
+import fnmatch
 import glob
 import json
 import math
-import random
-import fnmatch
-import os.path
-import zipfile
-import binascii
 import operator
 import optparse
+import os
+import os.path
+import random
+import re
+import sys
 import traceback
-import collections
 import xml.dom.minidom
+import zipfile
 
 if sys.version_info[0] >= 3:
     import urllib.request as urllib23

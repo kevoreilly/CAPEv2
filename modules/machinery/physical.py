@@ -3,18 +3,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import sys
 import json
+import logging
 import socket
 import struct
-import logging
+import sys
 from time import sleep
 
 import requests
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooCriticalError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 

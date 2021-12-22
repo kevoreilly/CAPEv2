@@ -9,11 +9,11 @@ Pseudo-machinery for using multiple machinery.
 """
 
 from __future__ import absolute_import
-import types
 import inspect
+import types
 
+from lib.cuckoo.common.abstracts import LibVirtMachinery, Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.abstracts import Machinery, LibVirtMachinery
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 
 

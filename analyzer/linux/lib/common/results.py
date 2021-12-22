@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import time
-import socket
 import logging
+import os
+import socket
+import time
 
 from lib.core.config import Config
 

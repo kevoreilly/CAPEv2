@@ -3,17 +3,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
-import gc
-import os
-import sys
-import json
-import time
-import signal
-import logging
 import argparse
+import gc
+import json
+import logging
+import multiprocessing
+import os
 import platform
 import resource
-import multiprocessing
+import signal
+import sys
+import time
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -28,19 +28,19 @@ log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
-from lib.cuckoo.common.utils import free_space_monitor
-from lib.cuckoo.core.plugins import RunReporting, RunProcessing, RunSignatures
-from lib.cuckoo.core.startup import ConsoleHandler, init_yara, init_modules, check_linux_dist
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import TASK_REPORTED, TASK_COMPLETED, TASK_FAILED_PROCESSING, Task, Database
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.utils import free_space_monitor
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
+from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
+from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
 
 cfg = Config()
 repconf = Config("reporting")
 if repconf.mongodb.enabled:
-    from pymongo import ASCENDING, DESCENDING, MongoClient
     from bson.objectid import ObjectId
+    from pymongo import ASCENDING, DESCENDING, MongoClient
     from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:

@@ -3,27 +3,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import time
-import logging
-import pkgutil
-import zipfile
 import datetime
+import logging
+import os
+import pkgutil
+import sys
 import tempfile
+import time
 import traceback
+import zipfile
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from modules import auxiliary
 from lib.api.process import Process
-from lib.core.config import Config
-from lib.core.startup import init_logging, create_folders
-from lib.core.packages import choose_package_class
-from lib.common.results import upload_to_host
 from lib.common.abstracts import Auxiliary
 from lib.common.constants import PATHS
 from lib.common.exceptions import CuckooError, CuckooPackageError
+from lib.common.results import upload_to_host
+from lib.core.config import Config
+from lib.core.packages import choose_package_class
+from lib.core.startup import create_folders, init_logging
+from modules import auxiliary
 
 log = logging.getLogger()
 

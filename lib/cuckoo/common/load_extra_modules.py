@@ -1,8 +1,8 @@
-import os
 import glob
-import inspect
-import pkgutil
 import importlib
+import inspect
+import os
+import pkgutil
 
 
 def ratdecodedr_load_decoders(path):

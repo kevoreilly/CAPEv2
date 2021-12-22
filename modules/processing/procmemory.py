@@ -16,9 +16,9 @@ except ImportError:
 
 import logging
 
-from lib.cuckoo.common.objects import File, ProcDump
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
+from lib.cuckoo.common.objects import File, ProcDump
 
 log = logging.getLogger(__name__)
 

@@ -2,38 +2,38 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
-import sys
-import json
-import zlib
+from __future__ import absolute_import, print_function
 import base64
-import shutil
-import zipfile
 import datetime
+import json
+import os
+import shutil
+import sys
 import tempfile
+import zipfile
+import zlib
 from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
-from django.shortcuts import render, redirect
-from django.core.exceptions import PermissionDenied
-from rest_framework.decorators import api_view
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from django.contrib.auth.decorators import login_required
+from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import TASK_PENDING, Task, Database
-from lib.cuckoo.common.constants import CUCKOO_ROOT, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.web_utils import (rateblock, statistics, perform_search, my_rate_minutes, my_rate_seconds,
-                                         perform_ttps_search, perform_malscore_search)
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
+                                         perform_ttps_search, rateblock, statistics)
+from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 
 try:

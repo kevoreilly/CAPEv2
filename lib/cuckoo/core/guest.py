@@ -3,22 +3,22 @@
 # See the file 'docs/LICENSE' for copying permission.
 # https://github.com/cuckoosandbox/cuckoo/blob/master/cuckoo/core/guest.py
 from __future__ import absolute_import
-import os
-import sys
-import json
-import time
-import socket
-import logging
 import datetime
+import json
+import logging
+import os
+import socket
+import sys
+import time
 from io import BytesIO
 from zipfile import ZIP_STORED, ZipFile
 
 import requests
 
 from lib.cuckoo.common.config import Config, parse_options
+from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import CuckooGuestError, CuckooGuestCriticalTimeout
 
 log = logging.getLogger(__name__)
 db = Database()

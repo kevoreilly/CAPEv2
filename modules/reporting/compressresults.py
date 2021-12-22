@@ -4,8 +4,8 @@
 
 from __future__ import absolute_import
 import json
-import zlib
 import logging
+import zlib
 
 from bson import ObjectId
 from bson.binary import Binary

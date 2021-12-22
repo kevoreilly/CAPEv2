@@ -2,14 +2,14 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
-import sys
+from __future__ import absolute_import, print_function
 import copy
-import socket
 import logging
-import platform
 import logging.handlers
+import os
+import platform
+import socket
+import sys
 
 try:
     import yara
@@ -19,20 +19,20 @@ try:
 except ImportError:
     print("Missed library: pip3 install yara-python>=4.0.0 -U")
 
-import modules.feeds
 import modules.auxiliary
-import modules.reporting
+import modules.feeds
 import modules.processing
+import modules.reporting
 import modules.signatures
-from lib.cuckoo.core.rooter import vpns, rooter, socks5s
-from lib.cuckoo.common.utils import create_folders
-from lib.cuckoo.core.plugins import list_plugins, import_plugin, import_package
-from lib.cuckoo.common.colors import red, cyan, yellow
+from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import TASK_RUNNING, TASK_FAILED_ANALYSIS, Database
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooStartupError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import create_folders
+from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
+from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
 log = logging.getLogger()
 

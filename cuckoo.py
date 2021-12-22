@@ -4,10 +4,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -15,14 +15,14 @@ if sys.version_info[:2] < (3, 6):
 try:
     import bson
 
-    from lib.cuckoo.common.logo import logo
-    from lib.cuckoo.core.startup import (init_yara, init_tasks, init_rooter, init_logging, init_modules, init_routing,
-                                         check_configs, check_linux_dist, create_structure, check_webgui_mongo,
-                                         check_working_directory)
-    from lib.cuckoo.core.scheduler import Scheduler
     from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
     from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
+    from lib.cuckoo.common.logo import logo
     from lib.cuckoo.core.resultserver import ResultServer
+    from lib.cuckoo.core.scheduler import Scheduler
+    from lib.cuckoo.core.startup import (check_configs, check_linux_dist, check_webgui_mongo, check_working_directory,
+                                         create_structure, init_logging, init_modules, init_rooter, init_routing, init_tasks,
+                                         init_yara)
 
     bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:

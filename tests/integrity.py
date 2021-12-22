@@ -9,15 +9,15 @@ Checks the integrity of one or more virtual machine(s). In order to ensure
 that there are no remaining tasks in the queue this utility will clean the
 entire database before starting various analyses.
 """
-from __future__ import print_function, absolute_import
-import sys
+from __future__ import absolute_import, print_function
+import argparse
 import json
 import logging
 import os.path
-import argparse
+import subprocess
+import sys
 import tempfile
 import unittest
-import subprocess
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)

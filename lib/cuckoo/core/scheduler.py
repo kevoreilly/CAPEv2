@@ -3,13 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import logging
 import os
-import time
 import queue
 import shutil
 import signal
-import logging
 import threading
+import time
 
 try:
     import re2 as re
@@ -26,17 +26,17 @@ try:
 except ImportError:
     print("Missde dependency: pip3 install psutil")
 
-from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.rooter import vpns, rooter, _load_socks5_operational
-from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor, convert_to_printable
-from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import TASK_COMPLETED, Database
-from lib.cuckoo.common.objects import HAVE_PEFILE, File, pefile
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import (CuckooGuestError, CuckooMachineError, CuckooNetworkError, CuckooCriticalError,
+from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooGuestError, CuckooMachineError, CuckooNetworkError,
                                           CuckooOperationalError)
+from lib.cuckoo.common.objects import HAVE_PEFILE, File, pefile
+from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
+from lib.cuckoo.core.database import TASK_COMPLETED, Database
+from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
+from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
 
 log = logging.getLogger(__name__)
 

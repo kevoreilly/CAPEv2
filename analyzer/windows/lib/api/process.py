@@ -3,29 +3,29 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
 import base64
-import random
 import logging
+import os
 import platform
+import random
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_int, sizeof, c_ulong, create_string_buffer
+from ctypes import byref, c_int, c_ulong, create_string_buffer, sizeof
 from shutil import copy
 
-from lib.core.log import LogServer
-from lib.common.rand import random_string
-from lib.core.config import Config
+from lib.common.constants import (CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME, LOGSERVER_PREFIX, PATHS, PIPE,
+                                  SHUTDOWN_MUTEX, TERMINATE_EVENT)
+from lib.common.defines import (CREATE_NEW_CONSOLE, CREATE_SUSPENDED, EVENT_MODIFY_STATE, GENERIC_READ, GENERIC_WRITE, KERNEL32,
+                                NTDLL, OPEN_EXISTING, PROCESS_ALL_ACCESS, PROCESS_INFORMATION, PROCESSENTRY32, STARTUPINFO,
+                                SYSTEM_INFO, TH32CS_SNAPPROCESS, THREAD_ALL_ACCESS, ULONG_PTR)
 from lib.common.errors import get_error_string
-from lib.common.defines import (NTDLL, KERNEL32, ULONG_PTR, STARTUPINFO, SYSTEM_INFO, GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING,
-                                PROCESSENTRY32, CREATE_SUSPENDED, THREAD_ALL_ACCESS, CREATE_NEW_CONSOLE, EVENT_MODIFY_STATE,
-                                PROCESS_ALL_ACCESS, TH32CS_SNAPPROCESS, PROCESS_INFORMATION)
+from lib.common.rand import random_string
 from lib.common.results import upload_to_host
-from lib.common.constants import (PIPE, PATHS, LOADER32_NAME, LOADER64_NAME, CAPEMON32_NAME, CAPEMON64_NAME, SHUTDOWN_MUTEX,
-                                  TERMINATE_EVENT, LOGSERVER_PREFIX)
+from lib.core.config import Config
+from lib.core.log import LogServer
 
 # from lib.common.defines import STILL_ACTIVE
 

@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import logging
 import os
 import shutil
-import logging
-from zipfile import ZipFile, BadZipfile
+from zipfile import BadZipfile, ZipFile
 
 try:
     import re2 as re

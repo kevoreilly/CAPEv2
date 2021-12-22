@@ -14,8 +14,8 @@
 import struct
 from itertools import cycle
 
-import yara
 import pefile
+import yara
 
 rule_source = """
 rule SquirrelWaffle

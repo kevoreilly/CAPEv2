@@ -4,16 +4,16 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import sys
+import argparse
 import logging
 import os.path
-import argparse
+import sys
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import Database
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.core.database import Database
 
 
 def update_conf(machinery, args):

@@ -1,13 +1,13 @@
 from __future__ import absolute_import
-import os
-import time
 import logging
+import os
 import subprocess
+import time
 from threading import Thread
 
-from lib.core.config import Config
-from lib.common.results import upload_to_host
 from lib.common.abstracts import Auxiliary
+from lib.common.results import upload_to_host
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 

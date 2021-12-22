@@ -2,18 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
 import copy
 import json
-import time
 import logging
-import threading
 import logging.handlers
+import os
+import threading
+import time
 
 import gevent.thread
 
+from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.misc import cwd
-from lib.cuckoo.common.colors import red, cyan, yellow
 from lib.cuckoo.core.database import Database
 
 _task_threads = {}

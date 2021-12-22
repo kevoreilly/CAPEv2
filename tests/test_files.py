@@ -3,7 +3,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 import io
 import os
 import shutil
@@ -11,8 +11,8 @@ import tempfile
 
 import pytest
 
-from lib.cuckoo.common.files import Files, Folders, Storage, open_exclusive
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.files import Files, Folders, Storage, open_exclusive
 
 # from lib.cuckoo.common.safelist import is_safelisted_domain
 

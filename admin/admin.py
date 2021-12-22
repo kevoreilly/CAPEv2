@@ -15,17 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import sys
-import json
-import shutil
-import logging
 import argparse
+import json
+import logging
+import os
+import shutil
 import subprocess
-from queue import Queue
-from urllib import urlparse
+import sys
 from hashlib import sha256
+from queue import Queue
 from threading import Thread
+from urllib import urlparse
 
 import urllib3
 
@@ -35,16 +35,16 @@ except ImportError:
     import re
 
 try:
-    from scp import SCPClient, SCPException
-    from paramiko import SSHClient, AutoAddPolicy
+    from paramiko import AutoAddPolicy, SSHClient
     from paramiko.ssh_exception import BadHostKeyException
+    from scp import SCPClient, SCPException
 except ImportError:
     print("pip3 install -U paramiko scp")
     sys.exit()
 
 try:
-    from admin_conf import (JUMP_BOX, VOL_PATH, CAPE_PATH, MASTER_NODE, CAPE_DIST_URL, JUMP_BOX_PORT, JUMP_BOX_USERNAME,
-                            REMOTE_SERVER_USER, SERVERS_STATIC_LIST)
+    from admin_conf import (CAPE_DIST_URL, CAPE_PATH, JUMP_BOX, JUMP_BOX_PORT, JUMP_BOX_USERNAME, MASTER_NODE, REMOTE_SERVER_USER,
+                            SERVERS_STATIC_LIST, VOL_PATH)
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 

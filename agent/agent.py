@@ -2,21 +2,21 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import print_function, absolute_import
-import os
+from __future__ import absolute_import, print_function
+import argparse
 import cgi
-import sys
+import http.server
 import json
-import stat
+import os
+import platform
 import shutil
 import socket
-import argparse
-import platform
+import socketserver
+import stat
+import subprocess
+import sys
 import tempfile
 import traceback
-import subprocess
-import http.server
-import socketserver
 from io import StringIO
 from zipfile import ZipFile
 

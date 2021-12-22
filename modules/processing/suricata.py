@@ -3,14 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import json
-import time
-import shutil
-import logging
 import datetime
+import json
+import logging
+import os
+import shutil
 import subprocess
+import sys
+import time
 
 try:
     import re2 as re
@@ -24,9 +24,9 @@ try:
 except ImportError:
     HAVE_ORJSON = False
 
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 

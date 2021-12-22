@@ -1,13 +1,13 @@
+import logging
 import os
 import sys
-import logging
-from hashlib import md5
 from argparse import ArgumentParser
 from binascii import hexlify, unhexlify
+from hashlib import md5
 
 from Crypto.Cipher import ARC4
 
-from .constants import macros, functions, operators
+from .constants import functions, macros, operators
 
 
 def parse_args():

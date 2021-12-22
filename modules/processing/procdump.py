@@ -3,15 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import json
+import os
 from datetime import datetime
 
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, generic_file_extractors
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable
 
 processing_conf = Config("processing")
 

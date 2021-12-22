@@ -18,9 +18,8 @@ down_revision = "c554ed5f32a0"
 import sys
 from datetime import datetime
 
-
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 
 def upgrade():

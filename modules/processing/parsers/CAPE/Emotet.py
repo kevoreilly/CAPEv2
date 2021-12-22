@@ -12,16 +12,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import struct
-import socket
 import base64
 import logging
+import socket
+import struct
 from itertools import cycle
 
 import pefile
 import yara
-from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
+from Crypto.Util import asn1
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

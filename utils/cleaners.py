@@ -2,14 +2,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-
-import os
-import sys
-import shutil
+from __future__ import absolute_import, print_function
 import argparse
 import logging
+import os
+import shutil
+import sys
 from datetime import datetime, timedelta
 from multiprocessing.pool import ThreadPool
 
@@ -17,23 +15,14 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from bson.objectid import ObjectId
-from lib.cuckoo.common.dist_db import create_session
-from lib.cuckoo.common.dist_db import Task as DTask
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.core.startup import create_structure, init_console_logging
-from lib.cuckoo.core.database import (
-    Database,
-    Task,
-    Sample,
-    TASK_PENDING,
-    TASK_FAILED_ANALYSIS,
-    TASK_FAILED_PROCESSING,
-    TASK_FAILED_REPORTING,
-    TASK_RECOVERED,
-    TASK_REPORTED,
-)
 
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.dist_db import Task as DTask
+from lib.cuckoo.common.dist_db import create_session
+from lib.cuckoo.common.utils import delete_folder
+from lib.cuckoo.core.database import (TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_PENDING,
+                                      TASK_RECOVERED, TASK_REPORTED, Database, Sample, Task)
+from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger()
 

@@ -15,8 +15,9 @@
 from __future__ import absolute_import
 import json
 import logging
-from lib.cuckoo.common.config import Config
+
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger()

@@ -3,13 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
+from analysis import views as analysis_views
+from dashboard import views as dashboard_views
+from django.conf import settings
 from django.conf.urls import include, url
+from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic.base import TemplateView
-from django.contrib.auth import views as auth_views
-from dashboard import views as dashboard_views
-from analysis import views as analysis_views
-from django.conf import settings
 
 if settings.NOCAPTCHA:
     from captcha_admin import admin
@@ -24,11 +25,11 @@ if settings.TWOFA:
 admin.site.site_header = "CAPE Administration"
 admin.site.site_title = "CAPE Administration"
 
-from dashboard import urls as dashboard
 from analysis import urls as analysis
-from compare import urls as compare
-from submission import urls as submission
 from apiv2 import urls as apiv2
+from compare import urls as compare
+from dashboard import urls as dashboard
+from submission import urls as submission
 
 handler403 = "web.views.handler403"
 handler404 = "web.views.handler404"

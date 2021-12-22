@@ -3,8 +3,9 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-from django.conf.urls import url
+
 from analysis import views
+from django.conf.urls import url
 
 urlpatterns = [
     url(r"^$", views.index, name="analysis"),

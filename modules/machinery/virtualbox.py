@@ -3,11 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import time
 import logging
-import subprocess
+import os
 import os.path
+import subprocess
+import time
 
 try:
     import re2 as re
@@ -15,9 +15,8 @@ except ImportError:
     import re
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.exceptions import CuckooMachineError
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 cfg = Config()

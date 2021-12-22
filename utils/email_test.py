@@ -1,14 +1,12 @@
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import sys
-import smtplib
+from __future__ import absolute_import, print_function
 import logging
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEBase import MIMEBase
-from email import Encoders
-
+import os
+import smtplib
+import sys
 from datetime import datetime
+from email import Encoders
+from email.MIMEBase import MIMEBase
+from email.MIMEMultipart import MIMEMultipart
 
 # Cuckoo root
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))

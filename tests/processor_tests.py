@@ -5,10 +5,11 @@
 from __future__ import absolute_import
 import os
 import tempfile
+
 from nose.tools import assert_equals
 
-from lib.cuckoo.common.constants import CUCKOO_VERSION
 from lib.cuckoo.common.abstracts import Processing, Signature
+from lib.cuckoo.common.constants import CUCKOO_VERSION
 
 
 class ProcessingMock(Processing):

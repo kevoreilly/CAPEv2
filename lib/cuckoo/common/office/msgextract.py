@@ -8,6 +8,7 @@ https://github.com/mattgwwalker/msg-extractor
 """
 
 from __future__ import absolute_import
+
 import six
 
 __author__ = "Matthew Walker"
@@ -31,13 +32,15 @@ __version__ = "0.2"
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import email.utils
+import glob
 import os
 import sys
-import glob
 import traceback
 from email.parser import Parser as EmailParser
-import email.utils
+
 import olefile as OleFile
+
 from lib.cuckoo.common.utils import store_temp_file
 
 

@@ -1,8 +1,9 @@
-from __future__ import absolute_import
-from __future__ import print_function
-import zipfile, sys, os
-import base64
+from __future__ import absolute_import, print_function
 import argparse
+import base64
+import os
+import sys
+import zipfile
 
 
 # ----------------------------------------------------------------

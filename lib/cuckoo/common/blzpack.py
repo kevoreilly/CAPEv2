@@ -1,9 +1,9 @@
 # included from https://github.com/sysopfb/brieflz
-import os
-from ctypes import *
 import binascii
-import zlib
+import os
 import struct
+import zlib
+from ctypes import *
 
 CURR_DIR = os.path.abspath(os.path.dirname(__file__))
 LIB_PATH = os.path.join(CURR_DIR, "blzpack_lib.so")

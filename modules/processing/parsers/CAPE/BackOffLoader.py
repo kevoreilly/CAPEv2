@@ -1,12 +1,12 @@
 # coding=UTF-8
 
-from __future__ import absolute_import
-from __future__ import print_function
-import pefile
-from struct import unpack_from
-from sys import argv
+from __future__ import absolute_import, print_function
 from binascii import hexlify
 from hashlib import md5
+from struct import unpack_from
+from sys import argv
+
+import pefile
 from Crypto.Cipher import ARC4
 
 CFG_START = "1020304050607080"

@@ -1,18 +1,17 @@
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import os
-import sys
 import shutil
+import sys
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(".")), "..")
 sys.path.append(CUCKOO_ROOT)
 
 
-from lib.cuckoo.core.database import Database, Task, TASK_PENDING
+import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
-import modules.processing.network as network
+from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 
 repconf = Config("reporting")
 

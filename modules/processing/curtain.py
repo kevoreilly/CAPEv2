@@ -5,10 +5,11 @@ try:
     import re2 as re
 except ImportError:
     import re
+
 import ast
 import base64
-import logging
 import itertools
+import logging
 import xml.etree.ElementTree as ET
 
 from lib.cuckoo.common.abstracts import Processing

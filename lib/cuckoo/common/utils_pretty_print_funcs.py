@@ -4,6 +4,7 @@
 
 
 from __future__ import absolute_import
+
 import lib.cuckoo.common.utils_dicts as utils_dicts
 
 

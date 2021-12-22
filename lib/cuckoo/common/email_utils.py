@@ -7,8 +7,9 @@ import email
 import mimetypes
 from email.header import decode_header, make_header
 
-from . import utils
 import six
+
+from . import utils
 
 SAFE_MEDIA_TYPE = ["text/plain", "text/html"]
 EMAIL_MAGIC = ["MIME-Version:", "Received:", "From:", "Return-Path:", "Delivered-To:"]

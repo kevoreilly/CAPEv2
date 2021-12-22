@@ -20,10 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import pefile
-import sys
 import re
 import struct
+import sys
+
+import pefile
 from Crypto.Cipher import DES3
 
 DESCRIPTION = "Loki configuration parser."

@@ -3,35 +3,33 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
 import json
 import logging
+import os
+import sys
 from datetime import datetime, timedelta
 
 import pymongo
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.colors import red
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooDatabaseError
-from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.exceptions import CuckooDependencyError
-from lib.cuckoo.common.objects import File, URL, PCAP, Static
-from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLock, get_options
-from lib.cuckoo.common.demux import demux_sample
-from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
 
+from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
+from lib.cuckoo.common.colors import red
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.demux import demux_sample
+from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
+from lib.cuckoo.common.objects import PCAP, URL, File, Static
+from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
+
 try:
-    from sqlalchemy import create_engine, Column, event
-    from sqlalchemy import Integer, String, Boolean, DateTime, Enum, func, or_, not_
-    from sqlalchemy import ForeignKey, Text, Index, Table, text
+    from sqlalchemy import (Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, Table, Text, create_engine, event,
+                            func, not_, or_, text)
+    from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
-    from sqlalchemy.orm import sessionmaker, relationship, joinedload, backref
+    from sqlalchemy.orm import backref, joinedload, relationship, sessionmaker
 
     Base = declarative_base()
 except ImportError:

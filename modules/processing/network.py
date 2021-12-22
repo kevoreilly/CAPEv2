@@ -3,20 +3,21 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import binascii
+import logging
 import os
-import sys
 import socket
 import struct
+import sys
 import tempfile
-import logging
-import binascii
-import dns.resolver
 import traceback
+from base64 import b64encode
 from collections import OrderedDict
-from urllib.parse import urlunparse
 from hashlib import md5, sha1, sha256
 from json import loads
-from base64 import b64encode
+from urllib.parse import urlunparse
+
+import dns.resolver
 
 try:
     import re2 as re
@@ -28,16 +29,17 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 
+from dns.reversename import from_address
+
+from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dns import resolve
+from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.exceptions import CuckooProcessingError
-from dns.reversename import from_address
 from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
-from data.safelist.domains import domain_passlist_re
+from lib.cuckoo.common.utils import convert_to_printable
 
 try:
     import GeoIP
@@ -70,8 +72,8 @@ except ImportError:
 # http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
 # http://code.activestate.com/recipes/576755/
 import heapq
-from itertools import islice
 from collections import namedtuple
+from itertools import islice
 
 TLS_HANDSHAKE = 22
 

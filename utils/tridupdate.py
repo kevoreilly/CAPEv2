@@ -14,18 +14,18 @@
 
 
 from __future__ import print_function
-
+import argparse
+import hashlib
 import os
 import sys
-import hashlib
-import argparse
 
 if sys.version_info.major >= 3:
     from urllib.request import urlopen
 else:
     from urllib import urlopen
-import zipfile
+
 import tempfile
+import zipfile
 
 PROGRAM_VER = "1.10"
 

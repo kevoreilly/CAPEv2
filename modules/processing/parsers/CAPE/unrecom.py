@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 import string
-from zipfile import ZipFile
-from io import StringIO
-from Crypto.Cipher import ARC4
 import xml.etree.ElementTree as ET
+from io import StringIO
+from zipfile import ZipFile
+
+from Crypto.Cipher import ARC4
 
 
 def extract_embedded(zip_data):

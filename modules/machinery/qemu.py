@@ -5,18 +5,18 @@
 # https://qemu.readthedocs.io/en/latest/
 
 from __future__ import absolute_import
-import os
-import time
-import magic
 import logging
-import subprocess
+import os
 import os.path
+import subprocess
+import time
+
+import magic
 
 # from lib.cuckoo.core.rooter import rooter
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 cfg = Config()

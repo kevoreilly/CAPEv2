@@ -9,19 +9,19 @@ TODO:
  2. Dynamic size parsing
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
-from struct import unpack
-from socket import inet_ntoa
-from collections import OrderedDict
-from netstruct import unpack as netunpack
-import json
-from base64 import b64encode
+from __future__ import absolute_import, print_function
 import argparse
 import io
-import re
-import pefile
+import json
 import logging
+import re
+from base64 import b64encode
+from collections import OrderedDict
+from socket import inet_ntoa
+from struct import unpack
+
+import pefile
+from netstruct import unpack as netunpack
 
 log = logging.getLogger(__name__)
 

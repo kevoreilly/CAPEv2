@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os.path
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 domains = set()

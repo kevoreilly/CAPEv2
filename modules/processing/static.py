@@ -2,24 +2,24 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+import array
+import base64
+import binascii
+import ctypes
+import hashlib
 import json
 import logging
+import math
 import os
 import re
-import math
-import array
-import ctypes
 import struct
-import base64
-import hashlib
-import requests
-import binascii
-from PIL import Image
-from io import BytesIO
-from subprocess import Popen, PIPE
 from datetime import datetime
+from io import BytesIO
+from subprocess import PIPE, Popen
+
+import requests
+from PIL import Image
 
 try:
     import re2 as re
@@ -56,8 +56,8 @@ except ImportError:
 
 try:
     import cryptography
-    from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.backends.openssl import x509
+    from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.primitives import hashes
 
     HAVE_CRYPTO = True
@@ -72,15 +72,15 @@ try:
 except Exception:
     HAVE_WHOIS = False
 
-from lib.cuckoo.common.structures import LnkHeader, LnkEntry
-from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
-from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File, IsPEImage
-from lib.cuckoo.common.config import Config
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
+from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.objects import File, IsPEImage
+from lib.cuckoo.common.structures import LnkEntry, LnkHeader
+from lib.cuckoo.common.utils import bytes2str, get_options, store_temp_file
 
 try:
     import olefile
@@ -92,30 +92,23 @@ except ImportError:
 
 try:
     from oletools import oleobj
-    from oletools.oleid import OleID
-    from oletools.olevba import (
-        detect_autoexec,
-        detect_hex_strings,
-        detect_patterns,
-        detect_suspicious,
-        filter_vba,
-        VBA_Parser,
-        UnexpectedDataError,
-    )
-    from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
+    from oletools.oleid import OleID
+    from oletools.olevba import (UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_patterns,
+                                 detect_suspicious, filter_vba)
+    from oletools.rtfobj import RtfObjParser, is_rtf
 
     HAVE_OLETOOLS = True
 except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
-from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.utils import convert_to_printable
 
 try:
-    from peepdf.PDFCore import PDFParser
     from peepdf.JSAnalysis import analyseJS
+    from peepdf.PDFCore import PDFParser
 
     HAVE_PEEPDF = True
 except ImportError as e:
@@ -124,23 +117,10 @@ except ImportError as e:
 try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (
-        describe_ei_class,
-        describe_ei_data,
-        describe_ei_version,
-        describe_ei_osabi,
-        describe_e_type,
-        describe_e_machine,
-        describe_e_version_numeric,
-        describe_p_type,
-        describe_p_flags,
-        describe_sh_type,
-        describe_dyn_tag,
-        describe_symbol_type,
-        describe_symbol_bind,
-        describe_note,
-        describe_reloc_type,
-    )
+    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
+                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
+                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
+                                           describe_symbol_bind, describe_symbol_type)
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
     from elftools.elf.enums import ENUM_D_TAG
@@ -155,15 +135,15 @@ processing_conf = Config("processing")
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.on_demand is False:
-    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+    from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
 if processing_conf.xlsdeobf.on_demand is False:
-    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 log = logging.getLogger(__name__)
 

@@ -14,9 +14,10 @@
 
 #!/usr/bin/python
 from __future__ import absolute_import
-import pefile
-import struct
 import json
+import struct
+
+import pefile
 from six.moves import map
 
 

@@ -1,9 +1,10 @@
 from __future__ import absolute_import
+import logging
 import os
 import shutil
-import logging
-from lib.cuckoo.common.config import Config
+
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import get_memdump_path
 
 log = logging.getLogger(__name__)

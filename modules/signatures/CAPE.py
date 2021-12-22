@@ -15,6 +15,7 @@
 # along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+
 from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.common.objects import IsPEImage
 

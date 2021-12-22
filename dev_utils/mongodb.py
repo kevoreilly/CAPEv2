@@ -1,7 +1,8 @@
 # import code
 import os
-import pymongo
 import sys
+
+import pymongo
 
 from lib.cuckoo.common.config import Config
 

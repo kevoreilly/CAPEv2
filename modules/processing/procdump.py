@@ -3,21 +3,22 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import json
+import os
 from datetime import datetime
+
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, generic_file_extractors
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable
 
 processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 processing_conf = Config("processing")
 

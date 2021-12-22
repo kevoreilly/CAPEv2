@@ -17,8 +17,9 @@ import gzip
 import json
 import logging
 import os
-import requests
 import sys
+
+import requests
 
 try:
     from flor import BloomFilter
@@ -29,7 +30,6 @@ except ImportError:
     logging.error("Python library 'flor' is not installed -> pip3 install flor")
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-
 
 API_URL = "https://dgarchive.caad.fkie.fraunhofer.de/today/1"
 API_USER = ""

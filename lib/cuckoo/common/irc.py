@@ -6,8 +6,8 @@
 """IRC Protocol"""
 
 from __future__ import absolute_import
-from io import BytesIO
 import logging
+from io import BytesIO
 
 try:
     import re2 as re

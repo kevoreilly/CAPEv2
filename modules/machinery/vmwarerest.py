@@ -1,11 +1,11 @@
-import logging
-import requests
 import json
+import logging
+
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError
-
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 

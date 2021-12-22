@@ -1,15 +1,15 @@
-from __future__ import absolute_import
-from __future__ import print_function
-import re
+from __future__ import absolute_import, print_function
 import os
-import sys
-import commands
-from io import StringIO
-from base64 import b64decode
+import re
 import string
+import sys
+from base64 import b64decode
+from io import StringIO
 from zipfile import ZipFile
-from Crypto.Cipher import AES, DES3
+
+import commands
 import database
+from Crypto.Cipher import AES, DES3
 
 
 def run(md5, data):

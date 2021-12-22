@@ -14,8 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
+
 import requests
 
 try:
@@ -23,10 +24,9 @@ try:
 except ImportError:
     import re
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooDependencyError
-from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import to_unicode
 from lib.cuckoo.core.database import Database

@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import math
+import logging
 
 log = logging.getLogger(__name__)
 

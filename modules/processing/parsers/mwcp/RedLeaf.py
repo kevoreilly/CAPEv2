@@ -14,8 +14,8 @@
 
 import struct
 
-import pefile
 import yara
+import pefile
 from mwcp.parser import Parser
 
 rule_source = """

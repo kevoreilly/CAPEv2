@@ -3,11 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from ctypes import POINTER, Structure, byref
-from ctypes import c_ubyte as BYTE
+from ctypes import POINTER, Structure, cast, byref
 from ctypes import c_uint as DWORD
+from ctypes import sizeof
+from ctypes import c_ubyte as BYTE
+from ctypes import pointer
 from ctypes import c_ushort as WORD
-from ctypes import cast, create_string_buffer, pointer, sizeof, string_at
+from ctypes import string_at, create_string_buffer
 
 
 class GRPICONDIR(Structure):

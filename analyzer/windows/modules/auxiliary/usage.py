@@ -3,14 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import time
-from ctypes import byref, create_string_buffer, sizeof
+import logging
+from ctypes import byref, sizeof, create_string_buffer
 from threading import Thread
 
-from lib.common.abstracts import Auxiliary
-from lib.common.defines import DWORD, KERNEL32, MEMORYSTATUSEX, PDH, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PVOID
+from lib.common.defines import PDH, DWORD, PVOID, KERNEL32, MEMORYSTATUSEX, PDH_FMT_DOUBLE, PDH_FMT_COUNTERVALUE
 from lib.common.results import NetlogFile
+from lib.common.abstracts import Auxiliary
 
 log = logging.getLogger(__name__)
 

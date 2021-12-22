@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 
 __description__ = "Decode VBE script"
 __author__ = "Didier Stevens"
@@ -23,14 +23,14 @@ Reference:
   https://gallery.technet.microsoft.com/Encode-and-Decode-a-VB-a480d74c
 """
 
-import binascii
-import optparse
 import os
 import re
-import signal
 import sys
-import textwrap
+import signal
 import zipfile
+import binascii
+import optparse
+import textwrap
 
 MALWARE_PASSWORD = "infected"
 

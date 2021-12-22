@@ -5,8 +5,8 @@ Adapted from the original C source code from http://ibsensoftware.com/files/aPLi
 
 Approximately ~20 times faster than the other Python implementations.
 """
-import logging
 import struct
+import logging
 from io import BytesIO
 
 __all__ = ["decompress"]

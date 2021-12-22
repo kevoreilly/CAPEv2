@@ -1,10 +1,10 @@
-from __future__ import absolute_import, print_function
-import logging
+from __future__ import print_function, absolute_import
 import os
-import smtplib
 import sys
-from datetime import datetime
+import logging
+import smtplib
 from email import Encoders
+from datetime import datetime
 from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
 

@@ -21,8 +21,8 @@
 # SOFTWARE.
 
 import re
-import struct
 import sys
+import struct
 
 import pefile
 from Crypto.Cipher import DES3

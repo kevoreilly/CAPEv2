@@ -2,21 +2,21 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import logging
+from __future__ import print_function, absolute_import
 import os
 import sys
+import logging
 import tempfile
 
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.exceptions import CuckooDemuxError
 
 sf_version = ""
 try:
-    from sflock import __version__ as sf_version
     from sflock import unpack
+    from sflock import __version__ as sf_version
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
     from sflock.unpack.office import OfficeFile

@@ -12,11 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os.path
 import struct
+import os.path
 
-import pefile
 import yara
+import pefile
 from mwcp.parser import Parser
 
 rule_source = """

@@ -1,11 +1,11 @@
 # coding=UTF-8
 
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 import sys
-from binascii import hexlify
-from hashlib import md5
-from struct import unpack_from
 from sys import argv
+from struct import unpack_from
+from hashlib import md5
+from binascii import hexlify
 
 import pefile
 from Crypto.Cipher import ARC4

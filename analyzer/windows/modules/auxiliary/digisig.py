@@ -3,15 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
 import json
 import locale
 import logging
-import os
 from io import BytesIO
 
 from lib.api.utils import Utils
-from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
+from lib.common.abstracts import Auxiliary
 
 log = logging.getLogger(__name__)
 util = Utils()

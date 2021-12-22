@@ -1,6 +1,6 @@
 from __future__ import absolute_import
-import hashlib
 import re
+import hashlib
 from base64 import b64decode
 
 import pefile

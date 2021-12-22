@@ -4,8 +4,8 @@
 # of the MIT license. See the LICENSE file for details.
 
 from __future__ import absolute_import
-import logging
 import os
+import logging
 
 from lib.core.config import Config
 

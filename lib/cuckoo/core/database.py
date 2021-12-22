@@ -3,33 +3,33 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import json
-import logging
 import os
 import sys
+import json
+import logging
 from datetime import datetime, timedelta
 
 import pymongo
+from sflock.ident import identify as sflock_identify
 
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
-from sflock.ident import identify as sflock_identify
 
-from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
+from lib.cuckoo.common.demux import demux_sample
+from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, get_options, create_folder
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import URL, PCAP, File, Static
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.demux import demux_sample
+from lib.cuckoo.common.cape_utils import static_extraction, static_config_lookup
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
-from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
 try:
-    from sqlalchemy import (Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, Table, Text, create_engine, event,
-                            func, not_, or_, text)
-    from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-    from sqlalchemy.ext.declarative import declarative_base
+    from sqlalchemy import (Enum, Text, Index, Table, Column, String, Boolean, Integer, DateTime, ForeignKey, or_, func, not_, text,
+                            event, create_engine)
+    from sqlalchemy.exc import IntegrityError, SQLAlchemyError, OperationalError
     from sqlalchemy.orm import backref, joinedload, relationship, sessionmaker
+    from sqlalchemy.ext.declarative import declarative_base
 
     Base = declarative_base()
 except ImportError:

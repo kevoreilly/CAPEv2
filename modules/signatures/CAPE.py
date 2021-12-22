@@ -16,8 +16,8 @@
 
 import logging
 
-from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.common.objects import IsPEImage
+from lib.cuckoo.common.abstracts import Signature
 
 EXECUTABLE_FLAGS = 0x10 | 0x20 | 0x40 | 0x80
 EXTRACTION_MIN_SIZE = 0x1001

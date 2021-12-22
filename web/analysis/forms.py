@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 
 from django import forms
-from submission.models import Comment, Tag
+from submission.models import Tag, Comment
 
 
 class CommentForm(forms.ModelForm):

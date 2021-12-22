@@ -3,21 +3,21 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import json
-import logging
 import os
+import json
 import shutil
-from collections import defaultdict
+import logging
 from datetime import datetime, timedelta
+from collections import defaultdict
 from multiprocessing import Lock
 
 from bson.objectid import ObjectId
 
-from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.core.database import TASK_REPORTED, Task, Database
+from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)
 repconf = Config("reporting")

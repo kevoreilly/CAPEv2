@@ -3,13 +3,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import hashlib
-import logging
 import os
 import uuid
+import hashlib
+import logging
 
-import requests
 import urllib3
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 

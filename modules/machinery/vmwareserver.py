@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import time
 import logging
 import os.path
 import subprocess
-import time
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.exceptions import CuckooMachineError

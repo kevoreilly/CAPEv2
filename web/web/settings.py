@@ -17,12 +17,11 @@ sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-from lib.cuckoo.common.config import Config
-
 # In case we have VPNs enabled we need to initialize through the following
 # two methods as they verify the interaction with VPNs as well as gather
 # which VPNs are available (for representation upon File/URL submission).
 from lib.cuckoo.core.startup import init_rooter, init_routing
+from lib.cuckoo.common.config import Config
 
 init_rooter()
 init_routing()

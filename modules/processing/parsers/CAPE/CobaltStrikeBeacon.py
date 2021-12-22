@@ -9,16 +9,16 @@ TODO:
  2. Dynamic size parsing
 """
 
-from __future__ import absolute_import, print_function
-import argparse
+from __future__ import print_function, absolute_import
 import io
+import re
 import json
 import logging
-import re
+import argparse
 from base64 import b64encode
-from collections import OrderedDict
 from socket import inet_ntoa
 from struct import unpack
+from collections import OrderedDict
 
 import pefile
 from netstruct import unpack as netunpack

@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
-import socket
 import time
+import socket
+import logging
 from pathlib import Path
 
 from lib.core.config import Config

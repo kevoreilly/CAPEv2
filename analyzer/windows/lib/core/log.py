@@ -3,15 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import socket
+import logging
 import traceback
-from ctypes import addressof, byref, c_int, create_string_buffer, sizeof
+from ctypes import byref, c_int, sizeof, addressof, create_string_buffer
 from threading import Thread
 
-from lib.common.defines import (ADVAPI32, ERROR_MORE_DATA, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE, KERNEL32,
-                                PIPE_ACCESS_INBOUND, PIPE_READMODE_MESSAGE, PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
-                                SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR)
+from lib.common.defines import (ADVAPI32, KERNEL32, PIPE_WAIT, ERROR_MORE_DATA, PIPE_TYPE_MESSAGE, PIPE_ACCESS_INBOUND,
+                                SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE,
+                                PIPE_READMODE_MESSAGE, PIPE_UNLIMITED_INSTANCES)
 
 log = logging.getLogger()
 

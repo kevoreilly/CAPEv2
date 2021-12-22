@@ -14,8 +14,8 @@ Create Date: 2020-11-19 15:14:27.973963
 revision = "c554ed5f32a0"
 down_revision = "2996ec5ea15c"
 
-import os.path
 import sys
+import os.path
 from datetime import datetime
 
 import sqlalchemy as sa

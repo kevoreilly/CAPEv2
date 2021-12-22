@@ -5,9 +5,9 @@
 
 from __future__ import absolute_import
 import json
+import socket
 import logging
 import os.path
-import socket
 import tempfile
 import threading
 
@@ -31,8 +31,8 @@ def _load_socks5_operational():
         return socks5s
 
     try:
-        from socks5man.exceptions import Socks5manDatabaseError
         from socks5man.manager import Manager
+        from socks5man.exceptions import Socks5manDatabaseError
     except (ImportError, OSError) as e:
         return socks5s
     except Exception as e:

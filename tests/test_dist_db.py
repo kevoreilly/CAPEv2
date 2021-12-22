@@ -6,7 +6,7 @@ from __future__ import absolute_import
 
 from sqlalchemy import Table
 
-from lib.cuckoo.common.dist_db import Machine, Node, StringList, Task, create_session
+from lib.cuckoo.common.dist_db import Node, Task, Machine, StringList, create_session
 
 
 def test_node():

@@ -6,16 +6,16 @@
 # https://maecproject.github.io/releases/5.0/MAEC_Vocabularies_Specification.pdf
 from __future__ import absolute_import
 import io
-import json
-import logging
 import os
 import re
 import sys
+import json
 import uuid
+import logging
 from collections import OrderedDict
 
-import dateutil.parser
 import six
+import dateutil.parser
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT

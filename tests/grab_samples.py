@@ -4,10 +4,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import argparse
+import os
 import json
 import logging
-import os
+import argparse
 
 import urllib3
 from tcr_misc import get_sample

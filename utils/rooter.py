@@ -4,18 +4,18 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import argparse
-import errno
-import grp
-import json
-import logging.handlers
 import os
-import os.path
+import grp
+import sys
+import json
+import stat
+import errno
 import signal
 import socket
-import stat
+import os.path
+import argparse
 import subprocess
-import sys
+import logging.handlers
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")

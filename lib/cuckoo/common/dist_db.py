@@ -2,11 +2,11 @@ from __future__ import absolute_import
 from datetime import datetime
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, and_, create_engine, desc, or_
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Text, Index, Table, Column, String, Boolean, Integer, DateTime, ForeignKey, or_, and_, desc, create_engine
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
 from sqlalchemy.types import TypeDecorator
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 

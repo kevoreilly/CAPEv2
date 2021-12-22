@@ -15,8 +15,8 @@
 import os
 import struct
 
-import pefile
 import yara
+import pefile
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 

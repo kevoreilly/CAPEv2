@@ -9,7 +9,7 @@ Revises: 30d0230de7cd
 Create Date: 2020-04-10 12:17:18.530901
 
 """
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 
 # revision identifiers, used by Alembic.
 revision = "7331c4d994fd"

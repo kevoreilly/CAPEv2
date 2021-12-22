@@ -4,15 +4,15 @@
 # of the MIT license. See the LICENSE file for details.
 
 from __future__ import absolute_import
+import time
 import inspect
 import logging
 import subprocess
-import time
-from os import environ, path, sys, waitpid
+from os import sys, path, environ, waitpid
 
 from lib.api.process import Process
-from lib.common.apicalls import apicalls
 from lib.common.results import NetlogFile
+from lib.common.apicalls import apicalls
 
 log = logging.getLogger(__name__)
 

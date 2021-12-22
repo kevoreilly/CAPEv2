@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 import os
-from winreg import HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, CreateKeyEx, EnumKey, OpenKey, QueryInfoKey, SetValueEx
+from winreg import KEY_READ, REG_DWORD, KEY_SET_VALUE, HKEY_CURRENT_USER, EnumKey, OpenKey, SetValueEx, CreateKeyEx, QueryInfoKey
 
 from lib.common.abstracts import Package
 

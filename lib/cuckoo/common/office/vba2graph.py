@@ -25,15 +25,15 @@ Notes:
 # *                              General Imports                             *
 # ****************************************************************************
 
-import argparse
-import errno
 import os
 import sys
+import errno
+import argparse
 from io import StringIO
 from subprocess import Popen
 
-import networkx as nx
 import regex as re
+import networkx as nx
 from networkx.drawing.nx_pydot import write_dot
 
 # ****************************************************************************

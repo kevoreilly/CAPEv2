@@ -3,13 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import json
 import os
+import json
 
+from lib.cuckoo.common.utils import wide2str, convert_to_printable
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable, wide2str
 
 
 class Dropped(Processing):

@@ -5,8 +5,8 @@
 from __future__ import absolute_import
 
 from apiv2 import views
-from django.conf.urls import include, url
 from django.urls import path
+from django.conf.urls import url, include
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [

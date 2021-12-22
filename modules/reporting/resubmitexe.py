@@ -12,10 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
-import datetime
-import logging
-import ntpath
 import os
+import ntpath
+import logging
+import datetime
 
 import requests
 
@@ -24,12 +24,12 @@ try:
 except ImportError:
     import re
 
+from lib.cuckoo.common.utils import to_unicode, sanitize_filename
+from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import sanitize_filename, to_unicode
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.exceptions import CuckooReportError, CuckooDependencyError
 
 log = logging.getLogger(__name__)
 

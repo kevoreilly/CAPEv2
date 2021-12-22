@@ -6,8 +6,8 @@ import logging
 from ctypes import byref, sizeof
 
 from lib.api.process import Process
-from lib.common.abstracts import Auxiliary
 from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
+from lib.common.abstracts import Auxiliary
 from lib.common.exceptions import CuckooError
 
 log = logging.getLogger(__name__)

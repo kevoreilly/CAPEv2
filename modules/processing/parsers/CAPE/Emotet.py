@@ -13,15 +13,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import base64
-import logging
 import socket
 import struct
+import logging
 from itertools import cycle
 
-import pefile
 import yara
-from Crypto.PublicKey import RSA
+import pefile
 from Crypto.Util import asn1
+from Crypto.PublicKey import RSA
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

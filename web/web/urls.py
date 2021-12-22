@@ -7,9 +7,9 @@ from __future__ import absolute_import
 from analysis import views as analysis_views
 from dashboard import views as dashboard_views
 from django.conf import settings
-from django.conf.urls import include, url
-from django.contrib.auth import views as auth_views
 from django.urls import path
+from django.conf.urls import url, include
+from django.contrib.auth import views as auth_views
 from django.views.generic.base import TemplateView
 
 if settings.NOCAPTCHA:
@@ -25,9 +25,9 @@ if settings.TWOFA:
 admin.site.site_header = "CAPE Administration"
 admin.site.site_title = "CAPE Administration"
 
-from analysis import urls as analysis
 from apiv2 import urls as apiv2
 from compare import urls as compare
+from analysis import urls as analysis
 from dashboard import urls as dashboard
 from submission import urls as submission
 

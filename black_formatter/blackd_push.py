@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 from httpcore import ConnectError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from tenacity import retry, wait_fixed, stop_after_attempt, retry_if_exception_type
 
 
 def get_filepaths(directory):

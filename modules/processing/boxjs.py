@@ -1,5 +1,5 @@
-import logging
 import time
+import logging
 from urllib.parse import urljoin
 
 import requests

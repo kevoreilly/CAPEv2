@@ -2,15 +2,15 @@
     Qakbot decoder for Core/Main DLL
 """
 
-import datetime
-import hashlib
-import logging
 import socket
 import struct
+import hashlib
+import logging
+import datetime
 
 import pefile
-from Crypto.Cipher import ARC4
 from mwcp.parser import Parser
+from Crypto.Cipher import ARC4
 
 try:
     HAVE_BLZPACK = True

@@ -3,11 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
+import logging
 
-import imagehash
 import six
+import imagehash
 from PIL import Image
 
 from lib.cuckoo.common.abstracts import Processing

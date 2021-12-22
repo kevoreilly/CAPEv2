@@ -3,10 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import glob
-import logging
 import os
+import glob
 import shutil
+import logging
 
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError

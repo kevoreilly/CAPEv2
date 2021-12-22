@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import datetime
-import logging
 import struct
+import logging
+import datetime
 
 try:
     import bson
@@ -23,8 +23,8 @@ else:
     else:
         HAVE_BSON = False
 
-from lib.cuckoo.common.logtbl import table as LOGTBL
 from lib.cuckoo.common.utils import default_converter, get_filename_from_path
+from lib.cuckoo.common.logtbl import table as LOGTBL
 
 log = logging.getLogger(__name__)
 

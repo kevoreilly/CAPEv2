@@ -4,8 +4,8 @@
 
 from __future__ import absolute_import
 
-from django.conf.urls import url
 from submission import views
+from django.conf.urls import url
 
 urlpatterns = [
     url(r"^$", views.index, name="submission"),

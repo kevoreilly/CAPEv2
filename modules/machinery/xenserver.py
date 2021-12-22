@@ -11,7 +11,7 @@ import logging
 import threading
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooDependencyError
 
 try:
     import XenAPI

@@ -14,10 +14,10 @@
 
 import string
 
-import pefile
 import yara
-from Crypto.Cipher import ARC4
+import pefile
 from mwcp.parser import Parser
+from Crypto.Cipher import ARC4
 
 rule_source = """
 rule DoppelPaymer

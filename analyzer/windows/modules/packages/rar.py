@@ -3,13 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
 import re
 import shutil
+import logging
 
 try:
-    from rarfile import BadRarFile, RarFile
+    from rarfile import RarFile, BadRarFile
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False

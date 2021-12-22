@@ -6,32 +6,32 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-import hashlib
 import os
 import re
+import hashlib
 from collections import defaultdict
 
-from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from lib.cuckoo.common.utils import datetime_to_iso
+from lib.cuckoo.common.abstracts import Report
 from modules.processing.behavior import fix_key
+from lib.cuckoo.common.exceptions import CuckooReportError, CuckooDependencyError
 
 try:
     import cybox
     import cybox.utils.nsparser
-    from cybox.common import StructuredText, ToolInformation
     from cybox.core import Object
     from cybox.utils import Namespace
+    from cybox.common import StructuredText, ToolInformation
 
     HAVE_CYBOX = True
 except ImportError as e:
     HAVE_CYBOX = False
 
 try:
-    import maec.utils
     import mixbox
-    from maec.bundle import AVClassification, Bundle, BundleReference, MalwareAction, ProcessTree
-    from maec.package import Analysis, MalwareSubject, Package
+    import maec.utils
+    from maec.bundle import Bundle, ProcessTree, MalwareAction, BundleReference, AVClassification
+    from maec.package import Package, Analysis, MalwareSubject
 
     HAVE_MAEC = True
 except ImportError as e:

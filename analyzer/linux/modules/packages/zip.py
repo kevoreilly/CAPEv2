@@ -4,12 +4,12 @@
 # of the MIT license. See the LICENSE file for details.
 
 import logging
-from os import environ, path
+from os import path, environ
 from random import SystemRandom
 from shutil import move
 from string import ascii_letters
+from zipfile import ZipFile, BadZipfile
 from subprocess import check_output
-from zipfile import BadZipfile, ZipFile
 
 from lib.core.packages import Package, choose_package_class
 

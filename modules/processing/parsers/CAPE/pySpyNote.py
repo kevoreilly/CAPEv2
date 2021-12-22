@@ -1,13 +1,13 @@
 #!/usr/bin/python
-from __future__ import absolute_import, print_function
-import argparse
-import base64
+from __future__ import print_function, absolute_import
 import os
 import sys
+import base64
+import zipfile
+import argparse
 import urllib.error
 import urllib.parse
 import urllib.request
-import zipfile
 from sys import argv
 
 from androguard.core.bytecodes import apk, dvm

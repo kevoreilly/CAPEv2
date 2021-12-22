@@ -8,7 +8,7 @@ from __future__ import absolute_import
 import libvirt
 
 from lib.cuckoo.common.abstracts import LibVirtMachinery
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooCriticalError
 
 
 class ESX(LibVirtMachinery):

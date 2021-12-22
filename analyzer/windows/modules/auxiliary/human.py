@@ -4,14 +4,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import random
+import logging
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, c_bool, c_int, create_unicode_buffer, memmove, sizeof
+from ctypes import POINTER, WINFUNCTYPE, c_int, c_bool, sizeof, memmove, create_unicode_buffer
 from threading import Thread
 
+from lib.common.defines import USER32, CF_TEXT, BM_CLICK, KERNEL32, WM_CLOSE, WM_GETTEXT, GMEM_MOVEABLE, WM_GETTEXTLENGTH
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import BM_CLICK, CF_TEXT, GMEM_MOVEABLE, KERNEL32, USER32, WM_CLOSE, WM_GETTEXT, WM_GETTEXTLENGTH
 
 log = logging.getLogger(__name__)
 

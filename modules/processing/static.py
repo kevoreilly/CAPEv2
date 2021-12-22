@@ -2,20 +2,20 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import array
-import base64
-import binascii
-import ctypes
-import hashlib
-import json
-import logging
-import math
+from __future__ import print_function, absolute_import
 import os
 import re
+import json
+import math
+import array
+import base64
+import ctypes
 import struct
-from datetime import datetime
+import hashlib
+import logging
+import binascii
 from io import BytesIO
+from datetime import datetime
 from subprocess import PIPE, Popen
 
 import requests
@@ -56,9 +56,9 @@ except ImportError:
 
 try:
     import cryptography
+    from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.backends.openssl import x509
     from cryptography.hazmat.backends.openssl.backend import backend
-    from cryptography.hazmat.primitives import hashes
 
     HAVE_CRYPTO = True
 except ImportError:
@@ -73,14 +73,14 @@ except Exception:
     HAVE_WHOIS = False
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.objects import File, IsPEImage
-from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 from lib.cuckoo.common.utils import bytes2str, get_options, store_temp_file
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File, IsPEImage
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
 try:
     import olefile
@@ -92,10 +92,10 @@ except ImportError:
 
 try:
     from oletools import oleobj
-    from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID
-    from oletools.olevba import (UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_patterns,
-                                 detect_suspicious, filter_vba)
+    from oletools.msodde import process_file as extract_dde
+    from oletools.olevba import (VBA_Parser, UnexpectedDataError, filter_vba, detect_autoexec, detect_patterns, detect_suspicious,
+                                 detect_hex_strings)
     from oletools.rtfobj import RtfObjParser, is_rtf
 
     HAVE_OLETOOLS = True
@@ -103,30 +103,30 @@ except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
-from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 
 try:
-    from peepdf.JSAnalysis import analyseJS
     from peepdf.PDFCore import PDFParser
+    from peepdf.JSAnalysis import analyseJS
 
     HAVE_PEEPDF = True
 except ImportError as e:
     HAVE_PEEPDF = False
 
 try:
-    from elftools.common.exceptions import ELFError
-    from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
-                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
-                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
-                                           describe_symbol_bind, describe_symbol_type)
+    from elftools.elf.enums import ENUM_D_TAG
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
-    from elftools.elf.enums import ENUM_D_TAG
-    from elftools.elf.relocation import RelocationSection
     from elftools.elf.sections import SymbolTableSection
     from elftools.elf.segments import NoteSegment
+    from elftools.elf.constants import E_FLAGS
+    from elftools.elf.relocation import RelocationSection
+    from elftools.elf.descriptions import (describe_note, describe_e_type, describe_p_type, describe_dyn_tag, describe_ei_data,
+                                           describe_p_flags, describe_sh_type, describe_ei_class, describe_ei_osabi,
+                                           describe_e_machine, describe_ei_version, describe_reloc_type, describe_symbol_bind,
+                                           describe_symbol_type, describe_e_version_numeric)
+    from elftools.common.exceptions import ELFError
 except ImportError:
     ELFFile = False
 

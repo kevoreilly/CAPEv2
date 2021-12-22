@@ -3,23 +3,23 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import inspect
-import json
-import logging
 import os
-import pkgutil
 import sys
-from collections import defaultdict
+import json
+import inspect
+import logging
+import pkgutil
 from datetime import datetime, timedelta
+from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
-                                          CuckooReportError)
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.abstracts import Feed, Report, Auxiliary, Machinery, Signature, Processing, LibVirtMachinery
+from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.exceptions import (CuckooReportError, CuckooDisableModule, CuckooDependencyError, CuckooProcessingError,
+                                          CuckooOperationalError)
+from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 
 try:
     import re2 as re

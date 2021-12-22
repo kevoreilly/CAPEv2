@@ -3,9 +3,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import logging
-import random
 import time
+import random
+import logging
 from threading import Thread
 
 import pyautogui

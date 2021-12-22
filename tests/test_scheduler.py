@@ -1,18 +1,18 @@
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 import os
-import pathlib
 import queue
 import shutil
+import pathlib
 from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
-from func_timeout import FunctionTimedOut, func_timeout
 from tcr_misc import get_sample, random_string
+from func_timeout import FunctionTimedOut, func_timeout
 
 import lib.cuckoo.core.scheduler as scheduler
-from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.core.scheduler import AnalysisManager
+from lib.cuckoo.common.exceptions import CuckooOperationalError
 
 
 class mock_task(object):

@@ -17,8 +17,8 @@ from __future__ import absolute_import
 revision = "18eee46c6f81"
 down_revision = "263a45963c72"
 
-import os.path
 import sys
+import os.path
 
 import sqlalchemy as sa
 from alembic import op

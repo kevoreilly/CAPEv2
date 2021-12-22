@@ -1,10 +1,10 @@
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 import os
 import re
-import string
 import sys
-from base64 import b64decode
+import string
 from io import StringIO
+from base64 import b64decode
 from zipfile import ZipFile
 
 import commands

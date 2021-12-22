@@ -11,9 +11,9 @@ except ImportError:
 
 from collections import OrderedDict
 
-from django.template.defaultfilters import register
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from django.template.defaultfilters import register
 
 
 @register.filter("network_rn")

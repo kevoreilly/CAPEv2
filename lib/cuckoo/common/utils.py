@@ -3,28 +3,28 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
+import time
 import errno
 import fcntl
-import inspect
-import logging
-import multiprocessing
 import ntpath
-import operator
-import os
 import random
 import shutil
 import socket
 import string
 import struct
+import inspect
+import logging
+import zipfile
+import operator
 import tempfile
 import threading
-import time
 import xmlrpc.client
-import zipfile
-from collections import defaultdict
-from datetime import datetime
+import multiprocessing
 from io import BytesIO
 from typing import Tuple
+from datetime import datetime
+from collections import defaultdict
 
 import six
 

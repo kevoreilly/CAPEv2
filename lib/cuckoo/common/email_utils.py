@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 import email
 import mimetypes
-from email.header import decode_header, make_header
+from email.header import make_header, decode_header
 
 import six
 

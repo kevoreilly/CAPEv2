@@ -4,16 +4,16 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-import shutil
 import sys
+import shutil
 import zipfile
 from io import BytesIO
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
-import argparse
 import logging
 import tarfile
+import argparse
 from io import BytesIO
 
 import urllib3

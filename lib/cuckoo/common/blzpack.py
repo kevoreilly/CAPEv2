@@ -1,8 +1,8 @@
 # included from https://github.com/sysopfb/brieflz
-import binascii
 import os
-import struct
 import zlib
+import struct
+import binascii
 from ctypes import *
 
 CURR_DIR = os.path.abspath(os.path.dirname(__file__))

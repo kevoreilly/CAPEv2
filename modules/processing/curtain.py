@@ -8,8 +8,8 @@ except ImportError:
 
 import ast
 import base64
-import itertools
 import logging
+import itertools
 import xml.etree.ElementTree as ET
 
 from lib.cuckoo.common.abstracts import Processing

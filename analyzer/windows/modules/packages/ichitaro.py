@@ -13,9 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 # While this should work, it is an experimental rule - do a PR if you see fit! Viewer only.
@@ -27,9 +26,5 @@ class ichitaro(Package):
     def start(self, path):
         ichitaro = self.get_path("TAROVIEW.EXE")
         # Rename file to file.inp so it can open properly.
-        ext = os.path.splitext(path)[-1].lower()
-        if ext != ".jtd":
-            new_path = f"{path}.jtd"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".jtd")
         return self.execute(ichitaro, f'"{path}"', path)

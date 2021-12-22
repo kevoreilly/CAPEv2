@@ -16,6 +16,7 @@ except ImportError:
 
 from lib.common.abstracts import Package
 from lib.common.exceptions import CuckooPackageError
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 
@@ -90,11 +91,7 @@ class Rar(Package):
             raise CuckooPackageError("rarfile Python module not installed in guest")
 
         # Check file extension.
-        ext = os.path.splitext(path)[-1].lower()
-        if ext != ".rar":
-            new_path = f"{path}.rar"
-            os.rename(path, new_path)
-            path = new_path
+        path = check_file_extension(path, ".rar")
 
         root = os.environ["TEMP"]
         password = self.options.get("password")

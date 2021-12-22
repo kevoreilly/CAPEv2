@@ -3,12 +3,16 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
+
+import ctypes
+import logging
 import sys
 import ctypes
 import logging
 
 from lib.api.process import Process
+from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 from lib.common.defines import ADVAPI32, KERNEL32
 from lib.common.abstracts import Package
 
@@ -67,10 +71,7 @@ class Service(Package):
             servicename = self.options.get("servicename", "CAPEService")
             servicedesc = self.options.get("servicedesc", "CAPE Service")
             arguments = self.options.get("arguments")
-            if "." not in os.path.basename(path):
-                new_path = f"{path}.exe"
-                os.rename(path, new_path)
-                path = new_path
+            path = check_file_extension(path, ".exe")
             binPath = f'"{path}"'
             if arguments:
                 binPath += f" {arguments}"

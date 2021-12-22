@@ -589,7 +589,8 @@ class File(object):
         else:
             return False
 
-    def get_dll_exports(self, file_type):
+    def get_dll_exports(self):
+        file_type = self.get_type()
         if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
                 pe = pefile.PE(self.file_path)

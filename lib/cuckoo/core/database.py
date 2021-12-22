@@ -1543,7 +1543,7 @@ class Database(object, metaclass=Singleton):
                     del f
 
                 if package == "dll":
-                    dll_exports = File(self.task.target).get_dll_exports(options["file_type"])
+                    dll_exports = File(file).get_dll_exports()
                     if "DllRegisterServer" in dll_exports:
                         package = "regsvr"
                     elif "xlAutoOpen" in dll_exports:

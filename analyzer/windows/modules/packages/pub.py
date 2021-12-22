@@ -3,10 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-from winreg import KEY_READ, REG_DWORD, KEY_SET_VALUE, HKEY_CURRENT_USER, EnumKey, OpenKey, SetValueEx, CreateKeyEx, QueryInfoKey
+
+from winreg import HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD, CreateKeyEx, EnumKey, OpenKey, QueryInfoKey, SetValueEx
+
 
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 class PUB(Package):
@@ -52,7 +54,5 @@ class PUB(Package):
     def start(self, path):
         self.set_keys()
         publisher = self.get_path_glob("Microsoft Office Publisher")
-        if not path.endswith(".pub"):
-            os.rename(path, f"{path}.pub")
-            path += ".pub"
+        path = check_file_extension(path, ".pub")
         return self.execute(publisher, f'"{path}"', path)

@@ -129,18 +129,34 @@ class AnalysisManager(threading.Thread):
             )
             return False
 
-        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
+        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
+        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
         if os.path.exists(self.binary):
             log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, self.binary))
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
+                create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
                 log.error(
                     "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(
                         self.task.id, self.task.target, self.binary
+                    )
+                )
+                return False
+
+        if os.path.exists(copy_path):
+            log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, copy_path))
+        else:
+            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
+            try:
+                shutil.copy(self.task.target, copy_path)
+            except (IOError, shutil.Error) as e:
+                log.error(
+                    "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(
+                        self.task.id, self.task.target, copy_path
                     )
                 )
                 return False
@@ -227,7 +243,7 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = file_obj.get_dll_exports(options["file_type"])
+            options["exports"] = file_obj.get_dll_exports()
             del file_obj
 
         # options from auxiliar.conf

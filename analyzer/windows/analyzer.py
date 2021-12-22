@@ -758,7 +758,7 @@ class Files(object):
             file_details = self.files_orig.get(filepath.lower())
             category = file_details["category"]
             metadata = file_details["metadata"]
-            pids = self.files.get(filepath.lower(), "")
+            pids = self.files.get(filepath.lower(), [])
             filepath = file_details.get("path", filepath)
 
         if category == "memory":

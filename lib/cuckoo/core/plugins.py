@@ -596,10 +596,7 @@ class RunSignatures(object):
         for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append(
-                    {
-                        "name": key,
-                        "time": float(f"{value.seconds}.{value.microseconds // 1000: 03d}")
-                    }
+                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000: 03d}")}
                 )
         # Compat loop for old-style (non evented) signatures.
         if complete_list:

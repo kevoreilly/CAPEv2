@@ -92,8 +92,7 @@ class AnalysisManager(threading.Thread):
         # analysis or previous results will be overwritten and lost.
         if os.path.exists(self.storage):
             log.error(
-                "Task #%s: Analysis results folder already exists at path '%s', "
-                "analysis aborted", self.task.id, self.storage
+                "Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage
             )
             return False
 
@@ -113,8 +112,9 @@ class AnalysisManager(threading.Thread):
 
         if sha256 != sample.sha256:
             log.error(
-                "Task #%s: Target file has been modified after submission: "
-                "'%s'", self.task.id, convert_to_printable(self.task.target)
+                "Task #%s: Target file has been modified after submission: '%s'",
+                self.task.id,
+                convert_to_printable(self.task.target),
             )
             return False
 
@@ -124,8 +124,9 @@ class AnalysisManager(threading.Thread):
         """Store a copy of the file being analyzed."""
         if not os.path.exists(self.task.target):
             log.error(
-                "Task #%s: The file to analyze does not exist at path '%s', "
-                "analysis aborted", self.task.id, convert_to_printable(self.task.target)
+                "Task #%s: The file to analyze does not exist at path '%s', analysis aborted",
+                self.task.id,
+                convert_to_printable(self.task.target),
             )
             return False
 
@@ -142,7 +143,9 @@ class AnalysisManager(threading.Thread):
             except (IOError, shutil.Error) as e:
                 log.error(
                     "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
-                    self.task.id, self.task.target, self.binary
+                    self.task.id,
+                    self.task.target,
+                    self.binary,
                 )
                 return False
 
@@ -168,10 +171,7 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error(
-                "Task #%s: Unable to create symlink/copy from '%s' to '%s': %s",
-                self.task.id, self.binary, self.storage, e
-            )
+            log.error("Task #%s: Unable to create symlink/copy from '%s' to '%s': %s", self.task.id, self.binary, self.storage, e)
 
         return True
 
@@ -198,14 +198,16 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug(
-                    "Task #%s: no machine available yet. Verify that arch value is set in hypervisor config", self.task.id
-                )
+                log.debug("Task #%s: no machine available yet. Verify that arch value is set in hypervisor config", self.task.id)
                 time.sleep(1)
             else:
                 log.info(
                     "Task #%s: acquired machine %s (label=%s, arch=%s, platform=%s)",
-                    self.task.id, machine.name, machine.label, machine.arch, machine.platform
+                    self.task.id,
+                    machine.name,
+                    machine.label,
+                    machine.arch,
+                    machine.platform,
                 )
                 break
 
@@ -287,7 +289,9 @@ class AnalysisManager(threading.Thread):
 
         log.info(
             "Task #%s: Starting analysis of %s '%s'",
-            self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)
+            self.task.id,
+            self.task.category.upper(),
+            convert_to_printable(self.task.target),
         )
 
         # Initialize the analysis folders.
@@ -422,7 +426,9 @@ class AnalysisManager(threading.Thread):
             except CuckooMachineError as e:
                 log.error(
                     "Task #%s: Unable to release machine %s, reason %s. You might need to restore it manually",
-                    self.task.id, self.machine.label, e
+                    self.task.id,
+                    self.machine.label,
+                    e,
                 )
 
         return succeeded

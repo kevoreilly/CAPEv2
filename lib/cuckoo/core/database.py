@@ -598,9 +598,7 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError(
-                f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)"
-            )
+            raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.

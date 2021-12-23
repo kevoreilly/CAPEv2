@@ -106,7 +106,7 @@ def get_new_emails(db):
                 typ, data = conn.fetch(num, "(RFC822)")
                 msg = email.message_from_string(data[0][1])
                 if msg:
-                    email_dict = dict()
+                    email_dict = {}
                     email_dict["Attachments"] = []
                     for k, v in msg.items():
                         email_dict[k] = v

@@ -11,7 +11,7 @@ class MITRE_TTPS(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        attck = dict()
+        attck = {}
         ttp_dict = {block["ttp"]: block["signature"] for block in results["ttps"]}
         try:
             for technique in self.mitre.enterprise.techniques:

@@ -753,7 +753,7 @@ class Signature(object):
         self._current_call_dict = None
         self._current_call_raw_cache = None
         self._current_call_raw_dict = None
-        self.hostname2ips = dict()
+        self.hostname2ips = {}
         self.machinery_conf = machinery_conf
 
     def statistics_custom(self, pretime, extracted=False):
@@ -763,8 +763,8 @@ class Signature(object):
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
         timediff = datetime.datetime.now() - pretime
-        self.results["custom_statistics"] = dict()
-        self.results["custom_statistics"][self.name] = dict()
+        self.results["custom_statistics"] = {}
+        self.results["custom_statistics"][self.name] = {}
         self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
@@ -1429,7 +1429,7 @@ class Signature(object):
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_cache:
             self._current_call_cache = call
-            self._current_call_dict = dict()
+            self._current_call_dict = {}
 
             for argument in call["arguments"]:
                 self._current_call_dict[argument["name"]] = argument["value"]
@@ -1465,7 +1465,7 @@ class Signature(object):
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_raw_cache:
             self._current_call_raw_cache = call
-            self._current_call_raw_dict = dict()
+            self._current_call_raw_dict = {}
 
             for argument in call["arguments"]:
                 self._current_call_raw_dict[argument["name"]] = argument["raw_value"]
@@ -1651,7 +1651,7 @@ class Feed(object):
             self.updatefeed = True
 
         if self.updatefeed:
-            headers = dict()
+            headers = {}
             if mtime:
                 timestr = datetime.datetime.utcfromtimestamp(mtime).strftime("%a, %d %b %Y %H:%M:%S GMT")
                 headers["If-Modified-Since"] = timestr

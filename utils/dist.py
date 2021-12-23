@@ -72,9 +72,9 @@ NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
 INTERVAL = 10
 
 # controller of dead nodes
-failed_count = dict()
+failed_count = {}
 # status controler count to reset number
-status_count = dict()
+status_count = {}
 
 lock_retriever = threading.Lock()
 dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
@@ -369,10 +369,10 @@ class Retriever(threading.Thread):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
         self.cfg = Config()
-        self.t_is_none = dict()
-        self.status_count = dict()
-        self.current_queue = dict()
-        self.current_two_queue = dict()
+        self.t_is_none = {}
+        self.status_count = {}
+        self.current_queue = {}
+        self.current_two_queue = {}
         self.stop_dist = threading.Event()
         self.threads = []
 
@@ -532,7 +532,7 @@ class Retriever(threading.Thread):
 
     def fetcher(self):
         """Method that runs forever"""
-        last_checks = dict()
+        last_checks = {}
         # to not exit till cleaner works
         db = session()
         while not self.stop_dist.isSet():
@@ -792,8 +792,8 @@ class Retriever(threading.Thread):
 
     def remove_from_worker(self):
         db = session()
-        nodes = dict()
-        details = dict()
+        nodes = {}
+        details = {}
         for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
             nodes.setdefault(node.id, node)
 
@@ -1010,7 +1010,7 @@ class StatusThread(threading.Thread):
         global main_db
         global retrieve
         global STATUSES
-        MINIMUMQUEUE = dict()
+        MINIMUMQUEUE = {}
 
         # handle another user case,
         # when master used to only store data and not process samples
@@ -1376,8 +1376,8 @@ def cron_cleaner(clean_x_hours=False):
     pid.close()
 
     db = session()
-    nodes = dict()
-    details = dict()
+    nodes = {}
+    details = {}
 
     for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).all():
         nodes.setdefault(node.id, node)

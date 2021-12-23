@@ -15,7 +15,7 @@ sys.path.append(settings.CUCKOO_PATH)
 import lib.cuckoo.common.compare as compare
 from lib.cuckoo.common.config import Config
 
-enabledconf = dict()
+enabledconf = {}
 confdata = Config("reporting").get_config()
 for item in confdata:
     if confdata[item]["enabled"] == "yes":

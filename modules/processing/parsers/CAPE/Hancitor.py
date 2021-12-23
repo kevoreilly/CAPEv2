@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 def config(filebuf):
     DESCRIPTION = "Hancitor config extractor."
     AUTHOR = "threathive"
-    cfg = dict()
+    cfg = {}
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
         for i in pe.sections:

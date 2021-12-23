@@ -120,8 +120,8 @@ class AntiRansomware(Processing):
     def run(self):
         """Run analysis."""
 
-        extensions = dict()
-        tmp_ext_list = dict()
+        extensions = {}
+        tmp_ext_list = {}
         self.report["ransom_exclude_files"] = []
         with open(self.files_metadata, "rb") as f:
             for line in f.readlines():

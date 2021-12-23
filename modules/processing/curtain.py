@@ -649,7 +649,7 @@ class Curtain(Processing):
         pids = {}
         COUNTER = 0
         FILTERED = 0
-        messages_by_task = dict()
+        messages_by_task = {}
 
         for i in range(0, len(root)):
 
@@ -677,7 +677,7 @@ class Curtain(Processing):
                 if task in messages_by_task:
                     messages_by_task[task]["message"] = MESSAGE + messages_by_task[task]["message"]
                 else:
-                    messages_by_task.setdefault(task, dict()).update({"message": MESSAGE, "pid": PID})
+                    messages_by_task.setdefault(task, {}).update({"message": MESSAGE, "pid": PID})
 
         new_dict = [block_dict for block_dict in messages_by_task.values()]
 

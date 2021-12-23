@@ -338,7 +338,7 @@ def bytes2str(convert):
 
     items = []
     if isinstance(convert, dict):
-        tmp_dict = dict()
+        tmp_dict = {}
         items = convert.items()
         for k, v in items:
             if type(v) is bytes:

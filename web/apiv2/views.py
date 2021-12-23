@@ -1883,7 +1883,7 @@ def task_x_hours(request):
         .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
         .all()
     )
-    results = dict()
+    results = {}
     if res:
         for date, samples in res:
             results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
@@ -1979,7 +1979,7 @@ def tasks_config(request, task_id, cape_name=False):
     if check["error"]:
         return Response(check)
 
-    buf = dict()
+    buf = {}
     if repconf.mongodb.get("enabled"):
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
     if repconf.jsondump.get("enabled") and not buf:

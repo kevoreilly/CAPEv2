@@ -176,7 +176,7 @@ class Retention(Report):
             retentions = self.options
             del retentions["enabled"]
             del retentions["run_every"]
-            saveTaskLogged = dict()
+            saveTaskLogged = {}
             for item in retentions.keys():
                 # We only want to query the database for tasks that we have
                 # retentions set for.

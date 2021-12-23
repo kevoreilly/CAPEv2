@@ -9,7 +9,7 @@ import sys
 
 
 def main():
-    rt_table = dict()
+    rt_table = {}
     templates = []
     paths = []
     vpns = []

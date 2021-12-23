@@ -214,7 +214,7 @@ def index(request, resubmit_hash=False):
 
         status = "ok"
         task_ids_tmp = []
-        existent_tasks = dict()
+        existent_tasks = {}
         details = {
             "errors": [],
             "content": False,
@@ -520,7 +520,7 @@ def index(request, resubmit_hash=False):
         else:
             return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
     else:
-        enabledconf = dict()
+        enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
@@ -577,7 +577,7 @@ def index(request, resubmit_hash=False):
         elif socks5s_random:
             random_route = socks5s_random
 
-        existent_tasks = dict()
+        existent_tasks = {}
         if resubmit_hash:
             records = perform_search("sha256", resubmit_hash)
             for record in records:

@@ -256,7 +256,7 @@ class DotNETExecutable(object):
                 if endidx <= 2:
                     continue
                 valueval = rem[startidx + 2 : endidx - 2]
-                item = dict()
+                item = {}
                 item["type"] = convert_to_printable(typeval)
                 item["name"] = convert_to_printable(nameval)
                 item["value"] = convert_to_printable(valueval)
@@ -283,7 +283,7 @@ class DotNETExecutable(object):
                 if len(splitline) < 2:
                     continue
                 nameval = splitline[1]
-                item = dict()
+                item = {}
                 item["name"] = convert_to_printable(nameval)
                 item["version"] = convert_to_printable(verval)
                 ret.append(item)
@@ -295,7 +295,7 @@ class DotNETExecutable(object):
 
     def _get_assembly_info(self):
         try:
-            ret = dict()
+            ret = {}
             output = (
                 Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
                 .stdout.read()
@@ -325,7 +325,7 @@ class DotNETExecutable(object):
                 asmname = restsplit[0][2:]
                 typename = "".join(restsplit[1:])
                 if asmname and typename:
-                    item = dict()
+                    item = {}
                     item["assembly"] = convert_to_printable(asmname)
                     item["typename"] = convert_to_printable(typename)
                     ret.append(item)
@@ -903,8 +903,8 @@ class PortableExecutable(object):
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
     def _get_guest_digital_signers(self):
-        retdata = dict()
-        cert_data = dict()
+        retdata = {}
+        cert_data = {}
         cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux", "DigiSig.json")
 
         if os.path.exists(cert_info):
@@ -1195,7 +1195,7 @@ class PDF(object):
         annoturiset = set()
         objects = []
         retobjects = []
-        metadata = dict()
+        metadata = {}
 
         self._set_base_uri()
 
@@ -1323,14 +1323,14 @@ class Office(object):
         self.options = get_options(options)
 
     def _get_meta(self, meta):
-        ret = dict()
-        ret["SummaryInformation"] = dict()
+        ret = {}
+        ret["SummaryInformation"] = {}
         for prop in meta.SUMMARY_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
                 continue
             ret["SummaryInformation"][prop] = convert_to_printable(str(value))
-        ret["DocumentSummaryInformation"] = dict()
+        ret["DocumentSummaryInformation"] = {}
         for prop in meta.DOCSUM_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
@@ -1339,7 +1339,7 @@ class Office(object):
         return ret
 
     def _parse_rtf(self, data):
-        results = dict()
+        results = {}
         rtfp = RtfObjParser(data)
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "rtf_objects")
@@ -1347,7 +1347,7 @@ class Office(object):
             os.makedirs(save_dir)
         for rtfobj in rtfp.objects:
             results.setdefault(str(rtfobj.format_id), [])
-            temp_dict = dict()
+            temp_dict = {}
             temp_dict["class_name"] = ""
             temp_dict["size"] = ""
             temp_dict["filename"] = ""
@@ -1434,7 +1434,7 @@ class Office(object):
         @return: results dict or None
         """
 
-        results = dict()
+        results = {}
         vba = False
         if HAVE_OLETOOLS:
             if is_rtf(filepath):
@@ -1464,7 +1464,7 @@ class Office(object):
         except Exception as e:
             log.error(e, exc_info=True)
 
-        metares = officeresults["Metadata"] = dict()
+        metares = officeresults["Metadata"] = {}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
@@ -1481,14 +1481,14 @@ class Office(object):
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
-            macrores = officeresults["Macro"] = dict()
-            macrores["Code"] = dict()
-            macrores["info"] = dict()
+            macrores = officeresults["Macro"] = {}
+            macrores["Code"] = {}
+            macrores["info"] = {}
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macrores["Analysis"] = dict()
+            macrores["Analysis"] = {}
             macrores["Analysis"]["AutoExec"] = []
             macrores["Analysis"]["Suspicious"] = []
             macrores["Analysis"]["IOCs"] = []
@@ -1508,7 +1508,7 @@ class Office(object):
                         macro_file = os.path.join(macro_folder, outputname)
                         with open(macro_file, "w") as f:
                             f.write(convert_to_printable(vba_code))
-                        macrores["info"][outputname] = dict()
+                        macrores["info"][outputname] = {}
                         macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
                         macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 

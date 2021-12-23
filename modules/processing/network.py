@@ -828,7 +828,7 @@ class Pcap:
 
             self.results["dead_hosts"] = []
         else:
-            self.results["sorted"] = dict()
+            self.results["sorted"] = {}
             self.results["sorted"]["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
             self.results["sorted"]["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
 

@@ -26,7 +26,7 @@ def decrypt_string(string):
 
 
 def config(filebuf):
-    cfg = dict()
+    cfg = {}
     pe = pefile.PE(data=filebuf)
     data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
     if not data_sections:

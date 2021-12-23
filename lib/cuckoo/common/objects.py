@@ -764,7 +764,7 @@ class ProcDump(object):
             data = f.read(24)
             if data == b"":
                 break
-            alloc = dict()
+            alloc = {}
             addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
@@ -808,7 +808,7 @@ class ProcDump(object):
 
     def search(self, regex, flags=0, all=False):
         if all:
-            result = dict()
+            result = {}
             result["detail"] = []
             matches = []
             for map in self.address_space:
@@ -833,7 +833,7 @@ class ProcDump(object):
                     self.dumpfile.seek(chunk["offset"])
                     match = re.search(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     if match:
-                        result = dict()
+                        result = {}
                         result["match"] = match
                         result["chunk"] = chunk
                         return result

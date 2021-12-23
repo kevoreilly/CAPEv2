@@ -307,7 +307,7 @@ class RunProcessing(object):
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", dict()).setdefault("errors", [])
+                        self.results.setdefault("debug", {}).setdefault("errors", [])
                     self.results["debug"]["errors"].append(
                         "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(
                             file_name
@@ -772,7 +772,7 @@ class GetFeeds(object):
 
     def __init__(self, results):
         self.results = results
-        self.results["feeds"] = dict()
+        self.results["feeds"] = {}
 
     def process(self, feed):
         """Process modules with either downloaded data directly, or by

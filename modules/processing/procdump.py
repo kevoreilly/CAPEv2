@@ -36,7 +36,7 @@ class ProcDump(Processing):
         if not os.path.exists(self.procdump_path):
             return None
 
-        meta = dict()
+        meta = {}
         if os.path.exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)

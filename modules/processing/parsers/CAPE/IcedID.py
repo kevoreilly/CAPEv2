@@ -50,7 +50,7 @@ def config(filebuf):
     for hit in yara_hit:
         if hit.rule == "IcedID":  # can be either a dll or a exe
             enc_data = None
-            cfg = dict()
+            cfg = {}
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 for section in pe.sections:

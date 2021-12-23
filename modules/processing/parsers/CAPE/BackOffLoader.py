@@ -18,7 +18,7 @@ def RC4(key, data):
 
 
 def extract_config(data):
-    config_data = dict()
+    config_data = {}
     urls = []
     pe = pefile.PE(data=data)
     type(pe)

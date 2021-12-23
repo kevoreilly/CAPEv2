@@ -531,7 +531,7 @@ def cuckoo_dedup_cluster_queue():
     session = db.Session()
     dist_session = create_session(repconf.distributed.db, echo=False)
     dist_db = dist_session()
-    hash_dict = dict()
+    hash_dict = {}
     duplicated = (
         session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
     )

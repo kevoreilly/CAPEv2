@@ -32,7 +32,7 @@ if repconf.mongodb.enabled:
 
 
 # Used for displaying enabled config options in Django UI
-enabledconf = dict()
+enabledconf = {}
 for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()

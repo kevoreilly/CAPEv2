@@ -210,7 +210,7 @@ class VolatilityManager(object):
         self.no_filter = not self.voptions.mask.enabled
 
     def run(self, manager=None, vm=None):
-        results = dict()
+        results = {}
         self.key = "memory"
 
         # Exit if options were not loaded.

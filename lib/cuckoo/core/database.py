@@ -1920,7 +1920,7 @@ class Database(object, metaclass=Singleton):
         @param sample_id: Sample id
         @param task_id: Task id
         """
-        parent_sample = dict()
+        parent_sample = {}
         parent = False
         session = self.Session()
         try:

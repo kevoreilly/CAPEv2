@@ -19,8 +19,8 @@ try:
 except ImportError:
     HAVE_YARA = False
 
-malware_parsers = dict()
-cape_malware_parsers = dict()
+malware_parsers = {}
+cape_malware_parsers = {}
 
 # Config variables
 cfg = Config()
@@ -291,8 +291,8 @@ def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
 
     cape_name = yara_hit.replace("_", " ")
-    cape_config = dict()
-    cape_config[cape_name] = dict()
+    cape_config = {}
+    cape_config[cape_name] = {}
     parser_loaded = False
     # CAPE - pure python parsers
     # MWCP
@@ -329,7 +329,7 @@ def static_config_parsers(yara_hit, file_data):
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
             if not reporter.errors:
                 parser_loaded = True
-                tmp_dict = dict()
+                tmp_dict = {}
                 if reporter.metadata.get("debug"):
                     del reporter.metadata["debug"]
                 if reporter.metadata.get("other"):
@@ -414,7 +414,7 @@ def static_config_parsers(yara_hit, file_data):
                 cape_config[cape_name].update({key: [value]})
 
     if not cape_config[cape_name]:
-        return dict()
+        return {}
 
     return cape_config
 

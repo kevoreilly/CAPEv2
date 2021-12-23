@@ -108,8 +108,8 @@ else:
 
 
 # Used for displaying enabled config options in Django UI
-enabledconf = dict()
-on_demand_conf = dict()
+enabledconf = {}
+on_demand_conf = {}
 for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
@@ -301,7 +301,7 @@ def index(request, page=1):
     tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
 
     # Vars to define when to show Next/Previous buttons
-    paging = dict()
+    paging = {}
     paging["show_file_next"] = "show"
     paging["show_url_next"] = "show"
     paging["show_pcap_next"] = "show"
@@ -528,10 +528,10 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
-        data = dict()
-        debugger_logs = dict()
-        bingraph_dict_content = dict()
-        vba2graph_dict_content = dict()
+        data = {}
+        debugger_logs = {}
+        bingraph_dict_content = {}
+        vba2graph_dict_content = {}
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
@@ -1214,7 +1214,7 @@ def report(request, task_id):
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
     vba2graph = False
-    vba2graph_dict_content = dict()
+    vba2graph_dict_content = {}
     # we don't want to do this for urls but we might as well check that the target exists
     if report.get("target", {}).get("file", {}):
         vba2graph = processing_cfg.vba2graph.enabled
@@ -1235,8 +1235,8 @@ def report(request, task_id):
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
 
-    domainlookups = dict()
-    iplookups = dict()
+    domainlookups = {}
+    iplookups = {}
     if network_report.get("network", {}):
         report["network"] = network_report["network"]
 
@@ -1252,7 +1252,7 @@ def report(request, task_id):
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
             if res and res.ok:
                 if "name" in res.json():
-                    report["distributed"] = dict()
+                    report["distributed"] = {}
                     report["distributed"]["name"] = res.json()["name"]
                     report["distributed"]["task_id"] = res.json()["task_id"]
         except Exception as e:
@@ -1279,13 +1279,13 @@ def report(request, task_id):
             if res and res.ok:
                 res = res.json()
                 if "name" in res:
-                    report["distributed"] = dict()
+                    report["distributed"] = {}
                     report["distributed"]["name"] = res["name"]
                     report["distributed"]["task_id"] = res["task_id"]
         except Exception as e:
             print(e)
 
-    existent_tasks = dict()
+    existent_tasks = {}
     if web_cfg.general.get("existent_tasks", False) and report.get("target", {}).get("file", {}).get("sha256"):
         records = perform_search("sha256", report["target"]["file"]["sha256"])
         for record in records:
@@ -1907,7 +1907,7 @@ def comments(request, task_id):
             curcomments = report["info"]["comments"]
         else:
             curcomments = []
-        buf = dict()
+        buf = {}
         buf["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         escape_map = {
             "&": "&amp;",

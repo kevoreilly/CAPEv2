@@ -125,13 +125,13 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                     virustotal["detection"] = get_vt_consensus(detectnames)
                     return virustotal
                 else:
-                    return dict()
+                    return {}
             else:
                 return {"error": True, "msg": "Unable to complete connection to VirusTotal. Status code: {}".format(r.status_code)}
         except requests.exceptions.RequestException as e:
             return {"error": True, "msg": "Unable to complete connection to VirusTotal: {0}".format(e)}
     else:
-        return dict()
+        return {}
 
 
 class VirusTotal(Processing):
@@ -148,7 +148,7 @@ class VirusTotal(Processing):
 
         if processing_conf.virustotal.get("on_demand", False):
             log.debug("VT on_demand enabled, returning")
-            return dict()
+            return {}
 
         target = False
         if self.task["category"] == "file" and do_file_lookup:
@@ -157,7 +157,7 @@ class VirusTotal(Processing):
             target = self.task["target"]
         else:
             # Not supported type, exit.
-            return dict()
+            return {}
 
         vt_response = vt_lookup(self.task["category"], target)
         if "error" in vt_response:

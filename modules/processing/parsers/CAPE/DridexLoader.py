@@ -66,7 +66,7 @@ def config(filebuf):
     DESCRIPTION = "DridexDropper configuration parser."
     AUTHOR = "kevoreilly"
 
-    cfg = dict()
+    cfg = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
     line, c2va_offset, delta = 0, 0, 0

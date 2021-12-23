@@ -19,13 +19,13 @@ log = logging.getLogger(__name__)
 unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
 lock = threading.Lock()
 
-vpns = dict()
-socks5s = dict()
+vpns = {}
+socks5s = {}
 
 
 def _load_socks5_operational():
 
-    socks5s = dict()
+    socks5s = {}
 
     if not router_cfg.socks5.enabled:
         return socks5s

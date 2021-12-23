@@ -702,7 +702,7 @@ def mcafee_unquarantine(f):
             for fileobj in item:
                 if "File_" in fileobj:
                     quarfiles.append(fileobj)
-            decoded = dict()
+            decoded = {}
             # Try and decode quarantine files (sometimes there are none)
             for item in quarfiles:
                 try:

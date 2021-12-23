@@ -498,7 +498,7 @@ class MaecReport(Report):
         if not isinstance(arguments, list):
             arguments = [arguments]
         found = False
-        v2_arguments = dict()
+        v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
                 v2_arguments[args["name"]] = args["value"]

@@ -201,7 +201,7 @@ class SuricataSC:
         cmd = full_cmd[0]
         cmd_specs = argsd[cmd]
         required_args_count = len([d["required"] for d in cmd_specs if d["required"] and not "val" in d])
-        arguments = dict()
+        arguments = {}
         for c, spec in enumerate(cmd_specs, 1):
             spec_type = str if "type" not in spec else spec["type"]
             if spec["required"]:

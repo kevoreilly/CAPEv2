@@ -3,5 +3,4 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
 from nose.tools import assert_equals

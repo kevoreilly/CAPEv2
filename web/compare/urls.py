@@ -3,9 +3,8 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-
-from compare import views
 from django.conf.urls import url
+from compare import views
 
 urlpatterns = [
     url(r"^(?P<left_id>\d+)/$", views.left, name="compare_left"),

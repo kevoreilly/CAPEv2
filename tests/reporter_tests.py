@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 import os
 import tempfile
-
 from nose.tools import assert_equals
 
 from lib.cuckoo.common.abstracts import Report

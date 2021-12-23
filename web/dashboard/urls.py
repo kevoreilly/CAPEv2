@@ -3,9 +3,8 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-
-from dashboard import views
 from django.conf.urls import url
+from dashboard import views
 
 urlpatterns = [
     url(r"^$", views.index),

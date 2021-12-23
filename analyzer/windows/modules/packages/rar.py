@@ -10,14 +10,13 @@ import shutil
 
 try:
     from rarfile import BadRarFile, RarFile
-
     HAS_RARFILE = True
 except ImportError:
     HAS_RARFILE = False
 
 from lib.common.abstracts import Package
-from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
+from lib.common.common import check_file_extension
 
 log = logging.getLogger(__name__)
 

@@ -4,23 +4,23 @@
 
 from __future__ import absolute_import
 import logging
-import shutil
 import zipfile
+import shutil
 from xml.dom.minidom import parse, parseString
 
 try:
-    from scapy.all import *
     from scapy.utils import PcapWriter
+    from scapy.all import *
 
     HAVE_SCAPY = True
 except ImportError:
     HAVE_SCAPY = False
 import glob
 import os
-import random
 import tempfile
-
+import random
 from lib.cuckoo.common.utils import store_temp_file
+import random
 
 try:
     import re2 as re

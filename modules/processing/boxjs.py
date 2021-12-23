@@ -1,11 +1,10 @@
-import logging
 import time
+import logging
 from urllib.parse import urljoin
-
 import requests
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+
 
 log = logging.getLogger(__name__)
 

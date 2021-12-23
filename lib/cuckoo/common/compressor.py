@@ -1,7 +1,7 @@
-import binascii
-import logging
 import os
 import struct
+import binascii
+import logging
 
 log = logging.getLogger(__name__)
 

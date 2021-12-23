@@ -1,9 +1,6 @@
 from __future__ import absolute_import
-import logging
-import os
-import re
+import logging, os, re
 import xml.etree.ElementTree as ET
-
 import xmltodict
 
 from lib.cuckoo.common.abstracts import Processing

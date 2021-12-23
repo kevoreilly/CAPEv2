@@ -11,7 +11,8 @@ Create Date: 2014-03-23 23:30:36.756792
 """
 
 # Revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 revision = "263a45963c72"
 mongo_revision = "1"
@@ -19,9 +20,9 @@ down_revision = None
 
 import os
 import sys
-from datetime import datetime
-
 import sqlalchemy as sa
+
+from datetime import datetime
 
 try:
     from dateutil.parser import parse

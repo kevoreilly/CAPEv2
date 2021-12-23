@@ -3,22 +3,26 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import inspect
-import json
-import logging
 import os
-import pkgutil
 import sys
-from collections import defaultdict
+import json
+import pkgutil
+import inspect
+import logging
 from datetime import datetime, timedelta
+from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
+from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
+from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
-                                          CuckooReportError)
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.exceptions import CuckooDisableModule
+from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.suricata_detection import get_suricata_family, et_categories
 from lib.cuckoo.core.database import Database
 
 try:

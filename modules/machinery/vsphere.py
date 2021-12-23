@@ -3,18 +3,20 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import sys
 import logging
+import time
 import random
 import re
-import sys
-import time
 from datetime import datetime, timedelta
 
 import requests
 
 from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooMachineError
 
 try:
     from pyVim.connect import SmartConnection

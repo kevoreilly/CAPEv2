@@ -4,8 +4,8 @@
 
 from __future__ import absolute_import
 import logging
-import os.path
 import subprocess
+import os.path
 import time
 
 from lib.cuckoo.common.abstracts import Machinery

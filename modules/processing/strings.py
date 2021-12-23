@@ -13,9 +13,9 @@ try:
 except ImportError:
     import re
 
+from lib.cuckoo.common.utils import bytes2str
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
-from lib.cuckoo.common.utils import bytes2str
 
 
 def extract_strings(path, nulltermonly, minchars):

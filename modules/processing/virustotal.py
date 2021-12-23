@@ -2,22 +2,21 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import hashlib
-import logging
 import os
-
+import logging
 import requests
+import hashlib
 
 try:
     import re2 as re
 except ImportError:
     import re
 
+from lib.cuckoo.common.utils import get_vt_consensus
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_vt_consensus
+from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
 

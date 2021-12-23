@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
-import hashlib
-import string
+from __future__ import absolute_import
+from __future__ import print_function
 import zlib
-from base64 import b64decode
-from io import StringIO
+import string
+import hashlib
 from zipfile import ZipFile
+from io import StringIO
+from base64 import b64decode
 
 # Non Standard Imports
-from Crypto.Cipher import AES, ARC4, XOR
+from Crypto.Cipher import ARC4, AES, XOR
 
 # Helper Functions Go Here
 

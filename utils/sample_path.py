@@ -1,7 +1,7 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import sys
-
 import pymongo
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
@@ -9,6 +9,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
+
 
 repconf = Config("reporting")
 if len(sys.argv) == 2:

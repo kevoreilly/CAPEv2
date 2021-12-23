@@ -7,11 +7,12 @@ XenServer machinery.
 """
 
 from __future__ import absolute_import
-import logging
 import threading
+import logging
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooDependencyError
 
 try:
     import XenAPI

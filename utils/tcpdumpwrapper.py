@@ -5,10 +5,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import sys
+import os
 import time
-
 from six.moves import range
 
 iface = ""

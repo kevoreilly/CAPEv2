@@ -13,9 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import gzip
-import json
 import os
+import json
+import gzip
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 

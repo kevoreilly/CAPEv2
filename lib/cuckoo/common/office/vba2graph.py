@@ -25,21 +25,20 @@ Notes:
 # *                              General Imports                             *
 # ****************************************************************************
 
-import argparse
-import errno
 import os
 import sys
+import errno
+import argparse
+import regex as re
 from io import StringIO
 from subprocess import Popen
-
-import networkx as nx
-import regex as re
-from networkx.drawing.nx_pydot import write_dot
 
 # ****************************************************************************
 # *                           Dependencies Imports                           *
 # ****************************************************************************
 
+import networkx as nx
+from networkx.drawing.nx_pydot import write_dot
 
 try:
     from oletools.olevba import VBA_Parser

@@ -14,9 +14,9 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 """
 
 
+import sys
 import os
 import re
-import sys
 
 
 def decode_data(data: str):

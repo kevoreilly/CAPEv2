@@ -11,7 +11,7 @@ Please read https://channels.readthedocs.io/en/latest/deploying.html#nginx-super
 
 # These lines ensure that imports used by the ASGI daemon can be found
 import sys
-from os.path import abspath, dirname, join
+from os.path import join, dirname, abspath
 
 # Add / and /web (relative to cuckoo-modified install location) to our path
 webdir = abspath(join(dirname(abspath(__file__)), ".."))

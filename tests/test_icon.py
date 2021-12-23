@@ -4,11 +4,10 @@
 
 from __future__ import absolute_import
 import os
+import pytest
 import pathlib
 
-import pytest
 from tcr_misc import get_sample
-
 from lib.cuckoo.common.icon import PEGroupIconDir
 
 

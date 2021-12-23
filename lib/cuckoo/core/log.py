@@ -54,7 +54,7 @@ class TaskHandler(logging.Handler):
         if not task:
             return
 
-        task[1].write(f"{self.format(record)}\n")
+        task[1].write("%s\n" % self.format(record))
 
 
 class ConsoleHandler(logging.StreamHandler):

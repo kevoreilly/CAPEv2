@@ -69,7 +69,7 @@ def netlog_sanitize_fname(path):
     path = path.replace(b"\\", b"/")
     dir_part, name = os.path.split(path)
     if dir_part not in RESULT_DIRECTORIES:
-        raise CuckooOperationalError(f"Netlog client requested banned path: {path}")
+        raise CuckooOperationalError("Netlog client requested banned path: %r" % path)
     if any(c in BANNED_PATH_CHARS for c in name):
         for c in BANNED_PATH_CHARS:
             path.replace(bytes([c]), b"X")
@@ -97,7 +97,7 @@ class HandlerContext(object):
         self.buf = b""
 
     def __repr__(self):
-        return f"<Context for {self.command}>"
+        return "<Context for %s>" % self.command
 
     def cancel(self):
         """Cancel this context; gevent might complain about this with an
@@ -119,7 +119,7 @@ class HandlerContext(object):
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %r, error: %s", self.task_id, self, e)
+            log.debug("Task #%s had connection reset for %r, error: %s", self.task_id, self, str(e))
             return b""
         except Exception as e:
             print(e)
@@ -171,7 +171,7 @@ class WriteLimiter(object):
             self.remain -= write
         if size and size != write:
             if not self.warned:
-                log.warning("Uploaded file length larger than upload_max_size, stopping upload")
+                log.warning("Uploaded file length larger than upload_max_size, stopping upload.")
                 self.fd.write(b"... (truncated)")
                 self.warned = True
 
@@ -203,14 +203,14 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: File upload for %s", self.task_id, dump_path)
+        log.debug("Task #%s: File upload for %r", self.task_id, dump_path)
         if not duplicated:
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
                 self.fd = open_exclusive(file_path)
             except OSError as e:
-                log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
+                log.debug("File upload error for %r (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
                     raise CuckooOperationalError(
                         f"Analyzer for task #{self.task_id} tried to overwrite an existing file: {file_path}"
@@ -252,10 +252,10 @@ class LogHandler(ProtocolHandler):
         try:
             self.fd = open_exclusive(self.logpath, bufsize=1)
         except OSError:
-            log.error("Task #%s: attempted to reopen live log analysis.log", self.task_id)
+            log.error("Task #%s: attempted to reopen live log analysis.log.", self.task_id)
             return
 
-        log.debug("Task #%s: live log analysis.log initialized", self.task_id)
+        log.debug("Task #%s: live log analysis.log initialized.", self.task_id)
 
     def handle(self):
         if self.fd:
@@ -265,16 +265,16 @@ class LogHandler(ProtocolHandler):
 class BsonStore(ProtocolHandler):
     def init(self):
         if self.version is None:
-            log.warning("Agent is sending BSON files without PID parameter, you should probably update it")
+            log.warning("Agent is sending BSON files without PID parameter, " "you should probably update it")
             self.fd = None
             return
 
-        self.fd = open(os.path.join(self.handler.storagepath, "logs", f"{self.version}.bson"), "wb")
+        self.fd = open(os.path.join(self.handler.storagepath, "logs", "%d.bson" % self.version), "wb")
 
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
         log failures."""
-        log.debug("Task #%s is sending a BSON stream. For pid %d", self.task_id, self.version)
+        log.debug("Task #%s is sending a BSON stream. For pid %d" % (self.task_id, self.version))
         if self.fd:
             self.handler.sock.settimeout(None)
             return self.handler.copy_to_fd(self.fd)
@@ -329,7 +329,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
-                log.debug("Cancel %s for task %s", ctx, task_id)
+                log.debug("Cancel %s for task %r", ctx, task_id)
                 ctx.cancel()
 
     def create_folders(self):
@@ -392,7 +392,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 # protocol and a different task for that IP address may have
                 # been registered
                 if self.tasks.get(ipaddr) != task_id:
-                    log.warning("Task #%s for IP %s was cancelled during negotiation", task_id, ipaddr)
+                    log.warning("Task #%s for IP %s was cancelled during " "negotiation", task_id, ipaddr)
                     return
                 s = self.handlers.setdefault(task_id, set())
                 s.add(ctx)
@@ -408,7 +408,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol)
+                    log.warning("Task #%s with protocol %s has unprocessed " "data before getting disconnected", task_id, protocol)
         finally:
             task_log_stop(task_id)
 
@@ -421,7 +421,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             command, version = header, None
         klass = self.commands.get(command)
         if not klass:
-            log.warning("Task #%s: unknown netlog protocol requested (%s), terminating connection", task_id, command)
+            log.warning("Task #%s: unknown netlog protocol requested (%r), " "terminating connection.", task_id, command)
             return
         ctx.command = command
         return klass(task_id, ctx, version)
@@ -442,18 +442,18 @@ class ResultServer(metaclass=Singleton):
             sock.bind((ip, port))
         except (OSError, socket.error) as e:
             if e.errno == errno.EADDRINUSE:
-                raise CuckooCriticalError(f"Cannot bind ResultServer on port {port} because it was in use, bailing")
+                raise CuckooCriticalError("Cannot bind ResultServer on port %d " "because it was in use, bailing." % port)
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
-                    f"Unable to bind ResultServer on {ip}:{port} {e}. This "
+                    "Unable to bind ResultServer on %s:%s %s. This "
                     "usually happens when you start Cuckoo without "
                     "bringing up the virtual interface associated with "
                     "the ResultServer IP address. Please refer to "
                     "https://cuckoo.sh/docs/faq/#troubles-problem "
-                    "for more information"
+                    "for more information." % (ip, port, e)
                 )
             else:
-                raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port} {e}")
+                raise CuckooCriticalError("Unable to bind ResultServer on %s:%s: %s" % (ip, port, e))
 
         # We allow user to specify port 0 to get a random port, report it back
         # here

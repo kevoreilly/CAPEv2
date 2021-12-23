@@ -14,10 +14,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
+import json
 import readline
 import select
 import sys
-import json
 from socket import AF_UNIX, error, socket
 
 from .suri_specs import argsd

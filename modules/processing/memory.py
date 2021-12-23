@@ -7,8 +7,8 @@
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 try:
     import re2 as re
@@ -21,14 +21,14 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 try:
+    from typing import Any, Dict, List, Optional, Tuple, Type, Union
+
     import volatility3.plugins
     import volatility3.symbols
     from volatility3 import framework
     from volatility3.cli.text_renderer import JsonRenderer
-    from volatility3.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
+    from volatility3.framework import automagic, configuration, constants, contexts, exceptions, interfaces, plugins
     from volatility3.framework.configuration import requirements
-    from typing import Any, Dict, List, Optional, Tuple, Union, Type
-    from volatility3.framework import interfaces, constants
 
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True

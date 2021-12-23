@@ -3,36 +3,36 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import time
-import shutil
-import ntpath
-import string
-import random
-import struct
-import fcntl
-import socket
-import zipfile
-import tempfile
-import xmlrpc.client
 import errno
-import logging
+import fcntl
 import inspect
-import threading
+import logging
 import multiprocessing
+import ntpath
 import operator
-from io import BytesIO
-from datetime import datetime
+import os
+import random
+import shutil
+import socket
+import string
+import struct
+import tempfile
+import threading
+import time
+import xmlrpc.client
+import zipfile
 from collections import defaultdict
-
+from datetime import datetime
+from io import BytesIO
 from typing import Tuple
 
+import six
+
+from lib.cuckoo.common import utils_dicts
+from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common import utils_dicts
-from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
-import six
 
 try:
     import re2 as re

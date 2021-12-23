@@ -3,12 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import pytest
-import tempfile
 import pathlib
+import tempfile
 
+import pytest
 from tcr_misc import get_sample
-from lib.cuckoo.common.quarantine import unquarantine, mbam_unquarantine, xorff_unquarantine
+
+from lib.cuckoo.common.quarantine import mbam_unquarantine, unquarantine, xorff_unquarantine
 
 
 @pytest.fixture

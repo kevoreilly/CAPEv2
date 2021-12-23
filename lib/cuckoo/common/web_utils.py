@@ -1,15 +1,14 @@
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+import hashlib
+import json
+import logging
 import os
 import sys
-import json
-import time
-import logging
-import hashlib
 import tempfile
-from random import choice
-from datetime import datetime, timedelta
+import time
 from collections import OrderedDict
+from datetime import datetime, timedelta
+from random import choice
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
@@ -18,11 +17,12 @@ sys.path.append(CUCKOO_ROOT)
 import magic
 import requests
 from django.http import HttpResponse
+
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
-from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED, ALL_DB_STATUSES
-from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename, get_options
+from lib.cuckoo.common.objects import HAVE_PEFILE, IsPEImage, pefile
+from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
+from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
+from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 cfg = Config("cuckoo")
 web_cfg = Config("web")
@@ -45,7 +45,9 @@ HAVE_DIST = False
 if repconf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, create_session, Task as DTask, Node
+        from lib.cuckoo.common.dist_db import Machine, Node
+        from lib.cuckoo.common.dist_db import Task as DTask
+        from lib.cuckoo.common.dist_db import create_session
 
         HAVE_DIST = True
         dist_session = create_session(repconf.distributed.db)

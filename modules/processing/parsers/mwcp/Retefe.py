@@ -3,10 +3,11 @@
 # http://tomasuh.github.io/2018/12/28/retefe-unpack.html
 # Many thanks to Tomasuh
 
-from mwcp.parser import Parser
-import yara
 import struct
+
 import pefile
+import yara
+from mwcp.parser import Parser
 
 rule_source = """
 rule Retefe

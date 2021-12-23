@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import zlib
-import json
 import collections
+import json
+import zlib
 
 from lib.cuckoo.common.config import Config
 

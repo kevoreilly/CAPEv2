@@ -2,13 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import struct
+from __future__ import absolute_import, print_function
 import hashlib
 import logging
+import os
+import struct
 from binascii import crc32
+
 import six
 
 try:

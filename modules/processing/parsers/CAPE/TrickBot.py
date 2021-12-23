@@ -22,12 +22,13 @@
 # SOFTWARE.
 
 from __future__ import absolute_import
-import pefile
-import struct
 import hashlib
-from Crypto.Cipher import AES
+import struct
 import xml.etree.ElementTree as ET
+
+import pefile
 import yara
+from Crypto.Cipher import AES
 
 rule_source = """
 rule TrickBot

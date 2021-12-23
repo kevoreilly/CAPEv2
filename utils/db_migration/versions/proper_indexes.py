@@ -11,9 +11,7 @@ Create Date: 2016-05-13 11:04:41.685468
 """
 
 # revision identifiers, used by Alembic.
-from __future__ import absolute_import
-from __future__ import print_function
-
+from __future__ import absolute_import, print_function
 import sys
 
 revision = "3c8bf4133b44"

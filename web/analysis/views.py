@@ -2,48 +2,38 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-
+from __future__ import absolute_import, print_function
 import base64
-import os
-import sys
-import zlib
-import shutil
-import json
-import zipfile
-import tempfile
 import datetime
+import json
+import os
+import shutil
+import sys
+import tempfile
+import zipfile
+import zlib
 from io import BytesIO
 from urllib.parse import quote
+from wsgiref.util import FileWrapper
 
 from django.conf import settings
-from wsgiref.util import FileWrapper
-from django.http import HttpResponse, StreamingHttpResponse, HttpResponseRedirect
-from django.shortcuts import redirect, render
-from django.contrib.auth.models import User
-from django.views.decorators.http import require_safe
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
-from lib.cuckoo.core.database import Database, Task, TASK_PENDING
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.web_utils import (
-    perform_malscore_search,
-    perform_search,
-    perform_ttps_search,
-    statistics,
-    rateblock,
-    my_rate_seconds,
-    my_rate_minutes,
-)
 import modules.processing.network as network
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
+                                         perform_ttps_search, rateblock, statistics)
+from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 
 try:
@@ -86,7 +76,7 @@ web_cfg = Config("web")
 # On demand features
 HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
@@ -97,16 +87,17 @@ if processing_cfg.strings.on_demand:
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
-    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+    from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
-    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 
 if reporting_cfg.bingraph.on_demand:
     try:
         from binGraph.binGraph import generate_graphs as bingraph_gen
+
         from modules.reporting.bingraph import bingraph_args_dict
 
         HAVE_BINGRAPH = True

@@ -13,20 +13,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
-import shutil
-import json
-import logging
-from datetime import datetime
 import hashlib
 import imp
+import json
+import logging
+import os
+import shutil
+from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import BUFSIZE, generic_file_extractors, pe_map, plugx_parser, static_config_parsers, upx_harness
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import is_text_file
-from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, generic_file_extractors
 
 try:
     import pydeep
@@ -40,7 +40,7 @@ processing_conf = Config("processing")
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 ssdeep_threshold = 90
 

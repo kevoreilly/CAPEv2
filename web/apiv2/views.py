@@ -1,53 +1,42 @@
 # encoding: utf-8
 from __future__ import absolute_import
 import json
-import os
-import sys
-import socket
-import zipfile
 import logging
-from io import BytesIO
+import os
+import socket
+import sys
+import zipfile
 from datetime import datetime, timedelta
+from io import BytesIO
+from wsgiref.util import FileWrapper
 from zlib import decompress
 
 import requests
+from bson.objectid import ObjectId
 from django.conf import settings
-from wsgiref.util import FileWrapper
+from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-
-
-from rest_framework.response import Response
 from rest_framework.decorators import api_view
-
-from bson.objectid import ObjectId
-from django.contrib.auth.decorators import login_required
+from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from utils.cleaners import delete_mongo_data
-from lib.cuckoo.core.database import TASK_RUNNING
-from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.core.database import Database, Task
-from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name, create_zip
-from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
-from lib.cuckoo.common.web_utils import (
-    perform_malscore_search,
-    perform_search,
-    perform_ttps_search,
-    search_term_map,
-    get_file_content,
-    statistics,
-)
-from lib.cuckoo.common.web_utils import download_file, validate_task, apiconf, force_int, _download_file, parse_request_arguments
-from lib.cuckoo.common.web_utils import download_from_vt
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.common.utils import (convert_to_printable, create_zip, delete_folder, generate_fake_name, get_options,
+                                     get_user_filename, sanitize_filename, store_temp_file, validate_referrer)
+from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file, download_from_vt, force_int, get_file_content,
+                                         parse_request_arguments, perform_malscore_search, perform_search, perform_ttps_search,
+                                         search_term_map, statistics, validate_task)
+from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
+from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from utils.cleaners import delete_mongo_data
 
 try:
     import psutil

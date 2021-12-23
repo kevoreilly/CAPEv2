@@ -1,7 +1,8 @@
 from __future__ import absolute_import
-from base64 import b64decode
 import hashlib
 import re
+from base64 import b64decode
+
 import pefile
 from Crypto.Cipher import AES, XOR
 

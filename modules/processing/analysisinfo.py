@@ -4,17 +4,17 @@
 
 from __future__ import absolute_import
 import codecs
-import time
 import logging
 import os
+import time
 from datetime import datetime
 
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.core.database import Database
 
 try:
     import requests

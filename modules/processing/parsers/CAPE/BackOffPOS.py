@@ -1,15 +1,14 @@
 # coding=UTF-8
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import sys
-import pefile
-from struct import unpack_from
-from sys import argv
 from binascii import hexlify
 from hashlib import md5
-from Crypto.Cipher import ARC4
+from struct import unpack_from
+from sys import argv
 
+import pefile
+from Crypto.Cipher import ARC4
 
 header_ptrn = b"Content-Type: application/x-www-form-urlencoded"
 

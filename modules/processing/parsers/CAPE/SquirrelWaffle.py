@@ -12,9 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import struct
+from itertools import cycle
+
 import pefile
 import yara
-from itertools import cycle
 
 rule_source = """
 rule SquirrelWaffle

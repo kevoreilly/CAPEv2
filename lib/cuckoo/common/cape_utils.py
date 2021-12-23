@@ -1,15 +1,15 @@
 from __future__ import absolute_import
+import hashlib
+import logging
 import os
 import shutil
-import logging
-import tempfile
-import hashlib
 import subprocess
-from collections.abc import Mapping, Iterable
+import tempfile
+from collections.abc import Iterable, Mapping
 
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
 
 try:
@@ -183,12 +183,12 @@ if process_cfg.ratdecoders.enabled:
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:
     try:
-        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
-        from malduck.extractor import ExtractorModules, ExtractManager
-        from malduck.extractor.extractor import Extractor
-
         # from malduck.extractor.loaders import load_modules
+        from malduck.extractor import ExtractManager, ExtractorModules
+        from malduck.extractor.extractor import Extractor
         from malduck.yara import Yara
+
+        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
 
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)

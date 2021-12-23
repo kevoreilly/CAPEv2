@@ -190,7 +190,7 @@ class Machine(Base):
     resultserver_port = Column(String(255), nullable=False)
 
     def __repr__(self):
-        return f"<Machine('{self.id}','{self.name}')>"
+        return "<Machine('{0}','{1}')>".format(self.id, self.name)
 
     def to_dict(self):
         """Converts object to dict.
@@ -235,7 +235,7 @@ class Tag(Base):
     name = Column(String(255), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Tag('{self.id}','{self.name}')>"
+        return "<Tag('{0}','{1}')>".format(self.id, self.name)
 
     def __init__(self, name):
         self.name = name
@@ -256,7 +256,7 @@ class Guest(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, unique=True)
 
     def __repr__(self):
-        return f"<Guest('{self.id}','{self.name}')>"
+        return "<Guest('{0}','{1}')>".format(self.id, self.name)
 
     def to_dict(self):
         """Converts object to dict.
@@ -306,7 +306,7 @@ class Sample(Base):
     )
 
     def __repr__(self):
-        return f"<Sample('{self.id}','{self.sha256}')>"
+        return "<Sample('{0}','{1}')>".format(self.id, self.sha256)
 
     def to_dict(self):
         """Converts object to dict.
@@ -369,7 +369,7 @@ class Error(Base):
         self.task_id = task_id
 
     def __repr__(self):
-        return f"<Error('{self.id}','{self.message}','{self.task_id}')>"
+        return "<Error('{0}','{1}','{2}')>".format(self.id, self.message, self.task_id)
 
 
 class Task(Base):
@@ -489,7 +489,7 @@ class Task(Base):
         self.target = target
 
     def __repr__(self):
-        return f"<Task('{self.id}','{self.target}')>"
+        return "<Task('{0}','{1}')>".format(self.id, self.target)
 
 
 class AlembicVersion(Base):
@@ -526,9 +526,9 @@ class Database(object, metaclass=Singleton):
                     try:
                         create_folder(folder=db_dir)
                     except CuckooOperationalError as e:
-                        raise CuckooDatabaseError(f"Unable to create database directory: {e}")
+                        raise CuckooDatabaseError("Unable to create database directory: {0}".format(e))
 
-            self._connect_database(f"sqlite:///{db_file}")
+            self._connect_database("sqlite:///%s" % db_file)
 
         # Disable SQL logging. Turn it on for debugging.
         self.engine.echo = False
@@ -541,7 +541,7 @@ class Database(object, metaclass=Singleton):
         try:
             Base.metadata.create_all(self.engine)
         except SQLAlchemyError as e:
-            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
+            raise CuckooDatabaseError("Unable to create or connect to database: {0}".format(e))
 
         # Get db session.
         self.Session = sessionmaker(bind=self.engine)
@@ -560,7 +560,7 @@ class Database(object, metaclass=Singleton):
                 tmp_session.commit()
             except SQLAlchemyError as e:
                 tmp_session.rollback()
-                raise CuckooDatabaseError(f"Unable to set schema version: {e}")
+                raise CuckooDatabaseError("Unable to set schema version: {0}".format(e))
             finally:
                 tmp_session.close()
         else:
@@ -569,7 +569,9 @@ class Database(object, metaclass=Singleton):
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
                 print(
-                    f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
+                    "DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(
+                        last.version_num, SCHEMA_VERSION
+                    )
                 )
                 print(red("cd utils/db_migration/ && alembic upgrade head"))
                 sys.exit()
@@ -598,7 +600,9 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
+            raise CuckooDependencyError(
+                "Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib)
+            )
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -619,7 +623,7 @@ class Database(object, metaclass=Singleton):
         try:
             Base.metadata.drop_all(self.engine)
         except SQLAlchemyError as e:
-            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
+            raise CuckooDatabaseError("Unable to create or connect to database: {0}".format(e))
 
     @classlock
     def clean_machines(self):
@@ -633,7 +637,7 @@ class Database(object, metaclass=Singleton):
             session.query(Machine).delete()
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error cleaning machines: %s", e)
+            log.debug("Database error cleaning machines: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -649,7 +653,7 @@ class Database(object, metaclass=Singleton):
             session.commit()
             return "success"
         except SQLAlchemyError as e:
-            log.info("Database error deleting machine: %s", e)
+            log.info("Database error deleting machine: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -689,7 +693,7 @@ class Database(object, metaclass=Singleton):
         try:
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error adding machine: %s", e)
+            log.debug("Database error adding machine: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -700,13 +704,13 @@ class Database(object, metaclass=Singleton):
         try:
             machine = session.query(Machine).filter_by(label=label).first()
             if machine is None:
-                log.debug("Database error setting interface: %s not found", label)
+                log.debug("Database error setting interface: {0} not found".format(label))
                 return None
             machine.interface = interface
             session.commit()
 
         except SQLAlchemyError as e:
-            log.debug("Database error setting interface: %s", e)
+            log.debug("Database error setting interface: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -728,7 +732,7 @@ class Database(object, metaclass=Singleton):
                 session.commit()
             return row.clock
         except SQLAlchemyError as e:
-            log.debug("Database error setting clock: %s", e)
+            log.debug("Database error setting clock: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -757,7 +761,7 @@ class Database(object, metaclass=Singleton):
 
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error setting status: %s", e)
+            log.debug("Database error setting status: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -780,7 +784,7 @@ class Database(object, metaclass=Singleton):
             row.machine_id = vm_id
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error setting status: %s", e)
+            log.debug("Database error setting status: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -823,7 +827,7 @@ class Database(object, metaclass=Singleton):
 
             return row
         except SQLAlchemyError as e:
-            log.debug("Database error fetching task: %s", e)
+            log.debug("Database error fetching task: {0}".format(e))
             log.debug(red("Ensure that your database schema version is correct"))
             session.rollback()
         finally:
@@ -847,7 +851,7 @@ class Database(object, metaclass=Singleton):
             session.refresh(guest)
             return guest.id
         except SQLAlchemyError as e:
-            log.debug("Database error logging guest start: %s", e)
+            log.debug("Database error logging guest start: {0}".format(e))
             session.rollback()
             return None
         finally:
@@ -864,7 +868,7 @@ class Database(object, metaclass=Singleton):
             guest = session.query(Guest).filter_by(task_id=task_id).first()
             return guest.status if guest else None
         except SQLAlchemyError as e:
-            log.exception("Database error logging guest start: %s", e)
+            log.exception("Database error logging guest start: {0}".format(e))
             session.rollback()
             return
         finally:
@@ -884,7 +888,7 @@ class Database(object, metaclass=Singleton):
                 session.commit()
                 session.refresh(guest)
         except SQLAlchemyError as e:
-            log.exception("Database error logging guest start: %s", e)
+            log.exception("Database error logging guest start: {0}".format(e))
             session.rollback()
             return None
         finally:
@@ -899,7 +903,7 @@ class Database(object, metaclass=Singleton):
             session.delete(guest)
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error logging guest remove: %s", e)
+            log.debug("Database error logging guest remove: {0}".format(e))
             session.rollback()
             return None
         finally:
@@ -915,7 +919,7 @@ class Database(object, metaclass=Singleton):
             session.query(Guest).get(guest_id).shutdown_on = datetime.now()
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error logging guest stop: %s", e)
+            log.debug("Database error logging guest stop: {0}".format(e))
             session.rollback()
         except TypeError:
             log.warning("Data inconsistency in guests table detected, it might be a crash leftover. Continue")
@@ -940,7 +944,7 @@ class Database(object, metaclass=Singleton):
                 machines = [machine for tag in tags for machine in machines if tag in machine.to_dict()["tags"]]
             return machines
         except SQLAlchemyError as e:
-            log.debug("Database error listing machines: %s", e)
+            log.debug("Database error listing machines: {0}".format(e))
             return []
         finally:
             session.close()
@@ -958,12 +962,12 @@ class Database(object, metaclass=Singleton):
         # Preventive checks.
         if label and platform:
             # Wrong usage.
-            log.error("You can select machine only by label or by platform")
+            log.error("You can select machine only by label or by platform.")
             session.close()
             return None
         elif label and tags:
             # Also wrong usage.
-            log.error("You can select machine only by label or by tags")
+            log.error("You can select machine only by label or by tags.")
             session.close()
             return None
 
@@ -981,12 +985,12 @@ class Database(object, metaclass=Singleton):
             # selection requirements.
             if not machines.count():
                 session.close()
-                raise CuckooOperationalError("No machines match selection criteria")
+                raise CuckooOperationalError("No machines match selection criteria.")
 
             # Get the first free machine.
             machine = machines.filter_by(locked=False).first()
         except SQLAlchemyError as e:
-            log.debug("Database error locking machine: %s", e)
+            log.debug("Database error locking machine: {0}".format(e))
             session.close()
             return None
 
@@ -997,7 +1001,7 @@ class Database(object, metaclass=Singleton):
                 session.commit()
                 session.refresh(machine)
             except SQLAlchemyError as e:
-                log.debug("Database error locking machine: %s", e)
+                log.debug("Database error locking machine: {0}".format(e))
                 session.rollback()
                 return None
             finally:
@@ -1017,7 +1021,7 @@ class Database(object, metaclass=Singleton):
         try:
             machine = session.query(Machine).filter_by(label=label).first()
         except SQLAlchemyError as e:
-            log.debug("Database error unlocking machine: %s", e)
+            log.debug("Database error unlocking machine: {0}".format(e))
             session.close()
             return None
 
@@ -1028,7 +1032,7 @@ class Database(object, metaclass=Singleton):
                 session.commit()
                 session.refresh(machine)
             except SQLAlchemyError as e:
-                log.debug("Database error locking machine: %s", e)
+                log.debug("Database error locking machine: {0}".format(e))
                 session.rollback()
                 return None
             finally:
@@ -1048,7 +1052,7 @@ class Database(object, metaclass=Singleton):
             machines_count = session.query(Machine).filter_by(locked=False).count()
             return machines_count
         except SQLAlchemyError as e:
-            log.debug("Database error counting machines: %s", e)
+            log.debug("Database error counting machines: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -1063,7 +1067,7 @@ class Database(object, metaclass=Singleton):
             machines = session.query(Machine).filter_by(locked=False).all()
             return machines
         except SQLAlchemyError as e:
-            log.debug("Database error getting available machines: %s", e)
+            log.debug("Database error getting available machines: {0}".format(e))
             return []
         finally:
             session.close()
@@ -1078,7 +1082,7 @@ class Database(object, metaclass=Singleton):
         try:
             machine = session.query(Machine).filter_by(label=label).first()
         except SQLAlchemyError as e:
-            log.debug("Database error setting machine status: %s", e)
+            log.debug("Database error setting machine status: {0}".format(e))
             session.close()
             return
 
@@ -1089,7 +1093,7 @@ class Database(object, metaclass=Singleton):
                 session.commit()
                 session.refresh(machine)
             except SQLAlchemyError as e:
-                log.debug("Database error setting machine status: %s", e)
+                log.debug("Database error setting machine status: {0}".format(e))
                 session.rollback()
             finally:
                 session.close()
@@ -1108,7 +1112,7 @@ class Database(object, metaclass=Singleton):
         try:
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error adding error log: %s", e)
+            log.debug("Database error adding error log: {0}".format(e))
             session.rollback()
         finally:
             session.close()
@@ -1128,7 +1132,7 @@ class Database(object, metaclass=Singleton):
             try:
                 sample = session.query(Sample).filter_by(md5=file_md5).first()
             except SQLAlchemyError as e:
-                log.debug("Error querying sample for hash: %s", e)
+                log.debug("Error querying sample for hash: {0}".format(e))
 
             if not sample:
                 sample = Sample(
@@ -1152,11 +1156,11 @@ class Database(object, metaclass=Singleton):
                 try:
                     sample = session.query(Sample).filter_by(md5=file_md5).first()
                 except SQLAlchemyError as e:
-                    log.debug("Error querying sample for hash: %s", e)
+                    log.debug("Error querying sample for hash: {0}".format(e))
                     session.close()
                     return None
             except SQLAlchemyError as e:
-                log.debug("Database error adding task: %s", e)
+                log.debug("Database error adding task: {0}".format(e))
                 session.close()
                 return None
             finally:
@@ -1238,7 +1242,7 @@ class Database(object, metaclass=Singleton):
             try:
                 sample = session.query(Sample).filter_by(md5=file_md5).first()
             except SQLAlchemyError as e:
-                log.debug("Error querying sample for hash: %s", e)
+                log.debug("Error querying sample for hash: {0}".format(e))
 
             if not sample:
                 sample = Sample(
@@ -1263,12 +1267,12 @@ class Database(object, metaclass=Singleton):
                 try:
                     sample = session.query(Sample).filter_by(md5=file_md5).first()
                 except SQLAlchemyError as e:
-                    log.debug("Error querying sample for hash: %s", e)
+                    log.debug("Error querying sample for hash: {0}".format(e))
                     session.close()
                     return None
                 """
             except SQLAlchemyError as e:
-                log.debug("Database error adding task: %s", e)
+                log.debug("Database error adding task: {0}".format(e))
                 session.close()
                 return None
 
@@ -1336,7 +1340,7 @@ class Database(object, metaclass=Singleton):
                 try:
                     task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
                 except ValueError:
-                    log.warning("The date you specified has an invalid format, using current timestamp")
+                    log.warning("The date you specified has an invalid format, using current timestamp.")
                     task.clock = datetime.utcfromtimestamp(0)
 
             else:
@@ -1353,7 +1357,7 @@ class Database(object, metaclass=Singleton):
             session.commit()
             task_id = task.id
         except SQLAlchemyError as e:
-            log.debug("Database error adding task: %s", e)
+            log.debug("Database error adding task: {0}".format(e))
             session.rollback()
             return None
         finally:
@@ -1414,7 +1418,7 @@ class Database(object, metaclass=Singleton):
         @return: cursor or None.
         """
         if not file_path or not os.path.exists(file_path):
-            log.warning("File does not exist: %s", file_path)
+            log.warning("File does not exist: %s.", file_path)
             return None
 
         # Convert empty strings and None values to a valid int
@@ -1535,7 +1539,7 @@ class Database(object, metaclass=Singleton):
                     if tmp_package and tmp_package in sandbox_packages:
                         package = tmp_package
                     else:
-                        log.info("Does sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
+                        log.info("Does sandbox packages need an update? Sflock identifies as: {} - {}".format(tmp_package, file))
                     del f
 
                 if package == "dll":
@@ -1809,7 +1813,7 @@ class Database(object, metaclass=Singleton):
         try:
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error rescheduling task: %s", e)
+            log.debug("Database error rescheduling task: {0}".format(e))
             session.rollback()
             return False
         finally:
@@ -1859,7 +1863,7 @@ class Database(object, metaclass=Singleton):
             tasks = search.count()
             return tasks
         except SQLAlchemyError as e:
-            log.debug("Database error counting tasks: %s", e)
+            log.debug("Database error counting tasks: {0}".format(e))
             return []
         finally:
             session.close()
@@ -1884,7 +1888,7 @@ class Database(object, metaclass=Singleton):
                 else:
                     uniq = True
         except SQLAlchemyError as e:
-            log.debug("Database error counting tasks: %s", e)
+            log.debug("Database error counting tasks: {0}".format(e))
         finally:
             session.close()
 
@@ -1904,7 +1908,7 @@ class Database(object, metaclass=Singleton):
             else:
                 return []
         except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
+            log.debug("Database error listing tasks: {0}".format(e))
             return []
         finally:
             session.close()
@@ -1936,7 +1940,7 @@ class Database(object, metaclass=Singleton):
                 parent_sample = session.query(Sample).filter(Sample.id == parent).first().to_dict()
 
         except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
+            log.debug("Database error listing tasks: {0}".format(e))
         except TypeError:
             pass
         finally:
@@ -2007,9 +2011,9 @@ class Database(object, metaclass=Singleton):
             if added_before:
                 search = search.filter(Task.added_on < added_before)
             if options_like:
-                search = search.filter(Task.options.like(f"%{options_like}%"))
+                search = search.filter(Task.options.like("%{}%".format(options_like)))
             if tags_tasks_like:
-                search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+                search = search.filter(Task.tags_tasks.like("%{}%".format(tags_tasks_like)))
             if task_ids:
                 search = search.filter(Task.id.in_(task_ids))
             if order_by is not None:
@@ -2022,12 +2026,12 @@ class Database(object, metaclass=Singleton):
             return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
-            log.debug(f"Database RuntimeError error: {e}")
+            log.debug("Database RuntimeError error: {e}")
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-            log.debug(f"Database AttributeError error: {e}")
+            log.debug("Database AttributeError error: {e}")
         except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
+            log.debug("Database error listing tasks: {0}".format(e))
         except Exception as e:
             # psycopg2.DatabaseError
             log.exception(e)
@@ -2046,7 +2050,7 @@ class Database(object, metaclass=Singleton):
             _max = session.query(func.max(Task.completed_on).label("max")).first()
             return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
         except SQLAlchemyError as e:
-            log.debug("Database error counting tasks: %s", e)
+            log.debug("Database error counting tasks: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -2064,7 +2068,7 @@ class Database(object, metaclass=Singleton):
             else:
                 return []
         except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
+            log.debug("Database error listing tasks: {0}".format(e))
             return []
         finally:
             session.close()
@@ -2083,7 +2087,7 @@ class Database(object, metaclass=Singleton):
                 res.append(asample[0])
             res.sort()
         except SQLAlchemyError as e:
-            log.debug("Database error getting file_types: %s", e)
+            log.debug("Database error getting file_types: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -2099,7 +2103,7 @@ class Database(object, metaclass=Singleton):
             tasks_dict_count = session.query(Task.status, func.count(Task.status)).group_by(Task.status).all()
             return dict(tasks_dict_count)
         except SQLAlchemyError as e:
-            log.debug("Database error counting all tasks: %s", e)
+            log.debug("Database error counting all tasks: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -2121,7 +2125,7 @@ class Database(object, metaclass=Singleton):
             tasks_count = unfiltered.count()
             return tasks_count
         except SQLAlchemyError as e:
-            log.debug("Database error counting tasks: %s", e)
+            log.debug("Database error counting tasks: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -2139,7 +2143,7 @@ class Database(object, metaclass=Singleton):
             else:
                 task = session.query(Task).get(task_id)
         except SQLAlchemyError as e:
-            log.debug("Database error viewing task: %s", e)
+            log.debug("Database error viewing task: {0}".format(e))
             return None
         else:
             if task:
@@ -2160,7 +2164,7 @@ class Database(object, metaclass=Singleton):
             session.delete(task)
             session.commit()
         except SQLAlchemyError as e:
-            log.debug("Database error deleting task: %s", e)
+            log.debug("Database error deleting task: {0}".format(e))
             session.rollback()
             return False
         finally:
@@ -2173,7 +2177,7 @@ class Database(object, metaclass=Singleton):
         try:
             search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         except SQLAlchemyError as e:
-            log.debug("Database error deleting task: %s", e)
+            log.debug("Database error deleting task: {0}".format(e))
             session.rollback()
             return False
         finally:
@@ -2192,7 +2196,7 @@ class Database(object, metaclass=Singleton):
         except AttributeError:
             return None
         except SQLAlchemyError as e:
-            log.debug("Database error viewing task: %s", e)
+            log.debug("Database error viewing task: {0}".format(e))
             return None
         else:
             if sample:
@@ -2223,7 +2227,7 @@ class Database(object, metaclass=Singleton):
             elif parent:
                 sample = session.query(Sample).filter_by(parent=parent).all()
         except SQLAlchemyError as e:
-            log.debug("Database error searching sample: %s", e)
+            log.debug("Database error searching sample: {0}".format(e))
             return None
         else:
             if sample:
@@ -2273,7 +2277,7 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     tasks = results_db.analysis.find(
-                        {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                        {"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
                         {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                     )
                     if tasks:
@@ -2297,7 +2301,7 @@ class Database(object, metaclass=Singleton):
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
                         tasks = results_db.analysis.find(
-                            {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                            {category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
                             {category: 1, "_id": 0, "info.id": 1},
                         )
                         if tasks:
@@ -2348,7 +2352,7 @@ class Database(object, metaclass=Singleton):
             except AttributeError:
                 pass
             except SQLAlchemyError as e:
-                log.debug("Database error viewing task: %s", e)
+                log.debug("Database error viewing task: {0}".format(e))
             finally:
                 session.close()
 
@@ -2361,7 +2365,7 @@ class Database(object, metaclass=Singleton):
         try:
             sample_count = session.query(Sample).count()
         except SQLAlchemyError as e:
-            log.debug("Database error counting samples: %s", e)
+            log.debug("Database error counting samples: {0}".format(e))
             return 0
         finally:
             session.close()
@@ -2377,7 +2381,7 @@ class Database(object, metaclass=Singleton):
         try:
             machine = session.query(Machine).options(joinedload("tags")).filter(Machine.name == name).first()
         except SQLAlchemyError as e:
-            log.debug("Database error viewing machine: %s", e)
+            log.debug("Database error viewing machine: {0}".format(e))
             return None
         else:
             if machine:
@@ -2396,7 +2400,7 @@ class Database(object, metaclass=Singleton):
         try:
             machine = session.query(Machine).options(joinedload("tags")).filter(Machine.label == label).first()
         except SQLAlchemyError as e:
-            log.debug("Database error viewing machine by label: %s", e)
+            log.debug("Database error viewing machine by label: {0}".format(e))
             return None
         else:
             if machine:
@@ -2415,7 +2419,7 @@ class Database(object, metaclass=Singleton):
         try:
             errors = session.query(Error).filter_by(task_id=task_id).all()
         except SQLAlchemyError as e:
-            log.debug("Database error viewing errors: %s", e)
+            log.debug("Database error viewing errors: {0}".format(e))
             return []
         finally:
             session.close()
@@ -2436,7 +2440,7 @@ class Database(object, metaclass=Singleton):
                 if source_url:
                     source_url = source_url[0]
         except SQLAlchemyError as e:
-            log.debug("Database error listing tasks: %s", e)
+            log.debug("Database error listing tasks: {0}".format(e))
         except TypeError:
             pass
         finally:

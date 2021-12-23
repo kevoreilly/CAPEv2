@@ -39,6 +39,6 @@ def config(filebuf):
         except:
             pass
         if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
-            cfg.setdefault("address", list())
+            cfg.setdefault("address", [])
             cfg["address"].appent(dec)
         return cfg

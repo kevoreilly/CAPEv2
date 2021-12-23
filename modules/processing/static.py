@@ -1346,7 +1346,7 @@ class Office(object):
         if rtfp.objects and not os.path.exists(save_dir):
             os.makedirs(save_dir)
         for rtfobj in rtfp.objects:
-            results.setdefault(str(rtfobj.format_id), list())
+            results.setdefault(str(rtfobj.format_id), [])
             temp_dict = dict()
             temp_dict["class_name"] = ""
             temp_dict["size"] = ""
@@ -1489,10 +1489,10 @@ class Office(object):
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
             macrores["Analysis"] = dict()
-            macrores["Analysis"]["AutoExec"] = list()
-            macrores["Analysis"]["Suspicious"] = list()
-            macrores["Analysis"]["IOCs"] = list()
-            macrores["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"]["AutoExec"] = []
+            macrores["Analysis"]["Suspicious"] = []
+            macrores["Analysis"]["IOCs"] = []
+            macrores["Analysis"]["HexStrings"] = []
             try:
                 for (_, _, vba_filename, vba_code) in vba.extract_macros():
                     vba_code = filter_vba(vba_code)
@@ -1500,7 +1500,7 @@ class Office(object):
                         # Handle all macros
                         ctr += 1
                         outputname = "Macro" + str(ctr)
-                        macrores["Code"][outputname] = list()
+                        macrores["Code"][outputname] = []
                         macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                         autoexec = detect_autoexec(vba_code)
                         if not os.path.exists(macro_folder):
@@ -2008,8 +2008,8 @@ class URL(object):
     def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
         nest_count = 0 - ignore_nest_level
         string_buf = str()
-        json_buf = list()
-        json_data = list()
+        json_buf = []
+        json_data = []
         for character in data:
             if character == "{":
                 nest_count += 1
@@ -2066,7 +2066,7 @@ class URL(object):
 
             # These can be a list or string, just make them all lists
             for key in w.keys():
-                buf = list()
+                buf = []
                 # Handle and format dates
                 if "_date" in key:
                     if isinstance(w[key], list):
@@ -2110,7 +2110,7 @@ class URL(object):
         if self.domain == "bit.ly":
             resp = requests.get(self.url + "+")
             soup = bs4.BeautifulSoup(resp.text, "html.parser")
-            output = list()
+            output = []
             for script in [x.extract() for x in soup.find_all("script")]:
                 if script.contents:
                     content = script.contents[0]

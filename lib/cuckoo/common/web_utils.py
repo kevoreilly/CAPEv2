@@ -172,7 +172,7 @@ def load_vms_exits():
             for node in db.query(Node).all():
                 if hasattr(node, "exitnodes"):
                     for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, list())
+                        all_exits.setdefault(exit.name, [])
                         all_exits[exit.name].append(node.name)
             db.close()
         except Exception as e:
@@ -182,7 +182,7 @@ def load_vms_exits():
 
 
 def load_vms_tags():
-    all_tags = list()
+    all_tags = []
     if HAVE_DIST and repconf.distributed.enabled:
         try:
             db = dist_session()
@@ -656,7 +656,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = list()
+            tmp_workers = []
             for node, exitnodes in all_nodes_exits.items():
                 if route in exitnodes:
                     tmp_workers.append(node)
@@ -735,7 +735,7 @@ def download_file(**kwargs):
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
         else:
-            kwargs["task_ids"] = list()
+            kwargs["task_ids"] = []
             kwargs["task_ids"].extend(task_ids_new)
 
     if not onesuccess:

@@ -186,7 +186,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:
@@ -213,7 +213,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:
@@ -274,7 +274,7 @@ def config(filebuf):
                 c2_address = socket.inet_ntoa(struct.pack("!L", ip))
                 port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
                 if c2_address and port:
-                    conf_dict.setdefault("address", list())
+                    conf_dict.setdefault("address", [])
                     conf_dict["address"].append(c2_address + ":" + port)
                     c2found = True
                 else:
@@ -302,7 +302,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:
@@ -333,7 +333,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:
@@ -360,7 +360,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:
@@ -411,7 +411,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", list())
+                conf_dict.setdefault("address", [])
                 conf_dict["address"].append(c2_address + ":" + port)
                 c2found = True
             else:

@@ -29,7 +29,7 @@ class ProcessMemory(Processing):
     order = 10
 
     def get_procmemory_pe(self, mem_pe):
-        res = list()
+        res = []
         file_item = open(mem_pe.get("file"), "rb")
 
         for memmap in mem_pe.get("address_space") or []:

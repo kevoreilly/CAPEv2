@@ -336,7 +336,7 @@ class ReSubmitExtractedEXE(Report):
                                     tid, e, filesdict[e]
                                 )
                             )
-                            self.results.setdefault("resubs", list()).append(tid)
+                            self.results.setdefault("resubs", []).append(tid)
                             added_previous = True
                             continue
                         else:
@@ -389,7 +389,7 @@ class ReSubmitExtractedEXE(Report):
                                                 filesdict[e], task_id, self.resubcnt
                                             )
                                         )
-                                        self.results.setdefault("resubs", list()).append(task_id)
+                                        self.results.setdefault("resubs", []).append(task_id)
                                         self.resubcnt += 1
                                         subbed_hash = True
 
@@ -441,7 +441,7 @@ class ReSubmitExtractedEXE(Report):
                                 filesdict[e], task_id, self.resubcnt
                             )
                         )
-                        self.results.setdefault("resubs", list()).append(task_id)
+                        self.results.setdefault("resubs", []).append(task_id)
                         self.resubcnt += 1
                 else:
                     log.warn("Error adding resubmitexe task to database")

@@ -42,7 +42,7 @@ class CustomUserAdmin(UserAdmin):
 
     def get_inline_instances(self, request, obj=None):
         if not obj:
-            return list()
+            return []
         return super(CustomUserAdmin, self).get_inline_instances(request, obj)
 
 

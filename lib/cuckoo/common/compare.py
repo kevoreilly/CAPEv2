@@ -146,7 +146,7 @@ def get_similar_summary(left_sum, right_sum):
         for item in left_sum["behavior"]["summary"][summary]:
             if item in right_sum["behavior"]["summary"][summary]:
                 if summary not in list(ret.keys()):
-                    ret[summary] = list()
+                    ret[summary] = []
                 ret[summary].append(item)
 
     return ret

@@ -93,7 +93,7 @@ class CAPE(Processing):
 
     def detect2pid(self, pid, cape_name):
         self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"].setdefault(str(pid), [])
         if cape_name not in self.results["detections2pid"][str(pid)]:
             self.results["detections2pid"][str(pid)].append(cape_name)
 
@@ -377,8 +377,8 @@ class CAPE(Processing):
         self.script_dump_files = []
 
         self.cape = dict()
-        self.cape["payloads"] = list()
-        self.cape["configs"] = list()
+        self.cape["payloads"] = []
+        self.cape["configs"] = []
 
         meta = dict()
         if os.path.exists(self.files_metadata):

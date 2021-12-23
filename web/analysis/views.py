@@ -548,7 +548,7 @@ def load_files(request, task_id, category):
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
 
-            sha256_blocks = list()
+            sha256_blocks = []
             if data:
                 if category == "CAPE":
                     sha256_blocks = data.get("CAPE", {}).get("payloads", [])
@@ -1066,7 +1066,7 @@ def search_behavior(request, task_id):
             if es_as_db:
                 # I don't believe ES has a similar function to MongoDB's $in
                 # so we'll just iterate the call list and query appropriately
-                chunks = list()
+                chunks = []
                 for callitem in process["calls"]:
                     data = es.search(index=esidx, oc_type="calls", q="_id: %s" % callitem)["hits"]["hits"][0]["_source"]
                     chunks.append(data)
@@ -1906,7 +1906,7 @@ def comments(request, task_id):
         if "comments" in report["info"]:
             curcomments = report["info"]["comments"]
         else:
-            curcomments = list()
+            curcomments = []
         buf = dict()
         buf["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         escape_map = {

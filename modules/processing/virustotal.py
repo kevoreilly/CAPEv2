@@ -112,8 +112,8 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                         virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items())
                     virustotal["resource"] = sha256
 
-                    virustotal["results"] = list()
-                    detectnames = list()
+                    virustotal["results"] = []
+                    detectnames = []
                     for engine, block in engines.items():
                         virustotal["results"] += [{"vendor": engine.replace(".", "_"), "sig": block["result"]}]
                         if block["result"] and "Trojan.Heur." not in block["result"]:

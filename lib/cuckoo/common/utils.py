@@ -138,7 +138,7 @@ def create_zip(files=False, folder=False, encrypted=False):
     if folder:
         # To avoid when we have only folder argument
         if not files:
-            files = list()
+            files = []
         files += [os.path.join(folder, file) for file in os.listdir(folder)]
 
     if not isinstance(files, list):
@@ -336,7 +336,7 @@ def bytes2str(convert):
 
         return convert
 
-    items = list()
+    items = []
     if isinstance(convert, dict):
         tmp_dict = dict()
         items = convert.items()
@@ -348,7 +348,7 @@ def bytes2str(convert):
                     tmp_dict[k] = "".join(str(ord(_)) for _ in v)
         return tmp_dict
     elif isinstance(convert, list):
-        converted_list = list()
+        converted_list = []
         items = enumerate(convert)
         for k, v in items:
             if type(v) is bytes:

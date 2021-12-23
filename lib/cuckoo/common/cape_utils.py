@@ -462,7 +462,7 @@ def cape_name_from_yara(details, pid, results):
         ):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
-            results["detections2pid"].setdefault(str(pid), list())
+            results["detections2pid"].setdefault(str(pid), [])
             name = hit["name"].replace("_", " ")
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
@@ -476,7 +476,7 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         destination_folder - where to move extracted files
         files - file names
     """
-    metadata = list()
+    metadata = []
     if not files:
         files = os.listdir(folder)
     for file in files:
@@ -518,7 +518,7 @@ def _generic_post_extraction_process(file, decoded, destination_folder, data_dic
         with open(decoded_file_path, "wb") as f:
             f.write(decoded)
 
-    metadata = list()
+    metadata = []
     metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
     if metadata:
         for meta in metadata:
@@ -588,7 +588,7 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         logging.error("Missed dependency: sudo apt install msitools")
         return
 
-    metadata = list()
+    metadata = []
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
@@ -619,7 +619,7 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
     with open(file, "rb") as f:
         content = f.read()
 
-    metadata = list()
+    metadata = []
 
     if content.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
         with tempfile.TemporaryDirectory(prefix="kixtart_") as tempdir:

@@ -374,7 +374,7 @@ class Retriever(threading.Thread):
         self.current_queue = dict()
         self.current_two_queue = dict()
         self.stop_dist = threading.Event()
-        self.threads = list()
+        self.threads = []
 
         for x in range(int(reporting_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
@@ -594,7 +594,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -608,7 +608,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -684,7 +684,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -698,7 +698,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -799,9 +799,9 @@ class Retriever(threading.Thread):
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
-            details[node_id] = list()
+            details[node_id] = []
             details[node_id].append(str(task_id))
-            if task_id in self.t_is_none.get(node_id, list()):
+            if task_id in self.t_is_none.get(node_id, []):
                 self.t_is_none[node_id].remove(task_id)
 
             node = nodes[node_id]
@@ -1396,7 +1396,7 @@ def cron_cleaner(clean_x_hours=False):
         for task in tasks:
             node = nodes[task.node_id]
             if node:
-                details.setdefault(node.id, list())
+                details.setdefault(node.id, [])
                 details[node.id].append(str(task.task_id))
                 task.deleted = True
 

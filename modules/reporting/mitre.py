@@ -17,7 +17,7 @@ class MITRE_TTPS(Report):
             for technique in self.mitre.enterprise.techniques:
                 if technique.id in list(ttp_dict.keys()):
                     for tactic in technique.tactics:
-                        attck.setdefault(tactic.name, list())
+                        attck.setdefault(tactic.name, [])
                         attck[tactic.name].append(
                             {
                                 "t_id": technique.id,

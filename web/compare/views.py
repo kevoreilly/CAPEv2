@@ -87,7 +87,7 @@ def left(request, left_id):
             {"target": 1, "info": 1},
         )
     if es_as_db:
-        records = list()
+        records = []
         results = es.search(
             index=fullidx,
             doc_type="analysis",
@@ -120,7 +120,7 @@ def hash(request, left_id, right_hash):
             {"target": 1, "info": 1},
         )
     if es_as_db:
-        records = list()
+        records = []
         results = es.search(
             index=fullidx, doc_type="analysis", q='target.file.md5: "%s" NOT info.id: "%s"' % (right_hash, left_id)
         )["hits"]["hits"]

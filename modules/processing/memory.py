@@ -92,7 +92,7 @@ class VolatilityAPI(object):
         # Instance of the plugin
         self.volatility_interface = None
         self.loaded = False
-        self.plugin_list = list()
+        self.plugin_list = []
         self.ctx = False
         if not memdump.startswith("file:///") and os.path.exists(memdump):
             self.memdump = "file:///" + memdump

@@ -48,7 +48,7 @@ class MultiMachinery(Machinery):
                 orig_list_machines = machinery["module"].machines
 
                 def list_machines(s):
-                    machines = list()
+                    machines = []
                     for machine in orig_list_machines():
                         machine_name = self._machine_labels[machine.label]
                         machinery_name = self._machines[machine_name]["machinery"]

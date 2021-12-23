@@ -171,7 +171,7 @@ def tasks_create_static(request):
     resp["error"] = False
     files = request.FILES.getlist("file")
     extra_details = {}
-    task_ids = list()
+    task_ids = []
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
@@ -197,7 +197,7 @@ def tasks_create_static(request):
             resp["data"] = {}
             resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
             if callback:
-                resp["url"] = list()
+                resp["url"] = []
                 for tid in task_ids:
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
@@ -278,7 +278,7 @@ def tasks_create_file(request):
         else:
             max_file_size = int(max_file_size) * 1048576
 
-        files = list()
+        files = []
         # Check if we are allowing multiple file submissions
         multifile = apiconf.filecreate.get("multifile")
         if multifile:
@@ -360,7 +360,7 @@ def tasks_create_file(request):
                     ", ".join(str(x) for x in details.get("task_ids", []))
                 )
                 if callback:
-                    resp["url"] = list()
+                    resp["url"] = []
                     for tid in details.get("task_ids", []):
                         resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
         else:
@@ -765,7 +765,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 sids = [tmp_sample.to_dict()["id"] for tmp_sample in samples]
             else:
                 sids = [sample.to_dict()["id"]]
-            resp["data"] = list()
+            resp["data"] = []
             for sid in sids:
                 tasks = db.list_tasks(sample_id=sid)
                 for task in tasks:
@@ -789,7 +789,7 @@ def ext_tasks_search(request):
         resp = {"error": True, "error_value": "Extended Task Search API is Disabled"}
         return Response(resp)
 
-    return_data = list()
+    return_data = []
     term = request.data.get("option", "")
     value = request.data.get("argument", "")
 
@@ -805,7 +805,7 @@ def ext_tasks_search(request):
             else:
                 return Response({"error": True, "error_value": "Not all values are integers"})
         if term == "ids":
-            tmp_value = list()
+            tmp_value = []
             for task in db.list_tasks(task_ids=value) or []:
                 if task.status == "reported":
                     tmp_value.append(task.id)
@@ -887,7 +887,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
 
     if offset:
         offset = int(offset)
-    resp["data"] = list()
+    resp["data"] = []
     resp["config"] = "Limit: {0}, Offset: {1}".format(limit, offset)
     resp["buf"] = 0
 
@@ -999,8 +999,8 @@ def tasks_delete(request, task_id, status=False):
         task_id = [task.strip() for task in task_id.split(",")]
 
     resp = {}
-    s_deleted = list()
-    f_deleted = list()
+    s_deleted = []
+    f_deleted = []
     for task in task_id:
         check = validate_task(task, status)
         if check["error"]:
@@ -1273,7 +1273,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
         data["network"]["ids"]["http"] = buf["suricata"]["http"]
         data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
-        data["network"]["ids"]["files"] = list()
+        data["network"]["ids"]["files"] = []
         for surifile in buf["suricata"]["files"]:
             if "file_info" in list(surifile.keys()):
                 tmpfile = surifile

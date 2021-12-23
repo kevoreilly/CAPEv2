@@ -693,7 +693,7 @@ def mcafee_unquarantine(f):
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()
-    quarfiles = list()
+    quarfiles = []
     for item in olefiles:
         if "Details" in item:
             details = bytearray_xor(bytearray(oledata.openstream("Details").read()), 0x6A)

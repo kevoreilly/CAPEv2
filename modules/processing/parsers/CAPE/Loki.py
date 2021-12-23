@@ -172,7 +172,7 @@ def config(filebuf):
     cfg = dict()
     urls = decoder(filebuf)
     if urls:
-        cfg.setdefault("address", list())
+        cfg.setdefault("address", [])
 
     cfg["address"] = [url.decode() for url in urls]
     return cfg

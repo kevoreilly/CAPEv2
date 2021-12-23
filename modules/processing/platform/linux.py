@@ -192,7 +192,7 @@ class StraceParser(object):
             """
 
             argsplit = arguments.split(", ")
-            tmp_argslist = list()
+            tmp_argslist = []
             for pos in range(len(argsplit)):
                 if argsplit[pos].startswith("{"):
                     argsplit[pos] = argsplit[pos][1:]

@@ -1008,7 +1008,7 @@ class Pcap2(object):
                         resp_path = os.path.join(self.network_path, resp_sha256)
                         with open(resp_path, "wb") as f:
                             f.write(recv.body)
-                        resp_preview = list()
+                        resp_preview = []
                         try:
                             c = 0
                             for i in range(3):

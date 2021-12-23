@@ -307,7 +307,7 @@ class RunProcessing(object):
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", dict()).setdefault("errors", list())
+                        self.results.setdefault("debug", dict()).setdefault("errors", [])
                     self.results["debug"]["errors"].append(
                         "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(
                             file_name
@@ -365,7 +365,7 @@ class RunSignatures(object):
     def __init__(self, task, results):
         self.task = task
         self.results = results
-        self.ttps = list()
+        self.ttps = []
         self.cfg_processing = Config("processing")
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
@@ -505,7 +505,7 @@ class RunSignatures(object):
         complete_list = list_plugins(group="signatures") or []
         if test_signature:
             complete_list = [sig for sig in complete_list if sig.name == test_signature]
-        evented_list = list()
+        evented_list = []
         try:
             evented_list = [
                 sig(self.results)

@@ -724,13 +724,13 @@ class MaecReport(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        maec_attcks = list()
+        maec_attcks = []
         for tactic in self.mitre.tactics:
             for technique in tactic.techniques:
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, list())
+                    maec_attck.setdefault(tactic.name, [])
                     maec_attck[tactic.name].append(
                         {
                             "technique_id": technique.id,

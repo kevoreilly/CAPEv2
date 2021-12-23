@@ -122,7 +122,7 @@ def config(filebuf):
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", list())
+            cfg.setdefault("address", [])
             cfg["address"].append(c2_address + ":" + port)
 
         c2_offset += 6 + delta

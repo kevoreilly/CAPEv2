@@ -213,7 +213,7 @@ def index(request, resubmit_hash=False):
             opt_apikey = opts.get("apikey", False)
 
         status = "ok"
-        task_ids_tmp = list()
+        task_ids_tmp = []
         existent_tasks = dict()
         details = {
             "errors": [],
@@ -259,7 +259,7 @@ def index(request, resubmit_hash=False):
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", resubmission_hash)
                         for record in records:
-                            existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                             existent_tasks[record["target"]["file"]["sha256"]].append(record)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
@@ -311,7 +311,7 @@ def index(request, resubmit_hash=False):
                         records = perform_search("target_sha256", sha256)
                         for record in records:
                             if record.get("target").get("file", {}).get("sha256"):
-                                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                                existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                                 existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
@@ -581,7 +581,7 @@ def index(request, resubmit_hash=False):
         if resubmit_hash:
             records = perform_search("sha256", resubmit_hash)
             for record in records:
-                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                 existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(

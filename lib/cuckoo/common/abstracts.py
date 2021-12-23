@@ -796,7 +796,7 @@ class Signature(object):
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("yara", "cape_yara"):
-                for block in self.results["target"]["file"].get(keyword, list()):
+                for block in self.results["target"]["file"].get(keyword, []):
                     if re.findall(name, block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], block
 
@@ -853,7 +853,7 @@ class Signature(object):
         self.results["statistics"]["signatures"][name][field] = value
 
     def get_pids(self):
-        pids = list()
+        pids = []
         logs = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "logs")
         processes = self.results.get("behavior", {}).get("processtree", [])
         if processes:
@@ -893,7 +893,7 @@ class Signature(object):
 
     def _get_ip_by_host_dns(self, hostname):
 
-        ips = list()
+        ips = []
 
         try:
             answers = myresolver.query(hostname, "A")

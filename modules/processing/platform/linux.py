@@ -3,12 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-import logging
+import dateutil.parser
 import os
+import logging
 import re
 from functools import reduce
-
-import dateutil.parser
 
 from lib.cuckoo.common.abstracts import BehaviorHandler
 

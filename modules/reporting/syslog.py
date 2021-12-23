@@ -15,9 +15,9 @@ logname = syslog.log  # if yes, what logname? [Default: syslog.txt]
 """
 
 from __future__ import absolute_import
-import codecs
-import json
 import os
+import json
+import codecs
 import socket
 
 from lib.cuckoo.common.abstracts import Report

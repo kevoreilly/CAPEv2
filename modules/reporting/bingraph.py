@@ -3,11 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
-
-from lib.cuckoo.common.abstracts import Report
+import logging
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.abstracts import Report
+
 
 reporting_conf = Config("reporting")
 

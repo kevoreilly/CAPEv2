@@ -20,14 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import absolute_import, print_function
-import base64
+from __future__ import absolute_import
+from __future__ import print_function
 import zipfile
+import base64
+from Crypto.Cipher import AES
 from hashlib import pbkdf2_hmac
 
-from Crypto.Cipher import AES
-
 from lib.cuckoo.common.utils import store_temp_file
+
 
 unpad = lambda s: s[0 : -s[-1]]
 

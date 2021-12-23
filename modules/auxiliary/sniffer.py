@@ -3,15 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
 import getpass
 import logging
-import os
 import subprocess
 from stat import S_ISUID
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
+from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_GUEST_PORT
 from lib.cuckoo.core.resultserver import ResultServer
 
 log = logging.getLogger(__name__)

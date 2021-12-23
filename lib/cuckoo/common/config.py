@@ -3,13 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import configparser
 import os
+import configparser
 
-from lib.cuckoo.common.colors import bold, red
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.objects import Dictionary
+from lib.cuckoo.common.colors import red, bold
 
 
 def parse_options(options):

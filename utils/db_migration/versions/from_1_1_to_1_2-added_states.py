@@ -11,16 +11,16 @@ Create Date: 2015-02-28 19:08:29.284111
 # Spaghetti as a way of life.
 
 # Revision identifiers, used by Alembic.
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 revision = "495d5a6edef3"
 down_revision = "18eee46c6f81"
 
 import os.path
+import sqlalchemy as sa
 import sys
 from datetime import datetime
-
-import sqlalchemy as sa
 
 try:
     from dateutil.parser import parse

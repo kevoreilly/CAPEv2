@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import os
-
 from six.moves import zip
 
 HAVE_PYGAL = False
@@ -15,8 +14,8 @@ try:
 except ImportError:
     pass
 
-from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 

@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
 from lib.cuckoo.common import aplib
 
 

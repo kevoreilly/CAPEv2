@@ -12,8 +12,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import yara
 from mwcp.parser import Parser
+import yara
 
 rule_source = """
 rule Enfal

@@ -3,11 +3,12 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
+from django.conf.urls import url, include
+from django.urls import path
+
+from rest_framework.authtoken.views import obtain_auth_token
 
 from apiv2 import views
-from django.conf.urls import include, url
-from django.urls import path
-from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     url(r"^$", views.index, name="apiv2"),

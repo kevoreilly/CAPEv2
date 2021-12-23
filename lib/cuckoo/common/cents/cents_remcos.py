@@ -1,7 +1,6 @@
 import logging
-from ipaddress import ip_address
-
 from Crypto.Cipher import ARC4
+from ipaddress import ip_address
 
 log = logging.getLogger(__name__)
 

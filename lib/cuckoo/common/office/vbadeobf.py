@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 import string
-
 from six.moves import zip
 
 try:
@@ -13,9 +12,8 @@ except ImportError:
     import re
 
 from itertools import chain, repeat
-from os.path import exists
-
 from lib.cuckoo.common.utils import convert_to_printable
+from os.path import exists
 
 # Regexs from Decalages olevba.py + a commonly observed path regex.
 PATTERNS = (

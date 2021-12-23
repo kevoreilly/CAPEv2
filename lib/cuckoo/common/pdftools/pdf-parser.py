@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 __description__ = "pdf-parser, use it to parse a PDF document"
 __author__ = "Didier Stevens"
@@ -78,26 +79,26 @@ Todo:
 
 """
 
+import re
+import optparse
+import zlib
 import binascii
 import hashlib
-import optparse
-import os
-import re
 import sys
-import textwrap
-import time
 import zipfile
-import zlib
+import time
+import os
+import textwrap
 
 if sys.version_info[0] >= 3:
-    import urllib.request
     from io import StringIO
+    import urllib.request
 
     urllib23 = urllib.request
     import configparser as ConfigParser
 else:
-    import urllib2
     from cStringIO import StringIO
+    import urllib2
 
     urllib23 = urllib2
     import ConfigParser

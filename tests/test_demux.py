@@ -3,14 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import pathlib
-import tempfile
 
+import os
+import tempfile
 import pytest
-from tcr_misc import get_sample
+import pathlib
 
 from lib.cuckoo.common import demux
+from tcr_misc import get_sample
 
 
 @pytest.fixture

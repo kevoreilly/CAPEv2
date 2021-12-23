@@ -10,7 +10,6 @@ from lib.common.results import upload_to_host
 
 try:
     import pyinotify
-
     HAVE_PYINOTIFY = True
 except ImportError:
     HAVE_PYINOTIFY = False

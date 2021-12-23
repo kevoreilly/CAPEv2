@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 __description__ = "Analyze RTF files"
 __author__ = "Didier Stevens"
@@ -40,19 +41,19 @@ History:
 Todo:
 """
 
-import binascii
-import collections
-import glob
-import hashlib
-import json
 import optparse
+import sys
 import os
+import zipfile
+import binascii
+import textwrap
 import re
 import string
-import sys
-import textwrap
-import zipfile
+import hashlib
+import json
 from io import StringIO
+import collections
+import glob
 
 try:
     import yara

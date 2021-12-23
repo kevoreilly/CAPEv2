@@ -12,9 +12,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import socket
 import struct
-
+import socket
 import pefile
 import yara
 from Crypto.Cipher import ARC4

@@ -1,17 +1,12 @@
 #!/usr/bin/python
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
+import zipfile, sys, os
+import base64, urllib.request, urllib.parse, urllib.error
 import argparse
-import base64
-import os
-import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-import zipfile
 from sys import argv
-
-from androguard.core.bytecodes import apk, dvm
-
+from androguard.core.bytecodes import apk
+from androguard.core.bytecodes import dvm
 
 # ---------------------------------------------------
 # _log : Prints out logs for debug purposes

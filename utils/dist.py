@@ -5,27 +5,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 # ToDo
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
-from __future__ import absolute_import, print_function
-import argparse
-import distutils.util
-import hashlib
-import json
-import logging
+from __future__ import absolute_import
+from __future__ import print_function
 import os
-import queue
-import shutil
 import sys
-import threading
 import time
+import json
+import shutil
+import queue
+import hashlib
 import zipfile
-from datetime import datetime, timedelta
-from io import BytesIO
-from itertools import combinations
+import logging
 from logging import handlers
+import argparse
+import threading
+from io import BytesIO
 from zipfile import ZipFile
-
-from sqlalchemy import and_, or_
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from datetime import datetime, timedelta
+from itertools import combinations
+import distutils.util
+from sqlalchemy import or_, and_
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 try:
     import pyzipper
@@ -37,10 +37,17 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.core.database import (TASK_DISTRIBUTED, TASK_DISTRIBUTED_COMPLETED, TASK_FAILED_REPORTING, TASK_PENDING,
-                                      TASK_REPORTED, TASK_RUNNING, Database)
+from lib.cuckoo.common.dist_db import Node, Task, Machine, ExitNodes, create_session
+from lib.cuckoo.core.database import (
+    Database,
+    TASK_REPORTED,
+    TASK_RUNNING,
+    TASK_PENDING,
+    TASK_FAILED_REPORTING,
+    TASK_DISTRIBUTED_COMPLETED,
+    TASK_DISTRIBUTED,
+)
 from lib.cuckoo.core.database import Task as MD_Task
 
 # we need original db to reserve ID in db,
@@ -89,7 +96,7 @@ def required(package):
 
 
 try:
-    from flask import Flask, jsonify, make_response, request
+    from flask import Flask, request, make_response, jsonify
 except ImportError:
     required("flask")
 
@@ -105,9 +112,8 @@ except AttributeError:
     pass
 
 try:
-    from flask_restful import Api as RestApi
-    from flask_restful import Resource as RestResource
     from flask_restful import abort, reqparse
+    from flask_restful import Api as RestApi, Resource as RestResource
 except ImportError:
     required("flask-restful")
 

@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import glob
 import os
+import glob
 import zipfile
 
 from lib.cuckoo.common.abstracts import Processing

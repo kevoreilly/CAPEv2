@@ -3,9 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+
 import logging
-import sys
 import time
+import sys
 
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
@@ -14,7 +15,8 @@ except ImportError:
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooCriticalError
+from lib.cuckoo.common.exceptions import CuckooMachineError
 
 # silence overly verbose INFO level logging default of proxmoxer module
 logging.getLogger("proxmoxer").setLevel(logging.WARNING)

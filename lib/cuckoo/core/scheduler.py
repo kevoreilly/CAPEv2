@@ -3,13 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
 import os
-import queue
+import time
 import shutil
 import signal
+import logging
 import threading
-import time
+import queue
 
 try:
     import re2 as re
@@ -28,15 +28,17 @@ except ImportError:
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooGuestError, CuckooMachineError, CuckooNetworkError,
-                                          CuckooOperationalError)
-from lib.cuckoo.common.objects import HAVE_PEFILE, File, pefile
-from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
-from lib.cuckoo.core.database import TASK_COMPLETED, Database
+from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooNetworkError
+from lib.cuckoo.common.exceptions import CuckooCriticalError
+from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
+from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
+from lib.cuckoo.core.database import Database, TASK_COMPLETED
 from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
+from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
-from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
+from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 

@@ -1,12 +1,11 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 import json
-import logging
-
 import requests
-
-from lib.cuckoo.common.abstracts import Report
+import logging
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_REPORTED, Database
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED
 
 log = logging.getLogger(__name__)
 main_db = Database()

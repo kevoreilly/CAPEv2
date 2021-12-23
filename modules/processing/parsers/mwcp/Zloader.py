@@ -12,15 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-import re
-import string
+from mwcp.parser import Parser
 import struct
-
+import string
 import pefile
 import yara
+import re
 from Crypto.Cipher import ARC4
-from mwcp.parser import Parser
+import logging
 
 log = logging.getLogger(__name__)
 

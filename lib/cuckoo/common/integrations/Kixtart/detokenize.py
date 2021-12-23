@@ -1,13 +1,11 @@
-import logging
-import os
 import sys
-from argparse import ArgumentParser
-from binascii import hexlify, unhexlify
+import os
+import logging
 from hashlib import md5
-
+from binascii import hexlify, unhexlify
 from Crypto.Cipher import ARC4
-
-from .constants import functions, macros, operators
+from .constants import macros, operators, functions
+from argparse import ArgumentParser
 
 
 def parse_args():
@@ -60,11 +58,11 @@ class Kixtart:
 
     def decrypt(self):
         arc4 = ARC4.new(key=self.session_key)
-        self.logger.info(f"[*]\tdecrypting with session key {hexlify(self.session_key).decode()}")
+        self.logger.info(f'[*]\tdecrypting with session key {hexlify(self.session_key).decode()}')
         token_data = arc4.decrypt(bytes(self.ciphertext))
         self.code_length = int.from_bytes(token_data[:4], byteorder="little")
         self.tokenized = token_data[4:]
-        self.logger.debug(f"raw tokenized script: {hexlify(self.tokenized).decode()}")
+        self.logger.debug(f'raw tokenized script: {hexlify(self.tokenized).decode()}')
         self.parse()
         return self.tokenized
 
@@ -86,7 +84,7 @@ class Kixtart:
     def parse_functions(self):
         i = 0
         buf = self.function_data
-        self.logger.debug(f"Parsing function data {hexlify(buf).decode()}")
+        self.logger.debug(f'Parsing function data {hexlify(buf).decode()}')
         # TODO have not looked into parsing scripts relying on multiple files
         filename = ""
         while buf[i] != 0:

@@ -1,13 +1,14 @@
-import logging
 import os
+import logging
 
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.utils import datetime_to_iso
+
 from lib.cuckoo.common.cents.cents_remcos import cents_remcos
 from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
 from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.common.utils import datetime_to_iso
 
 log = logging.getLogger(__name__)
 

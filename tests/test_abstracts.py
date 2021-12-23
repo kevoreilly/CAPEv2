@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 import os
 import tempfile
-
 import pytest
 
 import lib.cuckoo.common.abstracts as abstracts

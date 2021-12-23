@@ -8,9 +8,9 @@ import os
 import pathlib
 
 import pytest
+from lib.cuckoo.common.netlog import BsonParser
 from bson.binary import Binary
 
-from lib.cuckoo.common.netlog import BsonParser
 
 # Might require newer pymongo, works with 3.11.4
 

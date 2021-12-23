@@ -4,16 +4,18 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import argparse
-import asyncore
-import logging
 import os
-import smtplib
 import sys
-from datetime import datetime
-from email import encoders
-from email.mime.base import MIMEBase
+import logging
+import asyncore
+import argparse
+
+import smtplib
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
+from datetime import datetime
 from smtpd import SMTPServer
 
 # Cuckoo root

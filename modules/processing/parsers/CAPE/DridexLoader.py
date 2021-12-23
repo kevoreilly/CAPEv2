@@ -66,7 +66,7 @@ def config(filebuf):
     DESCRIPTION = "DridexDropper configuration parser."
     AUTHOR = "kevoreilly"
 
-    cfg = dict()
+    cfg = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
     line, c2va_offset, delta = 0, 0, 0
@@ -122,7 +122,7 @@ def config(filebuf):
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", list())
+            cfg.setdefault("address", [])
             cfg["address"].append(c2_address + ":" + port)
 
         c2_offset += 6 + delta

@@ -32,9 +32,9 @@ def import_plugin(name):
 class MultiMachinery(Machinery):
     LABEL = "mm_label"
 
-    _machineries = dict()
-    _machines = dict()
-    _machine_labels = dict()
+    _machineries = {}
+    _machines = {}
+    _machine_labels = {}
 
     def set_options(self, options):
         if getattr(self, "options", None) is None:
@@ -48,7 +48,7 @@ class MultiMachinery(Machinery):
                 orig_list_machines = machinery["module"].machines
 
                 def list_machines(s):
-                    machines = list()
+                    machines = []
                     for machine in orig_list_machines():
                         machine_name = self._machine_labels[machine.label]
                         machinery_name = self._machines[machine_name]["machinery"]
@@ -73,7 +73,7 @@ class MultiMachinery(Machinery):
                     setattr(options, machine_name, machine)
 
                 self._machineries[machinery_name] = machinery
-            setattr(options, "sections", dict())
+            setattr(options, "sections", {})
             for mk, mv in self._machines.items():
                 options.sections[mk] = mv
             options.multi["machines"] = list(self._machines.keys())

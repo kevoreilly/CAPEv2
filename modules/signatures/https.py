@@ -27,7 +27,7 @@ class NetworkHTTPS(Signature):
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
-        self.urls = list()
+        self.urls = []
 
     filter_apinames = set(["InternetOpenUrlA", "InternetOpenUrlW"])
 

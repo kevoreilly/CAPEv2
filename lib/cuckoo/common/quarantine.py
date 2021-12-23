@@ -693,7 +693,7 @@ def mcafee_unquarantine(f):
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()
-    quarfiles = list()
+    quarfiles = []
     for item in olefiles:
         if "Details" in item:
             details = bytearray_xor(bytearray(oledata.openstream("Details").read()), 0x6A)
@@ -702,7 +702,7 @@ def mcafee_unquarantine(f):
             for fileobj in item:
                 if "File_" in fileobj:
                     quarfiles.append(fileobj)
-            decoded = dict()
+            decoded = {}
             # Try and decode quarantine files (sometimes there are none)
             for item in quarfiles:
                 try:

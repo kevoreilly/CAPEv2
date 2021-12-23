@@ -1676,7 +1676,7 @@ class Database(object, metaclass=Singleton):
             if conf.cuckoo.delete_archive:
                 os.remove(file_path)
 
-        task_ids = list()
+        task_ids = []
         # create tasks for each file in the archive
         for file in extracted_files:
             task_id = self.add(
@@ -1920,7 +1920,7 @@ class Database(object, metaclass=Singleton):
         @param sample_id: Sample id
         @param task_id: Task id
         """
-        parent_sample = dict()
+        parent_sample = {}
         parent = False
         session = self.Session()
         try:

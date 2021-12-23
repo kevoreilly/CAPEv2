@@ -498,7 +498,7 @@ class MaecReport(Report):
         if not isinstance(arguments, list):
             arguments = [arguments]
         found = False
-        v2_arguments = dict()
+        v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
                 v2_arguments[args["name"]] = args["value"]
@@ -724,13 +724,13 @@ class MaecReport(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        maec_attcks = list()
+        maec_attcks = []
         for tactic in self.mitre.tactics:
             for technique in tactic.techniques:
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, list())
+                    maec_attck.setdefault(tactic.name, [])
                     maec_attck[tactic.name].append(
                         {
                             "technique_id": technique.id,

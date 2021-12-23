@@ -828,7 +828,7 @@ class Pcap:
 
             self.results["dead_hosts"] = []
         else:
-            self.results["sorted"] = dict()
+            self.results["sorted"] = {}
             self.results["sorted"]["tcp"] = [conn_from_flowtuple(i) for i in self.tcp_connections]
             self.results["sorted"]["udp"] = [conn_from_flowtuple(i) for i in self.udp_connections]
 
@@ -1008,7 +1008,7 @@ class Pcap2(object):
                         resp_path = os.path.join(self.network_path, resp_sha256)
                         with open(resp_path, "wb") as f:
                             f.write(recv.body)
-                        resp_preview = list()
+                        resp_preview = []
                         try:
                             c = 0
                             for i in range(3):

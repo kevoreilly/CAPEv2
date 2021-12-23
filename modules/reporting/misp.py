@@ -48,7 +48,7 @@ else:
     malpedia_json = False
 
 # load whitelist if exists
-whitelist = list()
+whitelist = []
 if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
     whitelist = Config("misp").whitelist.whitelist
     if whitelist:
@@ -233,7 +233,7 @@ class MISP(Report):
             self.threads = 5
 
         self.iocs = deque()
-        self.misper = dict()
+        self.misper = {}
 
         try:
             if self.options.get("upload_iocs", False) and results.get("malscore", 0) >= self.options.get("min_malscore", 0):

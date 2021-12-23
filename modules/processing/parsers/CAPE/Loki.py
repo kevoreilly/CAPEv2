@@ -169,10 +169,10 @@ def decoder(data):
 
 def config(filebuf):
 
-    cfg = dict()
+    cfg = {}
     urls = decoder(filebuf)
     if urls:
-        cfg.setdefault("address", list())
+        cfg.setdefault("address", [])
 
     cfg["address"] = [url.decode() for url in urls]
     return cfg

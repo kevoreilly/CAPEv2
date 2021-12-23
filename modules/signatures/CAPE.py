@@ -263,8 +263,8 @@ class CAPE_InjectionProcessHollowing(Signature):
             self.sequence = 0
             self.process_handles = set()
             self.thread_handles = set()
-            self.process_map = dict()
-            self.thread_map = dict()
+            self.process_map = {}
+            self.thread_map = {}
             self.lastprocess = process
 
         if process.get("process_name") in self.allow_list:

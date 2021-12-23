@@ -85,16 +85,16 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
         ids_tmp = ids[i : i + 10]
         if delete_mongo is True:
             try:
-                analyses_tmp = list()
+                analyses_tmp = []
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))
                 analyses = results_db.analysis.find(
                     {"info.id": {"$in": [id for id in ids_tmp]}}, {"behavior.processes": 1, "_id": 1}
                 )
                 if analyses:
                     for analysis in analyses:
-                        calls = list()
+                        calls = []
                         for process in analysis.get("behavior", {}).get("processes", []):
-                            calls = list()
+                            calls = []
                             for call in process["calls"]:
                                 # results_db.calls.delete_one({"_id": ObjectId(call)})
                                 calls.append(ObjectId(call))
@@ -151,10 +151,10 @@ def delete_mongo_data(tid):
         analyses = results_db.analysis.find({"info.id": int(tid)}, {"behavior.processes": 1, "_id": 1})
         if analyses.count() > 0:
             for analysis in analyses:
-                calls = list()
+                calls = []
                 log.info("deleting MongoDB data for Task #{0}".format(tid))
                 for process in analysis.get("behavior", {}).get("processes", []):
-                    calls = list()
+                    calls = []
                     for call in process["calls"]:
                         # results_db.calls.delete_one({"_id": ObjectId(call)})
                         calls.append(ObjectId(call))
@@ -531,7 +531,7 @@ def cuckoo_dedup_cluster_queue():
     session = db.Session()
     dist_session = create_session(repconf.distributed.db, echo=False)
     dist_db = dist_session()
-    hash_dict = dict()
+    hash_dict = {}
     duplicated = (
         session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
     )
@@ -539,7 +539,7 @@ def cuckoo_dedup_cluster_queue():
     for sample, task in duplicated:
         try:
             # hash -> [[id, file]]
-            hash_dict.setdefault(sample.sha256, list())
+            hash_dict.setdefault(sample.sha256, [])
             hash_dict[sample.sha256].append((task.id, task.target))
         except UnicodeDecodeError:
             pass

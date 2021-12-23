@@ -117,7 +117,7 @@ def render_capabilities(doc, ostream):
     """
     subrule_matches = find_subrule_matches(doc)
 
-    ostream["CAPABILITY"] = dict()
+    ostream["CAPABILITY"] = {}
     for rule in rutils.capability_rules(doc):
         if rule["meta"]["name"] in subrule_matches:
             # rules that are also matched by other rules should not get rendered by default.
@@ -131,7 +131,7 @@ def render_capabilities(doc, ostream):
         else:
             capability = "%s (%d matches)" % (rule["meta"]["name"], count)
 
-        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], list())
+        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], [])
         ostream["CAPABILITY"][rule["meta"]["namespace"]].append(capability)
 
 
@@ -148,7 +148,7 @@ def render_attack(doc, ostream):
             'EXECUTION': ['Shared Modules [T1129]']}
         }
     """
-    ostream["ATTCK"] = dict()
+    ostream["ATTCK"] = {}
     tactics = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule["meta"].get("att&ck"):
@@ -181,7 +181,7 @@ def render_mbc(doc, ostream):
                           '[C0021.004]']}
         }
     """
-    ostream["MBC"] = dict()
+    ostream["MBC"] = {}
     objectives = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule["meta"].get("mbc"):
@@ -201,7 +201,7 @@ def render_mbc(doc, ostream):
 
 
 def render_dictionary(doc):
-    ostream = dict()
+    ostream = {}
     render_meta(doc, ostream)
     render_attack(doc, ostream)
     render_mbc(doc, ostream)

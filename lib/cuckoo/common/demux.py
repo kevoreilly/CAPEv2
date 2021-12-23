@@ -249,7 +249,7 @@ def demux_sample(filename, package, options, use_sflock=True):
     if any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
-    retlist = list()
+    retlist = []
     if HAS_SFLOCK:
         if use_sflock:
             # all in one unarchiver

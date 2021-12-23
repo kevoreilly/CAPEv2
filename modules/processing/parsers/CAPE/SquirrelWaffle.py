@@ -53,7 +53,7 @@ def xor_data(data, key):
 
 
 def config(data):
-    config = dict()
+    config = {}
     pe = None
     try:
         pe = pefile.PE(data=data)

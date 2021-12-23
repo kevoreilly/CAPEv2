@@ -49,7 +49,7 @@ def iced_decode(data):
 
 
 def config(filebuf):
-    cfg = dict()
+    cfg = {}
     yara_hit = yara_scan(filebuf)
     for hit in yara_hit:
         if hit.rule == "IcedIDLoader":

@@ -93,7 +93,7 @@ class CAPE(Processing):
 
     def detect2pid(self, pid, cape_name):
         self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"].setdefault(str(pid), [])
         if cape_name not in self.results["detections2pid"][str(pid)]:
             self.results["detections2pid"][str(pid)].append(cape_name)
 
@@ -223,7 +223,7 @@ class CAPE(Processing):
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
                     if plugx_config:
                         cape_name = "PlugX"
-                        config[cape_name] = dict()
+                        config[cape_name] = {}
                         for key, value in plugx_config.items():
                             config[cape_name].update({key: [value]})
                     else:
@@ -376,11 +376,11 @@ class CAPE(Processing):
         self.key = "CAPE"
         self.script_dump_files = []
 
-        self.cape = dict()
-        self.cape["payloads"] = list()
-        self.cape["configs"] = list()
+        self.cape = {}
+        self.cape["payloads"] = []
+        self.cape["configs"] = []
 
-        meta = dict()
+        meta = {}
         if os.path.exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)

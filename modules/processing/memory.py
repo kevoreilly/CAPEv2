@@ -92,7 +92,7 @@ class VolatilityAPI(object):
         # Instance of the plugin
         self.volatility_interface = None
         self.loaded = False
-        self.plugin_list = list()
+        self.plugin_list = []
         self.ctx = False
         if not memdump.startswith("file:///") and os.path.exists(memdump):
             self.memdump = "file:///" + memdump
@@ -210,7 +210,7 @@ class VolatilityManager(object):
         self.no_filter = not self.voptions.mask.enabled
 
     def run(self, manager=None, vm=None):
-        results = dict()
+        results = {}
         self.key = "memory"
 
         # Exit if options were not loaded.

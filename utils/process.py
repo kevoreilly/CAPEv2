@@ -115,7 +115,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis.get("behavior", {}).get("processes", []):
-                        calls = list()
+                        calls = []
                         for call in process["calls"]:
                             calls.append(ObjectId(call))
                         mdata.calls.delete_many({"_id": {"$in": calls}})
@@ -323,10 +323,10 @@ def _load_mongo_report(task_id: int, return_one: bool = False):
     if return_one:
         analysis = mdata.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", DESCENDING)])
         for process in analysis.get("behavior", {}).get("processes", []):
-            calls = list()
+            calls = []
             for call in process["calls"]:
                 calls.append(ObjectId(call))
-            process["calls"] = list()
+            process["calls"] = []
             for call in mdata.calls.find({"_id": {"$in": calls}}, sort=[("_id", ASCENDING)]) or []:
                 process["calls"] += call["calls"]
         return conn, mdata, analysis

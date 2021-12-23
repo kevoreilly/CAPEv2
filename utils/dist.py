@@ -72,9 +72,9 @@ NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
 INTERVAL = 10
 
 # controller of dead nodes
-failed_count = dict()
+failed_count = {}
 # status controler count to reset number
-status_count = dict()
+status_count = {}
 
 lock_retriever = threading.Lock()
 dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
@@ -369,12 +369,12 @@ class Retriever(threading.Thread):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
         self.cfg = Config()
-        self.t_is_none = dict()
-        self.status_count = dict()
-        self.current_queue = dict()
-        self.current_two_queue = dict()
+        self.t_is_none = {}
+        self.status_count = {}
+        self.current_queue = {}
+        self.current_two_queue = {}
         self.stop_dist = threading.Event()
-        self.threads = list()
+        self.threads = []
 
         for x in range(int(reporting_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
@@ -532,7 +532,7 @@ class Retriever(threading.Thread):
 
     def fetcher(self):
         """Method that runs forever"""
-        last_checks = dict()
+        last_checks = {}
         # to not exit till cleaner works
         db = session()
         while not self.stop_dist.isSet():
@@ -594,7 +594,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -608,7 +608,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -684,7 +684,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -698,7 +698,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -792,16 +792,16 @@ class Retriever(threading.Thread):
 
     def remove_from_worker(self):
         db = session()
-        nodes = dict()
-        details = dict()
+        nodes = {}
+        details = {}
         for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
             nodes.setdefault(node.id, node)
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
-            details[node_id] = list()
+            details[node_id] = []
             details[node_id].append(str(task_id))
-            if task_id in self.t_is_none.get(node_id, list()):
+            if task_id in self.t_is_none.get(node_id, []):
                 self.t_is_none[node_id].remove(task_id)
 
             node = nodes[node_id]
@@ -1010,7 +1010,7 @@ class StatusThread(threading.Thread):
         global main_db
         global retrieve
         global STATUSES
-        MINIMUMQUEUE = dict()
+        MINIMUMQUEUE = {}
 
         # handle another user case,
         # when master used to only store data and not process samples
@@ -1376,8 +1376,8 @@ def cron_cleaner(clean_x_hours=False):
     pid.close()
 
     db = session()
-    nodes = dict()
-    details = dict()
+    nodes = {}
+    details = {}
 
     for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).all():
         nodes.setdefault(node.id, node)
@@ -1396,7 +1396,7 @@ def cron_cleaner(clean_x_hours=False):
         for task in tasks:
             node = nodes[task.node_id]
             if node:
-                details.setdefault(node.id, list())
+                details.setdefault(node.id, [])
                 details[node.id].append(str(task.task_id))
                 task.deleted = True
 

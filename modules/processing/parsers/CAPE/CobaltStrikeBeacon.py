@@ -324,7 +324,7 @@ class cobaltstrikeConfig:
         return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
-        parsed_config = dict()
+        parsed_config = {}
         re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
         re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
 

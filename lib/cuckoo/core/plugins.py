@@ -244,7 +244,7 @@ class RunProcessing(object):
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000: 03d}")}
+                {"name": current.__class__.__name__, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}
             )
 
             # If succeeded, return they module's key name and the data to be
@@ -472,7 +472,7 @@ class RunSignatures(object):
             self.results["statistics"]["signatures"].append(
                 {
                     "name": current.name,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000: 03d}"),
+                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
                 }
             )
 
@@ -596,7 +596,7 @@ class RunSignatures(object):
         for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append(
-                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000: 03d}")}
+                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000:03d}")}
                 )
         # Compat loop for old-style (non evented) signatures.
         if complete_list:
@@ -721,7 +721,7 @@ class RunReporting:
             self.results["statistics"]["reporting"].append(
                 {
                     "name": current.__class__.__name__,
-                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000: 03d}"),
+                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
                 }
             )
 

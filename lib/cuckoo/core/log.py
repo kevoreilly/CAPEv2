@@ -12,9 +12,9 @@ import time
 
 import gevent.thread
 
-from lib.cuckoo.common.colors import red, yellow, cyan
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.misc import cwd
+from lib.cuckoo.core.database import Database
 
 _task_threads = {}
 _tasks = {}

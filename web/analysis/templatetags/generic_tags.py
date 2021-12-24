@@ -1,7 +1,9 @@
 from __future__ import absolute_import
-from lib.cuckoo.common.utils import convert_to_printable
-from django.template.defaultfilters import register
 from collections import deque
+
+from django.template.defaultfilters import register
+
+from lib.cuckoo.common.utils import convert_to_printable
 
 
 @register.filter("endswith")

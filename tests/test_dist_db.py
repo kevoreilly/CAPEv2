@@ -3,8 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-from lib.cuckoo.common.dist_db import Node, StringList, Machine, Task, create_session
+
 from sqlalchemy import Table
+
+from lib.cuckoo.common.dist_db import Machine, Node, StringList, Task, create_session
 
 
 def test_node():

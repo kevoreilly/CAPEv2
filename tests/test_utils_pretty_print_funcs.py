@@ -2,11 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-
+from __future__ import absolute_import, print_function
 import os
 import random
+
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_fn
 
 random.seed(1338)

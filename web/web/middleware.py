@@ -1,4 +1,5 @@
 import logging
+
 from django.shortcuts import redirect
 
 logging.basicConfig(level=logging.INFO)

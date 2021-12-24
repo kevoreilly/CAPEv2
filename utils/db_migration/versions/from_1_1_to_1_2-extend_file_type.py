@@ -17,10 +17,11 @@ from __future__ import absolute_import
 revision = "18eee46c6f81"
 down_revision = "263a45963c72"
 
-from alembic import op
 import os.path
-import sqlalchemy as sa
 import sys
+
+import sqlalchemy as sa
+from alembic import op
 
 curdir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(curdir, "..", ".."))

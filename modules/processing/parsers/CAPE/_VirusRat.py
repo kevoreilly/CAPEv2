@@ -1,8 +1,9 @@
 from __future__ import absolute_import
-import pefile
-import database
 import re
+
+import database
 import ioc
+import pefile
 
 
 def run(md5, data):

@@ -7,18 +7,17 @@ import json
 import logging
 import os
 import shutil
-
-from multiprocessing import Lock
-
 from collections import defaultdict
 from datetime import datetime, timedelta
+from multiprocessing import Lock
 
-from lib.cuckoo.common.config import Config
+from bson.objectid import ObjectId
+
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.core.database import Database, Task, TASK_REPORTED
-from bson.objectid import ObjectId
+from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)
 repconf = Config("reporting")

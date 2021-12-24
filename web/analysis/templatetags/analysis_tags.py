@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 import os
-import six
 from io import StringIO
+
+import six
 
 try:
     import re2 as re
@@ -9,9 +10,10 @@ except ImportError:
     import re
 
 from collections import OrderedDict
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
+
 from django.template.defaultfilters import register
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 
 
 @register.filter("network_rn")

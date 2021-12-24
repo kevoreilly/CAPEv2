@@ -1,5 +1,5 @@
-from django.shortcuts import render, redirect
 from django.conf import settings
+from django.shortcuts import redirect, render
 
 try:
     from django_ratelimit.exceptions import Ratelimited

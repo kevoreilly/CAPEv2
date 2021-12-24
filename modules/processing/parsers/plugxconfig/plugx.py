@@ -24,9 +24,9 @@
 
 from __future__ import absolute_import
 import socket
-from struct import unpack_from, calcsize
+from collections import OrderedDict, defaultdict
 from socket import inet_ntoa
-from collections import defaultdict, OrderedDict
+from struct import calcsize, unpack_from
 
 try:
     import yara

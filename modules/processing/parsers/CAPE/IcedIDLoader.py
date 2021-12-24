@@ -14,8 +14,10 @@
 
 import os
 import struct
+
 import pefile
 import yara
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDLoader.yar")

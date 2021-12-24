@@ -6,8 +6,8 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from __future__ import absolute_import
-import os
 import hashlib
+import os
 import re
 from collections import defaultdict
 
@@ -19,20 +19,19 @@ from modules.processing.behavior import fix_key
 try:
     import cybox
     import cybox.utils.nsparser
-    from cybox.utils import Namespace
+    from cybox.common import StructuredText, ToolInformation
     from cybox.core import Object
-    from cybox.common import ToolInformation
-    from cybox.common import StructuredText
+    from cybox.utils import Namespace
 
     HAVE_CYBOX = True
 except ImportError as e:
     HAVE_CYBOX = False
 
 try:
-    from maec.bundle import Bundle, MalwareAction, BundleReference, ProcessTree, AVClassification
-    from maec.package import MalwareSubject, Package, Analysis
     import maec.utils
     import mixbox
+    from maec.bundle import AVClassification, Bundle, BundleReference, MalwareAction, ProcessTree
+    from maec.package import Analysis, MalwareSubject, Package
 
     HAVE_MAEC = True
 except ImportError as e:

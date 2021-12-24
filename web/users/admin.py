@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 from .models import UserProfile
 
+
 # Django 3.2
 # @admin.action(description='Mark selected stories as published')
 def make_active(modeladmin, news, queryset):

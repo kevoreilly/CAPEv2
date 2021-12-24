@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
 import os
 
 from lib.cuckoo.common.abstracts import Report

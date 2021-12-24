@@ -31,8 +31,8 @@ def _load_socks5_operational():
         return socks5s
 
     try:
-        from socks5man.manager import Manager
         from socks5man.exceptions import Socks5manDatabaseError
+        from socks5man.manager import Manager
     except (ImportError, OSError) as e:
         return socks5s
     except Exception as e:

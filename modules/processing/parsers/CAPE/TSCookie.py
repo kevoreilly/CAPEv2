@@ -6,11 +6,12 @@
 # Credit to JPCERT - this is derived from https://github.com/JPCERTCC/aa-tools/blob/master/tscookie_decode.py
 #
 from __future__ import absolute_import
-import sys
-import pefile
-import re
 import collections
+import re
+import sys
 from struct import unpack, unpack_from
+
+import pefile
 
 # Resource pattern
 RESOURCE_PATTERNS = [

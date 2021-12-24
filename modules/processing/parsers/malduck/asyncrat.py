@@ -1,10 +1,11 @@
-import string
-import logging
 import base64
+import logging
+import string
+
 import requests
-from malduck.extractor import Extractor
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
+from malduck.extractor import Extractor
 
 log = logging.getLogger(__name__)
 

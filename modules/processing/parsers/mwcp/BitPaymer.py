@@ -12,11 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mwcp.parser import Parser
 import string
+
 import pefile
 import yara
 from Crypto.Cipher import ARC4
+from mwcp.parser import Parser
 
 rule_source = """
 rule BitPaymer

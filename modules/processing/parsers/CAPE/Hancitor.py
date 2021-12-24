@@ -1,10 +1,11 @@
 """
     Hancitor config extractor
 """
-import pefile
 import hashlib
-from Crypto.Cipher import ARC4
 import logging
+
+import pefile
+from Crypto.Cipher import ARC4
 
 log = logging.getLogger(__name__)
 

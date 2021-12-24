@@ -13,8 +13,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import struct
 import binascii
+import struct
+
 from Crypto.PublicKey import RSA
 
 MAX_STRING_SIZE = 256

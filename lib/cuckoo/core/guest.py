@@ -39,7 +39,7 @@ def analyzer_zipfile(platform):
 
     if not os.path.exists(root):
         log.error("No valid analyzer found at path: %s", root)
-        raise CuckooGuestError("No valid analyzer found for %s platform!" % platform)
+        raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
     # Walk through everything inside the analyzer's folder and write
     # them to the zip archive.
@@ -101,7 +101,7 @@ class GuestManager(object):
     def get(self, method, *args, **kwargs):
         """Simple wrapper around requests.get()."""
         do_raise = kwargs.pop("do_raise", True)
-        url = "http://%s:%s%s" % (self.ipaddr, self.port, method)
+        url = f"http://{self.ipaddr}:{self.port}{method}"
         with requests.Session() as session:
             session.trust_env = False
             session.proxies = None
@@ -112,7 +112,7 @@ class GuestManager(object):
                 raise CuckooGuestError(
                     "CAPE Agent failed without error status, please try "
                     "upgrading to the latest version of agent.py (>= 0.10) and "
-                    "notify us if the issue persists."
+                    "notify us if the issue persists"
                 )
 
         do_raise and r.raise_for_status()
@@ -120,7 +120,7 @@ class GuestManager(object):
 
     def post(self, method, *args, **kwargs):
         """Simple wrapper around requests.post()."""
-        url = "http://%s:%s%s" % (self.ipaddr, self.port, method)
+        url = f"http://{self.ipaddr}:{self.port}{method}"
         session = requests.Session()
         session.trust_env = False
         session.proxies = None
@@ -131,7 +131,7 @@ class GuestManager(object):
             raise CuckooGuestError(
                 "CAPE Agent failed without error status, please try "
                 "upgrading to the latest version of agent.py (>= 0.10) and "
-                "notify us if the issue persists."
+                "notify us if the issue persists"
             )
 
         r.raise_for_status()
@@ -153,7 +153,7 @@ class GuestManager(object):
 
             if time.time() > end:
                 raise CuckooGuestCriticalTimeout(
-                    "Machine %s: the guest initialization hit the critical timeout, analysis aborted." % self.vmid
+                    f"Machine {self.vmid}: the guest initialization hit the critical timeout, analysis aborted"
                 )
 
     def query_environ(self):
@@ -176,7 +176,7 @@ class GuestManager(object):
 
     def determine_system_drive(self):
         if self.platform == "windows":
-            return "%s/" % self.environ["SYSTEMDRIVE"]
+            return f"{self.environ['SYSTEMDRIVE']}/"
         return "/"
 
     def determine_temp_path(self):
@@ -204,9 +204,9 @@ class GuestManager(object):
         for key, value in options.items():
             # Encode datetime objects the way xmlrpc encodes them.
             if isinstance(value, datetime.datetime):
-                config.append("%s = %s" % (key, value.strftime("%Y%m%dT%H:%M:%S")))
+                config.append(f"{key} = {value.strftime('%Y%m%dT%H:%M:%S')}")
             else:
-                config.append("%s = %s" % (key, value))
+                config.append(f"{key} = {value}")
 
         data = {
             "filepath": os.path.join(self.analyzer_path, "analysis.conf"),
@@ -218,7 +218,7 @@ class GuestManager(object):
         :param options: options
         :return:
         """
-        log.info("Uploading support files to guest (id={}, ip={})".format(self.vmid, self.ipaddr))
+        log.info("Uploading support files to guest (id=%s, ip=%s)", self.vmid, self.ipaddr)
         basedir = os.path.dirname(options["target"])
 
         for dirpath, _, files in os.walk(basedir):
@@ -273,7 +273,7 @@ class GuestManager(object):
                 "We were unable to detect Agent in the "
                 "Guest VM, are you sure you have set it up correctly? Please "
                 "go through the documentation once more and otherwise inform "
-                "the Cuckoo Developers of your issue."
+                "the Cuckoo Developers of your issue"
             )
             db.guest_set_status(self.task_id, "failed")
             return
@@ -317,7 +317,7 @@ class GuestManager(object):
 
         if "execpy" in features:
             data = {
-                "filepath": "%s/analyzer.py" % self.analyzer_path,
+                "filepath": os.path.join(self.analyzer_path, "analyzer.py"),
                 "async": "yes",
                 "cwd": self.analyzer_path,
             }
@@ -325,7 +325,7 @@ class GuestManager(object):
         else:
             # Execute the analyzer that we just uploaded.
             data = {
-                "command": "%s %s\\analyzer.py" % (sys.executable, self.analyzer_path),
+                "command": f"{sys.executable} {self.analyzer_path}\\analyzer.py",
                 "async": "yes",
                 "cwd": self.analyzer_path,
             }

@@ -204,7 +204,7 @@ class GuestManager(object):
         for key, value in options.items():
             # Encode datetime objects the way xmlrpc encodes them.
             if isinstance(value, datetime.datetime):
-                config.append("{key} = {value.strftime('%Y%m%dT%H:%M:%S')}")
+                config.append(f"{key} = {value.strftime('%Y%m%dT%H:%M:%S')}")
             else:
                 config.append(f"{key} = {value}")
 

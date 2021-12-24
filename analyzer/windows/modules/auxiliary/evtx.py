@@ -202,7 +202,7 @@ class Evtx(Thread, Auxiliary):
                             zip_obj.write(full_path, evtx_file_name)
 
         log.debug("Uploading %s to host", self.evtx_dump)
-        upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}", False)
+        upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}")
 
     def wipe_windows_logs(self):
         """

@@ -4,6 +4,7 @@
 
 import re
 
+
 def choose_package(file_type, file_name, exports, target):
     """Choose analysis package due to file type and file extension.
     @param file_type: file type.

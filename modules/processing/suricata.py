@@ -196,7 +196,9 @@ class Suricata(Processing):
                     break
 
             if loopcnt == maxloops:
-                log.warning("Loop timeout of %d sec occurred waiting for file %s to finish processing", maxloops * loopsleep, current_pcap)
+                log.warning(
+                    "Loop timeout of %d sec occurred waiting for file %s to finish processing", maxloops * loopsleep, current_pcap
+                )
                 return suricata
         elif SURICATA_RUNMODE == "cli":
             if not os.path.exists(SURICATA_BIN):

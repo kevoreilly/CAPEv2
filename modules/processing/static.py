@@ -988,9 +988,7 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
-                        cert_data[f"extensions_{extension.oid._name}"] = base64.b64encode(
-                            extension.value.key_identifier
-                        ).decode()
+                        cert_data[f"extensions_{extension.oid._name}"] = base64.b64encode(extension.value.key_identifier).decode()
                     elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
                         cert_data[f"extensions_{extension.oid._name}"] = base64.b64encode(extension.value.digest).decode()
                     elif extension.oid._name == "certificatePolicies":
@@ -1006,17 +1004,13 @@ class PortableExecutable(object):
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data[
-                                    f"extensions_{extension.oid._name}_caIssuers"
-                                ] = authority_info.access_location.value
+                                cert_data[f"extensions_{extension.oid._name}_caIssuers"] = authority_info.access_location.value
                             elif authority_info.access_method._name == "OCSP":
                                 cert_data[f"extensions_{extension.oid._name}_OCSP"] = authority_info.access_location.value
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data[f"extensions_{extension.oid._name}_{index}"] = base64.b64encode(
-                                    name.value
-                                ).decode()
+                                cert_data[f"extensions_{extension.oid._name}_{index}"] = base64.b64encode(name.value).decode()
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
                                     cert_data[f"extensions_{extension.oid._name}_{index}"] = name.value.rfc4514_string()

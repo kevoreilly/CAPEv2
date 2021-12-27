@@ -11,6 +11,7 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
+from web.analysis.templatetags.analysis_tags import malware_config
 
 try:
     from jinja2 import TemplateAssertionError, TemplateNotFound, TemplateSyntaxError, UndefinedError
@@ -20,8 +21,6 @@ try:
     HAVE_JINJA2 = True
 except ImportError:
     HAVE_JINJA2 = False
-
-from web.analysis.templatetags.analysis_tags import malware_config
 
 
 class ReportHTML(Report):

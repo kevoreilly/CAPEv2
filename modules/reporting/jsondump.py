@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 import os
 
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooReportError
+
 try:
     import orjson
 
@@ -13,9 +16,6 @@ except ImportError:
     import json
 
     HAVE_ORJSON = False
-
-from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooReportError
 
 
 class JsonDump(Report):

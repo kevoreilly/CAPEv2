@@ -1,7 +1,6 @@
 # coding=UTF-8
 
 from __future__ import absolute_import, print_function
-import sys
 from binascii import hexlify
 from hashlib import md5
 from struct import unpack_from

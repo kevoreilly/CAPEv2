@@ -9,14 +9,14 @@ import os.path
 import subprocess
 import time
 
+from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+
 try:
     import re2 as re
 except ImportError:
     import re
-
-from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 cfg = Config()

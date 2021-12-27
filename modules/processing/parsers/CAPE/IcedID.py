@@ -17,9 +17,6 @@
 # https://gist.github.com/sysopfb/93eb0090ef47c08e4e516cb045b48b96
 # https://www.group-ib.com/blog/icedid
 
-DESCRIPTION = "IcedID Stage 2 configuration parser."
-AUTHOR = "kevoreilly,threathive,sysopfb"
-
 import logging
 import os
 import struct
@@ -35,6 +32,9 @@ with open(yara_path, "r") as yara_rule:
     yara_rules = yara.compile(source=yara_rule.read())
 
 log = logging.getLogger(__name__)
+
+DESCRIPTION = "IcedID Stage 2 configuration parser."
+AUTHOR = "kevoreilly,threathive,sysopfb"
 
 
 def yara_scan(raw_data):

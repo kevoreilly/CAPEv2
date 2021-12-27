@@ -1,12 +1,10 @@
-from __future__ import absolute_import
-from __future__ import print_function
-
-from binascii import unhexlify
+from __future__ import absolute_import, print_function
 from base64 import b64decode
-from Crypto.Cipher import AES
+from binascii import unhexlify
 
 # import pefile
 import pype32
+from Crypto.Cipher import AES
 from pbkdf2 import PBKDF2
 
 

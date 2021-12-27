@@ -1,10 +1,14 @@
-from __future__ import absolute_import
-import os
-
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from __future__ import absolute_import
+import logging
+import os
+
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
+from lib.cuckoo.common.objects import File, ProcDump
 
 try:
     import re2 as re
@@ -12,13 +16,6 @@ try:
     HAVE_RE2 = True
 except ImportError:
     HAVE_RE2 = False
-    import re
-
-import logging
-
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara
-from lib.cuckoo.common.objects import File, ProcDump
 
 log = logging.getLogger(__name__)
 

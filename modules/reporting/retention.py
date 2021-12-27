@@ -16,7 +16,6 @@ from bson.objectid import ObjectId
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.core.database import TASK_REPORTED, Database, Task
 
 log = logging.getLogger(__name__)

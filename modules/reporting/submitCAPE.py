@@ -19,16 +19,8 @@ import os
 
 import requests
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import to_unicode
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)

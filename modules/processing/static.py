@@ -12,7 +12,6 @@ import json
 import logging
 import math
 import os
-import re
 import struct
 from datetime import datetime
 from io import BytesIO
@@ -20,6 +19,17 @@ from subprocess import PIPE, Popen
 
 import requests
 from PIL import Image
+
+import lib.cuckoo.common.office.vbadeobf as vbadeobf
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.objects import File, IsPEImage
+from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.structures import LnkEntry, LnkHeader
+from lib.cuckoo.common.utils import bytes2str, convert_to_printable, get_options, store_temp_file
 
 try:
     import re2 as re
@@ -72,16 +82,6 @@ try:
 except Exception:
     HAVE_WHOIS = False
 
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.objects import File, IsPEImage
-from lib.cuckoo.common.structures import LnkEntry, LnkHeader
-from lib.cuckoo.common.utils import bytes2str, get_options, store_temp_file
-
 try:
     import olefile
 
@@ -94,17 +94,13 @@ try:
     from oletools import oleobj
     from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID
-    from oletools.olevba import (UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_patterns,
-                                 detect_suspicious, filter_vba)
+    from oletools.olevba import UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_suspicious, filter_vba
     from oletools.rtfobj import RtfObjParser, is_rtf
 
     HAVE_OLETOOLS = True
 except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
-
-from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
-from lib.cuckoo.common.utils import convert_to_printable
 
 try:
     from peepdf.JSAnalysis import analyseJS

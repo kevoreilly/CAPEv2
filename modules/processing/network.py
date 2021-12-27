@@ -250,7 +250,7 @@ class Pcap:
                 if temp_cn:
                     cn = temp_cn
             except Exception:
-                log.error("Unable to GEOIP resolve %s" % ip)
+                log.error("Unable to GEOIP resolve %s", ip)
         return cn
 
     def _add_hosts(self, connection):
@@ -486,7 +486,7 @@ class Pcap:
                                         ip_passlist.add(addip["data"])
                             return True
                     except re.RegexError as e:
-                        log.error(("bad regex", reject, e))
+                        log.error("Bad regex: %s, error: %s", reject, e)
 
             self._add_domain(query["request"])
 
@@ -571,7 +571,7 @@ class Pcap:
             # and it is  not included in host header.
             netloc = entry["host"]
             if entry["port"] != 80 and ":" not in netloc:
-                netloc += ":" + str(entry["port"])
+                netloc += f":{entry['port']}"
 
             entry["data"] = convert_to_printable(tcpdata)
             entry["uri"] = convert_to_printable(urlunparse(("http", netloc, http.uri, None, None, None)))
@@ -693,30 +693,30 @@ class Pcap:
         log = logging.getLogger("Processing.Pcap")
 
         if not IS_DPKT:
-            log.error("Python DPKT is not installed, aborting PCAP analysis.")
+            log.error("Python DPKT is not installed, aborting PCAP analysis")
             return self.results
 
         if not os.path.exists(self.filepath):
-            log.warning('The PCAP file does not exist at path "%s".', self.filepath)
+            log.warning('The PCAP file does not exist at path "%s"', self.filepath)
             return self.results
 
         if os.path.getsize(self.filepath) == 0:
-            log.error('The PCAP file at path "%s" is empty.' % self.filepath)
+            log.error('The PCAP file at path "%s" is empty', self.filepath)
             return self.results
 
         try:
             file = open(self.filepath, "rb")
         except (IOError, OSError):
-            log.error("Unable to open %s" % self.filepath)
+            log.error("Unable to open %s", self.filepath)
             return self.results
 
         try:
             pcap = dpkt.pcap.Reader(file)
         except dpkt.dpkt.NeedData as e:
-            log.error('Unable to read PCAP file at path "%s".', self.filepath)
+            log.error('Unable to read PCAP file at path "%s"', self.filepath)
             return self.results
         except ValueError:
-            log.error('Unable to read PCAP file at path "%s". File is ' "corrupted or wrong format." % self.filepath)
+            log.error('Unable to read PCAP file at path "%s". File is corrupted or wrong format', self.filepath)
             return self.results
 
         offset = file.tell()
@@ -896,7 +896,7 @@ class Pcap2(object):
             os.makedirs(self.network_path, exist_ok=True)
 
         if not os.path.exists(self.pcap_path):
-            log.warning('The PCAP file does not exist at path "%s".', self.pcap_path)
+            log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
         r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
@@ -905,11 +905,11 @@ class Pcap2(object):
         try:
             l = sorted(r.process(), key=lambda x: x[1])
         except TypeError as e:
-            log.warning("You running old httpreplay {}: pip3 install -U git+https://github.com/CAPESandbox/httpreplay".format(e))
+            log.warning("You running old httpreplay %s: pip3 install -U git+https://github.com/CAPESandbox/httpreplay", e)
             traceback.print_exc()
             return results
         except Exception as e:
-            log.error(f"httpreplay error: {e}")
+            log.error("httpreplay error: %s", e)
             traceback.print_exc()
             return results
 
@@ -1016,7 +1016,7 @@ class Pcap2(object):
                                 if not data:
                                     continue
                                 s1 = " ".join([f"{i:02x}" for i in data])  # hex string
-                                s1 = s1[0:23] + " " + s1[23:]  # insert extra space between groups of 8 hex values
+                                s1 = f"{s1[0:23]} {s1[23:]}"  # insert extra space between groups of 8 hex values
                                 s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data])  # ascii string; chained comparison
                                 resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
                                 c += 16
@@ -1031,7 +1031,7 @@ class Pcap2(object):
                             "path": resp_path,
                         }
 
-                results["%s_ex" % protocol].append(tmp_dict)
+                results[f"{protocol}_ex"].append(tmp_dict)
 
         return results
 
@@ -1063,15 +1063,15 @@ class NetworkAnalysis(Processing):
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
-            log.error("Python DPKT is not installed, aborting PCAP analysis.")
+            log.error("Python DPKT is not installed, aborting PCAP analysis")
             return {}
 
         if not os.path.exists(self.pcap_path):
-            log.warning('The PCAP file does not exist at path "%s".', self.pcap_path)
+            log.warning('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
         if os.path.getsize(self.pcap_path) == 0:
-            log.error('The PCAP file at path "%s" is empty.' % self.pcap_path)
+            log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
         ja3_fprints = self._import_ja3_fprints()
@@ -1119,9 +1119,9 @@ class NetworkAnalysis(Processing):
                         master_secret = binascii.a2b_hex(m.group("master_secret").strip())
                         tlsmaster[client_random, server_random] = master_secret
                     except Exception as e:
-                        log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, m.group(0)))
+                        log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
             except Exception as e:
-                log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, entry))
+                log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
 
         return tlsmaster
 

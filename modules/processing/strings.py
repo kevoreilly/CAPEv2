@@ -24,7 +24,7 @@ def extract_strings(path, nulltermonly, minchars):
     try:
         data = open(path, "rb").read()
     except (IOError, OSError) as e:
-        raise CuckooProcessingError("Error opening file %s" % e)
+        raise CuckooProcessingError(f"Error opening file {e}")
 
     endlimit = b""
     if not HAVE_RE2:
@@ -58,6 +58,6 @@ class Strings(Processing):
 
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError('Sample file doesn\'t exist: "%s"' % self.file_path)
+                raise CuckooProcessingError(f'Sample file doesn\'t exist: "{self.file_path}"')
 
         return extract_strings(self.file_path, nulltermonly, minchars)

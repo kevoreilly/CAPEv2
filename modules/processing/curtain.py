@@ -253,11 +253,11 @@ def formatReplace(inputString, MODFLAG):
     # This is to address scenarios where the string built is more PS commands with quotes
     stringList = re.search("(\"|').+", "-".join(obfGroup.split("-")[1:])[:-1]).group()
     stringChr = stringList[0]
-    stringList = stringList.replace(stringChr + "," + stringChr, "\x00")
+    stringList = stringList.replace(f"{stringChr},{stringChr}", "\x00")
     stringList = stringList[1:-1]
     stringList = stringList.replace("'", "\x01").replace('"', "\x02")
-    stringList = stringList.replace("\x00", stringChr + "," + stringChr)
-    stringList = ast.literal_eval("[" + stringChr + stringList + stringChr + "]")
+    stringList = stringList.replace("\x00", f"{stringChr},{stringChr}")
+    stringList = ast.literal_eval(f"[{stringChr}{stringList}{stringChr}]")
 
     for index, entry in enumerate(stringList):
         stringList[index] = entry.replace("\x01", "'").replace("\x02", '"')
@@ -269,7 +269,7 @@ def formatReplace(inputString, MODFLAG):
             stringOutput += stringList[value]
         except Exception:
             pass
-    stringOutput = '"' + stringOutput + '")'
+    stringOutput = f'"{stringOutput}")'
     # Replace original input with obfuscated group replaced
 
     if MODFLAG == 0:
@@ -281,7 +281,7 @@ def charReplace(inputString, MODFLAG):
     # OLD: [char]101
     # NEW: e
     for value in re.findall("\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", inputString):
-        inputString = inputString.replace(value, '"%s"' % chr(int(value.split("]")[1])))
+        inputString = inputString.replace(value, f'"{chr(int(value.split("]")[1]))}"')
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString, MODFLAG
@@ -350,19 +350,19 @@ def removeParenthesis(inputString, MODFLAG):
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace("(" + pattern + ")", pattern)  # .replace("'", "")
+        inputString = inputString.replace(f"({pattern})", pattern)  # .replace("'", "")
 
     matches = re.findall("\('[\w\d\s,\/\-\/\*\.:]+", inputString)
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace("(" + pattern, pattern)
+        inputString = inputString.replace(f"({pattern}", pattern)
 
     matches += re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", inputString)
     if matches:
         MODFLAG = 1
     for pattern in matches or []:
-        inputString = inputString.replace(pattern + ")", pattern)
+        inputString = inputString.replace(f"{pattern})", pattern)
 
     return inputString, MODFLAG
 
@@ -518,7 +518,7 @@ def deobfuscate(MESSAGE):
         try:
             ALTMSG, MODFLAG = replaceDecoder(ALTMSG, MODFLAG)
         except Exception as e:
-            log.error("Curtain processing error for entry - %s" % e)
+            log.error("Curtain processing error for entry - %s", e)
 
     # https://malwaretips.com/threads/how-to-de-obfuscate-powershell-script-commands-examples.76369/
     if re.findall("-join\s+?\(\s?'(.+)\.split\(.+\)\s+?\|\s+?foreach", MESSAGE, re.I):
@@ -627,9 +627,9 @@ class Curtain(Processing):
         root = False
         for curtain_log in curtLog[::-1]:
             try:
-                tree = ET.parse("%s/curtain/%s" % (self.analysis_path, curtain_log))
+                tree = ET.parse(f"{self.analysis_path}/curtain/{curtain_log}")
                 root = tree.getroot()
-                os.rename("%s/curtain/%s" % (self.analysis_path, curtain_log), "%s/curtain/curtain.log" % self.analysis_path)
+                os.rename(f"{self.analysis_path}/curtain/{curtain_log}", f"{self.analysis_path}/curtain/curtain.log")
                 break
             except Exception as e:
                 # malformed file
@@ -639,10 +639,10 @@ class Curtain(Processing):
             return
 
         # Leave only the most recent file
-        for file in os.listdir("%s/curtain/" % self.analysis_path):
+        for file in os.listdir(f"{self.analysis_path}/curtain/"):
             if file != "curtain.log":
                 try:
-                    os.remove("%s/curtain/%s" % (self.analysis_path, file))
+                    os.remove(f"{self.analysis_path}/curtain/{file}")
                 except Exception:
                     pass
 
@@ -721,13 +721,13 @@ class Curtain(Processing):
             tempEvents = []
             eventCount = len(pids[pid]["events"])
             for index, entry in enumerate(pids[pid]["events"]):
-                tempEvents.append({"%02d" % (eventCount - index): list(entry.values())[0]})
+                tempEvents.append({f"{eventCount - index:02d}": list(entry.values())[0]})
             pids[pid]["events"] = tempEvents
 
             tempEvents = []
             eventCount = len(pids[pid]["filter"])
             for index, entry in enumerate(pids[pid]["filter"]):
-                tempEvents.append({"%02d" % (eventCount - index): list(entry.values())[0]})
+                tempEvents.append({f"{eventCount - index:02d}": list(entry.values())[0]})
             pids[pid]["filter"] = tempEvents
 
         # Identify behaviors per PID

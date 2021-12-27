@@ -27,14 +27,14 @@ class TrID(Processing):
 
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                raise CuckooProcessingError("Sample file doesn't exist: {}".format(self.file_path))
+                raise CuckooProcessingError(f"Sample file doesn't exist: {self.file_path}")
 
         trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
         definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
         try:
             output = subprocess.check_output(
-                [trid_binary, "-d:%s" % definitions, self.file_path], stderr=subprocess.STDOUT, universal_newlines=True
+                [trid_binary, f"-d:{definitions}", self.file_path], stderr=subprocess.STDOUT, universal_newlines=True
             )
             strings = output.split("\n")
             # trim data

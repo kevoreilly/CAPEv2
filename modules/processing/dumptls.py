@@ -46,13 +46,13 @@ class TLSMasterSecrets(Processing):
                         server_random = binascii.a2b_hex(m.group("server_random").strip())
                         master_secret = binascii.a2b_hex(m.group("master_secret").strip())
                         if server_random not in metakeys:
-                            log.debug("Was unable to extract TLS master secret for server random %s, skipping it.", server_random)
+                            log.debug("Was unable to extract TLS master secret for server random %s, skipping it", server_random)
                             continue
                         results[metakeys[server_random]] = master_secret
                     except Exception as e:
-                        log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, m.group(0)))
+                        log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
             except Exception as e:
-                log.warning("Problem dealing with tlsdump error:{0} line:{1}".format(e, entry))
+                log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
 
         if results:
             # Write the TLS master secrets file.

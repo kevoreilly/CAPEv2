@@ -42,7 +42,7 @@ class ProcessMemory(Processing):
                     data += file_item.read(int(chunk["size"], 16))
 
             # save pe to disk
-            path = os.path.join(self.pmemory_path, "{}_{}".format(mem_pe["pid"], memmap["start"]))
+            path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
             with open(path, "wb") as f:
                 f.write(data)
 
@@ -139,7 +139,7 @@ class ProcessMemory(Processing):
                     for ws in ustrings:
                         strings.append(ws.decode("utf-16le").encode())
 
-                    proc["strings_path"] = dmp_path + ".strings"
+                    proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
                     f = open(proc["strings_path"], "wb")
                     f.write(b"\n".join(strings))

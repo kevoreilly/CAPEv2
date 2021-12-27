@@ -3377,9 +3377,7 @@ class MAEC41Report(Report):
             if "key" in handle_mapped_key["properties"]:
                 if "key" not in current_dict["properties"]:
                     current_dict["properties"]["key"] = ""
-                current_dict["properties"]["key"] = (
-                    f"{handle_mapped_key['properties']['key']}\\{current_dict['properties']['key']}"
-                )
+                current_dict["properties"]["key"] = f"{handle_mapped_key['properties']['key']}\\{current_dict['properties']['key']}"
             if "hive" in handle_mapped_key["properties"]:
                 # If we find the "HKEY_" then we assume we're done.
                 if "HKEY_" in handle_mapped_key["properties"]["hive"]:

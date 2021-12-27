@@ -332,8 +332,7 @@ class ReSubmitExtractedEXE(Report):
                             and os.path.basename(target) == sanitize_filename(os.path.basename(filesdict[e]))
                         ) and tid not in self.results.get("resubs", []):
                             log.info(
-                                "Adding previous task run to our resub list %s for hash %s and filename %s",
-                                tid, e, filesdict[e]
+                                "Adding previous task run to our resub list %s for hash %s and filename %s", tid, e, filesdict[e]
                             )
                             self.results.setdefault("resubs", []).append(tid)
                             added_previous = True
@@ -385,7 +384,9 @@ class ReSubmitExtractedEXE(Report):
                                     for task_id in task_ids_new:
                                         log.info(
                                             'Resubmitexe file "%s" added as task with ID %s resub count %s',
-                                            filesdict[e], task_id, self.resubcnt
+                                            filesdict[e],
+                                            task_id,
+                                            self.resubcnt,
                                         )
                                         self.results.setdefault("resubs", []).append(task_id)
                                         self.resubcnt += 1
@@ -435,8 +436,7 @@ class ReSubmitExtractedEXE(Report):
                 if task_ids_new:
                     for task_id in task_ids_new:
                         log.info(
-                            'Resubmitexe file "%s" added as task with ID %s resub count %s',
-                            filesdict[e], task_id, self.resubcnt
+                            'Resubmitexe file "%s" added as task with ID %s resub count %s', filesdict[e], task_id, self.resubcnt
                         )
                         self.results.setdefault("resubs", []).append(task_id)
                         self.resubcnt += 1

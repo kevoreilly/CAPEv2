@@ -144,9 +144,7 @@ class Retention(Report):
                 with open(taskFile, "r") as taskLog:
                     taskCheck = json.loads(taskLog.read())
             except Exception as e:
-                log.warn(
-                    "Failed to load retention log, if this is not the time running retention, review the error: %s", e
-                )
+                log.warn("Failed to load retention log, if this is not the time running retention, review the error: %s", e)
             curtime = datetime.now()
             since_retlog_modified = curtime - datetime.fromtimestamp(os.path.getmtime(taskFile))
             since_conf_modified = curtime - datetime.fromtimestamp(os.path.getmtime(confPath))

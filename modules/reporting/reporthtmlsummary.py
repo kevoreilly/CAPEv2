@@ -37,7 +37,7 @@ class ReportHTMLSummary(Report):
         @raise CuckooReportError: if fails to write report.
         """
         if not HAVE_JINJA2:
-            raise CuckooReportError("Failed to generate summary HTML report: " "Jinja2 Python library is not installed")
+            raise CuckooReportError("Failed to generate summary HTML report: Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
         if os.path.exists(shots_path):
@@ -83,15 +83,15 @@ class ReportHTMLSummary(Report):
             tpl = env.get_template("report.html")
             html = tpl.render({"results": results, "summary_report": True})
         except UndefinedError as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} ".format(e))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e}")
         except TemplateNotFound as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} {} ".format(e, e.name))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}")
         except (TemplateSyntaxError, TemplateAssertionError) as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} on {}, line {} ".format(e, e.name, e.lineno))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}, line {e.lineno}")
         try:
             with codecs.open(os.path.join(self.reports_path, "summary-report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except (TypeError, IOError) as e:
-            raise CuckooReportError("Failed to write summary HTML report: %s" % e)
+            raise CuckooReportError(f"Failed to write summary HTML report: {e}")
 
         return True

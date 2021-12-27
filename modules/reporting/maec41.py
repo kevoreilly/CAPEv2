@@ -2749,7 +2749,7 @@ def socketTypeToString(type_int_value):
 def intToHex(value):
     """Convert an integer to a hex string"""
     if isinstance(value, int):
-        value = "0x{0:08x}".format(value)
+        value = f"0x{value:08x}"
 
     return value
 
@@ -2900,7 +2900,7 @@ class MAEC41Report(Report):
                     self.createActionNet(
                         network_data,
                         {
-                            "value": "send http " + str(network_data["method"]).lower() + " request",
+                            "value": f"send http {str(network_data['method']).lower()} request",
                             "xsi:type": "maecVocabs:HTTPActionNameVocab-1.0",
                         },
                         "TCP",
@@ -3377,9 +3377,7 @@ class MAEC41Report(Report):
             if "key" in handle_mapped_key["properties"]:
                 if "key" not in current_dict["properties"]:
                     current_dict["properties"]["key"] = ""
-                current_dict["properties"]["key"] = (
-                    handle_mapped_key["properties"]["key"] + "\\" + current_dict["properties"]["key"]
-                )
+                current_dict["properties"]["key"] = f"{handle_mapped_key['properties']['key']}\\{current_dict['properties']['key']}"
             if "hive" in handle_mapped_key["properties"]:
                 # If we find the "HKEY_" then we assume we're done.
                 if "HKEY_" in handle_mapped_key["properties"]["hive"]:
@@ -3487,7 +3485,7 @@ class MAEC41Report(Report):
 
         for call in process["calls"]:
             # Generate the action collection name and create a new named action collection if one does not exist.
-            action_collection_name = str(call["category"]).capitalize() + " Actions"
+            action_collection_name = f"{str(call['category']).capitalize()} Actions"
             self.dynamic_bundle.add_named_action_collection(action_collection_name, mixbox.idgen.create_id(prefix="action"))
 
             # Generate the Action dictionary.

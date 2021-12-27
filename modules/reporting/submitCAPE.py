@@ -119,13 +119,13 @@ class SubmitCAPE(Report):
 
                         if value.strip("$") in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
                             address = cape_yara["addresses"][hit]
-                            option = "{0}{1}={2}{3}".format(name, bp, address, suffix)
+                            option = f"{name}{bp}={address}{suffix}"
                             bp += 1
                 if option not in self.task_options:
                     if new_options == "":
                         new_options = option
                     else:
-                        new_options += "," + option
+                        new_options += f",{option}"
 
             if not address:
                 return
@@ -145,7 +145,7 @@ class SubmitCAPE(Report):
                 self.task_options += ",file-offsets=1"
 
             log.info("options = %s", new_options)
-            self.task_options += "," + new_options
+            self.task_options += f",{new_options}"
             if "auto=" not in self.task_options:
                 self.task_options += ",auto=1"
 
@@ -219,12 +219,12 @@ class SubmitCAPE(Report):
                     tlp=tlp,
                 )
             if task_id:
-                log.info('CAPE detection on file "{0}": {1} - added as CAPE task with ID {2}'.format(target, package, task_id))
+                log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
                 return task_id
             else:
-                log.warn("Error adding CAPE task to database: {0}".format(package))
+                log.warn("Error adding CAPE task to database: %s", package)
         else:
-            log.info("File doesn't exists")
+            log.info("File doesn't exist")
 
     def run(self, results):
         self.task_options_stack = []
@@ -281,9 +281,9 @@ class SubmitCAPE(Report):
             if results.get("info", {}).get("options", {}).get("main_task_id", ""):
                 parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))
 
-            self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
+            self.task_custom = f"Parent_Task_ID:{results['info']['id']}"
             if results.get("info", {}).get("custom"):
-                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
+                self.task_custom = f"{self.task_custom} Parent_Custom:{results['info']['custom']}"
 
             log.debug("submit_task options: %s", self.task_options)
             task_id = self.submit_task(
@@ -358,9 +358,9 @@ class SubmitCAPE(Report):
             parent_id = int(results.get("info", {}).get("options", {}).get("main_task_id", ""))
 
         if package and package != parent_package:
-            self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
+            self.task_custom = f"Parent_Task_ID:{results['info']['id']}"
             if results.get("info", {}).get("custom"):
-                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
+                self.task_custom = f"{self.task_custom} Parent_Custom:{results['info']['custom']}"
             task_id = self.submit_task(
                 self.task["target"],
                 package,
@@ -384,9 +384,9 @@ class SubmitCAPE(Report):
             if parent_package in cape_package_list:
                 return
 
-            self.task_custom = "Parent_Task_ID:%s" % results["info"]["id"]
+            self.task_custom = f"Parent_Task_ID:{results['info']['id']}"
             if results.get("info", {}).get("custom"):
-                self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, results["info"]["custom"])
+                self.task_custom = f"{self.task_custom} Parent_Custom:{results['info']['custom']}"
 
             for dumper in detections:
                 task_id = self.submit_task(

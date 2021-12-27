@@ -27,7 +27,7 @@ class ReportPDF(Report):
     def run(self, results):
         if not os.path.isfile(os.path.join(self.reports_path, "summary-report.html")):
             raise CuckooReportError(
-                "Unable to open summary HTML report to convert to PDF: " "Ensure reporthtmlsummary is enabled in reporting.conf"
+                "Unable to open summary HTML report to convert to PDF: Ensure reporthtmlsummary is enabled in reporting.conf"
             )
 
         if os.path.exists("/usr/bin/xvfb-run") and os.path.exists("/usr/bin/wkhtmltopdf"):
@@ -47,7 +47,7 @@ class ReportPDF(Report):
 
         if not HAVE_WEASYPRINT:
             raise CuckooReportError(
-                "Failed to generate PDF report: " "Neither wkhtmltopdf nor Weasyprint Python library are installed"
+                "Failed to generate PDF report: Neither wkhtmltopdf nor Weasyprint Python library are installed"
             )
 
         logger = logging.getLogger("weasyprint")

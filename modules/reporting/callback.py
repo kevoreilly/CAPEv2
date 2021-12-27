@@ -31,8 +31,8 @@ class CALLBACKHOME(Report):
                 for value in (task_id, str(task_id)):
                     res = requests.post(url, data=json.dumps({"task_id": value}), timeout=20)
                     if res and res.ok:
-                        log.debug("reported id: {}".format(task_id))
+                        log.debug("reported id: %d", task_id)
                     else:
-                        log.error("failed to report {}".format(task_id))
+                        log.error("failed to report %d", task_id)
             except Exception as e:
                 log.exception(e)

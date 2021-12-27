@@ -273,11 +273,7 @@ class PlugXConfig:
                 cfg_blob = cfg_blob[calcsize("<6L") :]
                 config_output.update({"Screenshots": (f"{screenshots != 0}\0")})
                 config_output.update(
-                    {
-                        "Screenshots params": (
-                            f"{freq} sec / Zoom {zoom} / {color} bits / Quality {qual} / Keep {days} days\0"
-                        )
-                    }
+                    {"Screenshots params": (f"{freq} sec / Zoom {zoom} / {color} bits / Quality {qual} / Keep {days} days\0")}
                 )
                 screen_path = self.get_str_utf16le(cfg_blob[:str_sz])
                 cfg_blob = cfg_blob[str_sz:]

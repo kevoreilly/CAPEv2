@@ -227,7 +227,7 @@ class CAPE(Processing):
                         for key, value in plugx_config.items():
                             config[cape_name].update({key: [value]})
                     else:
-                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled")
                     append_file = False
 
             # Attempt to decrypt script dump
@@ -251,19 +251,19 @@ class CAPE(Processing):
                             sha256 = hashlib.sha256(bindata).hexdigest()
                             filepath = os.path.join(self.CAPE_path, sha256)
                             tmpstr = file_info["pid"]
-                            tmpstr += "," + file_info["process_path"]
-                            tmpstr += "," + file_info["module_path"]
+                            tmpstr += f",{file_info['process_path']}"
+                            tmpstr += f",{file_info['module_path']}"
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
-                                outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                # with open(filepath + "_info.txt", "w") as infofd:
+                                outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
+                                # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
-                                outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                # with open(filepath + "_info.txt", "w") as infofd:
+                                outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
+                                # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
@@ -271,7 +271,7 @@ class CAPE(Processing):
                                 self.script_dump_files.append(filepath)
                         else:
                             file_info["cape_type"] = "Script Dump"
-                            log.info("CAPE: Script Dump does not contain known encrypted payload.")
+                            log.info("CAPE: Script Dump does not contain known encrypted payload")
                     except Exception as e:
                         log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
                 append_file = True
@@ -297,7 +297,7 @@ class CAPE(Processing):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
                     cape_name = hit["name"].replace("_", " ")
             except Exception as e:
-                print("Cape type error: {}".format(e))
+                print(f"Cape type error: {e}")
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):
@@ -419,7 +419,7 @@ class CAPE(Processing):
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                log.error('Sample file doesn\'t exist: "%s"' % self.file_path)
+                log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
         self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 

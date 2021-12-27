@@ -42,7 +42,7 @@ class Sysmon(Processing):
                 for p in filtered_proc_creations_re:
                     cmdline = event["EventData"]["Data"][9]["#text"]
                     if re.search(p, cmdline):
-                        log.info("Supressed %s because it is noisy" % cmdline)
+                        log.info("Supressed %s because it is noisy", cmdline)
                         is_filtered = True
 
             if not is_filtered:
@@ -54,22 +54,22 @@ class Sysmon(Processing):
         self.key = "sysmon"
 
         # Determine oldest sysmon log and remove the rest
-        lastlog = os.listdir("%s/sysmon/" % self.analysis_path)
+        lastlog = os.listdir(f"{self.analysis_path}/sysmon/")
         lastlog.sort()
         if not lastlog:
             return
         lastlog = lastlog[-1]
         # Leave only the most recent file
-        for f in os.listdir("%s/sysmon/" % self.analysis_path):
+        for f in os.listdir(f"{self.analysis_path}/sysmon/"):
             if f != lastlog:
                 try:
-                    os.remove("%s/sysmon/%s" % (self.analysis_path, f))
+                    os.remove(f"{self.analysis_path}/sysmon/{f}")
                 except Exception:
-                    log.error("Failed to remove sysmon file log %s" % f)
+                    log.error("Failed to remove sysmon file log %s", f)
 
-        os.rename("%s/sysmon/%s" % (self.analysis_path, lastlog), "%s/sysmon/sysmon.xml" % self.analysis_path)
+        os.rename(f"{self.analysis_path}/sysmon/{lastlog}", f"{self.analysis_path}/sysmon/sysmon.xml")
 
-        sysmon_path = "%s/sysmon/sysmon.xml" % self.analysis_path
+        sysmon_path = f"{self.analysis_path}/sysmon/sysmon.xml"
 
         if not os.path.exists(sysmon_path) or os.path.getsize(sysmon_path) < 100:
             return
@@ -80,7 +80,7 @@ class Sysmon(Processing):
             root = tree.getroot()
             data = parseXmlToJson(root.attrib)
         except Exception as e:
-            raise CuckooProcessingError("Failed parsing sysmon.xml with ET: %s" % e)
+            raise CuckooProcessingError(f"Failed parsing sysmon.xml with ET: {e}")
 
         if root is False:
             return

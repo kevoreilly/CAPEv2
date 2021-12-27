@@ -68,6 +68,6 @@ def config(filebuf):
                         cfg["address"] = [controller[1:] for controller in config[2:]]
 
             except Exception as e:
-                log.error("error:{}".format(e))
+                log.error("Error: %s", e)
 
             return cfg

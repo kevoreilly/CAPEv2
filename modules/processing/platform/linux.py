@@ -200,7 +200,7 @@ class StraceParser(object):
                     argsplit[pos] = argsplit[pos][:-1]
                 tmp_argslist.append(argsplit[pos])
             arguments = dict(("p%u" % pos, tmp_argslist[pos]) for pos in range(len(tmp_argslist)))
-            # print {"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line}
+            # print({"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line})
             yield {
                 "time": datetime.datetime.now(),
                 "process_name": "",

@@ -65,7 +65,7 @@ class Dropped(Processing):
 
                     filedata = wide2str(filedata)
                     if len(filedata) > buf:
-                        file_info["data"] = convert_to_printable(filedata[:buf] + " <truncated>")
+                        file_info["data"] = convert_to_printable(f"{filedata[:buf]} <truncated>")
                     else:
                         file_info["data"] = convert_to_printable(filedata)
                 except UnicodeDecodeError as e:

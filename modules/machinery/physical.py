@@ -156,7 +156,7 @@ class Physical(Machinery):
 
         while not connection_succesful:
             try:
-                r = requests.get(f"{url} /status")
+                r = requests.get(f"{url}/status")
                 print(r.text)
                 connection_succesful = True
             except Exception:

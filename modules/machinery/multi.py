@@ -21,7 +21,7 @@ def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"], 0)
     except ImportError as e:
-        raise CuckooCriticalError("Unable to import plugin " '"{0}": {1}'.format(name, e))
+        raise CuckooCriticalError(f'Unable to import plugin "{name}": {e}')
 
     for name, value in inspect.getmembers(module):
         if inspect.isclass(value):
@@ -40,7 +40,7 @@ class MultiMachinery(Machinery):
         if getattr(self, "options", None) is None:
             # First time being called, gather the configs of our sub-machineries
             for machinery_name in options.get("multi").get("machinery").split(","):
-                machinery = {"config": Config(machinery_name), "module": import_plugin("modules.machinery." + machinery_name)()}
+                machinery = {"config": Config(machinery_name), "module": import_plugin(f"modules.machinery.{machinery_name}")()}
                 machinery_label = machinery["module"].LABEL
                 machinery["module"].set_options(machinery["config"])
                 machinery_machines = machinery["config"].get(machinery_name)["machines"]

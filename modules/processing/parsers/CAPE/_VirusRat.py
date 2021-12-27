@@ -3,7 +3,6 @@ import re
 
 import database
 import ioc
-import pefile
 
 
 def run(md5, data):

@@ -5,7 +5,10 @@
 from __future__ import absolute_import
 import os.path
 
-HAVE_RE2 = False
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.utils import bytes2str
+
 try:
     import re2 as re
 
@@ -13,9 +16,7 @@ try:
 except ImportError:
     import re
 
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.exceptions import CuckooProcessingError
-from lib.cuckoo.common.utils import bytes2str
+    HAVE_RE2 = False
 
 
 def extract_strings(path, nulltermonly, minchars):

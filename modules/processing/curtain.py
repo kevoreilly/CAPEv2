@@ -1,19 +1,17 @@
 from __future__ import absolute_import
+import ast
+import base64
+import itertools
+import logging
 import os
+import xml.etree.ElementTree as ET
+
+from lib.cuckoo.common.abstracts import Processing
 
 try:
     import re2 as re
 except ImportError:
     import re
-
-import ast
-import base64
-import itertools
-import logging
-import xml.etree.ElementTree as ET
-
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger(__name__)
 

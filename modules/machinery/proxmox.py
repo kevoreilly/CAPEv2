@@ -7,14 +7,14 @@ import logging
 import sys
 import time
 
+from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+
 try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
     sys.exit("Missed dependency: pip3 install proxmoxer -U")
-
-from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 # silence overly verbose INFO level logging default of proxmoxer module
 logging.getLogger("proxmoxer").setLevel(logging.WARNING)

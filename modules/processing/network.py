@@ -2,8 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+# Imports for the batch sort.
+# http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
+# http://code.activestate.com/recipes/576755/
+
 from __future__ import absolute_import
 import binascii
+import heapq
 import logging
 import os
 import socket
@@ -12,23 +17,13 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from hashlib import md5, sha1, sha256
+from itertools import islice
 from json import loads
 from urllib.parse import urlunparse
 
 import dns.resolver
-
-try:
-    import re2 as re
-except ImportError:
-    import re
-
-# required to work webgui
-CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
-sys.path.append(CUCKOO_ROOT)
-
-
 from dns.reversename import from_address
 
 from data.safelist.domains import domain_passlist_re
@@ -38,8 +33,15 @@ from lib.cuckoo.common.dns import resolve
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
+
+# from lib.cuckoo.common.safelist import is_safelisted_ip
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     import GeoIP
@@ -67,13 +69,9 @@ try:
 except ImportError:
     print("Missed dependency: pip3 install -U git+https://github.com/CAPESandbox/httpreplay")
 
-
-# Imports for the batch sort.
-# http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
-# http://code.activestate.com/recipes/576755/
-import heapq
-from collections import namedtuple
-from itertools import islice
+# required to work webgui
+CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
+sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
 

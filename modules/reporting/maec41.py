@@ -24,11 +24,10 @@ try:
     from cybox.utils import Namespace
 
     HAVE_CYBOX = True
-except ImportError as e:
+except ImportError:
     HAVE_CYBOX = False
 
 try:
-    import maec.utils
     import mixbox
     from maec.bundle import AVClassification, Bundle, BundleReference, MalwareAction, ProcessTree
     from maec.package import Analysis, MalwareSubject, Package

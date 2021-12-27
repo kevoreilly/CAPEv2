@@ -7,17 +7,15 @@ import os
 
 from six.moves import zip
 
-HAVE_PYGAL = False
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+
 try:
     import pygal
 
     HAVE_PYGAL = True
 except ImportError:
-    pass
-
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooProcessingError
+    HAVE_PYGAL = False
 
 
 class Usage(Processing):

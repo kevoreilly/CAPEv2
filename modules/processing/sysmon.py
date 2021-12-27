@@ -4,8 +4,6 @@ import os
 import re
 import xml.etree.ElementTree as ET
 
-import xmltodict
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 

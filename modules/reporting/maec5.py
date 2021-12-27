@@ -4,6 +4,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 # MAEC 5.0 Cuckoo Report Module
 # https://maecproject.github.io/releases/5.0/MAEC_Vocabularies_Specification.pdf
+
 from __future__ import absolute_import
 import io
 import json

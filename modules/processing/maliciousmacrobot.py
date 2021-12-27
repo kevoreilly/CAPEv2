@@ -20,14 +20,14 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 
-log = logging.getLogger(__name__)
-
 try:
     from mmbot import MaliciousMacroBot
 
     HAVE_MMBOT = True
 except Exception:
     HAVE_MMBOT = False
+
+log = logging.getLogger(__name__)
 
 
 class MMBot(Processing):

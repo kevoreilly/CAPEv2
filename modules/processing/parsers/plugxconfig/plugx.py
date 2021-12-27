@@ -28,13 +28,6 @@ from collections import OrderedDict, defaultdict
 from socket import inet_ntoa
 from struct import calcsize, unpack_from
 
-try:
-    import yara
-
-    has_yara = True
-except ImportError:
-    has_yara = False
-
 
 class PlugXConfig:
     """Locate and parse the PlugX configuration"""

@@ -13,9 +13,6 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from lib.cuckoo.common.objects import File
 
-MONGOSIZELIMIT = 0x1000000
-MEGABYTE = 0x100000
-
 try:
     from bson.objectid import ObjectId
     from pymongo import TEXT, MongoClient
@@ -24,6 +21,9 @@ try:
     HAVE_MONGO = True
 except ImportError:
     HAVE_MONGO = False
+
+MONGOSIZELIMIT = 0x1000000
+MEGABYTE = 0x100000
 
 log = logging.getLogger(__name__)
 

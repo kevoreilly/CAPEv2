@@ -1,13 +1,9 @@
 from __future__ import absolute_import, print_function
-import os
 import re
-import string
-import sys
 from base64 import b64decode
 from io import StringIO
 from zipfile import ZipFile
 
-import commands
 import database
 from Crypto.Cipher import AES, DES3
 

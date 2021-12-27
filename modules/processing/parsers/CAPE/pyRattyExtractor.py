@@ -24,21 +24,14 @@ def extract_config(zip):
                 for i in range(len(data)):
                     c2.append(chr(ord(data[i]) ^ 0x38))
 
-                _log("[+] Found it : %s" % zip)
-                _log("[+] C2 : %s" % "".join(c2))
+                print(f"[+] Found it : {zip}")
+                print(f"[+] C2 : {''.join(c2)}")
             except Exception:
-                _log("[*] Probably corrupted Base64 string.")
+                print("[*] Probably corrupted Base64 string")
     if bFile == False:
-        _log("[*] No such file")
-    _log("[+] Task Completed\n")
+        print("[*] No such file")
+    print("[+] Task Completed\n")
     fh.close()
-
-
-# ---------------------------------------------------
-# _log : Prints out logs for debug purposes
-# ---------------------------------------------------
-def _log(s):
-    print(s)
 
 
 # -------------------------------------------------------------
@@ -62,18 +55,18 @@ def check_jar_classes(jar_file):
 # logo : Ascii Logos like the 90s. :P
 # -------------------------------------------------------------
 def logo():
-    _log("\n")
-    _log(" ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   ")
-    _log('/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  ')
-    _log('\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ ')
-    _log(
+    print("\n")
+    print(" ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   ")
+    print('/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  ')
+    print('\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ ')
+    print(
         ' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\'
     )
-    _log("  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/")
-    _log("\n")
-    _log(" Find the C&C for this Ratty mallie!")
-    _log(" Jacob Soo")
-    _log(" Copyright (c) 2016\n")
+    print("  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/")
+    print("\n")
+    print(" Find the C&C for this Ratty mallie!")
+    print(" Jacob Soo")
+    print(" Copyright (c) 2016\n")
 
 
 if __name__ == "__main__":
@@ -100,7 +93,7 @@ if __name__ == "__main__":
     if Filename is not None and is_file:
         extract_config(Filename[0])
     else:
-        _log("You probably have supplied a invalid file.")
+        print("You probably have supplied a invalid file")
     if Directory is not None and is_dir:
         for root, directories, filenames in os.walk(Directory[0]):
             for filename in filenames:
@@ -108,4 +101,4 @@ if __name__ == "__main__":
                 if check_jar_classes(szFile) == True:
                     extract_config(szFile)
                 else:
-                    _log("This is not a valid Jar file : %s." % szFile)
+                    print(f"This is not a valid Jar file : {szFile}")

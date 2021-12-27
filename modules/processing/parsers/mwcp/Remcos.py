@@ -163,7 +163,7 @@ class Remcos(Parser):
                             p_data[idx_list[i]] = setup_list[int(cont)]
                         elif i in [0]:
                             host, port, password = cont.split(b"|")[0].split(b":")
-                            p_data["Control"] = "tcp://{}:{}:{}".format(host.decode(), port.decode(), password.decode())
+                            p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
 
                         else:
                             p_data[idx_list[i]] = cont
@@ -179,4 +179,4 @@ class Remcos(Parser):
                     self.reporter.add_metadata("other", {k: v})
 
         except Exception as e:
-            self.logger.error("caught an exception:{}".format(e))
+            self.logger.error(f"Caught an exception: {e}")

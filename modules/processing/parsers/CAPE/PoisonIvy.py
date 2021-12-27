@@ -23,7 +23,7 @@ def first_split(data):
 
 
 def bytetohex(byte_str):
-    return "".join(["%02X" % ord(x) for x in byte_str]).strip()
+    return "".join([f"{ord(x):02X}" for x in byte_str]).strip()
 
 
 def walk_data(data):
@@ -63,7 +63,7 @@ def walk_domain(raw_stream):
 
         port = calc_length(raw_stream[offset + length + 2 : offset + length + 4])
         offset += length + 4
-        domains += "{0}:{1}|".format(domain, port)
+        domains += f"{domain}:{port}|"
     return domains
 
 

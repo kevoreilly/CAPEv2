@@ -44,7 +44,7 @@ def convert_char(c):
         # ToDo gonna break as its int
         return c
     else:
-        return "\\x%02x" % ord(c)
+        return f"\\x{ord(c):02x}"
 
 
 def decrypt_rc4(key, data):

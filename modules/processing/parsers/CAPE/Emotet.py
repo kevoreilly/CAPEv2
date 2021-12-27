@@ -187,7 +187,7 @@ def config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 return
@@ -214,7 +214,7 @@ def config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 return
@@ -275,7 +275,7 @@ def config(filebuf):
                 port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
                 if c2_address and port:
                     conf_dict.setdefault("address", [])
-                    conf_dict["address"].append(c2_address + ":" + port)
+                    conf_dict["address"].append(f"{c2_address}:{port}")
                     c2found = True
                 else:
                     break
@@ -303,7 +303,7 @@ def config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -334,7 +334,7 @@ def config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -361,7 +361,7 @@ def config(filebuf):
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -412,7 +412,7 @@ def config(filebuf):
             port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
             if c2_address and port:
                 conf_dict.setdefault("address", [])
-                conf_dict["address"].append(c2_address + ":" + port)
+                conf_dict["address"].append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -515,7 +515,7 @@ def test_them_all(path):
     import os
 
     if not os.path.exists(path):
-        log.error(f"Path: {path} doesn't exist")
+        log.error("Path: %s doesn't exist", path)
         return
 
     for folder in os.listdir(path):
@@ -530,11 +530,11 @@ def test_them_all(path):
 
                 result = config(file_data)
                 if result:
-                    log.info(f"[+] {file}")
+                    log.info("[+] %s", file)
                 else:
-                    log.info(f"[-] {file}")
+                    log.info("[-] %s", file)
             except Exception as e:
-                log.exception(f"{file} - {e}")
+                log.exception("%s - %s", file, e)
 
 
 if __name__ == "__main__":

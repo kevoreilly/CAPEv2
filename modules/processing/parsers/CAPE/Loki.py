@@ -69,7 +69,7 @@ def try_find_iv(pe):
     # This doesn't work for all samples... still interesting that the data is in close proximity sometimes
     (nul, key3, nul, key2, nul, key1) = struct.unpack_from("<I8sI8sI8s", t[off + 8 :])
 
-    key = "\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00" + key1 + key2 + key3
+    key = f"\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00{key1}{key2}{key3}"
 
     return iv
 

@@ -41,25 +41,19 @@ def snortRule(md5, dict):
     if len(domain) > 1:
         if ipTest:
             rules.append(
-                """alert tcp any any -> """
-                + domain
-                + """ any (msg: "VirusRat Beacon Domain: """
-                + domain
+                f"""alert tcp any any -> {domain}"""
+                + f""" any (msg: "VirusRat Beacon Domain: {domain}"""
                 + """"; classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
         else:
             rules.append(
-                """alert udp any any -> any 53 (msg: "VirusRat Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert udp any any -> any 53 (msg: "VirusRat Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
             rules.append(
-                """alert tcp any any -> any 53 (msg: "VirusRat Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert tcp any any -> any 53 (msg: "VirusRat Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
     database.insertSnort(md5, rules)

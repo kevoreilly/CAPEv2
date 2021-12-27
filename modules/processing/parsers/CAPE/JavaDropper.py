@@ -44,7 +44,7 @@ def parse_ek(key, drop):
 
 
 def parse_load(key, drop):
-    raw_key = "{0}ALSKEOPQLFKJDUSIKSJAUIE".format(key)
+    raw_key = f"{key}ALSKEOPQLFKJDUSIKSJAUIE"
     enc_key = hashlib.sha256(raw_key).hexdigest()
     decoded = decrypt_RC4(enc_key, drop)
     return decoded

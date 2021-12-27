@@ -14,7 +14,7 @@ def extract_embedded(zip_data):
         for name in zip.namelist():  # get all the file names
             if name == "load/ID":  # contains first part of key
                 partial_key = zip.read(name)
-                enckey = partial_key + "DESW7OWKEJRU4P2K"  # complete key
+                enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
             if name == "load/MANIFEST.MF":  # this is the embedded jar
                 raw_embedded = zip.read(name)
     if raw_embedded != None:

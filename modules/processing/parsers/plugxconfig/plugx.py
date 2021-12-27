@@ -78,9 +78,9 @@ class PlugXConfig:
     def get_proto2(proto):
         protos = ["???", "???", "????", "TCP", "HTTP", "DNS", "UDP", "ICMP", "RAW", "???", "???"]
         try:
-            ret = protos[proto] + "(%d)" % proto
+            ret = protos[proto] + f"({proto})"
         except Exception:
-            ret = "UNKNOWN (%d)" % proto
+            ret = f"UNKNOWN ({proto})"
         return ret
 
     def parse_config(self, cfg_blob, cfg_sz):
@@ -104,30 +104,30 @@ class PlugXConfig:
                 desc = "<11L"
             flags = unpack_from(desc, cfg_blob)
             cfg_blob = cfg_blob[calcsize(desc) :]
-            config_output.update({"Flags": (["%r" % (k != 0) for k in flags])})
+            config_output.update({"Flags": ([str(k != 0) for k in flags])})
 
             # 2 timers
             timer = unpack_from("4B", cfg_blob)
             cfg_blob = cfg_blob[4:]
             timer_str = ""
             if timer[0] != 0:
-                timer_str += "%d days, " % timer[0]
+                timer_str += f"{timer[0]} days, "
             if timer[1] != 0:
-                timer_str += "%d hours, " % timer[1]
+                timer_str += f"{timer[1]} hours, "
             if timer[2] != 0:
-                timer_str += "%d mins, " % timer[2]
-            timer_str += "%d secs" % timer[3]
+                timer_str += f"{timer[2]} mins, "
+            timer_str += f"{timer[3]} secs"
             config_output.update({"Timer 1": timer_str})
             timer = unpack_from("4B", cfg_blob)
             cfg_blob = cfg_blob[4:]
             timer_str = ""
             if timer[0] != 0:
-                timer_str += "%d days, " % timer[0]
+                timer_str += f"{timer[0]} days, "
             if timer[1] != 0:
-                timer_str += "%d hours, " % timer[1]
+                timer_str += f"{timer[1]} hours, "
             if timer[2] != 0:
-                timer_str += "%d mins, " % timer[2]
-            timer_str += "%d secs" % timer[3]
+                timer_str += f"{timer[2]} mins, "
+            timer_str += f"{timer[3]} secs"
             config_output.update({"Timer 2": timer_str})
 
             # Timetable
@@ -163,7 +163,7 @@ class PlugXConfig:
                 proto = get_proto(proto)
                 cc_address = cc_address.split("\x00")[0]
                 if cc_address != "":
-                    cc_list.append("%s:%d (%s)" % (str(cc_address), cc_port, proto))
+                    cc_list.append(f"{cc_address}:{cc_port} (proto)")
             if cc_list:
                 config_output.update({"C&C Address": cc_list})
 
@@ -185,9 +185,9 @@ class PlugXConfig:
                 ptype, port, proxy, user, passwd = unpack_from("<2H64s64s64s", cfg_blob)
                 cfg_blob = cfg_blob[calcsize("<2H64s64s64s") :]
                 if proxy[0] != "\x00":
-                    proxy_list.append("%s:%d" % (proxy.split("\x00")[0], port))
+                    proxy_list.append("{}:{}".format(proxy.split("\x00")[0], port))
                     if user[0] != "\x00":
-                        proxy_creds.append("%s / %s\0" % (user, passwd))
+                        proxy_creds.append(f"{user} / {passwd}\0")
             if proxy_list:
                 config_output.update({"Proxy": proxy_list})
             if proxy_creds:
@@ -230,7 +230,7 @@ class PlugXConfig:
             if cfg_sz in (0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
                 inject = unpack_from("<L", cfg_blob)[0]
                 cfg_blob = cfg_blob[4:]
-                config_output.update({"Net injection": ("%r\0" % (inject == 1))})
+                config_output.update({"Net injection": (f"{inject == 1}\0")})
                 i = 4 if cfg_sz in (0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4) else 1
                 for k in range(i):
                     inject_in = self.get_str_utf16le(cfg_blob[:str_sz])
@@ -242,7 +242,7 @@ class PlugXConfig:
             if cfg_sz in (0x2D58, 0x36A4, 0x4EA4):
                 inject = unpack_from("<L", cfg_blob)[0]
                 cfg_blob = cfg_blob[4:]
-                config_output.update({"Elevation injection": ("%r\0" % (inject == 1))})
+                config_output.update({"Elevation injection": (f"{inject == 1}\0")})
                 for k in range(4):
                     inject_in = self.get_str_utf16le(cfg_blob[:str_sz])
                     cfg_blob = cfg_blob[str_sz:]
@@ -271,11 +271,11 @@ class PlugXConfig:
             if cfg_sz in (0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
                 (screenshots, freq, zoom, color, qual, days) = unpack_from("<6L", cfg_blob)
                 cfg_blob = cfg_blob[calcsize("<6L") :]
-                config_output.update({"Screenshots": ("%r\0" % (screenshots != 0))})
+                config_output.update({"Screenshots": (f"{screenshots != 0}\0")})
                 config_output.update(
                     {
                         "Screenshots params": (
-                            "%d sec / Zoom %d / %d bits / Quality %d / Keep %d days\0" % (freq, zoom, color, qual, days)
+                            f"{freq} sec / Zoom {zoom} / {color} bits / Quality {qual} / Keep {days} days\0"
                         )
                     }
                 )
@@ -287,27 +287,27 @@ class PlugXConfig:
             if cfg_sz in (0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
                 udp_enabled, udp_port, tcp_enabled, tcp_port = unpack_from("<4L", cfg_blob)
                 if tcp_enabled == 1:
-                    config_output.update({"Lateral movement TCP port": ("%d\0" % tcp_port)})
+                    config_output.update({"Lateral movement TCP port": (f"{tcp_port}\0")})
                 if udp_enabled == 1:
-                    config_output.update({"Lateral movement UDP port": ("%d\0" % udp_port)})
+                    config_output.update({"Lateral movement UDP port": (f"{udp_port}\0")})
                 cfg_blob = cfg_blob[calcsize("<4L") :]
 
             if cfg_sz in (0x254C, 0x2D58, 0x36A4, 0x4EA4):
                 icmp_enabled, icmp_port = unpack_from("<2L", cfg_blob)
                 if icmp_enabled == 1:
-                    config_output.update({"Lateral movement ICMP port (?)": ("%d\0" % icmp_port)})
+                    config_output.update({"Lateral movement ICMP port (?)": (f"{icmp_port}\0")})
                 cfg_blob = cfg_blob[calcsize("<2L") :]
 
             if cfg_sz in (0x36A4, 0x4EA4):
                 protoff_enabled, protoff_port = unpack_from("<2L", cfg_blob)
                 if protoff_enabled == 1:
-                    config_output.update({"Lateral movement Protocol 0xff port (?)": ("%d\0" % protoff_port)})
+                    config_output.update({"Lateral movement Protocol 0xff port (?)": (f"{protoff_port}\0")})
                 cfg_blob = cfg_blob[calcsize("<2L") :]
 
             if cfg_sz in (0x36A4, 0x4EA4):
                 (p2p_scan,) = unpack_from("<L", cfg_blob)
                 if p2p_scan != 0:
-                    config_output.update({"P2P Scan LAN range": ("%r\0" % True)})
+                    config_output.update({"P2P Scan LAN range": (f"True\0")})
                 cfg_blob = cfg_blob[calcsize("<L") :]
                 p2p_start = cfg_blob[: 4 * calcsize("<L")]
                 cfg_blob = cfg_blob[4 * calcsize("<L") :]
@@ -335,7 +335,7 @@ class PlugXConfig:
             if cfg_sz in (0x36A4, 0x4EA4):
                 mac_addr = cfg_blob[:6]
                 if mac_addr != "\0\0\0\0\0\0":
-                    config_output.update({"Mac Address black list": ("%02x" % k for k in mac_addr)})
+                    config_output.update({"Mac Address black list": (f"{k:02x}" for k in mac_addr)})
                 cfg_blob = cfg_blob[6:]
 
             if cfg_sz in (0x4EA4,):

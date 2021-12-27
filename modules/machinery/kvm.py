@@ -36,4 +36,4 @@ class KVM(LibVirtMachinery):
             if iface:
                 self.db.set_machine_interface(label, iface)
             else:
-                print("Can't get iface for {}".format(label))
+                print(f"Can't get iface for {label}")

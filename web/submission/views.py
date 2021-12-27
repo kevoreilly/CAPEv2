@@ -257,7 +257,7 @@ def index(request, resubmit_hash=False):
                 else:
                     details["task_ids"] = task_ids_tmp
                     if web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", resubmission_hash)
+                        records = perform_search("target_sha256", resubmission_hash, search_limit=5)
                         for record in records:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                             existent_tasks[record["target"]["file"]["sha256"]].append(record)
@@ -308,7 +308,7 @@ def index(request, resubmit_hash=False):
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
                     if web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", sha256)
+                        records = perform_search("target_sha256", sha256, search_limit=5)
                         for record in records:
                             if record.get("target").get("file", {}).get("sha256"):
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
@@ -579,10 +579,11 @@ def index(request, resubmit_hash=False):
 
         existent_tasks = {}
         if resubmit_hash:
-            records = perform_search("sha256", resubmit_hash)
-            for record in records:
-                existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
-                existent_tasks[record["target"]["file"]["sha256"]].append(record)
+            if web_conf.general.get("existent_tasks", False):
+                records = perform_search("target_sha256", resubmit_hash, search_limit=5)
+                for record in records:
+                    existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                    existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
             request,

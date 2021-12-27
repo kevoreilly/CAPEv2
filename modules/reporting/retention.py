@@ -39,7 +39,7 @@ if repconf.mongodb and repconf.mongodb.enabled:
 if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
 
-    idx = repconf.elasticsearchdb.index + "-*"
+    idx = f"{repconf.elasticsearchdb.index}-*"
     try:
         es = Elasticsearch(
             hosts=[
@@ -51,7 +51,7 @@ if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.e
             timeout=60,
         )
     except Exception as e:
-        log.warning("Unable to connect to ElasticSearch: %s", str(e))
+        log.warning("Unable to connect to ElasticSearch: %s", e)
 
 
 def delete_mongo_data(curtask, tid):
@@ -64,14 +64,14 @@ def delete_mongo_data(curtask, tid):
                 for call in process["calls"]:
                     results_db.calls.remove({"_id": ObjectId(call)})
             results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-        log.debug("Task #{0} deleting MongoDB data for Task #{1}".format(curtask, tid))
+        log.debug("Task #%s deleting MongoDB data for Task #%s", curtask, tid)
 
 
 """
 def delete_elastic_data(curtask, tid):
     # TODO: Class-ify this or make it a function in utils, some code reuse
     # between this/process.py/django view
-    analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "{0}"'.format(tid))["hits"]["hits"]
+    analyses = es.search(index=fullidx, doc_type="analysis", q=f'info.id: "{tid}"')["hits"]["hits"]
     if len(analyses) > 0:
         for analysis in analyses:
             esidx = analysis["_index"]
@@ -85,7 +85,7 @@ def delete_elastic_data(curtask, tid):
             es.delete(
                 index=esidx, doc_type="analysis", id=esid,
             )
-        log.debug("Task #{0} deleting ElasticSearch data for Task #{1}".format(curtask, tid))
+        log.debug("Task #%s deleting ElasticSearch data for Task #%s", curtask, tid)
 """
 
 
@@ -99,15 +99,15 @@ def delete_files(curtask, delfiles, target_id):
         if os.path.isdir(delent):
             try:
                 shutil.rmtree(delent)
-                log.debug("Task #{0} deleting {1} due to retention quota".format(curtask, delent))
+                log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except (IOError, OSError) as e:
-                log.warn("Error removing {0}: {1}".format(delent, e))
+                log.warn("Error removing %s: %s", delent, e)
         elif os.path.exists(delent):
             try:
                 os.remove(delent)
-                log.debug("Task #{0} deleting {1} due to retention quota".format(curtask, delent))
+                log.debug("Task #%s deleting %s due to retention quota", curtask, delent)
             except OSError as e:
-                log.warn("Error removing {0}: {1}".format(delent, e))
+                log.warn("Error removing %s: %s", delent, e)
 
 
 class Retention(Report):
@@ -136,7 +136,7 @@ class Retention(Report):
         confPath = os.path.join(CUCKOO_ROOT, "conf", "reporting.conf")
 
         if not os.path.isdir(retPath):
-            log.warn("Retention log directory doesn't exist. Creating it now.")
+            log.warn("Retention log directory doesn't exist, creating it now")
             os.mkdir(retPath)
         else:
             try:
@@ -145,7 +145,7 @@ class Retention(Report):
                     taskCheck = json.loads(taskLog.read())
             except Exception as e:
                 log.warn(
-                    "Failed to load retention log, if this is not the " "time running retention, review the error: {0}".format(e)
+                    "Failed to load retention log, if this is not the time running retention, review the error: %s", e
                 )
             curtime = datetime.now()
             since_retlog_modified = curtime - datetime.fromtimestamp(os.path.getmtime(taskFile))

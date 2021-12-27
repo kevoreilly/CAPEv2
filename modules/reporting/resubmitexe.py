@@ -190,11 +190,11 @@ class ReSubmitExtractedEXE(Report):
                                 if mfile2 not in self.sigfile_list:
                                     self.sigfile_list.append(mfile2)
         except Exception as e:
-            log.info("Problem hunting for office exe magic files {0}".format(e))
+            log.info("Problem hunting for office exe magic files %s", e)
 
         if report["info"].get("options"):
             for key, val in list(report["info"]["options"].items()):
-                self.task_options_stack.append(key + "=" + str(val))
+                self.task_options_stack.append(f"{key}={val}")
 
         if report["info"].get("machine"):
             self.machine = report["info"]["machine"]["label"]
@@ -243,7 +243,7 @@ class ReSubmitExtractedEXE(Report):
                             CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"]
                         )
                         linkdir = os.path.join(
-                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"] + "_link"
+                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", f"{dropped['sha256']}_link"
                         )
                         guest_name = ntpath.basename(dropped["name"][0])
                         linkpath = os.path.join(linkdir, guest_name)
@@ -271,7 +271,7 @@ class ReSubmitExtractedEXE(Report):
                                         "analyses",
                                         str(report["info"]["id"]),
                                         "files",
-                                        dropped["sha256"] + "_link",
+                                        f"{dropped['sha256']}_link",
                                     )
                                     linkpath = os.path.join(linkdir, ntpath.basename(gpath))
                                     if not os.path.exists(linkdir):
@@ -310,7 +310,7 @@ class ReSubmitExtractedEXE(Report):
             if not File(filesdict[e]).get_size():
                 continue
             if self.resubcnt >= self.resublimit:
-                log.info("Hit resub limit of {0}. Stopping Iteration".format(self.resublimit))
+                log.info("Hit resub limit of %d, stopping iteration", self.resublimit)
                 break
             find_sample = db.find_sample(sha256=e)
             if find_sample:
@@ -332,18 +332,17 @@ class ReSubmitExtractedEXE(Report):
                             and os.path.basename(target) == sanitize_filename(os.path.basename(filesdict[e]))
                         ) and tid not in self.results.get("resubs", []):
                             log.info(
-                                "Adding previous task run to our resub list {0} for hash {1} and filename {2}".format(
-                                    tid, e, filesdict[e]
-                                )
+                                "Adding previous task run to our resub list %s for hash %s and filename %s",
+                                tid, e, filesdict[e]
                             )
                             self.results.setdefault("resubs", []).append(tid)
                             added_previous = True
                             continue
                         else:
                             if not added_previous and not subbed_hash:
-                                self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
+                                self.task_custom = f"Parent_Task_ID:{report['info']['id']}"
                                 if report["info"].get("custom"):
-                                    self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
+                                    self.task_custom = f"{self.task_custom} Parent_Custom:{report['info']['custom']}"
                                 task_ids_new = None
                                 if self.distributed and self.resuburl:
                                     options = {
@@ -355,7 +354,7 @@ class ReSubmitExtractedEXE(Report):
                                     }
                                     multipart_file = [("file", (os.path.basename(filesdict[e]), open(filesdict[e], "rb")))]
                                     try:
-                                        log.info("Going to try to resub {0} via the api".format(filesdict[e]))
+                                        log.info("Going to try to resub %s via the api", filesdict[e])
                                         res = requests.post(self.resuburl, files=multipart_file, data=options)
                                         if res and res.ok:
                                             task_ids_new = res.json()["data"]["task_ids"]
@@ -385,18 +384,17 @@ class ReSubmitExtractedEXE(Report):
                                 if task_ids_new:
                                     for task_id in task_ids_new:
                                         log.info(
-                                            'Resubmitexe file "{0}" added as task with ID {1} resub count {2}'.format(
-                                                filesdict[e], task_id, self.resubcnt
-                                            )
+                                            'Resubmitexe file "%s" added as task with ID %s resub count %s',
+                                            filesdict[e], task_id, self.resubcnt
                                         )
                                         self.results.setdefault("resubs", []).append(task_id)
                                         self.resubcnt += 1
                                         subbed_hash = True
 
             else:
-                self.task_custom = "Parent_Task_ID:%s" % report["info"]["id"]
+                self.task_custom = f"Parent_Task_ID:{report['info']['id']}"
                 if report["info"].get("custom"):
-                    self.task_custom = "%s Parent_Custom:%s" % (self.task_custom, report["info"]["custom"])
+                    self.task_custom = f"{self.task_custom} Parent_Custom:{report['info']['custom']}"
                 task_ids_new = None
                 if self.distributed and self.resuburl:
                     options = {
@@ -408,7 +406,7 @@ class ReSubmitExtractedEXE(Report):
                     }
                     multipart_file = [("file", (os.path.basename(filesdict[e]), open(filesdict[e], "rb")))]
                     try:
-                        log.info("Going to try to resub {0} via the api".format(filesdict[e]))
+                        log.info("Going to try to resub %s via the api", filesdict[e])
                         res = requests.post(self.resuburl, files=multipart_file, data=options)
                         if res and res.ok:
                             task_ids_new = res.json()["data"]["task_ids"]
@@ -437,9 +435,8 @@ class ReSubmitExtractedEXE(Report):
                 if task_ids_new:
                     for task_id in task_ids_new:
                         log.info(
-                            'Resubmitexe file "{0}" added as task with ID {1} resub count {2}'.format(
-                                filesdict[e], task_id, self.resubcnt
-                            )
+                            'Resubmitexe file "%s" added as task with ID %s resub count %s',
+                            filesdict[e], task_id, self.resubcnt
                         )
                         self.results.setdefault("resubs", []).append(task_id)
                         self.resubcnt += 1

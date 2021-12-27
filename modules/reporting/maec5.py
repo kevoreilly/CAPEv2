@@ -193,7 +193,7 @@ class MaecReport(Report):
     def setup(self):
         """Setup core MAEC fields and types"""
         # Package ID
-        self.package["id"] = "package--" + str(uuid.uuid4())
+        self.package["id"] = f"package--{uuid.uuid4()}"
         # Load the JSON mappings
 
         with open(os.path.join(CUCKOO_ROOT, "data", "maec_api_call_mappings.json")) as f:
@@ -211,7 +211,7 @@ class MaecReport(Report):
         """Create a base Malware Instance"""
         malwareInstance = {"type": "malware-instance"}
 
-        malwareInstance["id"] = "malware-instance--" + str(uuid.uuid4())
+        malwareInstance["id"] = f"malware-instance--{uuid.uuid4()}"
 
         # Create file object for the malware instance object
         file_obj_id, file_obj = self.create_file_obj(file_data)
@@ -249,7 +249,7 @@ class MaecReport(Report):
 
         elif self.results.get("target")["category"] == "url":
             malwareInstance = {"type": "malware-instance"}
-            malwareInstance["id"] = "malware-instance--" + str(uuid.uuid4())
+            malwareInstance["id"] = f"malware-instance--{uuid.uuid4()}"
             malwareInstance["instance_object_refs"] = [{"type": "url", "value": self.results["target"]["url"]}]
             # Add malwareInstance to package
             self.package["maec_objects"].append(sort_dict(malwareInstance))
@@ -270,7 +270,7 @@ class MaecReport(Report):
                 vm_obj = {"type": "software", "name": (str(self.results["info"]["machine"]["manager"]))}
                 analysis_dict["vm_ref"] = self.deduplicate_obj(vm_obj)
             analysis_dict["tool_refs"] = [tool_id]
-            analysis_dict["description"] = str("Automated analysis conducted " "by Cuckoo Sandbox")
+            analysis_dict["description"] = "Automated analysis conducted by Cuckoo Sandbox"
             malwareInstance["analysis_metadata"] = [analysis_dict]
             self.primaryInstance = malwareInstance
 
@@ -293,7 +293,7 @@ class MaecReport(Report):
             # Add relationship object to connect original malware instance and
             # new malware instance (from dropped file)
             relationship_dict = OrderedDict()
-            relationship_dict["id"] = "relationship--" + str(uuid.uuid4())
+            relationship_dict["id"] = f"relationship--{uuid.uuid4()}"
             relationship_dict["type"] = "relationship"
             relationship_dict["source_ref"] = self.primaryInstance["id"]
             relationship_dict["target_ref"] = malwareInstance["id"]
@@ -435,7 +435,7 @@ class MaecReport(Report):
             network_obj["type"] = "mac-addr"
         # Test for an IPv4 address
         elif re.match(
-            "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$", value
+            "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})){3}$", value
         ):
             network_obj["type"] = "ipv4-addr"
             obj["protocols"] = ["ipv4", "tcp"]
@@ -536,9 +536,9 @@ class MaecReport(Report):
             self.create_directory_from_file_path(obj, obj["name"])
         elif obj["type"] == "windows-registry-key":
             if "regkey" in arguments and "regkey_r" in arguments and "values" in obj:
-                obj["key"] = obj["key"].replace("\\" + (arguments["regkey_r"]), "").rstrip()
+                obj["key"] = obj["key"].replace(f"\\{arguments['regkey_r']}", "").rstrip()
             elif "regkey" in arguments and "key_name" in arguments and "values" in obj:
-                obj["key"] = obj["key"].replace("\\" + (arguments["key_name"]), "").rstrip()
+                obj["key"] = obj["key"].replace(f"\\{arguments['key_name']}", "").rstrip()
             # Do some post-processing on Registry Values
             # if 'values' in obj and 'data_type' in obj['values'][0]:
             #    obj['values'][0]['data_type'] = reg_datatype_mappings[
@@ -565,7 +565,7 @@ class MaecReport(Report):
         """Create a MAEC Action from a Cuckoo API call"""
         action = {"type": "malware-action"}
         " todo change action to type"
-        action["id"] = mapping["action_name"] + "--" + str(uuid.uuid4())
+        action["id"] = f"{mapping['action_name']}--{uuid.uuid4()}"
         action["name"] = mapping["action_name"]
         action["timestamp"] = dateutil.parser.parse(call["timestamp"]).isoformat()
         # Map any input objects

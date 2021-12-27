@@ -41,4 +41,4 @@ class JsonDump(Report):
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)
         except (UnicodeError, TypeError, IOError) as e:
-            raise CuckooReportError("Failed to generate JSON report: %s" % e)
+            raise CuckooReportError(f"Failed to generate JSON report: {e}")

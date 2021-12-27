@@ -86,9 +86,7 @@ class VirtualBox(Machinery):
             if err:
                 raise OSError(err)
         except OSError as e:
-            raise CuckooMachineError(
-                f"VBoxManage failed starting the machine in {self.options.virtualbox.mode.upper()} mode: {e}"
-            )
+            raise CuckooMachineError(f"VBoxManage failed starting the machine in {self.options.virtualbox.mode.upper()} mode: {e}")
         self._wait_status(label, self.RUNNING)
 
     def stop(self, label):

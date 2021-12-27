@@ -74,9 +74,7 @@ class VMware(Machinery):
             if output:
                 return snapshot in output
             else:
-                raise CuckooMachineError(
-                    f"Unable to get snapshot list for {vmx_path}, no output from `vmrun listSnapshots`"
-                )
+                raise CuckooMachineError(f"Unable to get snapshot list for {vmx_path}, no output from `vmrun listSnapshots`")
 
     def start(self, vmx_path):
         """Start a virtual machine.

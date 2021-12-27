@@ -16,7 +16,6 @@ from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import Database
 
-
 log = logging.getLogger(__name__)
 report_cfg = Config("reporting")
 

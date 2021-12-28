@@ -26,10 +26,10 @@ from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_fold
 
 try:
     from sqlalchemy import (Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, Table, Text, create_engine, event,
-                            func, not_, or_, text)
+                            func, not_, or_)
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.orm import backref, joinedload, relationship, sessionmaker
+    from sqlalchemy.orm import joinedload, relationship, sessionmaker
 
     Base = declarative_base()
 except ImportError:

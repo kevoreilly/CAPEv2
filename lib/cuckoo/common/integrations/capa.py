@@ -1,10 +1,11 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
-import os
-import logging
 import collections
+import logging
+import os
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -28,15 +29,13 @@ if processing_conf.flare_capa.enabled:
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
             import capa.main
-            import capa.rules
-            import capa.engine
-            import capa.features
             import capa.render.utils as rutils
+            import capa.rules
             from capa.main import UnsupportedRuntimeError
-            from capa.rules import InvalidRuleWithPath
-            from capa.engine import *
             from capa.render.result_document import (
-                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document)
+                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document,
+            )
+            from capa.rules import InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if os.path.exists(rules_path):

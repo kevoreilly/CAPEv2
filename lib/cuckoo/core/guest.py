@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 # https://github.com/cuckoosandbox/cuckoo/blob/master/cuckoo/core/guest.py
+
 from __future__ import absolute_import
 import datetime
 import json

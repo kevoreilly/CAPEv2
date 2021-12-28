@@ -3,29 +3,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import logging
-import shutil
-import zipfile
-from xml.dom.minidom import parse, parseString
-
-try:
-    from scapy.all import *
-    from scapy.utils import PcapWriter
-
-    HAVE_SCAPY = True
-except ImportError:
-    HAVE_SCAPY = False
 import glob
+import logging
 import os
 import random
+import shutil
 import tempfile
-
-from lib.cuckoo.common.utils import store_temp_file
+import zipfile
+from xml.dom.minidom import parse
 
 try:
     import re2 as re
 except ImportError:
     import re
+
+try:
+    from scapy.all import IP, TCP, Ether, Raw
+    from scapy.utils import PcapWriter
+
+    HAVE_SCAPY = True
+except ImportError:
+    HAVE_SCAPY = False
 
 log = logging.getLogger(__name__)
 

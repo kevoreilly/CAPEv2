@@ -10,16 +10,10 @@ import os
 import socket
 import threading
 import time
+import xml.etree.ElementTree as ET
 
 import dns.resolver
 import requests
-
-try:
-    import re2 as re
-except ImportError:
-    import re
-
-import xml.etree.ElementTree as ET
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -30,13 +24,13 @@ from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database
 
-log = logging.getLogger(__name__)
-cfg = Config()
-repconf = Config("reporting")
-machinery_conf = Config(cfg.cuckoo.machinery)
-
 # from django.core.validators import URLValidator
 # url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
+
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 try:
     import libvirt
@@ -52,6 +46,8 @@ try:
     logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
     HAVE_TLDEXTRACT = False
+
+repconf = Config("reporting")
 
 HAVE_MITRE = False
 
@@ -78,6 +74,10 @@ if repconf.mitre.enabled:
 
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
+
+log = logging.getLogger(__name__)
+cfg = Config()
+machinery_conf = Config(cfg.cuckoo.machinery)
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0

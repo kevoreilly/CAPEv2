@@ -20,7 +20,6 @@ except Exception:
 # except Exception:
 HAVE_GEVENT = False
 
-
 # these are used by all resolvers
 DNS_TIMEOUT = 5
 DNS_TIMEOUT_VALUE = ""
@@ -136,6 +135,7 @@ def resolve_gevent_real(name):
 
     return result
 """
+
 
 # choose resolver automatically
 def resolve(name):

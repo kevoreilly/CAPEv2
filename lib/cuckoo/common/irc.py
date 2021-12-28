@@ -9,12 +9,12 @@ from __future__ import absolute_import
 import logging
 from io import BytesIO
 
+from lib.cuckoo.common.utils import convert_to_printable
+
 try:
     import re2 as re
 except ImportError:
     import re
-
-from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger("Processing.Pcap.irc.protocol")
 

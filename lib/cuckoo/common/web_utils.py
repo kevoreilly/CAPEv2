@@ -10,10 +10,6 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from random import choice
 
-_current_dir = os.path.abspath(os.path.dirname(__file__))
-CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
-sys.path.append(CUCKOO_ROOT)
-
 import magic
 import requests
 from django.http import HttpResponse
@@ -23,6 +19,10 @@ from lib.cuckoo.common.objects import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
 from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+
+_current_dir = os.path.abspath(os.path.dirname(__file__))
+CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
+sys.path.append(CUCKOO_ROOT)
 
 cfg = Config("cuckoo")
 web_cfg = Config("web")
@@ -127,6 +127,7 @@ try:
 except Exception as e:
     print(e)
     iface_ip = "127.0.0.1"
+
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
@@ -916,6 +917,7 @@ normalized_int_terms = (
     "dport",
     "port",
 )
+
 
 # ToDo verify if still working
 def perform_ttps_search(value):

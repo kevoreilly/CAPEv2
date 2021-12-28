@@ -62,7 +62,7 @@ class ReturnJsonRenderer(JsonRenderer):
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
             acc_map, final_tree = accumulator
             node_dict = {}
-            for column, column_index in enumerate(grid.columns):
+            for column_index, column in enumerate(grid.columns):
                 renderer = self._type_renderers.get(column.type, self._type_renderers["default"])
                 data = renderer(list(node.values)[column_index])
                 if isinstance(data, interfaces.renderers.BaseAbsentValue):

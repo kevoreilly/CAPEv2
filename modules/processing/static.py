@@ -240,7 +240,7 @@ class DotNETExecutable(object):
                 if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
-                nameval = splitline[6].split("::")[0]
+                nameval = splitline[6].split("::", 1)[0]
                 if "(string)" not in splitline[6]:
                     continue
                 rem = " ".join(splitline[7:])
@@ -2056,9 +2056,9 @@ class URL(object):
                 # Handle and format dates
                 if "_date" in key:
                     if isinstance(w[key], list):
-                        buf = [str(dt).replace("T", " ").split(".")[0] for dt in w[key]]
+                        buf = [str(dt).replace("T", " ").split(".", 1)[0] for dt in w[key]]
                     else:
-                        buf = [str(w[key]).replace("T", " ").split(".")[0]]
+                        buf = [str(w[key]).replace("T", " ").split(".", 1)[0]]
                 else:
                     if isinstance(w[key], list):
                         continue

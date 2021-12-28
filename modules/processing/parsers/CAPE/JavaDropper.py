@@ -97,8 +97,8 @@ def config(raw_data):
         print("Found XOR Dropper")
         key_file = b64decode(jar.read("c.dat"))
         key_text = decrypt_XOR("\xdd", key_file)
-        drop_file = key_text.split("\n")[1]
-        key = key_text.split("\n")[5]
+        drop_file = key_text.split("\n", 2)[1]
+        key = key_text.split("\n", 6)[5]
         print(key)
         decoded = parse_xor(key, jar.read(drop_file))
 

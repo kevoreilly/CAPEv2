@@ -43,7 +43,7 @@ def _parse_mwcp(remcos_config):
     for c in control:
         if c and c.startswith("tcp://"):
             # maxsplit here incase the passphrase includes :
-            tmp = c.replace("tcp://", "").split(":", maxsplit=2)
+            tmp = c.replace("tcp://", "").split(":", 2)
             if tmp:
                 # if we don't have a password, just add a blank one,
                 if len(tmp) == 2:

@@ -81,7 +81,7 @@ if process_cfg.mwcp.enabled:
 
         logging.getLogger("mwcp").setLevel(logging.CRITICAL)
         mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
+        malware_parsers = {block.name.rsplit(".", 1)[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
         HAS_MWCP = True
         assert "MWCP_TEST" in malware_parsers
     except ImportError as e:
@@ -121,7 +121,7 @@ if process_cfg.malduck.enabled:
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
         # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
-        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        # malduck_modules_names = dict((k.rsplit(".", 1)[-1], v) for k, v in tmp_modules.items())
         malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
         malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True
@@ -194,7 +194,7 @@ def init_yara():
                 File.yara_initialized = True
                 break
             except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar")[0] + ".yar"
+                bad_rule = str(e).split(".yar", 1)[0] + ".yar"
                 log.debug(f"Trying to delete bad rule: {bad_rule}")
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
@@ -344,7 +344,7 @@ def static_config_parsers(yara_hit, file_data):
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
-                        logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
+                        logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ", 2)[1])
             reporter._Reporter__cleanup()
             del reporter
         except pefile.PEFormatError:

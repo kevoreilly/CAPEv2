@@ -537,7 +537,7 @@ class File(object):
                     }
                 )
         except Exception as e:
-            errcode = str(e).split()[-1]
+            errcode = str(e).rsplit(maxsplit=1)[-1]
             if errcode in yara_error:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
             else:

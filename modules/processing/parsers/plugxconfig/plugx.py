@@ -154,7 +154,7 @@ class PlugXConfig:
                 (proto, cc_port, cc_address) = unpack_from("<2H64s", cfg_blob)
                 cfg_blob = cfg_blob[0x44:]
                 proto = get_proto(proto)
-                cc_address = cc_address.split("\x00")[0]
+                cc_address = cc_address.split("\x00", 1)[0]
                 if cc_address != "":
                     cc_list.append(f"{cc_address}:{cc_port} (proto)")
             if cc_list:
@@ -164,7 +164,7 @@ class PlugXConfig:
             num_url = 4 if cfg_sz not in (0x36A4, 0x4EA4) else 16
             url_list = []
             for k in range(num_url):
-                url = cfg_blob[:0x80].split("\x00")[0]
+                url = cfg_blob[:0x80].split("\x00", 1)[0]
                 cfg_blob = cfg_blob[0x80:]
                 if len(url) > 0 and str(url) != "HTTP://":
                     url_list.append(str(url))
@@ -178,7 +178,7 @@ class PlugXConfig:
                 ptype, port, proxy, user, passwd = unpack_from("<2H64s64s64s", cfg_blob)
                 cfg_blob = cfg_blob[calcsize("<2H64s64s64s") :]
                 if proxy[0] != "\x00":
-                    proxy_list.append("{}:{}".format(proxy.split("\x00")[0], port))
+                    proxy_list.append("{}:{}".format(proxy.split("\x00", 1)[0], port))
                     if user[0] != "\x00":
                         proxy_creds.append(f"{user} / {passwd}\0")
             if proxy_list:

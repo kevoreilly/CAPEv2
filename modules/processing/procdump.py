@@ -63,7 +63,7 @@ class ProcDump(Processing):
                 continue
             file_info["process_path"] = metastrings[1]
             file_info["module_path"] = metastrings[2]
-            file_info["process_name"] = file_info["process_path"].split("\\")[-1]
+            file_info["process_name"] = file_info["process_path"].rsplit("\\", 1)[-1]
             file_info["pid"] = meta[file_path]["pids"][0]
             type_strings = file_info["type"].split()
             if len(type_strings) < 3:

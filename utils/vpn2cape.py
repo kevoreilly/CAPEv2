@@ -61,7 +61,7 @@ rt_table = {rt}
             # tempalte for CAPE's routing.conf
             print(
                 template.format(
-                    vpn_name=file.split("/")[-1], vpn_path=path, description=file.split(".ovpn")[0], id=index + 1, rt=rt
+                    vpn_name=file.rsplit("/", 1)[-1], vpn_path=path, description=file.split(".ovpn", 1)[0], id=index + 1, rt=rt
                 )
             )
             vpns.append("vpn_{0}".format(index + 1))

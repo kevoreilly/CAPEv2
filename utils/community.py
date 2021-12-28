@@ -47,7 +47,7 @@ def flare_capa():
         if not os.path.isdir(capa_sigs_path):
             os.mkdir(capa_sigs_path)
         for url in signature_urls:
-            signature_name = url.split("/")[-1]
+            signature_name = url.rsplit("/", 1)[-1]
             with http.request("GET", url, preload_content=False) as sig, open(
                 os.path.join(capa_sigs_path, signature_name), "wb"
             ) as out_sig:
@@ -108,7 +108,7 @@ def install(enabled, force, rewrite, filepath):
     }
 
     members = t.getmembers()
-    directory = members[0].name.split("/")[0]
+    directory = members[0].name.split("/", 1)[0]
 
     for category in enabled:
         folder = folders.get(category, False)

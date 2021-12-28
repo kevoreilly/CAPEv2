@@ -722,7 +722,7 @@ def mcafee_unquarantine(f):
                         if check == "":
                             parseit = False
                         if parseit and check.startswith("OriginalName="):
-                            malname = str(check.split("\\")[-1])
+                            malname = str(check.rsplit("\\", 1)[-1])
                     if not malname:
                         malname = "McAfeeDequarantineFile"
                     # currently we're only returning the first found file in the quarantine file

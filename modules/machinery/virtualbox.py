@@ -143,7 +143,7 @@ class VirtualBox(Machinery):
         machines = []
         for line in output.split("\n"):
             try:
-                label = line.split('"')[1]
+                label = line.split('"', 2)[1]
                 if label == "<inaccessible>":
                     log.warning("Found an inaccessible virtual machine, please check its state")
                 else:

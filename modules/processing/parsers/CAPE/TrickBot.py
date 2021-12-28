@@ -133,7 +133,7 @@ def convert_to_real_ip(ip_str):
 
 def get_ip(ip_str, tag):
     if tag == "srva":
-        return convert_to_real_ip(ip_str.split(":")[0])
+        return convert_to_real_ip(ip_str.split(":", 1)[0])
     return ip_str
 
 

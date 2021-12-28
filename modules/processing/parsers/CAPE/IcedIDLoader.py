@@ -44,7 +44,7 @@ def iced_decode(data):
             break
         n += 1
     gads, d = struct.unpack("I30s", bytes(new))
-    hostname = d.split(b"\00")[0]
+    hostname = d.split(b"\00", 1)[0]
     return hostname
 
 

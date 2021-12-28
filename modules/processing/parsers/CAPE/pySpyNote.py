@@ -23,7 +23,7 @@ def extract_config(apkfile):
                 if method.name == "<init>":
                     for inst in method.get_instructions():
                         if inst.get_name() == "const-string":
-                            string = inst.get_output().split(",")[-1].strip(" '")
+                            string = inst.get_output().rsplit(",", 1)[-1].strip(" '")
                         if inst.get_name() == "iput-object":
                             if "SERVER_IP" in inst.get_output():
                                 c2 = string

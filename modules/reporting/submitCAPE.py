@@ -106,8 +106,8 @@ class SubmitCAPE(Report):
                             pattern = "+"
 
                         if pattern:
-                            suffix = pattern + value.split(pattern)[1]
-                            value = value.split(pattern)[0]
+                            suffix = pattern + value.split(pattern, 2)[1]
+                            value = value.split(pattern, 1)[0]
 
                         if value.strip("$") in hit and str(cape_yara["addresses"][hit]) not in self.task_options:
                             address = cape_yara["addresses"][hit]

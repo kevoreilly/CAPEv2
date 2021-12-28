@@ -127,8 +127,8 @@ class PlugXConfig:
             timetable = cfg_blob[:0x2A0]
             cfg_blob = cfg_blob[0x2A0:]
             space = False
-            for k in range(len(timetable)):
-                if timetable[k] != "\x01":
+            for char in timetable:
+                if char != "\x01":
                     space = True
             if space:
                 config_output.update({"TimeTable": "Custom"})

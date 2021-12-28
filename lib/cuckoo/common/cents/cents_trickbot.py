@@ -6,17 +6,17 @@ log = logging.getLogger(__name__)
 def convert_needed_to_hex(input):
     # there has to be a better way to do this....
     result = ""
-    for i in range(0, len(input)):
-        if 0 <= ord(input[i]) <= 127:
-            result += input[i]
+    for i, char in enumerate(input):
+        if 0 <= ord(char) <= 127:
+            result += char
         else:
             # determine if the last char was also hex encoded
             if i > 0 and ord(input[i - 1]) > 127:
                 # we don't need the "opening" pipe
-                result += f"{hex(ord(input[i])).replace('0x', '', 1)}"
+                result += f"{hex(ord(char)).replace('0x', '', 1)}"
             else:
                 # if not, then we need the opening pipe
-                result += f"|{hex(ord(input[i])).replace('0x', '', 1)}"
+                result += f"|{hex(ord(char)).replace('0x', '', 1)}"
 
             # if the next one isn't also going to need hex encoded, then close it.
             if i > 0 and ord(input[i + 1]) <= 127:

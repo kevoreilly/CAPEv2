@@ -105,12 +105,12 @@ def config(data):
         config = long_line.decode("hex")
         first_decode = decrypt_XOR(key1, config)
         sections = first_decode.split("|//\\\\|")  # Split is |//\\| the extra \\ are for escaping.
-        for i in range(len(sections)):
+        for i, section in enumerate(sections):
             if i == 3:
                 enc_key = key3
             else:
                 enc_key = key2
-            config_list.append(decrypt_XOR(enc_key, sections[i].decode("hex")))
+            config_list.append(decrypt_XOR(enc_key, section.decode("hex")))
     if ver == "V2":
         coded_lines = get_parts(long_line)
         enc_key = aes_key(coded_lines[-1])

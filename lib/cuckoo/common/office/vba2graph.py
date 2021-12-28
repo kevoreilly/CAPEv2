@@ -848,7 +848,7 @@ def create_call_graph(vba_func_dict):
             if space_pos > -1:
                 func_name1 = func_name1[:space_pos]
 
-            for i in range(0, func_code_tokens.count(func_name1)):
+            for i in range(func_code_tokens.count(func_name1)):
                 # ignore self-edges
                 if func_name != func_name1:
                     # found a function call

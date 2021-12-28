@@ -116,7 +116,7 @@ def config(filebuf):
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
         num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
 
-    for i in range(0, num_ips):
+    for i in range(num_ips):
         ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
         c2_address = socket.inet_ntoa(struct.pack("!L", ip))
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])

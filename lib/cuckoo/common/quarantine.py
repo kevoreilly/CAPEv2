@@ -476,14 +476,14 @@ def rc4_decrypt(sbox, data):
     out = bytearray(len(data))
     i = 0
     j = 0
-    for k in range(len(data)):
+    for k, char in enumerate(data):
         i = (i + 1) % 256
         j = (j + sbox[i]) % 256
         tmp = sbox[i]
         sbox[i] = sbox[j]
         sbox[j] = tmp
         val = sbox[(sbox[i] + sbox[j]) % 256]
-        out[k] = val ^ data[k]
+        out[k] = val ^ char
 
     return out
 

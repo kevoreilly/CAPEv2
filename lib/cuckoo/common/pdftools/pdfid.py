@@ -740,8 +740,8 @@ def fEntropy(countByte, countTotal):
 
 class cEntropy:
     def __init__(self):
-        self.allBucket = [0 for i in range(0, 256)]
-        self.streamBucket = [0 for i in range(0, 256)]
+        self.allBucket = [0 for i in range(256)]
+        self.streamBucket = [0 for i in range(256)]
 
     def add(self, byte, insideStream):
         self.allBucket[byte] += 1

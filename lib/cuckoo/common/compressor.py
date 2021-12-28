@@ -69,8 +69,8 @@ class Compressor:
             self.final.append(out)
 
     def flush(self):
-        for i in range(len(self.ngrams)):
-            current_buffer = self.ngrams[i].buffer
+        for i, ngram in enumerate(self.ngrams):
+            current_buffer = ngram.buffer
             for out in current_buffer:
                 for u in range(i + 1, len(self.ngrams)):
                     out = self.ngrams[u].add(out)

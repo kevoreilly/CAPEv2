@@ -25,8 +25,8 @@ def extract_config(raw_data):
 
 def decode(line):
     result = ""
-    for i in range(0, len(line)):
-        a = ord(line[i])
+    for char in line:
+        a = ord(char)
         result += chr(a - 1)
     return result
 

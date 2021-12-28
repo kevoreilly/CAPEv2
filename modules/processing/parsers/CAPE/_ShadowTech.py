@@ -30,7 +30,7 @@ def get_config(data):
         try:
             output = ""
             hex_pairs = [config_string[x][i : i + 2] for i in range(0, len(config_string[x]), 2)]
-            for i in range(0, len(config_string[x]) / 2):
+            for i in range(len(config_string[x]) // 2):
                 data_slice = int(hex_pairs[i], 16)  # get next hex value
 
                 key_slice = ord(enc_key[i + 1])  # get next Char For Key

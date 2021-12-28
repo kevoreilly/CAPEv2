@@ -69,7 +69,7 @@ def xor_data(data, key, key_len):
 
 def derive_key(n_rounds, input_bf):
     intermediate = input_bf
-    for i in range(0, n_rounds):
+    for i in range(n_rounds):
         sha = hashlib.sha256()
         sha.update(intermediate)
         current = sha.digest()

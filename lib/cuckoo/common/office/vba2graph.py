@@ -21,12 +21,9 @@ Notes:
     - Main function is at the buttom :)
 """
 
-# ****************************************************************************
-# *                              General Imports                             *
-# ****************************************************************************
-
 import argparse
 import errno
+import logging
 import os
 import sys
 from io import StringIO
@@ -36,11 +33,6 @@ import networkx as nx
 import regex as re
 from networkx.drawing.nx_pydot import write_dot
 
-# ****************************************************************************
-# *                           Dependencies Imports                           *
-# ****************************************************************************
-
-
 try:
     from oletools.olevba import VBA_Parser
 
@@ -49,23 +41,14 @@ try:
     HAVE_OLETOOLS = True
 except ImportError:
     HAVE_OLETOOLS = False
-# ****************************************************************************
-# *                            Initialize Logging                            *
-# ****************************************************************************
-
-import logging
 
 logger = logging.getLogger("-vba2graph-")
 
-# ****************************************************************************
-# *                                Global Vars                               *
-# ****************************************************************************
+LINE_SEP = "\n"
 
 # possible color names:
 #   graphviz.org/doc/info/colors.html
 #   wingraphviz.sourceforge.net/wingraphviz/language/fontcolor.htm
-
-LINE_SEP = "\n"
 
 color_schemes = [
     {  # regular theme - boring black on white

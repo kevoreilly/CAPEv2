@@ -1,6 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 from __future__ import absolute_import
 import os
 import logging
@@ -29,12 +30,9 @@ if processing_conf.flare_capa.enabled:
         else:
             import capa.main
             import capa.rules
-            import capa.engine
-            import capa.features
             import capa.render.utils as rutils
             from capa.main import UnsupportedRuntimeError
             from capa.rules import InvalidRuleWithPath
-            from capa.engine import *
             from capa.render.result_document import (
                 convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document)
 

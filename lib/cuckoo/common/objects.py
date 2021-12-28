@@ -11,13 +11,10 @@ import mmap
 import os
 import struct
 import subprocess
-import sys
 import time
 
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import (PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
-                                       PAGE_NOACCESS, PAGE_NOCACHE, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOMBINE,
-                                       PAGE_WRITECOPY)
+                                       PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY)
 
 try:
     import magic

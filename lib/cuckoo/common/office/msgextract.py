@@ -6,15 +6,6 @@ ExtractMsg:
 
 https://github.com/mattgwwalker/msg-extractor
 """
-
-from __future__ import absolute_import
-
-import six
-
-__author__ = "Matthew Walker"
-__date__ = "2013-11-19"
-__version__ = "0.2"
-
 # --- LICENSE -----------------------------------------------------------------
 #
 #    Copyright 2013 Matthew Walker, 2015 Optiv, Inc. (brad.spengler@optiv.com)
@@ -32,16 +23,18 @@ __version__ = "0.2"
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import email.utils
-import glob
+from __future__ import absolute_import
 import os
 import sys
-import traceback
-from email.parser import Parser as EmailParser
 
 import olefile as OleFile
+import six
 
 from lib.cuckoo.common.utils import store_temp_file
+
+__author__ = "Matthew Walker"
+__date__ = "2013-11-19"
+__version__ = "0.2"
 
 
 def windowsUnicode(string):

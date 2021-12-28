@@ -11,6 +11,8 @@ from binascii import crc32
 
 import six
 
+from lib.cuckoo.common.utils import store_temp_file
+
 try:
     import olefile
 
@@ -18,8 +20,6 @@ try:
 except ImportError:
     HAVE_OLEFILE = False
     print("Missed olefile dependency: pip3 install olefile")
-
-from lib.cuckoo.common.utils import store_temp_file
 
 
 def bytearray_xor(data, key):

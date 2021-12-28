@@ -4,18 +4,16 @@
 
 from __future__ import absolute_import
 import string
+from itertools import chain, repeat
 
 from six.moves import zip
+
+from lib.cuckoo.common.utils import convert_to_printable
 
 try:
     import re2 as re
 except ImportError:
     import re
-
-from itertools import chain, repeat
-from os.path import exists
-
-from lib.cuckoo.common.utils import convert_to_printable
 
 # Regexs from Decalages olevba.py + a commonly observed path regex.
 PATTERNS = (
@@ -227,8 +225,8 @@ def parse_macro(macro):
             vb_vars[name] = substituted
 
         # Walk the deobfuscated macro and check for any IOCs
-        for string in substituted.splitlines():
-            ioc = extract_iocs(string)
+        for line in substituted.splitlines():
+            ioc = extract_iocs(line)
             if ioc:
                 iocs.append(ioc)
 

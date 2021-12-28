@@ -73,6 +73,89 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
+HAS_MWCP = False
+if process_cfg.mwcp.enabled:
+    # Import All config parsers
+    try:
+        import mwcp
+
+        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
+        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
+        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
+        HAS_MWCP = True
+        assert "MWCP_TEST" in malware_parsers
+    except ImportError as e:
+        logging.info(
+            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
+        )
+
+HAS_MALWARECONFIGS = False
+if process_cfg.ratdecoders.enabled:
+    try:
+        from malwareconfig import fileparser
+        from malwareconfig.modules import __decoders__
+
+        HAS_MALWARECONFIGS = True
+        if process_cfg.ratdecoders.modules_path:
+            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
+
+            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
+            if ratdecoders_local_modules:
+                __decoders__.update(ratdecoders_local_modules)
+            assert "TestRats" in __decoders__
+    except ImportError:
+        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+    except Exception as e:
+        logging.error(e, exc_info=True)
+
+HAVE_MALDUCK = False
+if process_cfg.malduck.enabled:
+    try:
+        # from malduck.extractor.loaders import load_modules
+        from malduck.extractor import ExtractManager, ExtractorModules
+        from malduck.extractor.extractor import Extractor
+        from malduck.yara import Yara
+
+        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
+
+        malduck_rules = Yara.__new__(Yara)
+        malduck_modules = ExtractorModules.__new__(ExtractorModules)
+        # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
+        malduck_modules.extractors = Extractor.__subclasses__()
+        HAVE_MALDUCK = True
+        # del tmp_modules
+        assert "test_malduck" in malduck_modules_names
+    except ImportError:
+        logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+
+HAVE_CAPE_EXTRACTORS = False
+if process_cfg.CAPE_extractors.enabled:
+    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
+
+    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
+    if cape_malware_parsers:
+        HAVE_CAPE_EXTRACTORS = True
+    assert "test_cape" in cape_malware_parsers
+
+try:
+    from modules.processing.parsers.plugxconfig import plugx
+
+    plugx_parser = plugx.PlugXConfig()
+except ImportError as e:
+    plugx_parser = False
+    logging.error(e)
+
+suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
+
+pe_map = {
+    "PE32+": ": 64-bit ",
+    "PE32": ": 32-bit ",
+}
+
+BUFSIZE = int(cfg.processing.analysis_size_limit)
+
 
 def init_yara():
     """Generates index for yara signatures."""
@@ -143,91 +226,6 @@ def init_yara():
                 log.debug("\t `-- %s %s", category, entry)
             else:
                 log.debug("\t |-- %s %s", category, entry)
-
-
-HAS_MWCP = False
-if process_cfg.mwcp.enabled:
-    # Import All config parsers
-    try:
-        import mwcp
-
-        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
-        HAS_MWCP = True
-        assert "MWCP_TEST" in malware_parsers
-    except ImportError as e:
-        logging.info(
-            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
-        )
-
-HAS_MALWARECONFIGS = False
-if process_cfg.ratdecoders.enabled:
-    try:
-        from malwareconfig import fileparser
-        from malwareconfig.modules import __decoders__, __preprocessors__
-
-        HAS_MALWARECONFIGS = True
-        if process_cfg.ratdecoders.modules_path:
-            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
-
-            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
-            if ratdecoders_local_modules:
-                __decoders__.update(ratdecoders_local_modules)
-            assert "TestRats" in __decoders__
-    except ImportError:
-        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
-    except Exception as e:
-        logging.error(e, exc_info=True)
-
-HAVE_MALDUCK = False
-if process_cfg.malduck.enabled:
-    try:
-        # from malduck.extractor.loaders import load_modules
-        from malduck.extractor import ExtractManager, ExtractorModules
-        from malduck.extractor.extractor import Extractor
-        from malduck.yara import Yara
-
-        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
-
-        malduck_rules = Yara.__new__(Yara)
-        malduck_modules = ExtractorModules.__new__(ExtractorModules)
-        # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
-        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
-        malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
-        malduck_modules.extractors = Extractor.__subclasses__()
-        HAVE_MALDUCK = True
-        # del tmp_modules
-        assert "test_malduck" in malduck_modules_names
-    except ImportError:
-        logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
-
-HAVE_CAPE_EXTRACTORS = False
-if process_cfg.CAPE_extractors.enabled:
-    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-
-    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
-    if cape_malware_parsers:
-        HAVE_CAPE_EXTRACTORS = True
-    assert "test_cape" in cape_malware_parsers
-
-try:
-    from modules.processing.parsers.plugxconfig import plugx
-
-    plugx_parser = plugx.PlugXConfig()
-except ImportError as e:
-    plugx_parser = False
-    logging.error(e)
-
-suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
-
-pe_map = {
-    "PE32+": ": 64-bit ",
-    "PE32": ": 32-bit ",
-}
-
-
-BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 
 def hash_file(method, path):

@@ -11,14 +11,6 @@ import platform
 import socket
 import sys
 
-try:
-    import yara
-
-    if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
-except ImportError:
-    print("Missed library: pip3 install yara-python>=4.0.0 -U")
-
 import modules.auxiliary
 import modules.feeds
 import modules.processing
@@ -33,6 +25,14 @@ from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
+
+try:
+    import yara
+
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
+except ImportError:
+    print("Missed library: pip3 install yara-python>=4.0.0 -U")
 
 log = logging.getLogger()
 

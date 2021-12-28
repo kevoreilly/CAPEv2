@@ -3,15 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import, print_function
-import datetime
 import errno
 import json
 import logging
 import os
-import select
 import socket
-import socketserver
-from threading import Event, Lock, Thread
+from threading import Lock, Thread
 
 import gevent.pool
 import gevent.server
@@ -22,11 +19,11 @@ from lib.cuckoo.common.abstracts import ProtocolHandler
 # https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError, CuckooResultError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
 from lib.cuckoo.common.files import open_exclusive
 
 # from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import Singleton, create_folder, logtime, sanitize_pathname
+from lib.cuckoo.common.utils import Singleton, create_folder
 from lib.cuckoo.core.log import task_log_start, task_log_stop
 
 log = logging.getLogger(__name__)

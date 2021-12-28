@@ -2,13 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import logging
-import os
-
 from lib.common.abstracts import Package
-
-log = logging.getLogger(__name__)
+from lib.common.common import check_file_extension
 
 
 class XLST(Package):
@@ -21,9 +16,5 @@ class XLST(Package):
 
     def start(self, path):
         wmic = self.get_path("wmic.exe")
-
-        if not path.endswith(".xsl"):
-            os.rename(path, f"{path}.xsl")
-            path += ".xsl"
-
+        path = check_file_extension(path, ".xsl")
         return self.execute(wmic, f'process LIST /FORMAT:"{path}"', path)

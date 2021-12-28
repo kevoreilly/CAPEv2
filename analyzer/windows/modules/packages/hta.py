@@ -2,13 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-import logging
-import os
-
 from lib.common.abstracts import Package
-
-log = logging.getLogger(__name__)
+from lib.common.common import check_file_extension
 
 
 class HTA(Package):
@@ -20,9 +15,5 @@ class HTA(Package):
 
     def start(self, path):
         mshta = self.get_path("mshta.exe")
-
-        if not path.endswith(".hta"):
-            os.rename(path, f"{path}.hta")
-            path += ".hta"
-
+        path = check_file_extension(path, ".hta")
         return self.execute(mshta, f'"{path}"', path)

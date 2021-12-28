@@ -25,8 +25,10 @@ class VBS(Package):
         # If the file doesn't have the proper .vbs extension force it
         # and rename it. This is needed for wscript to execute correctly.
         ext = os.path.splitext(path)[-1].lower()
-        if ext != ".vbs" and ext != ".vbe":
-            if os.path.isfile(path) and b"#@~^" in open(path, "rb").read(100):
+        if ext not in (".vbs", ".vbe"):
+            with open("path", "r") as tmpfile:
+                magic_bytes = tmpfile.read(4)
+            if magic_bytes == "#@~^":
                 os.rename(path, f"{path}.vbe")
                 path = f"{path}.vbe"
             else:

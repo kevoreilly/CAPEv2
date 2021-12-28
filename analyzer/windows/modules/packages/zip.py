@@ -177,8 +177,5 @@ class Zip(Package):
             args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
             return self.execute(powershell, args, file_path)
         else:
-            if "." not in os.path.basename(file_path):
-                new_path = f"{file_path}.exe"
-                os.rename(file_path, new_path)
-                file_path = new_path
+            path = check_file_extension(path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

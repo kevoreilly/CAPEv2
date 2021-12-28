@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+
 def DispositionDict():
     return {1: "REG_CREATED_NEW_KEY", 2: "REG_OPENED_EXISTING_KEY"}
 

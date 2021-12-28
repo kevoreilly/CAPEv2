@@ -86,9 +86,7 @@ class AnalysisManager(threading.Thread):
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
         if os.path.exists(self.storage):
-            log.error(
-                "Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage
-            )
+            log.error("Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage)
             return False
 
         # If we're not able to create the analysis storage folder, we have to

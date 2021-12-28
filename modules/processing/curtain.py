@@ -649,7 +649,7 @@ class Curtain(Processing):
         FILTERED = 0
         messages_by_task = {}
 
-        for i in range(0, len(root)):
+        for i in range(len(root)):
 
             # Setup PID Dict
             if root[i][0][1].text == "4104":

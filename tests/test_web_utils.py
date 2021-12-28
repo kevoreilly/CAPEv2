@@ -15,7 +15,7 @@ from lib.cuckoo.common.web_utils import _download_file, force_int, get_file_cont
 @pytest.fixture
 def paths():
     path_list = []
-    for i in range(0, 3):
+    for i in range(3):
         path_list += [tempfile.NamedTemporaryFile(delete=False).name]
         with open(path_list[i], "w") as f:
             f.write(str(i + 10))

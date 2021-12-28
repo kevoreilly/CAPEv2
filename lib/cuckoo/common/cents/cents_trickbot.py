@@ -6,7 +6,7 @@ log = logging.getLogger(__name__)
 def convert_needed_to_hex(input):
     # there has to be a better way to do this....
     result = ""
-    for i in range(0, len(input)):
+    for i in range(len(input)):
         if 0 <= ord(input[i]) <= 127:
             result += input[i]
         else:

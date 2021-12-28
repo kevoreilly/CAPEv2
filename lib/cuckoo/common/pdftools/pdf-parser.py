@@ -504,7 +504,7 @@ class cPDFElementTrailer:
 
     def Contains(self, keyword):
         data = ""
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if self.content[i][1] == "stream":
                 break
             else:
@@ -551,7 +551,7 @@ class cPDFElementIndirectObject:
     def GetType(self):
         content = CopyWithoutWhiteSpace(self.content)
         dictionary = 0
-        for i in range(0, len(content)):
+        for i in range(len(content)):
             if content[i][0] == CHAR_DELIMITER and content[i][1] == "<<":
                 dictionary += 1
             if content[i][0] == CHAR_DELIMITER and content[i][1] == ">>":
@@ -568,7 +568,7 @@ class cPDFElementIndirectObject:
     def GetReferences(self):
         content = CopyWithoutWhiteSpace(self.content)
         references = []
-        for i in range(0, len(content)):
+        for i in range(len(content)):
             if (
                 i > 1
                 and content[i][0] == CHAR_REGULAR
@@ -588,14 +588,14 @@ class cPDFElementIndirectObject:
         return False
 
     def ContainsStream(self):
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == "stream":
                 return self.content[0:i]
         return False
 
     def Contains(self, keyword):
         data = ""
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if self.content[i][1] == "stream":
                 break
             else:
@@ -628,7 +628,7 @@ class cPDFElementIndirectObject:
         countDirectories = 0
         data = ""
         filters = []
-        for i in range(0, len(self.content)):
+        for i in range(len(self.content)):
             if state == "start":
                 if self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == "<<":
                     countDirectories += 1

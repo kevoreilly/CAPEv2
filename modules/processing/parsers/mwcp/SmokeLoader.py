@@ -52,7 +52,7 @@ def yara_scan(raw_data, rule_name):
 
 def xor_decode(buffer, key):
     byte_key = 0xFF
-    for i in range(0, 4):
+    for i in range(4):
         byte_key = byte_key ^ (key >> (i * 8) & 0xFF)
     return "".join(chr(ord(x) ^ byte_key) for x in buffer)
 
@@ -112,7 +112,7 @@ class SmokeLoader(Parser):
             table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
             table_offset = table_ref_offset + table_delta + 30
 
-            for index in range(0, 2):
+            for index in range(2):
                 if image_base:
                     c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0] - image_base
                     c2_offset = pe.get_offset_from_rva(c2_rva)

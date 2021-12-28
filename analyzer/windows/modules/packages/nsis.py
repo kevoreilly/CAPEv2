@@ -2,8 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from __future__ import absolute_import
+import os
+
 from lib.common.abstracts import Package
-from lib.common.common import check_file_extension
 
 
 class NSIS(Package):
@@ -16,7 +18,10 @@ class NSIS(Package):
     ]
 
     def start(self, path):
-        path = check_file_extension(path, ".exe")
+        if "." not in os.path.basename(path):
+            new_path = f"{path}.exe"
+            os.rename(path, new_path)
+            path = new_path
         cmd_path = self.get_path("cmd.exe")
         cmd_args = f'/c start /wait "" "{path}" /NCRC'
         return self.execute(cmd_path, cmd_args, path)

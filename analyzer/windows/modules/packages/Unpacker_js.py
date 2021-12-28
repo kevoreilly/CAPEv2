@@ -27,10 +27,8 @@ class Unpacker_JS(Package):
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
-        if ext not in (".js", ".jse"):
-            with open(path, "r") as tmpfile:
-                magic_bytes = tmpfile.read(4)
-            if magic_bytes == "#@~^":
+        if ext != ".js" and ext != ".jse":
+            if os.path.isfile(path) and "#@~^" in open(path, "rb").read(100):
                 os.rename(path, f"{path}.jse")
                 path = f"{path}.jse"
             else:

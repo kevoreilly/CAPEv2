@@ -92,7 +92,11 @@ class Rar(Package):
             raise CuckooPackageError("rarfile Python module not installed in guest")
 
         # Check file extension.
-        path = check_file_extension(path, ".rar")
+        ext = os.path.splitext(path)[-1].lower()
+        if ext != ".rar":
+            new_path = f"{path}.rar"
+            os.rename(path, new_path)
+            path = new_path
 
         root = os.environ["TEMP"]
         password = self.options.get("password")

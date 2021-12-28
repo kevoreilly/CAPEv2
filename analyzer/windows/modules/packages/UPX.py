@@ -7,7 +7,6 @@ import os
 import shutil
 
 from lib.common.abstracts import Package
-from lib.common.common import check_file_extension
 
 
 class UPX(Package):
@@ -28,7 +27,12 @@ class UPX(Package):
         arguments = self.options.get("arguments")
         appdata = self.options.get("appdata")
 
-        path = check_file_extension(path, ".exe")
+        # If the file doesn't have an extension, add .exe
+        if "." not in os.path.basename(path):
+            new_path = f"{path}.exe"
+            os.rename(path, new_path)
+            path = new_path
+
         if appdata:
             # run the executable from the APPDATA directory, required for some malware
             basepath = os.getenv("APPDATA")

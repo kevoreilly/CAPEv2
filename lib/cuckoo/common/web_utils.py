@@ -474,9 +474,9 @@ def fix_section_permission(path):
         pe = pefile.PE(path)
         if not pe:
             return
-        for id in range(len(pe.sections)):
-            if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
-                pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
+        for pe_section in pe.sections:
+            if pe_section.Name.rstrip("\0") == ".rdata" and hex(pe_section.Characteristics)[:3] == "0x4":
+                pe_section.Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
                 pe.write(filename=path)
         pe.close()
     except Exception as e:

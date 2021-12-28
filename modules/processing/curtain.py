@@ -649,18 +649,17 @@ class Curtain(Processing):
         FILTERED = 0
         messages_by_task = {}
 
-        for i in range(len(root)):
-
+        for item in root:
             # Setup PID Dict
-            if root[i][0][1].text == "4104":
+            if item[0][1].text == "4104":
 
                 FILTERFLAG = 0
 
-                PID = root[i][0][10].attrib["ProcessID"]
-                # TID = root[i][0][10].attrib['ThreadID']
-                task = root[i][0][4].text
+                PID = item[0][10].attrib["ProcessID"]
+                # TID = item[0][10].attrib['ThreadID']
+                task = item[0][4].text
 
-                MESSAGE = root[i][1][2].text
+                MESSAGE = item[1][2].text
                 if PID not in pids:
                     pids[PID] = {"pid": PID, "events": [], "filter": []}
 

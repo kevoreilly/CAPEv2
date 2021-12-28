@@ -270,8 +270,8 @@ class DotNETExecutable(object):
                 .stdout.read()
                 .split("\n")
             )
-            for idx in range(len(output)):
-                splitline = output[idx].split("Version=")
+            for idx, line in enumerate(output):
+                splitline = line.split("Version=")
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
@@ -1185,8 +1185,7 @@ class PDF(object):
 
         self._set_base_uri()
 
-        for i in range(len(self.pdf.body)):
-            body = self.pdf.body[i]
+        for i, body in enumerate(self.pdf.body):
             metatmp = self.pdf.getBasicMetadata(i)
             if metatmp:
                 metadata = metatmp
@@ -1228,11 +1227,11 @@ class PDF(object):
                         # as this would mess up the new line representation which is used for
                         # beautifying the javascript code for Django's web interface.
                         ret_data = ""
-                        for x in range(len(jsdata)):
-                            if ord(jsdata[x]) > 127:
-                                tmp = f"\\x{jsdata[x].encode('hex')}"
+                        for char in jsdata:
+                            if ord(char) > 127:
+                                tmp = f"\\x{char.encode('hex')}"
                             else:
-                                tmp = jsdata[x]
+                                tmp = char
                             ret_data += tmp
                     else:
                         continue

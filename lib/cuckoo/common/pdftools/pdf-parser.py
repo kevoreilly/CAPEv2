@@ -504,11 +504,11 @@ class cPDFElementTrailer:
 
     def Contains(self, keyword):
         data = ""
-        for i in range(len(self.content)):
-            if self.content[i][1] == "stream":
+        for sub_content in self.content:
+            if sub_content[1] == "stream":
                 break
             else:
-                data += Canonicalize(self.content[i][1])
+                data += Canonicalize(sub_content[1])
         return data.upper().find(keyword.upper()) != -1
 
 
@@ -551,15 +551,15 @@ class cPDFElementIndirectObject:
     def GetType(self):
         content = CopyWithoutWhiteSpace(self.content)
         dictionary = 0
-        for i in range(len(content)):
-            if content[i][0] == CHAR_DELIMITER and content[i][1] == "<<":
+        for i, sub_content in enumerate(content):
+            if sub_content[0] == CHAR_DELIMITER and sub_content[1] == "<<":
                 dictionary += 1
-            if content[i][0] == CHAR_DELIMITER and content[i][1] == ">>":
+            if sub_content[0] == CHAR_DELIMITER and sub_content[1] == ">>":
                 dictionary -= 1
             if (
                 dictionary == 1
-                and content[i][0] == CHAR_DELIMITER
-                and EqualCanonical(content[i][1], "/Type")
+                and sub_content[0] == CHAR_DELIMITER
+                and EqualCanonical(sub_content[1], "/Type")
                 and i < len(content) - 1
             ):
                 return content[i + 1][1]
@@ -568,17 +568,17 @@ class cPDFElementIndirectObject:
     def GetReferences(self):
         content = CopyWithoutWhiteSpace(self.content)
         references = []
-        for i in range(len(content)):
+        for i, sub_content in enumerate(content):
             if (
                 i > 1
-                and content[i][0] == CHAR_REGULAR
-                and content[i][1] == "R"
+                and sub_content[0] == CHAR_REGULAR
+                and sub_content[1] == "R"
                 and content[i - 2][0] == CHAR_REGULAR
                 and IsNumeric(content[i - 2][1])
                 and content[i - 1][0] == CHAR_REGULAR
                 and IsNumeric(content[i - 1][1])
             ):
-                references.append((content[i - 2][1], content[i - 1][1], content[i][1]))
+                references.append((content[i - 2][1], content[i - 1][1], sub_content[1]))
         return references
 
     def References(self, index):
@@ -588,18 +588,18 @@ class cPDFElementIndirectObject:
         return False
 
     def ContainsStream(self):
-        for i in range(len(self.content)):
-            if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == "stream":
-                return self.content[0:i]
+        for i, sub_content in enumerate(self.content):
+            if sub_content[0] == CHAR_REGULAR and sub_content[1] == "stream":
+                return self.content[:i]
         return False
 
     def Contains(self, keyword):
         data = ""
-        for i in range(len(self.content)):
-            if self.content[i][1] == "stream":
+        for sub_content in self.content:
+            if sub_content[1] == "stream":
                 break
             else:
-                data += Canonicalize(self.content[i][1])
+                data += Canonicalize(sub_content[1])
         return data.upper().find(keyword.upper()) != -1
 
     def ContainsName(self, keyword):
@@ -628,42 +628,42 @@ class cPDFElementIndirectObject:
         countDirectories = 0
         data = ""
         filters = []
-        for i in range(len(self.content)):
+        for sub_content in self.content:
             if state == "start":
-                if self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == "<<":
+                if sub_content[0] == CHAR_DELIMITER and sub_content[1] == "<<":
                     countDirectories += 1
-                if self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == ">>":
+                if sub_content[0] == CHAR_DELIMITER and sub_content[1] == ">>":
                     countDirectories -= 1
-                if countDirectories == 1 and self.content[i][0] == CHAR_DELIMITER and EqualCanonical(self.content[i][1], "/Filter"):
+                if countDirectories == 1 and sub_content[0] == CHAR_DELIMITER and EqualCanonical(sub_content[1], "/Filter"):
                     state = "filter"
-                elif countDirectories == 0 and self.content[i][0] == CHAR_REGULAR and self.content[i][1] == "stream":
+                elif countDirectories == 0 and sub_content[0] == CHAR_REGULAR and sub_content[1] == "stream":
                     state = "stream-whitespace"
             elif state == "filter":
-                if self.content[i][0] == CHAR_DELIMITER and self.content[i][1][0] == "/":
-                    filters = [self.content[i][1]]
+                if sub_content[0] == CHAR_DELIMITER and sub_content[1][0] == "/":
+                    filters = [sub_content[1]]
                     state = "search-stream"
-                elif self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == "[":
+                elif sub_content[0] == CHAR_DELIMITER and sub_content[1] == "[":
                     state = "filter-list"
             elif state == "filter-list":
-                if self.content[i][0] == CHAR_DELIMITER and self.content[i][1][0] == "/":
-                    filters.append(self.content[i][1])
-                elif self.content[i][0] == CHAR_DELIMITER and self.content[i][1] == "]":
+                if sub_content[0] == CHAR_DELIMITER and sub_content[1][0] == "/":
+                    filters.append(sub_content[1])
+                elif sub_content[0] == CHAR_DELIMITER and sub_content[1] == "]":
                     state = "search-stream"
             elif state == "search-stream":
-                if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == "stream":
+                if sub_content[0] == CHAR_REGULAR and sub_content[1] == "stream":
                     state = "stream-whitespace"
             elif state == "stream-whitespace":
-                if self.content[i][0] == CHAR_WHITESPACE:
-                    whitespace = self.content[i][1]
+                if sub_content[0] == CHAR_WHITESPACE:
+                    whitespace = sub_content[1]
                     if whitespace.startswith("\x0D\x0A") and len(whitespace) > 2:
                         data += whitespace[2:]
                     elif whitespace.startswith("\x0A") and len(whitespace) > 1:
                         data += whitespace[1:]
                 else:
-                    data += self.content[i][1]
+                    data += sub_content[1]
                 state = "stream-concat"
             elif state == "stream-concat":
-                if self.content[i][0] == CHAR_REGULAR and self.content[i][1] == "endstream":
+                if sub_content[0] == CHAR_REGULAR and sub_content[1] == "endstream":
                     if filter:
                         if overridingfilters == "":
                             return self.Decompress(data, filters)
@@ -674,7 +674,7 @@ class cPDFElementIndirectObject:
                     else:
                         return data
                 else:
-                    data += self.content[i][1]
+                    data += sub_content[1]
             else:
                 return "Unexpected filter state"
         return filters

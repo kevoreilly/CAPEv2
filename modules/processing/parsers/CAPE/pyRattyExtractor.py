@@ -20,8 +20,8 @@ def extract_config(zip):
             data = z.read(name)
             try:
                 data = base64.b64decode(data)
-                for i in range(len(data)):
-                    c2.append(chr(ord(data[i]) ^ 0x38))
+                for char in data:
+                    c2.append(chr(ord(char) ^ 0x38))
 
                 print(f"[+] Found it : {zip}")
                 print(f"[+] C2 : {''.join(c2)}")

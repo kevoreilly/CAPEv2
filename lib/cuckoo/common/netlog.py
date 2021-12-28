@@ -271,7 +271,7 @@ class BsonParser(object):
                     log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](args[i])) for i in range(len(args)))
+                argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.

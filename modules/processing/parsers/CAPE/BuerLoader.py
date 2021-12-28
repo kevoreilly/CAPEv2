@@ -20,8 +20,8 @@ AUTHOR = "kevoreilly"
 
 def decrypt_string(string):
     enc = []
-    for i in range(len(string)):
-        enc.append(chr(ord(string[i]) - 6))
+    for char in string:
+        enc.append(chr(ord(char) - 6))
     return "".join(enc)
 
 

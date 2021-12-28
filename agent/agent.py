@@ -116,7 +116,7 @@ class MiniHTTPServer(object):
         return register
 
     def handle(self, obj):
-        if state.get("client_ip") != request.client_ip:
+        if "client_ip" in state and request.client_ip != state["client_ip"]:
             if request.client_ip != "127.0.0.1":
                 return
             if obj.path != "/status" or request.method != "POST":

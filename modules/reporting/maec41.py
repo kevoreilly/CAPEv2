@@ -2762,7 +2762,7 @@ def regStringToHive(reg_string):
 def regStringToKey(reg_string):
     """Maps a string representing a Registry Key from a NT* API call input to its normalized key portion"""
     normalized_key = fix_key(reg_string)
-    return "\\".join(normalized_key.split("\\")[1:])
+    return normalized_key.split("\\", 1)[1]
 
 
 class MAEC41Report(Report):

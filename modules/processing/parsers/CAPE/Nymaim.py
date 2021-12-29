@@ -1,8 +1,7 @@
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import re
-import struct
 import string
+import struct
 from io import StringIO
 
 
@@ -176,7 +175,7 @@ class NymaimExtractor:
         parsed = {"domains": [], "urls": [], "dns": []}
         for hash, raw in NymCfgStream(blob):
             try:
-                pprint("<{:08x}>: {}".format(hash, raw.encode("hex") if len(raw) == 4 else raw))
+                pprint(f"<{hash:08x}>: {raw.encode('hex') if len(raw) == 4 else raw}")
                 if hash == self.CFG_URL:  # '48c2026b':
                     parsed["urls"] += [{"url": append_http(raw[20:].rstrip(";"))}]
                 elif hash == self.CFG_DGA_HASH:  # 'd9aea02a':
@@ -197,7 +196,7 @@ class NymaimExtractor:
                 elif hash == self.CFG_TTL:  # '8de8f7e6':
                     if len(raw) == 12:
                         year, month, day = uint32(raw[-4:]), uint32(raw[4:-4]), uint32(raw[:4])
-                        parsed["time_restriction"] = "{}-{:02}-{:02}".format(year, month, day)
+                        parsed["time_restriction"] = f"{year}-{month:02}-{day:02}"
                     else:
                         parsed["time_restriction"] = [raw.encode("hex")]
                 elif hash == self.CFG_DNS:

@@ -1,9 +1,10 @@
 from __future__ import absolute_import
+import logging
 import os
 import shutil
-import logging
-from lib.cuckoo.common.config import Config
+
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import get_memdump_path
 
 log = logging.getLogger(__name__)
@@ -25,14 +26,14 @@ class TMPFSCLEAN(Report):
                 action = "store"
 
         if action == "delete":
-            log.debug("Deleting memdump: {}".format(src))
+            log.debug("Deleting memdump: %s", src)
             if os.path.exists(src):
                 os.remove(src)
         else:
             dest = get_memdump_path(results["info"]["id"], analysis_folder=True)
-            log.debug("Storing memdump: {}".format(dest))
+            log.debug("Storing memdump: %s", dest)
             if src != dest:
                 if os.path.exists(src):
                     shutil.move(src, dest)
-                if os.path.exists(src + ".strings"):
-                    shutil.move(src + ".strings", dest + ".strings")
+                if os.path.exists(f"{src}.strings"):
+                    shutil.move(f"{src}.strings", f"{dest}.strings")

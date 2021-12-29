@@ -4,19 +4,22 @@
 # See the file 'docs/LICENSE' for copying permission.
 # MAEC 5.0 Cuckoo Report Module
 # https://maecproject.github.io/releases/5.0/MAEC_Vocabularies_Specification.pdf
+
 from __future__ import absolute_import
 import io
-import sys
 import json
+import logging
 import os
 import re
+import sys
 import uuid
-import logging
-import dateutil.parser
 from collections import OrderedDict
+
+import dateutil.parser
+import six
+
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-import six
 
 log = logging.getLogger(__name__)
 
@@ -191,7 +194,7 @@ class MaecReport(Report):
     def setup(self):
         """Setup core MAEC fields and types"""
         # Package ID
-        self.package["id"] = "package--" + str(uuid.uuid4())
+        self.package["id"] = f"package--{uuid.uuid4()}"
         # Load the JSON mappings
 
         with open(os.path.join(CUCKOO_ROOT, "data", "maec_api_call_mappings.json")) as f:
@@ -209,7 +212,7 @@ class MaecReport(Report):
         """Create a base Malware Instance"""
         malwareInstance = {"type": "malware-instance"}
 
-        malwareInstance["id"] = "malware-instance--" + str(uuid.uuid4())
+        malwareInstance["id"] = f"malware-instance--{uuid.uuid4()}"
 
         # Create file object for the malware instance object
         file_obj_id, file_obj = self.create_file_obj(file_data)
@@ -247,7 +250,7 @@ class MaecReport(Report):
 
         elif self.results.get("target")["category"] == "url":
             malwareInstance = {"type": "malware-instance"}
-            malwareInstance["id"] = "malware-instance--" + str(uuid.uuid4())
+            malwareInstance["id"] = f"malware-instance--{uuid.uuid4()}"
             malwareInstance["instance_object_refs"] = [{"type": "url", "value": self.results["target"]["url"]}]
             # Add malwareInstance to package
             self.package["maec_objects"].append(sort_dict(malwareInstance))
@@ -268,7 +271,7 @@ class MaecReport(Report):
                 vm_obj = {"type": "software", "name": (str(self.results["info"]["machine"]["manager"]))}
                 analysis_dict["vm_ref"] = self.deduplicate_obj(vm_obj)
             analysis_dict["tool_refs"] = [tool_id]
-            analysis_dict["description"] = str("Automated analysis conducted " "by Cuckoo Sandbox")
+            analysis_dict["description"] = "Automated analysis conducted by Cuckoo Sandbox"
             malwareInstance["analysis_metadata"] = [analysis_dict]
             self.primaryInstance = malwareInstance
 
@@ -291,7 +294,7 @@ class MaecReport(Report):
             # Add relationship object to connect original malware instance and
             # new malware instance (from dropped file)
             relationship_dict = OrderedDict()
-            relationship_dict["id"] = "relationship--" + str(uuid.uuid4())
+            relationship_dict["id"] = f"relationship--{uuid.uuid4()}"
             relationship_dict["type"] = "relationship"
             relationship_dict["source_ref"] = self.primaryInstance["id"]
             relationship_dict["target_ref"] = malwareInstance["id"]
@@ -432,9 +435,7 @@ class MaecReport(Report):
         elif re.match("^([0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])$", value):
             network_obj["type"] = "mac-addr"
         # Test for an IPv4 address
-        elif re.match(
-            "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$", value
-        ):
+        elif re.match("^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})){3}$", value):
             network_obj["type"] = "ipv4-addr"
             obj["protocols"] = ["ipv4", "tcp"]
         else:
@@ -496,7 +497,7 @@ class MaecReport(Report):
         if not isinstance(arguments, list):
             arguments = [arguments]
         found = False
-        v2_arguments = dict()
+        v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
                 v2_arguments[args["name"]] = args["value"]
@@ -534,9 +535,9 @@ class MaecReport(Report):
             self.create_directory_from_file_path(obj, obj["name"])
         elif obj["type"] == "windows-registry-key":
             if "regkey" in arguments and "regkey_r" in arguments and "values" in obj:
-                obj["key"] = obj["key"].replace("\\" + (arguments["regkey_r"]), "").rstrip()
+                obj["key"] = obj["key"].replace(f"\\{arguments['regkey_r']}", "").rstrip()
             elif "regkey" in arguments and "key_name" in arguments and "values" in obj:
-                obj["key"] = obj["key"].replace("\\" + (arguments["key_name"]), "").rstrip()
+                obj["key"] = obj["key"].replace(f"\\{arguments['key_name']}", "").rstrip()
             # Do some post-processing on Registry Values
             # if 'values' in obj and 'data_type' in obj['values'][0]:
             #    obj['values'][0]['data_type'] = reg_datatype_mappings[
@@ -563,7 +564,7 @@ class MaecReport(Report):
         """Create a MAEC Action from a Cuckoo API call"""
         action = {"type": "malware-action"}
         " todo change action to type"
-        action["id"] = mapping["action_name"] + "--" + str(uuid.uuid4())
+        action["id"] = f"{mapping['action_name']}--{uuid.uuid4()}"
         action["name"] = mapping["action_name"]
         action["timestamp"] = dateutil.parser.parse(call["timestamp"]).isoformat()
         # Map any input objects
@@ -722,13 +723,13 @@ class MaecReport(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        maec_attcks = list()
+        maec_attcks = []
         for tactic in self.mitre.tactics:
             for technique in tactic.techniques:
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, list())
+                    maec_attck.setdefault(tactic.name, [])
                     maec_attck[tactic.name].append(
                         {
                             "technique_id": technique.id,

@@ -3,25 +3,17 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import logging
 import datetime
+import logging
+import os
 import struct
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.compressor import CuckooBsonCompressor
-from lib.cuckoo.common.utils import (
-    convert_to_printable,
-    pretty_print_arg,
-    pretty_print_retval,
-    logtime,
-    default_converter,
-    bytes2str,
-    get_options,
-)
-
+from lib.cuckoo.common.utils import (bytes2str, convert_to_printable, default_converter, get_options, logtime, pretty_print_arg,
+                                     pretty_print_retval)
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -117,12 +109,12 @@ class ParseProcessLog(list):
 
     def __iter__(self):
         # import inspect
-        # log.debug('iter called by this guy: {0}'.format(inspect.stack()[1]))
+        # log.debug("iter called by this guy: %s", inspect.stack()[1])
         # import code; code.interact(local=dict(locals(), **globals()))
         return self
 
     def __repr__(self):
-        return "<ParseProcessLog log-path: %r>" % self._log_path
+        return f"<ParseProcessLog log-path: {self._log_path}>"
 
     def __nonzero__(self):
         return self.wait_for_lastcall()
@@ -252,7 +244,7 @@ class ParseProcessLog(list):
 
     def log_error(self, emsg):
         """Log an error"""
-        log.warning("ParseProcessLog error condition on log %s: %s", str(self._log_path), emsg)
+        log.warning("ParseProcessLog error condition on log %s: %s", self._log_path, emsg)
 
     def begin_reporting(self):
         self.reporting_mode = True
@@ -314,14 +306,14 @@ class ParseProcessLog(list):
 
         call["timestamp"] = timestamp
         call["thread_id"] = str(thread_id)
-        call["caller"] = "0x%.08x" % default_converter(caller)
-        call["parentcaller"] = "0x%.08x" % default_converter(parentcaller)
+        call["caller"] = f"0x{default_converter(caller):08x}"
+        call["parentcaller"] = f"0x{default_converter(parentcaller):08x}"
         call["category"] = category
         call["api"] = api_name
         call["status"] = bool(int(status_value))
 
         if isinstance(return_value, int) or isinstance(return_value, int):
-            call["return"] = "0x%.08x" % default_converter(return_value)
+            call["return"] = f"0x{default_converter(return_value):08x}"
         else:
             call["return"] = convert_to_printable(str(return_value), self.conversion_cache)
 
@@ -355,13 +347,13 @@ class Processes:
         results = []
 
         if not os.path.exists(self._logs_path):
-            log.warning('Analysis results folder does not exist at path "%s".', self._logs_path)
+            log.warning('Analysis results folder does not exist at path "%s"', self._logs_path)
             return results
 
         # TODO: this should check the current analysis configuration and raise a warning
         # if injection is enabled and there is no logs folder.
         if len(os.listdir(self._logs_path)) == 0:
-            log.info("Analysis results folder does not contain any file or injection was disabled.")
+            log.info("Analysis results folder does not contain any file or injection was disabled")
             return results
 
         for file_name in os.listdir(self._logs_path):
@@ -376,7 +368,7 @@ class Processes:
 
             # Skipping the current log file if it's too big.
             if os.stat(file_path).st_size > cfg.processing.analysis_size_limit:
-                log.warning("Behavioral log {0} too big to be processed, skipped.".format(file_name))
+                log.warning("Behavioral log %s too big to be processed, skipped", file_name)
                 continue
 
             # Invoke parsing of current log file (if ram_boost is enabled, otherwise parsing is done on-demand)
@@ -409,14 +401,14 @@ class Processes:
         if file_path.endswith(".bson") and os.stat(file_path).st_size:
             try:
                 if not CuckooBsonCompressor().run(file_path):
-                    log.debug("Could not execute loop detection analysis.")
+                    log.debug("Could not execute loop detection analysis")
                 else:
-                    log.debug("BSON was compressed successfully.")
+                    log.debug("BSON was compressed successfully")
                     return True
             except Exception as e:
-                log.error("BSON compression failed on file {}: {}".format(file_path, e))
+                log.error("BSON compression failed on file %s: %s", file_path, e)
         else:
-            log.debug("Nonexistent or empty BSON file {}".format(file_path))
+            log.debug("Nonexistent or empty BSON file %s", file_path)
 
         return False
 
@@ -521,7 +513,7 @@ class Summary:
             params = self.get_argument(call, "Parameters", strip=True)
             cmdline = None
             if path:
-                cmdline = path + " " + params
+                cmdline = f"{path} {params}"
             if cmdline and cmdline not in self.executed_commands:
                 self.executed_commands.append(cmdline)
         elif call["api"] == "NtSetInformationFile":
@@ -565,7 +557,7 @@ class Summary:
                 else:
                     firstarg = cmdline.split(" ")[0]
                 if base not in firstarg:
-                    cmdline = appname + " " + cmdline
+                    cmdline = f"{appname} {cmdline}"
             if cmdline and cmdline not in self.executed_commands:
                 self.executed_commands.append(cmdline)
 
@@ -573,8 +565,8 @@ class Summary:
             dllname = self.get_argument(call, "ModuleName").lower()
             funcname = self.get_argument(call, "FunctionName")
             if not funcname:
-                funcname = "#" + str(self.get_argument(call, "Ordinal"))
-            combined = dllname + "." + funcname
+                funcname = f"#{self.get_argument(call, 'Ordinal')}"
+            combined = f"{dllname}.{funcname}"
             if combined not in self.resolved_apis:
                 self.resolved_apis.append(combined)
 
@@ -678,7 +670,7 @@ class Enhanced(object):
         """
         Add a procedure address
         """
-        self.procedures[base] = "{0}:{1}".format(self._get_loaded_module(mbase), name)
+        self.procedures[base] = f"{self._get_loaded_module(mbase)}:{name}"
 
     def _add_loaded_module(self, name, base):
         """

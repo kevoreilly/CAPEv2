@@ -14,10 +14,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
+import json
 import readline
 import select
 import sys
-import json
 from socket import AF_UNIX, error, socket
 
 from .suri_specs import argsd
@@ -201,7 +201,7 @@ class SuricataSC:
         cmd = full_cmd[0]
         cmd_specs = argsd[cmd]
         required_args_count = len([d["required"] for d in cmd_specs if d["required"] and not "val" in d])
-        arguments = dict()
+        arguments = {}
         for c, spec in enumerate(cmd_specs, 1):
             spec_type = str if "type" not in spec else spec["type"]
             if spec["required"]:

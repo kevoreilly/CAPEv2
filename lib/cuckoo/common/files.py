@@ -3,13 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import hashlib
-import tempfile
-import ntpath
-import shutil
 import errno
+import hashlib
 import logging
+import ntpath
+import os
+import shutil
+import tempfile
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.misc import getuser

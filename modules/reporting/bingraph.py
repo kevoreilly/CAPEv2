@@ -3,11 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import logging
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.abstracts import Report
+import os
 
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 
 reporting_conf = Config("reporting")
 
@@ -72,7 +72,7 @@ class BinGraph(Report):
                     try:
                         bingraph_gen(bingraph_args_dict)
                     except Exception as e:
-                        log.warning("Can't generate bingraph for {}: {}".format(self.file_path, e))
+                        log.warning("Can't generate bingraph for %s: %s", self.file_path, e)
             except Exception as e:
                 log.info(e)
 
@@ -81,7 +81,7 @@ class BinGraph(Report):
                     if (
                         block.get("size", 0) != 0
                         and block.get("type", "") not in excluded_filetypes
-                        and not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"])))
+                        and not os.path.exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
                     ):
                         path = ""
                         if block.get("file", False):
@@ -94,13 +94,13 @@ class BinGraph(Report):
                         try:
                             bingraph_gen(bingraph_args_dict)
                         except Exception as e:
-                            log.warning("Can't generate report for {}: {}".format(path, e))
+                            log.warning("Can't generate report for %s: %s", path, e)
 
                 for block in results.get("CAPE", {}).get("payloads") or []:
                     if (
                         block.get("size", 0) != 0
                         and block.get("type", "") not in excluded_filetypes
-                        and not os.path.exists(os.path.join(bingraph_path, "{}-ent.svg".format(block["sha256"])))
+                        and not os.path.exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
                     ):
                         path = ""
                         if block.get("file", False):
@@ -113,4 +113,4 @@ class BinGraph(Report):
                         try:
                             bingraph_gen(bingraph_args_dict)
                         except Exception as e:
-                            log.warning("Can't generate report for {}: {}".format(path, e))
+                            log.warning("Can't generate report for %s: %s", path, e)

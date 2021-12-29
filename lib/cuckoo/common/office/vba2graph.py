@@ -21,23 +21,16 @@ Notes:
     - Main function is at the buttom :)
 """
 
-# ****************************************************************************
-# *                              General Imports                             *
-# ****************************************************************************
-
+import argparse
+import errno
+import logging
 import os
 import sys
-import errno
-import argparse
-import regex as re
 from io import StringIO
 from subprocess import Popen
 
-# ****************************************************************************
-# *                           Dependencies Imports                           *
-# ****************************************************************************
-
 import networkx as nx
+import regex as re
 from networkx.drawing.nx_pydot import write_dot
 
 try:
@@ -48,23 +41,14 @@ try:
     HAVE_OLETOOLS = True
 except ImportError:
     HAVE_OLETOOLS = False
-# ****************************************************************************
-# *                            Initialize Logging                            *
-# ****************************************************************************
-
-import logging
 
 logger = logging.getLogger("-vba2graph-")
 
-# ****************************************************************************
-# *                                Global Vars                               *
-# ****************************************************************************
+LINE_SEP = "\n"
 
 # possible color names:
 #   graphviz.org/doc/info/colors.html
 #   wingraphviz.sourceforge.net/wingraphviz/language/fontcolor.htm
-
-LINE_SEP = "\n"
 
 color_schemes = [
     {  # regular theme - boring black on white
@@ -864,7 +848,7 @@ def create_call_graph(vba_func_dict):
             if space_pos > -1:
                 func_name1 = func_name1[:space_pos]
 
-            for i in range(0, func_code_tokens.count(func_name1)):
+            for i in range(func_code_tokens.count(func_name1)):
                 # ignore self-edges
                 if func_name != func_name1:
                     # found a function call

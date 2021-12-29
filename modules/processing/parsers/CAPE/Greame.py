@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import string
+
 import pefile
 
 
@@ -37,7 +38,7 @@ def parse_config(raw_config):
         domains = ""
         ports = ""
         # Config sections 0 - 19 contain a list of Domains and Ports
-        for x in range(0, 19):
+        for x in range(19):
             if len(raw_config[x]) > 1:
                 domains += xor_decode(raw_config[x]).split(":")[0]
                 domains += "|"

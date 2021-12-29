@@ -1,11 +1,13 @@
-import sys
-import os
 import logging
-from hashlib import md5
-from binascii import hexlify, unhexlify
-from Crypto.Cipher import ARC4
-from .constants import macros, operators, functions
+import os
+import sys
 from argparse import ArgumentParser
+from binascii import hexlify, unhexlify
+from hashlib import md5
+
+from Crypto.Cipher import ARC4
+
+from .constants import functions, macros, operators
 
 
 def parse_args():
@@ -58,11 +60,11 @@ class Kixtart:
 
     def decrypt(self):
         arc4 = ARC4.new(key=self.session_key)
-        self.logger.info(f'[*]\tdecrypting with session key {hexlify(self.session_key).decode()}')
+        self.logger.info(f"[*]\tdecrypting with session key {hexlify(self.session_key).decode()}")
         token_data = arc4.decrypt(bytes(self.ciphertext))
         self.code_length = int.from_bytes(token_data[:4], byteorder="little")
         self.tokenized = token_data[4:]
-        self.logger.debug(f'raw tokenized script: {hexlify(self.tokenized).decode()}')
+        self.logger.debug(f"raw tokenized script: {hexlify(self.tokenized).decode()}")
         self.parse()
         return self.tokenized
 
@@ -84,7 +86,7 @@ class Kixtart:
     def parse_functions(self):
         i = 0
         buf = self.function_data
-        self.logger.debug(f'Parsing function data {hexlify(buf).decode()}')
+        self.logger.debug(f"Parsing function data {hexlify(buf).decode()}")
         # TODO have not looked into parsing scripts relying on multiple files
         filename = ""
         while buf[i] != 0:
@@ -109,7 +111,7 @@ class Kixtart:
                         i += 1
                     i += 1
                     parameters = []
-                    for j in range(0, len(parameter_types)):
+                    for char in parameter_types:
                         param = ""
                         while buf[i] != 0:
                             param += chr(buf[i])
@@ -151,8 +153,8 @@ class Kixtart:
         # trim beginning and ending lines from script
         last = 0
         first = 0
-        for i in range(0, len(self.script)):
-            if self.script[i]:
+        for i, char in enumerate(self.script):
+            if char:
                 if first == 0:
                     first = i
                 last = i
@@ -183,8 +185,8 @@ class Kixtart:
         vars_length = int.from_bytes(self.tokenized[vars_offset : vars_offset + 4], byteorder="little")
         self.variables = self.tokenized[vars_offset + 4 : vars_offset + 4 + vars_length].split(b"\x00")
         self.logger.info(f"Variables: ")
-        for i in range(0, len(self.variables)):
-            self.logger.info(f"\t{i:02X}: {self.variables[i]}")
+        for i, variable in enumerate(self.variables):
+            self.logger.info(f"\t{i:02X}: {variable}")
 
         functions_offset = vars_offset + vars_length
         functions_length = int.from_bytes(self.tokenized[functions_offset : functions_offset + 4], byteorder="little")

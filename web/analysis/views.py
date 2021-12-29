@@ -2,48 +2,38 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-
+from __future__ import absolute_import, print_function
 import base64
-import os
-import sys
-import zlib
-import shutil
-import json
-import zipfile
-import tempfile
 import datetime
+import json
+import os
+import shutil
+import sys
+import tempfile
+import zipfile
+import zlib
 from io import BytesIO
 from urllib.parse import quote
+from wsgiref.util import FileWrapper
 
 from django.conf import settings
-from wsgiref.util import FileWrapper
-from django.http import HttpResponse, StreamingHttpResponse, HttpResponseRedirect
-from django.shortcuts import redirect, render
-from django.contrib.auth.models import User
-from django.views.decorators.http import require_safe
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
-from lib.cuckoo.core.database import Database, Task, TASK_PENDING
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.web_utils import (
-    perform_malscore_search,
-    perform_search,
-    perform_ttps_search,
-    statistics,
-    rateblock,
-    my_rate_seconds,
-    my_rate_minutes,
-)
 import modules.processing.network as network
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
+                                         perform_ttps_search, rateblock, statistics)
+from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 
 try:
@@ -86,7 +76,7 @@ web_cfg = Config("web")
 # On demand features
 HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
@@ -97,16 +87,17 @@ if processing_cfg.strings.on_demand:
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
-    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+    from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
-    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 
 if reporting_cfg.bingraph.on_demand:
     try:
         from binGraph.binGraph import generate_graphs as bingraph_gen
+
         from modules.reporting.bingraph import bingraph_args_dict
 
         HAVE_BINGRAPH = True
@@ -117,8 +108,8 @@ else:
 
 
 # Used for displaying enabled config options in Django UI
-enabledconf = dict()
-on_demand_conf = dict()
+enabledconf = {}
+on_demand_conf = {}
 for cfile in ["reporting", "processing", "auxiliary", "web"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
@@ -310,7 +301,7 @@ def index(request, page=1):
     tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
 
     # Vars to define when to show Next/Previous buttons
-    paging = dict()
+    paging = {}
     paging["show_file_next"] = "show"
     paging["show_url_next"] = "show"
     paging["show_pcap_next"] = "show"
@@ -537,10 +528,10 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
-        data = dict()
-        debugger_logs = dict()
-        bingraph_dict_content = dict()
-        vba2graph_dict_content = dict()
+        data = {}
+        debugger_logs = {}
+        bingraph_dict_content = {}
+        vba2graph_dict_content = {}
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
@@ -557,7 +548,7 @@ def load_files(request, task_id, category):
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
 
-            sha256_blocks = list()
+            sha256_blocks = []
             if data:
                 if category == "CAPE":
                     sha256_blocks = data.get("CAPE", {}).get("payloads", [])
@@ -1075,7 +1066,7 @@ def search_behavior(request, task_id):
             if es_as_db:
                 # I don't believe ES has a similar function to MongoDB's $in
                 # so we'll just iterate the call list and query appropriately
-                chunks = list()
+                chunks = []
                 for callitem in process["calls"]:
                     data = es.search(index=esidx, oc_type="calls", q="_id: %s" % callitem)["hits"]["hits"][0]["_source"]
                     chunks.append(data)
@@ -1223,7 +1214,7 @@ def report(request, task_id):
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
     vba2graph = False
-    vba2graph_dict_content = dict()
+    vba2graph_dict_content = {}
     # we don't want to do this for urls but we might as well check that the target exists
     if report.get("target", {}).get("file", {}):
         vba2graph = processing_cfg.vba2graph.enabled
@@ -1244,8 +1235,8 @@ def report(request, task_id):
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
 
-    domainlookups = dict()
-    iplookups = dict()
+    domainlookups = {}
+    iplookups = {}
     if network_report.get("network", {}):
         report["network"] = network_report["network"]
 
@@ -1261,7 +1252,7 @@ def report(request, task_id):
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
             if res and res.ok:
                 if "name" in res.json():
-                    report["distributed"] = dict()
+                    report["distributed"] = {}
                     report["distributed"]["name"] = res.json()["name"]
                     report["distributed"]["task_id"] = res.json()["task_id"]
         except Exception as e:
@@ -1288,13 +1279,13 @@ def report(request, task_id):
             if res and res.ok:
                 res = res.json()
                 if "name" in res:
-                    report["distributed"] = dict()
+                    report["distributed"] = {}
                     report["distributed"]["name"] = res["name"]
                     report["distributed"]["task_id"] = res["task_id"]
         except Exception as e:
             print(e)
 
-    existent_tasks = dict()
+    existent_tasks = {}
     if web_cfg.general.get("existent_tasks", False) and report.get("target", {}).get("file", {}).get("sha256"):
         records = perform_search("sha256", report["target"]["file"]["sha256"])
         for record in records:
@@ -1915,8 +1906,8 @@ def comments(request, task_id):
         if "comments" in report["info"]:
             curcomments = report["info"]["comments"]
         else:
-            curcomments = list()
-        buf = dict()
+            curcomments = []
+        buf = {}
         buf["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         escape_map = {
             "&": "&amp;",

@@ -323,22 +323,18 @@ class Analyzer:
         log.debug("Pipe server name: %s", PIPE)
         log.debug("Python path: %s", os.path.dirname(sys.executable))
 
-        # If no analysis package was specified at submission, we try to select
-        # one automatically.
+        # If no analysis package was specified at submission, we try to select one automatically.
         if not self.config.package:
             log.debug("No analysis package specified, trying to detect it automagically")
 
-            # If the analysis target is a file, we choose the package according
-            # to the file format.
+            # If the analysis target is a file, we choose the package according to the file format.
             if self.config.category == "file":
                 package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
-            # If it's an URL, we'll just use the default Internet Explorer
-            # package.
+            # If it's an URL, we'll just use the default Internet Explorer package.
             else:
                 package = "ie"
 
-            # If we weren't able to automatically determine the proper package,
-            # we need to abort the analysis.
+            # If we weren't able to automatically determine the proper package, we need to abort the analysis.
             if not package:
                 raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
 
@@ -758,9 +754,8 @@ class Files(object):
             file_details = self.files_orig.get(filepath.lower())
             category = file_details["category"]
             metadata = file_details["metadata"]
-            # Do not remove or, as if no it will return empty list instead of string
-            pids = self.files.get(filepath.lower(), "") or ""
-            filepath = self.files_orig.get(filepath.lower(), {}).get("path", filepath)
+            pids = self.files.get(filepath.lower(), [])
+            filepath = file_details.get("path", filepath)
 
         if category == "memory":
             if pids:

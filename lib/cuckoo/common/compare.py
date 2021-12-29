@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import zlib
-import json
 import collections
+import json
+import zlib
 
 from lib.cuckoo.common.config import Config
 
@@ -79,7 +79,7 @@ def helper_percentages_mongo(results_db, tid1, tid2, ignore_categories=["misc"])
 
 
 def helper_summary_mongo(results_db, tid1, tid2):
-    summaries = dict()
+    summaries = {}
     left_sum, right_sum = None, None
     left_sum = results_db.analysis.find_one({"info.id": int(tid1)}, {"behavior.summary": 1})
     right_sum = results_db.analysis.find_one({"info.id": int(tid2)}, {"behavior.summary": 1})
@@ -119,7 +119,7 @@ def helper_percentages_elastic(es_obj, tid1, tid2, idx, ignore_categories=["misc
 
 
 def helper_summary_elastic(es_obj, tid1, tid2, idx):
-    summaries = dict()
+    summaries = {}
     left_sum, right_sum = None, None
     buf = es_obj.search(index=idx, doc_type="analysis", q='info.id: "%s"' % tid1)["hits"]["hits"]
     if buf:
@@ -136,7 +136,7 @@ def helper_summary_elastic(es_obj, tid1, tid2, idx):
 
 
 def get_similar_summary(left_sum, right_sum):
-    ret = dict()
+    ret = {}
 
     if repconf.compressresults.enabled:
         left_sum["behavior"]["summary"] = json.loads(zlib.decompress(left_sum["behavior"]["summary"]))
@@ -146,7 +146,7 @@ def get_similar_summary(left_sum, right_sum):
         for item in left_sum["behavior"]["summary"][summary]:
             if item in right_sum["behavior"]["summary"][summary]:
                 if summary not in list(ret.keys()):
-                    ret[summary] = list()
+                    ret[summary] = []
                 ret[summary].append(item)
 
     return ret

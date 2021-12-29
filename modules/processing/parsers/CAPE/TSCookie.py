@@ -6,11 +6,12 @@
 # Credit to JPCERT - this is derived from https://github.com/JPCERTCC/aa-tools/blob/master/tscookie_decode.py
 #
 from __future__ import absolute_import
-import sys
-import pefile
-import re
 import collections
+import re
+import sys
 from struct import unpack, unpack_from
+
+import pefile
 
 # Resource pattern
 RESOURCE_PATTERNS = [
@@ -64,16 +65,16 @@ def parse_config(config):
     config_dict = collections.OrderedDict()
     for i in range(4):
         if config[0x10 + 0x100 * i] != "\x00":
-            config_dict["Server name #" + str(i + 1)] = __format_string(
+            config_dict[f"Server name #{i + 1}"] = __format_string(
                 unpack_from("<240s", config, 0x10 + 0x100 * i)[0].decode("utf-16")
             )
-            config_dict["Main port #" + str(i + 1)] = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
-            config_dict["Backup port #" + str(i + 1)] = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
+            config_dict[f"Main port #{i + 1}"] = unpack_from("<H", config, 0x4 + 0x100 * i)[0]
+            config_dict[f"Backup port #{i + 1}"] = unpack_from("<H", config, 0x8 + 0x100 * i)[0]
     if config[0x400] != "\x00":
         config_dict["Proxy server"] = __format_string(unpack_from("<128s", config, 0x400)[0].decode("utf-16"))
         config_dict["Proxy port"] = unpack_from("<H", config, 0x480)[0]
     config_dict["ID"] = __format_string(unpack_from("<256s", config, 0x500)[0].decode("utf-16"))
-    config_dict["Key"] = "0x{0:X}".format(unpack_from(">I", config, 0x604)[0])
+    config_dict["Key"] = f"0x{unpack_from('>I', config, 0x604)[0]:X}"
     config_dict["Sleep time"] = unpack_from("<H", config, 0x89C)[0]
     return config_dict
 
@@ -119,7 +120,7 @@ def load_resource(pe, data):
             except Exception:
                 return
     if not mr:
-        sys.exit("[!] Resource id not found.")
+        sys.exit("[!] Resource id not found")
 
     for idx in pe.DIRECTORY_ENTRY_RESOURCE.entries:
         if str(idx.name) in str(resource_name):
@@ -157,7 +158,7 @@ def config(data):
     if mr2:
         rc2_data = load_resource(dll, data)
         key_end = load_rc4key(data)
-        decode_resource(rc2_data, key_end, "TSCookie" + ".2nd.decode")
+        decode_resource(rc2_data, key_end, "TSCookie.2nd.decode")
 
     try:
         enc_config = enc_config_data[4:]

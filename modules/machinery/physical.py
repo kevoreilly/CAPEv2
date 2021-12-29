@@ -3,18 +3,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import sys
-import struct
-import logging
-import requests
-import socket
 import json
+import logging
+import socket
+import struct
+import sys
 from time import sleep
+
+import requests
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 
@@ -52,8 +52,8 @@ class Physical(Machinery):
             elif status == self.ERROR:
                 raise CuckooMachineError(
                     "Unknown error occurred trying to obtain the status of "
-                    "physical machine %s. Please turn it on and check the "
-                    "Cuckoo Agent." % machine.label
+                    f"physical machine {machine.label}. Please turn it on "
+                    " and check the Cuckoo Agent"
                 )
 
     def _get_machine(self, label):
@@ -66,7 +66,7 @@ class Physical(Machinery):
             if label == m.label:
                 return m
 
-        raise CuckooMachineError("No machine with label: %s." % label)
+        raise CuckooMachineError(f"No machine with label: {label}")
 
     def isTaskigDone(self, hostID):
         """This function checks if there are any running tasks for host ID in fog
@@ -74,7 +74,7 @@ class Physical(Machinery):
         @return: Returns true if there is an active task and false if there are none
         """
         try:
-            searchURL = "http://" + self.options.fog.hostname + "/fog/task/active"
+            searchURL = f"http://{self.options.fog.hostname}/fog/task/active"
             r = requests.get(searchURL, headers=headers)
             tasks = r.json()["tasks"]
             flag = True
@@ -83,7 +83,7 @@ class Physical(Machinery):
                     flag = False
             return flag
         except Exception:
-            raise CuckooMachineError("Error while checking for fog task state for hostID " + str(hostID) + ": " + sys.exc_info()[0])
+            raise CuckooMachineError(f"Error while checking for fog task state for hostID {hostID}: {sys.exc_info()[0]}")
 
     def start(self, label):
         """Start a physical machine.
@@ -92,14 +92,14 @@ class Physical(Machinery):
         @raise CuckooMachineError: if unable to start.
         """
         # Check to ensure a given machine is running
-        log.debug("Checking if machine %r is running.", label)
+        log.debug("Checking if machine %s is running", label)
         status = self._status(label)
         if status == self.RUNNING:
-            log.debug("Machine already running: %s.", label)
+            log.debug("Machine already running: %s", label)
         elif status == self.STOPPED:
             self._wait_status(label, self.RUNNING)
         else:
-            raise CuckooMachineError("Error occurred while starting: " "%s (STATUS=%s)" % (label, status))
+            raise CuckooMachineError(f"Error occurred while starting: {label} (STATUS={status})")
 
     def stop(self, label):
 
@@ -111,17 +111,17 @@ class Physical(Machinery):
         hostID = 0
 
         if self._status(label) == self.RUNNING:
-            log.debug("Rebooting machine: %s.", label)
+            log.debug("Rebooting machine: %s", label)
             machine = self._get_machine(label)
 
-            r_hosts = requests.get("http://" + self.options.fog.hostname + "/fog/host", headers=headers)
+            r_hosts = requests.get(f"http://{self.options.fog.hostname}/fog/host", headers=headers)
             hosts = r_hosts.json()["hosts"]
 
             for host in hosts:
                 if machine.name == host["name"]:
-                    print(host["id"] + ": " + host["name"])
+                    print(f"{host['id']}: {host['name']}")
                     hostID = host["id"]
-                    r_types = requests.get("http://" + self.options.fog.hostname + "/fog/tasktype", headers=headers)
+                    r_types = requests.get(f"http://{self.options.fog.hostname}/fog/tasktype", headers=headers)
                     types = r_types.json()
 
                     for t in types["tasktypes"]:
@@ -132,12 +132,12 @@ class Physical(Machinery):
                     payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode()
 
                     r_deploy = requests.post(
-                        "http://" + self.options.fog.hostname + "/fog/host/" + hostID + "/task", headers=headers, data=payload
+                        f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload
                     )
 
                     try:
                         requests.post(
-                            "http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT) + "/execute",
+                            f"http://{machine.ip}:{CUCKOO_GUEST_PORT}/execute",
                             data={"command": "shutdown -r -f -t 0"},
                         )
                     except Exception:
@@ -146,17 +146,17 @@ class Physical(Machinery):
 
         # We are waiting until we are able to connect to the agent again since we dont know how long it will take to restore the machine
         while not self.isTaskigDone(hostID):
-            log.debug("Restore operation for " + machine.name + " still running.")
+            log.debug("Restore operation for %s still running", machine.name)
             sleep(10)
 
         # After the restore operation is done we are waiting until it is up again and we can connect to the agent
-        url = "http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT)
+        url = f"http://{machine.ip}:{CUCKOO_GUEST_PORT}"
 
         connection_succesful = False
 
         while not connection_succesful:
             try:
-                r = requests.get(url + "/status")
+                r = requests.get(f"{url}/status")
                 print(r.text)
                 connection_succesful = True
             except Exception:
@@ -182,17 +182,17 @@ class Physical(Machinery):
         # For physical machines, the agent can either be contacted or not.
         # However, there is some information to be garnered from potential
         # exceptions.
-        log.debug("Getting status for machine: %s.", label)
+        log.debug("Getting status for machine: %s", label)
         machine = self._get_machine(label)
 
         # The status is only used to determine whether the Guest is running
         # or whether it is in a stopped status, therefore the timeout can most
         # likely be fairly arbitrary. TODO This is a temporary fix as it is
         # not compatible with the new Cuckoo Agent, but it will have to do.
-        url = "http://{0}:{1}".format(machine.ip, CUCKOO_GUEST_PORT)
+        url = f"http://{machine.ip}:{CUCKOO_GUEST_PORT}"
 
         try:
-            r = requests.get(url + "/status")
+            r = requests.get(f"{url}/status")
             print(r.text)
             return self.RUNNING
         except Exception:
@@ -209,25 +209,24 @@ class Physical(Machinery):
         # TODO Handle exceptions such as not being able to connect.
 
         # Parse the HTML.
-        r = requests.get("http://" + self.options.fog.hostname + "/fog/status", headers=headers, verify=False)
+        r = requests.get(f"http://{self.options.fog.hostname}/fog/status", headers=headers, verify=False)
 
         if r.status_code != 200:
-            raise CuckooCriticalError("The FOG server answered with the status code " + str(r.status_code))
+            raise CuckooCriticalError(f"The FOG server answered with the status code {r.status_code}")
 
-        r_hosts = requests.get("http://" + self.options.fog.hostname + "/fog/host", headers=headers, verify=False)
+        r_hosts = requests.get(f"http://{self.options.fog.hostname}/fog/host", headers=headers, verify=False)
         hosts = r_hosts.json()["hosts"]
         hostnames = []
         for host in hosts:
             hostnames.append(host["name"])
-            print("Host " + host["name"] + " has MAC " + host["macs"][0])
+            print(f"Host {host['name']} has MAC {host['macs'][0]}")
 
             # Check whether all our machines are available on FOG.
         for machine in self.machines():
             if machine.label not in hostnames:
                 raise CuckooMachineError(
-                    "The physical machine %s has not been defined in FOG, "
-                    "please investigate and configure the configuration "
-                    "correctly." % machine.label
+                    f"The physical machine {machine.label} has not been defined in FOG, "
+                    "please investigate and configure the configuration correctly"
                 )
 
     def fog_queue_task(self, hostname):
@@ -240,7 +239,7 @@ class Physical(Machinery):
         """Start a machine that's currently shutdown."""
         machine = self._get_machine(label)
 
-        r_hosts = requests.get("http://" + self.options.fog.hostname + "/fog/host", headers=headers, verify=False)
+        r_hosts = requests.get(f"http://{self.options.fog.hostname}/fog/host", headers=headers, verify=False)
         hosts = r_hosts.json()["hosts"]
         for host in hosts:
             if label == host["name"]:
@@ -248,20 +247,20 @@ class Physical(Machinery):
 
         ip = machine.ip
         parts = ip.split(".")
-        broadcastip = parts[0] + "." + parts[1] + "." + parts[2] + ".255"
+        broadcastip = f"{'.'.join(parts[:3])}.255"
 
         if len(macaddr) == 0:
-            log.debug("No Machine with hostname %s found." % label)
+            log.debug("No Machine with hostname %s found", label)
             return
 
         packet = self.create_magic_packet(macaddr)
         if packet is False:
-            log.debug("Sending Wake on Lan message has failed.")
+            log.debug("Sending Wake on Lan message has failed")
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        log.debug("Sending Wake on Lan message for %s (%s) to Broadcast IP %s." % (label, macaddr, broadcastip))
+        log.debug("Sending Wake on Lan message for %s (%s) to Broadcast IP %s", label, macaddr, broadcastip)
         sock.sendto(packet, (broadcastip, 54545))
         sock.close()
 
@@ -272,7 +271,7 @@ class Physical(Machinery):
             sep = macaddress[2]
             macaddress = macaddress.replace(sep, "")
         else:
-            log.debug("Incorrect MAC address format: %s" % macaddress)
+            log.debug("Incorrect MAC address format: %s", macaddress)
             return False
 
         # Pad the synchronization stream

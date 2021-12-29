@@ -49,7 +49,7 @@ class Curtain(Thread, Auxiliary):
 
         if os.path.exists("C:\\curtain.log"):
             now = time.time()
-            upload_to_host("C:\\curtain.log", f"curtain/{now}.curtain.log", False)
+            upload_to_host("C:\\curtain.log", f"curtain/{now}.curtain.log")
         else:
             log.error("Curtain log file not found!")
 

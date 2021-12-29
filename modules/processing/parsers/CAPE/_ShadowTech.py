@@ -3,16 +3,16 @@
 ShadowTech Config Extractor
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
-import database
-import createIOC
+from __future__ import absolute_import, print_function
 import re
 import string
 from operator import xor
 
+import createIOC
+import database
+
 new_line = "#-@NewLine@-#"
-split_string = "ESILlzCwXBSrQ1Vb72t6bIXtKRzHJkolNNL94gD8hIi9FwLiiVlrznTz68mkaaJQQSxJfdLyE4jCnl5QJJWuPD4NeO4WFYURvmkth8"  #
+split_string = "ESILlzCwXBSrQ1Vb72t6bIXtKRzHJkolNNL94gD8hIi9FwLiiVlrznTz68mkaaJQQSxJfdLyE4jCnl5QJJWuPD4NeO4WFYURvmkth8"
 enc_key = "pSILlzCwXBSrQ1Vb72t6bIXtKRzAHJklNNL94gD8hIi9FwLiiVlr"  # Actual key is 'KeY11PWD24'
 
 
@@ -30,7 +30,7 @@ def get_config(data):
         try:
             output = ""
             hex_pairs = [config_string[x][i : i + 2] for i in range(0, len(config_string[x]), 2)]
-            for i in range(0, len(config_string[x]) / 2):
+            for i in range(len(config_string[x]) // 2):
                 data_slice = int(hex_pairs[i], 16)  # get next hex value
 
                 key_slice = ord(enc_key[i + 1])  # get next Char For Key
@@ -78,25 +78,19 @@ def snortRule(md5, config_dict):
     if len(domain) > 1:
         if ipTest:
             rules.append(
-                """alert tcp any any -> """
-                + domain
-                + """ any (msg: "ShadowTech Beacon Domain: """
-                + domain
+                f"""alert tcp any any -> {domain}"""
+                + f""" any (msg: "ShadowTech Beacon Domain: {domain}"""
                 + """"; classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
         else:
             rules.append(
-                """alert udp any any -> any 53 (msg: "ShadowTech Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert udp any any -> any 53 (msg: "ShadowTech Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
             rules.append(
-                """alert tcp any any -> any 53 (msg: "ShadowTech Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert tcp any any -> any 53 (msg: "ShadowTech Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
     database.insertSnort(md5, rules)

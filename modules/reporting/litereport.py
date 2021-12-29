@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-
 import os
 
 from lib.cuckoo.common.abstracts import Report
@@ -59,4 +58,4 @@ class LiteReport(Report):
                 with open(path, "w") as report:
                     json.dump(lite_report, report, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
         except (UnicodeError, TypeError, IOError) as e:
-            raise CuckooReportError("Failed to generate JSON report: %s" % e)
+            raise CuckooReportError(f"Failed to generate JSON report: {e}")

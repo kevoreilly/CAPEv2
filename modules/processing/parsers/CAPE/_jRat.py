@@ -1,15 +1,11 @@
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 import re
-import os
-import sys
-import commands
-from io import StringIO
 from base64 import b64decode
-import string
+from io import StringIO
 from zipfile import ZipFile
-from Crypto.Cipher import AES, DES3
+
 import database
+from Crypto.Cipher import AES, DES3
 
 
 def run(md5, data):
@@ -17,7 +13,7 @@ def run(md5, data):
     enckey, conf = get_parts(data)
     if enckey == None:
         return
-    print("[+] Decoding Config with Key: {0}".format(enckey.encode("hex")))
+    print(f"[+] Decoding Config with Key: {enckey.encode('hex')}")
     if len(enckey) == 16:
         # Newer versions use a base64 encoded config.dat
         if "==" in conf:  # this is not a great test but should work 99% of the time
@@ -54,7 +50,7 @@ def get_parts(data):
                 if name == "config.dat":  # this is the encrypted config file
                     conf = zip.read(name)
     except Exception:
-        print("[+] Dropped File is not Jar File starts with Hex Chars: {0}".format(data[:5].encode("hex")))
+        print(f"[+] Dropped File is not Jar File starts with Hex Chars: {data[:5].encode('hex')}")
         return None, None
     if enckey and conf:
         return enckey, conf
@@ -73,10 +69,10 @@ def get_dropper(enckey, dropper):
     for x in split:  # grab each line of the config and decode it.
         try:
             drop = b64decode(x).decode("hex")
-            print("    [-] {0}".format(drop).replace("\x0d\x0a", ""))
+            print(f"    [-] {drop}".replace("\x0d\x0a", ""))
         except Exception:
             drop = b64decode(x[16:]).decode("hex")
-            print("    [-] {0}".format(drop))
+            print(f"    [-] {drop}")
     new_zipdata = decrypt_aes(key, dropper)
     new_key, conf = get_parts(new_zipdata)
     return new_key, conf
@@ -193,25 +189,19 @@ def snortRule(md5, conf):
     if len(domain) > 1:
         if ipTest:
             rules.append(
-                """alert tcp any any -> """
-                + domain
-                + """ any (msg: "jRat Beacon Domain: """
-                + domain
+                f"""alert tcp any any -> {domain}"""
+                + f""" any (msg: "jRat Beacon Domain: {domain}"""
                 + """"; classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
         else:
             rules.append(
-                """alert udp any any -> any 53 (msg: "jRat Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert udp any any -> any 53 (msg: "jRat Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
             rules.append(
-                """alert tcp any any -> any 53 (msg: "jRat Beacon Domain: """
-                + domain
-                + """"; content:"|0e|"""
-                + domain
+                f"""alert tcp any any -> any 53 (msg: "jRat Beacon Domain: {domain}"""
+                + f""""; content:"|0e|{domain}"""
                 + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
     database.insertSnort(md5, rules)

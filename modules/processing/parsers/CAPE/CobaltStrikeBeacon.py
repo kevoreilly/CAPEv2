@@ -9,19 +9,19 @@ TODO:
  2. Dynamic size parsing
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
-from struct import unpack
-from socket import inet_ntoa
-from collections import OrderedDict
-from netstruct import unpack as netunpack
-import json
-from base64 import b64encode
+from __future__ import absolute_import, print_function
 import argparse
 import io
-import re
-import pefile
+import json
 import logging
+import re
+from base64 import b64encode
+from collections import OrderedDict
+from socket import inet_ntoa
+from struct import unpack
+
+import pefile
+from netstruct import unpack as netunpack
 
 log = logging.getLogger(__name__)
 
@@ -140,7 +140,7 @@ class packedSetting:
                 conf_data = unpack(">I", conf_data)[0]
                 if self.is_date and conf_data != 0:
                     fulldate = str(conf_data)
-                    return "%s-%s-%s" % (fulldate[0:4], fulldate[4:6], fulldate[6:])
+                    return f"{fulldate[0:4]}-{fulldate[4:6]}-{fulldate[6:]}"
 
                 return conf_data
 
@@ -162,7 +162,7 @@ class packedSetting:
                         # Skipping unknown short value in the start
                         string1 = netunpack(b"I$", conf_data[i + 3 :])[0].decode()
                         string2 = netunpack(b"I$", conf_data[i + 3 + 4 + len(string1) :])[0].decode()
-                        ret_arr.append("%s:%s" % (string1.strip("\x00"), string2.strip("\x00")))
+                        ret_arr.append("{}:{}".format(string1.strip("\x00"), string2.strip("\x00")))
                         i += len(string1) + len(string2) + 11
 
             elif self.is_transform:
@@ -188,10 +188,10 @@ class packedSetting:
                         break
                     if op == 1:
                         l = read_dword_be(fh)
-                        prog.append("Remove %d bytes from the end" % l)
+                        prog.append(f"Remove {l} bytes from the end")
                     elif op == 2:
                         l = read_dword_be(fh)
-                        prog.append("Remove %d bytes from the beginning" % l)
+                        prog.append(f"Remove {l} bytes from the beginning")
                     elif op == 3:
                         prog.append("Base64 decode")
                     elif op == 8:
@@ -238,7 +238,7 @@ class BeaconSettings:
 
     def __init__(self, version):
         if version not in SUPPORTED_VERSIONS:
-            log.info("Error: Only supports version 3 and 4, not %d" % version)
+            log.info("Error: Only supports version 3 and 4, not %d", version)
         self.version = version
         self.settings = OrderedDict()
         self.init()
@@ -324,7 +324,7 @@ class cobaltstrikeConfig:
         return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
-        parsed_config = dict()
+        parsed_config = {}
         re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
         re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
 

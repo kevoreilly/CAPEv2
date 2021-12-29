@@ -2,10 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
 import re
-
-from lib.common.decode_vbe_jse import DecodeVBEJSE
 
 
 def choose_package(file_type, file_name, exports, target):
@@ -123,14 +120,5 @@ def choose_package(file_type, file_name, exports, target):
         return "ichitaro"
     elif file_name.endswith(".reg"):
         return "reg"
-    elif b"#@~^" in file_content[:100]:
-        data = DecodeVBEJSE(file_content, "")
-        if data:
-            if re.findall(br"\s?Dim\s", data, re.I):
-                return "vbs"
-            else:
-                return "js"
-        else:
-            return "vbejse"
     else:
         return "generic"

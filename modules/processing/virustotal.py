@@ -2,21 +2,22 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
-import logging
-import requests
 import hashlib
+import logging
+import os
+
+import requests
+
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import get_vt_consensus
 
 try:
     import re2 as re
 except ImportError:
     import re
-
-from lib.cuckoo.common.utils import get_vt_consensus
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.exceptions import CuckooProcessingError
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -66,15 +67,15 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                 try:
                     urlscrub_compiled_re = re.compile(urlscrub)
                 except Exception as e:
-                    raise CuckooProcessingError("Failed to compile urlscrub regex" % (e))
+                    raise CuckooProcessingError(f"Failed to compile urlscrub regex: {e}")
                 try:
                     target = re.sub(urlscrub_compiled_re, "", target)
                 except Exception as e:
-                    return {"error": True, "msg": "Failed to scrub url" % (e)}
+                    return {"error": True, "msg": f"Failed to scrub url: {e}"}
 
             # normalize the URL the way VT appears to
             if not target.lower().startswith("http://") and not target.lower().startswith("https://"):
-                target = "http://" + target
+                target = f"http://{target}"
             slashsplit = target.split("/")
             slashsplit[0] = slashsplit[0].lower()
             slashsplit[2] = slashsplit[2].lower()
@@ -111,8 +112,8 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                         virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items())
                     virustotal["resource"] = sha256
 
-                    virustotal["results"] = list()
-                    detectnames = list()
+                    virustotal["results"] = []
+                    detectnames = []
                     for engine, block in engines.items():
                         virustotal["results"] += [{"vendor": engine.replace(".", "_"), "sig": block["result"]}]
                         if block["result"] and "Trojan.Heur." not in block["result"]:
@@ -124,13 +125,13 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                     virustotal["detection"] = get_vt_consensus(detectnames)
                     return virustotal
                 else:
-                    return dict()
+                    return {}
             else:
-                return {"error": True, "msg": "Unable to complete connection to VirusTotal. Status code: {}".format(r.status_code)}
+                return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
         except requests.exceptions.RequestException as e:
-            return {"error": True, "msg": "Unable to complete connection to VirusTotal: {0}".format(e)}
+            return {"error": True, "msg": f"Unable to complete connection to VirusTotal: {e}"}
     else:
-        return dict()
+        return {}
 
 
 class VirusTotal(Processing):
@@ -143,11 +144,11 @@ class VirusTotal(Processing):
         self.key = "virustotal"
 
         if not key:
-            raise CuckooProcessingError("VirusTotal API key not configured, skip")
+            raise CuckooProcessingError("VirusTotal API key not configured, skipping")
 
         if processing_conf.virustotal.get("on_demand", False):
             log.debug("VT on_demand enabled, returning")
-            return dict()
+            return {}
 
         target = False
         if self.task["category"] == "file" and do_file_lookup:
@@ -156,7 +157,7 @@ class VirusTotal(Processing):
             target = self.task["target"]
         else:
             # Not supported type, exit.
-            return dict()
+            return {}
 
         vt_response = vt_lookup(self.task["category"], target)
         if "error" in vt_response:

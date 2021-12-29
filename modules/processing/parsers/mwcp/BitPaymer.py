@@ -12,11 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mwcp.parser import Parser
 import string
+
 import pefile
 import yara
 from Crypto.Cipher import ARC4
+from mwcp.parser import Parser
 
 rule_source = """
 rule BitPaymer
@@ -43,7 +44,7 @@ def convert_char(c):
         # ToDo gonna break as its int
         return c
     else:
-        return "\\x%02x" % ord(c)
+        return f"\\x{ord(c):02x}"
 
 
 def decrypt_rc4(key, data):

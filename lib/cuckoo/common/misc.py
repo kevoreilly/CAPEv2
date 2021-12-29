@@ -1,14 +1,16 @@
 from __future__ import absolute_import
 import os
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
-_root = CUCKOO_ROOT
 try:
     import pwd
 
     HAVE_PWD = True
 except ImportError:
     HAVE_PWD = False
+
+_root = CUCKOO_ROOT
 
 
 def getuser():

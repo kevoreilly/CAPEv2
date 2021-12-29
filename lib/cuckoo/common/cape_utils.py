@@ -1,15 +1,15 @@
 from __future__ import absolute_import
+import hashlib
+import logging
 import os
 import shutil
-import logging
-import tempfile
-import hashlib
 import subprocess
-from collections.abc import Mapping, Iterable
+import tempfile
+from collections.abc import Iterable, Mapping
 
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
 
 try:
@@ -19,8 +19,8 @@ try:
 except ImportError:
     HAVE_YARA = False
 
-malware_parsers = dict()
-cape_malware_parsers = dict()
+malware_parsers = {}
+cape_malware_parsers = {}
 
 # Config variables
 cfg = Config()
@@ -72,6 +72,89 @@ try:
 except ImportError:
     HAVE_BAT_DECODER = False
     print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
+
+HAS_MWCP = False
+if process_cfg.mwcp.enabled:
+    # Import All config parsers
+    try:
+        import mwcp
+
+        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
+        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
+        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
+        HAS_MWCP = True
+        assert "MWCP_TEST" in malware_parsers
+    except ImportError as e:
+        logging.info(
+            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
+        )
+
+HAS_MALWARECONFIGS = False
+if process_cfg.ratdecoders.enabled:
+    try:
+        from malwareconfig import fileparser
+        from malwareconfig.modules import __decoders__
+
+        HAS_MALWARECONFIGS = True
+        if process_cfg.ratdecoders.modules_path:
+            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
+
+            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
+            if ratdecoders_local_modules:
+                __decoders__.update(ratdecoders_local_modules)
+            assert "TestRats" in __decoders__
+    except ImportError:
+        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+    except Exception as e:
+        logging.error(e, exc_info=True)
+
+HAVE_MALDUCK = False
+if process_cfg.malduck.enabled:
+    try:
+        # from malduck.extractor.loaders import load_modules
+        from malduck.extractor import ExtractManager, ExtractorModules
+        from malduck.extractor.extractor import Extractor
+        from malduck.yara import Yara
+
+        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
+
+        malduck_rules = Yara.__new__(Yara)
+        malduck_modules = ExtractorModules.__new__(ExtractorModules)
+        # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
+        malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
+        malduck_modules.extractors = Extractor.__subclasses__()
+        HAVE_MALDUCK = True
+        # del tmp_modules
+        assert "test_malduck" in malduck_modules_names
+    except ImportError:
+        logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+
+HAVE_CAPE_EXTRACTORS = False
+if process_cfg.CAPE_extractors.enabled:
+    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
+
+    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
+    if cape_malware_parsers:
+        HAVE_CAPE_EXTRACTORS = True
+    assert "test_cape" in cape_malware_parsers
+
+try:
+    from modules.processing.parsers.plugxconfig import plugx
+
+    plugx_parser = plugx.PlugXConfig()
+except ImportError as e:
+    plugx_parser = False
+    logging.error(e)
+
+suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
+
+pe_map = {
+    "PE32+": ": 64-bit ",
+    "PE32": ": 32-bit ",
+}
+
+BUFSIZE = int(cfg.processing.analysis_size_limit)
 
 
 def init_yara():
@@ -145,91 +228,6 @@ def init_yara():
                 log.debug("\t |-- %s %s", category, entry)
 
 
-HAS_MWCP = False
-if process_cfg.mwcp.enabled:
-    # Import All config parsers
-    try:
-        import mwcp
-
-        logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
-        HAS_MWCP = True
-        assert "MWCP_TEST" in malware_parsers
-    except ImportError as e:
-        logging.info(
-            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
-        )
-
-HAS_MALWARECONFIGS = False
-if process_cfg.ratdecoders.enabled:
-    try:
-        from malwareconfig import fileparser
-        from malwareconfig.modules import __decoders__, __preprocessors__
-
-        HAS_MALWARECONFIGS = True
-        if process_cfg.ratdecoders.modules_path:
-            from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
-
-            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
-            if ratdecoders_local_modules:
-                __decoders__.update(ratdecoders_local_modules)
-            assert "TestRats" in __decoders__
-    except ImportError:
-        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
-    except Exception as e:
-        logging.error(e, exc_info=True)
-
-HAVE_MALDUCK = False
-if process_cfg.malduck.enabled:
-    try:
-        from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
-        from malduck.extractor import ExtractorModules, ExtractManager
-        from malduck.extractor.extractor import Extractor
-
-        # from malduck.extractor.loaders import load_modules
-        from malduck.yara import Yara
-
-        malduck_rules = Yara.__new__(Yara)
-        malduck_modules = ExtractorModules.__new__(ExtractorModules)
-        # tmp_modules = load_modules(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
-        # malduck_modules_names = dict((k.split(".")[-1], v) for k, v in tmp_modules.items())
-        malduck_modules_names = malduck_load_decoders(CUCKOO_ROOT)
-        malduck_modules.extractors = Extractor.__subclasses__()
-        HAVE_MALDUCK = True
-        # del tmp_modules
-        assert "test_malduck" in malduck_modules_names
-    except ImportError:
-        logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
-
-HAVE_CAPE_EXTRACTORS = False
-if process_cfg.CAPE_extractors.enabled:
-    from lib.cuckoo.common.load_extra_modules import cape_load_decoders
-
-    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
-    if cape_malware_parsers:
-        HAVE_CAPE_EXTRACTORS = True
-    assert "test_cape" in cape_malware_parsers
-
-try:
-    from modules.processing.parsers.plugxconfig import plugx
-
-    plugx_parser = plugx.PlugXConfig()
-except ImportError as e:
-    plugx_parser = False
-    logging.error(e)
-
-suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]
-
-pe_map = {
-    "PE32+": ": 64-bit ",
-    "PE32": ": 32-bit ",
-}
-
-
-BUFSIZE = int(cfg.processing.analysis_size_limit)
-
-
 def hash_file(method, path):
     """Calculates an hash on a file by path.
     @param method: callable hashing method
@@ -291,8 +289,8 @@ def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
 
     cape_name = yara_hit.replace("_", " ")
-    cape_config = dict()
-    cape_config[cape_name] = dict()
+    cape_config = {}
+    cape_config[cape_name] = {}
     parser_loaded = False
     # CAPE - pure python parsers
     # MWCP
@@ -329,7 +327,7 @@ def static_config_parsers(yara_hit, file_data):
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
             if not reporter.errors:
                 parser_loaded = True
-                tmp_dict = dict()
+                tmp_dict = {}
                 if reporter.metadata.get("debug"):
                     del reporter.metadata["debug"]
                 if reporter.metadata.get("other"):
@@ -414,7 +412,7 @@ def static_config_parsers(yara_hit, file_data):
                 cape_config[cape_name].update({key: [value]})
 
     if not cape_config[cape_name]:
-        return dict()
+        return {}
 
     return cape_config
 
@@ -462,7 +460,7 @@ def cape_name_from_yara(details, pid, results):
         ):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
-            results["detections2pid"].setdefault(str(pid), list())
+            results["detections2pid"].setdefault(str(pid), [])
             name = hit["name"].replace("_", " ")
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
@@ -476,7 +474,7 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         destination_folder - where to move extracted files
         files - file names
     """
-    metadata = list()
+    metadata = []
     if not files:
         files = os.listdir(folder)
     for file in files:
@@ -518,7 +516,7 @@ def _generic_post_extraction_process(file, decoded, destination_folder, data_dic
         with open(decoded_file_path, "wb") as f:
             f.write(decoded)
 
-    metadata = list()
+    metadata = []
     metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
     if metadata:
         for meta in metadata:
@@ -588,7 +586,7 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         logging.error("Missed dependency: sudo apt install msitools")
         return
 
-    metadata = list()
+    metadata = []
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
@@ -619,7 +617,7 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
     with open(file, "rb") as f:
         content = f.read()
 
-    metadata = list()
+    metadata = []
 
     if content.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
         with tempfile.TemporaryDirectory(prefix="kixtart_") as tempdir:

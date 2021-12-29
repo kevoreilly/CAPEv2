@@ -3,26 +3,22 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import json
-import pkgutil
 import inspect
+import json
 import logging
-from datetime import datetime, timedelta
+import os
+import pkgutil
+import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
-from lib.cuckoo.common.abstracts import Report, Signature, Feed
+from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import CuckooDisableModule
-from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.exceptions import CuckooProcessingError
-from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.common.exceptions import CuckooDependencyError
-from lib.cuckoo.common.suricata_detection import get_suricata_family, et_categories
+from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
+                                          CuckooReportError)
+from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.core.database import Database
 
 try:
@@ -47,7 +43,7 @@ def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"])
     except (ImportError, SyntaxError) as e:
-        print('Unable to import plugin "{0}": {1}'.format(name, e))
+        print(f'Unable to import plugin "{name}": {e}')
         return
     else:
         # ToDo remove for release
@@ -58,7 +54,7 @@ def import_plugin(name):
 
 
 def import_package(package):
-    prefix = package.__name__ + "."
+    prefix = f"{package.__name__}."
     for _, name, ispkg in pkgutil.iter_modules(package.__path__, prefix):
         if ispkg:
             continue
@@ -123,8 +119,8 @@ class RunAuxiliary(object):
             for module in auxiliary_list:
                 try:
                     current = module()
-                except Exception:
-                    log.exception("Failed to load the auxiliary module " '"{0}":'.format(module))
+                except Exception as e:
+                    log.exception('Failed to load the auxiliary module "%s": %s', module, e)
                     return
 
                 module_name = inspect.getmodule(current).__name__
@@ -134,7 +130,7 @@ class RunAuxiliary(object):
                 try:
                     options = self.cfg.get(module_name)
                 except CuckooOperationalError:
-                    log.debug("Auxiliary module %s not found in " "configuration file", module_name)
+                    log.debug("Auxiliary module %s not found in configuration file", module_name)
                     continue
 
                 if not options.enabled:
@@ -161,7 +157,7 @@ class RunAuxiliary(object):
         enabled = []
         for module in self.enabled:
             try:
-                getattr(module, "cb_%s" % name, default)(*args, **kwargs)
+                getattr(module, f"cb_{name}", default)(*args, **kwargs)
             except NotImplementedError:
                 pass
             except CuckooDisableModule:
@@ -213,8 +209,8 @@ class RunProcessing(object):
         # Initialize the specified processing module.
         try:
             current = module(self.results)
-        except Exception:
-            log.exception("Failed to load the processing module " '"{0}":'.format(module))
+        except Exception as e:
+            log.exception('Failed to load the processing module "%s": %s', module, e)
             return
 
         # Extract the module name.
@@ -242,13 +238,13 @@ class RunProcessing(object):
         try:
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
-            log.debug('Executing processing module "%s" on analysis at ' '"%s"', current.__class__.__name__, self.analysis_path)
+            log.debug('Executing processing module "%s" on analysis at "%s"', current.__class__.__name__, self.analysis_path)
             pretime = datetime.now()
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["processing"].append(
-                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))}
+                {"name": current.__class__.__name__, "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")}
             )
 
             # If succeeded, return they module's key name and the data to be
@@ -257,9 +253,9 @@ class RunProcessing(object):
         except CuckooDependencyError as e:
             log.warning('The processing module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooProcessingError as e:
-            log.warning('The processing module "%s" returned the following ' "error: %s", current.__class__.__name__, e)
-        except Exception:
-            log.exception('Failed to run the processing module "%s":', current.__class__.__name__)
+            log.warning('The processing module "%s" returned the following error: %s', current.__class__.__name__, e)
+        except Exception as e:
+            log.exception('Failed to run the processing module "%s": %s', current.__class__.__name__, e)
 
         return None
 
@@ -311,11 +307,9 @@ class RunProcessing(object):
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", dict()).setdefault("errors", list())
+                        self.results.setdefault("debug", {}).setdefault("errors", [])
                     self.results["debug"]["errors"].append(
-                        "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(
-                            file_name
-                        )
+                        f"Behavioral log {file_name} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf"
                     )
                     continue
         else:
@@ -369,7 +363,7 @@ class RunSignatures(object):
     def __init__(self, task, results):
         self.task = task
         self.results = results
-        self.ttps = list()
+        self.ttps = []
         self.cfg_processing = Config("processing")
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
@@ -413,9 +407,7 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) < StrictVersion(current.minimum.split("-")[0]):
                     log.debug(
-                        "You are running an older incompatible version "
-                        'of Cuckoo, the signature "%s" requires '
-                        "minimum version %s",
+                        'You are running an older incompatible version of Cuckoo, the signature "%s" requires minimum version %s',
                         current.name,
                         current.minimum,
                     )
@@ -432,9 +424,7 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) > StrictVersion(current.maximum.split("-")[0]):
                     log.debug(
-                        "You are running a newer incompatible version "
-                        'of Cuckoo, the signature "%s" requires '
-                        "maximum version %s",
+                        'You are running a newer incompatible version of Cuckoo, the signature "%s" requires maximum version %s',
                         current.name,
                         current.maximum,
                     )
@@ -457,8 +447,8 @@ class RunSignatures(object):
         # Initialize the current signature.
         try:
             current = signature(self.results)
-        except Exception:
-            log.exception("Failed to load signature " '"{0}":'.format(signature))
+        except Exception as e:
+            log.exception('Failed to load signature "%s": %s', signature, e)
             return
 
         # If the signature is disabled, skip it.
@@ -482,7 +472,7 @@ class RunSignatures(object):
             self.results["statistics"]["signatures"].append(
                 {
                     "name": current.name,
-                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
                 }
             )
 
@@ -492,8 +482,8 @@ class RunSignatures(object):
                 return current.as_result()
         except NotImplementedError:
             return None
-        except Exception:
-            log.exception('Failed to run signature "%s":', current.name)
+        except Exception as e:
+            log.exception('Failed to run signature "%s": %s', current.name, e)
 
         return None
 
@@ -509,7 +499,7 @@ class RunSignatures(object):
         complete_list = list_plugins(group="signatures") or []
         if test_signature:
             complete_list = [sig for sig in complete_list if sig.name == test_signature]
-        evented_list = list()
+        evented_list = []
         try:
             evented_list = [
                 sig(self.results)
@@ -522,12 +512,12 @@ class RunSignatures(object):
         except Exception as e:
             print(e)
         overlay = self._load_overlay()
-        log.debug("Applying signature overlays for signatures: %s", ", ".join(list(overlay.keys())))
+        log.debug("Applying signature overlays for signatures: %s", ", ".join(overlay))
         for signature in complete_list + evented_list:
             self._apply_overlay(signature, overlay)
 
         if evented_list and "behavior" in self.results:
-            log.debug("Running %u evented signatures", len(evented_list))
+            log.debug("Running %d evented signatures", len(evented_list))
             for sig in evented_list:
                 stats[sig.name] = timedelta()
                 if sig == evented_list[-1]:
@@ -558,7 +548,7 @@ class RunSignatures(object):
                         except NotImplementedError:
                             result = False
                         except Exception as e:
-                            log.exception("Failed to run signature {}: {}".format(sig.name, e))
+                            log.exception("Failed to run signature %s: %s", sig.name, e)
                             result = False
 
                         # If the signature returns None we can carry on, the
@@ -587,8 +577,8 @@ class RunSignatures(object):
                     stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
-                except Exception:
-                    log.exception('Failed run on_complete() method for signature "%s":', sig.name)
+                except Exception as e:
+                    log.exception('Failed run on_complete() method for signature "%s": %s', sig.name, e)
                     continue
                 else:
                     if result is True:
@@ -606,10 +596,7 @@ class RunSignatures(object):
         for key, value in stats.items():
             if value:
                 self.results["statistics"]["signatures"].append(
-                    {
-                        "name": key,
-                        "time": float("%d.%03d" % (value.seconds, value.microseconds / 1000)),
-                    }
+                    {"name": key, "time": float(f"{value.seconds}.{value.microseconds // 1000:03d}")}
                 )
         # Compat loop for old-style (non evented) signatures.
         if complete_list:
@@ -690,8 +677,8 @@ class RunReporting:
         # Initialize current reporting module.
         try:
             current = module()
-        except Exception:
-            log.exception('Failed to load the reporting module "{0}":'.format(module))
+        except Exception as e:
+            log.exception('Failed to load the reporting module "%s": %s', module, e)
             return
 
         # Extract the module name.
@@ -734,7 +721,7 @@ class RunReporting:
             self.results["statistics"]["reporting"].append(
                 {
                     "name": current.__class__.__name__,
-                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
+                    "time": float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"),
                 }
             )
 
@@ -742,8 +729,8 @@ class RunReporting:
             log.warning('The reporting module "%s" has missing dependencies: %s', current.__class__.__name__, e)
         except CuckooReportError as e:
             log.warning('The reporting module "%s" returned the following error: %s', current.__class__.__name__, e)
-        except Exception:
-            log.exception('Failed to run the reporting module "%s":', current.__class__.__name__)
+        except Exception as e:
+            log.exception('Failed to run the reporting module "%s": %s', current.__class__.__name__, e)
 
     def run(self):
         """Generates all reports.
@@ -776,7 +763,7 @@ class GetFeeds(object):
 
     def __init__(self, results):
         self.results = results
-        self.results["feeds"] = dict()
+        self.results["feeds"] = {}
 
     def process(self, feed):
         """Process modules with either downloaded data directly, or by
@@ -786,16 +773,16 @@ class GetFeeds(object):
 
         try:
             current = feed()
-            log.debug('Loading feed "{0}"'.format(current.name))
-        except Exception:
-            log.exception('Failed to load feed "{0}":'.format(current.name))
+            log.debug('Loading feed "%s"', current.name)
+        except Exception as e:
+            log.exception('Failed to load feed "%s": %s', current.name, e)
             return
 
         if current.update():
             try:
                 current.modify()
                 current.run(modified=True)
-                log.debug('"{0}" has been updated'.format(current.name))
+                log.debug('"%s" has been updated', current.name)
             except NotImplementedError:
                 current.run(modified=False)
             except Exception:

@@ -12,8 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import struct
 import socket
+import struct
+
 import pefile
 import yara
 from Crypto.Cipher import ARC4
@@ -65,7 +66,7 @@ def config(filebuf):
     DESCRIPTION = "DridexDropper configuration parser."
     AUTHOR = "kevoreilly"
 
-    cfg = dict()
+    cfg = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
     line, c2va_offset, delta = 0, 0, 0
@@ -115,14 +116,14 @@ def config(filebuf):
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
         num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
 
-    for i in range(0, num_ips):
+    for i in range(num_ips):
         ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
         c2_address = socket.inet_ntoa(struct.pack("!L", ip))
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", list())
-            cfg["address"].append(c2_address + ":" + port)
+            cfg.setdefault("address", [])
+            cfg["address"].append(f"{c2_address}:{port}")
 
         c2_offset += 6 + delta
 

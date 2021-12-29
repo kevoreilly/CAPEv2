@@ -3,10 +3,11 @@
 # http://tomasuh.github.io/2018/12/28/retefe-unpack.html
 # Many thanks to Tomasuh
 
-from mwcp.parser import Parser
-import yara
 import struct
+
 import pefile
+import yara
+from mwcp.parser import Parser
 
 rule_source = """
 rule Retefe
@@ -104,26 +105,26 @@ class Retefe(Parser):
 
         # Offset starts at match, we want end of match
         seed_val = struct.unpack("<i", filebuf[offset + 10 : offset + 14])[0] - 1  # -1 because of indexing in code
-        # print("Found seed (and buffer size) value {}".format(hex(seed_val)))
+        # print(f"Found seed (and buffer size) value {hex(seed_val)}")
 
         # Offset starts at match, we want end of match
         power_to_val = struct.unpack("<i", filebuf[offset2 + 14 : offset2 + 18])[0]
-        # print("Found power to value {}".format(hex(power_to_val)))
+        # print(f"Found power to value {hex(power_to_val)}")
 
         shift_val = struct.unpack("b", filebuf[offset3 + 2 : offset3 + 3])[0]
-        # print("Found shift left value {}".format(hex(shift_val)))
+        # print(f"Found shift left value {hex(shift_val)}")
 
         subtract_val = struct.unpack("<i", filebuf[offset3 + 4 : offset3 + 8])[0]
-        # print("Found subtract value {}".format(hex(subtract_val)))
+        # print(f"Found subtract value {hex(subtract_val)}")
 
         # (match length before instruction) + 7 (instruction length)
         buffer_place = struct.unpack("<i", filebuf[offset4 + 16 : offset4 + 20])[0] + 13 + 7
 
-        # print("Found buffer place arg {}".format(hex(buffer_place)))
+        # print(f"Found buffer place arg {hex(buffer_place)}")
 
         xor_arr = pwd_calc(seed_val, power_to_val, shift_val, subtract_val)
 
-        # print("XOR array that will be used for decryption {}".format(xor_arr))
+        # print(f"XOR array that will be used for decryption {xor_arr}")
 
         text_va_base = None
         text_raw_base = None
@@ -138,7 +139,7 @@ class Retefe(Parser):
         # Encoded buffer rva address :
         rva = rva_next_instr + text_va_base + buffer_place
 
-        # print("Calculated RVA for encoded buffer is {}".format(hex(rva)))
+        # print(f"Calculated RVA for encoded buffer is {hex(rva)}")
 
         buffer = pe.get_memory_mapped_image()[rva : rva + seed_val]
 

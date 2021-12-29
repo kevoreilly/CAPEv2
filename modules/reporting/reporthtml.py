@@ -3,25 +3,24 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import codecs
 import base64
+import codecs
+import os
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
+from web.analysis.templatetags.analysis_tags import malware_config
 
 try:
+    from jinja2 import TemplateAssertionError, TemplateNotFound, TemplateSyntaxError, UndefinedError
     from jinja2.environment import Environment
     from jinja2.loaders import FileSystemLoader
-    from jinja2 import UndefinedError, TemplateNotFound, TemplateSyntaxError, TemplateAssertionError
 
     HAVE_JINJA2 = True
 except ImportError:
     HAVE_JINJA2 = False
-
-from web.analysis.templatetags.analysis_tags import malware_config
 
 
 class ReportHTML(Report):
@@ -33,7 +32,7 @@ class ReportHTML(Report):
         @raise CuckooReportError: if fails to write report.
         """
         if not HAVE_JINJA2:
-            raise CuckooReportError("Failed to generate HTML report: " "Jinja2 Python library is not installed")
+            raise CuckooReportError("Failed to generate HTML report: Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
         if os.path.exists(shots_path):
@@ -68,15 +67,15 @@ class ReportHTML(Report):
             tpl = env.get_template("report.html")
             html = tpl.render({"results": results, "summary_report": False})
         except UndefinedError as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} ".format(e))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e}")
         except TemplateNotFound as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} {} ".format(e, e.name))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}")
         except (TemplateSyntaxError, TemplateAssertionError) as e:
-            raise CuckooReportError("Failed to generate summary HTML report: {} on {}, line {} ".format(e, e.name, e.lineno))
+            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}, line {e.lineno}")
         try:
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except (TypeError, IOError) as e:
-            raise CuckooReportError("Failed to write HTML report: %s" % e)
+            raise CuckooReportError(f"Failed to write HTML report: {e}")
 
         return True

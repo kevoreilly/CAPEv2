@@ -2,15 +2,15 @@
     Qakbot decoder for Core/Main DLL
 """
 
-import struct
-import socket
-import pefile
-import hashlib
 import datetime
+import hashlib
 import logging
+import socket
+import struct
 
-from mwcp.parser import Parser
+import pefile
 from Crypto.Cipher import ARC4
+from mwcp.parser import Parser
 
 try:
     HAVE_BLZPACK = True
@@ -60,7 +60,7 @@ def parse_config(data):
                 k = k[-2:]
                 config[CONFIG.get(k, k)] = v
         except Exception as e:
-            log.info("Failed to parse config entry:{}".format(entry))
+            log.info("Failed to parse config entry: %s", entry)
 
     return config
 
@@ -75,7 +75,7 @@ def parse_controllers(data):
     controllers = []
     for controller in list(filter(None, data.split(b"\r\n"))):
         ip, _, port = controller.decode().split(";")
-        controllers.append("{}:{}".format(ip, port))
+        controllers.append(f"{ip}:{port}")
 
     return controllers
 
@@ -93,7 +93,7 @@ def parse_binary_c2(data):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", data[c2_offset + 5 : c2_offset + 7])[0])
         c2_offset += 7
-        controllers.append("{}:{}".format(ip, port))
+        controllers.append(f"{ip}:{port}")
     return controllers
 
 
@@ -112,7 +112,7 @@ def parse_binary_c2_2(data):
     actual_sha1 = hashlib.sha1(c2_data).digest()
 
     if actual_sha1 != expected_sha1:
-        log.error(f"Expected sha1: {expected_sha1} actual: {actual_sha1}")
+        log.error("Expected sha1: %s actual: %s", expected_sha1, actual_sha1)
         return
 
     length = len(c2_data)
@@ -121,7 +121,7 @@ def parse_binary_c2_2(data):
         ip = socket.inet_ntoa(struct.pack("!L", struct.unpack(">I", c2_data[c2_offset + 1 : c2_offset + 5])[0]))
         port = str(struct.unpack(">H", c2_data[c2_offset + 5 : c2_offset + 7])[0])
         c2_offset += 7
-        controllers.append("{}:{}".format(ip, port))
+        controllers.append(f"{ip}:{port}")
     return controllers
 
 
@@ -184,7 +184,7 @@ class QakBot(Parser):
             for rsrc in pe.DIRECTORY_ENTRY_RESOURCE.entries:
                 for entry in rsrc.directory.entries:
                     if entry.name is not None:
-                        # log.info("id:{}".format(entry.name.__str__()))
+                        # log.info("id: %s", entry.name.__str__())
                         config = {}
                         offset = entry.directory.entries[0].data.struct.OffsetToData
                         size = entry.directory.entries[0].data.struct.Size
@@ -204,16 +204,14 @@ class QakBot(Parser):
                                         if entry.name.__str__() == "308":
                                             dec_bytes = decrypt_data(res_data)
                                             config = parse_config(dec_bytes)
-                                            # log.info("qbot_config:{}".format(config))
-                                            self.reporter.add_metadata(
-                                                "other", {"Core DLL Build": parse_build(pe2).decode()}
-                                            )
+                                            # log.info("qbot_config: %s", config)
+                                            self.reporter.add_metadata("other", {"Core DLL Build": parse_build(pe2).decode()})
 
                                         elif entry.name.__str__() == "311":
                                             dec_bytes = decrypt_data(res_data)
                                             controllers = parse_controllers(dec_bytes)
 
-                            # log.info("meta data:{}".format(self.reporter.metadata))
+                            # log.info("meta data: %s", self.reporter.metadata)
 
                         elif entry.name.__str__() == "308":
                             dec_bytes = decrypt_data(res_data)
@@ -245,10 +243,10 @@ class QakBot(Parser):
                             # log.info( { k.decode(): v.decode() })
                             self.reporter.add_metadata("other", {k: v})
 
-                        # log.info("controllers:{}".format(controllers))
+                        # log.info("controllers: %s", controllers)
                         for controller in controllers:
                             self.reporter.add_metadata("address", controller)
-                        # log.info("meta data:{}".format(self.reporter.metadata))
+                        # log.info("meta data: %s", self.reporter.metadata)
 
         except Exception as e:
             log.warning(e)

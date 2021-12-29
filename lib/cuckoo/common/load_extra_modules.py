@@ -1,14 +1,14 @@
-import os
 import glob
 import importlib
 import inspect
+import os
 import pkgutil
 
 
 def ratdecodedr_load_decoders(path):
     from malwareconfig.common import Decoder
 
-    dec_modules = dict()
+    dec_modules = {}
     # Walk recursively through all modules and packages.
     for loader, module_name, ispkg in pkgutil.walk_packages(path, "modules.processing.parsers.RATDecoders."):
         # If current item is a package, skip.
@@ -36,7 +36,7 @@ def ratdecodedr_load_decoders(path):
 
 def cape_load_decoders(CUCKOO_ROOT):
 
-    cape_modules = dict()
+    cape_modules = {}
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
     CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
 
@@ -53,7 +53,7 @@ def cape_load_decoders(CUCKOO_ROOT):
 
 def malduck_load_decoders(CUCKOO_ROOT):
 
-    malduck_modules = dict()
+    malduck_modules = {}
     malduck_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck")
     MALDUCK_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(malduck_decoders + "/[!_]*.py")]
 

@@ -14,8 +14,10 @@
 
 import os
 import struct
+
 import pefile
 import yara
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedIDLoader.yar")
@@ -47,7 +49,7 @@ def iced_decode(data):
 
 
 def config(filebuf):
-    cfg = dict()
+    cfg = {}
     yara_hit = yara_scan(filebuf)
     for hit in yara_hit:
         if hit.rule == "IcedIDLoader":

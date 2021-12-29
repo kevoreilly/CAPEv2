@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 import string
-from zipfile import ZipFile
-from io import StringIO
-from Crypto.Cipher import ARC4
 import xml.etree.ElementTree as ET
+from io import StringIO
+from zipfile import ZipFile
+
+from Crypto.Cipher import ARC4
 
 
 def extract_embedded(zip_data):
@@ -13,7 +14,7 @@ def extract_embedded(zip_data):
         for name in zip.namelist():  # get all the file names
             if name == "load/ID":  # contains first part of key
                 partial_key = zip.read(name)
-                enckey = partial_key + "DESW7OWKEJRU4P2K"  # complete key
+                enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
             if name == "load/MANIFEST.MF":  # this is the embedded jar
                 raw_embedded = zip.read(name)
     if raw_embedded != None:

@@ -5,6 +5,9 @@
 from __future__ import absolute_import
 import os
 
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooReportError
+
 try:
     import orjson
 
@@ -13,9 +16,6 @@ except ImportError:
     import json
 
     HAVE_ORJSON = False
-
-from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooReportError
 
 
 class JsonDump(Report):
@@ -41,4 +41,4 @@ class JsonDump(Report):
                 with open(path, "w") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)
         except (UnicodeError, TypeError, IOError) as e:
-            raise CuckooReportError("Failed to generate JSON report: %s" % e)
+            raise CuckooReportError(f"Failed to generate JSON report: {e}")

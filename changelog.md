@@ -1,4 +1,8 @@
 ### [17-12-2021]
+* Monitor: x64 debugger updates & improvements
+* Al-khaser bypass
+
+### [22-12-2021]
 * Add new field to DB `arch`. To avoid problems with pendings tasks when user didn't read config and set tags
 * If you using `dist.py` ensure next:
     * If you have `x64` and `x86` VMs:

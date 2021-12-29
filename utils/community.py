@@ -3,19 +3,20 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import shutil
 import os
+import shutil
 import sys
 import zipfile
 from io import BytesIO
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
-import logging
-import urllib3
 import argparse
+import logging
 import tarfile
 from io import BytesIO
+
+import urllib3
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 

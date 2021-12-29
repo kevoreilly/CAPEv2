@@ -13,10 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #!/usr/bin/python
+
 from __future__ import absolute_import
-import pefile
-import struct
 import json
+import struct
+
+import pefile
 from six.moves import map
 
 
@@ -38,14 +40,14 @@ def getREvilKeyAndConfig(pesections, section_name):
 
 
 def decodeREvilConfig(config_key, config_data):
-    init255 = list(range(0, 256))
+    init255 = list(range(256))
 
     key = config_key
     config_len = struct.unpack("<H", config_data[4:6])[0]
     encoded_config = config_data[8 : config_len + 7]
     decoded_config = []
 
-    # print "Key:\t%s" % key
+    # print(f"Key:\t{key}")
 
     ECX = EAX = ESI = EDI = EDX = 0
 

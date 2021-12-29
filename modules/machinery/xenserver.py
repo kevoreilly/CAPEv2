@@ -7,12 +7,11 @@ XenServer machinery.
 """
 
 from __future__ import absolute_import
-import threading
 import logging
+import threading
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.exceptions import CuckooMachineError
-from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooMachineError
 
 try:
     import XenAPI
@@ -37,9 +36,7 @@ class XenServerMachinery(Machinery):
     ABORTED = "Suspended"
 
     def _initialize_check(self):
-        """Check XenServer configuration, initialize a Xen API connection, and
-        verify machine validity.
-        """
+        """Check XenServer configuration, initialize a Xen API connection, and verify machine validity."""
 
         self._sessions = {}
 
@@ -47,13 +44,13 @@ class XenServerMachinery(Machinery):
             raise CuckooDependencyError("Unable to import XenAPI")
 
         if not self.options.xenserver.user:
-            raise CuckooMachineError("XenServer username missing, please add " "it to xenserver.conf.")
+            raise CuckooMachineError("XenServer username missing, please add it to xenserver.conf")
 
         if not self.options.xenserver.password:
-            raise CuckooMachineError("XenServer password missing, please add " "it to xenserver.conf")
+            raise CuckooMachineError("XenServer password missing, please add it to xenserver.conf")
 
         if not self.options.xenserver.url:
-            raise CuckooMachineError("XenServer url missing, please add it to " "xenserver.conf")
+            raise CuckooMachineError("XenServer url missing, please add it to xenserver.conf")
 
         self._make_xenapi_session()
 
@@ -82,17 +79,14 @@ class XenServerMachinery(Machinery):
             sess = XenAPI.Session(self.options.xenserver.url)
         except Exception:
             raise CuckooMachineError(
-                "Could not connect to XenServer: invalid " "or incorrect url, please ensure the url " "is correct in xenserver.conf"
+                "Could not connect to XenServer: invalid or incorrect url, please ensure the url is correct in xenserver.conf"
             )
 
         try:
             sess.xenapi.login_with_password(self.options.xenserver.user, self.options.xenserver.password)
         except Exception:
             raise CuckooMachineError(
-                "Could not connect to XenServer: "
-                "incorrect credentials, please ensure "
-                "the user and password are correct in "
-                "xenserver.conf"
+                "Could not connect to XenServer: incorrect credentials, please ensure the user and password are correct in xenserver.conf"
             )
         self._sessions[tid] = sess
         return sess
@@ -127,16 +121,16 @@ class XenServerMachinery(Machinery):
             ref = self._get_vm_ref(uuid)
             vm = self._get_vm_record(ref)
         except XenAPI.Failure as e:
-            raise CuckooMachineError("Vm not found: %s: %s" % (uuid, e.details[0]))
+            raise CuckooMachineError(f"Vm not found: {uuid}: {e.details[0]}")
 
         if vm["is_a_snapshot"]:
-            raise CuckooMachineError("Vm is a snapshot: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a snapshot: {uuid}")
 
         if vm["is_a_template"]:
-            raise CuckooMachineError("Vm is a template: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a template: {uuid}")
 
         if vm["is_control_domain"]:
-            raise CuckooMachineError("Vm is a control domain: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a control domain: {uuid}")
 
         return (ref, vm)
 
@@ -151,19 +145,19 @@ class XenServerMachinery(Machinery):
             snapshot_ref = self._get_vm_ref(snapshot_uuid)
             snapshot = self._get_vm_record(snapshot_ref)
         except Exception:
-            raise CuckooMachineError("Snapshot not found: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Snapshot not found: {snapshot_uuid}")
 
         if not snapshot["is_a_snapshot"]:
-            raise CuckooMachineError("Invalid snapshot: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Invalid snapshot: {snapshot_uuid}")
 
         try:
             parent = self._get_vm_record(snapshot["snapshot_of"])
         except Exception:
-            raise CuckooMachineError("Invalid snapshot: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Invalid snapshot: {snapshot_uuid}")
 
         parent_uuid = parent["uuid"]
         if parent_uuid != vm_uuid:
-            raise CuckooMachineError("Snapshot does not belong to specified " "vm: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Snapshot does not belong to specified vm: {snapshot_uuid}")
 
     def _check_disks_reset(self, vm):
         """Check whether each attached disk is set to reset on boot.
@@ -187,8 +181,8 @@ class XenServerMachinery(Machinery):
 
                 if vdi["on_boot"] != "reset" and vdi["read_only"] is False:
                     raise CuckooMachineError(
-                        "Vm %s contains invalid VDI %s: disk is not reset on "
-                        "boot. Please set the on-boot parameter to 'reset'." % (vm["uuid"], vdi["uuid"])
+                        f"Vm {vm['uuid']} contains invalid VDI {vdi['uuid']}: disk is not reset on "
+                        "boot. Please set the on-boot parameter to 'reset'"
                     )
 
     def _snapshot_from_vm_uuid(self, uuid):
@@ -215,7 +209,7 @@ class XenServerMachinery(Machinery):
         vm = self._get_vm_record(vm_ref)
 
         if not self._is_halted(vm):
-            raise CuckooMachineError("Vm is already running: %s", label)
+            raise CuckooMachineError(f"Vm is already running: {label}")
 
         snapshot = self._snapshot_from_vm_uuid(label)
         if snapshot:
@@ -225,19 +219,19 @@ class XenServerMachinery(Machinery):
                 self.session.xenapi.VM.revert(snapshot_ref)
                 log.debug("Revert completed for vm %s", label)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to revert vm %s: %s" % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to revert vm {label}: {e.details[0]}")
 
             try:
                 log.debug("Resuming reverted vm %s", label)
                 self.session.xenapi.VM.resume(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to resume vm %s: %s" % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to resume vm {label}: {e.details[0]}")
         else:
             log.debug("No snapshot found for vm, booting: %s", label)
             try:
                 self.session.xenapi.VM.start(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to start vm %s: %s" % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to start vm {label}: {e.details[0]}")
 
         log.debug("Started vm: %s", label)
 
@@ -254,7 +248,7 @@ class XenServerMachinery(Machinery):
             try:
                 self.session.xenapi.VM.hard_shutdown(ref)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Error shutting down virtual machine:" " %s: %s" % (label, e.details[0]))
+                raise CuckooMachineError(f"Error shutting down virtual machine: {label}: {e.details[0]}")
 
     def _list(self):
         """List available virtual machines.

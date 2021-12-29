@@ -13,20 +13,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
-import shutil
-import json
-import logging
-from datetime import datetime
 import hashlib
 import imp
+import json
+import logging
+import os
+import shutil
+from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import BUFSIZE, generic_file_extractors, pe_map, plugx_parser, static_config_parsers, upx_harness
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import is_text_file
-from lib.cuckoo.common.cape_utils import pe_map, upx_harness, BUFSIZE, static_config_parsers, plugx_parser, generic_file_extractors
 
 try:
     import pydeep
@@ -40,7 +40,7 @@ processing_conf = Config("processing")
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 ssdeep_threshold = 90
 
@@ -93,7 +93,7 @@ class CAPE(Processing):
 
     def detect2pid(self, pid, cape_name):
         self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"].setdefault(str(pid), [])
         if cape_name not in self.results["detections2pid"][str(pid)]:
             self.results["detections2pid"][str(pid)].append(cape_name)
 
@@ -223,11 +223,11 @@ class CAPE(Processing):
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
                     if plugx_config:
                         cape_name = "PlugX"
-                        config[cape_name] = dict()
+                        config[cape_name] = {}
                         for key, value in plugx_config.items():
                             config[cape_name].update({key: [value]})
                     else:
-                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled")
                     append_file = False
 
             # Attempt to decrypt script dump
@@ -251,19 +251,19 @@ class CAPE(Processing):
                             sha256 = hashlib.sha256(bindata).hexdigest()
                             filepath = os.path.join(self.CAPE_path, sha256)
                             tmpstr = file_info["pid"]
-                            tmpstr += "," + file_info["process_path"]
-                            tmpstr += "," + file_info["module_path"]
+                            tmpstr += f",{file_info['process_path']}"
+                            tmpstr += f",{file_info['module_path']}"
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
-                                outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                # with open(filepath + "_info.txt", "w") as infofd:
+                                outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
+                                # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
-                                outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                # with open(filepath + "_info.txt", "w") as infofd:
+                                outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
+                                # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
@@ -271,7 +271,7 @@ class CAPE(Processing):
                                 self.script_dump_files.append(filepath)
                         else:
                             file_info["cape_type"] = "Script Dump"
-                            log.info("CAPE: Script Dump does not contain known encrypted payload.")
+                            log.info("CAPE: Script Dump does not contain known encrypted payload")
                     except Exception as e:
                         log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
                 append_file = True
@@ -297,7 +297,7 @@ class CAPE(Processing):
                     file_info["cape_type"] = hit["meta"]["cape_type"]
                     cape_name = hit["name"].replace("_", " ")
             except Exception as e:
-                print("Cape type error: {}".format(e))
+                print(f"Cape type error: {e}")
             type_strings = file_info["type"].split()
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):
@@ -376,11 +376,11 @@ class CAPE(Processing):
         self.key = "CAPE"
         self.script_dump_files = []
 
-        self.cape = dict()
-        self.cape["payloads"] = list()
-        self.cape["configs"] = list()
+        self.cape = {}
+        self.cape["payloads"] = []
+        self.cape["configs"] = []
 
-        meta = dict()
+        meta = {}
         if os.path.exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
@@ -419,7 +419,7 @@ class CAPE(Processing):
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
             if not os.path.exists(self.file_path):
-                log.error('Sample file doesn\'t exist: "%s"' % self.file_path)
+                log.error('Sample file doesn\'t exist: "%s"', self.file_path)
 
         self.process_file(self.file_path, False, meta.get(self.file_path, {}))
 

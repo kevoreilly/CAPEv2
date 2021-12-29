@@ -22,12 +22,13 @@
 # SOFTWARE.
 
 from __future__ import absolute_import
-import pefile
-import struct
 import hashlib
-from Crypto.Cipher import AES
+import struct
 import xml.etree.ElementTree as ET
+
+import pefile
 import yara
+from Crypto.Cipher import AES
 
 rule_source = """
 rule TrickBot
@@ -68,7 +69,7 @@ def xor_data(data, key, key_len):
 
 def derive_key(n_rounds, input_bf):
     intermediate = input_bf
-    for i in range(0, n_rounds):
+    for i in range(n_rounds):
         sha = hashlib.sha256()
         sha.update(intermediate)
         current = sha.digest()
@@ -127,7 +128,7 @@ def convert_to_real_ip(ip_str):
     result_octets.append(str(((~o & 0xFF) & o4) | (o & (~o4 & 0xFF))))
     result_octets.append(str(o))
     result_octets.append(str(((~o2 & 0xFF) & o4) | ((~o4 & 0xFF) & o2)))
-    return ".".join(result_octets) + ":443"
+    return f"{'.'.join(result_octets)}:443"
 
 
 def get_ip(ip_str, tag):

@@ -3,43 +3,34 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+import datetime
+import logging
 import os
 import socket
+import threading
+import time
+import xml.etree.ElementTree as ET
+
 import dns.resolver
 import requests
-import datetime
-import threading
-import logging
-import time
+
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooDependencyError, CuckooMachineError, CuckooOperationalError,
+                                          CuckooReportError)
+from lib.cuckoo.common.objects import Dictionary
+from lib.cuckoo.common.url_validate import url as url_validator
+from lib.cuckoo.common.utils import create_folder, get_memdump_path
+from lib.cuckoo.core.database import Database
+
+# from django.core.validators import URLValidator
+# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
 try:
     import re2 as re
 except ImportError:
     import re
-
-import xml.etree.ElementTree as ET
-
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.exceptions import CuckooMachineError
-from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.common.exceptions import CuckooDependencyError
-from lib.cuckoo.common.objects import Dictionary
-from lib.cuckoo.common.utils import create_folder, get_memdump_path
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.url_validate import url as url_validator
-
-log = logging.getLogger(__name__)
-cfg = Config()
-repconf = Config("reporting")
-machinery_conf = Config(cfg.cuckoo.machinery)
-
-# from django.core.validators import URLValidator
-# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
 
 try:
     import libvirt
@@ -55,6 +46,8 @@ try:
     logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
     HAVE_TLDEXTRACT = False
+
+repconf = Config("reporting")
 
 HAVE_MITRE = False
 
@@ -81,6 +74,10 @@ if repconf.mitre.enabled:
 
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
+
+log = logging.getLogger(__name__)
+cfg = Config()
+machinery_conf = Config(cfg.cuckoo.machinery)
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0
@@ -756,7 +753,7 @@ class Signature(object):
         self._current_call_dict = None
         self._current_call_raw_cache = None
         self._current_call_raw_dict = None
-        self.hostname2ips = dict()
+        self.hostname2ips = {}
         self.machinery_conf = machinery_conf
 
     def statistics_custom(self, pretime, extracted=False):
@@ -766,8 +763,8 @@ class Signature(object):
         @param extracted: conf extraction from inside signature to count success extraction vs sig run
         """
         timediff = datetime.datetime.now() - pretime
-        self.results["custom_statistics"] = dict()
-        self.results["custom_statistics"][self.name] = dict()
+        self.results["custom_statistics"] = {}
+        self.results["custom_statistics"][self.name] = {}
         self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
@@ -799,7 +796,7 @@ class Signature(object):
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
             for keyword in ("yara", "cape_yara"):
-                for block in self.results["target"]["file"].get(keyword, list()):
+                for block in self.results["target"]["file"].get(keyword, []):
                     if re.findall(name, block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], block
 
@@ -856,7 +853,7 @@ class Signature(object):
         self.results["statistics"]["signatures"][name][field] = value
 
     def get_pids(self):
-        pids = list()
+        pids = []
         logs = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "logs")
         processes = self.results.get("behavior", {}).get("processtree", [])
         if processes:
@@ -896,7 +893,7 @@ class Signature(object):
 
     def _get_ip_by_host_dns(self, hostname):
 
-        ips = list()
+        ips = []
 
         try:
             answers = myresolver.query(hostname, "A")
@@ -1432,7 +1429,7 @@ class Signature(object):
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_cache:
             self._current_call_cache = call
-            self._current_call_dict = dict()
+            self._current_call_dict = {}
 
             for argument in call["arguments"]:
                 self._current_call_dict[argument["name"]] = argument["value"]
@@ -1468,7 +1465,7 @@ class Signature(object):
         # If not, we can start caching it and store a copy converted to a dict.
         if call is not self._current_call_raw_cache:
             self._current_call_raw_cache = call
-            self._current_call_raw_dict = dict()
+            self._current_call_raw_dict = {}
 
             for argument in call["arguments"]:
                 self._current_call_raw_dict[argument["name"]] = argument["raw_value"]
@@ -1654,7 +1651,7 @@ class Feed(object):
             self.updatefeed = True
 
         if self.updatefeed:
-            headers = dict()
+            headers = {}
             if mtime:
                 timestr = datetime.datetime.utcfromtimestamp(mtime).strftime("%a, %d %b %Y %H:%M:%S GMT")
                 headers["If-Modified-Since"] = timestr

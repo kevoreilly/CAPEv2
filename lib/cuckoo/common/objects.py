@@ -3,20 +3,18 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import sys
-import mmap
-import time
+import binascii
 import copy
-import struct
 import hashlib
 import logging
-import binascii
+import mmap
+import os
+import struct
 import subprocess
+import time
 
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
-from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
+from lib.cuckoo.common.defines import (PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
+                                       PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY)
 
 try:
     import magic
@@ -588,7 +586,8 @@ class File(object):
         else:
             return False
 
-    def get_dll_exports(self, file_type):
+    def get_dll_exports(self):
+        file_type = self.get_type()
         if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
                 pe = pefile.PE(self.file_path)
@@ -762,7 +761,7 @@ class ProcDump(object):
             data = f.read(24)
             if data == b"":
                 break
-            alloc = dict()
+            alloc = {}
             addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
@@ -806,7 +805,7 @@ class ProcDump(object):
 
     def search(self, regex, flags=0, all=False):
         if all:
-            result = dict()
+            result = {}
             result["detail"] = []
             matches = []
             for map in self.address_space:
@@ -831,7 +830,7 @@ class ProcDump(object):
                     self.dumpfile.seek(chunk["offset"])
                     match = re.search(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     if match:
-                        result = dict()
+                        result = {}
                         result["match"] = match
                         result["chunk"] = chunk
                         return result

@@ -16,8 +16,6 @@ logname = syslog.log  # if yes, what logname? [Default: syslog.txt]
 
 from __future__ import absolute_import
 import os
-import json
-import codecs
 import socket
 
 from lib.cuckoo.common.abstracts import Report
@@ -62,27 +60,27 @@ class Syslog(Report):
 
     def createLog(self, results):
         syslog = ""
-        syslog += 'Timestamp="' + results["info"]["started"].replace("-", "/") + '" '
-        syslog += 'id="' + str(results["info"]["id"]) + '" '
+        syslog += f'Timestamp="{results["info"]["started"].replace("-", "/")}" '
+        syslog += f'id="{results["info"]["id"]}" '
         submittype = results["target"]["category"]
-        syslog += 'Submission="' + submittype + '" '
+        syslog += f'Submission="{submittype}" '
         if submittype == "file":
-            syslog += 'MD5="' + str(results["target"]["file"]["md5"]) + '" '
-            syslog += 'SHA1="' + str(results["target"]["file"]["sha1"]) + '" '
-            syslog += 'File_Name="' + str(results["target"]["file"]["name"]) + '" '
-            syslog += 'File_Size="' + str(results["target"]["file"]["size"]) + '" '
-            syslog += 'File_Type="' + str(results["target"]["file"]["type"]) + '" '
+            syslog += f'MD5="{results["target"]["file"]["md5"]}" '
+            syslog += f'SHA1="{results["target"]["file"]["sha1"]}" '
+            syslog += f'File_Name="{results["target"]["file"]["name"]}" '
+            syslog += f'File_Size="{results["target"]["file"]["size"]}" '
+            syslog += f'File_Type="{results["target"]["file"]["type"]}" '
             if "PDF" in str(results["target"]["file"]["type"]):
                 if results["static"]["pdf"].get("Keywords", {}).get("obj", 0):
-                    syslog += 'Object_Count="' + str(results["static"]["pdf"]["Keywords"]["obj"]) + '" '
+                    syslog += f'Object_Count="{results["static"]["pdf"]["Keywords"]["obj"]}" '
                 else:
                     syslog += 'Object_Count="0" '
                 if results["static"]["pdf"].get("JSStreams", []):
-                    syslog += 'Total_Streams="' + str(len(results["static"]["pdf"]["JSStreams"])) + '" '
+                    syslog += f'Total_Streams="{len(results["static"]["pdf"]["JSStreams"])}" '
                 else:
                     syslog += 'Total_Streams="0" '
         elif results["target"]["category"] == "url":
-            syslog += 'URL="' + results["target"]["url"] + '" '
+            syslog += f'URL="{results["target"]["url"]}" '
         # Here you can process the custom field if need be. My example stores
         # usernames and ticket numbers in the Custom field. I parse and output
         # it for syslog translation. Fields in custom are seperated by ";" and
@@ -94,16 +92,16 @@ class Syslog(Report):
         # Parse custom, check for a new value.
         # for option in custom.split(';'):
         #    if "user:" in option:
-        #        uname = 'User="' + str(option.split(':')[-1]) + '" '
+        #        uname = f'User="{option.split(":")[-1]}" '
         #    if "ticket:" in option:
-        #        ticket = 'ticket="' + str(option.split(':')[-1]) + '" '
+        #        ticket = f'ticket="{option.split(":")[-1]}" '
         # syslog += uname
         # syslog += ticket
 
         if "malscore" in results:
-            syslog += 'MalScore="' + str(results["malscore"]) + '" '
+            syslog += f'MalScore="{results["malscore"]}" '
         if results.get("malfamily"):
-            syslog += 'MalFamily="' + str(results["malfamily"]) + '" '
+            syslog += f'MalFamily="{results["malfamily"]}" '
 
         if "network" in results:
             if "hosts" in results["network"]:
@@ -115,7 +113,7 @@ class Syslog(Report):
                 if goodips == []:
                     syslog += 'Related_IPs="-" '
                 else:
-                    syslog += 'Related_IPs="' + ";".join(f for f in goodips) + '" '
+                    syslog += f'Related_IPs="{";".join(goodips)}" '
             else:
                 syslog += 'Related_IPs="-" '
 
@@ -136,16 +134,16 @@ class Syslog(Report):
                 if gooddms == []:
                     syslog += 'Related_Domains="-" '
                 else:
-                    syslog += 'Related_Domains="' + ";".join(f for f in gooddms) + '" '
+                    syslog += f'Related_Domains="{";".join(gooddms)}" '
             else:
                 syslog += 'Related_Domains="-" '
             # Some network stats...
             if "tcp" in results["network"]:
-                syslog += 'Total_TCP="' + str(len(results["network"]["tcp"])) + '" '
+                syslog += f'Total_TCP="{len(results["network"]["tcp"])}" '
             else:
                 syslog += 'Total_TCP="0" '
             if "udp" in results["network"]:
-                syslog += 'Total_UDP="' + str(len(results["network"]["udp"])) + '" '
+                syslog += f'Total_UDP="{len(results["network"]["udp"])}" '
             else:
                 syslog += 'Total_UDP="0" '
         # VT stats if available
@@ -153,19 +151,19 @@ class Syslog(Report):
             if all(val in list(results["virustotal"].keys()) for val in ["positives", "total"]):
                 VT_bad = str(results["virustotal"]["positives"])
                 VT_total = str(results["virustotal"]["total"])
-                syslog += 'Virustotal="' + VT_bad + "/" + VT_total + '" '
+                syslog += f'Virustotal="{VT_bad}/{VT_total}" '
             else:
                 syslog += 'Virustotal="Not Found" '
             # Vendor specific detections here. Included two examples.
             # if submittype == "file":
             #    if results["virustotal"]["scans"]["Symantec"]["detected"] == True:
             #        svirus = results["virustotal"]["scans"]["Symantec"]["result"]
-            #        syslog += 'Symantec="' + svirus + '" '
+            #        syslog += f'Symantec="{svirus}" '
             #    else:
             #        syslog += 'Symantec="No Detection" '
             #    if results["virustotal"]["scans"]["McAfee"]["detected"] == True:
             #        mvirus = results["virustotal"]["scans"]["McAfee"]["result"]
-            #        syslog += 'McAfee="' + mvirus + '" '
+            #        syslog += f'McAfee="{mvirus}" '
             #    else:
             #        syslog += 'McAfee="No Detection" '
         else:
@@ -186,7 +184,7 @@ class Syslog(Report):
                 syslog += 'Cuckoo_Sigs="antivirus_virustotal" '
             # Otherwise generate the multi-value field.
             elif submittype == "file":
-                syslog += 'Cuckoo_Sigs="' + ";".join(s for s in sigs) + '" '
+                syslog += f'Cuckoo_Sigs="{";".join(sigs)}" '
             else:
                 syslog += 'Cuckoo_Sigs="-" '
         # Creates a multi-value ";" delimited field for yara signatures
@@ -199,7 +197,7 @@ class Syslog(Report):
             if yara == []:
                 syslog += 'Yara="-" '
             else:
-                syslog += 'Yara="' + ";".join(r for r in yara) + '" '
+                syslog += f'Yara="{";".join(yara)}" '
 
         return syslog
 
@@ -220,12 +218,12 @@ class Syslog(Report):
         if not proto:
             raise CuckooReportError("Syslog Protocol not defined")
         if proto != "tcp" and proto != "udp":
-            raise CuckooReportError("Syslog Protocol configuration error, " "protocol must be TCP or UDP.")
+            raise CuckooReportError("Syslog Protocol configuration error, protocol must be TCP or UDP")
         # Generate the syslog string
         try:
             result = self.createLog(results)
         except Exception:
-            raise CuckooReportError("Error creating syslog formatted log.")
+            raise CuckooReportError("Error creating syslog formatted log")
 
         # Check if the user wants it stored in the reports directory as well
         do_log = self.options.get("logfile")
@@ -236,7 +234,7 @@ class Syslog(Report):
                 syslogfile = open(str(os.path.join(self.reports_path, logfile)), "w")
                 syslogfile.write(result)
             except Exception:
-                raise CuckooReportError("Error writing the syslog output file.")
+                raise CuckooReportError("Error writing the syslog output file")
             finally:
                 syslogfile.close()
         # Attempt to connect to the syslog server
@@ -259,4 +257,4 @@ class Syslog(Report):
                 except Exception:
                     raise CuckooReportError("Failed to send data to syslog server")
         except (UnicodeError, TypeError, IOError) as e:
-            raise CuckooReportError("Failed to send syslog data: %s" % e)
+            raise CuckooReportError(f"Failed to send syslog data: {e}")

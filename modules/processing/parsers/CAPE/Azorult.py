@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import struct
+
 import pefile
 import yara
 
@@ -55,7 +56,7 @@ def config(filebuf):
     DESCRIPTION = "Azorult configuration parser."
     AUTHOR = "kevoreilly"
 
-    config = dict()
+    config = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
 

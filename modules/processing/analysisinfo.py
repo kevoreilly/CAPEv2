@@ -4,25 +4,17 @@
 
 from __future__ import absolute_import
 import codecs
-import time
 import logging
 import os
+import time
 from datetime import datetime
 
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooProcessingError
-
-try:
-    import requests
-
-    HAVE_REQUEST = True
-except ImportError:
-    HAVE_REQUEST = False
-
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
 report_cfg = Config("reporting")
@@ -39,9 +31,9 @@ class AnalysisInfo(Processing):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError("Error decoding %s: %s" % (self.log_path, e))
+                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}")
             except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening %s: %s" % (self.log_path, e))
+                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}")
             else:
                 if "INFO: Analysis timeout hit, terminating analysis" in analysis_log:
                     return True
@@ -54,9 +46,9 @@ class AnalysisInfo(Processing):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError("Error decoding %s: %s" % (self.log_path, e))
+                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}")
             except (IOError, OSError) as e:
-                raise CuckooProcessingError("Error opening %s: %s" % (self.log_path, e))
+                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}")
             else:
                 try:
                     idx = analysis_log.index('INFO: Automatically selected analysis package "')
@@ -77,7 +69,7 @@ class AnalysisInfo(Processing):
             ended = time.strptime(self.task["completed_on"], "%Y-%m-%d %H:%M:%S")
             ended = datetime.fromtimestamp(time.mktime(ended))
         except Exception:
-            log.critical("Failed to get start/end time from Task.")
+            log.critical("Failed to get start/end time from Task")
             duration = -1
         else:
             duration = (ended - started).seconds

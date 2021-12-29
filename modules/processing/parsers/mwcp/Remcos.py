@@ -6,12 +6,13 @@
 # By Talos July 2018 - https://github.com/Cisco-Talos/remcos-decoder
 # Updates based on work presented here https://gist.github.com/sysopfb/11e6fb8c1377f13ebab09ab717026c87
 
-import string
 import re
-import pefile
-from mwcp.parser import Parser
-from Crypto.Cipher import ARC4
+import string
 from collections import OrderedDict
+
+import pefile
+from Crypto.Cipher import ARC4
+from mwcp.parser import Parser
 
 # From JPCERT
 FLAG = {b"\x00": "Disable", b"\x01": "Enable"}
@@ -162,9 +163,7 @@ class Remcos(Parser):
                             p_data[idx_list[i]] = setup_list[int(cont)]
                         elif i in [0]:
                             host, port, password = cont.split(b"|")[0].split(b":")
-                            p_data["Control"] = "tcp://{}:{}:{}".format(
-                                host.decode(), port.decode(), password.decode()
-                            )
+                            p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
 
                         else:
                             p_data[idx_list[i]] = cont
@@ -180,4 +179,4 @@ class Remcos(Parser):
                     self.reporter.add_metadata("other", {k: v})
 
         except Exception as e:
-            self.logger.error("caught an exception:{}".format(e))
+            self.logger.error(f"Caught an exception: {e}")

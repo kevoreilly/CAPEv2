@@ -1,10 +1,11 @@
-import time
 import logging
+import time
 from urllib.parse import urljoin
+
 import requests
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class BoxJS(Processing):
             r = requests.get(url, timeout=self.timeout, **kwargs)
             return r.text if r.status_code == 200 else {}
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError("Unable to GET results: %r" % e.message)
+            raise CuckooOperationalError(f"Unable to GET results: {e.message}")
 
     def request_json(self, url, **kwargs):
         """Wrapper around doing a request and parsing its JSON output."""
@@ -25,19 +26,19 @@ class BoxJS(Processing):
             r = requests.get(url, timeout=self.timeout, **kwargs)
             return r.json() if r.status_code == 200 and r.text else {}
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError("Unable to GET results: %r" % e.message)
+            raise CuckooOperationalError(f"Unable to GET results: {e.message}")
 
     def _post_text(self, url, **kwargs):
         """Wrapper around doing a post and parsing its text output."""
         try:
             flags = {"flags": kwargs.get("flags", "")}
             # log.debug(kwargs)
-            # log.debug("FLAGS %s" % flags)
+            # log.debug("FLAGS %s", flags)
             files = {"sample": kwargs.get("sample")}
             r = requests.post(url, timeout=self.timeout, data=flags, files=files)
             return r.json()["analysisID"] if r.status_code == 200 else None
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError("Unable to POST to the API server: %r" % e.message)
+            raise CuckooOperationalError(f"Unable to POST to the API server: {e.message}")
 
     def _post_json(self, url, **kwargs):
         """Wrapper around doing a post and parsing its JSON output."""
@@ -45,7 +46,7 @@ class BoxJS(Processing):
             r = requests.post(url, timeout=self.timeout, **kwargs)
             return r.json() if r.status_code == 200 else {}
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError("Unable to POST to the API server: %r" % e.message)
+            raise CuckooOperationalError(f"Unable to POST to the API server: {e.message}")
 
     def run(self):
         self.key = "boxjs"
@@ -65,7 +66,7 @@ class BoxJS(Processing):
         # Post file for scanning.
         postUrl = urljoin(self.url, "/sample")
         analysis_id = self._post_text(postUrl, sample=open(self.file_path, "rb"))  # returns a UUID
-        base_url = "{}/sample/{}".format(self.url, str(analysis_id))
+        base_url = f"{self.url}/sample/{analysis_id}"
 
         flags = ""
 
@@ -100,19 +101,19 @@ class BoxJS(Processing):
                 retry = True
             else:
                 done = True
-                log.info("BOXJS: {}".format(str(result)))
+                log.info("BOXJS: %s", result)
                 return {}
 
             if retry:
                 postUrl = urljoin(self.url, "/sample")
                 analysis_id = self._post_text(postUrl, sample=open(self.file_path, "rb"), flags=flags)  # returns a UUID
-                base_url = "{}/sample/{}".format(self.url, str(analysis_id))
+                base_url = f"{self.url}/sample/{analysis_id}"
 
         # Fetch the results.
         results = {}
-        urls_url = "{}/urls".format(base_url)
-        resources_url = "{}/resources".format(base_url)
-        iocs_ioc = "{}/IOC".format(base_url)
+        urls_url = f"{base_url}/urls"
+        resources_url = f"{base_url}/resources"
+        iocs_ioc = f"{base_url}/IOC"
         results["urls"] = self.request_json(urls_url)
         results["resources"] = self.request_json(resources_url)
         results["IOC"] = self.request_json(iocs_ioc)
@@ -121,6 +122,6 @@ class BoxJS(Processing):
         try:
             requests.delete(base_url, timeout=self.timeout)
         except (requests.ConnectionError, ValueError) as e:
-            raise CuckooOperationalError("Unable to send a DELETE request: %r" % e.message)
+            raise CuckooOperationalError(f"Unable to send a DELETE request: {e.message}")
 
         return results

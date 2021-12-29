@@ -2,15 +2,29 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import sys
+from __future__ import absolute_import, print_function
 import copy
-import socket
-import platform
 import logging
 import logging.handlers
+import os
+import platform
+import socket
+import sys
+
+import modules.auxiliary
+import modules.feeds
+import modules.processing
+import modules.reporting
+import modules.signatures
+from lib.cuckoo.common.colors import cyan, red, yellow
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import create_folders
+from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
+from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
 try:
     import yara
@@ -19,23 +33,6 @@ try:
         raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")
 except ImportError:
     print("Missed library: pip3 install yara-python>=4.0.0 -U")
-
-import modules.auxiliary
-import modules.processing
-import modules.signatures
-import modules.reporting
-import modules.feeds
-
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.colors import red, yellow, cyan
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooStartupError
-from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.utils import create_folders
-from lib.cuckoo.core.database import Database, TASK_RUNNING, TASK_FAILED_ANALYSIS
-from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
-from lib.cuckoo.core.rooter import rooter, vpns, socks5s
 
 log = logging.getLogger()
 
@@ -57,7 +54,7 @@ def check_working_directory():
     @raise CuckooStartupError: if directories are not properly configured.
     """
     if not os.path.exists(CUCKOO_ROOT):
-        raise CuckooStartupError("You specified a non-existing root directory: {0}".format(CUCKOO_ROOT))
+        raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
@@ -107,7 +104,7 @@ def check_configs():
 
     for config in configs:
         if not os.path.exists(config):
-            raise CuckooStartupError("Config file does not exist at path: {0}".format(config))
+            raise CuckooStartupError(f"Config file does not exist at path: {config}")
 
     if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
         log.error("Bad resultserver address. You need to listen on virtual machines range. Ex: 10.0.0.1 not 127.0.0.1")
@@ -221,11 +218,11 @@ def init_tasks():
     for task in tasks:
         if cuckoo.cuckoo.reschedule:
             db.reschedule(task.id)
-            log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
+            log.info("Rescheduled task with ID %s and target %s", task.id, task.target)
         else:
             # ToDo here?
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
-            log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
+            log.info("Updated running task ID %s status to failed_analysis", task.id)
 
 
 def init_modules():
@@ -246,7 +243,7 @@ def init_modules():
     import_package(modules.feeds)
 
     # Import machine manager.
-    import_plugin("modules.machinery." + cuckoo.cuckoo.machinery)
+    import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)
@@ -282,7 +279,7 @@ def init_yara():
                 if not filename.endswith((".yar", ".yara")):
                     continue
                 filepath = os.path.join(category_root, filename)
-                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                rules[f"rule_{category}_{len(rules)}"] = filepath
                 indexed.append(filename)
 
             # Need to define each external variable that will be used in the
@@ -294,19 +291,19 @@ def init_yara():
                 File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
                 break
             except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar")[0] + ".yar"
-                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                log.debug("Trying to delete bad rule: %s", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
-                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            print(f"Deleted broken yara rule: {bad_rule}")
                             break
                 else:
                     break
             except yara.Error as e:
-                print("There was a syntax error in one or more Yara rules: %s" % e)
+                print(f"There was a syntax error in one or more Yara rules: {e}")
                 log.error("There was a syntax error in one or more Yara rules: %s" % e)
                 break
 
@@ -359,7 +356,7 @@ def init_rooter():
                 "The rooter is required but we can't connect to it as the "
                 "rooter is not actually running. "
                 "(In order to disable the use of rooter, please set route "
-                "and internet to none in routing.conf)."
+                "and internet to none in routing.conf)"
             )
 
         if e.strerror == "Permission denied":
@@ -367,10 +364,10 @@ def init_rooter():
                 "The rooter is required but we can't connect to it due to "
                 "incorrect permissions. Did you assign it the correct group? "
                 "(In order to disable the use of rooter, please set route "
-                "and internet to none in routing.conf)."
+                "and internet to none in routing.conf)"
             )
 
-        raise CuckooStartupError("Unknown rooter error: %s" % e)
+        raise CuckooStartupError(f"Unknown rooter error: {e}")
 
     rooter("cleanup_rooter")
 
@@ -393,7 +390,7 @@ def init_routing():
                 continue
 
             if not hasattr(routing, name):
-                raise CuckooStartupError("Could not find socks5 configuration for %s" % name)
+                raise CuckooStartupError(f"Could not find socks5 configuration for {name}")
 
             entry = routing.get(name)
             socks5s[entry.name] = entry
@@ -405,18 +402,17 @@ def init_routing():
                 continue
 
             if not hasattr(routing, name):
-                raise CuckooStartupError("Could not find VPN configuration for %s" % name)
+                raise CuckooStartupError(f"Could not find VPN configuration for {name}")
 
             entry = routing.get(name)
             # add = 1
             # if not rooter("nic_available", entry.interface):
             # raise CuckooStartupError(
-            #   "The network interface that has been configured for "
-            #    "VPN %s is not available." % entry.name
+            #   f"The network interface that has been configured for VPN {entry.name} is not available"
             # )
             #    add = 0
             if not rooter("rt_available", entry.rt_table):
-                raise CuckooStartupError("The routing table that has been configured for VPN %s is not available." % entry.name)
+                raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -448,10 +444,10 @@ def init_routing():
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
         if not rooter("nic_available", routing.routing.internet):
-            raise CuckooStartupError("The network interface that has been configured as dirty line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
 
         if not rooter("rt_available", routing.routing.rt_table):
-            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available.")
+            raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -466,7 +462,7 @@ def init_routing():
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
         if not rooter("nic_available", routing.tor.interface):
-            raise CuckooStartupError("The network interface that has been configured as tor line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as tor line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -483,7 +479,7 @@ def init_routing():
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
-            raise CuckooStartupError("The network interface that has been configured as inetsim line is not available.")
+            raise CuckooStartupError("The network interface that has been configured as inetsim line is not available")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

@@ -111,9 +111,9 @@ class NetlogFile(NetlogConnection):
         """
         All arguments should be strings
         """
-        if pids and not isinstance(pids, str):
+        if not isinstance(pids, str):
             pids = " ".join(pids)
-        if ppids and not isinstance(ppids, str):
+        if not isinstance(ppids, str):
             ppids = " ".join(ppids)
         if filepath:
             self.proto = b"FILE 2\n%s\n%s\n%s\n%s\n%s\n%s\n%d\n" % (

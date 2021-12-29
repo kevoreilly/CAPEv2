@@ -2,24 +2,34 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+import array
+import base64
+import binascii
+import ctypes
+import hashlib
 import json
 import logging
-import os
-import re
 import math
-import array
-import ctypes
+import os
 import struct
-import base64
-import hashlib
-import requests
-import binascii
-from PIL import Image
-from io import BytesIO
-from subprocess import Popen, PIPE
 from datetime import datetime
+from io import BytesIO
+from subprocess import PIPE, Popen
+
+import requests
+from PIL import Image
+
+import lib.cuckoo.common.office.vbadeobf as vbadeobf
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.objects import File, IsPEImage
+from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.structures import LnkEntry, LnkHeader
+from lib.cuckoo.common.utils import bytes2str, convert_to_printable, get_options, store_temp_file
 
 try:
     import re2 as re
@@ -56,8 +66,8 @@ except ImportError:
 
 try:
     import cryptography
-    from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.backends.openssl import x509
+    from cryptography.hazmat.backends.openssl.backend import backend
     from cryptography.hazmat.primitives import hashes
 
     HAVE_CRYPTO = True
@@ -72,16 +82,6 @@ try:
 except Exception:
     HAVE_WHOIS = False
 
-from lib.cuckoo.common.structures import LnkHeader, LnkEntry
-from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
-from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File, IsPEImage
-from lib.cuckoo.common.config import Config
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.cape_utils import generic_file_extractors
-
 try:
     import olefile
 
@@ -92,30 +92,19 @@ except ImportError:
 
 try:
     from oletools import oleobj
-    from oletools.oleid import OleID
-    from oletools.olevba import (
-        detect_autoexec,
-        detect_hex_strings,
-        detect_patterns,
-        detect_suspicious,
-        filter_vba,
-        VBA_Parser,
-        UnexpectedDataError,
-    )
-    from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
+    from oletools.oleid import OleID
+    from oletools.olevba import UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_suspicious, filter_vba
+    from oletools.rtfobj import RtfObjParser, is_rtf
 
     HAVE_OLETOOLS = True
 except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
-from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
-
 try:
-    from peepdf.PDFCore import PDFParser
     from peepdf.JSAnalysis import analyseJS
+    from peepdf.PDFCore import PDFParser
 
     HAVE_PEEPDF = True
 except ImportError as e:
@@ -124,23 +113,10 @@ except ImportError as e:
 try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (
-        describe_ei_class,
-        describe_ei_data,
-        describe_ei_version,
-        describe_ei_osabi,
-        describe_e_type,
-        describe_e_machine,
-        describe_e_version_numeric,
-        describe_p_type,
-        describe_p_flags,
-        describe_sh_type,
-        describe_dyn_tag,
-        describe_symbol_type,
-        describe_symbol_bind,
-        describe_note,
-        describe_reloc_type,
-    )
+    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
+                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
+                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
+                                           describe_symbol_bind, describe_symbol_type)
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
     from elftools.elf.enums import ENUM_D_TAG
@@ -155,15 +131,15 @@ processing_conf = Config("processing")
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.on_demand is False:
-    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
+    from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
 if processing_conf.xlsdeobf.on_demand is False:
-    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 log = logging.getLogger(__name__)
 
@@ -276,7 +252,7 @@ class DotNETExecutable(object):
                 if endidx <= 2:
                     continue
                 valueval = rem[startidx + 2 : endidx - 2]
-                item = dict()
+                item = {}
                 item["type"] = convert_to_printable(typeval)
                 item["name"] = convert_to_printable(nameval)
                 item["value"] = convert_to_printable(valueval)
@@ -294,8 +270,8 @@ class DotNETExecutable(object):
                 .stdout.read()
                 .split("\n")
             )
-            for idx in range(len(output)):
-                splitline = output[idx].split("Version=")
+            for idx, line in enumerate(output):
+                splitline = line.split("Version=")
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
@@ -303,7 +279,7 @@ class DotNETExecutable(object):
                 if len(splitline) < 2:
                     continue
                 nameval = splitline[1]
-                item = dict()
+                item = {}
                 item["name"] = convert_to_printable(nameval)
                 item["version"] = convert_to_printable(verval)
                 ret.append(item)
@@ -315,7 +291,7 @@ class DotNETExecutable(object):
 
     def _get_assembly_info(self):
         try:
-            ret = dict()
+            ret = {}
             output = (
                 Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
                 .stdout.read()
@@ -345,7 +321,7 @@ class DotNETExecutable(object):
                 asmname = restsplit[0][2:]
                 typename = "".join(restsplit[1:])
                 if asmname and typename:
-                    item = dict()
+                    item = {}
                     item["assembly"] = convert_to_printable(asmname)
                     item["typename"] = convert_to_printable(typename)
                     ret.append(item)
@@ -373,7 +349,7 @@ class DotNETExecutable(object):
             results["dotnet"]["customattrs"] = self._get_custom_attrs()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+            self.add_statistic("static_dotnet", "time", float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"))
             return results
         except Exception as e:
             log.error(e, exc_info=True)
@@ -395,7 +371,7 @@ class PortableExecutable(object):
     def add_statistic_tmp(self, name, field, pretime):
         posttime = datetime.now()
         timediff = posttime - pretime
-        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
 
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
@@ -528,8 +504,8 @@ class PortableExecutable(object):
         for entry in self.pe.OPTIONAL_HEADER.DATA_DIRECTORY:
             dirent = {}
             dirent["name"] = entry.name
-            dirent["virtual_address"] = "0x{0:08x}".format(entry.VirtualAddress)
-            dirent["size"] = "0x{0:08x}".format(entry.Size)
+            dirent["virtual_address"] = f"0x{entry.VirtualAddress:08x}"
+            dirent["size"] = f"0x{entry.Size:08x}"
             dirents.append(dirent)
 
         return dirents
@@ -613,13 +589,13 @@ class PortableExecutable(object):
             try:
                 section = {}
                 section["name"] = convert_to_printable(entry.Name.strip(b"\x00"))
-                section["raw_address"] = "0x{0:08x}".format(entry.PointerToRawData)
-                section["virtual_address"] = "0x{0:08x}".format(entry.VirtualAddress)
-                section["virtual_size"] = "0x{0:08x}".format(entry.Misc_VirtualSize)
-                section["size_of_data"] = "0x{0:08x}".format(entry.SizeOfRawData)
+                section["raw_address"] = f"0x{entry.PointerToRawData:08x}"
+                section["virtual_address"] = f"0x{entry.VirtualAddress:08x}"
+                section["virtual_size"] = f"0x{entry.Misc_VirtualSize:08x}"
+                section["size_of_data"] = f"0x{entry.SizeOfRawData:08x}"
                 section["characteristics"] = self._convert_section_characteristics(entry.Characteristics)
-                section["characteristics_raw"] = "0x{0:08x}".format(entry.Characteristics)
-                section["entropy"] = "{0:.02f}".format(float(entry.get_entropy()))
+                section["characteristics_raw"] = f"0x{entry.Characteristics:08x}"
+                section["entropy"] = f"{float(entry.get_entropy()):.02f}"
                 sections.append(section)
             except Exception as e:
                 log.error(e, exc_info=True)
@@ -646,8 +622,8 @@ class PortableExecutable(object):
         if off is None:
             return None
         overlay = {}
-        overlay["offset"] = "0x{0:08x}".format(off)
-        overlay["size"] = "0x{0:08x}".format(len(self.pe.__data__) - off)
+        overlay["offset"] = f"0x{off:08x}"
+        overlay["size"] = f"0x{len(self.pe.__data__) - off:08x}"
 
         return overlay
 
@@ -658,7 +634,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "0x{0:08x}".format(self.pe.OPTIONAL_HEADER.ImageBase)
+        return f"0x{self.pe.OPTIONAL_HEADER.ImageBase:08x}"
 
     def _get_entrypoint(self):
         """Get full virtual address of entrypoint
@@ -667,7 +643,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "0x{0:08x}".format(self.pe.OPTIONAL_HEADER.ImageBase + self.pe.OPTIONAL_HEADER.AddressOfEntryPoint)
+        return f"0x{self.pe.OPTIONAL_HEADER.ImageBase + self.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
 
     def _get_reported_checksum(self):
         """Get checksum from optional header
@@ -676,7 +652,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "0x{0:08x}".format(self.pe.OPTIONAL_HEADER.CheckSum)
+        return f"0x{self.pe.OPTIONAL_HEADER.CheckSum:08x}"
 
     def _get_actual_checksum(self):
         """Get calculated checksum of PE
@@ -687,10 +663,10 @@ class PortableExecutable(object):
 
         retstr = None
         try:
-            retstr = "0x{0:08x}".format(self.pe.generate_checksum())
+            retstr = f"0x{self.pe.generate_checksum():08x}"
         except Exception:
             log.warning(
-                "Detected outdated version of pefile.  "
+                "Detected outdated version of pefile. "
                 "Please update to the latest version at https://github.com/erocarrera/pefile"
             )
         return retstr
@@ -702,9 +678,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(
-            self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion
-        )
+        return f"{self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion}.{self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion}"
 
     def _get_resources(self):
         """Get resources.
@@ -736,12 +710,12 @@ class PortableExecutable(object):
                                         resource_lang.data.lang, resource_lang.data.sublang
                                     )
                                     resource["name"] = name
-                                    resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
-                                    resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
+                                    resource["offset"] = f"0x{resource_lang.data.struct.OffsetToData:08x}"
+                                    resource["size"] = f"0x{resource_lang.data.struct.Size:08x}"
                                     resource["filetype"] = filetype
                                     resource["language"] = language
                                     resource["sublanguage"] = sublanguage
-                                    resource["entropy"] = "{0:.02f}".format(float(_get_entropy(data)))
+                                    resource["entropy"] = f"{float(_get_entropy(data)):.02f}"
                                     resources.append(resource)
                 except Exception as e:
                     log.error(e, exc_info=True)
@@ -879,7 +853,7 @@ class PortableExecutable(object):
                                 entry["name"] = convert_to_printable(str_entry[0])
                                 entry["value"] = convert_to_printable(str_entry[1])
                                 if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                    entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 infos.append(entry)
                     elif hasattr(entry, "Var"):
                         for var_entry in entry.Var:
@@ -888,7 +862,7 @@ class PortableExecutable(object):
                                 entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
                                 entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
                                 if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                    entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                                    entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 infos.append(entry)
                 except Exception as e:
                     log.error(e, exc_info=True)
@@ -923,8 +897,8 @@ class PortableExecutable(object):
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
     def _get_guest_digital_signers(self):
-        retdata = dict()
-        cert_data = dict()
+        retdata = {}
+        cert_data = {}
         cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux", "DigiSig.json")
 
         if os.path.exists(cert_info):
@@ -960,7 +934,7 @@ class PortableExecutable(object):
 
         if not HAVE_CRYPTO:
             log.critical(
-                "You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography"
+                "You do not have the cryptography library installed preventing certificate extraction. pip3 install cryptography"
             )
             return []
 
@@ -999,53 +973,45 @@ class PortableExecutable(object):
             }
             try:
                 for attribute in cert.subject:
-                    cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
+                    cert_data[f"subject_{attribute.oid._name}"] = attribute.value
             except ValueError as e:
                 log.warning(e)
             try:
                 for attribute in cert.issuer:
-                    cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+                    cert_data[f"issuer_{attribute.oid._name}"] = attribute.value
             except ValueError as e:
                 log.warning(e)
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
-                            extension.value.key_identifier
-                        ).decode()
+                        cert_data[f"extensions_{extension.oid._name}"] = base64.b64encode(extension.value.key_identifier).decode()
                     elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode(
-                            "utf-8"
-                        )
+                        cert_data[f"extensions_{extension.oid._name}"] = base64.b64encode(extension.value.digest).decode()
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
                                 for qualifier in policy.policy_qualifiers:
                                     if qualifier.__class__ is not cryptography.x509.extensions.UserNotice:
-                                        cert_data["extensions_{}_{}".format(extension.oid._name, index)] = qualifier
+                                        cert_data[f"extensions_{extension.oid._name}_{index}"] = qualifier
                     elif extension.oid._name == "cRLDistributionPoints":
                         for index, point in enumerate(extension.value):
                             for full_name in point.full_name:
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = full_name.value
+                                cert_data[f"extensions_{extension.oid._name}_{index}"] = full_name.value
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data[
-                                    "extensions_{}_caIssuers".format(extension.oid._name)
-                                ] = authority_info.access_location.value
+                                cert_data[f"extensions_{extension.oid._name}_caIssuers"] = authority_info.access_location.value
                             elif authority_info.access_method._name == "OCSP":
-                                cert_data["extensions_{}_OCSP".format(extension.oid._name)] = authority_info.access_location.value
+                                cert_data[f"extensions_{extension.oid._name}_OCSP"] = authority_info.access_location.value
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(
-                                    name.value
-                                ).decode()
+                                cert_data[f"extensions_{extension.oid._name}_{index}"] = base64.b64encode(name.value).decode()
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
-                                    cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()
+                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = name.value.rfc4514_string()
                                 else:
-                                    cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value
+                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = name.value
             except ValueError:
                 continue
 
@@ -1067,7 +1033,7 @@ class PortableExecutable(object):
 
         self.pe = pefile.PE(self.file_path)
         if not self.pe:
-            log.debug("Not a PE file, skiping ")
+            log.debug("Not a PE file, skipping")
             return {}
 
         results = {}
@@ -1076,7 +1042,7 @@ class PortableExecutable(object):
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
         timediff = datetime.now() - pretime
-        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
         self.add_statistic("peid", "time", value)
 
         peresults["imagebase"] = self._get_imagebase()
@@ -1215,12 +1181,11 @@ class PDF(object):
         annoturiset = set()
         objects = []
         retobjects = []
-        metadata = dict()
+        metadata = {}
 
         self._set_base_uri()
 
-        for i in range(len(self.pdf.body)):
-            body = self.pdf.body[i]
+        for i, body in enumerate(self.pdf.body):
             metatmp = self.pdf.getBasicMetadata(i)
             if metatmp:
                 metadata = metatmp
@@ -1262,11 +1227,11 @@ class PDF(object):
                         # as this would mess up the new line representation which is used for
                         # beautifying the javascript code for Django's web interface.
                         ret_data = ""
-                        for x in range(len(jsdata)):
-                            if ord(jsdata[x]) > 127:
-                                tmp = "\\x" + str(jsdata[x].encode("hex"))
+                        for char in jsdata:
+                            if ord(char) > 127:
+                                tmp = f"\\x{char.encode('hex')}"
                             else:
-                                tmp = jsdata[x]
+                                tmp = char
                             ret_data += tmp
                     else:
                         continue
@@ -1343,14 +1308,14 @@ class Office(object):
         self.options = get_options(options)
 
     def _get_meta(self, meta):
-        ret = dict()
-        ret["SummaryInformation"] = dict()
+        ret = {}
+        ret["SummaryInformation"] = {}
         for prop in meta.SUMMARY_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
                 continue
             ret["SummaryInformation"][prop] = convert_to_printable(str(value))
-        ret["DocumentSummaryInformation"] = dict()
+        ret["DocumentSummaryInformation"] = {}
         for prop in meta.DOCSUM_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
@@ -1359,15 +1324,15 @@ class Office(object):
         return ret
 
     def _parse_rtf(self, data):
-        results = dict()
+        results = {}
         rtfp = RtfObjParser(data)
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "rtf_objects")
         if rtfp.objects and not os.path.exists(save_dir):
             os.makedirs(save_dir)
         for rtfobj in rtfp.objects:
-            results.setdefault(str(rtfobj.format_id), list())
-            temp_dict = dict()
+            results.setdefault(str(rtfobj.format_id), [])
+            temp_dict = {}
             temp_dict["class_name"] = ""
             temp_dict["size"] = ""
             temp_dict["filename"] = ""
@@ -1377,16 +1342,16 @@ class Office(object):
             temp_dict["index"] = ""
 
             if rtfobj.is_package:
-                log.debug("Saving file from OLE Package in object #%d:" % rtfobj.format_id)
-                log.debug("  Filename = %r" % rtfobj.filename)
-                log.debug("  Source path = %r" % rtfobj.src_path)
-                log.debug("  Temp path = %r" % rtfobj.temp_path)
+                log.debug("Saving file from OLE Package in object #%d:", rtfobj.format_id)
+                log.debug("  Filename = %s", rtfobj.filename)
+                log.debug("  Source path = %s", rtfobj.src_path)
+                log.debug("  Temp path = %s", rtfobj.temp_path)
                 sha256 = hashlib.sha256(rtfobj.olepkgdata).hexdigest()
                 if rtfobj.filename:
                     fname = convert_to_printable(rtfobj.filename)
                 else:
                     fname = sha256
-                log.debug("  saving to file %s" % sha256)
+                log.debug("  Saving to file %s", sha256)
                 temp_dict["filename"] = fname
                 open(os.path.join(save_dir, sha256), "wb").write(rtfobj.olepkgdata)
                 temp_dict["sha256"] = sha256
@@ -1394,7 +1359,7 @@ class Office(object):
                 # temp_dict["source_path"] = convert_to_printable(rtfobj.src_path))
             # When format_id=TYPE_LINKED, oledata_size=None
             elif rtfobj.is_ole and rtfobj.oledata_size is not None:
-                # ole_column = 'format_id: %d ' % rtfobj.format_id
+                # ole_column = f"format_id: {rtfobj.format_id} "
                 if rtfobj.format_id == oleobj.OleObject.TYPE_EMBEDDED:
                     temp_dict["type_embed"] = "Embedded"
                 elif rtfobj.format_id == oleobj.OleObject.TYPE_LINKED:
@@ -1402,8 +1367,8 @@ class Office(object):
                 else:
                     temp_dict["type_embed"] = "Unknown"
                 if hasattr(rtfobj, "clsid") and rtfobj.clsid is not None:
-                    # ole_column += '\nCLSID: %s' % rtfobj.clsid
-                    # ole_column += '\n%s' % rtfobj.clsid_desc
+                    # ole_column += f"\nCLSID: {rtfobj.clsid}"
+                    # ole_column += f"\n{rtfobj.clsid_desc}"
                     if "CVE" in rtfobj.clsid_desc:
                         temp_dict["CVE"] = rtfobj.clsid_desc
                 # Detect OLE2Link exploit
@@ -1411,10 +1376,10 @@ class Office(object):
                 if rtfobj.class_name == b"OLE2Link":
                     # ole_column += '\nPossibly an exploit for the OLE2Link vulnerability (VU#921560, CVE-2017-0199)'
                     temp_dict["CVE"] = "Possibly an exploit for the OLE2Link vulnerability (VU#921560, CVE-2017-0199)"
-                log.debug("Saving file embedded in OLE object #%d:" % rtfobj.format_id)
-                log.debug("  format_id  = %d" % rtfobj.format_id)
-                log.debug("  class name = %r" % rtfobj.class_name)
-                log.debug("  data size  = %d" % rtfobj.oledata_size)
+                log.debug("Saving file embedded in OLE object #%d:", rtfobj.format_id)
+                log.debug("  format_id  = %d", rtfobj.format_id)
+                log.debug("  class name = %s", rtfobj.class_name)
+                log.debug("  data size  = %d", rtfobj.oledata_size)
                 class_name = rtfobj.class_name.decode("ascii", "ignore").encode("ascii")
                 temp_dict["class_name"] = convert_to_printable(class_name)
                 temp_dict["size"] = rtfobj.oledata_size
@@ -1427,21 +1392,21 @@ class Office(object):
                 else:
                     ext = "bin"
                 sha256 = hashlib.sha256(rtfobj.oledata).hexdigest()
-                temp_dict["filename"] = "object_%08X.%s" % (rtfobj.start, ext)
+                temp_dict["filename"] = f"object_{rtfobj.start:08X}.{ext}"
                 save_path = os.path.join(save_dir, sha256)
-                log.debug("  saving to file %s" % sha256)
+                log.debug("  Saving to file %s", sha256)
                 open(save_path, "wb").write(rtfobj.oledata)
                 temp_dict["sha256"] = sha256
             else:
-                log.debug("Saving raw data in object #%d:" % rtfobj.format_id)
-                temp_dict["filename"] = "object_%08X.raw" % rtfobj.start
+                log.debug("Saving raw data in object #%d:", rtfobj.format_id)
+                temp_dict["filename"] = f"object_{rtfobj.start:08X}.raw"
                 sha256 = hashlib.sha256(rtfobj.rawdata).hexdigest()
                 save_path = os.path.join(save_dir, sha256)
-                log.debug("  saving object to file %s" % sha256)
+                log.debug("  Saving object to file %s", sha256)
                 open(save_path, "wb").write(rtfobj.rawdata)
                 temp_dict["sha256"] = sha256
                 temp_dict["size"] = len(rtfobj.rawdata)
-            temp_dict["index"] = "%08Xh" % rtfobj.start
+            temp_dict["index"] = f"{rtfobj.start:08X}h"
             if temp_dict:
                 results[str(rtfobj.format_id)].append(temp_dict)
 
@@ -1454,7 +1419,7 @@ class Office(object):
         @return: results dict or None
         """
 
-        results = dict()
+        results = {}
         vba = False
         if HAVE_OLETOOLS:
             if is_rtf(filepath):
@@ -1484,7 +1449,7 @@ class Office(object):
         except Exception as e:
             log.error(e, exc_info=True)
 
-        metares = officeresults["Metadata"] = dict()
+        metares = officeresults["Metadata"] = {}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
@@ -1501,26 +1466,26 @@ class Office(object):
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
-            macrores = officeresults["Macro"] = dict()
-            macrores["Code"] = dict()
-            macrores["info"] = dict()
+            macrores = officeresults["Macro"] = {}
+            macrores["Code"] = {}
+            macrores["info"] = {}
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macrores["Analysis"] = dict()
-            macrores["Analysis"]["AutoExec"] = list()
-            macrores["Analysis"]["Suspicious"] = list()
-            macrores["Analysis"]["IOCs"] = list()
-            macrores["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"] = {}
+            macrores["Analysis"]["AutoExec"] = []
+            macrores["Analysis"]["Suspicious"] = []
+            macrores["Analysis"]["IOCs"] = []
+            macrores["Analysis"]["HexStrings"] = []
             try:
                 for (_, _, vba_filename, vba_code) in vba.extract_macros():
                     vba_code = filter_vba(vba_code)
                     if vba_code.strip() != "":
                         # Handle all macros
                         ctr += 1
-                        outputname = "Macro" + str(ctr)
-                        macrores["Code"][outputname] = list()
+                        outputname = f"Macro{ctr}"
+                        macrores["Code"][outputname] = []
                         macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                         autoexec = detect_autoexec(vba_code)
                         if not os.path.exists(macro_folder):
@@ -1528,7 +1493,7 @@ class Office(object):
                         macro_file = os.path.join(macro_folder, outputname)
                         with open(macro_file, "w") as f:
                             f.write(convert_to_printable(vba_code))
-                        macrores["info"][outputname] = dict()
+                        macrores["info"][outputname] = {}
                         macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
                         macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
@@ -1664,7 +1629,7 @@ class LnkShortcut(object):
     def run(self):
         buf = self.buf = open(self.filepath, "rb").read()
         if len(buf) < ctypes.sizeof(LnkHeader):
-            log.warning("Provided .lnk file is corrupted or incomplete.")
+            log.warning("Provided .lnk file is corrupted or incomplete")
             return
 
         header = LnkHeader.from_buffer_copy(buf[: ctypes.sizeof(LnkHeader)])
@@ -1685,7 +1650,7 @@ class LnkShortcut(object):
 
         offset = 78 + self.read_uint16(76)
         if len(buf) < offset + 28:
-            log.warning("Provided .lnk file is corrupted or incomplete.")
+            log.warning("Provided .lnk file is corrupted or incomplete")
             return
 
         off = LnkEntry.from_buffer_copy(buf[offset : offset + 28])
@@ -1753,7 +1718,7 @@ class ELF(object):
             "entry_point_address": self._print_addr(self.elf.header["e_entry"]),
             "start_of_program_headers": self.elf.header["e_phoff"],
             "start_of_section_headers": self.elf.header["e_shoff"],
-            "flags": "{}{}".format(self._print_addr(self.elf.header["e_flags"]), self._decode_flags(self.elf.header["e_flags"])),
+            "flags": f"{self._print_addr(self.elf.header['e_flags'])}{self._decode_flags(self.elf.header['e_flags'])}",
             "size_of_this_header": self.elf.header["e_ehsize"],
             "size_of_program_headers": self.elf.header["e_phentsize"],
             "number_of_program_headers": self.elf.header["e_phnum"],
@@ -1877,8 +1842,8 @@ class ELF(object):
         return notes
 
     def _print_addr(self, addr):
-        fmt = "0x{0:08x}" if self.elf.elfclass == 32 else "0x{0:016x}"
-        return fmt.format(addr)
+        fmt = f"0x{addr:08x}" if self.elf.elfclass == 32 else f"0x{addr:016x}"
+        return fmt
 
     def _decode_flags(self, flags):
         description = ""
@@ -1903,22 +1868,22 @@ class ELF(object):
 
     def _parse_tag(self, tag):
         if tag.entry.d_tag == "DT_NEEDED":
-            parsed = "Shared library: [%s]" % tag.needed
+            parsed = f"Shared library: [{tag.needed}]"
         elif tag.entry.d_tag == "DT_RPATH":
-            parsed = "Library rpath: [%s]" % tag.rpath
+            parsed = f"Library rpath: [{tag.rpath}]"
         elif tag.entry.d_tag == "DT_RUNPATH":
-            parsed = "Library runpath: [%s]" % tag.runpath
+            parsed = f"Library runpath: [{tag.runpath}]"
         elif tag.entry.d_tag == "DT_SONAME":
-            parsed = "Library soname: [%s]" % tag.soname
+            parsed = f"Library soname: [{tag.soname}]"
         elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("SZ", "ENT")):
-            parsed = "%i (bytes)" % tag["d_val"]
+            parsed = f"{tag['d_val']} (bytes)"
         elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
-            parsed = "%i" % tag["d_val"]
+            parsed = str(tag["d_val"])
         elif tag.entry.d_tag == "DT_PLTREL":
             s = describe_dyn_tag(tag.entry.d_val)
             if s.startswith("DT_"):
                 s = s[3:]
-            parsed = "%s" % s
+            parsed = s
         else:
             parsed = self._print_addr(tag["d_val"])
 
@@ -2028,8 +1993,8 @@ class URL(object):
     def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
         nest_count = 0 - ignore_nest_level
         string_buf = str()
-        json_buf = list()
-        json_data = list()
+        json_buf = []
+        json_data = []
         for character in data:
             if character == "{":
                 nest_count += 1
@@ -2081,12 +2046,12 @@ class URL(object):
                         w[field] = ["None"]
             except Exception:
                 # No WHOIS data returned
-                log.warning("No WHOIS data for domain: " + self.domain)
+                log.warning("No WHOIS data for domain: %s", self.domain)
                 return results
 
             # These can be a list or string, just make them all lists
             for key in w.keys():
-                buf = list()
+                buf = []
                 # Handle and format dates
                 if "_date" in key:
                     if isinstance(w[key], list):
@@ -2128,9 +2093,9 @@ class URL(object):
             results["url"]["whois"] = output
 
         if self.domain == "bit.ly":
-            resp = requests.get(self.url + "+")
+            resp = requests.get(f"{self.url}+")
             soup = bs4.BeautifulSoup(resp.text, "html.parser")
-            output = list()
+            output = []
             for script in [x.extract() for x in soup.find_all("script")]:
                 if script.contents:
                     content = script.contents[0]
@@ -2140,7 +2105,7 @@ class URL(object):
             if output:
                 results["url"]["bitly"] = {k: v for d in output for k, v in d.iteritems()}
                 newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
-                results["url"]["bitly"]["created_at"] = newtime.strftime("%Y-%m-%d %H:%M:%S") + " GMT"
+                results["url"]["bitly"]["created_at"] = f"{newtime.strftime('%Y-%m-%d %H:%M:%S')} GMT"
 
         return results
 
@@ -2692,7 +2657,7 @@ class WindowsScriptFile(object):
                 source = EncodedScriptFile(self.filepath).decode(source)
 
             if len(source) > 65536:
-                source = source[:65536] + "\r\n<truncated>"
+                source = f"{source[:65536]}\r\n<truncated>"
 
             ret.append(source)
 
@@ -2730,7 +2695,7 @@ class Static(Processing):
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
                 decomp_jar = self.options.get("procyon_path")
                 if decomp_jar and not os.path.exists(decomp_jar):
-                    log.error("procyon_path specified in processing.conf but the file does not exist.")
+                    log.error("procyon_path specified in processing.conf but the file does not exist")
                 static = Java(self.file_path, decomp_jar).run()
             # It's possible to fool libmagic into thinking our 2007+ file is a
             # zip. So until we have static analysis for zip files, we can use

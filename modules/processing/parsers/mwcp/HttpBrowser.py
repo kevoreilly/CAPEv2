@@ -12,10 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mwcp.parser import Parser
 import struct
+
 import pefile
 import yara
+from mwcp.parser import Parser
 
 rule_source = """
 rule HttpBrowser

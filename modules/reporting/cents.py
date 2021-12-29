@@ -1,14 +1,13 @@
-import os
 import logging
+import os
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.common.utils import datetime_to_iso
-
 from lib.cuckoo.common.cents.cents_remcos import cents_remcos
 from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
 from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.utils import datetime_to_iso
 
 log = logging.getLogger(__name__)
 
@@ -75,15 +74,15 @@ class Cents(Report):
                     rules = cents_trickbot(config_dict, results.get("suricata", {}), self.sid_counter, md5, date, task_link)
                 else:
                     # config for this family not implemented yet
-                    log.debug(f"[CENTS] Config for family {config_name} not implemented yet")
+                    log.debug("[CENTS] Config for family %s not implemented yet", config_name)
                     continue
 
                 if rules:
-                    log.debug(f"[CENTS] Created {len(rules)} rule(s) for {config_name}")
+                    log.debug("[CENTS] Created %d rule(s) for %s", len(rules), config_name)
                     self.sid_counter += len(rules)
                     rule_list += rules
                 else:
-                    log.warning(f"[CENTS] Found config for {config_name}, but couldn't create rules")
+                    log.warning("[CENTS] Found config for %s, but couldn't create rules", config_name)
 
         if not rule_list:
             # no rules have been created
@@ -97,8 +96,8 @@ class Cents(Report):
                 f.write(f"# Created {len(rule_list)} rules.\n")
                 # rules
                 for line in rule_list:
-                    f.write(line + "\n")
-                log.info(f"[CENTS] Wrote {len(rule_list)} rule(s) to rule file at: {f.name}")
+                    f.write(f"{line}\n")
+                log.info("[CENTS] Wrote %d rule(s) to rule file at: %s", len(rule_list), f.name)
                 results["info"]["has_cents_rules"] = True
         except IOError as e:
-            raise CuckooReportError("Failed to generate CENTS report: %s" % e)
+            raise CuckooReportError(f"Failed to generate CENTS report: {e}")

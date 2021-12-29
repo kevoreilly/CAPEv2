@@ -5,27 +5,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 # ToDo
 # https://github.com/cuckoosandbox/cuckoo/pull/1694/files
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import sys
-import time
-import json
-import shutil
-import queue
-import hashlib
-import zipfile
-import logging
-from logging import handlers
+from __future__ import absolute_import, print_function
 import argparse
-import threading
-from io import BytesIO
-from zipfile import ZipFile
-from datetime import datetime, timedelta
-from itertools import combinations
 import distutils.util
-from sqlalchemy import or_, and_
-from sqlalchemy.exc import SQLAlchemyError, OperationalError
+import hashlib
+import json
+import logging
+import os
+import queue
+import shutil
+import sys
+import threading
+import time
+import zipfile
+from datetime import datetime, timedelta
+from io import BytesIO
+from itertools import combinations
+from logging import handlers
+from zipfile import ZipFile
+
+from sqlalchemy import and_, or_
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 try:
     import pyzipper
@@ -37,17 +37,10 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.common.dist_db import Node, Task, Machine, ExitNodes, create_session
-from lib.cuckoo.core.database import (
-    Database,
-    TASK_REPORTED,
-    TASK_RUNNING,
-    TASK_PENDING,
-    TASK_FAILED_REPORTING,
-    TASK_DISTRIBUTED_COMPLETED,
-    TASK_DISTRIBUTED,
-)
+from lib.cuckoo.core.database import (TASK_DISTRIBUTED, TASK_DISTRIBUTED_COMPLETED, TASK_FAILED_REPORTING, TASK_PENDING,
+                                      TASK_REPORTED, TASK_RUNNING, Database)
 from lib.cuckoo.core.database import Task as MD_Task
 
 # we need original db to reserve ID in db,
@@ -79,9 +72,9 @@ NFS_BASED_FETCH = reporting_conf.distributed.get("nfs")
 INTERVAL = 10
 
 # controller of dead nodes
-failed_count = dict()
+failed_count = {}
 # status controler count to reset number
-status_count = dict()
+status_count = {}
 
 lock_retriever = threading.Lock()
 dist_lock = threading.BoundedSemaphore(int(reporting_conf.distributed.dist_threads))
@@ -96,7 +89,7 @@ def required(package):
 
 
 try:
-    from flask import Flask, request, make_response, jsonify
+    from flask import Flask, jsonify, make_response, request
 except ImportError:
     required("flask")
 
@@ -112,8 +105,9 @@ except AttributeError:
     pass
 
 try:
+    from flask_restful import Api as RestApi
+    from flask_restful import Resource as RestResource
     from flask_restful import abort, reqparse
-    from flask_restful import Api as RestApi, Resource as RestResource
 except ImportError:
     required("flask-restful")
 
@@ -375,12 +369,12 @@ class Retriever(threading.Thread):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
         self.cfg = Config()
-        self.t_is_none = dict()
-        self.status_count = dict()
-        self.current_queue = dict()
-        self.current_two_queue = dict()
+        self.t_is_none = {}
+        self.status_count = {}
+        self.current_queue = {}
+        self.current_two_queue = {}
         self.stop_dist = threading.Event()
-        self.threads = list()
+        self.threads = []
 
         for x in range(int(reporting_conf.distributed.dist_threads)):
             if dist_lock.acquire(blocking=False):
@@ -538,7 +532,7 @@ class Retriever(threading.Thread):
 
     def fetcher(self):
         """Method that runs forever"""
-        last_checks = dict()
+        last_checks = {}
         # to not exit till cleaner works
         db = session()
         while not self.stop_dist.isSet():
@@ -600,7 +594,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -614,7 +608,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -690,7 +684,7 @@ class Retriever(threading.Thread):
         while not self.stop_dist.isSet():
             task, node_id = self.fetcher_queue.get()
 
-            self.current_queue.setdefault(node_id, list()).append(task["id"])
+            self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
                 # In the case that a Cuckoo node has been reset over time it"s
@@ -704,7 +698,7 @@ class Retriever(threading.Thread):
                     .first()
                 )
                 if t is None:
-                    self.t_is_none.setdefault(node_id, list()).append(task["id"])
+                    self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                     # sometime it not deletes tasks in workers of some fails or something
                     # this will do the trick
@@ -798,16 +792,16 @@ class Retriever(threading.Thread):
 
     def remove_from_worker(self):
         db = session()
-        nodes = dict()
-        details = dict()
+        nodes = {}
+        details = {}
         for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
             nodes.setdefault(node.id, node)
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
-            details[node_id] = list()
+            details[node_id] = []
             details[node_id].append(str(task_id))
-            if task_id in self.t_is_none.get(node_id, list()):
+            if task_id in self.t_is_none.get(node_id, []):
                 self.t_is_none[node_id].remove(task_id)
 
             node = nodes[node_id]
@@ -1016,7 +1010,7 @@ class StatusThread(threading.Thread):
         global main_db
         global retrieve
         global STATUSES
-        MINIMUMQUEUE = dict()
+        MINIMUMQUEUE = {}
 
         # handle another user case,
         # when master used to only store data and not process samples
@@ -1382,8 +1376,8 @@ def cron_cleaner(clean_x_hours=False):
     pid.close()
 
     db = session()
-    nodes = dict()
-    details = dict()
+    nodes = {}
+    details = {}
 
     for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey, Node.enabled).all():
         nodes.setdefault(node.id, node)
@@ -1402,7 +1396,7 @@ def cron_cleaner(clean_x_hours=False):
         for task in tasks:
             node = nodes[task.node_id]
             if node:
-                details.setdefault(node.id, list())
+                details.setdefault(node.id, [])
                 details[node.id].append(str(task.task_id))
                 task.deleted = True
 

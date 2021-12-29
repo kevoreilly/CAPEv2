@@ -2,14 +2,16 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-import os
-import struct
+from __future__ import absolute_import, print_function
 import hashlib
 import logging
+import os
+import struct
 from binascii import crc32
+
 import six
+
+from lib.cuckoo.common.utils import store_temp_file
 
 try:
     import olefile
@@ -18,8 +20,6 @@ try:
 except ImportError:
     HAVE_OLEFILE = False
     print("Missed olefile dependency: pip3 install olefile")
-
-from lib.cuckoo.common.utils import store_temp_file
 
 
 def bytearray_xor(data, key):
@@ -476,14 +476,14 @@ def rc4_decrypt(sbox, data):
     out = bytearray(len(data))
     i = 0
     j = 0
-    for k in range(len(data)):
+    for k, char in enumerate(data):
         i = (i + 1) % 256
         j = (j + sbox[i]) % 256
         tmp = sbox[i]
         sbox[i] = sbox[j]
         sbox[j] = tmp
         val = sbox[(sbox[i] + sbox[j]) % 256]
-        out[k] = val ^ data[k]
+        out[k] = val ^ char
 
     return out
 
@@ -693,7 +693,7 @@ def mcafee_unquarantine(f):
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()
-    quarfiles = list()
+    quarfiles = []
     for item in olefiles:
         if "Details" in item:
             details = bytearray_xor(bytearray(oledata.openstream("Details").read()), 0x6A)
@@ -702,7 +702,7 @@ def mcafee_unquarantine(f):
             for fileobj in item:
                 if "File_" in fileobj:
                     quarfiles.append(fileobj)
-            decoded = dict()
+            decoded = {}
             # Try and decode quarantine files (sometimes there are none)
             for item in quarfiles:
                 try:

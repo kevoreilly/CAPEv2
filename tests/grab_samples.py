@@ -4,12 +4,12 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import logging
-import json
-import os
 import argparse
-import urllib3
+import json
+import logging
+import os
 
+import urllib3
 from tcr_misc import get_sample
 
 urllib3.disable_warnings()

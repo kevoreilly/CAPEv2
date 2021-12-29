@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import glob
+import os
 import zipfile
 
 from lib.cuckoo.common.abstracts import Processing
@@ -19,14 +19,14 @@ class Decompression(Processing):
     def run(self):
         self.key = "decompression"
 
-        if os.path.exists(self.memory_path + ".zip"):
+        if os.path.exists(f"{self.memory_path}.zip"):
             try:
-                thezip = zipfile.ZipFile(self.memory_path + ".zip", "r")
+                thezip = zipfile.ZipFile(f"{self.memory_path}.zip", "r")
                 thezip.extractall(path=self.analysis_path)
                 thezip.close()
-                os.unlink(self.memory_path + ".zip")
+                os.unlink(f"{self.memory_path}.zip")
             except Exception as e:
-                raise CuckooProcessingError("Error extracting ZIP: %s" % e)
+                raise CuckooProcessingError(f"Error extracting ZIP: {e}")
 
         for fzip in glob.glob(os.path.join(self.pmemory_path, "*.zip")):
             try:
@@ -35,6 +35,6 @@ class Decompression(Processing):
                 thezip.close()
                 os.unlink(fzip)
             except Exception as e:
-                raise CuckooProcessingError("Error extracting ZIP: %s" % e)
+                raise CuckooProcessingError(f"Error extracting ZIP: {e}")
 
         return []

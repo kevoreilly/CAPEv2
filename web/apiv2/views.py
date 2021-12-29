@@ -1,53 +1,42 @@
 # encoding: utf-8
 from __future__ import absolute_import
 import json
-import os
-import sys
-import socket
-import zipfile
 import logging
-from io import BytesIO
+import os
+import socket
+import sys
+import zipfile
 from datetime import datetime, timedelta
+from io import BytesIO
+from wsgiref.util import FileWrapper
 from zlib import decompress
 
 import requests
+from bson.objectid import ObjectId
 from django.conf import settings
-from wsgiref.util import FileWrapper
+from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-
-
-from rest_framework.response import Response
 from rest_framework.decorators import api_view
-
-from bson.objectid import ObjectId
-from django.contrib.auth.decorators import login_required
+from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
-from utils.cleaners import delete_mongo_data
-from lib.cuckoo.core.database import TASK_RUNNING
-from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.core.database import Database, Task
-from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
-from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION, ANALYSIS_BASE_PATH
-from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name, create_zip
-from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
-from lib.cuckoo.common.web_utils import (
-    perform_malscore_search,
-    perform_search,
-    perform_ttps_search,
-    search_term_map,
-    get_file_content,
-    statistics,
-)
-from lib.cuckoo.common.web_utils import download_file, validate_task, apiconf, force_int, _download_file, parse_request_arguments
-from lib.cuckoo.common.web_utils import download_from_vt
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.common.utils import (convert_to_printable, create_zip, delete_folder, generate_fake_name, get_options,
+                                     get_user_filename, sanitize_filename, store_temp_file, validate_referrer)
+from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file, download_from_vt, force_int, get_file_content,
+                                         parse_request_arguments, perform_malscore_search, perform_search, perform_ttps_search,
+                                         search_term_map, statistics, validate_task)
+from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
+from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from utils.cleaners import delete_mongo_data
 
 try:
     import psutil
@@ -182,7 +171,7 @@ def tasks_create_static(request):
     resp["error"] = False
     files = request.FILES.getlist("file")
     extra_details = {}
-    task_ids = list()
+    task_ids = []
     for sample in files:
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
@@ -208,7 +197,7 @@ def tasks_create_static(request):
             resp["data"] = {}
             resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
             if callback:
-                resp["url"] = list()
+                resp["url"] = []
                 for tid in task_ids:
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
@@ -289,7 +278,7 @@ def tasks_create_file(request):
         else:
             max_file_size = int(max_file_size) * 1048576
 
-        files = list()
+        files = []
         # Check if we are allowing multiple file submissions
         multifile = apiconf.filecreate.get("multifile")
         if multifile:
@@ -371,7 +360,7 @@ def tasks_create_file(request):
                     ", ".join(str(x) for x in details.get("task_ids", []))
                 )
                 if callback:
-                    resp["url"] = list()
+                    resp["url"] = []
                     for tid in details.get("task_ids", []):
                         resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
         else:
@@ -776,7 +765,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 sids = [tmp_sample.to_dict()["id"] for tmp_sample in samples]
             else:
                 sids = [sample.to_dict()["id"]]
-            resp["data"] = list()
+            resp["data"] = []
             for sid in sids:
                 tasks = db.list_tasks(sample_id=sid)
                 for task in tasks:
@@ -800,7 +789,7 @@ def ext_tasks_search(request):
         resp = {"error": True, "error_value": "Extended Task Search API is Disabled"}
         return Response(resp)
 
-    return_data = list()
+    return_data = []
     term = request.data.get("option", "")
     value = request.data.get("argument", "")
 
@@ -816,7 +805,7 @@ def ext_tasks_search(request):
             else:
                 return Response({"error": True, "error_value": "Not all values are integers"})
         if term == "ids":
-            tmp_value = list()
+            tmp_value = []
             for task in db.list_tasks(task_ids=value) or []:
                 if task.status == "reported":
                     tmp_value.append(task.id)
@@ -898,7 +887,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
 
     if offset:
         offset = int(offset)
-    resp["data"] = list()
+    resp["data"] = []
     resp["config"] = "Limit: {0}, Offset: {1}".format(limit, offset)
     resp["buf"] = 0
 
@@ -1010,8 +999,8 @@ def tasks_delete(request, task_id, status=False):
         task_id = [task.strip() for task in task_id.split(",")]
 
     resp = {}
-    s_deleted = list()
-    f_deleted = list()
+    s_deleted = []
+    f_deleted = []
     for task in task_id:
         check = validate_task(task, status)
         if check["error"]:
@@ -1284,7 +1273,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
         data["network"]["ids"]["http"] = buf["suricata"]["http"]
         data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
-        data["network"]["ids"]["files"] = list()
+        data["network"]["ids"]["files"] = []
         for surifile in buf["suricata"]["files"]:
             if "file_info" in list(surifile.keys()):
                 tmpfile = surifile
@@ -1894,7 +1883,7 @@ def task_x_hours(request):
         .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
         .all()
     )
-    results = dict()
+    results = {}
     if res:
         for date, samples in res:
             results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
@@ -1990,7 +1979,7 @@ def tasks_config(request, task_id, cape_name=False):
     if check["error"]:
         return Response(check)
 
-    buf = dict()
+    buf = {}
     if repconf.mongodb.get("enabled"):
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
     if repconf.jsondump.get("enabled") and not buf:

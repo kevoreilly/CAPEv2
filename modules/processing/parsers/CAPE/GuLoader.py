@@ -7,7 +7,7 @@ url_regex = re.compile(br"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[
 
 
 def config(data):
-    urls_dict = dict()
+    urls_dict = {}
 
     try:
         urls_dict["URLs"] = [url.lower().decode() for url in url_regex.findall(data)]

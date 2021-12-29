@@ -1,7 +1,6 @@
 import logging
 
 from malduck.extractor import Extractor
-from malduck.pe import MemoryPEData
 
 log = logging.getLogger(__name__)
 

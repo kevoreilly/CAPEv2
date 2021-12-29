@@ -1,12 +1,11 @@
+from allauth.account.adapter import DefaultAccountAdapter
+from allauth.account.signals import email_confirmed, user_signed_up
 from django import forms
 from django.conf import settings
-from allauth.account.adapter import DefaultAccountAdapter
-
-from allauth.account.signals import user_signed_up, email_confirmed
-from django.dispatch import receiver
 from django.contrib.auth.models import User
+from django.dispatch import receiver
 
-disposable_domain_list = list()
+disposable_domain_list = []
 if hasattr(settings, "DISPOSABLE_DOMAIN_LIST"):
     disposable_domain_list = [domain.strip() for domain in open(settings.DISPOSABLE_DOMAIN_LIST, "r").readlines()]
 

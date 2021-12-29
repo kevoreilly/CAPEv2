@@ -1,7 +1,7 @@
+import argparse
 import os
 import re
 import sys
-import argparse
 
 #
 #   VPN intergrator for CAPE
@@ -9,10 +9,10 @@ import argparse
 
 
 def main():
-    rt_table = dict()
-    templates = list()
-    paths = list()
-    vpns = list()
+    rt_table = {}
+    templates = []
+    paths = []
+    vpns = []
     template = """
 [vpn_{id}]
 # rename this to something different, you will use thil field to see in webgui or set in routing.conf

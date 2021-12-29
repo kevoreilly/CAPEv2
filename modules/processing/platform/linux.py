@@ -3,11 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-import dateutil.parser
-import os
 import logging
+import os
 import re
 from functools import reduce
+
+import dateutil.parser
 
 from lib.cuckoo.common.abstracts import BehaviorHandler
 
@@ -191,15 +192,15 @@ class StraceParser(object):
             """
 
             argsplit = arguments.split(", ")
-            tmp_argslist = list()
-            for pos in range(len(argsplit)):
-                if argsplit[pos].startswith("{"):
-                    argsplit[pos] = argsplit[pos][1:]
-                if argsplit[pos].endswith("}"):
-                    argsplit[pos] = argsplit[pos][:-1]
+            tmp_argslist = []
+            for pos, arg in enumerate(argsplit):
+                if arg.startswith("{"):
+                    argsplit[pos] = arg[1:]
+                if arg.endswith("}"):
+                    argsplit[pos] = arg[:-1]
                 tmp_argslist.append(argsplit[pos])
-            arguments = dict(("p%u" % pos, tmp_argslist[pos]) for pos in range(len(tmp_argslist)))
-            # print {"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line}
+            arguments = dict(("p%u" % pos, tmp_arg) for pos, tmp_arg in enumerate(tmp_argslist))
+            # print({"time": datetime.datetime.now(), "process_name": "", "pid": pid, "instruction_pointer": None, "api": fn, "arguments": arguments, "return_value": retval, "status": None, "type": "apicall", "raw": line})
             yield {
                 "time": datetime.datetime.now(),
                 "process_name": "",

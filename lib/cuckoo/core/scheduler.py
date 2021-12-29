@@ -3,18 +3,25 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import logging
 import os
-import time
+import queue
 import shutil
 import signal
-import logging
 import threading
-import queue
+import time
 
-try:
-    import re2 as re
-except ImportError:
-    import re
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooGuestError, CuckooMachineError, CuckooNetworkError,
+                                          CuckooOperationalError)
+from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
+from lib.cuckoo.core.database import TASK_COMPLETED, Database
+from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
+from lib.cuckoo.core.resultserver import ResultServer
+from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
@@ -25,20 +32,6 @@ try:
     HAVE_NETWORKIFACES = True
 except ImportError:
     print("Missde dependency: pip3 install psutil")
-
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooMachineError, CuckooGuestError
-from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooNetworkError
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.objects import File, HAVE_PEFILE, pefile
-from lib.cuckoo.common.utils import create_folder, get_memdump_path, free_space_monitor
-from lib.cuckoo.core.database import Database, TASK_COMPLETED
-from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary
-from lib.cuckoo.core.resultserver import ResultServer
-from lib.cuckoo.core.rooter import rooter, vpns, _load_socks5_operational
-from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
@@ -93,10 +86,7 @@ class AnalysisManager(threading.Thread):
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
         if os.path.exists(self.storage):
-            log.error(
-                "Task #{0}: Analysis results folder already exists at path '{1}', "
-                "analysis aborted".format(self.task.id, self.storage)
-            )
+            log.error("Task #%s: Analysis results folder already exists at path '%s', analysis aborted", self.task.id, self.storage)
             return False
 
         # If we're not able to create the analysis storage folder, we have to
@@ -104,7 +94,7 @@ class AnalysisManager(threading.Thread):
         try:
             create_folder(folder=self.storage)
         except CuckooOperationalError:
-            log.error("Task #{0}: Unable to create analysis folder {1}".format(self.task.id, self.storage))
+            log.error("Task #%s: Unable to create analysis folder %s", self.task.id, self.storage)
             return False
 
         return True
@@ -115,8 +105,9 @@ class AnalysisManager(threading.Thread):
 
         if sha256 != sample.sha256:
             log.error(
-                "Task #{0}: Target file has been modified after submission: "
-                "'{1}'".format(self.task.id, convert_to_printable(self.task.target))
+                "Task #%s: Target file has been modified after submission: '%s'",
+                self.task.id,
+                convert_to_printable(self.task.target),
             )
             return False
 
@@ -126,23 +117,41 @@ class AnalysisManager(threading.Thread):
         """Store a copy of the file being analyzed."""
         if not os.path.exists(self.task.target):
             log.error(
-                "Task #{0}: The file to analyze does not exist at path '{1}', "
-                "analysis aborted".format(self.task.id, convert_to_printable(self.task.target))
+                "Task #%s: The file to analyze does not exist at path '%s', analysis aborted",
+                self.task.id,
+                convert_to_printable(self.task.target),
             )
             return False
 
-        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
+        self.binary = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id), sha256)
+        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
 
         if os.path.exists(self.binary):
-            log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, self.binary))
+            log.info("Task #%s: File already exists at '%s'", self.task.id, self.binary)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
+                create_folder(folder=os.path.join(CUCKOO_ROOT, "storage", "binaries", str(self.task.id)))
                 shutil.copy(self.task.target, self.binary)
             except (IOError, shutil.Error) as e:
                 log.error(
+                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
+                    self.task.id,
+                    self.task.target,
+                    self.binary,
+                )
+                return False
+
+        if os.path.exists(copy_path):
+            log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, copy_path))
+        else:
+            # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
+            try:
+                shutil.copy(self.task.target, copy_path)
+            except (IOError, shutil.Error) as e:
+                log.error(
                     "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(
-                        self.task.id, self.task.target, self.binary
+                        self.task.id, self.task.target, copy_path
                     )
                 )
                 return False
@@ -155,11 +164,7 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error(
-                "Task #{0}: Unable to create symlink/copy from '{1}' to '{2}': {3}".format(
-                    self.task.id, self.binary, self.storage, e
-                )
-            )
+            log.error("Task #%s: Unable to create symlink/copy from '%s' to '%s': %s", self.task.id, self.binary, self.storage, e)
 
         return True
 
@@ -186,15 +191,16 @@ class AnalysisManager(threading.Thread):
             # If no machine is available at this moment, wait for one second and try again.
             if not machine:
                 machine_lock.release()
-                log.debug(
-                    "Task #{0}: no machine available yet. Verify that arch value is set in hypervisor config".format(self.task.id)
-                )
+                log.debug("Task #%s: no machine available yet. Verify that arch value is set in hypervisor config", self.task.id)
                 time.sleep(1)
             else:
                 log.info(
-                    "Task #{}: acquired machine {} (label={}, arch={}, platform={})".format(
-                        self.task.id, machine.name, machine.label, machine.arch, machine.platform
-                    )
+                    "Task #%s: acquired machine %s (label=%s, arch=%s, platform=%s)",
+                    self.task.id,
+                    machine.name,
+                    machine.label,
+                    machine.arch,
+                    machine.platform,
                 )
                 break
 
@@ -229,7 +235,7 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = file_obj.get_dll_exports(options["file_type"])
+            options["exports"] = file_obj.get_dll_exports()
             del file_obj
 
         # options from auxiliar.conf
@@ -275,9 +281,10 @@ class AnalysisManager(threading.Thread):
         self.socks5s = _load_socks5_operational()
 
         log.info(
-            "Task #{0}: Starting analysis of {1} '{2}'".format(
-                self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)
-            )
+            "Task #%s: Starting analysis of %s '%s'",
+            self.task.id,
+            self.task.category.upper(),
+            convert_to_printable(self.task.target),
         )
 
         # Initialize the analysis folders.
@@ -296,7 +303,7 @@ class AnalysisManager(threading.Thread):
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
-            log.error("Task #{0}: Cannot acquire machine: {1}".format(self.task.id, e), exc_info=True)
+            log.error("Task #%s: Cannot acquire machine: %s", self.task.id, e, exc_info=True)
             return False
 
         # Generate the analysis configuration file.
@@ -365,7 +372,7 @@ class AnalysisManager(threading.Thread):
                     else:
                         machinery.dump_memory(self.machine.label, dump_path)
                 except NotImplementedError:
-                    log.error("The memory dump functionality is not available for the current machine manager.")
+                    log.error("The memory dump functionality is not available for the current machine manager")
 
                 except CuckooMachineError as e:
                     log.error(e, exc_info=True)
@@ -375,7 +382,7 @@ class AnalysisManager(threading.Thread):
                 machinery.stop(self.machine.label)
 
             except CuckooMachineError as e:
-                log.warning("Task #{0}: Unable to stop machine {1}: {2}".format(self.task.id, self.machine.label, e))
+                log.warning("Task #%s: Unable to stop machine %s: %s", self.task.id, self.machine.label, e)
 
             # Mark the machine in the database as stopped. Unless this machine
             # has been marked as dead, we just keep it as "started" in the
@@ -411,8 +418,10 @@ class AnalysisManager(threading.Thread):
 
             except CuckooMachineError as e:
                 log.error(
-                    "Task #{0}: Unable to release machine {1}, reason "
-                    "{2}. You might need to restore it manually.".format(self.task.id, self.machine.label, e)
+                    "Task #%s: Unable to release machine %s, reason %s. You might need to restore it manually",
+                    self.task.id,
+                    self.machine.label,
+                    e,
                 )
 
         return succeeded
@@ -439,7 +448,7 @@ class AnalysisManager(threading.Thread):
             # turn thrown an exception in the analysisinfo processing module.
             self.task = self.db.view_task(self.task.id) or self.task
 
-            log.debug("Task #{0}: Released database task with status {1}".format(self.task.id, success))
+            log.debug("Task #%s: Released database task with status %s", self.task.id, success)
 
             # We make a symbolic link ("latest") which links to the latest
             # analysis - this is useful for debugging purposes. This is only
@@ -459,19 +468,19 @@ class AnalysisManager(threading.Thread):
 
                     os.symlink(self.storage, latest)
                 except OSError as e:
-                    log.warning("Task #{0}: Error pointing latest analysis symlink: {1}".format(self.task.id, e))
+                    log.warning("Task #%s: Error pointing latest analysis symlink: %s", self.task.id, e)
                 finally:
                     latest_symlink_lock.release()
 
-            log.info("Task #{0}: analysis procedure completed".format(self.task.id))
+            log.info("Task #%s: analysis procedure completed", self.task.id)
         except Exception as e:
-            log.exception("Task #{0}: Failure in AnalysisManager.run: {1}".format(self.task.id, e))
+            log.exception("Task #%s: Failure in AnalysisManager.run: %s", self.task.id, e)
 
         active_analysis_count -= 1
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
-            raise CuckooCriticalError("Error execution rooter command: %s" % self.rooter_response["exception"])
+            raise CuckooCriticalError(f"Error execution rooter command: {self.rooter_response['exception']}")
 
     def route_network(self):
         """Enable network routing if desired."""
@@ -497,7 +506,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in self.socks5s:
             self.interface = ""
         else:
-            log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %r", self.route)
+            log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %s", self.route)
             self.interface = None
             self.rt_table = None
 
@@ -506,7 +515,7 @@ class AnalysisManager(threading.Thread):
         if self.interface and not rooter("nic_available", self.interface):
             log.error(
                 "The network interface '%s' configured for this analysis is "
-                "not available at the moment, switching to route=none mode.",
+                "not available at the moment, switching to route=none mode",
                 self.interface,
             )
             self.route = "none"
@@ -548,7 +557,7 @@ class AnalysisManager(threading.Thread):
 
         # check if the interface is up
         if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
-            raise CuckooNetworkError("Network interface {} not found".format(self.interface))
+            raise CuckooNetworkError(f"Network interface {self.interface} not found")
 
         if self.interface:
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)
@@ -640,7 +649,7 @@ class Scheduler:
             machine_lock = threading.Lock()
 
         log.info(
-            'Using "%s" machine manager with max_analysis_count=%d, ' "max_machines_count=%d, and max_vmstartup_count=%d",
+            'Using "%s" machine manager with max_analysis_count=%d, max_machines_count=%d, and max_vmstartup_count=%d',
             machinery_name,
             self.cfg.cuckoo.max_analysis_count,
             self.cfg.cuckoo.max_machines_count,
@@ -654,11 +663,11 @@ class Scheduler:
         machinery = plugin()
 
         # Find its configuration file.
-        conf = os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % machinery_name)
+        conf = os.path.join(CUCKOO_ROOT, "conf", f"{machinery_name}.conf")
 
         if not os.path.exists(conf):
             raise CuckooCriticalError(
-                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
+                f'The configuration file for machine manager "{machinery_name}" does not exist at path: {conf}'
             )
 
         # Provide a dictionary with the configuration options to the
@@ -669,22 +678,22 @@ class Scheduler:
         try:
             machinery.initialize(machinery_name)
         except CuckooMachineError as e:
-            raise CuckooCriticalError("Error initializing machines: %s" % e)
+            raise CuckooCriticalError(f"Error initializing machines: {e}")
 
         # At this point all the available machines should have been identified
         # and added to the list. If none were found, Cuckoo needs to abort the
         # execution.
         if not len(machinery.machines()):
-            raise CuckooCriticalError("No machines available.")
+            raise CuckooCriticalError("No machines available")
         else:
-            log.info("Loaded %s machine/s", len(machinery.machines()))
+            log.info("Loaded %d machine/s", len(machinery.machines()))
 
         if len(machinery.machines()) > 1 and self.db.engine.name == "sqlite":
             log.warning(
                 "As you've configured Cuckoo to execute parallel "
                 "analyses, we recommend you to switch to a MySQL "
                 "a PostgreSQL database as SQLite might cause some "
-                "issues."
+                "issues"
             )
 
         # Drop all existing packet forwarding rules for each VM. Just in case
@@ -698,7 +707,7 @@ class Scheduler:
                     "full internet access or route it through a VPN! "
                     "Please define a default network interface for the "
                     "machinery or define a network interface for each "
-                    "VM.",
+                    "VM",
                     machine.name,
                 )
                 continue
@@ -721,7 +730,7 @@ class Scheduler:
         """Start scheduler."""
         self.initialize()
 
-        log.info("Waiting for analysis tasks.")
+        log.info("Waiting for analysis tasks")
 
         # To handle stop analyzing when we need to restart process without break tasks
         signal.signal(signal.SIGHUP, self.set_stop_analyzing)
@@ -783,8 +792,7 @@ class Scheduler:
                     if task:
                         break
                 if task:
-
-                    log.debug("Task #{0}: Processing task".format(task.id))
+                    log.debug("Task #%s: Processing task", task.id)
                     self.total_analysis_count += 1
                     # Initialize and start the analysis manager.
                     analysis = AnalysisManager(task, errors)

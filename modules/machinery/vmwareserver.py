@@ -4,8 +4,8 @@
 
 from __future__ import absolute_import
 import logging
-import subprocess
 import os.path
+import subprocess
 import time
 
 from lib.cuckoo.common.abstracts import Machinery
@@ -24,7 +24,7 @@ class VMwareServer(Machinery):
         @raise CuckooMachineError: if configuration is missing or wrong.
         """
         if not self.options.vmwareserver.path:
-            raise CuckooMachineError("VMware vmrun path missing, " "please add it to vmwareserver.conf")
+            raise CuckooMachineError("VMware vmrun path missing, please add it to vmwareserver.conf")
 
         # Base checks.
         super(VMwareServer, self)._initialize_check()
@@ -35,10 +35,10 @@ class VMwareServer(Machinery):
         @raise CuckooMachineError: if file not found or not ending with .vmx
         """
         if not vmx_path.endswith(".vmx"):
-            raise CuckooMachineError("Wrong configuration: vm path not " "ending with .vmx: %s)" % vmx_path)
+            raise CuckooMachineError(f"Wrong configuration: vm path not ending with .vmx: {vmx_path}")
 
         if not os.path.exists(vmx_path):
-            raise CuckooMachineError("Vm file %s not found" % vmx_path)
+            raise CuckooMachineError(f"Vm file {vmx_path} not found")
 
     def _check_snapshot(self, vmx_path, snapshot):
         """Checks snapshot existance.
@@ -48,31 +48,20 @@ class VMwareServer(Machinery):
         """
 
         check_string = (
-            self.options.vmwareserver.path
-            + " -T ws-shared -h "
-            + self.options.vmwareserver.vmware_url
-            + " -u "
-            + self.options.vmwareserver.username
-            + " -p "
-            + self.options.vmwareserver.password
-            + " listSnapshots "
-            + '"'
-            + vmx_path
-            + '"'
+            f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
+            f'-p {self.options.vmwareserver.password} listSnapshots "{vmx_path}"'
         )
 
         try:
             p = subprocess.Popen(check_string, universal_newlines=True, shell=True)
             output, _ = p.communicate()
         except OSError as e:
-            raise CuckooMachineError("Unable to get snapshot list for %s. " "Reason: %s" % (vmx_path, e))
+            raise CuckooMachineError(f"Unable to get snapshot list for {vmx_path}: {e}")
         else:
             if output:
                 return snapshot in output
             else:
-                raise CuckooMachineError(
-                    "Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path
-                )
+                raise CuckooMachineError(f"Unable to get snapshot list for {vmx_path}, no output from `vmrun listSnapshots`")
 
     def start(self, vmx_path):
         """Start a virtual machine.
@@ -84,7 +73,7 @@ class VMwareServer(Machinery):
 
         # Check if the machine is already running, stop if so.
         if self._is_running(vmx_path):
-            log.debug("Machine %s is already running, attempting to stop..." % vmx_path)
+            log.debug("Machine %s is already running, attempting to stop...", vmx_path)
             self.stop(vmx_path)
             time.sleep(3)
 
@@ -93,30 +82,21 @@ class VMwareServer(Machinery):
         time.sleep(3)
 
         start_string = (
-            self.options.vmwareserver.path
-            + " -T ws-shared -h "
-            + self.options.vmwareserver.vmware_url
-            + " -u "
-            + self.options.vmwareserver.username
-            + " -p "
-            + self.options.vmwareserver.password
-            + " start "
-            + '"'
-            + vmx_path
-            + '"'
+            f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
+            f'-p {self.options.vmwareserver.password} start "{vmx_path}"'
         )
 
-        log.debug("Starting vm %s" % vmx_path)
+        log.debug("Starting vm %s", vmx_path)
 
         try:
             p = subprocess.Popen(start_string, universal_newlines=True, shell=True)
             if self.options.vmwareserver.mode.lower() == "gui":
                 output, _ = p.communicate()
                 if output:
-                    raise CuckooMachineError("Unable to start machine " "%s: %s" % (vmx_path, output))
+                    raise CuckooMachineError(f"Unable to start machine {vmx_path}: {output}")
         except OSError as e:
             mode = self.options.vmwareserver.mode.upper()
-            raise CuckooMachineError("Unable to start machine %s in %s " "mode: %s" % (vmx_path, mode, e))
+            raise CuckooMachineError(f"Unable to start machine {vmx_path} in {mode} mode: {e}")
 
     def stop(self, vmx_path):
         """Stops a virtual machine.
@@ -125,28 +105,19 @@ class VMwareServer(Machinery):
         """
 
         stop_string = (
-            self.options.vmwareserver.path
-            + " -T ws-shared -h "
-            + self.options.vmwareserver.vmware_url
-            + " -u "
-            + self.options.vmwareserver.username
-            + " -p "
-            + self.options.vmwareserver.password
-            + " stop "
-            + '"'
-            + vmx_path
-            + '" hard'
+            f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
+            f'-p {self.options.vmwareserver.password} stop "{vmx_path}" hard'
         )
 
-        log.debug("Stopping vm %s" % vmx_path)
-        # log.debug("Stop string: %s" % stop_string)
+        log.debug("Stopping vm %s", vmx_path)
+        # log.debug("Stop string: %s", stop_string)
 
         if self._is_running(vmx_path):
             try:
                 if subprocess.call(stop_string, universal_newlines=True, shell=True):
-                    raise CuckooMachineError("Error shutting down " "machine %s" % vmx_path)
+                    raise CuckooMachineError(f"Error shutting down machine {vmx_path}")
             except OSError as e:
-                raise CuckooMachineError("Error shutting down machine " "%s: %s" % (vmx_path, e))
+                raise CuckooMachineError(f"Error shutting down machine {vmx_path}: {e}")
         else:
 
             log.warning("Trying to stop an already stopped machine: %s", vmx_path)
@@ -157,31 +128,21 @@ class VMwareServer(Machinery):
         @param snapshot: snapshot name
         @raise CuckooMachineError: if unable to revert
         """
-        log.debug("Revert snapshot for vm %s: %s" % (vmx_path, snapshot))
+        log.debug("Revert snapshot for vm %s: %s", vmx_path, snapshot)
 
         revert_string = (
-            self.options.vmwareserver.path
-            + " -T ws-shared -h "
-            + self.options.vmwareserver.vmware_url
-            + " -u "
-            + self.options.vmwareserver.username
-            + " -p "
-            + self.options.vmwareserver.password
-            + " revertToSnapshot "
-            + '"'
-            + vmx_path
-            + '" '
-            + snapshot
+            f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
+            f'-p {self.options.vmwareserver.password} revertToSnapshot "{vmx_path}" snapshot'
         )
 
-        # log.debug("Revert string: %s" % revert_string)
+        # log.debug("Revert string: %s", revert_string)
 
         try:
             if subprocess.call(revert_string, universal_newlines=True, shell=True):
-                raise CuckooMachineError("Unable to revert snapshot for " "machine %s: vmrun exited with " "error" % vmx_path)
+                raise CuckooMachineError(f"Unable to revert snapshot for machine {vmx_path}: vmrun exited with error")
 
         except OSError as e:
-            raise CuckooMachineError("Unable to revert snapshot for " "machine %s: %s" % (vmx_path, e))
+            raise CuckooMachineError(f"Unable to revert snapshot for machine {vmx_path}: {e}")
 
     def _is_running(self, vmx_path):
         """Checks if virtual machine is running.
@@ -189,31 +150,22 @@ class VMwareServer(Machinery):
         @return: running status
         """
         list_string = (
-            self.options.vmwareserver.path
-            + " -T ws-shared -h "
-            + self.options.vmwareserver.vmware_url
-            + " -u "
-            + self.options.vmwareserver.username
-            + " -p "
-            + self.options.vmwareserver.password
-            + " list "
-            + '"'
-            + vmx_path
-            + '"'
+            f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
+            f'-p {self.options.vmwareserver.password} list "{vmx_path}"'
         )
 
-        # log.debug("List string: %s" % list_string)
+        # log.debug("List string: %s", list_string)
 
         try:
             p = subprocess.Popen(list_string, universal_newlines=True, stdout=subprocess.PIPE, shell=True)
             output, error = p.communicate()
         except OSError as e:
-            raise CuckooMachineError("Unable to check running status for %s. " "Reason: %s" % (vmx_path, e))
+            raise CuckooMachineError(f"Unable to check running status for {vmx_path}: {e}")
         else:
             if output:
                 return vmx_path in output
             else:
-                raise CuckooMachineError("Unable to check running status " "for %s. No output from " "`vmrun list`" % vmx_path)
+                raise CuckooMachineError(f"Unable to check running status for {vmx_path}. No output from `vmrun list`")
 
     def _snapshot_from_vmx(self, vmx_path):
         """Get snapshot for a given vmx file.

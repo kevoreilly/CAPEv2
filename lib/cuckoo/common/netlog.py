@@ -3,9 +3,9 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import datetime
 import logging
 import struct
-import datetime
 
 try:
     import bson
@@ -24,7 +24,7 @@ else:
         HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.utils import get_filename_from_path, default_converter
+from lib.cuckoo.common.utils import default_converter, get_filename_from_path
 
 log = logging.getLogger(__name__)
 
@@ -271,7 +271,7 @@ class BsonParser(object):
                     log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](args[i])) for i in range(len(args)))
+                argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.

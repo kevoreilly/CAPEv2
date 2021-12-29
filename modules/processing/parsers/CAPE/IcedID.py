@@ -17,15 +17,14 @@
 # https://gist.github.com/sysopfb/93eb0090ef47c08e4e516cb045b48b96
 # https://www.group-ib.com/blog/icedid
 
-DESCRIPTION = "IcedID Stage 2 configuration parser."
-AUTHOR = "kevoreilly,threathive,sysopfb"
-
+import logging
 import os
 import struct
+
 import pefile
 import yara
-import logging
 from Crypto.Cipher import ARC4
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedID.yar")
@@ -33,6 +32,9 @@ with open(yara_path, "r") as yara_rule:
     yara_rules = yara.compile(source=yara_rule.read())
 
 log = logging.getLogger(__name__)
+
+DESCRIPTION = "IcedID Stage 2 configuration parser."
+AUTHOR = "kevoreilly,threathive,sysopfb"
 
 
 def yara_scan(raw_data):
@@ -48,7 +50,7 @@ def config(filebuf):
     for hit in yara_hit:
         if hit.rule == "IcedID":  # can be either a dll or a exe
             enc_data = None
-            cfg = dict()
+            cfg = {}
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 for section in pe.sections:
@@ -66,6 +68,6 @@ def config(filebuf):
                         cfg["address"] = [controller[1:] for controller in config[2:]]
 
             except Exception as e:
-                log.error("error:{}".format(e))
+                log.error("Error: %s", e)
 
             return cfg

@@ -3,36 +3,36 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
-import time
-import shutil
-import ntpath
-import string
-import random
-import struct
-import fcntl
-import socket
-import zipfile
-import tempfile
-import xmlrpc.client
 import errno
-import logging
+import fcntl
 import inspect
-import threading
+import logging
 import multiprocessing
+import ntpath
 import operator
-from io import BytesIO
-from datetime import datetime
+import os
+import random
+import shutil
+import socket
+import string
+import struct
+import tempfile
+import threading
+import time
+import xmlrpc.client
+import zipfile
 from collections import defaultdict
-
+from datetime import datetime
+from io import BytesIO
 from typing import Tuple
 
+import six
+
+from lib.cuckoo.common import utils_dicts
+from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common import utils_dicts
-from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
-import six
 
 try:
     import re2 as re
@@ -138,7 +138,7 @@ def create_zip(files=False, folder=False, encrypted=False):
     if folder:
         # To avoid when we have only folder argument
         if not files:
-            files = list()
+            files = []
         files += [os.path.join(folder, file) for file in os.listdir(folder)]
 
     if not isinstance(files, list):
@@ -336,9 +336,9 @@ def bytes2str(convert):
 
         return convert
 
-    items = list()
+    items = []
     if isinstance(convert, dict):
-        tmp_dict = dict()
+        tmp_dict = {}
         items = convert.items()
         for k, v in items:
             if type(v) is bytes:
@@ -348,7 +348,7 @@ def bytes2str(convert):
                     tmp_dict[k] = "".join(str(ord(_)) for _ in v)
         return tmp_dict
     elif isinstance(convert, list):
-        converted_list = list()
+        converted_list = []
         items = enumerate(convert)
         for k, v in items:
             if type(v) is bytes:

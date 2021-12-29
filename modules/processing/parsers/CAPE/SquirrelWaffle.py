@@ -12,9 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import struct
+from itertools import cycle
+
 import pefile
 import yara
-from itertools import cycle
 
 rule_source = """
 rule SquirrelWaffle
@@ -52,7 +53,7 @@ def xor_data(data, key):
 
 
 def config(data):
-    config = dict()
+    config = {}
     pe = None
     try:
         pe = pefile.PE(data=data)
@@ -64,10 +65,10 @@ def config(data):
         if len(rdata) == 0:
             return config
         chunks = [x for x in rdata.split(b"\x00") if x != b""]
-        for i in range(len(chunks)):
-            if len(chunks[i]) > 100:
+        for i, line in enumerate(chunks):
+            if len(line) > 100:
                 try:
-                    decrypted = xor_data(chunks[i], chunks[i + 1]).decode()
+                    decrypted = xor_data(line, chunks[i + 1]).decode()
                     if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:

@@ -5,18 +5,18 @@
 # https://qemu.readthedocs.io/en/latest/
 
 from __future__ import absolute_import
-import os
-import time
-import magic
 import logging
-import subprocess
+import os
 import os.path
+import subprocess
+import time
+
+import magic
 
 # from lib.cuckoo.core.rooter import rooter
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError
-from lib.cuckoo.common.exceptions import CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -340,7 +340,7 @@ class QEMU(Machinery):
         if not self.options.qemu.path:
             raise CuckooCriticalError("QEMU binary path missing, please add it to the config file")
         if not os.path.exists(self.options.qemu.path):
-            raise CuckooCriticalError('QEMU binary not found at specified path "%s"' % self.options.qemu.path)
+            raise CuckooCriticalError(f'QEMU binary not found at specified path "{self.options.qemu.path}"')
 
         self.qemu_dir = os.path.dirname(self.options.qemu.path)
         self.qemu_img = os.path.join(self.qemu_dir, "qemu-img")
@@ -355,23 +355,23 @@ class QEMU(Machinery):
                 if vm_config.get("platform", "").strip() != "linux":
                     continue
                 if vm_config.get("image", False) and not os.path.exists(vm_config["image"]):
-                    log.error(f"Missed harddrive file for VM: {vm_label}")
+                    log.error("Missed harddrive file for VM: %s", vm_label)
                 if vm_config.get("kernel", False) and not magic.from_file(vm_config["kernel"]).startswith(("Linux kernel", "ELF")):
-                    log.error(f"Bad Kernel file for VM: {vm_label} - {vm_config['kernel']}")
+                    log.error("Bad Kernel file for VM: %s - %s", vm_label, vm_config["kernel"])
                 if vm_config.get("initrd", False) and not magic.from_file(vm_config["initrd"]).startswith("gzip"):
-                    log.error(f"Bad initrd file for VM: {vm_label} - {vm_config['initrd']}")
+                    log.error("Bad initrd file for VM: %s - %s", vm_label, vm_config["initrd"])
                 if vm_config.get("snapshot", False) and vm_config.get("image", False):
                     try:
                         snalshot_list = subprocess.check_output(
                             [self.qemu_img, "snapshot", "-l", vm_config["image"]], universal_newlines=True
                         )
                         if vm_config["snapshot"] not in snalshot_list:
-                            log.error(f"Snapshot: {vm_config['snapshot']} doesn't exist for VM: {vm_label}")
+                            log.error("Snapshot: %s doesn't exist for VM: %s", vm_config["snapshot"], vm_label)
                     except Exception as e:
-                        log.debug(f"Can't check snapshot list for VM:{vm_label} - {e}")
+                        log.debug("Can't check snapshot list for VM: %s - %s", vm_label, e)
 
                 if vm_config.get("interface", False) and HAVE_NETWORKIFACES and vm_config["interface"] not in network_interfaces:
-                    log.error(f"Missed TAP network interface {vm_config['interface']}")
+                    log.error("Missed TAP network interface %s", vm_config["interface"])
             except Exception as e:
                 log.exception(e)
 
@@ -380,7 +380,7 @@ class QEMU(Machinery):
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to start.
         """
-        log.debug("Starting vm %s" % label)
+        log.debug("Starting vm %s", label)
 
         vm_info = self.db.view_machine_by_label(label)
         vm_options = getattr(self.options, vm_info.name)
@@ -388,7 +388,7 @@ class QEMU(Machinery):
         if vm_options.snapshot:
             snapshot_path = vm_options.image
         else:
-            snapshot_path = os.path.join(os.path.dirname(vm_options.image), "snapshot_%s.qcow2" % vm_info.name)
+            snapshot_path = os.path.join(os.path.dirname(vm_options.image), f"snapshot_{vm_info.name}.qcow2")
             if os.path.exists(snapshot_path):
                 os.remove(snapshot_path)
 
@@ -405,7 +405,7 @@ class QEMU(Machinery):
                 if err:
                     raise OSError(err)
             except OSError as e:
-                raise CuckooMachineError("QEMU failed starting the machine: %s" % e)
+                raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
 
         vm_arch = getattr(vm_options, "arch", "default")
         arch_config = dict(QEMU_ARGS[vm_arch])
@@ -442,20 +442,20 @@ class QEMU(Machinery):
         if hasattr(vm_options, "cpu") and vm_options.cpu:
             final_cmdline += ["-cpu", vm_options.cpu]
 
-        log.debug("Executing QEMU %r", final_cmdline)
+        log.debug("Executing QEMU %s", final_cmdline)
 
         try:
             proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
-            raise CuckooMachineError("QEMU failed starting the machine: %s" % e)
+            raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
 
     def stop(self, label):
         """Stops a virtual machine.
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug(f"Stopping vm {label}")
+        log.debug("Stopping vm %s", label)
 
         vm_info = self.db.view_machine_by_label(label)
 
@@ -471,7 +471,7 @@ class QEMU(Machinery):
                 time.sleep(1)
                 stop_me += 1
             else:
-                log.debug(f"Stopping vm {label} timeouted. Killing")
+                log.debug("Stopping vm %s timed out, killing", label)
                 proc.terminate()
                 time.sleep(1)
 

@@ -1,15 +1,14 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
-from __future__ import print_function
-import zlib
-import string
+from __future__ import absolute_import, print_function
 import hashlib
-from zipfile import ZipFile
-from io import StringIO
+import string
+import zlib
 from base64 import b64decode
+from io import StringIO
+from zipfile import ZipFile
 
 # Non Standard Imports
-from Crypto.Cipher import ARC4, AES, XOR
+from Crypto.Cipher import AES, ARC4, XOR
 
 # Helper Functions Go Here
 
@@ -45,7 +44,7 @@ def parse_ek(key, drop):
 
 
 def parse_load(key, drop):
-    raw_key = "{0}ALSKEOPQLFKJDUSIKSJAUIE".format(key)
+    raw_key = f"{key}ALSKEOPQLFKJDUSIKSJAUIE"
     enc_key = hashlib.sha256(raw_key).hexdigest()
     decoded = decrypt_RC4(enc_key, drop)
     return decoded

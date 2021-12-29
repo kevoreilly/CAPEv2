@@ -2,21 +2,20 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import
-from __future__ import print_function
-
-import pytest
-import tempfile
+from __future__ import absolute_import, print_function
 import os
-import httpretty
+import tempfile
 
-from lib.cuckoo.common.web_utils import get_file_content, _download_file, parse_request_arguments, force_int
+import httpretty
+import pytest
+
+from lib.cuckoo.common.web_utils import _download_file, force_int, get_file_content, parse_request_arguments
 
 
 @pytest.fixture
 def paths():
     path_list = []
-    for i in range(0, 3):
+    for i in range(3):
         path_list += [tempfile.NamedTemporaryFile(delete=False).name]
         with open(path_list[i], "w") as f:
             f.write(str(i + 10))

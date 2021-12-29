@@ -307,10 +307,9 @@ class RunProcessing(object):
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", {}).setdefault("errors", [])
-                    self.results["debug"]["errors"].append(
-                        f"Behavioral log {file_name} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf"
-                    )
+                        self.results.setdefault("debug", {}).setdefault("errors", []).append(
+                            f"Behavioral log {file_name} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf"
+                        )
                     continue
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")

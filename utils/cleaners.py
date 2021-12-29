@@ -539,8 +539,7 @@ def cuckoo_dedup_cluster_queue():
     for sample, task in duplicated:
         try:
             # hash -> [[id, file]]
-            hash_dict.setdefault(sample.sha256, [])
-            hash_dict[sample.sha256].append((task.id, task.target))
+            hash_dict.setdefault(sample.sha256, []).append((task.id, task.target))
         except UnicodeDecodeError:
             pass
 

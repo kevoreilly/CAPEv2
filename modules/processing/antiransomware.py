@@ -133,8 +133,7 @@ class AntiRansomware(Processing):
                 if ext and ext[-1] not in do_not_skip:
                     extensions.setdefault(ext[-1], 0)
                     extensions[ext[-1]] += 1
-                    tmp_ext_list.setdefault(ext[-1], [])
-                    tmp_ext_list[ext[-1]].append(filename)
+                    tmp_ext_list.setdefault(ext[-1], []).append(filename)
 
         for ext, count in extensions.iteritems():
             if count > skip_number:

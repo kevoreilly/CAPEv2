@@ -33,8 +33,7 @@ class Dropped(Processing):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
                 filepath = os.path.join(self.analysis_path, entry["path"])
-                meta.setdefault(filepath, [])
-                meta[filepath].append(
+                meta.setdefault(filepath, []).append(
                     {
                         "pids": entry["pids"],
                         "filepath": entry["filepath"],

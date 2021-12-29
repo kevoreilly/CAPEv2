@@ -387,7 +387,7 @@ def replaceDecoder(inputString, MODFLAG):
 
     if "|" in inputString:
         if "replace" not in inputString.rsplit("|", 1)[-1]:
-            inputString = "|".join(inputString.rsplit("|", 1)[:-1])
+            inputString = inputString.rsplit("|", 1)[0]
         else:
             pass
 
@@ -398,7 +398,7 @@ def replaceDecoder(inputString, MODFLAG):
 
         if len(inputString.rsplit(".", 1)[-1]) > len(inputString.rsplit("-", 1)[-1]):
 
-            tempString = "-".join(inputString.rsplit("-", 1)[:-1])
+            tempString = inputString.rsplit("-", 1)[0]
             replaceString = inputString.rsplit("-", 1)[-1]
 
             if "[" in replaceString.split(",", 1)[0]:
@@ -412,7 +412,7 @@ def replaceDecoder(inputString, MODFLAG):
 
             secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
         else:
-            tempString = ".".join(inputString.split(".")[:-1])
+            tempString = inputString.rsplit(".", 1)[0]
             replaceString = inputString.rsplit(".", 1)[-1]
             firstPart = replaceString.split(",", 1)[0].rsplit("(", 1)[-1].replace("'", "").replace('"', "")
             secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")

@@ -140,7 +140,7 @@ def install(enabled, force, rewrite, filepath):
             install = False
             dest_file = os.path.basename(filepath)
             if not force:
-                while 1:
+                while True:
                     choice = input('Do you want to install file "{}"? [yes/no] '.format(dest_file))
                     if choice.lower() == "yes":
                         install = True

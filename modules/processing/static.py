@@ -1229,7 +1229,7 @@ class PDF(object):
                         ret_data = ""
                         for char in jsdata:
                             if ord(char) > 127:
-                                tmp = f"\\x{char.encode('hex')}"
+                                tmp = f"\\x{char.encode().hex()}"
                             else:
                                 tmp = char
                             ret_data += tmp

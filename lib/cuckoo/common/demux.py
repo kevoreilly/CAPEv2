@@ -170,7 +170,7 @@ def _sf_chlildren(child):
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode("utf-8")).encode("utf-8"))
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
                 with open(path_to_extract, "wb") as f:
                     f.write(child.contents)
         except Exception as e:

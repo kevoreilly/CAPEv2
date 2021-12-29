@@ -729,8 +729,7 @@ class MaecReport(Report):
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, [])
-                    maec_attck[tactic.name].append(
+                    maec_attck.setdefault(tactic.name, []).append(
                         {
                             "technique_id": technique.id,
                             "ttp_name": technique.name,

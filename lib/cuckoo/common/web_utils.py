@@ -173,8 +173,7 @@ def load_vms_exits():
             for node in db.query(Node).all():
                 if hasattr(node, "exitnodes"):
                     for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, [])
-                        all_exits[exit.name].append(node.name)
+                        all_exits.setdefault(exit.name, []).append(node.name)
             db.close()
         except Exception as e:
             print(e)

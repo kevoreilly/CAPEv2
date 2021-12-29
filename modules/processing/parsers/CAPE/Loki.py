@@ -171,9 +171,6 @@ def config(filebuf):
 
     cfg = {}
     urls = decoder(filebuf)
-    if urls:
-        cfg.setdefault("address", [])
-
     cfg["address"] = [url.decode() for url in urls]
     return cfg
 

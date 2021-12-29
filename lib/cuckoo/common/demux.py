@@ -11,7 +11,7 @@ import tempfile
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_options, sanitize_filename
 
 sf_version = ""
 try:
@@ -170,7 +170,7 @@ def _sf_chlildren(child):
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, child.filename)
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
                 with open(path_to_extract, "wb") as f:
                     f.write(child.contents)
         except Exception as e:

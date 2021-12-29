@@ -1133,7 +1133,7 @@ class LZWDecoder(object):
 
     def readbits(self, bits):
         v = 0
-        while 1:
+        while True:
             # the number of remaining bits we can get from the current buffer.
             r = 8 - self.bpos
             if bits <= r:
@@ -1186,7 +1186,7 @@ class LZWDecoder(object):
         return x
 
     def run(self):
-        while 1:
+        while True:
             try:
                 code = self.readbits(self.nbits)
             except EOFError:

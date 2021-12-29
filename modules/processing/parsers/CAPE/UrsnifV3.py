@@ -47,7 +47,7 @@ SECTION_KEYS = {
 
 
 def string_from_offset(buffer, offset):
-    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\0")[0].decode()
+    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0].decode()
     return string
 
 

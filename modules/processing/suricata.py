@@ -326,7 +326,7 @@ class Suricata(Processing):
                         flog["filename"] = parsed.get("fileinfo", {}).get("filename", "")
                         flog["file_info"] = {}
                         if "/" in flog["filename"]:
-                            flog["filename"] = flog["filename"].split("/")[-1]
+                            flog["filename"] = flog["filename"].rsplit("/", 1)[-1]
                         parsed_files.append(flog)
 
         if parsed_files:

@@ -157,7 +157,7 @@ def create_zip(files=False, folder=False, encrypted=False):
                 log.error(f"File does't exist: {file}")
                 continue
 
-            parent_folder = os.path.dirname(file).split(os.sep)[-1]
+            parent_folder = os.path.dirname(file).rsplit(os.sep, 1)[-1]
             path = os.path.join(parent_folder, os.path.basename(file))
             zf.write(file, path)
 
@@ -893,7 +893,7 @@ def get_user_filename(options, customs):
             if pattern in block:
                 for option in block.split(","):
                     if option.startswith(pattern):
-                        opt_filename = option.split(pattern)[1]
+                        opt_filename = option.split(pattern, 2)[1]
                         break
                 if opt_filename:
                     break

@@ -42,7 +42,7 @@ def empty_file():
 
 class TestEmptyFile:
     def test_get_name(self, empty_file):
-        assert empty_file["tmp"][1].split("/")[-1] == empty_file["file"].get_name()
+        assert empty_file["tmp"][1].rsplit("/", 1)[-1] == empty_file["file"].get_name()
 
     def test_get_data(self, empty_file):
         assert empty_file["file"].get_data() == b""

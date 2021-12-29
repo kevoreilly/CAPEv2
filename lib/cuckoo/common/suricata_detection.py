@@ -99,8 +99,8 @@ def get_suricata_family(signature):
                 break
     famchecklower = famcheck.lower()
     if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
-        famchecklower = famchecklower.split(".")[-1]
-        famcheck = famcheck.split(".")[-1]
+        famchecklower = famchecklower.rsplit(".", 1)[-1]
+        famcheck = famcheck.rsplit(".", 1)[-1]
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()

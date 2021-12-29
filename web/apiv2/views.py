@@ -771,7 +771,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 for task in tasks:
                     buf = task.to_dict()
                     # Remove path information, just grab the file name
-                    buf["target"] = buf["target"].split("/")[-1]
+                    buf["target"] = buf["target"].rsplit("/", 1)[-1]
                     resp["data"].append(buf)
         else:
             resp = {"data": [], "error": False}
@@ -938,7 +938,7 @@ def tasks_view(request, task_id):
     if task:
         entry = task.to_dict()
         if entry["category"] != "url":
-            entry["target"] = entry["target"].split("/")[-1]
+            entry["target"] = entry["target"].rsplit("/", 1)[-1]
         entry["guest"] = {}
         if task.guest:
             entry["guest"] = task.guest.to_dict()
@@ -1396,7 +1396,7 @@ def tasks_iocs(request, task_id, detail=None):
             else:
                 data["network"]["http"]["host"] = ""
             if "data" in req and "\r\n" in req["data"]:
-                data["network"]["http"]["data"] = req["data"].split("\r\n")[0]
+                data["network"]["http"]["data"] = req["data"].split("\r\n", 1)[0]
             else:
                 data["network"]["http"]["data"] = ""
             if "method" in req:

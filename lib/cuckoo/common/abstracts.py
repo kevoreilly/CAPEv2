@@ -690,7 +690,7 @@ class Processing(object):
         self.shots_path = os.path.join(self.analysis_path, "shots")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
@@ -784,7 +784,7 @@ class Signature(object):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
-        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
 
         try:
             create_folder(folder=self.reports_path)
@@ -1590,7 +1590,7 @@ class Report(object):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
-        self.memory_path = get_memdump_path(analysis_path.split("/")[-1])
+        self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
 
         try:

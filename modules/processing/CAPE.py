@@ -159,7 +159,7 @@ class CAPE(Processing):
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
             file_info["process_path"] = metastrings[1]
-            file_info["process_name"] = metastrings[1].split("\\")[-1]
+            file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
         if len(metastrings) > 3:
             file_info["module_path"] = metastrings[2]
 
@@ -179,7 +179,7 @@ class CAPE(Processing):
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
-                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
                     file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] in unpack_map:
@@ -317,9 +317,9 @@ class CAPE(Processing):
 
         if type_string:
             log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
+            tmp_config = static_config_parsers(type_string.split(" ", 1)[0], file_data)
             if tmp_config:
-                cape_name = type_string.split(" ")[0]
+                cape_name = type_string.split(" ", 1)[0]
                 log.info("CAPE: config returned for: %s", cape_name)
                 config.update(tmp_config)
 

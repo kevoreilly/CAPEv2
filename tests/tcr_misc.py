@@ -26,7 +26,7 @@ SAMPLE_STORAGE = "http://YOUR_MAGIC_REPO/"
 
 
 def random_string():
-    return str(uuid.uuid4()).split("-")[0]
+    return str(uuid.uuid4()).split("-", 1)[0]
 
 
 def get_filepaths(directory, ends=None, starts=None):

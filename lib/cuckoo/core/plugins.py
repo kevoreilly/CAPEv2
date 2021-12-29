@@ -397,7 +397,7 @@ class RunSignatures(object):
         # Since signatures can hardcode some values or checks that might
         # become obsolete in future versions or that might already be obsolete,
         # I need to match its requirements with the running version of Cuckoo.
-        version = CUCKOO_VERSION.split("-")[0]
+        version = CUCKOO_VERSION.split("-", 1)[0]
 
         # If provided, check the minimum working Cuckoo version for this
         # signature.
@@ -405,7 +405,7 @@ class RunSignatures(object):
             try:
                 # If the running Cuckoo is older than the required minimum
                 # version, skip this signature.
-                if StrictVersion(version) < StrictVersion(current.minimum.split("-")[0]):
+                if StrictVersion(version) < StrictVersion(current.minimum.split("-", 1)[0]):
                     log.debug(
                         'You are running an older incompatible version of Cuckoo, the signature "%s" requires minimum version %s',
                         current.name,
@@ -422,7 +422,7 @@ class RunSignatures(object):
             try:
                 # If the running Cuckoo is newer than the required maximum
                 # version, skip this signature.
-                if StrictVersion(version) > StrictVersion(current.maximum.split("-")[0]):
+                if StrictVersion(version) > StrictVersion(current.maximum.split("-", 1)[0]):
                     log.debug(
                         'You are running a newer incompatible version of Cuckoo, the signature "%s" requires maximum version %s',
                         current.name,
@@ -684,7 +684,7 @@ class RunReporting:
         # Extract the module name.
         module_name = inspect.getmodule(current).__name__
         if "." in module_name:
-            module_name = module_name.rsplit(".", 1)[1]
+            module_name = module_name.rsplit(".", 1)[-1]
 
         try:
             options = self.cfg.get(module_name)

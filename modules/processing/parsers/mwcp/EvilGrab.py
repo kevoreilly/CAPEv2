@@ -67,7 +67,7 @@ def string_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0")[0]
+    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
     return string
 
 

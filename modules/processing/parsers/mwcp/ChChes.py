@@ -49,7 +49,7 @@ def yara_scan(raw_data, rule_name):
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
+    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
     return string
 
 

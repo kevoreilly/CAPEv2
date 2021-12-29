@@ -174,7 +174,7 @@ class StraceParser(object):
 
     def __iter__(self):
         self.fd.seek(0)
-        pid = os.path.basename(self.path).split(".")[1]
+        pid = os.path.basename(self.path).split(".", 2)[1]
         for line in self.fd:
             parts = re.match("^(\w+)\((.*)\)[ ]{1,}=? ([-]?\d)", line)
             if not parts:

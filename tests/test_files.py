@@ -31,7 +31,7 @@ def set_cwd(dir):
 def dir_setup():
     dirpath = tempfile.mkdtemp()
     dir_to_copy = tempfile.mkdtemp()
-    file_to_copy = tempfile.NamedTemporaryFile(dir=dir_to_copy, delete=False).name.split("/")[-1]
+    file_to_copy = tempfile.NamedTemporaryFile(dir=dir_to_copy, delete=False).name.rsplit("/", 1)[-1]
     yield dir_to_copy, dirpath, file_to_copy
     try:
         shutil.rmtree(dirpath)

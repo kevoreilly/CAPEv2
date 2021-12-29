@@ -162,7 +162,7 @@ class Remcos(Parser):
                         if i in [16, 25, 37]:
                             p_data[idx_list[i]] = setup_list[int(cont)]
                         elif i in [0]:
-                            host, port, password = cont.split(b"|")[0].split(b":")
+                            host, port, password = cont.split(b"|", 1)[0].split(b":")
                             p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
 
                         else:

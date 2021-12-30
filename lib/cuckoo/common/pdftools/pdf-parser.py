@@ -150,7 +150,7 @@ PS: this feature is experimental.
 # Convert 2 Bytes If Python 3
 def C2BIP3(string):
     if sys.version_info[0] > 2:
-        if type(string) == bytes:
+        if isinstance(string, bytes):
             return string
         else:
             return bytes([ord(x) for x in string])
@@ -864,7 +864,7 @@ class cPDFParseDictionary:
     def PrettyPrintSubElement(self, prefix, e):
         if e[1] == []:
             print("%s  %s" % (prefix, e[0]))
-        elif type(e[1][0]) == type(""):
+        elif isinstance(e[1][0], str):
             if len(e[1]) == 3 and IsNumeric(e[1][0]) and e[1][1] == "0" and e[1][2] == "R":
                 joiner = " "
             else:
@@ -898,7 +898,7 @@ class cPDFParseDictionary:
         for key, value in dictionary:
             if key == select:
                 return self.PrettyPrintSubElement("", [select, value])
-            if type(value) == type([]) and len(value) > 0 and type(value[0]) == type((None,)):
+            if isinstance(value, list) and len(value) > 0 and isinstance(value[0], tuple):
                 result = self.GetNestedSub(value, select)
                 if result != None:
                     return self.PrettyPrintSubElement("", [select, result])
@@ -910,7 +910,7 @@ class cPDFParseDictionary:
 
 def FormatOutput(data, raw):
     if raw:
-        if type(data) == type([]):
+        if isinstance(data, list):
             return "".join(map(lambda x: x[1], data))
         else:
             return data

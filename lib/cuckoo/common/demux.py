@@ -207,7 +207,7 @@ def demux_sflock(filename, options, package):
         for sf_child in unpacked.children or []:
             if sf_child.to_dict().get("children") and sf_child.to_dict()["children"]:
                 retlist += [_sf_chlildren(ch) for ch in sf_child.children]
-                #child is not available, the original file should be put into the list
+                # child is not available, the original file should be put into the list
                 if filter(None, retlist):
                     retlist.append(_sf_chlildren(sf_child))
             else:

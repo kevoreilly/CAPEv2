@@ -20,11 +20,10 @@ if repconf.elasticsearchdb.enabled:
         timeout=60,
     )
 
-
-ANALYSIS_INDEX_PREFIX = f"{repconf.elasticsearchdb.index}-analysis-"
-CALLS_INDEX_PREFIX = f"{repconf.elasticsearchdb.index}-calls-"
-SCROLL_SIZE = 5000
-SCROLL_TIME = "5m"
+    ANALYSIS_INDEX_PREFIX = f"{repconf.elasticsearchdb.index}-analysis-"
+    CALLS_INDEX_PREFIX = f"{repconf.elasticsearchdb.index}-calls-"
+    SCROLL_SIZE = 5000
+    SCROLL_TIME = "5m"
 
 log = logging.getLogger(__name__)
 

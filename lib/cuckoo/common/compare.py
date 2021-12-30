@@ -7,11 +7,12 @@ import collections
 import json
 import zlib
 
-from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
 from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 
+if repconf.elasticsearchdb.enabled:
+    from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
 
 def behavior_categories_percent(calls):
     catcounts = collections.defaultdict(lambda: 0)

@@ -13,8 +13,6 @@ from multiprocessing import Lock
 
 from bson.objectid import ObjectId
 
-from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index, get_calls_index,
-                                       get_query_by_info_id)
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -26,7 +24,7 @@ db = Database()
 lock = Lock()
 
 # Global connections
-if repconf.mongodb and repconf.mongodb.enabled:
+if repconf.mongodb.enabled:
     from pymongo import MongoClient
 
     results_db = MongoClient(
@@ -37,7 +35,8 @@ if repconf.mongodb and repconf.mongodb.enabled:
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
-if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+    from dev_utils.elasticsearchdb import delete_analysis_and_related_calls, elastic_handler
     es = elastic_handler
 
 
@@ -164,10 +163,10 @@ class Retention(Report):
                         if item != "mongo" and item != "elastic":
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
-                            if repconf.mongodb and repconf.mongodb.enabled:
+                            if repconf.mongodb.enabled:
                                 delete_mongo_data(curtask, lastTask)
                         elif item == "elastic":
-                            if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+                            if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)
                     saveTaskLogged[item] = int(lastTask)
                 else:

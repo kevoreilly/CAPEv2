@@ -647,7 +647,7 @@ class cBinaryFile:
         inbytes = self.infile.read(size - len(self.ungetted))
         if inbytes == "":
             self.infile.close()
-        if type(inbytes) == type(""):
+        if isinstance(inbytes, str):
             result = self.ungetted + [ord(b) for b in inbytes]
         else:
             result = self.ungetted + [b for b in inbytes]
@@ -830,14 +830,14 @@ def FindPDFHeaderRelaxed(oBinaryFile):
 
 
 def Hexcode2String(char):
-    if type(char) == int:
+    if isinstance(char, int):
         return "#%02x" % char
     else:
         return char
 
 
 def SwapCase(char):
-    if type(char) == int:
+    if isinstance(char, int):
         return ord(chr(char).swapcase())
     else:
         return char.swapcase()

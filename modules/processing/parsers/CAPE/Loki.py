@@ -33,7 +33,7 @@ AUTHOR = "sysopfb"
 
 def find_iv(pe):
     iv = -1
-    if type(pe) == pefile.PE:
+    if isinstance(pe, pefile.PE):
         t = pe.get_memory_mapped_image()
     else:
         t = pe
@@ -49,7 +49,7 @@ def try_find_iv(pe):
     ret = []
 
     dlen = 8 * 4
-    if type(pe) == pefile.PE:
+    if isinstance(pe, pefile.PE):
         t = pe.get_memory_mapped_image()
     else:
         t = pe
@@ -78,7 +78,7 @@ def find_conf(pe):
     ret = []
 
     dlen = 8 * 4
-    if type(pe) == pefile.PE:
+    if isinstance(pe, pefile.PE):
         t = pe.get_memory_mapped_image()
     else:
         t = pe
@@ -102,7 +102,7 @@ def find_conf(pe):
 
 def find_key(pe):
     ret = None
-    if type(pe) == pefile.PE:
+    if isinstance(pe, pefile.PE):
         t = pe.get_memory_mapped_image()
     else:
         t = pe

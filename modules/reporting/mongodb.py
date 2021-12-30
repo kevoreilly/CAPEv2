@@ -55,7 +55,7 @@ class MongoDB(Report):
             raise CuckooReportError("Cannot connect to MongoDB")
 
     def debug_dict_size(self, dct):
-        if type(dct) == list:
+        if isinstance(dct, list):
             dct = dct[0]
 
         totals = dict((k, 0) for k in dct)
@@ -275,10 +275,10 @@ class MongoDB(Report):
                 error_saved = True
                 size_filter = MONGOSIZELIMIT
                 while error_saved:
-                    if type(report) == list:
+                    if isinstance(report, list):
                         report = report[0]
                     try:
-                        if type(report[parent_key]) == list:
+                        if isinstance(report[parent_key], list):
                             for j, parent_dict in enumerate(report[parent_key]):
                                 child_key, csize = self.debug_dict_size(parent_dict)[0]
                                 if csize > size_filter:

@@ -36,7 +36,7 @@ class NGram:
         if len(self.buffer) == self.order * 2:
             tmp = self.buffer.pop(0)
 
-        if type(element) == list:
+        if isinstance(element, list):
             self.buffer.append(element)
         else:
             self.buffer.append([element, 1])

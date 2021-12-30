@@ -3,9 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
-from elasticsearch import Elasticsearch
-from lib.cuckoo.common.config import Config
 import logging
+
+from elasticsearch import Elasticsearch
+
+from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 ANALYSIS_INDEX_PREFIX = f'{repconf.elasticsearchdb.index}-analysis-'

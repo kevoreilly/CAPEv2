@@ -10,12 +10,11 @@ import shutil
 from collections import defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Lock
-from dev_utils.elasticsearchdb import get_analysis_index, get_query_by_info_id, \
-    get_calls_index, \
-    delete_analysis_and_related_calls, elastic_handler
 
 from bson.objectid import ObjectId
 
+from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index, get_calls_index,
+                                       get_query_by_info_id)
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

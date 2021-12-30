@@ -7,9 +7,8 @@ import collections
 import json
 import zlib
 
+from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
 from lib.cuckoo.common.config import Config
-from dev_utils.elasticsearchdb import get_query_by_info_id, get_analysis_index, \
-    get_calls_index
 
 repconf = Config("reporting")
 

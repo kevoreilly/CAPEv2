@@ -31,8 +31,8 @@ if repconf.mongodb.enabled:
     FULL_DB = True
 
 if repconf.elasticsearchdb.enabled:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, \
-        get_query_by_info_id, delete_analysis_and_related_calls
+    from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
+                                           get_query_by_info_id)
 
     es = elastic_handler
 

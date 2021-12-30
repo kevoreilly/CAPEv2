@@ -73,8 +73,7 @@ if repconf.mongodb.enabled:
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from dev_utils.elasticsearchdb import elastic_handler, get_query_by_info_id, \
-        get_analysis_index
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es_as_db = True
     es = elastic_handler

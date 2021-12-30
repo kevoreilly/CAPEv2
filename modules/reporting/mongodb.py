@@ -8,7 +8,7 @@ import logging
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
-from modules.reporting.report_doc import get_json_document, ensure_valid_utf8, insert_calls
+from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
     from bson.objectid import ObjectId

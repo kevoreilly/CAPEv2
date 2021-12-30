@@ -5,21 +5,16 @@
 import gc
 import logging
 from datetime import datetime
-from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooReportError, \
-    CuckooDependencyError
-from dev_utils.elasticsearchdb import elastic_handler, \
-    daily_analysis_index_exists, get_daily_analysis_index, \
-    daily_calls_index_exists, get_daily_calls_index, \
-    delete_analysis_and_related_calls, get_analysis_index_mapping
 
-from modules.reporting.report_doc import get_json_document, ensure_valid_utf8, \
-    insert_calls
+from dev_utils.elasticsearchdb import (daily_analysis_index_exists, daily_calls_index_exists, delete_analysis_and_related_calls,
+                                       elastic_handler, get_analysis_index_mapping, get_daily_analysis_index, get_daily_calls_index)
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
+from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
     from elasticsearch import Elasticsearch
-    from elasticsearch.exceptions import ConnectionError, RequestError, \
-        AuthorizationException
+    from elasticsearch.exceptions import AuthorizationException, ConnectionError, RequestError
 
     HAVE_ELASTICSEARCH = True
 except ImportError:

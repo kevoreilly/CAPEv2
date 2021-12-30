@@ -16,6 +16,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from bson.objectid import ObjectId
 
+from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
@@ -23,7 +24,6 @@ from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.database import (TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_PENDING,
                                       TASK_RECOVERED, TASK_REPORTED, Database, Sample, Task)
 from lib.cuckoo.core.startup import create_structure, init_console_logging
-from dev_utils.elasticsearchdb import get_analysis_index, delete_analysis_and_related_calls, all_docs
 
 log = logging.getLogger()
 

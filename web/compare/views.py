@@ -36,7 +36,7 @@ if enabledconf["mongodb"]:
 
 es_as_db = False
 if enabledconf["elasticsearchdb"]:
-    from dev_utils.elasticsearchdb import elastic_handler, get_query_by_info_id, get_analysis_index
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es_as_db = True
     essearch = Config("reporting").elasticsearchdb.searchonly

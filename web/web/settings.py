@@ -54,6 +54,10 @@ MONGO_AUTHSOURCE = cfg.mongodb.get("authsource", "cuckoo")
 ELASTIC_HOST = cfg.elasticsearchdb.get("host", "127.0.0.1")
 ELASTIC_PORT = cfg.elasticsearchdb.get("port", 9200)
 ELASTIC_INDEX = cfg.elasticsearchdb.get("index", "cuckoo")
+ELASTIC_USER = cfg.elasticsearchdb.get("username", None)
+ELASTIC_PASS = cfg.elasticsearchdb.get("password", None)
+ELASTIC_USE_SSL = cfg.elasticsearchdb.get("use_ssl", None)
+ELASTIC_VERIFY_CERTS = cfg.elasticsearchdb.get("verify_certs", None)
 
 moloch_cfg = cfg.moloch
 vtdl_cfg = aux_cfg.virustotaldl

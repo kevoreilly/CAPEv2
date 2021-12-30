@@ -5,13 +5,10 @@
 from __future__ import absolute_import
 import gc
 import logging
-import os
-
-from six.moves import zip
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
-from lib.cuckoo.common.objects import File
+from modules.reporting.report_doc import get_json_document, ensure_valid_utf8, insert_calls
 
 try:
     from bson.objectid import ObjectId
@@ -77,33 +74,6 @@ class MongoDB(Report):
 
         return sorted(list(totals.items()), key=lambda item: item[1], reverse=True)
 
-    @classmethod
-    def ensure_valid_utf8(cls, obj):
-        """Ensures that all strings are valid UTF-8 encoded, which is
-        required by MongoDB to be able to store the JSON documents.
-        @param obj: analysis results dictionary.
-        """
-        if not obj:
-            return
-
-        items = []
-        if isinstance(obj, dict):
-            items = obj.items()
-        elif isinstance(obj, list):
-            items = enumerate(obj)
-
-        for k, v in items:
-            # This type check is intentionally not done using isinstance(),
-            # because bson.binary.Binary *is* a subclass of bytes/str, and
-            # we do not want to convert that.
-            if type(v) is str:
-                try:
-                    v.encode()
-                except UnicodeEncodeError:
-                    obj[k] = "".join(str(ord(_)) for _ in v).encode()
-            else:
-                cls.ensure_valid_utf8(v)
-
     # use this function to hunt down non string key
     def fix_int2str(self, dictionary, current_key_tree=""):
         for k, v in dictionary.iteritems():
@@ -159,75 +129,15 @@ class MongoDB(Report):
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
         # reporting modules.
-        report = dict(results)
+        report = get_json_document(results, self.analysis_path)
 
         if "network" not in report:
             report["network"] = {}
 
-        # Add screenshot paths
-        report["shots"] = []
-        shots_path = os.path.join(self.analysis_path, "shots")
-        if os.path.exists(shots_path):
-            shots = [shot for shot in os.listdir(shots_path) if shot.endswith(".jpg")]
-            for shot_file in sorted(shots):
-                shot_path = os.path.join(self.analysis_path, "shots", shot_file)
-                screenshot = File(shot_path)
-                if screenshot.valid():
-                    # Strip the extension as it's added later
-                    # in the Django view
-                    report["shots"].append(shot_file.replace(".jpg", ""))
-
-        # Store chunks of API calls in a different collection and reference
-        # those chunks back in the report. In this way we should defeat the
-        # issue with the oversized reports exceeding MongoDB's boundaries.
-        # Also allows paging of the reports.
-        new_processes = []
-
-        for process in report.get("behavior", {}).get("processes", []) or []:
-            new_process = dict(process)
-            chunk = []
-            chunks_ids = []
-            # Loop on each process call.
-            for _, call in enumerate(process["calls"]):
-                # If the chunk size is 100 or if the loop is completed then
-                # store the chunk in MongoDB.
-                if len(chunk) == 100:
-                    to_insert = {"pid": process["process_id"], "calls": chunk}
-                    chunk_id = self.db.calls.insert(to_insert)
-                    chunks_ids.append(chunk_id)
-                    # Reset the chunk.
-                    chunk = []
-                # Append call to the chunk.
-                chunk.append(call)
-            # Store leftovers.
-            if chunk:
-                to_insert = {"pid": process["process_id"], "calls": chunk}
-                chunk_id = self.db.calls.insert(to_insert)
-                chunks_ids.append(chunk_id)
-            # Add list of chunks.
-            new_process["calls"] = chunks_ids
-            new_processes.append(new_process)
+        new_processes = insert_calls(report, mongo_calls_db=self.db.calls)
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
-        # Calculate the mlist_cnt for display if present to reduce db load
-        if "signatures" in results:
-            for entry in results["signatures"]:
-                if entry["name"] == "ie_martian_children":
-                    report["mlist_cnt"] = len(entry["data"])
-                if entry["name"] == "office_martian_children":
-                    report["f_mlist_cnt"] = len(entry["data"])
-
-        # Other info we want quick access to from the web UI
-        if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
-            report["virustotal_summary"] = f"{results['virustotal']['positive']}/{results['virustotal']['total']}"
-        if results.get("suricata", False):
-
-            keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
-            keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
-            for keyword, keyword_value in zip(keywords, keywords_dict):
-                if results["suricata"].get(keyword, 0):
-                    report[keyword_value] = len(results["suricata"][keyword])
 
         # Create an index based on the info.id dict key. Increases overall scalability
         # with large amounts of data.
@@ -255,7 +165,7 @@ class MongoDB(Report):
                 self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
             log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
-        self.ensure_valid_utf8(report)
+        ensure_valid_utf8(report)
         gc.collect()
 
         # Store the report and retrieve its object id.

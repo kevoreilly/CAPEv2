@@ -42,6 +42,10 @@ if repconf.mongodb.enabled:
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.db]
 
+if repconf.elasticsearchdb.enabled:
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    es = elastic_handler
+
 try:
     import pefile
 
@@ -420,9 +424,21 @@ def static_config_parsers(yara_hit, file_data):
 def static_config_lookup(file_path, sha256=False):
     if not sha256:
         sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
-    document_dict = results_db.analysis.find_one(
-        {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+
+    if repconf.mongodb.enabled:
+        document_dict = results_db.analysis.find_one(
+            {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif repconf.elasticsearchdb.enabled:
+        document_dict = es.search(index=get_analysis_index(), body={
+            "query": {
+                "match": {
+                    "target.file.sha256": sha256
+                }
+            }
+        }, _source=["CAPE.configs", "info.id"], sort={"_id": {"order": "desc"}})['hits']['hits'][0]['_source']
+    else:
+         document_dict = None
 
     if not document_dict:
         return

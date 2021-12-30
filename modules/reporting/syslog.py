@@ -92,9 +92,9 @@ class Syslog(Report):
         # Parse custom, check for a new value.
         # for option in custom.split(';'):
         #    if "user:" in option:
-        #        uname = f'User="{option.split(":")[-1]}" '
+        #        uname = f'User="{option.rsplit(":", 1)[-1]}" '
         #    if "ticket:" in option:
-        #        ticket = f'ticket="{option.split(":")[-1]}" '
+        #        ticket = f'ticket="{option.rsplit(":", 1)[-1]}" '
         # syslog += uname
         # syslog += ticket
 

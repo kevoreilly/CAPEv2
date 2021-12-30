@@ -21,8 +21,8 @@ class ProcessingMock(Processing):
 
 class SignatureMock(Signature):
     name = "mock"
-    minimum = CUCKOO_VERSION.split("-")[0]
-    maximum = CUCKOO_VERSION.split("-")[0]
+    minimum = CUCKOO_VERSION.split("-", 1)[0]
+    maximum = CUCKOO_VERSION.split("-", 1)[0]
 
     def run(self, results):
         if "foo" in results:

@@ -133,7 +133,7 @@ class TestAnalysisManager:
     def test_init_storage(self, clean_init_storage):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
         analysis_man.init_storage()
-        assert analysis_man.storage.split("/")[-1] == "1234"
+        assert analysis_man.storage.rsplit("/", 1)[-1] == "1234"
 
     def test_init_storage_already_exists(self, clean_init_storage, caplog):
         analysis_man = AnalysisManager(task=mock_task(), error_queue=queue.Queue())
@@ -317,7 +317,7 @@ class TestAnalysisManager:
         analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
         analysis_man.machine = mock_machine()
         opts = analysis_man.build_options()
-        opts["target"] = opts["target"].split("/")[-1]
+        opts["target"] = opts["target"].rsplit("/", 1)[-1]
         assert opts == {
             "category": "file",
             "exports": "",
@@ -359,7 +359,7 @@ class TestAnalysisManager:
         )
 
         opts = analysis_man.build_options()
-        opts["target"] = opts["target"].split("/")[-1]
+        opts["target"] = opts["target"].rsplit("/", 1)[-1]
         assert "PE type not recognised" in caplog.text
 
     def test_build_options_pe(self, grab_sample):
@@ -378,7 +378,7 @@ class TestAnalysisManager:
         analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
         analysis_man.machine = mock_machine()
         opts = analysis_man.build_options()
-        opts["target"] = opts["target"].split("/")[-1]
+        opts["target"] = opts["target"].rsplit("/", 1)[-1]
         assert opts == {
             "category": "file",
             "exports": "",

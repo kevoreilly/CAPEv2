@@ -36,7 +36,7 @@ def get_filepaths(directory, args):
                 file_paths.append(filepath)  # Add it to the list.
 
     if args.family:
-        return filter(lambda path: args.family == os.path.dirname(path).split("/")[-1], file_paths)
+        return filter(lambda path: args.family == os.path.dirname(path).rsplit("/", 1)[-1], file_paths)
     else:
         return file_paths  # Self-explanatory.
 

@@ -1396,8 +1396,7 @@ def cron_cleaner(clean_x_hours=False):
         for task in tasks:
             node = nodes[task.node_id]
             if node:
-                details.setdefault(node.id, [])
-                details[node.id].append(str(task.task_id))
+                details.setdefault(node.id, []).append(str(task.task_id))
                 task.deleted = True
 
         for node in details:

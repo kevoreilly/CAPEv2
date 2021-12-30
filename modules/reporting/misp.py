@@ -147,7 +147,7 @@ class MISP(Report):
                     if section.get("cape_config", {}).get("address", []) or []:
                         for ip in section["cape_config"]["address"]:
                             if ip not in ips:
-                                ips.add(ip.split(":")[0])
+                                ips.add(ip.split(":", 1)[0])
                 except Exception as e:
                     print(e)
 

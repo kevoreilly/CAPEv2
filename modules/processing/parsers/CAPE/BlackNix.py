@@ -36,7 +36,7 @@ def domain_parse(config):
     raw_domains = config["Domains"]
 
     for domain in raw_domains.split(";"):
-        domain_list.append(domain.split(":")[0])
+        domain_list.append(domain.split(":", 1)[0])
     return domain_list
 
 

@@ -122,8 +122,7 @@ def config(filebuf):
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])
 
         if c2_address and port:
-            cfg.setdefault("address", [])
-            cfg["address"].append(f"{c2_address}:{port}")
+            cfg.setdefault("address", []).append(f"{c2_address}:{port}")
 
         c2_offset += 6 + delta
 
@@ -146,7 +145,7 @@ def config(filebuf):
                 )
             for item in raw.split(b"\x00"):
                 if len(item) == LEN_BLOB_KEY - 1:
-                    cfg["RC4 key"] = item.split(b";")[0].decode()
+                    cfg["RC4 key"] = item.split(b";", 1)[0].decode()
 
     if botnet_code:
         botnet_rva = struct.unpack("i", filebuf[botnet_code + 23 : botnet_code + 27])[0] - image_base

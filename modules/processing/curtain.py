@@ -246,7 +246,7 @@ def formatReplace(inputString, MODFLAG):
     # obfGroup = re.search("(\"|\')(\{[0-9]{1,2}\})+(\"|\')[ -fF]+?(\"|\').+?(\"|\')(?=\)([!.\"\';)( ]))", inputString).group()
 
     # Build index and string lists
-    indexList = [int(x) for x in re.findall("\d+", obfGroup.split("-")[0])]
+    indexList = [int(x) for x in re.findall("\d+", obfGroup.split("-", 1)[0])]
 
     # This is to address scenarios where the string built is more PS commands with quotes
     stringList = re.search("(\"|').+", "-".join(obfGroup.split("-")[1:])[:-1]).group()
@@ -279,7 +279,7 @@ def charReplace(inputString, MODFLAG):
     # OLD: [char]101
     # NEW: e
     for value in re.findall("\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", inputString):
-        inputString = inputString.replace(value, f'"{chr(int(value.split("]")[1]))}"')
+        inputString = inputString.replace(value, f'"{chr(int(value.split("]", 2)[1]))}"')
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString, MODFLAG
@@ -386,36 +386,36 @@ def replaceDecoder(inputString, MODFLAG):
     inputString = inputString.replace("'|'", "char[124]")
 
     if "|" in inputString:
-        if "replace" not in inputString.split("|")[-1]:
-            inputString = "|".join(inputString.split("|")[0:-1])
+        if "replace" not in inputString.rsplit("|", 1)[-1]:
+            inputString = inputString.rsplit("|", 1)[0]
         else:
             pass
 
-    while "replace" in inputString.split(".")[-1].lower() or "replace" in inputString.split("-")[-1].lower():
+    while "replace" in inputString.rsplit(".", 1)[-1].lower() or "replace" in inputString.rsplit("-", 1)[-1].lower():
 
         inputString = inputString.replace("'+'", "")
         inputString = inputString.replace("'|'", "char[124]")
 
-        if len(inputString.split(".")[-1]) > len(inputString.split("-")[-1]):
+        if len(inputString.rsplit(".", 1)[-1]) > len(inputString.rsplit("-", 1)[-1]):
 
-            tempString = "-".join(inputString.split("-")[0:-1])
-            replaceString = inputString.split("-")[-1]
+            tempString = inputString.rsplit("-", 1)[0]
+            replaceString = inputString.rsplit("-", 1)[-1]
 
-            if "[" in replaceString.split(",")[0]:
-                firstPart = " ".join(replaceString.split(",")[0].split("[")[1:]).replace("'", "").replace('"', "")
+            if "[" in replaceString.split(",", 1)[0]:
+                firstPart = " ".join(replaceString.split(",", 1)[0].split("[")[1:]).replace("'", "").replace('"', "")
 
-            elif "'" in replaceString.split(",")[0].strip() or '"' in replaceString.split(",")[0].strip():
-                firstPart = re.search("('.+?'|\".+?\")", replaceString.split(",")[0]).group().replace("'", "").replace('"', "")
+            elif "'" in replaceString.split(",", 1)[0].strip() or '"' in replaceString.split(",", 1)[0].strip():
+                firstPart = re.search("('.+?'|\".+?\")", replaceString.split(",", 1)[0]).group().replace("'", "").replace('"', "")
 
             else:
-                firstPart = replaceString.split(",")[0].split("'")[1].replace("'", "").replace('"', "")
+                firstPart = replaceString.split(",", 1)[0].split("'", 2)[1].replace("'", "").replace('"', "")
 
-            secondPart = replaceString.split(",")[1].split(")")[0].replace("'", "").replace('"', "")
+            secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
         else:
-            tempString = ".".join(inputString.split(".")[0:-1])
-            replaceString = inputString.split(".")[-1]
-            firstPart = replaceString.split(",")[0].split("(")[-1].replace("'", "").replace('"', "")
-            secondPart = replaceString.split(",")[1].split(")")[0].replace("'", "").replace('"', "")
+            tempString = inputString.rsplit(".", 1)[0]
+            replaceString = inputString.rsplit(".", 1)[-1]
+            firstPart = replaceString.split(",", 1)[0].rsplit("(", 1)[-1].replace("'", "").replace('"', "")
+            secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
 
         if "+" in firstPart:
 
@@ -444,8 +444,8 @@ def replaceDecoder(inputString, MODFLAG):
         tempString = tempString.replace(firstPart, secondPart)
         inputString = tempString
 
-        if "replace" not in inputString.split("|")[-1].lower():
-            inputString = inputString.split("|")[0]
+        if "replace" not in inputString.rsplit("|", 1)[-1].lower():
+            inputString = inputString.split("|", 1)[0]
 
     if MODFLAG == 0:
         MODFLAG = 1

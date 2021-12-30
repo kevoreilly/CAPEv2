@@ -24,7 +24,7 @@ def update_conf(machinery, args):
     for line in open(path, "rb"):
         line = line.strip()
 
-        if line.split("=")[0].strip() == "machines":
+        if line.split("=", 1)[0].strip() == "machines":
             # If there are already one or more labels then append the new
             # label to the list, otherwise make a new list.
             if line.split("=", 1)[1].strip():

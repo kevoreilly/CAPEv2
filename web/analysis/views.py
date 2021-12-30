@@ -1233,7 +1233,7 @@ def report(request, task_id):
         for file in os.listdir(bingraph_path):
             tmp_file = os.path.join(bingraph_path, file)
             with open(tmp_file, "r") as f:
-                bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
+                bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], f.read())
 
     domainlookups = {}
     iplookups = {}

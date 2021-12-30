@@ -130,8 +130,7 @@ def render_capabilities(doc, ostream):
         else:
             capability = "%s (%d matches)" % (rule["meta"]["name"], count)
 
-        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], [])
-        ostream["CAPABILITY"][rule["meta"]["namespace"]].append(capability)
+        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], []).append(capability)
 
 
 def render_attack(doc, ostream):

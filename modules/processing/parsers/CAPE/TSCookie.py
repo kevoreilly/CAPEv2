@@ -57,7 +57,7 @@ def rc4(data, key):
 
 # helper function for formatting string
 def __format_string(data):
-    return data.split("\x00")[0]
+    return data.split("\x00", 1)[0]
 
 
 # Parse config

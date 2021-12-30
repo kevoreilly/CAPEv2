@@ -136,7 +136,7 @@ def my_rate_seconds(group, request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+        ip = x_forwarded_for.split(',', 1)[0]
     else:
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
@@ -154,7 +154,7 @@ def my_rate_minutes(group, request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+        ip = x_forwarded_for.split(',', 1)[0]
     else:
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
@@ -173,8 +173,7 @@ def load_vms_exits():
             for node in db.query(Node).all():
                 if hasattr(node, "exitnodes"):
                     for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, [])
-                        all_exits[exit.name].append(node.name)
+                        all_exits.setdefault(exit.name, []).append(node.name)
             db.close()
         except Exception as e:
             print(e)

@@ -259,8 +259,7 @@ def index(request, resubmit_hash=False):
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", resubmission_hash, search_limit=5)
                         for record in records:
-                            existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
-                            existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
@@ -311,8 +310,7 @@ def index(request, resubmit_hash=False):
                         records = perform_search("target_sha256", sha256, search_limit=5)
                         for record in records:
                             if record.get("target").get("file", {}).get("sha256"):
-                                existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
-                                existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                                existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:

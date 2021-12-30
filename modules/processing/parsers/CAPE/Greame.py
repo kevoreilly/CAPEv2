@@ -40,9 +40,9 @@ def parse_config(raw_config):
         # Config sections 0 - 19 contain a list of Domains and Ports
         for x in range(19):
             if len(raw_config[x]) > 1:
-                domains += xor_decode(raw_config[x]).split(":")[0]
+                domains += xor_decode(raw_config[x]).split(":", 1)[0]
                 domains += "|"
-                ports += xor_decode(raw_config[x]).split(":")[1]
+                ports += xor_decode(raw_config[x]).split(":", 2)[1]
                 ports += "|"
         config_dict = {}
         config_dict["Domain"] = domains[:-1]

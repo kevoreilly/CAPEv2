@@ -176,7 +176,7 @@ def config(filebuf):
         except pefile.PEFormatError as err:
             pass
 
-        while 1:
+        while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
             except:
@@ -186,8 +186,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 return
@@ -203,7 +202,7 @@ def config(filebuf):
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
         except pefile.PEFormatError as err:
             pass
-        while 1:
+        while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
             except:
@@ -213,8 +212,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 return
@@ -260,7 +258,7 @@ def config(filebuf):
             except pefile.PEFormatError as err:
                 log.error(err)
                 return
-            while 1:
+            while True:
                 preip = filebuf[c2_list_offset : c2_list_offset + 4]
                 if not preip:
                     return
@@ -274,8 +272,7 @@ def config(filebuf):
                 c2_address = socket.inet_ntoa(struct.pack("!L", ip))
                 port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
                 if c2_address and port:
-                    conf_dict.setdefault("address", [])
-                    conf_dict["address"].append(f"{c2_address}:{port}")
+                    conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                     c2found = True
                 else:
                     break
@@ -288,7 +285,7 @@ def config(filebuf):
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
         except pefile.PEFormatError as err:
             pass
-        while 1:
+        while True:
             preip = filebuf[c2_list_offset : c2_list_offset + 4]
             if not preip:
                 break
@@ -302,8 +299,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -323,7 +319,7 @@ def config(filebuf):
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
         except pefile.PEFormatError as err:
             pass
-        while 1:
+        while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
             except:
@@ -333,8 +329,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -350,7 +345,7 @@ def config(filebuf):
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
         except pefile.PEFormatError as err:
             pass
-        while 1:
+        while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
             except:
@@ -360,8 +355,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break
@@ -411,8 +405,7 @@ def config(filebuf):
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
             if c2_address and port:
-                conf_dict.setdefault("address", [])
-                conf_dict["address"].append(f"{c2_address}:{port}")
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
                 c2found = True
             else:
                 break

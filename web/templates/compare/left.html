@@ -23,7 +23,7 @@ $(function () {
         <h2 style="text-align: center;">Analysis 2</h2>
 
         <p>You need to select the second analysis.</p>
-        {% if records.count > 0 %}
+        {% if records|length > 0 %}
             <p>Following are all the other analyses of the same file:</p>
             {% include "compare/_summary_table.html" %}
         {% else %}

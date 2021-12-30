@@ -36,23 +36,15 @@ if enabledconf["mongodb"]:
 
 es_as_db = False
 if enabledconf["elasticsearchdb"]:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es_as_db = True
     essearch = Config("reporting").elasticsearchdb.searchonly
     if essearch:
         es_as_db = False
-    baseidx = Config("reporting").elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": settings.ELASTIC_HOST,
-                "port": settings.ELASTIC_PORT,
-            }
-        ],
-        timeout=60,
-    )
+
+    es = elastic_handler
+
 
 # Conditional decorator for web authentication
 class conditional_login_required(object):
@@ -72,7 +64,10 @@ def left(request, left_id):
     if enabledconf["mongodb"]:
         left = results_db.analysis.find_one({"info.id": int(left_id)}, {"target": 1, "info": 1})
     if es_as_db:
-        hits = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % left_id)["hits"]["hits"]
+        hits = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(left_id)
+        )["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
         else:
@@ -88,11 +83,12 @@ def left(request, left_id):
         )
     if es_as_db:
         records = []
-        results = es.search(
-            index=fullidx,
-            doc_type="analysis",
-            q='target.file.md5: "%s" NOT info.id: "%s"' % (left["target"]["file"]["md5"], left_id),
-        )["hits"]["hits"]
+        q = {'query': {'bool': {
+            'must': [
+                {'match': {'target.file.md5': left["target"]["file"]["md5"]}}],
+            'must_not': [{'match': {'info.id': left_id}}],
+        }}}
+        results = es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
         for item in results:
             records.append(item["_source"])
 
@@ -105,7 +101,10 @@ def hash(request, left_id, right_hash):
     if enabledconf["mongodb"]:
         left = results_db.analysis.find_one({"info.id": int(left_id)}, {"target": 1, "info": 1})
     if es_as_db:
-        hits = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % left_id)["hits"]["hits"]
+        hits = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(left_id)
+        )["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
         else:
@@ -121,9 +120,11 @@ def hash(request, left_id, right_hash):
         )
     if es_as_db:
         records = []
-        results = es.search(
-            index=fullidx, doc_type="analysis", q='target.file.md5: "%s" NOT info.id: "%s"' % (right_hash, left_id)
-        )["hits"]["hits"]
+        q = {'query': {'bool': {
+            'must': [{'match': {'target.file.md5': right_hash}}],
+            'must_not': [{'match': {'info.id': left_id}}],
+        }}}
+        results = es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
         for item in results:
             records.append(item["_source"])
 
@@ -140,11 +141,19 @@ def both(request, left_id, right_id):
         # Execute comparison.
         counts = compare.helper_percentages_mongo(results_db, left_id, right_id)
         summary_compare = compare.helper_summary_mongo(results_db, left_id, right_id)
-    if es_as_db:
-        left = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % left_id)["hits"]["hits"][-1]["_source"]
-        right = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % right_id)["hits"]["hits"][-1]["_source"]
-        counts = compare.helper_percentages_elastic(es, left_id, right_id, fullidx)
-        summary_compare = compare.summary_similarities(left, right)
+    elif es_as_db:
+        left = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(left_id),
+            _source=['target', 'info']
+        )["hits"]["hits"][-1]["_source"]
+        right = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(right_id),
+            _source=['target', 'info']
+        )["hits"]["hits"][-1]["_source"]
+        counts = compare.helper_percentages_elastic(es, left_id, right_id)
+        summary_compare = compare.helper_summary_elastic(es, left_id, right_id)
 
     return render(
         request,

@@ -13,7 +13,7 @@ def run(md5, data):
     enckey, conf = get_parts(data)
     if enckey == None:
         return
-    print(f"[+] Decoding Config with Key: {enckey.encode('hex')}")
+    print(f"[+] Decoding Config with Key: {enckey.encode().hex()}")
     if len(enckey) == 16:
         # Newer versions use a base64 encoded config.dat
         if "==" in conf:  # this is not a great test but should work 99% of the time
@@ -50,7 +50,7 @@ def get_parts(data):
                 if name == "config.dat":  # this is the encrypted config file
                     conf = zip.read(name)
     except Exception:
-        print(f"[+] Dropped File is not Jar File starts with Hex Chars: {data[:5].encode('hex')}")
+        print(f"[+] Dropped File is not Jar File starts with Hex Chars: {data[:5].encode().hex()}")
         return None, None
     if enckey and conf:
         return enckey, conf

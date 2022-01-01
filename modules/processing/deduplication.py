@@ -7,7 +7,6 @@ import logging
 import os
 
 import imagehash
-import six
 from PIL import Image
 
 from lib.cuckoo.common.abstracts import Processing
@@ -45,7 +44,7 @@ class Deduplicate(Processing):
         for img in sorted(image_filenames):
             hash = hashfunc(Image.open(img))
             images[hash] = images.get(hash, []) + [img]
-        for k, img_list in six.iteritems(images):
+        for k, img_list in images.items():
             dd_img_set.append(os.path.basename(img_list[0]))
         # Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
         # We flip the list back around after prune.

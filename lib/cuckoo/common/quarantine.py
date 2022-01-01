@@ -9,8 +9,6 @@ import os
 import struct
 from binascii import crc32
 
-import six
-
 from lib.cuckoo.common.utils import store_temp_file
 
 try:
@@ -590,7 +588,7 @@ def kav_unquarantine(file):
         if idname == "cNP_QB_FULLNAME":
             vallen = length - idlen
             origname = (
-                six.text_type(data[curoffset + 8 + idlen : curoffset + 4 + length])
+                str(data[curoffset + 8 + idlen : curoffset + 4 + length])
                 .decode("utf-16")
                 .encode("utf8", "ignore")
                 .rstrip("\0")
@@ -636,9 +634,9 @@ def trend_unquarantine(f):
     for i in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
         if code == 1:  # original pathname
-            origpath = six.text_type(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
+            origpath = str(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
         elif code == 2:  # original filename
-            origname = six.text_type(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
+            origname = str(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
         elif code == 3:  # platform
             platform = str(tagdata)
         elif code == 4:  # file attributes

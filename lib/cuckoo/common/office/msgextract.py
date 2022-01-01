@@ -28,7 +28,6 @@ import os
 import sys
 
 import olefile as OleFile
-import six
 
 from lib.cuckoo.common.utils import store_temp_file
 
@@ -40,10 +39,7 @@ __version__ = "0.2"
 def windowsUnicode(string):
     if string is None:
         return None
-    if sys.version_info[0] >= 3:  # Python 3
-        return str(string, "utf_16_le")
-    else:  # Python 2
-        return six.text_type(string, "utf_16_le")
+    return str(string, "utf_16_le")
 
 
 class Attachment:

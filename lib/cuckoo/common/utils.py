@@ -849,7 +849,7 @@ def to_unicode(s):
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
             try:
-                return str(s2, enc)
+                return s2.decode(enc)
             except UnicodeDecodeError:
                 pass
         return None
@@ -859,7 +859,7 @@ def to_unicode(s):
         enc = chardet.detect(s2)["encoding"]
 
         try:
-            return str(s2, enc)
+            return s2.decode(enc)
         except UnicodeDecodeError:
             pass
         return None
@@ -875,10 +875,9 @@ def to_unicode(s):
     if not result and HAVE_CHARDET:
         result = chardet_enc(s)
 
-    # If not possible to convert the input string, try again with
-    # a replace strategy.
+    # If not possible to convert the input string, try again with a replace strategy.
     if not result:
-        result = str(s, errors="replace")
+        result = s.decode(errors="replace")
 
     return result
 

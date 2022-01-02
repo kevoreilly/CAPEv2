@@ -25,7 +25,8 @@ https://github.com/mattgwwalker/msg-extractor
 
 from __future__ import absolute_import
 import os
-import sys
+import random
+import string
 
 import olefile as OleFile
 
@@ -39,7 +40,7 @@ __version__ = "0.2"
 def windowsUnicode(string):
     if string is None:
         return None
-    return str(string, "utf_16_le")
+    return str(string).encode("utf_16_le")
 
 
 class Attachment:
@@ -61,9 +62,6 @@ class Attachment:
             filename = self.shortFilename
         # Otherwise just make something up!
         if filename is None:
-            import random
-            import string
-
             filename = (
                 "UnknownAttachment" + "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5)) + ".bin"
             )

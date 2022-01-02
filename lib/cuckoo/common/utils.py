@@ -26,8 +26,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import Tuple
 
-import six
-
 from lib.cuckoo.common import utils_dicts
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
@@ -851,8 +849,7 @@ def to_unicode(s):
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
             try:
-                # ToDo text_type is unicode py2 str py3
-                return six.text_type(s2, enc)
+                return s2.decode(enc)
             except UnicodeDecodeError:
                 pass
         return None
@@ -862,13 +859,13 @@ def to_unicode(s):
         enc = chardet.detect(s2)["encoding"]
 
         try:
-            return six.text_type(s2, enc)
+            return s2.decode(enc)
         except UnicodeDecodeError:
             pass
         return None
 
     # If already in unicode, skip.
-    if isinstance(s, six.text_type):
+    if isinstance(s, str):
         return s
 
     # First try to decode against a little set of common encodings.
@@ -878,10 +875,9 @@ def to_unicode(s):
     if not result and HAVE_CHARDET:
         result = chardet_enc(s)
 
-    # If not possible to convert the input string, try again with
-    # a replace strategy.
+    # If not possible to convert the input string, try again with a replace strategy.
     if not result:
-        result = six.text_type(s, errors="replace")
+        result = s.decode(errors="replace")
 
     return result
 

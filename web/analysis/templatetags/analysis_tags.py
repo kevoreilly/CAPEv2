@@ -2,8 +2,6 @@ from __future__ import absolute_import
 import os
 from io import StringIO
 
-import six
-
 try:
     import re2 as re
 except ImportError:
@@ -40,7 +38,7 @@ def mongo_id(value):
             value = value["_id"]
 
     # Return value
-    return six.text_type(value)
+    return str(value)
 
 
 @register.filter("is_dict")

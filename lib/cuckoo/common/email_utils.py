@@ -7,8 +7,6 @@ import email
 import mimetypes
 from email.header import decode_header, make_header
 
-import six
-
 from . import utils
 
 SAFE_MEDIA_TYPE = ["text/plain", "text/html"]
@@ -70,4 +68,4 @@ def _find_attachments_in_email(mesg, expand_attachment, atts):
 
 def _decode_header(s):
     t = decode_header(s)
-    return six.text_type(make_header(t))
+    return str(make_header(t))

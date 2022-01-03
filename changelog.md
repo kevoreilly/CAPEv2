@@ -1,6 +1,7 @@
 ### [17-12-2021]
 * Monitor: x64 debugger updates & improvements
 * Al-khaser bypass
+* ElasticSearch to store reports support by @CorraMatte
 
 ### [22-12-2021]
 * Add new field to DB `arch`. To avoid problems with pendings tasks when user didn't read config and set tags

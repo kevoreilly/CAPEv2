@@ -11,5 +11,5 @@ class TestParseProcessLog:
     def test_init(self):
         assert (
             str(ParseProcessLog(log_path="CAPEv2/tests/test_bson.bson"))
-            == "<ParseProcessLog log-path: 'CAPEv2/tests/test_bson.bson'>"
+            == "<ParseProcessLog log-path: CAPEv2/tests/test_bson.bson>"
         )

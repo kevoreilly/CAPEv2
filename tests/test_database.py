@@ -76,6 +76,7 @@ class TestDatabaseEngine(object):
             snapshot="snap0",
             resultserver_ip="5.6.7.8",
             resultserver_port=2043,
+            arch="x64",
         )
         self.d.add_machine(
             name="name2",
@@ -87,6 +88,7 @@ class TestDatabaseEngine(object):
             snapshot="snap0",
             resultserver_ip="5.6.7.8",
             resultserver_port=2043,
+            arch="x64",
         )
         m1 = self.d.view_machine("name1")
         m2 = self.d.view_machine("name2")
@@ -106,6 +108,7 @@ class TestDatabaseEngine(object):
             "status_changed_on": None,
             "id": 1,
             "resultserver_port": "2043",
+            "arch": "x64",
         }
 
         assert m2.to_dict() == {
@@ -123,4 +126,5 @@ class TestDatabaseEngine(object):
             "status": None,
             "status_changed_on": None,
             "tags": ["tag1tag2"],
+            "arch": "x64",
         }

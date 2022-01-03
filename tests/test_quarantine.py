@@ -33,7 +33,9 @@ class TestUnquarantine:
     def test_mcafee(self, grab_sample):
         sample_hash = "14f715be9d422d367d0a5233515fa1c770728e4a3ff396b1936d1fa30965cc5d"
         sample_location = grab_sample(sample_hash)
-        assert unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"14f715be9d422d367d0a5233515fa1c770728e4a3ff396b1936d1fa30965cc5d"
+        assert (
+            unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"14f715be9d422d367d0a5233515fa1c770728e4a3ff396b1936d1fa30965cc5d"
+        )
 
     def test_kaspersky(self, grab_sample):
         sample_hash = "b1c3bea84e2b5931b2ef8397e8ea3ee982cceacaa3987bf870cb712cd5015cc0"
@@ -43,7 +45,9 @@ class TestUnquarantine:
     def test_trend(self, grab_sample):
         sample_hash = "0b2a20864392f2dd911aed79218e0ed44fd77b299d4b9bd9108c59fe4e551baf"
         sample_location = grab_sample(sample_hash)
-        assert unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"0b2a20864392f2dd911aed79218e0ed44fd77b299d4b9bd9108c59fe4e551baf"
+        assert (
+            unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"0b2a20864392f2dd911aed79218e0ed44fd77b299d4b9bd9108c59fe4e551baf"
+        )
 
     """
     def test_sep(self, grab_sample):

@@ -633,7 +633,7 @@ class Retriever(threading.Thread):
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
                 start_copy = datetime.now()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
-                print(
+                log.info(
                     f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
                 )
 
@@ -983,7 +983,7 @@ class StatusThread(threading.Thread):
                         else:
                             main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
                     else:
-                        print("something is wrong with submission of task: {}".format(task.id))
+                        log.info("something is wrong with submission of task: {}".format(task.id))
                         db.delete(task)
                         db.commit()
                     limit += 1

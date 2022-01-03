@@ -49,7 +49,10 @@ def load_sample_lists(args):
             sample_dict = json.load(samples)
             for hash_item in sample_dict["hashes"]:
                 sample_name = "malware." + hash_item["hash"] + "." + hash_item.get("name", "none") + ".exe"
-                get_sample(hash_item["hash"], os.path.dirname(sample_json_location) + "/" + sample_name)
+                try:
+                    get_sample(hash_item["hash"], os.path.dirname(sample_json_location) + "/" + sample_name)
+                except Exception as e:
+                    logging.exception(e)
 
 
 def run(args):

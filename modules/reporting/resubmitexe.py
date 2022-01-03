@@ -220,7 +220,7 @@ class ReSubmitExtractedEXE(Report):
                     lfile = ntpath.basename(gpath).lower()
                     if lfile in whitelisted_names:
                         skip_it = True
-            if skip_it == True:
+            if skip_it:
                 continue
 
             if (

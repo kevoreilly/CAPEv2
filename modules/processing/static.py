@@ -1538,11 +1538,11 @@ class Office(object):
         oleid = OleID(filepath)
         indicators = oleid.check()
         for indicator in indicators:
-            if indicator.name == "Word Document" and indicator.value == True:
+            if indicator.name == "Word Document" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "Excel Workbook" and indicator.value == True:
+            if indicator.name == "Excel Workbook" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "PowerPoint Presentation" and indicator.value == True:
+            if indicator.name == "PowerPoint Presentation" and indicator.value:
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF:

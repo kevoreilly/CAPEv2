@@ -943,7 +943,7 @@ def IfWIN32SetBinary(io):
 
 def PrintOutputObject(object, options):
     if options.dump == "-":
-        filtered = object.Stream(options.filter == True, options.overridingfilters)
+        filtered = object.Stream(options.filter is True, options.overridingfilters)
         if filtered == []:
             filtered = ""
         IfWIN32SetBinary(sys.stdout)
@@ -994,7 +994,7 @@ def PrintOutputObject(object, options):
             print("".join([token[1] for token in object.content]))
 
     if options.dump:
-        filtered = object.Stream(options.filter == True, options.overridingfilters)
+        filtered = object.Stream(options.filter is True, options.overridingfilters)
         if filtered == []:
             filtered = ""
         try:

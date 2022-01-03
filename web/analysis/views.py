@@ -751,7 +751,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                                 else:
                                     add_call = 1
                                 break
-                        if (exclude == True and add_call != 0) or (exclude == False and add_call == 1):
+                        if (exclude and add_call != 0) or (exclude == False and add_call == 1):
                             filtered_process["calls"].append(call)
                     else:
                         filtered_process["calls"].append(call)

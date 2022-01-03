@@ -19,7 +19,6 @@ import json
 import struct
 
 import pefile
-from six.moves import map
 
 
 def getSectionNames(sections):

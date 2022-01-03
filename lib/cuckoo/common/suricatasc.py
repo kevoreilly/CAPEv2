@@ -155,7 +155,7 @@ class SuricataSC:
 
     def connect(self):
         try:
-            if self.socket == None:
+            if self.socket is None:
                 self.socket = socket(AF_UNIX)
             self.socket.connect(self.sck_path)
         except error as err:

@@ -151,7 +151,7 @@ def decoder(data):
     # Try to decrypt onboard config then
     if urls == []:
         temp = ""
-        if pe == None:
+        if pe is None:
             pe = data
         key = find_key(pe)
         # iv = try_find_iv(pe)

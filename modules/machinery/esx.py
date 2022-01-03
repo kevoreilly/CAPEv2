@@ -44,7 +44,7 @@ class ESX(LibVirtMachinery):
         """
         return the already-connected single connection handle if set, otherwise set it.
         """
-        if self.global_conn == None:
+        if self.global_conn is None:
             self.global_conn = self._global_connect()
         return self.global_conn
 

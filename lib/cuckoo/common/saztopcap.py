@@ -163,7 +163,7 @@ def saz_to_pcap(sazpath):
                 # TODO:to enable this we need to track 5 tuples otherwise we have session reuse issues
                 # if m and m.group("sport"):
                 # sport = int(m.group("sport"))
-                if m and m.group("clientip") and src == None:
+                if m and m.group("clientip") and src is None:
                     src = m.group("clientip")
                 elif m and m.group("hostip"):
                     dst = m.group("hostip")

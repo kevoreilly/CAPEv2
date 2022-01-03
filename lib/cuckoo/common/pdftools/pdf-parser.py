@@ -183,7 +183,7 @@ def IFF(expression, valueTrue, valueFalse):
 
 
 def Timestamp(epoch=None):
-    if epoch == None:
+    if epoch is None:
         localTime = time.localtime()
     else:
         localTime = time.localtime(epoch)
@@ -282,10 +282,10 @@ class cPDFTokenizer:
     def Token(self):
         if len(self.ungetted) != 0:
             return self.ungetted.pop()
-        if self.oPDF == None:
+        if self.oPDF is None:
             return None
         self.byte = self.oPDF.byte()
-        if self.byte == None:
+        if self.byte is None:
             self.oPDF = None
             return None
         elif CharacterClass(self.byte) == CHAR_WHITESPACE:
@@ -1204,7 +1204,7 @@ def LZWDecode(data):
 
 
 def PrintGenerateObject(object, options, newId=None):
-    if newId == None:
+    if newId is None:
         objectId = object.id
     else:
         objectId = newId
@@ -1271,7 +1271,7 @@ def File2Strings(filename):
 def ProcessAt(argument):
     if argument.startswith("@"):
         strings = File2Strings(argument[1:])
-        if strings == None:
+        if strings is None:
             raise Exception("Error reading %s" % argument)
         else:
             return strings
@@ -1436,7 +1436,7 @@ def MatchObjectID(id, selection):
 def GetArguments():
     arguments = sys.argv[1:]
     envvar = os.getenv("PDFPARSER_OPTIONS")
-    if envvar == None:
+    if envvar is None:
         return arguments
     return envvar.split(" ") + arguments
 
@@ -1646,11 +1646,11 @@ def Main():
 
         oPDFParserOBJSTM = None
         while True:
-            if oPDFParserOBJSTM == None:
+            if oPDFParserOBJSTM is None:
                 object = oPDFParser.GetObject()
             else:
                 object = oPDFParserOBJSTM.GetObject()
-                if object == None:
+                if object is None:
                     oPDFParserOBJSTM = None
                     object = oPDFParser.GetObject()
             if (
@@ -1708,11 +1708,11 @@ def Main():
                                 print("    oPDF.header('%s')" % comment[4:])
                             elif comment != "%EOF":
                                 print("    oPDF.comment(%s)" % repr(comment))
-                        elif options.yara == None and options.generateembedded == 0:
+                        elif options.yara is None and options.generateembedded == 0:
                             print("PDF Comment %s" % FormatOutput(object.comment, options.raw))
                             print("")
                     elif object.type == PDF_ELEMENT_XREF and selectXref:
-                        if not options.generate and options.yara == None and options.generateembedded == 0:
+                        if not options.generate and options.yara is None and options.generateembedded == 0:
                             if options.debug:
                                 print("xref %s" % FormatOutput(object.content, options.raw))
                             else:
@@ -1724,7 +1724,7 @@ def Main():
                             result = oPDFParseDictionary.Get("/Root")
                             if result != None:
                                 savedRoot = result
-                        elif options.yara == None and options.generateembedded == 0:
+                        elif options.yara is None and options.generateembedded == 0:
                             if (
                                 not options.search
                                 and not options.key
@@ -1732,7 +1732,7 @@ def Main():
                                 or options.search
                                 and object.Contains(options.search)
                             ):
-                                if oPDFParseDictionary == None:
+                                if oPDFParseDictionary is None:
                                     print("trailer %s" % FormatOutput(object.content, options.raw))
                                 else:
                                     print("trailer")
@@ -1749,7 +1749,7 @@ def Main():
                                         print("trailer")
                                         oPDFParseDictionary.PrettyPrint("  ")
                     elif object.type == PDF_ELEMENT_STARTXREF and selectStartXref:
-                        if not options.generate and options.yara == None and options.generateembedded == 0:
+                        if not options.generate and options.yara is None and options.generateembedded == 0:
                             print("startxref %d" % object.index)
                             print("")
                     elif object.type == PDF_ELEMENT_INDIRECT_OBJECT and selectIndirectObject:

@@ -1215,7 +1215,7 @@ class PDF(object):
                             continue
                         if len(errors):
                             continue
-                        if jsdata == None:
+                        if jsdata is None:
                             continue
 
                         for url in urlsfound:

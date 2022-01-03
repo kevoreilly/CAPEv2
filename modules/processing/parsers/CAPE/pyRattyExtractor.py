@@ -27,7 +27,7 @@ def extract_config(zip):
                 print(f"[+] C2 : {''.join(c2)}")
             except Exception:
                 print("[*] Probably corrupted Base64 string")
-    if bFile == False:
+    if not bFile:
         print("[*] No such file")
     print("[+] Task Completed\n")
     fh.close()

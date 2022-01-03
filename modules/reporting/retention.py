@@ -146,7 +146,7 @@ class Retention(Report):
             for item in retentions.keys():
                 # We only want to query the database for tasks that we have
                 # retentions set for.
-                if self.options[item] == False:
+                if not self.options[item]:
                     continue
                 # Sanitation
                 if item not in taskCheck or taskCheck[item] == 0:

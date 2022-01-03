@@ -145,7 +145,7 @@ class packedSetting:
                 return conf_data
 
         if self.is_blob:
-            if self.enum != None:
+            if self.enum is not None:
                 ret_arr = []
                 i = 0
                 while i < len(conf_data):

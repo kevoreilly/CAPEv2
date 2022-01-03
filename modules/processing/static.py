@@ -1119,7 +1119,7 @@ class PDF(object):
         try:
             for version in range(self.pdf.updates + 1):
                 trailer, _ = self.pdf.trailer[version]
-                if trailer != None:
+                if trailer is not None:
                     elem = trailer.dict.getElementByName("/Root")
                     if elem:
                         elem = self._get_obj_val(version, elem)

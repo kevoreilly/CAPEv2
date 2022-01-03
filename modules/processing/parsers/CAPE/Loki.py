@@ -134,7 +134,7 @@ def decoder(data):
         img = pe.get_memory_mapped_image()
     except Exception:
         img = data
-    if x_sect != None:
+    if x_sect is not None:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
         x = bytearray(x)
     else:

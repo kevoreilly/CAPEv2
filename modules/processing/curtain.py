@@ -664,7 +664,7 @@ class Curtain(Processing):
                     pids[PID] = {"pid": PID, "events": [], "filter": []}
 
                 # Checks for unique strings in events to filter out
-                if MESSAGE != None:
+                if MESSAGE is not None:
                     for entry in noise:
                         if entry in MESSAGE:
                             FILTERFLAG = 1
@@ -682,7 +682,7 @@ class Curtain(Processing):
             MESSAGE = block["message"]
             pid = block["pid"]
             # Save the record
-            if FILTERFLAG == 0 and MESSAGE != None:
+            if FILTERFLAG == 0 and MESSAGE is not None:
 
                 COUNTER += 1
                 ALTMSG = deobfuscate(MESSAGE)

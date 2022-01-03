@@ -946,7 +946,7 @@ class StatusThread(threading.Thread):
                             return True
 
                 # Only get tasks that have not been pushed yet.
-                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished == False)
+                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                 if q is None:
                     db.commit()
                     return True

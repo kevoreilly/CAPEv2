@@ -1386,7 +1386,7 @@ def cron_cleaner(clean_x_hours=False):
     if clean_x_hours:
         tasks = (
             db.query(Task)
-            .filter(Task.notificated == True, Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
+            .filter(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
             .order_by(Task.id.desc())
             .all()
         )

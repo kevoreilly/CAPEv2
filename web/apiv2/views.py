@@ -1202,7 +1202,7 @@ def tasks_iocs(request, task_id, detail=None):
     if es_as_db and not buf:
         tmp = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"]
         if tmp:
             buf = tmp[-1]["_source"]
@@ -1983,7 +1983,7 @@ def tasks_config(request, task_id, cape_name=False):
     if es_as_db and not buf:
         tmp = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"]
         if len(tmp) > 1:
             buf = tmp[-1]["_source"]

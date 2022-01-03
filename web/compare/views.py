@@ -66,7 +66,7 @@ def left(request, left_id):
     if es_as_db:
         hits = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(left_id)
+            query=get_query_by_info_id(left_id)
         )["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
@@ -103,7 +103,7 @@ def hash(request, left_id, right_hash):
     if es_as_db:
         hits = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(left_id)
+            query=get_query_by_info_id(left_id)
         )["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
@@ -144,12 +144,12 @@ def both(request, left_id, right_id):
     elif es_as_db:
         left = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(left_id),
+            query=get_query_by_info_id(left_id),
             _source=['target', 'info']
         )["hits"]["hits"][-1]["_source"]
         right = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(right_id),
+            query=get_query_by_info_id(right_id),
             _source=['target', 'info']
         )["hits"]["hits"][-1]["_source"]
         counts = compare.helper_percentages_elastic(es, left_id, right_id)

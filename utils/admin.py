@@ -58,7 +58,7 @@ def remove(task_id):
             )
         elif repconf.elasticsearchdb.enabled:
             analyses = [d['_source'] for d in es.search(
-                index=get_analysis_index(), body=get_query_by_info_id(task_id),
+                index=get_analysis_index(), query=get_query_by_info_id(task_id),
                 _source=["behavior.processes"]
             )['hits']['hits']]
         else:

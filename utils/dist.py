@@ -829,7 +829,7 @@ class StatusThread(threading.Thread):
         limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
-        bad_tasks = db.query(Task).filter(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id != None).all()
+        bad_tasks = db.query(Task).filter(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id.is_not(None)).all()
         if bad_tasks:
             for task in bad_tasks:
                 db.delete(task)

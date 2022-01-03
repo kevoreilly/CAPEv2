@@ -134,7 +134,7 @@ def decoder(data):
         img = pe.get_memory_mapped_image()
     except Exception:
         img = data
-    if x_sect != None:
+    if x_sect is not None:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
         x = bytearray(x)
     else:
@@ -151,7 +151,7 @@ def decoder(data):
     # Try to decrypt onboard config then
     if urls == []:
         temp = ""
-        if pe == None:
+        if pe is None:
             pe = data
         key = find_key(pe)
         # iv = try_find_iv(pe)

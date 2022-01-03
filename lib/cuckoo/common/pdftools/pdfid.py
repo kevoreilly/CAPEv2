@@ -867,7 +867,7 @@ def UpdateWords(word, wordExact, slash, words, hexcode, allNames, lastName, insi
             if word == "stream":
                 insideStream = True
             if word == "endstream":
-                if insideStream == True and oEntropy is not None:
+                if insideStream and oEntropy is not None:
                     for char in "endstream":
                         oEntropy.removeInsideStream(ord(char))
                 insideStream = False

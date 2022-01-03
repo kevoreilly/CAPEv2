@@ -101,7 +101,7 @@ class Remcos(Parser):
                 name = str(resource_type.name)
             else:
                 name = str(pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
-            if name == None:
+            if name is None:
                 name = str(resource_type.struct.name)
             if hasattr(resource_type, "directory"):
                 for resource_id in resource_type.directory.entries:

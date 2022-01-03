@@ -27,7 +27,7 @@ def extract_config(zip):
                 print(f"[+] C2 : {''.join(c2)}")
             except Exception:
                 print("[*] Probably corrupted Base64 string")
-    if bFile == False:
+    if not bFile:
         print("[*] No such file")
     print("[+] Task Completed\n")
     fh.close()
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         for root, directories, filenames in os.walk(Directory[0]):
             for filename in filenames:
                 szFile = os.path.join(root, filename)
-                if check_jar_classes(szFile) == True:
+                if check_jar_classes(szFile):
                     extract_config(szFile)
                 else:
                     print(f"This is not a valid Jar file : {szFile}")

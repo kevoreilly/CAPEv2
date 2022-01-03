@@ -122,7 +122,7 @@ class Redsip(Parser):
                         config_found = True
 
         # The config file hasn't been found/decrypted so fall back to hardcoded config
-        if config_found == False:
+        if not config_found:
             config_rva = struct.unpack("I", filebuf[yara_offset + 31 : yara_offset + 35])[0] - image_base
             config_offset = pe.get_offset_from_rva(config_rva)
             config = filebuf[config_offset : config_offset + size]

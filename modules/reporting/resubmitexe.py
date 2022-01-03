@@ -216,11 +216,11 @@ class ReSubmitExtractedEXE(Report):
                 continue
             skip_it = False
             for gpath in dropped["guest_paths"]:
-                if "." in gpath and skip_it == False:
+                if "." in gpath and not skip_it:
                     lfile = ntpath.basename(gpath).lower()
                     if lfile in whitelisted_names:
                         skip_it = True
-            if skip_it == True:
+            if skip_it:
                 continue
 
             if (

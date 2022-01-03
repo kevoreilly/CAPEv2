@@ -183,7 +183,7 @@ def IFF(expression, valueTrue, valueFalse):
 
 
 def Timestamp(epoch=None):
-    if epoch == None:
+    if epoch is None:
         localTime = time.localtime()
     else:
         localTime = time.localtime(epoch)
@@ -282,18 +282,18 @@ class cPDFTokenizer:
     def Token(self):
         if len(self.ungetted) != 0:
             return self.ungetted.pop()
-        if self.oPDF == None:
+        if self.oPDF is None:
             return None
         self.byte = self.oPDF.byte()
-        if self.byte == None:
+        if self.byte is None:
             self.oPDF = None
             return None
         elif CharacterClass(self.byte) == CHAR_WHITESPACE:
             file_str = StringIO()
-            while self.byte != None and CharacterClass(self.byte) == CHAR_WHITESPACE:
+            while self.byte is not None and CharacterClass(self.byte) == CHAR_WHITESPACE:
                 file_str.write(chr(self.byte))
                 self.byte = self.oPDF.byte()
-            if self.byte != None:
+            if self.byte is not None:
                 self.oPDF.unget(self.byte)
             else:
                 self.oPDF = None
@@ -301,10 +301,10 @@ class cPDFTokenizer:
             return (CHAR_WHITESPACE, self.token)
         elif CharacterClass(self.byte) == CHAR_REGULAR:
             file_str = StringIO()
-            while self.byte != None and CharacterClass(self.byte) == CHAR_REGULAR:
+            while self.byte is not None and CharacterClass(self.byte) == CHAR_REGULAR:
                 file_str.write(chr(self.byte))
                 self.byte = self.oPDF.byte()
-            if self.byte != None:
+            if self.byte is not None:
                 self.oPDF.unget(self.byte)
             else:
                 self.oPDF = None
@@ -327,13 +327,13 @@ class cPDFTokenizer:
                     return (CHAR_DELIMITER, ">")
             elif self.byte == 0x25:
                 file_str = StringIO()
-                while self.byte != None:
+                while self.byte is not None:
                     file_str.write(chr(self.byte))
                     if self.byte == 10 or self.byte == 13:
                         self.byte = self.oPDF.byte()
                         break
                     self.byte = self.oPDF.byte()
-                if self.byte != None:
+                if self.byte is not None:
                     if self.byte == 10:
                         file_str.write(chr(self.byte))
                     else:
@@ -346,14 +346,14 @@ class cPDFTokenizer:
 
     def TokenIgnoreWhiteSpace(self):
         token = self.Token()
-        while token != None and token[0] == CHAR_WHITESPACE:
+        while token is not None and token[0] == CHAR_WHITESPACE:
             token = self.Token()
         return token
 
     def Tokens(self):
         tokens = []
         token = self.Token()
-        while token != None:
+        while token is not None:
             tokens.append(token)
             token = self.Token()
         return tokens
@@ -879,7 +879,7 @@ class cPDFParseDictionary:
             self.PrettyPrintSub(prefix + "    ", e[1])
 
     def PrettyPrintSub(self, prefix, dictionary):
-        if dictionary != None:
+        if dictionary is not None:
             print("%s<<" % prefix)
             for e in dictionary:
                 self.PrettyPrintSubElement(prefix, e)
@@ -900,7 +900,7 @@ class cPDFParseDictionary:
                 return self.PrettyPrintSubElement("", [select, value])
             if isinstance(value, list) and len(value) > 0 and isinstance(value[0], tuple):
                 result = self.GetNestedSub(value, select)
-                if result != None:
+                if result is not None:
                     return self.PrettyPrintSubElement("", [select, result])
         return None
 
@@ -943,7 +943,7 @@ def IfWIN32SetBinary(io):
 
 def PrintOutputObject(object, options):
     if options.dump == "-":
-        filtered = object.Stream(options.filter == True, options.overridingfilters)
+        filtered = object.Stream(options.filter is True, options.overridingfilters)
         if filtered == []:
             filtered = ""
         IfWIN32SetBinary(sys.stdout)
@@ -951,7 +951,7 @@ def PrintOutputObject(object, options):
         return
 
     print("obj %d %d" % (object.id, object.version))
-    if object.objstm != None:
+    if object.objstm is not None:
         print(" Containing /ObjStm: %d %d" % object.objstm)
     print(" Type: %s" % ConditionalCanonicalize(object.GetType(), options.nocanonicalizedoutput))
     print(" Referencing: %s" % ", ".join(map(lambda x: "%s %s %s" % x, object.GetReferences())))
@@ -994,7 +994,7 @@ def PrintOutputObject(object, options):
             print("".join([token[1] for token in object.content]))
 
     if options.dump:
-        filtered = object.Stream(options.filter == True, options.overridingfilters)
+        filtered = object.Stream(options.filter is True, options.overridingfilters)
         if filtered == []:
             filtered = ""
         try:
@@ -1204,7 +1204,7 @@ def LZWDecode(data):
 
 
 def PrintGenerateObject(object, options, newId=None):
-    if newId == None:
+    if newId is None:
         objectId = object.id
     else:
         objectId = newId
@@ -1271,7 +1271,7 @@ def File2Strings(filename):
 def ProcessAt(argument):
     if argument.startswith("@"):
         strings = File2Strings(argument[1:])
-        if strings == None:
+        if strings is None:
             raise Exception("Error reading %s" % argument)
         else:
             return strings
@@ -1436,7 +1436,7 @@ def MatchObjectID(id, selection):
 def GetArguments():
     arguments = sys.argv[1:]
     envvar = os.getenv("PDFPARSER_OPTIONS")
-    if envvar == None:
+    if envvar is None:
         return arguments
     return envvar.split(" ") + arguments
 
@@ -1638,7 +1638,7 @@ def Main():
             )
             print(r"    oPDF.indirectobject(7, 0, '<<\r\n /Type /Filespec\r\n /F (test.bin)\r\n /EF << /F 8 0 R >>\r\n>>')")
 
-        if options.yara != None:
+        if options.yara is not None:
             if not "yara" in sys.modules:
                 print("Error: option yara requires the YARA Python module.")
                 return
@@ -1646,11 +1646,11 @@ def Main():
 
         oPDFParserOBJSTM = None
         while True:
-            if oPDFParserOBJSTM == None:
+            if oPDFParserOBJSTM is None:
                 object = oPDFParser.GetObject()
             else:
                 object = oPDFParserOBJSTM.GetObject()
-                if object == None:
+                if object is None:
                     oPDFParserOBJSTM = None
                     object = oPDFParser.GetObject()
             if (
@@ -1680,7 +1680,7 @@ def Main():
                 oPDFParserOBJSTM = cPDFParser(
                     StringIO(synthesizedPDF), options.verbose, options.extract, (object.id, object.version)
                 )
-            if object != None:
+            if object is not None:
                 if options.stats:
                     if object.type == PDF_ELEMENT_COMMENT:
                         cntComment += 1
@@ -1708,11 +1708,11 @@ def Main():
                                 print("    oPDF.header('%s')" % comment[4:])
                             elif comment != "%EOF":
                                 print("    oPDF.comment(%s)" % repr(comment))
-                        elif options.yara == None and options.generateembedded == 0:
+                        elif options.yara is None and options.generateembedded == 0:
                             print("PDF Comment %s" % FormatOutput(object.comment, options.raw))
                             print("")
                     elif object.type == PDF_ELEMENT_XREF and selectXref:
-                        if not options.generate and options.yara == None and options.generateembedded == 0:
+                        if not options.generate and options.yara is None and options.generateembedded == 0:
                             if options.debug:
                                 print("xref %s" % FormatOutput(object.content, options.raw))
                             else:
@@ -1722,9 +1722,9 @@ def Main():
                         oPDFParseDictionary = cPDFParseDictionary(object.content[1:], options.nocanonicalizedoutput)
                         if options.generate:
                             result = oPDFParseDictionary.Get("/Root")
-                            if result != None:
+                            if result is not None:
                                 savedRoot = result
-                        elif options.yara == None and options.generateembedded == 0:
+                        elif options.yara is None and options.generateembedded == 0:
                             if (
                                 not options.search
                                 and not options.key
@@ -1732,16 +1732,16 @@ def Main():
                                 or options.search
                                 and object.Contains(options.search)
                             ):
-                                if oPDFParseDictionary == None:
+                                if oPDFParseDictionary is None:
                                     print("trailer %s" % FormatOutput(object.content, options.raw))
                                 else:
                                     print("trailer")
                                     oPDFParseDictionary.PrettyPrint("  ")
                                 print("")
                             elif options.key:
-                                if oPDFParseDictionary.parsed != None:
+                                if oPDFParseDictionary.parsed is not None:
                                     result = oPDFParseDictionary.GetNested(options.key)
-                                    if result != None:
+                                    if result is not None:
                                         print(result)
                             elif options.reference:
                                 for key, value in oPDFParseDictionary.Retrieve():
@@ -1749,7 +1749,7 @@ def Main():
                                         print("trailer")
                                         oPDFParseDictionary.PrettyPrint("  ")
                     elif object.type == PDF_ELEMENT_STARTXREF and selectStartXref:
-                        if not options.generate and options.yara == None and options.generateembedded == 0:
+                        if not options.generate and options.yara is None and options.generateembedded == 0:
                             print("startxref %d" % object.index)
                             print("")
                     elif object.type == PDF_ELEMENT_INDIRECT_OBJECT and selectIndirectObject:
@@ -1761,9 +1761,9 @@ def Main():
                             if not contentDictionary:
                                 contentDictionary = object.content[1:]
                             oPDFParseDictionary = cPDFParseDictionary(contentDictionary, options.nocanonicalizedoutput)
-                            if oPDFParseDictionary.parsed != None:
+                            if oPDFParseDictionary.parsed is not None:
                                 result = oPDFParseDictionary.GetNested(options.key)
-                                if result != None:
+                                if result is not None:
                                     print(result)
                         elif options.object:
                             if MatchObjectID(object.id, options.object):
@@ -1788,11 +1788,11 @@ def Main():
                                 options.overridingfilters,
                             ):
                                 PrintObject(object, options)
-                        elif options.yara != None:
+                        elif options.yara is not None:
                             results = object.StreamYARAMatch(
                                 rules, decoders, options.decoderoptions, not options.unfiltered, options.overridingfilters
                             )
-                            if results != None and results != []:
+                            if results is not None and results != []:
                                 for result in results:
                                     for yaraResult in result[1]:
                                         print(

@@ -44,9 +44,10 @@ if repconf.mongodb.enabled:
     from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+    from elasticsearch.exceptions import RequestError as ESRequestError
+
     from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
                                            get_query_by_info_id)
-    from elasticsearch.exceptions import RequestError as ESRequestError
 
     es = elastic_handler
 

@@ -829,7 +829,7 @@ class StatusThread(threading.Thread):
         limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
-        bad_tasks = db.query(Task).filter(Task.node_id == None, Task.task_id == None, Task.main_task_id != None).all()
+        bad_tasks = db.query(Task).filter(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id != None).all()
         if bad_tasks:
             for task in bad_tasks:
                 db.delete(task)
@@ -946,7 +946,7 @@ class StatusThread(threading.Thread):
                             return True
 
                 # Only get tasks that have not been pushed yet.
-                q = db.query(Task).filter(or_(Task.node_id == None, Task.task_id == None), Task.finished == False)
+                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished == False)
                 if q is None:
                     db.commit()
                     return True

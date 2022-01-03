@@ -797,13 +797,10 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         row = None
         # set filter to get tasks with acceptable arch
-        # Task.tags == None
-        #   == can't be repaced with is None as is SQLALCHEMY!
-        #   To pick tasks without any tag
         if "x64" in machine.arch:
-            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags == None])
+            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags.is_(None)])
         else:
-            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags == None])
+            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags.is_(None)])
         try:
             row = (
                 session.query(Task)

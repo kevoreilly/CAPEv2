@@ -46,7 +46,6 @@ class ElasticSearchDB(Report):
             raise CuckooReportError("Cannot connect to ElasticsearchDB")
 
     def index_report(self, report):
-        import code;code.interact(local=dict(locals(), **globals()))
         self.es.index(index=get_daily_analysis_index(), body=report)
 
     def check_analysis_index(self):

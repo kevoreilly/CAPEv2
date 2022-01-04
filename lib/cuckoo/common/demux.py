@@ -159,6 +159,10 @@ def is_valid_type(magic):
     return False
 
 
+def is_valid_path(file_path):
+    return file_path.get("file_path")
+
+
 def _sf_chlildren(child):
     path_to_extract = False
     _, ext = os.path.splitext(child.filename)
@@ -175,19 +179,25 @@ def _sf_chlildren(child):
                     f.write(child.contents)
         except Exception as e:
             log.error(e, exc_info=True)
-    return path_to_extract
+    return {
+            "file_path":path_to_extract,
+            "filename":child.filename
+            }
 
 
-def demux_sflock(filename, options, package):
+def demux_sflock(file_path, filename, options, package):
     retlist = []
     # only extract from files with no extension or with .bin (downloaded from us) or .zip PACKAGE, we do extract from zip archives, to ignore it set ZIP PACKAGES
-    ext = os.path.splitext(filename)[1]
+    ext = os.path.splitext(file_path)[1]
     if ext == b".bin":
         return retlist
 
     # to handle when side file for exec is required
     if "file=" in options:
-        return [filename]
+        return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
 
     try:
         password = "infected"
@@ -196,42 +206,48 @@ def demux_sflock(filename, options, package):
             password = tmp_pass
 
         try:
-            unpacked = unpack(filename, password=password)
+            unpacked = unpack(file_path, password=password)
         except UnpackException:
-            unpacked = unpack(filename)
+            unpacked = unpack(file_path)
 
         if unpacked.package in whitelist_extensions:
-            return [filename]
+            return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
         if unpacked.package in blacklist_extensions:
             return retlist
         for sf_child in unpacked.children or []:
             if sf_child.to_dict().get("children") and sf_child.to_dict()["children"]:
                 retlist += [_sf_chlildren(ch) for ch in sf_child.children]
-                # child is not available, the original file should be put into the list
-                if filter(None, retlist):
+                #child is not available, the original file should be put into the list
+                if filter(is_valid_path, retlist):
                     retlist.append(_sf_chlildren(sf_child))
             else:
                 retlist.append(_sf_chlildren(sf_child))
     except Exception as e:
         log.error(e, exc_info=True)
 
-    return list(filter(None, retlist))
+    return list(filter(is_valid_path, retlist))
 
 
-def demux_sample(filename, package, options, use_sflock=True):
+def demux_sample(file_path, filename, package, options, use_sflock=True):
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
     # sflock requires filename to be bytes object for Py3
-    if isinstance(filename, str) and use_sflock:
-        filename = filename.encode()
+    if isinstance(file_path, str) and use_sflock:
+        file_path = file_path.encode()
     # if a package was specified, then don't do anything special
     if package:
-        return [filename]
+        return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
 
     # don't try to extract from office docs
-    magic = File(filename).get_type()
+    magic = File(file_path).get_type()
 
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
@@ -246,21 +262,33 @@ def demux_sample(filename, package, options, use_sflock=True):
 
     # don't try to extract from Java archives or executables
     if "Java Jar" in magic:
-        return [filename]
+        return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
     if "PE32" in magic or "MS-DOS executable" in magic:
-        return [filename]
+        return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
     if any(x in magic for x in VALID_LINUX_TYPES):
-        return [filename]
+        return [{
+            "file_path":file_path,
+            "filename":filename
+            }]
 
     retlist = []
     if HAS_SFLOCK:
         if use_sflock:
             # all in one unarchiver
-            retlist = demux_sflock(filename, options, package)
+            retlist = demux_sflock(file_path, filename, options, package)
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
-        retlist.append(filename)
+        retlist.append({
+            "file_path":file_path,
+            "filename":filename
+            })
     else:
         if len(retlist) > 10:
             retlist = retlist[:10]

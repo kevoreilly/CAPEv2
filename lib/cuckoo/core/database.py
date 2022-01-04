@@ -97,7 +97,7 @@ if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
     es = elastic_handler
 
-SCHEMA_VERSION = "8537286ff4d5"
+SCHEMA_VERSION = "fd50efe2ab14"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -383,6 +383,7 @@ class Task(Base):
 
     id = Column(Integer(), primary_key=True)
     target = Column(Text(), nullable=False)
+    filename = Column(Text(), nullable=False)
     category = Column(String(255), nullable=False)
     cape = Column(String(2048), nullable=True)
     timeout = Column(Integer(), server_default="0", nullable=False)
@@ -1172,6 +1173,7 @@ class Database(object, metaclass=Singleton):
     def add(
         self,
         obj,
+        filename,
         timeout=0,
         package="",
         options="",
@@ -1306,7 +1308,11 @@ class Database(object, metaclass=Singleton):
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
-
+        
+        if isinstance(filename, bytes):
+            task.filename = filename.decode()
+        else:
+            task.filename = filename
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout
         task.package = package
@@ -1365,6 +1371,7 @@ class Database(object, metaclass=Singleton):
     def add_path(
         self,
         file_path,
+        filename,
         timeout=0,
         package="",
         options="",
@@ -1426,6 +1433,7 @@ class Database(object, metaclass=Singleton):
 
         return self.add(
             File(file_path),
+            filename,
             timeout,
             package,
             options,
@@ -1455,6 +1463,7 @@ class Database(object, metaclass=Singleton):
     def demux_sample_and_add_to_db(
         self,
         file_path,
+        filename,
         timeout=0,
         package="",
         options="",
@@ -1495,11 +1504,11 @@ class Database(object, metaclass=Singleton):
             package = ""
         original_options = options
         # extract files from the (potential) archive
-        extracted_files = demux_sample(file_path, package, options)
+        extracted_files = demux_sample(file_path, filename, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
-        if extracted_files and file_path not in extracted_files:
+        if extracted_files and {"file_path": file_path, "filename": filename} not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 os.remove(file_path)
@@ -1511,7 +1520,7 @@ class Database(object, metaclass=Singleton):
             if isinstance(runfile, str):
                 runfile = runfile.encode()
             for xfile in extracted_files:
-                if runfile in xfile.lower():
+                if runfile in xfile.get("file_path").lower():
                     extracted_files = [xfile]
                     break
 
@@ -1519,19 +1528,19 @@ class Database(object, metaclass=Singleton):
         for file in extracted_files:
             if static:
                 # we don't need to process extra file if we already have it and config
-                config = static_config_lookup(file)
+                config = static_config_lookup(file.get("file_path"))
                 if config:
                     task_ids.append(config["id"])
                 else:
-                    config = static_extraction(file)
+                    config = static_extraction(file.get("file_path"))
                 if config or static_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                        file_path=file.get("file_path"), filename=file.get("filename"), priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
                     )
 
             if not config and only_extraction is False:
                 if not package:
-                    f = SflockFile.from_path(file)
+                    f = SflockFile.from_path(file.get("file_path"))
                     tmp_package = sflock_identify(f)
                     if tmp_package and tmp_package in sandbox_packages:
                         package = tmp_package
@@ -1540,7 +1549,7 @@ class Database(object, metaclass=Singleton):
                     del f
 
                 if package == "dll" and "function" not in options:
-                    dll_exports = File(file).get_dll_exports()
+                    dll_exports = File(file.get("file_path")).get_dll_exports()
                     if "DllRegisterServer" in dll_exports:
                         package = "regsvr"
                     elif "xlAutoOpen" in dll_exports:
@@ -1556,7 +1565,8 @@ class Database(object, metaclass=Singleton):
                         options = "dist_extract=1"
 
                 task_id = self.add_path(
-                    file_path=file.decode(),
+                    file_path=file.get("file_path").decode(),
+                    filename=file.get("filename"),
                     timeout=timeout,
                     priority=priority,
                     options=options,
@@ -1595,6 +1605,7 @@ class Database(object, metaclass=Singleton):
     def add_pcap(
         self,
         file_path,
+        filename,
         timeout=0,
         package="",
         options="",
@@ -1617,6 +1628,7 @@ class Database(object, metaclass=Singleton):
     ):
         return self.add(
             PCAP(file_path.decode()),
+            filename,
             timeout,
             package,
             options,
@@ -1642,6 +1654,7 @@ class Database(object, metaclass=Singleton):
     def add_static(
         self,
         file_path,
+        filename,
         timeout=0,
         package="",
         options="",
@@ -1663,12 +1676,12 @@ class Database(object, metaclass=Singleton):
         user_id=0,
         username=False,
     ):
-        extracted_files = demux_sample(file_path, package, options)
+        extracted_files = demux_sample(file_path, filename, package, options)
         sample_parent_id = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
-        if extracted_files and file_path not in extracted_files:
+        if extracted_files and {"file_path": file_path, "filename": filename} not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 os.remove(file_path)
@@ -1677,7 +1690,8 @@ class Database(object, metaclass=Singleton):
         # create tasks for each file in the archive
         for file in extracted_files:
             task_id = self.add(
-                Static(file.decode()),
+                Static(file.get("file_path").decode()),
+                file.get("filename"),
                 timeout,
                 package,
                 options,
@@ -1760,6 +1774,7 @@ class Database(object, metaclass=Singleton):
 
         return self.add(
             URL(url),
+            url,
             timeout,
             package,
             options,

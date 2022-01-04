@@ -765,6 +765,7 @@ def download_file(**kwargs):
         # Keep this as demux_sample_and_add_to_db in DB
         task_ids_new, extra_details = db.demux_sample_and_add_to_db(
             file_path=kwargs["path"],
+            filename=kwargs["filename"],
             package=package,
             timeout=timeout,
             options=kwargs["options"],
@@ -1220,6 +1221,7 @@ def download_from_vt(vtdl, details, opt_filename, settings):
         details["fhash"] = h
         details["path"] = filename
         details["service"] = "VirusTotal"
+        details["filename"] = os.path.basename(filename)
         if not details.get("content", False):
             status, task_ids_tmp = download_file(**details)
         else:

@@ -166,7 +166,7 @@ def tasks_create_static(request):
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
             task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0
+                tmp_path, sample.name, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0
             )
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
@@ -305,11 +305,11 @@ def tasks_create_file(request):
                     else:
                         resp = {"error": True, "error_value": "Failed to convert SAZ to PCAP"}
                         return Response(resp)
-                task_id = db.add_pcap(file_path=tmp_path)
+                task_id = db.add_pcap(file_path=tmp_path, filename=sample.name)
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
+                task_id = db.add_static(file_path=tmp_path, filename=sample.name, priority=priority, user_id=request.user.id or 0)
                 details["task_ids"].append(task_id)
                 continue
             if quarantine:
@@ -319,12 +319,20 @@ def tasks_create_file(request):
                     tmp_path = path
                 except Exception as e:
                     print(e, "removing quarantine")
-                try:
-                    File(path).get_type()
-                except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path).decode(): "Error submitting file - bad file type"})
-                    continue
+
+                if not path:
+                    return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
+                
+                details["filename"] = sample.name
+                details["path"] = path
+                details["content"] = get_file_content(path)
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({sample.name: task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
             else:
+                details["filename"] = sample.name
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
@@ -545,6 +553,7 @@ def tasks_create_dlnexec(request):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "filename": name,
         }
 
         status, task_ids_tmp = download_file(**details)

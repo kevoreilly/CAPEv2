@@ -2,6 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+# ToDo upgrade
+# Deprecation warnings in 7.15.0 pre-releases
+# https://github.com/elastic/elasticsearch-py/issues/1698
+
 import datetime
 import logging
 
@@ -45,7 +49,7 @@ def daily_calls_index_exists():
 
 
 def get_query_by_info_id(task_id):
-    return {"query": {"match": {"info.id": task_id}}}
+    return {"match": {"info.id": task_id}}
 
 
 def get_analysis_index():
@@ -73,7 +77,7 @@ def get_calls_index():
 
 
 def delete_analysis_and_related_calls(task_id):
-    analyses = elastic_handler.search(index=get_analysis_index(), body=get_query_by_info_id(task_id))["hits"]["hits"]
+    analyses = elastic_handler.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
     if analyses:
         log.debug("Deleting analysis data for Task %s" % task_id)
         for analysis in analyses:
@@ -82,7 +86,7 @@ def delete_analysis_and_related_calls(task_id):
                 for call in process["calls"]:
                     elastic_handler.delete_by_query(index=get_calls_index(), body={"query": {"match": {"_id": call}}})
 
-            elastic_handler.delete_by_query(index=get_analysis_index(), body=get_query_by_info_id(task_id))
+            elastic_handler.delete_by_query(index=get_analysis_index(), query=get_query_by_info_id(task_id))
         log.debug("Deleted previous ElasticsearchDB data for Task %s" % task_id)
 
 

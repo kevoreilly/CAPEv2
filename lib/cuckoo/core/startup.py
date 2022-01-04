@@ -91,6 +91,9 @@ def check_webgui_mongo():
             if bad:
                 sys.exit(1)
 
+    elif repconf.elasticsearchdb.enabled:
+        # ToDo add check
+        pass
 
 def check_configs():
     """Checks if config files exist.

@@ -25,7 +25,7 @@ if repconf.elasticsearchdb.enabled:
         HAVE_ELASTICSEARCH = False
 
 log = logging.getLogger(__name__)
-
+logging.getLogger("elasticsearch").setLevel("ERROR")
 
 class ElasticSearchDB(Report):
     """Stores report in ElasticSearchDB."""
@@ -50,7 +50,7 @@ class ElasticSearchDB(Report):
 
     def check_analysis_index(self):
         try:
-            log.info('Check if the index exists')
+            log.debug('Check if the index exists')
             if not daily_analysis_index_exists():
                 self.es.indices.create(index=get_daily_analysis_index(),
                                        body=get_analysis_index_mapping())
@@ -61,7 +61,7 @@ class ElasticSearchDB(Report):
 
     def check_calls_index(self):
         try:
-            log.info('Check if the index exists')
+            log.debug('Check if the index exists')
             if not daily_calls_index_exists():
                 self.es.indices.create(index=get_daily_calls_index())
         except (RequestError, AuthorizationException) as e:
@@ -88,7 +88,7 @@ class ElasticSearchDB(Report):
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_ELASTICSEARCH:
             raise CuckooDependencyError(
-                "Unable to import elasticsearch " "(install with `pip3 install elasticsearch`)")
+                "Unable to import elasticsearch (install with `pip3 install elasticsearch`)")
 
         self.connect()
 

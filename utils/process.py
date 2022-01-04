@@ -44,6 +44,8 @@ if repconf.mongodb.enabled:
     from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+    from elasticsearch.exceptions import RequestError as ESRequestError
+
     from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
                                            get_query_by_info_id)
 
@@ -115,12 +117,15 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 
         if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-            analyses = es.search(
-                index=get_analysis_index(), body=get_query_by_info_id(task_id)
-            )["hits"]["hits"]
-            if analyses:
-                for analysis in analyses:
-                    delete_analysis_and_related_calls(analysis["_id"])
+            try:
+                analyses = es.search(
+                    index=get_analysis_index(), query=get_query_by_info_id(task_id)
+                )["hits"]["hits"]
+                if analyses:
+                    for analysis in analyses:
+                        delete_analysis_and_related_calls(analysis["_id"])
+            except ESRequestError as e:
+                print(e)
 
         if auto or capeproc:
             reprocess = False

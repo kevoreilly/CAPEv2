@@ -96,7 +96,7 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=["misc"]):
 
     for tid in [tid1, tid2]:
         counts[tid] = {}
-        results = es_obj.search(index=get_analysis_index(), body=get_query_by_info_id(tid))["hits"]["hits"]
+        results = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid))["hits"]["hits"]
         if results:
             pids_calls = results[-1]["_source"]
         else:
@@ -123,11 +123,11 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=["misc"]):
 def helper_summary_elastic(es_obj, tid1, tid2):
     summaries = {}
     left_sum, right_sum = None, None
-    buf = es_obj.search(index=get_analysis_index(), body=get_query_by_info_id(tid1))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid1))["hits"]["hits"]
     if buf:
         left_sum = buf[-1]["_source"]
 
-    buf = es_obj.search(index=get_analysis_index(), body=get_query_by_info_id(tid2))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid2))["hits"]["hits"]
     if buf:
         right_sum = buf[-1]["_source"]
 

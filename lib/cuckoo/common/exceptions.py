@@ -33,6 +33,15 @@ class CuckooOperationalError(Exception):
     pass
 
 
+class CuckooConfigNotInitializedError(CuckooOperationalError):
+    def __init__(self, msg=None):
+        super().__init__(
+            msg or (
+                "You must call Config.initialize() before attempting to access "
+                "attributes of a Config object"
+            )
+        )
+
 class CuckooMachineError(CuckooOperationalError):
     """Error managing analysis machine."""
 

@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import logging
 import os
 
-from lib.core.config import Config
+from lib.core.config import AnalysisConfig
 
 # from getpass import getuser
 
@@ -24,7 +24,7 @@ def apicalls(target, **kwargs):
 
 
 def _stap_command_line(target, **kwargs):
-    config = Config(cfg="analysis.conf")
+    config = AnalysisConfig()
 
     def has_stap(p):
         only_stap = [fn for fn in os.listdir(p) if fn.startswith("stap_") and fn.endswith(".ko")]

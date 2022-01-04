@@ -10,7 +10,7 @@ import time
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
+from lib.core.config import AnalysisConfig
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class STAP(Auxiliary):
     priority = -10  # low prio to wrap tightly around the analysis
 
     def __init__(self, options={}, analyzer=None):
-        self.config = Config(cfg="analysis.conf")
+        self.config = AnalysisConfig()
         self.proc = None
 
     def start(self):

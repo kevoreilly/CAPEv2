@@ -4,7 +4,7 @@ import pefile
 
 
 def version_21(raw_config):
-    if raw_config != None:
+    if raw_config is not None:
         conf_dict = {}
         conf_dict["Version"] = "2.1"
         conf_dict["Domain"] = raw_config[0]
@@ -31,7 +31,7 @@ def version_21(raw_config):
 
 
 def version_22(raw_config):
-    if raw_config != None:
+    if raw_config is not None:
         conf_dict = {}
         conf_dict["Version"] = "2.2"
         conf_dict["Domain"] = raw_config[0]

@@ -44,19 +44,10 @@ if repconf.mongodb.enabled:
     from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
+                                           get_query_by_info_id)
 
-    baseidx = repconf.elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": repconf.elasticsearchdb.host,
-                "port": repconf.elasticsearchdb.port,
-            }
-        ],
-        timeout=60,
-    )
+    es = elastic_handler
 
 check_linux_dist()
 
@@ -124,26 +115,13 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 
         if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-            analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
+            analyses = es.search(
+                index=get_analysis_index(), body=get_query_by_info_id(task_id)
+            )["hits"]["hits"]
             if analyses:
                 for analysis in analyses:
-                    esidx = analysis["_index"]
-                    esid = analysis["_id"]
-                    # Check if behavior exists
-                    if analysis["_source"]["behavior"]:
-                        for process in analysis["_source"]["behavior"]["processes"]:
-                            for call in process["calls"]:
-                                es.delete(
-                                    index=esidx,
-                                    doc_type="calls",
-                                    id=call,
-                                )
-                    # Delete the analysis results
-                    es.delete(
-                        index=esidx,
-                        doc_type="analysis",
-                        id=esid,
-                    )
+                    delete_analysis_and_related_calls(analysis["_id"])
+
         if auto or capeproc:
             reprocess = False
         else:

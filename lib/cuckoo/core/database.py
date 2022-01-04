@@ -9,8 +9,6 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-import pymongo
-
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
@@ -85,13 +83,19 @@ repconf = Config("reporting")
 web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
 
-results_db = pymongo.MongoClient(
-    repconf.mongodb.host,
-    port=repconf.mongodb.port,
-    username=repconf.mongodb.get("username"),
-    password=repconf.mongodb.get("password"),
-    authSource=repconf.mongodb.get("authsource", "cuckoo"),
-)[repconf.mongodb.db]
+if repconf.mongodb.enabled:
+    import pymongo
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username"),
+        password=repconf.mongodb.get("password"),
+        authSource=repconf.mongodb.get("authsource", "cuckoo"),
+    )[repconf.mongodb.db]
+
+if repconf.elasticsearchdb.enabled:
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    es = elastic_handler
 
 SCHEMA_VERSION = "8537286ff4d5"
 TASK_BANNED = "banned"
@@ -793,13 +797,10 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         row = None
         # set filter to get tasks with acceptable arch
-        # Task.tags == None
-        #   == can't be repaced with is None as is SQLALCHEMY!
-        #   To pick tasks without any tag
         if "x64" in machine.arch:
-            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags == None])
+            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags.is_(None)])
         else:
-            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags == None])
+            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags.is_(None)])
         try:
             row = (
                 session.query(Task)
@@ -2272,10 +2273,25 @@ class Database(object, metaclass=Singleton):
                         sample = [path]
 
                 if sample is None:
-                    tasks = results_db.analysis.find(
-                        {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                        {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
-                    )
+                    if repconf.mongodb.enabled:
+                        tasks = results_db.analysis.find(
+                            {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                            {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
+                        )
+                    elif repconf.elasticsearchdb.enabled:
+                        tasks = [d['_source'] for d in es.search(
+                            index=get_analysis_index(), body={
+                                "query": {
+                                    "match": {
+                                        "CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash
+                                    }
+                                }
+                            },
+                            _source=["CAPE.payloads", "info.id"]
+                        )['hits']['hits']]
+                    else:
+                        tasks = []
+
                     if tasks:
                         for task in tasks:
                             for block in task.get("CAPE", {}).get("payloads", []) or []:
@@ -2296,10 +2312,25 @@ class Database(object, metaclass=Singleton):
 
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
-                        tasks = results_db.analysis.find(
-                            {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
-                            {category: 1, "_id": 0, "info.id": 1},
-                        )
+                        if repconf.mongodb.enabled:
+                            tasks = results_db.analysis.find(
+                                {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
+                                {category: 1, "_id": 0, "info.id": 1},
+                            )
+                        elif repconf.elasticsearchdb.enabled:
+                            tasks = [d['_source'] for d in es.search(
+                                index=get_analysis_index(), body={
+                                    "query": {
+                                        "match": {
+                                            category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash
+                                        }
+                                    }
+                                },
+                                _source=["info.id", category]
+                            )['hits']['hits']]
+                        else:
+                            tasks = []
+
                         if tasks:
                             for task in tasks:
                                 for block in task.get(category, []) or []:
@@ -2333,9 +2364,24 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     # search in Suricata files folder
-                    tasks = results_db.analysis.find(
-                        {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
-                    )
+                    if repconf.mongodb.enabled:
+                        tasks = results_db.analysis.find(
+                            {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
+                        )
+                    elif repconf.elasticsearchdb.enabled:
+                        tasks = [d['_source'] for d in es.search(
+                            index=get_analysis_index(), body={
+                                "query": {
+                                    "match": {
+                                        "suricata.files.sha256": sample_hash
+                                    }
+                                }
+                            },
+                            _source="suricata.files.file_info.path"
+                        )['hits']['hits']]
+                    else:
+                        tasks = []
+
                     if tasks:
                         for task in tasks:
                             for item in task["suricata"]["files"] or []:

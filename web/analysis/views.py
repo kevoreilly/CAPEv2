@@ -136,22 +136,13 @@ if enabledconf["mongodb"]:
 es_as_db = False
 essearch = False
 if enabledconf["elasticsearchdb"]:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_calls_index, get_query_by_info_id
 
     essearch = Config("reporting").elasticsearchdb.searchonly
     if not essearch:
         es_as_db = True
-    baseidx = Config("reporting").elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": settings.ELASTIC_HOST,
-                "port": settings.ELASTIC_PORT,
-            }
-        ],
-        timeout=60,
-    )
+
+    es = elastic_handler
 
 db = Database()
 
@@ -191,7 +182,7 @@ def get_analysis_info(db, id=-1, task=None):
         return None
 
     new = task.to_dict()
-    if new["category"] in ("file", "pcap", "static") and new["sample_id"] != None:
+    if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
@@ -227,7 +218,16 @@ def get_analysis_info(db, id=-1, task=None):
         )
 
     if es_as_db:
-        rtmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % str(new["id"]))["hits"]["hits"]
+        rtmp = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(str(new["id"])),
+            _source=[
+                "info", "virustotal_summary", "malscore", "detections",
+                "network.pcap_sha256", "mlist_cnt", "f_mlist_cnt",
+                "target.file.clamav", "suri_tls_cnt", "suri_alert_cnt",
+                "suri_http_cnt", "suri_file_cnt", "trid"
+            ]
+        )["hits"]["hits"]
         if len(rtmp) > 1:
             rtmp = rtmp[-1]["_source"]
         elif len(rtmp) == 1:
@@ -547,26 +547,49 @@ def load_files(request, task_id, category):
                 )
             else:
                 data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+        elif enabledconf['elasticsearchdb']:
+            if category in ("behavior", "debugger"):
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    body=get_query_by_info_id(task_id),
+                    _source=["behavior.processes", "behavior.processtree",
+                             "info.tlp"]
+                )['hits']['hits'][0]['_source']
 
-            sha256_blocks = []
-            if data:
-                if category == "CAPE":
-                    sha256_blocks = data.get("CAPE", {}).get("payloads", [])
-                if category in ("dropped", "procdump"):
-                    sha256_blocks = data.get(category, [])
+                if category == "debugger":
+                    data["debugger"] = data["behavior"]
+            elif category == "network":
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    body=get_query_by_info_id(task_id),
+                    _source=[category, "suricata", "cif", "info.tlp"]
+                )['hits']['hits'][0]['_source']
+            else:
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    body=get_query_by_info_id(task_id),
+                    _source=[category, "info.tlp"]
+                )['hits']['hits'][0]['_source']
 
-            if (enabledconf["vba2graph"] or enabledconf["bingraph"]) and sha256_blocks:
+        sha256_blocks = []
+        if data:
+            if category == "CAPE":
+                sha256_blocks = data.get("CAPE", {}).get("payloads", [])
+            if category in ("dropped", "procdump"):
+                sha256_blocks = data.get(category, [])
 
-                for block in sha256_blocks or []:
-                    if not block.get("sha256"):
-                        continue
-                    if enabledconf["bingraph"]:
-                        bingraph_dict_content = _load_file(task_id, block["sha256"], bingraph_dict_content, name="bingraph")
-                    if enabledconf["vba2graph"]:
-                        vba2graph_dict_content = _load_file(task_id, block["sha256"], vba2graph_dict_content, name="vba2graph")
+        if (enabledconf["vba2graph"] or enabledconf["bingraph"]) and sha256_blocks:
 
-            if category == "debugger":
-                debugger_logs = _load_file(task_id, "", debugger_logs, name="debugger")
+            for block in sha256_blocks or []:
+                if not block.get("sha256"):
+                    continue
+                if enabledconf["bingraph"]:
+                    bingraph_dict_content = _load_file(task_id, block["sha256"], bingraph_dict_content, name="bingraph")
+                if enabledconf["vba2graph"]:
+                    vba2graph_dict_content = _load_file(task_id, block["sha256"], vba2graph_dict_content, name="vba2graph")
+
+        if category == "debugger":
+            debugger_logs = _load_file(task_id, "", debugger_logs, name="debugger")
 
         # ES isn't supported
         page = "analysis/{}/index.html".format(category)
@@ -617,7 +640,11 @@ def chunk(request, task_id, pid, pagenum):
 
         if es_as_db:
             record = es.search(
-                index=fullidx, doc_type="analysis", q='behavior.processes.process_id: "%s" and info.id:' '"%s"' % (pid, task_id)
+                index=get_analysis_index(),
+                body={'query': {'bool': {'must': [
+                    {'match': {'behavior.processes.process_id': pid}},
+                    {'match': {'info.id': task_id}}]}}},
+                _source=["behavior.processes.process_id", "behavior.processes.calls"]
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -635,11 +662,12 @@ def chunk(request, task_id, pid, pagenum):
             objectid = process["calls"][pagenum]
             if enabledconf["mongodb"]:
                 chunk = results_db.calls.find_one({"_id": ObjectId(objectid)})
-
             if es_as_db:
-                chunk = es.search(index=fullidx, doc_type="calls", q='_id: "%s"' % objectid,)["hits"]["hits"][
-                    0
-                ]["_source"]
+                chunk = es.search(
+                    index=get_calls_index(),
+                    body={'query': {'match': {'_id': objectid}}}
+                )["hits"]["hits"][0]["_source"]
+
         else:
             chunk = dict(calls=[])
 
@@ -665,11 +693,13 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
-            # print "info.id: \"%s\" and behavior.processes.process_id: \"%s\"" % (task_id, pid)
             record = es.search(
-                index=fullidx,
-                doc_type="analysis",
-                q='info.id: "%s" and behavior.processes.process_id: "%s"' % (task_id, pid),
+                index=get_analysis_index(),
+                body={'query': {'bool': {'must': [
+                    {'match': {'behavior.processes.process_id': pid}},
+                    {'match': {'info.id': task_id}}
+                ]}}},
+                _source=["behavior.processes.process_id", "behavior.processes.calls"]
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -702,7 +732,10 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
             if enabledconf["mongodb"]:
                 chunk = results_db.calls.find_one({"_id": call})
             if es_as_db:
-                chunk = es.search(index=fullidx, doc_type="calls", q='_id: "%s"' % call)["hits"]["hits"][0]["_source"]
+                chunk = es.search(
+                    index=get_calls_index(),
+                    body={'query': {'match': {'_id': call}}}
+                )["hits"]["hits"][0]["_source"]
             for call in chunk["calls"]:
                 # filter by call or tid
                 if caller != "null" or tid != 0:
@@ -718,7 +751,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                                 else:
                                     add_call = 1
                                 break
-                        if (exclude == True and add_call != 0) or (exclude == False and add_call == 1):
+                        if (exclude and add_call != 0) or (not exclude and add_call == 1):
                             filtered_process["calls"].append(call)
                     else:
                         filtered_process["calls"].append(call)
@@ -914,9 +947,23 @@ def gen_moloch_from_antivirus(virustotal):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surialert(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    if enabledconf["mongodb"]:
+        report = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0},
+            sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif es_as_db:
+        report = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["suricata.alerts"]
+        )['hits']['hits']
+        if len(report) == 0:
+            report = None
+        else:
+            report = report[0]['_source']
+    else:
+        report = None
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -934,11 +981,25 @@ def surialert(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def shrike(request, task_id):
-    shrike = results_db.analysis.find_one(
-        {"info.id": int(task_id)},
-        {"info.shrike_url": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_refer": 1, "_id": 0},
-        sort=[("_id", pymongo.DESCENDING)],
-    )
+    if enabledconf["mongodb"]:
+        shrike = results_db.analysis.find_one(
+            {"info.id": int(task_id)},
+            {"info.shrike_url": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_refer": 1, "_id": 0},
+            sort=[("_id", pymongo.DESCENDING)],
+        )
+    elif es_as_db:
+        shrike = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"]
+        )['hits']['hits']
+        if len(shrike) == 0:
+            shrike = None
+        else:
+            shrike = shrike[0]['_source']
+    else:
+        shrike = None
+
     if not shrike:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -948,9 +1009,23 @@ def shrike(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surihttp(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    if enabledconf["mongodb"]:
+        report = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif es_as_db:
+        report = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["suricata.http"]
+        )['hits']['hits']
+        if len(report) == 0:
+            report = None
+        else:
+            report = report[0]['_source']
+    else:
+        report = None
+
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -968,9 +1043,23 @@ def surihttp(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def suritls(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    if enabledconf["mongodb"]:
+        report = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif es_as_db:
+        report = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["suricata.tls"]
+        )['hits']['hits']
+        if len(report) == 0:
+            report = None
+        else:
+            report = report[0]['_source']
+    else:
+        report = None
+
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -988,9 +1077,23 @@ def suritls(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surifiles(request, task_id):
-    report = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    if enabledconf["mongodb"]:
+        report = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif es_as_db:
+        report = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["suricata.files"]
+        )['hits']['hits']
+        if len(report) == 0:
+            report = None
+        else:
+            report = report[0]['_source']
+    else:
+        report = None
+
     if not report:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
 
@@ -1008,9 +1111,23 @@ def surifiles(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def antivirus(request, task_id):
-    rtmp = results_db.analysis.find_one(
-        {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-    )
+    if enabledconf["mongodb"]:
+        rtmp = results_db.analysis.find_one(
+            {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0},
+            sort=[("_id", pymongo.DESCENDING)]
+        )
+    elif es_as_db:
+        rtmp = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["virustotal", "info.category"]
+        )['hits']['hits']
+        if len(rtmp) == 0:
+            rtmp = None
+        else:
+            rtmp = rtmp[0]['_source']
+    else:
+        rtmp = None
     if not rtmp:
         return render(request, "error.html", {"error": "The specified analysis does not exist"})
     if settings.MOLOCH_ENABLED:
@@ -1050,7 +1167,10 @@ def search_behavior(request, task_id):
         if enabledconf["mongodb"]:
             record = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "_id": 0})
         if es_as_db:
-            esquery = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
+            esquery = es.search(
+                index=get_analysis_index(),
+                body=get_query_by_info_id(task_id)
+            )["hits"]["hits"][0]
             esidx = esquery["_index"]
             record = esquery["_source"]
 
@@ -1112,8 +1232,18 @@ def report(request, task_id):
         )
 
     if es_as_db:
-        query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
+        query = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"][0]
         report = query["_source"]
+        # Extract out data for Admin tab in the analysis page
+        network_report = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id),
+            _source=["network.domains", "network.dns", "network.hosts"]
+        )["hits"]["hits"][0]['_source']
+
         # Extract out data for Admin tab in the analysis page
         esdata = {"index": query["_index"], "id": query["_id"]}
         report["es"] = esdata
@@ -1509,7 +1639,10 @@ def procdump(request, task_id, process_id, start, end):
             {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
         )
     if es_as_db:
-        analysis = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]["_source"]
+        analysis = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"][0]["_source"]
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
@@ -1747,7 +1880,7 @@ def search(request, searched=False):
             if enabledconf["mongodb"] and term and "info" in result:
                 new = get_analysis_info(db, id=int(result["info"]["id"]))
             if es_as_db:
-                new = get_analysis_info(db, id=int(result["_source"]["info"]["id"]))
+                new = get_analysis_info(db, id=int(result["info"]["id"]))
             if not new:
                 continue
             analyses.append(new)
@@ -1790,7 +1923,10 @@ def remove(request, task_id):
         else:
             return render(request, "error.html", {"error": "The specified analysis does not exist"})
     if es_as_db:
-        analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
+        analyses = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -1816,7 +1952,10 @@ def remove(request, task_id):
                 )
     elif essearch:
         # remove es search data
-        analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
+        analyses = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -1851,7 +1990,10 @@ def pcapstream(request, task_id, conntuple):
         )
 
     if es_as_db:
-        conndata = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]["_source"]
+        conndata = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"][0]["_source"]
 
     if not conndata:
         return render(request, "standalone_error.html", {"error": "The specified analysis does not exist"})
@@ -1899,7 +2041,10 @@ def comments(request, task_id):
                 {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
             )
         if es_as_db:
-            query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
+            query = es.search(
+                index=get_analysis_index(),
+                body=get_query_by_info_id(task_id)
+            )["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]
             esidx = query["_index"]
@@ -1926,7 +2071,7 @@ def comments(request, task_id):
                 {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True
             )
         if es_as_db:
-            es.update(index=esidx, doc_type="analysis", id=esid, body={"doc": {"info": {"comments": curcomments}}})
+            es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
 
     else:

@@ -9,8 +9,6 @@ import os
 import sys
 import time
 
-from six.moves import range
-
 iface = ""
 for idx, arg in enumerate(sys.argv):
     if arg == "-i" and idx < len(sys.argv) - 1:

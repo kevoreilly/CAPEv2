@@ -633,7 +633,7 @@ class Retriever(threading.Thread):
                 node = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(id=node_id).first()
                 start_copy = datetime.now()
                 copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
-                print(
+                log.info(
                     f"It took {datetime.now()-start_copy} to copy report {t.task_id} from node: {node.name} for task: {t.main_task_id}"
                 )
 
@@ -829,7 +829,7 @@ class StatusThread(threading.Thread):
         limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
-        bad_tasks = db.query(Task).filter(Task.node_id == None, Task.task_id == None, Task.main_task_id != None).all()
+        bad_tasks = db.query(Task).filter(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id.is_not(None)).all()
         if bad_tasks:
             for task in bad_tasks:
                 db.delete(task)
@@ -946,7 +946,7 @@ class StatusThread(threading.Thread):
                             return True
 
                 # Only get tasks that have not been pushed yet.
-                q = db.query(Task).filter(or_(Task.node_id == None, Task.task_id == None), Task.finished == False)
+                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                 if q is None:
                     db.commit()
                     return True
@@ -983,7 +983,7 @@ class StatusThread(threading.Thread):
                         else:
                             main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
                     else:
-                        print("something is wrong with submission of task: {}".format(task.id))
+                        log.info("something is wrong with submission of task: {}".format(task.id))
                         db.delete(task)
                         db.commit()
                     limit += 1
@@ -1386,7 +1386,7 @@ def cron_cleaner(clean_x_hours=False):
     if clean_x_hours:
         tasks = (
             db.query(Task)
-            .filter(Task.notificated == True, Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
+            .filter(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
             .order_by(Task.id.desc())
             .all()
         )

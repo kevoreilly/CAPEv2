@@ -30,6 +30,12 @@ if repconf.mongodb.enabled:
     )[repconf.mongodb.db]
     FULL_DB = True
 
+if repconf.elasticsearchdb.enabled:
+    from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
+                                           get_query_by_info_id)
+
+    es = elastic_handler
+
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -45,24 +51,37 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 
 
 def remove(task_id):
+    if repconf.mongodb.enabled or repconf.elasticsearchdb.enabled:
+        if repconf.mongodb.enabled:
+            analyses = list(results_db.analysis.find(
+                {"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
+            )
+        elif repconf.elasticsearchdb.enabled:
+            analyses = [d['_source'] for d in es.search(
+                index=get_analysis_index(), body=get_query_by_info_id(task_id),
+                _source=["behavior.processes"]
+            )['hits']['hits']]
+        else:
+            analyses = []
 
-    if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
-        # Checks if more analysis found with the same ID, like if process.py was run manually.
-        if analyses.count() > 1:
+        if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
-        elif analyses.count() == 1:
+        elif len(analyses) == 1:
             message = "Task deleted."
 
-        if analyses.count() > 0:
+        if len(analyses) > 0:
             # Delete dups too.
             for analysis in analyses:
-                # Delete calls.
-                for process in analysis.get("behavior", {}).get("processes", []):
-                    for call in process["calls"]:
-                        results_db.calls.remove({"_id": ObjectId(call)})
-                # Delete analysis data.
-                results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                if repconf.mongodb.enabled:
+                    # Delete calls.
+                    for process in analysis.get("behavior", {}).get("processes", []):
+                        for call in process["calls"]:
+                            results_db.calls.remove({"_id": ObjectId(call)})
+                    # Delete analysis data.
+                    results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                elif repconf.elasticsearchdb.enabled:
+                    delete_analysis_and_related_calls(analysis["info"]["id"])
+
             analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
             if os.path.exists(analyses_path):
                 shutil.rmtree(analyses_path)

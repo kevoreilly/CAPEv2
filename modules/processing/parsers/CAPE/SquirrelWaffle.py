@@ -60,7 +60,7 @@ def config(data):
     except Exception as e:
         return config
 
-    if pe != None:
+    if pe is not None:
         rdata = extract_rdata(pe)
         if len(rdata) == 0:
             return config

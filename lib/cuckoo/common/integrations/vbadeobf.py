@@ -4,9 +4,8 @@
 
 from __future__ import absolute_import
 import string
+from binascii import unhexlify
 from itertools import chain, repeat
-
-from six.moves import zip
 
 from lib.cuckoo.common.utils import convert_to_printable
 
@@ -98,7 +97,7 @@ def decode_hex(m):
     if len(s) % 2 != 0:
         return s
     try:
-        result = "".join(c for c in s.decode("hex"))
+        result = "".join(c for c in unhexlify(s))
     except Exception as e:
         return ""
     return result
@@ -197,8 +196,6 @@ def parse_macro(macro):
     opts = {}
     vb_vars = {}
     result = {}
-    cleaned = ""
-    strings = set()
     iocs = []
     macro = normalize_code(macro)
 

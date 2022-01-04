@@ -175,7 +175,7 @@ class NymaimExtractor:
         parsed = {"domains": [], "urls": [], "dns": []}
         for hash, raw in NymCfgStream(blob):
             try:
-                pprint(f"<{hash:08x}>: {raw.encode('hex') if len(raw) == 4 else raw}")
+                pprint(f"<{hash:08x}>: {raw.encode().hex() if len(raw) == 4 else raw}")
                 if hash == self.CFG_URL:  # '48c2026b':
                     parsed["urls"] += [{"url": append_http(raw[20:].rstrip(";"))}]
                 elif hash == self.CFG_DGA_HASH:  # 'd9aea02a':
@@ -187,8 +187,8 @@ class NymaimExtractor:
                 elif hash == self.CFG_RSA_KEY:  # 'fb7f122f':
                     bits = uint32(raw[:4])
                     bytes = bits / 8
-                    d = raw[4 : 4 + bytes].encode("hex")
-                    e = raw[4 + bytes : 4 + bytes + bytes].encode("hex")
+                    d = raw[4 : 4 + bytes].encode().hex()
+                    e = raw[4 + bytes : 4 + bytes + bytes].encode().hex()
                     parsed["public_key"] = {
                         "n": str(int(d, 16)),
                         "e": int(e, 16),
@@ -198,7 +198,7 @@ class NymaimExtractor:
                         year, month, day = uint32(raw[-4:]), uint32(raw[4:-4]), uint32(raw[:4])
                         parsed["time_restriction"] = f"{year}-{month:02}-{day:02}"
                     else:
-                        parsed["time_restriction"] = [raw.encode("hex")]
+                        parsed["time_restriction"] = [raw.encode().hex()]
                 elif hash == self.CFG_DNS:
                     parsed["dns"] += raw.split(";")
                 elif hash == self.CTG_32BIT_TMPL_1:
@@ -218,12 +218,12 @@ class NymaimExtractor:
                 ) > 10:
                     if "other_strings" not in parsed:
                         parsed["other_strings"] = {}
-                    parsed["other_strings"][hex(hash)] = raw.encode("hex")
+                    parsed["other_strings"][hex(hash)] = raw.encode().hex()
             except RuntimeError:
                 # error during parsing...
                 if "errored_on" not in parsed:
                     parsed["errored_on"] = []
-                parsed["errored_on"] += [{"hash": hash, "raw": raw.encode("hex")}]
+                parsed["errored_on"] += [{"hash": hash, "raw": raw.encode().hex()}]
         return parsed
 
     def nymaim_brute_blob(self, mem):

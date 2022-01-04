@@ -20,14 +20,28 @@ if len(sys.argv) == 2:
             print(("Found by db.sample_path_by_hash: {}".format(sys.argv[1])))
             print(paths)
     else:
-        results_db = pymongo.MongoClient(
-            repconf.mongodb.host,
-            port=repconf.mongodb.port,
-            username=repconf.mongodb.get("username"),
-            password=repconf.mongodb.get("password"),
-            authSource=repconf.mongodb.get("authsource", "cuckoo"),
-        )[repconf.mongodb.db]
-        tasks = results_db.analysis.find({"dropped.sha256": sys.argv[1]})
+        if repconf.mongodb.enabled:
+            results_db = pymongo.MongoClient(
+                repconf.mongodb.host,
+                port=repconf.mongodb.port,
+                username=repconf.mongodb.get("username"),
+                password=repconf.mongodb.get("password"),
+                authSource=repconf.mongodb.get("authsource", "cuckoo"),
+            )[repconf.mongodb.db]
+            tasks = results_db.analysis.find({"dropped.sha256": sys.argv[1]})
+        elif repconf.elasticsearchdb.enabled:
+            from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+            tasks = [d['_source'] for d in elastic_handler.search(
+                index=get_analysis_index(), body={
+                    "query": {
+                        "match": {
+                            "dropped.sha256": sys.argv[1]
+                        }
+                    }
+                })['hits']['hits']]
+        else:
+            tasks = []
+
         if tasks:
             for task in tasks:
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sys.argv[1])

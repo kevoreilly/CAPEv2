@@ -76,11 +76,11 @@ def main():
     level = 1
     data = "This is a test of brieflz compression" * 100
     retval = compress_data(data, blocksize, level)
-    if retval != None:
+    if retval is not None:
         print("Compression SUCCESS!\nCompressed Data: ")
         print(binascii.hexlify(retval))
         retval = decompress_data(retval, blocksize, level)
-        if retval != None and retval == data:
+        if retval is not None and retval == data:
             print("Decompress SUCCESS!\nDecompress Data: ")
             print(retval)
 

@@ -5,8 +5,6 @@
 from __future__ import absolute_import
 import os
 
-from six.moves import zip
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 

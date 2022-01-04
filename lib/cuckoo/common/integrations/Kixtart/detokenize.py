@@ -1,8 +1,7 @@
 import logging
 import os
-import sys
 from argparse import ArgumentParser
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 from hashlib import md5
 
 from Crypto.Cipher import ARC4

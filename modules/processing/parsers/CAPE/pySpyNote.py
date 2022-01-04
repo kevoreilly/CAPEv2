@@ -99,7 +99,7 @@ if __name__ == "__main__":
         pass
     logo()
     if Filename is not None and is_file:
-        if check_apk_file(Filename[0]) == True:
+        if check_apk_file(Filename[0]):
             extract_config(Filename[0])
         else:
             print(f"This is not a valid apk file : {Filename[0]}")
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         for root, directories, filenames in os.walk(Directory[0]):
             for filename in filenames:
                 szFile = os.path.join(root, filename)
-                if check_apk_file(szFile) == True:
+                if check_apk_file(szFile):
                     extract_config(szFile)
                 else:
                     print(f"This is not a valid apk file : {szFile}")

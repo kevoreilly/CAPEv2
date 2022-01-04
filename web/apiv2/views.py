@@ -73,20 +73,10 @@ if repconf.mongodb.enabled:
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es_as_db = True
-    baseidx = repconf.elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": repconf.elasticsearchdb.host,
-                "port": repconf.elasticsearchdb.port,
-            }
-        ],
-        timeout=60,
-    )
+    es = elastic_handler
 
 db = Database()
 
@@ -1210,7 +1200,10 @@ def tasks_iocs(request, task_id, detail=None):
     if repconf.mongodb.get("enabled") and not buf:
         buf = results_db.analysis.find_one({"info.id": int(task_id)})
     if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
+        tmp = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"]
         if tmp:
             buf = tmp[-1]["_source"]
         else:
@@ -1988,7 +1981,10 @@ def tasks_config(request, task_id, cape_name=False):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
     if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % str(task_id))["hits"]["hits"]
+        tmp = es.search(
+            index=get_analysis_index(),
+            body=get_query_by_info_id(task_id)
+        )["hits"]["hits"]
         if len(tmp) > 1:
             buf = tmp[-1]["_source"]
         elif len(tmp) == 1:

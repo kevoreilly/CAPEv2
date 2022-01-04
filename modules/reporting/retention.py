@@ -24,7 +24,7 @@ db = Database()
 lock = Lock()
 
 # Global connections
-if repconf.mongodb and repconf.mongodb.enabled:
+if repconf.mongodb.enabled:
     from pymongo import MongoClient
 
     results_db = MongoClient(
@@ -35,22 +35,9 @@ if repconf.mongodb and repconf.mongodb.enabled:
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
-if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from elasticsearch import Elasticsearch
-
-    idx = f"{repconf.elasticsearchdb.index}-*"
-    try:
-        es = Elasticsearch(
-            hosts=[
-                {
-                    "host": repconf.elasticsearchdb.host,
-                    "port": repconf.elasticsearchdb.port,
-                }
-            ],
-            timeout=60,
-        )
-    except Exception as e:
-        log.warning("Unable to connect to ElasticSearch: %s", e)
+if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+    from dev_utils.elasticsearchdb import delete_analysis_and_related_calls, elastic_handler
+    es = elastic_handler
 
 
 def delete_mongo_data(curtask, tid):
@@ -66,26 +53,8 @@ def delete_mongo_data(curtask, tid):
         log.debug("Task #%s deleting MongoDB data for Task #%s", curtask, tid)
 
 
-"""
 def delete_elastic_data(curtask, tid):
-    # TODO: Class-ify this or make it a function in utils, some code reuse
-    # between this/process.py/django view
-    analyses = es.search(index=fullidx, doc_type="analysis", q=f'info.id: "{tid}"')["hits"]["hits"]
-    if len(analyses) > 0:
-        for analysis in analyses:
-            esidx = analysis["_index"]
-            esid = analysis["_id"]
-            if analysis["_source"]["behavior"]:
-                for process in analysis["_source"]["behavior"]["processes"]:
-                    for call in process["calls"]:
-                        es.delete(
-                            index=esidx, doc_type="calls", id=call,
-                        )
-            es.delete(
-                index=esidx, doc_type="analysis", id=esid,
-            )
-        log.debug("Task #%s deleting ElasticSearch data for Task #%s", curtask, tid)
-"""
+    delete_analysis_and_related_calls(tid)
 
 
 def delete_files(curtask, delfiles, target_id):
@@ -177,7 +146,7 @@ class Retention(Report):
             for item in retentions.keys():
                 # We only want to query the database for tasks that we have
                 # retentions set for.
-                if self.options[item] == False:
+                if not self.options[item]:
                     continue
                 # Sanitation
                 if item not in taskCheck or taskCheck[item] == 0:
@@ -194,13 +163,11 @@ class Retention(Report):
                         if item != "mongo" and item != "elastic":
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
-                            if repconf.mongodb and repconf.mongodb.enabled:
+                            if repconf.mongodb.enabled:
                                 delete_mongo_data(curtask, lastTask)
-                        """
                         elif item == "elastic":
-                            if repconf.elasticsearchdb and repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+                            if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)
-                        """
                     saveTaskLogged[item] = int(lastTask)
                 else:
                     saveTaskLogged[item] = 0

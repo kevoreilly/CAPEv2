@@ -20,7 +20,7 @@ from subprocess import PIPE, Popen
 import requests
 from PIL import Image
 
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
+import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.config import Config
@@ -1119,7 +1119,7 @@ class PDF(object):
         try:
             for version in range(self.pdf.updates + 1):
                 trailer, _ = self.pdf.trailer[version]
-                if trailer != None:
+                if trailer is not None:
                     elem = trailer.dict.getElementByName("/Root")
                     if elem:
                         elem = self._get_obj_val(version, elem)
@@ -1215,7 +1215,7 @@ class PDF(object):
                             continue
                         if len(errors):
                             continue
-                        if jsdata == None:
+                        if jsdata is None:
                             continue
 
                         for url in urlsfound:
@@ -1229,7 +1229,7 @@ class PDF(object):
                         ret_data = ""
                         for char in jsdata:
                             if ord(char) > 127:
-                                tmp = f"\\x{char.encode('hex')}"
+                                tmp = f"\\x{char.encode().hex()}"
                             else:
                                 tmp = char
                             ret_data += tmp
@@ -1538,11 +1538,11 @@ class Office(object):
         oleid = OleID(filepath)
         indicators = oleid.check()
         for indicator in indicators:
-            if indicator.name == "Word Document" and indicator.value == True:
+            if indicator.name == "Word Document" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "Excel Workbook" and indicator.value == True:
+            if indicator.name == "Excel Workbook" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "PowerPoint Presentation" and indicator.value == True:
+            if indicator.name == "PowerPoint Presentation" and indicator.value:
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF:

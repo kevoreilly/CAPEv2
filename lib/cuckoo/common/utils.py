@@ -177,7 +177,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             # Check main FS if processing
             if processing:
                 free_space = config.cuckoo.freespace_processing
-            elif analysis is False and HAVE_TMPFS and tmpfs.enabled:
+            elif not analysis and HAVE_TMPFS and tmpfs.enabled:
                 path = tmpfs.path
                 free_space = tmpfs.freespace
             else:
@@ -206,7 +206,7 @@ def get_memdump_path(id, analysis_folder=False):
     analysis_folder: force to return default analysis folder
     """
     id = str(id)
-    if HAVE_TMPFS and tmpfs.enabled and analysis_folder is False:
+    if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
         memdump_path = os.path.join(tmpfs.path, id + ".dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
@@ -339,7 +339,7 @@ def bytes2str(convert):
         tmp_dict = {}
         items = convert.items()
         for k, v in items:
-            if type(v) is bytes:
+            if isinstance(v, bytes):
                 try:
                     tmp_dict[k] = v.decode()
                 except UnicodeDecodeError:
@@ -349,7 +349,7 @@ def bytes2str(convert):
         converted_list = []
         items = enumerate(convert)
         for k, v in items:
-            if type(v) is bytes:
+            if isinstance(v, bytes):
                 try:
                     converted_list.append(v.decode())
                 except UnicodeDecodeError:
@@ -369,7 +369,7 @@ def wide2str(string: Tuple[str, bytes]):
     Do you have better solution?
     """
     null_byte = "\x00"
-    if type(string) is bytes:
+    if isinstance(string, bytes):
         null_byte = 0
 
     if (
@@ -377,7 +377,7 @@ def wide2str(string: Tuple[str, bytes]):
         and all([string[char] == null_byte for char in (1, 3, 5, 7, 9, 11)])
         and all([string[char] != null_byte for char in (0, 2, 4, 6, 8, 10)])
     ):
-        if type(string) is bytes:
+        if isinstance(string, bytes):
             return string.decode("utf-16")
         else:
             return string.encode().decode("utf-16")
@@ -945,7 +945,7 @@ def sanitize_filename(x):
 
 def default_converter(v):
     # Fix signed ints (bson is kind of limited there).
-    if type(v) is int:
+    if isinstance(v, int):
         return v & 0xFFFFFFFF
     # Need to account for subclasses since pymongo's bson module
     # uses 'bson.int64.Int64' class for 64-bit values.

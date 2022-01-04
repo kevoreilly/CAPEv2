@@ -179,7 +179,7 @@ class XenServerMachinery(Machinery):
                     log.warning("Invalid VDI for vm %s: %s", vm["uuid"], vdi_ref)
                     continue
 
-                if vdi["on_boot"] != "reset" and vdi["read_only"] is False:
+                if vdi["on_boot"] != "reset" and not vdi["read_only"]:
                     raise CuckooMachineError(
                         f"Vm {vm['uuid']} contains invalid VDI {vdi['uuid']}: disk is not reset on "
                         "boot. Please set the on-boot parameter to 'reset'"

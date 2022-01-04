@@ -48,7 +48,7 @@ from lib.cuckoo.core.database import Task as MD_Task
 reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
-if type(zip_pwd) is not bytes:
+if not isinstance(zip_pwd, bytes):
     zip_pwd = zip_pwd.encode()
 
 # init
@@ -1017,7 +1017,7 @@ class StatusThread(threading.Thread):
 
         db = session()
         master_storage_only = False
-        if reporting_conf.distributed.master_storage_only is False:
+        if not reporting_conf.distributed.master_storage_only:
             master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
             if master is None:
                 master_storage_only = True

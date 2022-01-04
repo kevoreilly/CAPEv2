@@ -26,7 +26,7 @@ def ensure_valid_utf8(obj):
         # This type check is intentionally not done using isinstance(),
         # because bson.binary.Binary *is* a subclass of bytes/str, and
         # we do not want to convert that.
-        if type(v) is str:
+        if isinstance(v, str):
             try:
                 v.encode("utf-8")
             except UnicodeEncodeError:

@@ -1005,7 +1005,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
             if make_zip:
                 mem_zip = create_zip(files=report_path)
-                if type(mem_zip) is bool and mem_zip is False:
+                if mem_zip is False:
                     esp = {"error": True, "error_value": "Can't create zip archive for report file"}
                     return Response(resp)
 
@@ -1031,7 +1031,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             return Response(resp)
 
         mem_zip = create_zip(folder=srcdir)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1344,7 +1344,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     if screenshot == "all":
         mem_zip = create_zip(folder=srcdir)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1415,7 +1415,7 @@ def tasks_dropped(request, task_id):
 
     else:
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1563,7 +1563,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             return Response(resp)
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1577,7 +1577,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         if os.path.exists(filepath):
 
             mem_zip = create_zip(files=filepath, encrypted=True)
-            if type(mem_zip) is bool and mem_zip is False:
+            if mem_zip is False:
                 resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                 return Response(resp)
 
@@ -1636,7 +1636,7 @@ def tasks_fullmemory(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def file(request, stype, value):
-    if apiconf.sampledl.get("enabled", False) is False:
+    if not apiconf.sampledl.get("enabled", False):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
@@ -1824,7 +1824,7 @@ def tasks_payloadfiles(request, task_id):
     if os.path.exists(srcdir):
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1854,7 +1854,7 @@ def tasks_procdumpfiles(request, task_id):
     if os.path.exists(srcdir):
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 

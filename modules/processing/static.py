@@ -130,15 +130,15 @@ processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_VBA2GRAPH = False
-if processing_conf.vba2graph.on_demand is False:
+if not processing_conf.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
-if processing_conf.xlsdeobf.on_demand is False:
+if not processing_conf.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 log = logging.getLogger(__name__)
@@ -464,7 +464,7 @@ class PortableExecutable(object):
             # In recent versions of pefile, get_string_at_rva returns a Python3-style bytes object.
             # Convert it to a Python2-style string to ensure expected behavior when iterating
             # through it character by character.
-            if type(dllname) is not str:
+            if not isinstance(dllname, str):
                 dllname = "".join([chr(c) for c in dllname])
 
             return convert_to_printable(dllname)
@@ -951,7 +951,7 @@ class PortableExecutable(object):
 
         signatures = self.pe.write()[address + 8 :]
 
-        if type(signatures) is bytearray:
+        if isinstance(signatures, bytearray):
             signatures = bytes(signatures)
 
         try:

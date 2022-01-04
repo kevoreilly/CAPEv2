@@ -3503,9 +3503,9 @@ class MAEC41Report(Report):
 
     # Map the Cuckoo status to that used in the MAEC/CybOX action_status field.
     def mapActionStatus(self, status):
-        if status is True or status == 1:
+        if status or status == 1:
             return "Success"
-        elif status is False or status == 0:
+        elif not status:
             return "Fail"
         else:
             return None

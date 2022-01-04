@@ -1538,7 +1538,7 @@ class Database(object, metaclass=Singleton):
                         file_path=file.get("file_path"), filename=file.get("filename"), priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
                     )
 
-            if not config and only_extraction is False:
+            if not config and not only_extraction:
                 if not package:
                     f = SflockFile.from_path(file.get("file_path"))
                     tmp_package = sflock_identify(f)
@@ -1548,12 +1548,12 @@ class Database(object, metaclass=Singleton):
                         log.info("Does sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     del f
 
-                if package == "dll" and "function" not in options:
-                    dll_exports = File(file.get("file_path")).get_dll_exports()
-                    if "DllRegisterServer" in dll_exports:
-                        package = "regsvr"
-                    elif "xlAutoOpen" in dll_exports:
-                        package = "xls"
+                    if package == "dll" and "function" not in options:
+                        dll_exports = File(file).get_dll_exports()
+                        if "DllRegisterServer" in dll_exports:
+                            package = "regsvr"
+                        elif "xlAutoOpen" in dll_exports:
+                            package = "xls"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers

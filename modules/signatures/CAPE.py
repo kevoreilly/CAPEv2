@@ -52,7 +52,7 @@ class CAPE_Compression(Signature):
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.compressed_binary is True:
+        if self.compressed_binary:
             return True
 
 
@@ -82,7 +82,7 @@ class CAPE_RegBinary(Signature):
                 self.reg_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.reg_binary is True:
+        if self.reg_binary:
             return True
 
 
@@ -111,7 +111,7 @@ class CAPE_Decryption(Signature):
             self.encrypted_binary = IsPEImage(buf, size)
 
     def on_complete(self):
-        if self.encrypted_binary is True:
+        if self.encrypted_binary:
             return True
 
 
@@ -182,11 +182,11 @@ class CAPE_InjectionCreateRemoteThread(Signature):
             self.process_pids = set()
             self.lastprocess = process
 
-        if call["api"] == "OpenProcess" and call["status"] is True:
+        if call["api"] == "OpenProcess" and call["status"]:
             if self.get_argument(call, "ProcessId") != process["process_id"]:
                 self.process_handles.add(call["return"])
                 self.process_pids.add(self.get_argument(call, "ProcessId"))
-        elif call["api"] == "NtOpenProcess" and call["status"] is True:
+        elif call["api"] == "NtOpenProcess" and call["status"]:
             if self.get_argument(call, "ProcessIdentifier") != process["process_id"]:
                 self.process_handles.add(self.get_argument(call, "ProcessHandle"))
                 self.process_pids.add(self.get_argument(call, "ProcessIdentifier"))
@@ -237,7 +237,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                 self.remote_thread = True
 
     def on_complete(self):
-        if self.write_detected is True and self.remote_thread is True:
+        if self.write_detected and self.remote_thread:
             return True
 
 
@@ -376,10 +376,10 @@ class CAPE_InjectionSetWindowLong(Signature):
             name = self.get_argument(call, "ObjectAttributes")
             if name.lower() in self.sharedsections:
                 self.sharedmap = True
-        elif call["api"].startswith("FindWindow") and call["status"] is True:
+        elif call["api"].startswith("FindWindow") and call["status"]:
             self.windowfound = True
-        elif call["api"].startswith("SetWindowLong") and call["status"] is True:
-            if self.sharedmap is True and self.windowfound is True:
+        elif call["api"].startswith("SetWindowLong") and call["status"]:
+            if self.sharedmap and self.windowfound:
                 return True
 
 
@@ -425,7 +425,7 @@ class CAPE_Injection(Signature):
             self.write_handles.add(whandle)
 
     def on_complete(self):
-        if self.injection_detected is True:
+        if self.injection_detected:
             return True
         elif self.process_handles:
             for handle in self.process_handles:
@@ -458,11 +458,11 @@ class CAPE_EvilGrab(Signature):
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
             length = self.get_argument(call, "BufferLength")
-            if length and int(length) > 0x10000 and self.reg_evilgrab_keyname is True:
+            if length and int(length) > 0x10000 and self.reg_evilgrab_keyname:
                 self.reg_binary = True
 
     def on_complete(self):
-        if self.reg_binary is True:
+        if self.reg_binary:
             return True
         else:
             return False
@@ -499,7 +499,7 @@ class CAPE_PlugX(Signature):
                 self.config_copy = True
 
     def on_complete(self):
-        if self.config_copy is True and self.compressed_binary is True:
+        if self.config_copy and self.compressed_binary:
             return True
 
 
@@ -566,16 +566,16 @@ class CAPE_TransactedHollowing(Signature):
             self.transaction_set = True
 
         if call["api"] == "NtRollbackTransaction":
-            if self.transaction_set is True:
+            if self.transaction_set:
                 self.transaction_rollback = True
 
         if call["api"] == "NtMapViewOfSection":
             handle = self.get_argument(call, "ProcessHandle")
-            if handle != "0xffffffff" and self.transaction_rollback is True:
+            if handle != "0xffffffff" and self.transaction_rollback:
                 self.transacted_hollowing = True
 
     def on_complete(self):
-        if self.transacted_hollowing is True:
+        if self.transacted_hollowing:
             return True
 
 

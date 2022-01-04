@@ -209,7 +209,7 @@ def buildBehaviors(entry, behaviorTags):
                     for value in check:
                         if value.lower() not in message.lower():
                             bhFlag = False
-                    if bhFlag is True:
+                    if bhFlag:
                         if behavior not in behaviorTags:
                             behaviorTags.append(behavior)
                 # Check Character Frequency Analysis
@@ -633,7 +633,7 @@ class Curtain(Processing):
                 # malformed file
                 pass
 
-        if root is False:
+        if not root:
             return
 
         # Leave only the most recent file

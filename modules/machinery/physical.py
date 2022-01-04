@@ -254,7 +254,7 @@ class Physical(Machinery):
             return
 
         packet = self.create_magic_packet(macaddr)
-        if packet is False:
+        if not packet:
             log.debug("Sending Wake on Lan message has failed")
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -133,7 +133,7 @@ def my_rate_seconds(group, request):
     print(request.user.username, ip)
     """
 
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
     else:
         return rps
@@ -150,7 +150,7 @@ def my_rate_minutes(group, request):
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
     """
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
     else:
         return rpm
@@ -731,7 +731,7 @@ def download_file(**kwargs):
 
     onesuccess = True
     magic_type = get_magic_type(kwargs["path"])
-    if disable_x64 is True and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
+    if disable_x64 and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
@@ -1082,7 +1082,7 @@ def perform_search(term, value, search_limit=False):
         query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
-        if type(search_term_map[term]) is str:
+        if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
@@ -1093,7 +1093,7 @@ def perform_search(term, value, search_limit=False):
         )
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
-        if type(search_term_map[term]) is str:
+        if isinstance(search_term_map[term], str):
             q = {'query': {'match': {search_term_map[term]: value}}}
             return [d['_source'] for d in es.search(
                 index=get_analysis_index(), body=q,_source=_source_fields

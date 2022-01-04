@@ -215,7 +215,7 @@ def flare_capa_details(file_path, category=False, on_demand=False, disable_progr
         HAVE_FLARE_CAPA
         and processing_conf.flare_capa.enabled
         and processing_conf.flare_capa.get(category, False)
-        and (processing_conf.flare_capa.on_demand is False or on_demand is True)
+        and (not processing_conf.flare_capa.on_demand or on_demand)
     ):
         try:
             extractor = capa.main.get_extractor(

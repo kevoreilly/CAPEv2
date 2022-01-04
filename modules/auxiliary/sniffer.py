@@ -60,7 +60,7 @@ class Sniffer(Auxiliary):
 
         # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
         mode = os.stat(tcpdump).st_mode
-        if bool(mode & S_ISUID) is True:
+        if mode & S_ISUID:
             log.error("Tcpdump is not accessible from this user network capture aborted")
             return
 

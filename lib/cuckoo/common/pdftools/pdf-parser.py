@@ -205,7 +205,7 @@ def Obj2Str(content):
 class cPDFDocument:
     def __init__(self, file):
         self.file = file
-        if type(file) != str:
+        if not isinstance(file, str):
             self.infile = file
         elif file.lower().startswith(("http://", "https://")):
             try:

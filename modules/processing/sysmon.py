@@ -80,7 +80,7 @@ class Sysmon(Processing):
         except Exception as e:
             raise CuckooProcessingError(f"Failed parsing sysmon.xml with ET: {e}")
 
-        if root is False:
+        if not root:
             return
 
         data = self.remove_noise(data)

@@ -64,7 +64,7 @@ def import_package(package):
         if (
             category in config_mapper
             and module_name in config_mapper[category].fullconfig
-            and config_mapper[category].get(module_name).get("enabled", False) is False
+            and not config_mapper[category].get(module_name).get("enabled", False)
         ):
             continue
 
@@ -556,7 +556,7 @@ class RunSignatures(object):
                             continue
 
                         # On True, the signature is matched.
-                        if result is True:
+                        if result:
                             log.debug('Analysis matched signature "%s"', sig.name)
                             matched.append(sig.as_result())
                             if sig in complete_list:
@@ -580,7 +580,7 @@ class RunSignatures(object):
                     log.exception('Failed run on_complete() method for signature "%s": %s', sig.name, e)
                     continue
                 else:
-                    if result is True:
+                    if result:
                         if hasattr(sig, "ttp"):
                             [self.ttps.append({"ttp": ttp, "signature": sig.name}) for ttp in sig.ttp]
                         log.debug('Analysis matched signature "%s"', sig.name)

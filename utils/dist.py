@@ -1017,7 +1017,7 @@ class StatusThread(threading.Thread):
 
         db = session()
         master_storage_only = False
-        if reporting_conf.distributed.master_storage_only is False:
+        if not reporting_conf.distributed.master_storage_only:
             master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
             if master is None:
                 master_storage_only = True

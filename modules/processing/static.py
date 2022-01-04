@@ -130,15 +130,15 @@ processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_VBA2GRAPH = False
-if processing_conf.vba2graph.on_demand is False:
+if not processing_conf.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
-if processing_conf.xlsdeobf.on_demand is False:
+if not processing_conf.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 log = logging.getLogger(__name__)

@@ -23,7 +23,7 @@ class DisposableEmails(DefaultAccountAdapter):
         return settings.REGISTRATION_ENABLED
 
 
-if settings.EMAIL_CONFIRMATION is False:
+if not settings.EMAIL_CONFIRMATION:
 
     @receiver(user_signed_up)
     def user_signed_up_(request, user, **kwargs):

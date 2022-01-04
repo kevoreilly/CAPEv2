@@ -12,7 +12,7 @@ from lib.cuckoo.common.config import Config
 reporting_conf = Config("reporting")
 
 HAVE_BINGRAPH = False
-if reporting_conf.bingraph.on_demand is False:
+if not reporting_conf.bingraph.on_demand:
     try:
         from binGraph.binGraph import generate_graphs as bingraph_gen
 
@@ -60,7 +60,7 @@ class BinGraph(Report):
     "Generate bingraphs"
 
     def run(self, results):
-        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled and reporting_conf.bingraph.on_demand is False:
+        if HAVE_BINGRAPH and reporting_conf.bingraph.enabled and not reporting_conf.bingraph.on_demand:
             bingraph_path = os.path.join(self.analysis_path, "bingraph")
             if not os.path.exists(bingraph_path):
                 os.makedirs(bingraph_path)

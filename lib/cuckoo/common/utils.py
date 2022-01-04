@@ -177,7 +177,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             # Check main FS if processing
             if processing:
                 free_space = config.cuckoo.freespace_processing
-            elif analysis is False and HAVE_TMPFS and tmpfs.enabled:
+            elif not analysis and HAVE_TMPFS and tmpfs.enabled:
                 path = tmpfs.path
                 free_space = tmpfs.freespace
             else:
@@ -206,7 +206,7 @@ def get_memdump_path(id, analysis_folder=False):
     analysis_folder: force to return default analysis folder
     """
     id = str(id)
-    if HAVE_TMPFS and tmpfs.enabled and analysis_folder is False:
+    if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
         memdump_path = os.path.join(tmpfs.path, id + ".dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")

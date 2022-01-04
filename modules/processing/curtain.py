@@ -633,7 +633,7 @@ class Curtain(Processing):
                 # malformed file
                 pass
 
-        if root is False:
+        if not root:
             return
 
         # Leave only the most recent file

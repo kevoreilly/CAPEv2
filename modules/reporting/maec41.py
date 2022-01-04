@@ -3505,7 +3505,7 @@ class MAEC41Report(Report):
     def mapActionStatus(self, status):
         if status or status == 1:
             return "Success"
-        elif status is False or status == 0:
+        elif not status:
             return "Fail"
         else:
             return None

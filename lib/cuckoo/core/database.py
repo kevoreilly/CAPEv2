@@ -1529,7 +1529,7 @@ class Database(object, metaclass=Singleton):
                         file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
                     )
 
-            if not config and only_extraction is False:
+            if not config and not only_extraction:
                 if not package:
                     f = SflockFile.from_path(file)
                     tmp_package = sflock_identify(f)

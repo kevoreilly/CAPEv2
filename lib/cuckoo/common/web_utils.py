@@ -133,7 +133,7 @@ def my_rate_seconds(group, request):
     print(request.user.username, ip)
     """
 
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
     else:
         return rps
@@ -150,7 +150,7 @@ def my_rate_minutes(group, request):
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
     """
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
     else:
         return rpm

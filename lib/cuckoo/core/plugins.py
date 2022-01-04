@@ -64,7 +64,7 @@ def import_package(package):
         if (
             category in config_mapper
             and module_name in config_mapper[category].fullconfig
-            and config_mapper[category].get(module_name).get("enabled", False) is False
+            and not config_mapper[category].get(module_name).get("enabled", False)
         ):
             continue
 

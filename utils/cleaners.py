@@ -84,7 +84,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
     ids = [tid["info.id"] for tid in tids]
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
-        if delete_mongo is True:
+        if delete_mongo:
             try:
                 analyses_tmp = []
                 log.info("Deleting MongoDB data for Tasks #{0}".format(",".join([str(id) for id in ids_tmp])))

@@ -42,7 +42,7 @@ res = vt_lookup("file", "d17f3c491d68d8cb37c37752689bdca8c2664a2bc305530e2e2beb3
 
 # https://developers.virustotal.com/v3.0/reference#file-info
 def vt_lookup(category: str, target: str, on_demand: bool = False):
-    if processing_conf.virustotal.enabled and (processing_conf.virustotal.get("on_demand", False) is False or on_demand is True):
+    if processing_conf.virustotal.enabled and (processing_conf.virustotal.get("on_demand", False) is False or on_demand):
 
         if category not in ("file", "url"):
             return {"error": True, "msg": "VT category isn't supported"}

@@ -746,7 +746,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                         add_call = -1
                         for api in apis:
                             if call["api"].lower() == api:
-                                if exclude is True:
+                                if exclude:
                                     add_call = 0
                                 else:
                                     add_call = 1

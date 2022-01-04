@@ -348,7 +348,7 @@ class CAPE(Processing):
                         log.debug("CAPE duplicate output file skipped")
                         append_file = False
 
-        if append_file is True:
+        if append_file:
             if HAVE_FLARE_CAPA:
                 pretime = datetime.now()
                 capa_details = flare_capa_details(file_path, "cape")

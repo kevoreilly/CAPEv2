@@ -209,7 +209,7 @@ def buildBehaviors(entry, behaviorTags):
                     for value in check:
                         if value.lower() not in message.lower():
                             bhFlag = False
-                    if bhFlag is True:
+                    if bhFlag:
                         if behavior not in behaviorTags:
                             behaviorTags.append(behavior)
                 # Check Character Frequency Analysis

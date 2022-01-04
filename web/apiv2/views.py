@@ -319,11 +319,18 @@ def tasks_create_file(request):
                     tmp_path = path
                 except Exception as e:
                     print(e, "removing quarantine")
-                try:
-                    File(path).get_type()
-                except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path).decode(): "Error submitting file - bad file type"})
-                    continue
+                
+                if not path:
+                    resp = {"error": True, "error_value": "You uploaded an unsupported quarantine file."}
+                    return Response(resp)
+
+                details["path"] = path
+                details["content"] = get_file_content(path)
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({sample.name: task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
             else:
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)

@@ -798,9 +798,9 @@ class Database(object, metaclass=Singleton):
         row = None
         # set filter to get tasks with acceptable arch
         if "x64" in machine.arch:
-            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86"), Task.tags is None])
+            cond = or_(*[Task.tags.any(name="x64"), Task.tags.any(name="x86")])
         else:
-            cond = or_(*[Task.tags.any(name=machine.arch), Task.tags is None])
+            cond = or_(*[Task.tags.any(name=machine.arch)])
         try:
             row = (
                 session.query(Task)

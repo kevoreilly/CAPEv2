@@ -48,7 +48,7 @@ from lib.cuckoo.core.database import Task as MD_Task
 reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
-if type(zip_pwd) is not bytes:
+if not isinstance(zip_pwd, bytes):
     zip_pwd = zip_pwd.encode()
 
 # init

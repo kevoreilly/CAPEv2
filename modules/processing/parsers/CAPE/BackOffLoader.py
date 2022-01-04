@@ -21,7 +21,6 @@ def extract_config(data):
     config_data = {}
     urls = []
     pe = pefile.PE(data=data)
-    type(pe)
     for section in pe.sections:
         if ".data" in section.Name:
             data = section.get_data()

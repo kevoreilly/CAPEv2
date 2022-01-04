@@ -464,7 +464,7 @@ class PortableExecutable(object):
             # In recent versions of pefile, get_string_at_rva returns a Python3-style bytes object.
             # Convert it to a Python2-style string to ensure expected behavior when iterating
             # through it character by character.
-            if type(dllname) is not str:
+            if not isinstance(dllname, str):
                 dllname = "".join([chr(c) for c in dllname])
 
             return convert_to_printable(dllname)
@@ -951,7 +951,7 @@ class PortableExecutable(object):
 
         signatures = self.pe.write()[address + 8 :]
 
-        if type(signatures) is bytearray:
+        if isinstance(signatures, bytearray):
             signatures = bytes(signatures)
 
         try:

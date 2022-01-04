@@ -1082,7 +1082,7 @@ def perform_search(term, value, search_limit=False):
         query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
-        if type(search_term_map[term]) is str:
+        if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
@@ -1093,7 +1093,7 @@ def perform_search(term, value, search_limit=False):
         )
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
-        if type(search_term_map[term]) is str:
+        if isinstance(search_term_map[term], str):
             q = {'query': {'match': {search_term_map[term]: value}}}
             return [d['_source'] for d in es.search(
                 index=get_analysis_index(), body=q,_source=_source_fields

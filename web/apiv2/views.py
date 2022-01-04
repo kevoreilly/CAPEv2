@@ -321,7 +321,8 @@ def tasks_create_file(request):
                     print(e, "removing quarantine")
 
                 if not path:
-                    return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
+                    resp = {"error": True, "error_value": "You uploaded an unsupported quarantine file."}
+                    return Response(resp)
                 
                 details["filename"] = sample.name
                 details["path"] = path

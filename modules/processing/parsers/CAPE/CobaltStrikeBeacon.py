@@ -350,7 +350,7 @@ class cobaltstrikeConfig:
 
             if parsed_setting == "Not Found" and quiet:
                 continue
-            if type(parsed_setting) != list:
+            if not isinstance(parsed_setting, list):
                 log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val=parsed_setting))
             elif parsed_setting == []:
                 log.info("{: <{width}} - {val}".format(conf_name, width=COLUMN_WIDTH - 3, val="Empty"))

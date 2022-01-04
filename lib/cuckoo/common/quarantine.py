@@ -743,7 +743,7 @@ func_map = {
 
 
 def unquarantine(f):
-    f = f.decode() if type(f) is bytes else f
+    f = f.decode() if isinstance(f, bytes) else f
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 

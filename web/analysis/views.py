@@ -527,7 +527,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
+    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "procmemory", "memory"):
         data = {}
         debugger_logs = {}
         bingraph_dict_content = {}
@@ -1222,7 +1222,7 @@ def report(request, task_id):
     if enabledconf["mongodb"]:
         report = results_db.analysis.find_one(
             {"info.id": int(task_id)},
-            {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "behavior.processes": 0, "network": 0, "memory": 0},
+            {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "procmemory": 0, "behavior.processes": 0, "network": 0, "memory": 0},
             sort=[("_id", pymongo.DESCENDING)],
         )
         network_report = results_db.analysis.find_one(
@@ -1268,53 +1268,55 @@ def report(request, task_id):
     if "CAPE_children" in report:
         children = report["CAPE_children"]
 
-    try:
-        report["dropped"] = list(
-            results_db.analysis.aggregate(
-                [
-                    {"$match": {"info.id": int(task_id)}},
-                    {"$project": {"_id": 0, "dropped_size": {"$size": {"$ifNull": ["$dropped.sha256", []]}}}},
-                ]
-            )
-        )[0]["dropped_size"]
-    except Exception:
-        report["dropped"] = 0
+    # We need ES alternative to this
+    if enabledconf["mongodb"]:
+        try:
+            report["dropped"] = list(
+                results_db.analysis.aggregate(
+                    [
+                        {"$match": {"info.id": int(task_id)}},
+                        {"$project": {"_id": 0, "dropped_size": {"$size": {"$ifNull": ["$dropped.sha256", []]}}}},
+                    ]
+                )
+            )[0]["dropped_size"]
+        except Exception:
+            report["dropped"] = 0
 
-    report["CAPE"] = 0
-    try:
-        tmp_data = list(
-            results_db.analysis.aggregate(
-                [
-                    {"$match": {"info.id": int(task_id)}},
-                    {"$project": {"_id": 0, "cape_size": {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}}}},
-                ]
+        report["CAPE"] = 0
+        try:
+            tmp_data = list(
+                results_db.analysis.aggregate(
+                    [
+                        {"$match": {"info.id": int(task_id)}},
+                        {"$project": {"_id": 0, "cape_size": {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}}}},
+                    ]
+                )
             )
-        )
-        report["CAPE"] = tmp_data[0]["cape_size"] or 0
-    except Exception as e:
-        print(e)
+            report["CAPE"] = tmp_data[0]["cape_size"] or 0
+        except Exception as e:
+            print(e)
 
-    report["procdump_size"] = 0
-    try:
-        tmp_data = list(
-            results_db.analysis.aggregate(
-                [
-                    {"$match": {"info.id": int(task_id)}},
-                    {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}},
-                ]
+        report["procdump_size"] = 0
+        try:
+            tmp_data = list(
+                results_db.analysis.aggregate(
+                    [
+                        {"$match": {"info.id": int(task_id)}},
+                        {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}},
+                    ]
+                )
             )
-        )
-        report["procdump"] = tmp_data[0]["procdump_size"] or 0
-    except Exception as e:
-        print(e)
+            report["procdump"] = tmp_data[0]["procdump_size"] or 0
+        except Exception as e:
+            print(e)
 
-    report["memory"] = 0
-    try:
-        tmp_data = list(results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}}))
-        if tmp_data:
-            report["memory"] = tmp_data[0]["_id"] or 0
-    except Exception as e:
-        print(e)
+        report["memory"] = 0
+        try:
+            tmp_data = list(results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}}))
+            if tmp_data:
+                report["memory"] = tmp_data[0]["_id"] or 0
+        except Exception as e:
+            print(e)
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
@@ -2239,7 +2241,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 else:
                     buf["static"][service] = details
 
-        elif category in ("procdump", "dropped"):
+        elif category in ("procdump", "procmemory", "dropped"):
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details

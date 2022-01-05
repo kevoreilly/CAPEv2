@@ -112,16 +112,12 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
     config_dirs = NOT_SET
 
     def __init__(self, file_name="cuckoo"):
-        self._file_name = file_name
-
-    def __getattr__(self, name):
         if self.__class__.config_dirs is NOT_SET:
             raise CuckooConfigNotInitializedError()
-        files = [os.path.join(CUCKOO_ROOT, "conf", f"{self._file_name}.conf")]
+        files = [os.path.join(CUCKOO_ROOT, "conf", f"{file_name}.conf")]
         for config_dir in self.config_dirs:
-            files.append(os.path.join(config_dir, f"{self._file_name}.conf"))
+            files.append(os.path.join(config_dir, f"{file_name}.conf"))
         self._read_files(files)
-        return getattr(self, name)
 
     @classmethod
     def initialize(cls, config_dirs=None):

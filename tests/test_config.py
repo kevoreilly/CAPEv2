@@ -109,10 +109,9 @@ class TestConfig:
         # This was inherited from the default config.
         assert config.get("cuckoo")["analysis_timeout"] == 120
 
-    def test_cannot_use_config_before_initialized(self, default_config):
-        config = Config("cuckoo")
+    def test_cannot_create_config_before_initialized(self, default_config):
         with pytest.raises(CuckooConfigNotInitializedError):
-            config.get("cuckoo")
+            Config("cuckoo")
 
     def test_nonexistent_custom_file(self, tmp_path, default_config):
         """Verify that there are no problems when the file to be processed does not

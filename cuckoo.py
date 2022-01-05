@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
+
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
@@ -19,7 +21,6 @@ try:
 
     from lib.cuckoo.common.config import Config
     from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-    from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
     from lib.cuckoo.common.logo import logo
 
     bson  # Pretend like it's actually being used (for static checkers.)
@@ -32,7 +33,6 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False, config_dirs
     Config.initialize(config_dirs)
     try:
         from lib.cuckoo.core.resultserver import ResultServer
-        from lib.cuckoo.core.scheduler import Scheduler
         from lib.cuckoo.core.startup import (check_configs, check_linux_dist, check_webgui_mongo, check_working_directory,
                                              create_structure, init_logging, init_modules, init_rooter, init_routing, init_tasks,
                                              init_yara)
@@ -85,7 +85,11 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False, config_dirs
 
 
 def cuckoo_main(max_analysis_count=0):
-    from lib.cuckoo.core.scheduler import Scheduler
+    try:
+        from lib.cuckoo.core.scheduler import Scheduler
+    except CuckooDependencyError as e:
+        print("ERROR: Missing dependency: {0}".format(e))
+        sys.exit()
 
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)

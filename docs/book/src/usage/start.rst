@@ -1,3 +1,5 @@
+.. _start_cuckoo:
+
 ===============
 Starting CAPE
 ===============

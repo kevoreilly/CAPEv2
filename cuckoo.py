@@ -9,40 +9,32 @@ import logging
 import os
 import sys
 
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
-
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
-
-log = logging.getLogger()
 
 try:
     import bson
 
-    from lib.cuckoo.common.config import Config
     from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
+    from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
     from lib.cuckoo.common.logo import logo
+    from lib.cuckoo.core.resultserver import ResultServer
+    from lib.cuckoo.core.scheduler import Scheduler
+    from lib.cuckoo.core.startup import (check_configs, check_linux_dist, check_webgui_mongo, check_working_directory,
+                                         create_structure, init_logging, init_modules, init_rooter, init_routing, init_tasks,
+                                         init_yara)
 
     bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:
     print("ERROR: Missing dependency: {0}".format(e))
     sys.exit()
 
+log = logging.getLogger()
 
-def cuckoo_init(quiet=False, debug=False, artwork=False, test=False, config_dirs=None):
-    Config.initialize(config_dirs)
-    try:
-        from lib.cuckoo.core.resultserver import ResultServer
-        from lib.cuckoo.core.startup import (check_configs, check_linux_dist, check_webgui_mongo, check_working_directory,
-                                             create_structure, init_logging, init_modules, init_rooter, init_routing, init_tasks,
-                                             init_yara)
+check_linux_dist()
 
-    except (CuckooDependencyError, ImportError) as e:
-        print("ERROR: Missing dependency: {0}".format(e))
-        sys.exit()
 
-    check_linux_dist()
-
+def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
@@ -85,12 +77,6 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False, config_dirs
 
 
 def cuckoo_main(max_analysis_count=0):
-    try:
-        from lib.cuckoo.core.scheduler import Scheduler
-    except CuckooDependencyError as e:
-        print("ERROR: Missing dependency: {0}".format(e))
-        sys.exit()
-
     cur_path = os.getcwd()
     os.chdir(CUCKOO_ROOT)
 
@@ -106,15 +92,6 @@ def cuckoo_main(max_analysis_count=0):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-q", "--quiet", help="Display only error messages", action="store_true", required=False)
-    parser.add_argument(
-        "-c",
-        "--config-dir",
-        help=(
-            "Directory containing config files to override default values. May be specified multiple times. "
-            "Directories are processed in the order given with values from later ones taking precedence."
-        ),
-        action="append",
-    )
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-v", "--version", action="version", version="You are running Cuckoo Sandbox {0}".format(CUCKOO_VERSION))
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
@@ -123,12 +100,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test, config_dirs=args.config_dir)
+        cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
         if not args.artwork and not args.test:
             cuckoo_main(max_analysis_count=args.max_analysis_count)
     except CuckooCriticalError as e:
         message = "{0}: {1}".format(e.__class__.__name__, e)
-        if any(filter(lambda hdlr: not isinstance(hdlr, logging.NullHandler), log.handlers)):
+        if len(log.handlers):
             log.critical(message)
         else:
             sys.stderr.write("{0}\n".format(message))

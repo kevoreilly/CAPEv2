@@ -15,12 +15,6 @@ CAPE relies on six main configuration files:
 To get CAPE working you have to edit :ref:`auxiliary_conf`:, :ref:`cuckoo_conf` and :ref:`machinery_conf` at least.
 We suggest you to check all configs before starting, to be familiar with possibilities that you have and what you want to be done.
 
-Alternatively, you can create a new directory somewhere that contains any of
-the above file names. In those files, put the configuration pieces that you
-want to override and then pass ``-c <path to the directory>`` when invoking
-:ref:`cuckoo.py <start_cuckoo>`. Multiple directories may be merged together
-with the defaults in this way with the later directories taking precedence.
-
 .. _cuckoo_conf:
 
 cuckoo.conf
@@ -161,17 +155,3 @@ Please see latest version here:
 
 By setting those option to *on* or *off* you enable or disable the generation
 of such reports.
-
-Using environment variables in config files
-===========================================
-
-Any of the above config files may reference environment variables in their
-values by using ``%(ENV:VARIABLE_NAME)s``. For example, instead of putting a
-VirusTotal Intelligence API key in :ref:`auxiliary_conf`, you could use the
-following::
-
-    [virustotaldl]
-    enabled = yes
-    dlintelkey = %(ENV:DLINTELKEY)s
-
-assuming the ``DLINTELKEY`` environment variable contains the API key.

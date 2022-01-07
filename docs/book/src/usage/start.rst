@@ -1,5 +1,3 @@
-.. _start_cuckoo:
-
 ===============
 Starting CAPE
 ===============
@@ -27,15 +25,11 @@ Now CAPE is ready to run and it's waiting for submissions.
 
 ``cuckoo.py`` accepts some command line options as shown by the help::
 
-        usage: cuckoo.py [-h] [-q] [-c CONFIG_DIR] [-d] [-v] [-a] [-t] [-m MAX_ANALYSIS_COUNT]
+        usage: cuckoo.py [-h] [-q] [-d] [-v] [-a] [-t] [-m MAX_ANALYSIS_COUNT]
 
         optional arguments:
         -h, --help            show this help message and exit
         -q, --quiet           Display only error messages
-        -c CONFIG_DIR, --config-dir CONFIG_DIR
-                              Directory containing config files to override default values.
-                              May be specified multiple times. Directories are processed in
-                              the order given with values from later ones taking precedence.
         -d, --debug           Display debug messages
         -v, --version         show program's version number and exit
         -a, --artwork         Show artwork

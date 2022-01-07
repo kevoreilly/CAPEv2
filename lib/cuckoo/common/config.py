@@ -49,14 +49,7 @@ class _BaseConfig:
         return self.fullconfig
 
     def _read_files(self, files):
-        config = configparser.ConfigParser(
-            # Escape the percent signs so that ConfigParser doesn't try to do
-            # interpolation of the value as well.
-            dict(
-                (f"ENV:{key}", val.replace("%", "%%"))
-                for key, val in os.environ.items()
-            )
-        )
+        config = configparser.ConfigParser()
         try:
             config.read(files)
         except UnicodeDecodeError as e:

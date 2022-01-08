@@ -2023,10 +2023,10 @@ class Database(object, metaclass=Singleton):
             return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
-            log.debug(f"Database RuntimeError error: {e}")
+            log.debug("Database RuntimeError error: %s", e)
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-            log.debug(f"Database AttributeError error: {e}")
+            log.debug("Database AttributeError error: %s", e)
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: %s", e)
         except Exception as e:
@@ -2283,7 +2283,7 @@ class Database(object, metaclass=Singleton):
                             index=get_analysis_index(), body={
                                 "query": {
                                     "match": {
-                                        "CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash
+                                        f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash
                                     }
                                 }
                             },
@@ -2322,7 +2322,7 @@ class Database(object, metaclass=Singleton):
                                 index=get_analysis_index(), body={
                                     "query": {
                                         "match": {
-                                            category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash
+                                            f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash
                                         }
                                     }
                                 },

@@ -90,7 +90,7 @@ if process_cfg.mwcp.enabled:
         assert "MWCP_TEST" in malware_parsers
     except ImportError as e:
         logging.info(
-            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
+            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: %s", e
         )
 
 HAS_MALWARECONFIGS = False
@@ -185,7 +185,7 @@ def init_yara():
                 if not filename.endswith((".yar", ".yara")):
                     continue
                 filepath = os.path.join(category_root, filename)
-                rules["rule_%s_%d" % (category, len(rules))] = filepath
+                rules[f"rule_{category}_{len(rules)}"] = filepath
                 indexed.append(filename)
 
             # Need to define each external variable that will be used in the
@@ -198,20 +198,19 @@ def init_yara():
                 File.yara_initialized = True
                 break
             except yara.SyntaxError as e:
-                bad_rule = str(e).split(".yar", 1)[0] + ".yar"
-                log.debug(f"Trying to delete bad rule: {bad_rule}")
+                bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
+                log.debug("Trying to delete bad rule: %s", bad_rule)
                 if os.path.basename(bad_rule) in indexed:
                     for k, v in rules.items():
                         if v == bad_rule:
                             del rules[k]
                             indexed.remove(os.path.basename(bad_rule))
-                            print("Deleted broken yara rule: {}".format(bad_rule))
+                            print(f"Deleted broken yara rule: {bad_rule}")
                             break
                 else:
                     break
             except yara.Error as e:
-                print("There was a syntax error in one or more Yara rules: %s" % e)
-                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s", e)
                 break
 
         if category == "memory":
@@ -253,7 +252,7 @@ def upx_harness(raw_data):
     upxfile.write(raw_data)
     upxfile.close()
     try:
-        ret = subprocess.call("(upx -d %s)" % upxfile.name, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ret = subprocess.call(f"(upx -d {upxfile.name})", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
         logging.error("CAPE: UPX Error %s", e)
         os.unlink(upxfile.name)
@@ -263,16 +262,16 @@ def upx_harness(raw_data):
         sha256 = hash_file(hashlib.sha256, upxfile.name)
         newname = os.path.join(os.path.dirname(upxfile.name), sha256)
         os.rename(upxfile.name, newname)
-        logging.info("CAPE: UPX - Statically unpacked binary %s.", upxfile.name)
+        logging.info("CAPE: UPX - Statically unpacked binary %s", upxfile.name)
         return newname
     elif ret == 127:
-        logging.error("CAPE: Error - UPX not installed.")
+        logging.error("CAPE: Error - UPX not installed")
     elif ret == 1:
         logging.error("CAPE: Error - UPX CantUnpackException")
     elif ret == 2:
-        logging.error("CAPE: Error - UPX 'not packed' exception.")
+        logging.error("CAPE: Error - UPX 'not packed' exception")
     else:
-        logging.error("CAPE: Unknown error - check UPX is installed and working.")
+        logging.error("CAPE: Unknown error - check UPX is installed and working")
 
     os.unlink(upxfile.name)
     return
@@ -321,7 +320,7 @@ def static_config_parsers(yara_hit, file_data):
                     cape_config[cape_name].update({key: [value]})
                 parser_loaded = True
         except Exception as e:
-            logging.error("CAPE: parsing error with {}: {}".format(cape_name, e))
+            logging.error("CAPE: parsing error with %s: %s", cape_name, e)
 
     # DC3-MWCP
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
@@ -354,7 +353,7 @@ def static_config_parsers(yara_hit, file_data):
         except pefile.PEFormatError:
             logging.error("pefile PEFormatError")
         except Exception as e:
-            logging.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
+            logging.error("CAPE: DC3-MWCP config parsing error with %s: %s", cape_name, e)
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         logging.debug("Running Malwareconfigs")
@@ -367,7 +366,7 @@ def static_config_parsers(yara_hit, file_data):
             elif cape_name in __decoders__:
                 module = __decoders__[cape_name]["obj"]()
             else:
-                logging.warning(f"{cape_name}: wasn't matched by plugin's yara")
+                logging.warning("%s: wasn't matched by plugin's yara", cape_name)
 
             if module:
                 module.set_file(file_info)

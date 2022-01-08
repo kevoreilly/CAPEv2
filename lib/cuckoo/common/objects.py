@@ -301,7 +301,7 @@ class File(object):
             if HAVE_TLSH:
                 tlsh_hash.update(chunk)
 
-        self._crc32 = "".join("%02X" % ((crc >> i) & 0xFF) for i in [24, 16, 8, 0])
+        self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in [24, 16, 8, 0])
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
         self._sha256 = sha256.hexdigest()
@@ -495,7 +495,7 @@ class File(object):
             # yara_string = binascii.hexlify(yara_string.lstrip("uU")).upper()
             yara_string = binascii.hexlify(yara_string).upper()
             yara_string = b" ".join(yara_string[i : i + 2] for i in range(0, len(yara_string), 2))
-            new = "{ %s }" % yara_string.decode()
+            new = f"{{ {yara_string.decode()} }}"
 
         return new
 
@@ -569,7 +569,7 @@ class File(object):
             except ConnectionError as e:
                 log.warning("failed to connect to clamd socket")
             except Exception as e:
-                log.warning("failed to scan file with clamav {0}".format(e))
+                log.warning("failed to scan file with clamav %s", e)
             finally:
                 return matches
         return matches
@@ -728,17 +728,17 @@ class ProcDump(object):
     def pretty_print(self):
         new_addr_space = copy.deepcopy(self.address_space)
         for map in new_addr_space:
-            map["start"] = "0x%.08x" % map["start"]
-            map["end"] = "0x%.08x" % map["end"]
-            map["size"] = "0x%.08x" % map["size"]
+            map["start"] = f"0x{map['start']:08x}"
+            map["end"] = f"0x{map['end']:08x}"
+            map["size"] = f"0x{map['size']:08x}"
             if map["prot"] is None:
                 map["prot"] = "Mixed"
             else:
                 map["prot"] = self._prot_to_str(map["prot"])
             for chunk in map["chunks"]:
-                chunk["start"] = "0x%.08x" % chunk["start"]
-                chunk["end"] = "0x%.08x" % chunk["end"]
-                chunk["size"] = "0x%.08x" % chunk["size"]
+                chunk["start"] = f"0x{chunk['start']:08x}"
+                chunk["end"] = f"0x{chunk['end']:08x}"
+                chunk["size"] = f"0x{chunk['size']:08x}"
                 chunk["prot"] = self._prot_to_str(chunk["prot"])
         return new_addr_space
 

@@ -105,37 +105,37 @@ def saz_to_pcap(sazpath):
         return None
 
     if not HAVE_SCAPY:
-        log.error("Scapy is required for SAZ to PCAP conversion.")
+        log.error("Scapy is required for SAZ to PCAP conversion")
         return None
 
     tmpdir = ""
-    pcappath = "%s/%s.pcap" % (tempfile.mkdtemp(), os.path.basename(sazpath))
+    pcappath = f"{tempfile.mkdtemp()}/{os.path.basename(sazpath)}.pcap"
     fiddler_raw_dir = ""
     pktdump = PcapWriter(pcappath, sync=True)
     try:
         tmpdir = tempfile.mkdtemp()
     except Exception as e:
-        log.error("Failed to Create temp dir for SAZ extraction %s" % (e))
+        log.error("Failed to Create temp dir for SAZ extraction %s", e)
         return None
 
     try:
         z = zipfile.ZipFile(sazpath, "r")
     except Exception as e:
-        log.error("Failed to open SAZ file as Zip extraction %s" % (e))
+        log.error("Failed to open SAZ file as Zip extraction %s", e)
         return None
 
     try:
         z.extractall(tmpdir)
         z.close()
     except Exception as e:
-        log.error("Failed to extract SAZ file to temp dir %s" % (e))
+        log.error("Failed to extract SAZ file to temp dir %s", e)
         return None
 
-    if not os.path.isdir("%s/raw/" % (tmpdir)):
+    if not os.path.isdir(f"{tmpdir}/raw/"):
         return None
 
-    fiddler_raw_dir = "%s/raw/" % (tmpdir)
-    m_file_list = glob.glob("%s/%s" % (fiddler_raw_dir, "*_m.xml"))
+    fiddler_raw_dir = f"{tmpdir}/raw/"
+    m_file_list = glob.glob(f"{fiddler_raw_dir}/*_m.xml")
     m_file_list.sort()
     if m_file_list:
         for xml_file in m_file_list:
@@ -167,19 +167,19 @@ def saz_to_pcap(sazpath):
                     src = m.group("clientip")
                 elif m and m.group("hostip"):
                     dst = m.group("hostip")
-            req = open(fiddler_raw_dir + fid + "_c.txt").read()
+            req = open(f"{fiddler_raw_dir}{fid}_c.txt").read()
             m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
             if m and m.group("verb") != "CONNECT":
                 req = req.replace(m.group("host_and_port"), "", 1)
                 if m.group("dport") and int(m.group("dport")) <= 65535:
                     dport = int(m.group("dport"))
-            resp = open(fiddler_raw_dir + fid + "_s.txt").read()
+            resp = open(f"{fiddler_raw_dir}{fid}_s.txt").read()
             (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
             (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
             (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)
             build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac)
     else:
-        m_file_list = glob.glob("%s/%s" % (fiddler_raw_dir, "*_c.txt"))
+        m_file_list = glob.glob(f"{fiddler_raw_dir}/*_c.txt")
         m_file_list.sort()
         if m_file_list:
             for xml_file in m_file_list:
@@ -196,13 +196,13 @@ def saz_to_pcap(sazpath):
                     log.error("Failed to find fiddler ID tag")
                     return None
 
-                req = open(fiddler_raw_dir + fid + "_c.txt").read()
+                req = open(f"{fiddler_raw_dir}{fid}_c.txt").read()
                 m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
                 if m and m.group("verb") != "CONNECT":
                     req = req.replace(m.group("host_and_port"), "", 1)
                     if m.group("dport") and int(m.group("dport")) <= 65535:
                         dport = int(m.group("dport"))
-                resp = open(fiddler_raw_dir + fid + "_s.txt").read()
+                resp = open(f"{fiddler_raw_dir}{fid}_s.txt").read()
                 (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
                 (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
                 (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)

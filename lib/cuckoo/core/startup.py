@@ -306,8 +306,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(f"There was a syntax error in one or more Yara rules: {e}")
-                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s", e)
                 break
 
         if category == "memory":

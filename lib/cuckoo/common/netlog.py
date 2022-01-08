@@ -34,18 +34,18 @@ log = logging.getLogger(__name__)
 # thus we can reuse report generation / signatures for other API trace sources.
 ###############################################################################
 
-TYPECONVERTERS = {"h": lambda v: "0x%08x" % default_converter(v), "p": lambda v: "0x%.08x" % default_converter(v)}
+TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
 
 # 20 Mb max message length.
 MAX_MESSAGE_LENGTH = 20 * 1024 * 1024
 
 
 def pointer_converter_32bit(v):
-    return "0x%08x" % (v % 2 ** 32)
+    return f"0x{v % 2 ** 32:08x}"
 
 
 def pointer_converter_64bit(v):
-    return "0x%016x" % (v % 2 ** 64)
+    return f"0x{v % 2 ** 64:016x}"
 
 
 def default_converter_32bit(v):
@@ -79,7 +79,7 @@ def check_names_for_typeinfo(arginfo):
         if isinstance(i, (list, tuple)):
             r = TYPECONVERTERS.get(i[1])
             if not r:
-                log.debug("Analyzer sent unknown format " "specifier '{0}'".format(i[1]))
+                log.debug("Analyzer sent unknown format specifier '%s'", i[1])
                 r = default_converter
             converters.append(r)
         else:
@@ -186,24 +186,24 @@ class BsonParser(object):
                 return
 
             if len(data) != 4:
-                log.critical("BsonParser lacking data.")
+                log.critical("BsonParser lacking data")
                 return
 
             blen = struct.unpack("I", data)[0]
             if blen > MAX_MESSAGE_LENGTH:
-                log.critical("BSON message larger than MAX_MESSAGE_LENGTH, " "stopping handler.")
+                log.critical("BSON message larger than MAX_MESSAGE_LENGTH, stopping handler")
                 return False
 
             data += self.fd.read(blen - 4)
 
             if len(data) < blen:
-                log.critical("BsonParser lacking data.")
+                log.critical("BsonParser lacking data")
                 return
 
             try:
                 dec = bson_decode(data)
             except Exception as e:
-                log.warning("BsonParser decoding problem {0} on data[:50] {1}".format(e, repr(data[:50])))
+                log.warning("BsonParser decoding problem %s on data[:50] %s", e, data[:50])
                 return False
 
             mtype = dec.get("type", "none")
@@ -229,7 +229,7 @@ class BsonParser(object):
                     category = [_ for _ in LOGTBL if _[0] == name]
 
                     # If we found an entry, take its category, otherwise we take
-                    # the default string "unknown."
+                    # the default string "unknown".
                     category = category[0][1] if category else "unknown"
 
                 argnames, converters = check_names_for_typeinfo(arginfo)  # self.determine_unserializers(arginfo)
@@ -247,7 +247,7 @@ class BsonParser(object):
                     continue
 
             elif mtype == "debug":
-                log.info("Debug message from monitor: " "{0}".format(dec.get("msg", "")))
+                log.info("Debug message from monitor: %s", dec.get("msg", ""))
 
             elif mtype == "new_process":
                 # new_process message from VMI monitor.
@@ -261,14 +261,14 @@ class BsonParser(object):
             else:
                 # Regular api call.
                 if index not in self.infomap:
-                    log.warning("Got API with unknown index - monitor needs " "to explain first: {0}".format(dec))
+                    log.warning("Got API with unknown index - monitor needs to explain first: %s", dec)
                     return True
 
                 apiname, arginfo, argnames, converters, category = self.infomap[index]
                 args = dec.get("args", [])
 
                 if len(args) != len(argnames):
-                    log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
+                    log.warning("Inconsistent arg count (compared to arg names) on %s: %s names %s", dec, argnames, apiname)
                     continue
 
                 argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))

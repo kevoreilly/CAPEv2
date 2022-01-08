@@ -21,7 +21,7 @@ class ExitNodes(Base):
     name = Column(String(255), nullable=False, unique=True)
 
     def __repr__(self):
-        return "<Exit node('{0}','{1}')>".format(self.id, self.name)
+        return f"<Exit node('{self.id}','{self.name}')>"
 
     def __init__(self, name):
         self.name = name

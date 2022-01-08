@@ -164,7 +164,7 @@ class RunAuxiliary(object):
                 continue
             except Exception:
                 log.exception(
-                    "Error performing callback %r on auxiliary module %r",
+                    "Error performing callback %s on auxiliary module %s",
                     name,
                     module.__class__.__name__,
                     extra={"task_id": self.task["id"]},

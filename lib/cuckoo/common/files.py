@@ -26,7 +26,7 @@ def temppath():
 
     # Backwards compatibility with older configuration.
     if not tmppath or tmppath == "/tmp":
-        return os.path.join(tempfile.gettempdir(), "cuckoo-tmp-%s" % getuser())
+        return os.path.join(tempfile.gettempdir(), f"cuckoo-tmp-{getuser()}")
 
     return tmppath
 
@@ -80,7 +80,7 @@ class Folders(Storage):
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
                         continue
-                    raise CuckooOperationalError("Unable to create folder: %s" % folder_path)
+                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
 
     @staticmethod
     def copy(src, dest):
@@ -103,7 +103,7 @@ class Folders(Storage):
             try:
                 shutil.rmtree(folder)
             except OSError:
-                raise CuckooOperationalError("Unable to delete folder: %s" % folder)
+                raise CuckooOperationalError(f"Unable to delete folder: {folder}")
 
 
 class Files(Storage):

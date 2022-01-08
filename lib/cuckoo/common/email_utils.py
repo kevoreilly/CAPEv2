@@ -57,7 +57,7 @@ def _find_attachments_in_email(mesg, expand_attachment, atts):
         filename = part.get_filename()
         if filename is None:
             ext = mimetypes.guess_extension(content_type) or ""
-            filename = "<unknown>" + ext
+            filename = f"<unknown>{ext}"
         else:
             # Sanitize the header value
             filename = _decode_header(filename)

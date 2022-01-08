@@ -95,6 +95,7 @@ def check_webgui_mongo():
         # ToDo add check
         pass
 
+
 def check_configs():
     """Checks if config files exist.
     @raise CuckooStartupError: if config files do not exist.
@@ -306,8 +307,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(f"There was a syntax error in one or more Yara rules: {e}")
-                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s", e)
                 break
 
         if category == "memory":

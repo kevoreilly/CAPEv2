@@ -214,7 +214,7 @@ class Machinery(object):
                     resultserver_port=port,
                 )
             except (AttributeError, CuckooOperationalError) as e:
-                log.warning("Configuration details about machine {} are missing: {}".format(machine_id.strip(), e))
+                log.warning("Configuration details about machine %s are missing: %s", machine_id.strip(), e)
                 continue
 
     def _initialize_check(self):
@@ -241,17 +241,11 @@ class Machinery(object):
             try:
                 self.stop(machine.label)
             except CuckooMachineError as e:
-                msg = (
-                    "Please update your configuration. Unable to shut "
-                    "'{0}' down or find the machine in its proper state:"
-                    " {1}".format(machine.label, e)
-                )
+                msg = f"Please update your configuration. Unable to shut '{machine.label}' down or find the machine in its proper state: {e}"
                 raise CuckooCriticalError(msg)
 
         if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError(
-                "Virtual machine state change timeout " "setting not found, please add it to " "the config file."
-            )
+            raise CuckooCriticalError("Virtual machine state change timeout setting not found, please add it to the config file")
 
     def machines(self):
         """List virtual machines.
@@ -296,12 +290,12 @@ class Machinery(object):
         @raise CuckooMachineError: if unable to stop machine.
         """
         if len(self.running()) > 0:
-            log.info("Still %s guests alive. Shutting down...", len(self.running()))
+            log.info("Still %d guests still alive, shutting down...", len(self.running()))
             for machine in self.running():
                 try:
                     self.stop(machine.label)
                 except CuckooMachineError as e:
-                    log.warning("Unable to shutdown machine %s, please check " "manually. Error: %s", machine.label, e)
+                    log.warning("Unable to shutdown machine %s, please check manually. Error: %s", machine.label, e)
 
     def set_status(self, label, status):
         """Set status for a virtual machine.
@@ -352,9 +346,9 @@ class Machinery(object):
         if isinstance(state, str):
             state = [state]
         while current not in state:
-            log.debug("Waiting %i cuckooseconds for machine %s to switch " "to status %s", waitme, label, state)
+            log.debug("Waiting %d cuckooseconds for machine %s to switch to status %s", waitme, label, state)
             if waitme > int(cfg.timeouts.vm_state):
-                raise CuckooMachineError("Timeout hit while for machine {0} " "to change status".format(label))
+                raise CuckooMachineError(f"Timeout hit while for machine {label} to change status")
             time.sleep(1)
             waitme += 1
             current = self._status(label)
@@ -394,7 +388,7 @@ class LibVirtMachinery(Machinery):
         """
         # Version checks.
         if not self._version_check():
-            raise CuckooMachineError("Libvirt version is not supported, " "please get an updated version")
+            raise CuckooMachineError("Libvirt version is not supported, please get an updated version")
 
         # Preload VMs
         self.vms = self._fetch_machines()
@@ -411,7 +405,7 @@ class LibVirtMachinery(Machinery):
         log.debug("Starting machine %s", label)
 
         if self._status(label) != self.POWEROFF:
-            msg = "Trying to start a virtual machine that has not " "been turned off {0}".format(label)
+            msg = f"Trying to start a virtual machine that has not been turned off {label}"
             raise CuckooMachineError(msg)
 
         conn = self._connect(label)
@@ -423,28 +417,28 @@ class LibVirtMachinery(Machinery):
         # If a snapshot is configured try to use it.
         if vm_info.snapshot and vm_info.snapshot in snapshot_list:
             # Revert to desired snapshot, if it exists.
-            log.debug("Using snapshot {0} for virtual machine " "{1}".format(vm_info.snapshot, label))
+            log.debug("Using snapshot %s for virtual machine %s", vm_info.snapshot, label)
             try:
                 vm = self.vms[label]
                 snapshot = vm.snapshotLookupByName(vm_info.snapshot, flags=0)
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
             except libvirt.libvirtError:
-                msg = "Unable to restore snapshot {0} on " "virtual machine {1}".format(vm_info.snapshot, label)
+                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}"
                 raise CuckooMachineError(msg)
             finally:
                 self._disconnect(conn)
         elif self._get_snapshot(label):
             snapshot = self._get_snapshot(label)
-            log.debug("Using snapshot {0} for virtual machine " "{1}".format(snapshot.getName(), label))
+            log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
             try:
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
             except libvirt.libvirtError:
-                raise CuckooMachineError("Unable to restore snapshot on " "virtual machine {0}".format(label))
+                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}")
             finally:
                 self._disconnect(conn)
         else:
             self._disconnect(conn)
-            raise CuckooMachineError("No snapshot found for virtual machine " "{0}".format(label))
+            raise CuckooMachineError(f"No snapshot found for virtual machine {label}")
 
         # Check state.
         self._wait_status(label, self.RUNNING)
@@ -457,17 +451,17 @@ class LibVirtMachinery(Machinery):
         log.debug("Stopping machine %s", label)
 
         if self._status(label) == self.POWEROFF:
-            raise CuckooMachineError("Trying to stop an already stopped " "machine {0}".format(label))
+            raise CuckooMachineError(f"Trying to stop an already stopped machine {label}")
 
         # Force virtual machine shutdown.
         conn = self._connect(label)
         try:
             if not self.vms[label].isActive():
-                log.debug("Trying to stop an already stopped machine %s. " "Skip", label)
+                log.debug("Trying to stop an already stopped machine %s, skipping", label)
             else:
                 self.vms[label].destroy()  # Machete's way!
         except libvirt.libvirtError as e:
-            raise CuckooMachineError("Error stopping virtual machine " "{0}: {1}".format(label, e))
+            raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}")
         finally:
             self._disconnect(conn)
         # Check state.
@@ -494,7 +488,7 @@ class LibVirtMachinery(Machinery):
             fd.close()
             self.vms[label].coreDump(path, flags=libvirt.VIR_DUMP_MEMORY_ONLY)
         except libvirt.libvirtError as e:
-            raise CuckooMachineError("Error dumping memory virtual machine " "{0}: {1}".format(label, e))
+            raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}")
         finally:
             self._disconnect(conn)
 
@@ -520,7 +514,7 @@ class LibVirtMachinery(Machinery):
         try:
             state = self.vms[label].state(flags=0)
         except libvirt.libvirtError as e:
-            raise CuckooMachineError("Error getting status for virtual " "machine {0}: {1}".format(label, e))
+            raise CuckooMachineError(f"Error getting status for virtual machine {label}: {e}")
         finally:
             self._disconnect(conn)
 
@@ -539,7 +533,7 @@ class LibVirtMachinery(Machinery):
             self.set_status(label, status)
             return status
         else:
-            raise CuckooMachineError("Unable to get status for " "{0}".format(label))
+            raise CuckooMachineError(f"Unable to get status for {label}")
 
     def _connect(self, label=None):
         """Connects to libvirt subsystem.
@@ -547,7 +541,7 @@ class LibVirtMachinery(Machinery):
         """
         # Check if a connection string is available.
         if not self.dsn:
-            raise CuckooMachineError("You must provide a proper " "connection string")
+            raise CuckooMachineError("You must provide a proper connection string")
 
         try:
             return libvirt.open(self.dsn)
@@ -582,7 +576,7 @@ class LibVirtMachinery(Machinery):
         try:
             vm = conn.lookupByName(label)
         except libvirt.libvirtError:
-            raise CuckooMachineError("Cannot find machine " "{0}".format(label))
+            raise CuckooMachineError(f"Cannot find machine {label}")
         finally:
             self._disconnect(conn)
         return vm
@@ -642,7 +636,7 @@ class LibVirtMachinery(Machinery):
                 if all_snapshots:
                     snapshot = sorted(all_snapshots, key=_extract_creation_time, reverse=True)[0]
         except libvirt.libvirtError:
-            raise CuckooMachineError("Unable to get snapshot for " "virtual machine {0}".format(label))
+            raise CuckooMachineError(f"Unable to get snapshot for virtual machine {label}")
         finally:
             self._disconnect(conn)
 
@@ -698,7 +692,7 @@ class Processing(object):
     def add_statistic_tmp(self, name, field, pretime):
         posttime = datetime.datetime.now()
         timediff = posttime - pretime
-        value = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
 
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
@@ -765,7 +759,7 @@ class Signature(object):
         timediff = datetime.datetime.now() - pretime
         self.results["custom_statistics"] = {}
         self.results["custom_statistics"][self.name] = {}
-        self.results["custom_statistics"][self.name]["time"] = float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000))
+        self.results["custom_statistics"][self.name]["time"] = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
 
@@ -909,7 +903,7 @@ class Signature(object):
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
             print(
-                "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin."
+                "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin"
             )
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
@@ -944,8 +938,8 @@ class Signature(object):
                 url = url[last + 3 :]
 
         try:
-            if url_validator("http://%s" % url):
-                return "http://%s" % url
+            if url_validator(f"http://{url}"):
+                return f"http://{url}"
         except Exception as e:
             print(e)
 
@@ -1636,7 +1630,7 @@ class Feed(object):
         """Determine if the feed needs to be updated based on the configured
         frequency and update if it we have passed that time threshold.
         """
-        self.feedpath = CUCKOO_ROOT + "/data/feeds/" + self.feedname + ".feed"
+        self.feedpath = os.path.join(CUCKOO_ROOT, "data", "feeds", f"{self.feedname}.feed")
         freq = self.frequency * 3600
         # Check if feed file exists
         mtime = 0
@@ -1658,7 +1652,7 @@ class Feed(object):
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)
             except requests.exceptions.RequestException as e:
-                log.warn("Error downloading feed for {0} : {1}".format(self.feedname, e))
+                log.warn("Error downloading feed for %s: %s", self.feedname, e)
                 return False
             if req.status_code == 200:
                 self.downloaddata = req.content

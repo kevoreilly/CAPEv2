@@ -357,10 +357,12 @@ class GuestManager(object):
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
-                log.warning(f"Virtual Machine: {self.vmid} /status failed. This can indicate the guest losing network connectivity")
+                log.warning(
+                    "Virtual Machine: %s /status failed. This can indicate the guest losing network connectivity", self.vmid
+                )
                 continue
             except Exception as e:
-                log.error(f"Virtual machine: {self.vmid} /status failed. %s", e, exc_info=True)
+                log.error("Virtual machine: %s /status failed. %s", self.vmid, e, exc_info=True)
                 continue
 
             if status["status"] == "complete":

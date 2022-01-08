@@ -116,7 +116,7 @@ class HandlerContext(object):
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %r, error: %s", self.task_id, self, e)
+            log.debug("Task #%s had connection reset for %s, error: %s", self.task_id, self, e)
             return b""
         except Exception as e:
             print(e)
@@ -353,8 +353,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 log.error(e, exc_info=True)
             # ToDo
             # except CuckooOperationalError as e:
-            #    print(e)
-            #    log.error("Unable to create folder %s" % folder)
+            #    log.error("Unable to create folder %s", folder)
             #    return False
 
     def handle(self, sock, addr):

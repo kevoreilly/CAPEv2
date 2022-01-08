@@ -14,6 +14,7 @@ repconf = Config("reporting")
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
 
+
 def behavior_categories_percent(calls):
     catcounts = collections.defaultdict(lambda: 0)
 
@@ -110,7 +111,9 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=["misc"]):
             counts[tid][pid] = {}
 
             for coid in pdoc["calls"]:
-                chunk = es_obj.search(index=get_calls_index(), body={'query': {'match': {'_id': coid}}})["hits"]["hits"][-1]["_source"]
+                chunk = es_obj.search(index=get_calls_index(), body={"query": {"match": {"_id": coid}}})["hits"]["hits"][-1][
+                    "_source"
+                ]
                 category_counts = behavior_categories_percent(chunk["calls"])
                 for cat, count in category_counts.items():
                     if cat in ignore_categories:

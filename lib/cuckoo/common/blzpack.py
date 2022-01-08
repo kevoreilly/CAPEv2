@@ -58,7 +58,7 @@ def decompress_data(data, blocksize=DEFAULT_BLOCK_SIZE, level=1):
         depackedsize = brieflz.blz_depack(byref(compressed_data), byref(workdata), c_int(hdr_depackedsize))
         if depackedsize != hdr_depackedsize:
             print("Decompression error")
-            print("DepackedSize: " + str(depackedsize) + "\nHdrVal: " + str(hdr_depackedsize))
+            print(f"DepackedSize: {depackedsize}\nHdrVal: {hdr_depackedsize}")
             return None
         decompressed_data += workdata.raw[:depackedsize]
         data = data[packedsize:]

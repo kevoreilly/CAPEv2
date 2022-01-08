@@ -18,7 +18,7 @@ def ratdecodedr_load_decoders(path):
         try:
             module = importlib.import_module(module_name)
         except ImportError as e:
-            print("Unable to import Module {0}: {1}".format(module_name, e))
+            print(f"Unable to import Module {module_name}: {e}")
             continue
 
         for mod_name, mod_object in inspect.getmembers(module):
@@ -38,15 +38,15 @@ def cape_load_decoders(CUCKOO_ROOT):
 
     cape_modules = {}
     cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-    CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
+    CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{cape_decoders}/[!_]*.py")]
 
     for name in CAPE_DECODERS:
         try:
-            cape_modules[name] = importlib.import_module("modules.processing.parsers.CAPE." + name)
+            cape_modules[name] = importlib.import_module(f"modules.processing.parsers.CAPE.{name}")
         except (ImportError, IndexError) as e:
             if "datadirs" in str(e):
                 print("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")
-            print("CAPE parser: No module named {} - {}".format(name, e))
+            print(f"CAPE parser: No module named {name} - {e}")
 
     return cape_modules
 
@@ -55,12 +55,12 @@ def malduck_load_decoders(CUCKOO_ROOT):
 
     malduck_modules = {}
     malduck_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "malduck")
-    MALDUCK_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(malduck_decoders + "/[!_]*.py")]
+    MALDUCK_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(f"{malduck_decoders}/[!_]*.py")]
 
     for name in MALDUCK_DECODERS:
         try:
-            malduck_modules[name] = importlib.import_module("modules.processing.parsers.malduck." + name)
+            malduck_modules[name] = importlib.import_module(f"modules.processing.parsers.malduck.{name}")
         except (ImportError, IndexError) as e:
-            print("malduck parser: No module named {} - {}".format(name, e))
+            print(f"malduck parser: No module named {name} - {e}")
 
     return malduck_modules

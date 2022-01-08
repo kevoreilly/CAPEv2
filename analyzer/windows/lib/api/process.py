@@ -626,7 +626,6 @@ class Process:
         try:
             upload_to_host(file_path, os.path.join("memory", f"{self.pid}.dmp"), category="memory")
         except Exception as e:
-            print(e)
             log.error(e, exc_info=True)
             log.error(os.path.join("memory", f"{self.pid}.dmp"))
             log.error(file_path)

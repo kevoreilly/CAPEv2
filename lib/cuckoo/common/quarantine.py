@@ -586,7 +586,9 @@ def kav_unquarantine(file):
         idlen = struct.unpack("<I", data[curoffset + 4 : curoffset + 8])[0]
         idname = str(data[curoffset + 8 : curoffset + 8 + idlen]).rstrip("\0")
         if idname == "cNP_QB_FULLNAME":
-            origname = str(data[curoffset + 8 + idlen : curoffset + 4 + length]).encode("utf-16").decode(errors="ignore").rstrip("\0")
+            origname = (
+                str(data[curoffset + 8 + idlen : curoffset + 4 + length]).encode("utf-16").decode(errors="ignore").rstrip("\0")
+            )
         curoffset += 4 + length
         if curoffset >= metaoffset + metalen:
             break

@@ -44,6 +44,7 @@ if repconf.mongodb.enabled:
 
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+
     es = elastic_handler
 
 try:
@@ -89,9 +90,7 @@ if process_cfg.mwcp.enabled:
         HAS_MWCP = True
         assert "MWCP_TEST" in malware_parsers
     except ImportError as e:
-        logging.info(
-            "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: %s", e
-        )
+        logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: %s", e)
 
 HAS_MALWARECONFIGS = False
 if process_cfg.ratdecoders.enabled:
@@ -429,15 +428,14 @@ def static_config_lookup(file_path, sha256=False):
             {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
         )
     elif repconf.elasticsearchdb.enabled:
-        document_dict = es.search(index=get_analysis_index(), body={
-            "query": {
-                "match": {
-                    "target.file.sha256": sha256
-                }
-            }
-        }, _source=["CAPE.configs", "info.id"], sort={"_id": {"order": "desc"}})['hits']['hits'][0]['_source']
+        document_dict = es.search(
+            index=get_analysis_index(),
+            body={"query": {"match": {"target.file.sha256": sha256}}},
+            _source=["CAPE.configs", "info.id"],
+            sort={"_id": {"order": "desc"}},
+        )["hits"]["hits"][0]["_source"]
     else:
-         document_dict = None
+        document_dict = None
 
     if not document_dict:
         return

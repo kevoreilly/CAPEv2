@@ -324,7 +324,7 @@ class Kixtart:
                         self.script[last_line + 1] = "EndFunction"
                 return
 
-            self.logger.critical("Failed to parse token %02X in %s", b, hexlify(buf[i-2:i+3]))
+            self.logger.critical("Failed to parse token %02X in %s", b, hexlify(buf[i - 2 : i + 3]))
             return
 
 

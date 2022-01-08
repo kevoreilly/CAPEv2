@@ -150,8 +150,7 @@ class AnalysisManager(threading.Thread):
                 shutil.copy(self.task.target, copy_path)
             except (IOError, shutil.Error) as e:
                 log.error(
-                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted",
-                    self.task.id, self.task.target, copy_path
+                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
                 )
                 return False
 

@@ -95,6 +95,7 @@ def check_webgui_mongo():
         # ToDo add check
         pass
 
+
 def check_configs():
     """Checks if config files exist.
     @raise CuckooStartupError: if config files do not exist.

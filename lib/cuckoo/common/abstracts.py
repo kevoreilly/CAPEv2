@@ -241,15 +241,11 @@ class Machinery(object):
             try:
                 self.stop(machine.label)
             except CuckooMachineError as e:
-                msg = (
-                    f"Please update your configuration. Unable to shut '{machine.label}' down or find the machine in its proper state: {e}"
-                )
+                msg = f"Please update your configuration. Unable to shut '{machine.label}' down or find the machine in its proper state: {e}"
                 raise CuckooCriticalError(msg)
 
         if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError(
-                "Virtual machine state change timeout setting not found, please add it to the config file"
-            )
+            raise CuckooCriticalError("Virtual machine state change timeout setting not found, please add it to the config file")
 
     def machines(self):
         """List virtual machines.

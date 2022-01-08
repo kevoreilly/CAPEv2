@@ -227,41 +227,17 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         data = results_db.analysis.aggregate(aggregation_command)
     elif repconf.elasticsearchdb.enabled:
         q = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "exists": {
-                                "field": "detections"
-                            }
-                        }
-                    ]
-                }
-            },
+            "query": {"bool": {"must": [{"exists": {"field": "detections"}}]}},
             "size": 0,
-            "aggs": {
-                "family": {
-                    "terms": {
-                        "field": "detections.keyword",
-                        "size": results_limit
-                    }
-                }
-            }
+            "aggs": {"family": {"terms": {"field": "detections.keyword", "size": results_limit}}},
         }
 
         if date_since:
-            q["query"]["bool"]["must"].append({
-                "range": {
-                    "info.started": {
-                        "gte": date_since.isoformat()
-                    }
-                }
-            })
+            q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
             print(q)
         res = es.search(index=get_analysis_index(), body=q)
-        data = [{'total': r['doc_count'], 'family': r['key']} for r in
-                res['aggregations']['family']['buckets']]
+        data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
     else:
         data = False
 
@@ -326,26 +302,11 @@ def statistics(s_days: int) -> dict:
         q = {
             "query": {
                 "bool": {
-                    "must": [
-                        {
-                            "exists": {
-                                "field": "statistics"
-                            }
-                        },
-                        {
-                            "range": {
-                                "info.started": {
-                                    "gte": date_since.isoformat()
-                                }
-                            }
-                        }
-                    ]
+                    "must": [{"exists": {"field": "statistics"}}, {"range": {"info.started": {"gte": date_since.isoformat()}}}]
                 }
             }
         }
-        data = [d['_source'] for d in
-                es.search(index=get_analysis_index(), body=q,
-                          _source=['statistics'])['hits']['hits']]
+        data = [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=["statistics"])["hits"]["hits"]]
     else:
         data = None
 
@@ -403,9 +364,7 @@ def statistics(s_days: int) -> dict:
             details[module_name].setdefault(entry, {})
             details[module_name][entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float(
-                f"{round(times_in_mins / tmp_data[module_name][entry]['runs'], 2):.2f}"
-            )
+            details[module_name][entry]["average"] = float(f"{round(times_in_mins / tmp_data[module_name][entry]['runs'], 2):.2f}")
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     # custom average
@@ -692,9 +651,7 @@ def download_file(**kwargs):
         if kwargs.get("fhash", False):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
-                return "error", {
-                    "error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"
-                }
+                return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
         if not os.path.exists(kwargs.get("path")):
             f = open(kwargs["path"], "wb")
             f.write(kwargs["content"])
@@ -981,59 +938,31 @@ normalized_int_terms = (
 def perform_ttps_search(value):
     if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
         if repconf.mongodb.enabled:
-            return results_db.analysis.find(
-                {f"ttps.{value.upper()}": {"$exist": 1}},
-                {"info.id": 1, "_id": 0}).sort([["_id", -1]])
+            return results_db.analysis.find({f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
         elif repconf.elasticsearchdb.enabled:
-            q = {
-                "query": {
-                    "match": {
-                        "ttps.ttp": value.upper()
-                    }
-                }
-            }
-            return es.search(index=get_analysis_index(), body=q)['hits']['hits']
+            q = {"query": {"match": {"ttps.ttp": value.upper()}}}
+            return es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
 
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:
         return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
     elif repconf.elasticsearchdb.enabled:
-        q = {
-            "query": {
-                "range": {
-                    "malscore": {
-                        "gte": float(value)
-                    }
-                }
-            }
-        }
+        q = {"query": {"range": {"malscore": {"gte": float(value)}}}}
         _source_fields = list(perform_search_filters.keys())[:-1]
-        return es.search(
-            index=get_analysis_index(),
-            body=q, _source=_source_fields
-        )['hits']['hits']
+        return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
 
 
 def perform_search(term, value, search_limit=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
-        multi_match_search = {
-            "query": {
-                "multi_match": {
-                    "query": value,
-                    "fields": ["*"]
-                }
-            }
-        }
-        numhits = es.search(
-            index=get_analysis_index(),
-            body=multi_match_search, size=0
-        )["hits"]["total"]
+        multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
+        numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
         return [
-            d['_source'] for d in es.search(
-                index=get_analysis_index(), body=multi_match_search,
-                sort="task_id:desc", size=numhits
-            )["hits"]["hits"]]
+            d["_source"]
+            for d in es.search(index=get_analysis_index(), body=multi_match_search, sort="task_id:desc", size=numhits)["hits"][
+                "hits"
+            ]
+        ]
 
     query_val = False
     if term in normalized_lower_terms:
@@ -1094,24 +1023,12 @@ def perform_search(term, value, search_limit=False):
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):
-            q = {'query': {'match': {search_term_map[term]: value}}}
-            return [d['_source'] for d in es.search(
-                index=get_analysis_index(), body=q,_source=_source_fields
-            )["hits"]["hits"]]
+            q = {"query": {"match": {search_term_map[term]: value}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
         else:
-            queries = [{'match': {search_term: value}} for search_term in
-                       search_term_map[term]]
-            q = {
-                'query': {
-                    'bool': {
-                        'should': queries, "minimum_should_match": 1
-                    }
-                }
-            }
-            return [d['_source'] for d in es.search(
-                index=get_analysis_index(), body=q,
-                _source=_source_fields
-            )["hits"]["hits"]]
+            queries = [{"match": {search_term: value}} for search_term in search_term_map[term]]
+            q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
 
 
 def force_int(value):

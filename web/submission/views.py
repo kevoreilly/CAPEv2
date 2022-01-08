@@ -205,6 +205,10 @@ def index(request, resubmit_hash=False):
         if request.POST.get("unpack"):
             options += "unpack=yes,"
 
+        # amsidump is enabled by default in the monitor for Win10+
+        if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
+            options += "amsidump=0,"
+
         options = options[:-1]
 
         opt_apikey = False
@@ -530,6 +534,7 @@ def index(request, resubmit_hash=False):
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
+        enabledconf["amsidump"] = web_conf.amsidump.enabled
 
         if all_vms_tags:
             enabledconf["tags"] = True

@@ -532,6 +532,13 @@ $(document).ready( function() {
                                 </label>
                             </div>
                             {% endif %}
+                            {% if config.amsidump %}
+                            <div class="form-check">
+                                <label>
+                                    <input type="checkbox" name="amsidump" checked/> AMSI dumps <span class="text-muted"><small>(Windows 10+ Anti-Malware Scan Interface)</small></span>
+                                </label>
+                            </div>
+                            {% endif %}
                             <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="import_reconstruction" /> Enable import reconstruction in process dumps

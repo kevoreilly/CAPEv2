@@ -82,6 +82,7 @@ conf = Config("cuckoo")
 repconf = Config("reporting")
 web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
+ORIGIN_FILENAME_ENABLED = web_conf.display_origin_filename.enabled
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -1309,10 +1310,13 @@ class Database(object, metaclass=Singleton):
         elif isinstance(obj, URL):
             task = Task(obj.url)
         
-        if isinstance(filename, bytes):
-            task.filename = filename.decode()
+        if ORIGIN_FILENAME_ENABLED:
+            if isinstance(filename, bytes):
+                task.filename = filename.decode()
+            else:
+                task.filename = filename
         else:
-            task.filename = filename
+            task.filename = os.path.basename(task.target)
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout
         task.package = package

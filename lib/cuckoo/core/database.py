@@ -1308,6 +1308,7 @@ class Database(object, metaclass=Singleton):
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
+            tags = "x64,x86"
 
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout

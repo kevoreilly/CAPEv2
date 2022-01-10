@@ -91,6 +91,10 @@ def check_webgui_mongo():
             if bad:
                 sys.exit(1)
 
+    elif repconf.elasticsearchdb.enabled:
+        # ToDo add check
+        pass
+
 
 def check_configs():
     """Checks if config files exist.
@@ -303,8 +307,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(f"There was a syntax error in one or more Yara rules: {e}")
-                log.error("There was a syntax error in one or more Yara rules: %s" % e)
+                log.error("There was a syntax error in one or more Yara rules: %s", e)
                 break
 
         if category == "memory":

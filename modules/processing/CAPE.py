@@ -60,6 +60,8 @@ DATADUMP = 0x66
 REGDUMP = 0x67
 MOREEGGSJS_PAYLOAD = 0x68
 MOREEGGSBIN_PAYLOAD = 0x69
+AMSIBUFFER = 0x6a
+AMSISTREAM = 0x6b
 TYPE_STRING = 0x100
 UPX = 0x1000
 
@@ -69,6 +71,8 @@ code_mapping = {
     PLUGX_PAYLOAD: "PlugX Payload",
     UPX: "Unpacked PE Image",
     MOREEGGSBIN_PAYLOAD: "More_Eggs Binary Payload",
+    AMSIBUFFER: "AMSI Buffer",
+    AMSISTREAM: "AMSI Stream",
 }
 
 name_mapping = {
@@ -214,7 +218,6 @@ class CAPE(Processing):
                 if ConfigData:
                     config[cape_name].update({ConfigItem: [ConfigData]})
                 """
-                append_file = False
 
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:

@@ -59,11 +59,11 @@ class Kixtart:
 
     def decrypt(self):
         arc4 = ARC4.new(key=self.session_key)
-        self.logger.info(f"[*]\tdecrypting with session key {hexlify(self.session_key).decode()}")
+        self.logger.info("[*]\tdecrypting with session key %s", hexlify(self.session_key).decode())
         token_data = arc4.decrypt(bytes(self.ciphertext))
         self.code_length = int.from_bytes(token_data[:4], byteorder="little")
         self.tokenized = token_data[4:]
-        self.logger.debug(f"raw tokenized script: {hexlify(self.tokenized).decode()}")
+        self.logger.debug("raw tokenized script: %s", hexlify(self.tokenized).decode())
         self.parse()
         return self.tokenized
 
@@ -85,7 +85,7 @@ class Kixtart:
     def parse_functions(self):
         i = 0
         buf = self.function_data
-        self.logger.debug(f"Parsing function data {hexlify(buf).decode()}")
+        self.logger.debug("Parsing function data %s", hexlify(buf).decode())
         # TODO have not looked into parsing scripts relying on multiple files
         filename = ""
         while buf[i] != 0:
@@ -116,35 +116,35 @@ class Kixtart:
                             param += chr(buf[i])
                             i += 1
                         i += 1
-                        parameters.append("$" + param)
+                        parameters.append(f"${param}")
                 function_length = int.from_bytes(buf[i : i + 4], byteorder="little")
                 i += 4
                 function_data = buf[i : i + function_length]
                 i += function_length
                 label_length = int.from_bytes(buf[i : i + 4], byteorder="little")
-                self.logger.debug(f"label length: {label_length}")
+                self.logger.debug("label length: %d", label_length)
                 labels = {}
                 i += 4  # label length
                 if label_length:
                     label_data = buf[i : i + label_length]
                     labels = self.parse_labels(label_data)
-                    self.logger.debug(f"Label data: {hexlify(label_data)}")
-                    self.logger.debug(f"Labels: {labels}")
+                    self.logger.debug("Label data: %s", hexlify(label_data))
+                    self.logger.debug("Labels: %s", labels)
                     i += label_length
 
-                # func = f'{filename}.{function_name}({",".join(parameters)})'
-                func = f'{function_name}({",".join(parameters)})'
-                # self.logger.debug(f'{func}: {hexlify(function_data).decode()}')
+                # func = f"{filename}.{function_name}({','.join(parameters)})"
+                func = f"{function_name}({','.join(parameters)})"
+                # self.logger.debug("%s: %s", func, hexlify(function_data).decode())
                 self.detokenize(function_data, labels, func)
                 i += 1
             except Exception:
-                self.logger.error(f"Failed to parse remaining function data {hexlify(buf[start:])}")
+                self.logger.error("Failed to parse remaining function data %s", hexlify(buf[start:]))
                 return
 
     def dump(self):
-        script_name = os.path.splitext(os.path.basename(self.path))[0] + ".kix"
+        script_name = f"{os.path.splitext(os.path.basename(self.path))[0]}.kix"
         path = os.path.join(self.dump_dir, script_name)
-        self.logger.info(f"Writing detokenized version of {self.path} to {path}")
+        self.logger.info("Writing detokenized version of %s to, %s", self.path, path)
         with open(path, "w") as fp:
             fp.write(os.linesep.join(self.script))
 
@@ -173,19 +173,19 @@ class Kixtart:
 
         labels_offset = self.code_length
         labels_length = int.from_bytes(self.tokenized[labels_offset : labels_offset + 4], byteorder="little")
-        self.logger.debug(f"label length: {labels_length:02X}")
+        self.logger.debug("label length: %02X", labels_length)
         raw_label_data = self.tokenized[labels_offset + 4 : labels_offset + labels_length]
         self.logger.debug(hexlify(raw_label_data))
         labels = self.parse_labels(raw_label_data)
 
-        self.logger.debug(f"Raw label data: {raw_label_data}")
-        self.logger.info(f"Labels: {labels}")
+        self.logger.debug("Raw label data: %s", raw_label_data)
+        self.logger.info("Labels: %s", labels)
         vars_offset = labels_offset + labels_length + 4
         vars_length = int.from_bytes(self.tokenized[vars_offset : vars_offset + 4], byteorder="little")
         self.variables = self.tokenized[vars_offset + 4 : vars_offset + 4 + vars_length].split(b"\x00")
-        self.logger.info(f"Variables: ")
+        self.logger.info("Variables: ")
         for i, variable in enumerate(self.variables):
-            self.logger.info(f"\t{i:02X}: {variable}")
+            self.logger.info("\t%02X: %s", i, variable)
 
         functions_offset = vars_offset + vars_length
         functions_length = int.from_bytes(self.tokenized[functions_offset : functions_offset + 4], byteorder="little")
@@ -194,12 +194,12 @@ class Kixtart:
         self.detokenize(self.tokenized, labels=labels, function=None)
 
         if self.function_data:
-            # self.logger.debug(f'Function data: {hexlify(self.function_data).decode()}')
+            # self.logger.debug("Function data: %s", hexlify(self.function_data).decode())
             self.parse_functions()
         self.trim_script()
 
     def detokenize(self, buf, labels=None, function=None):
-        self.logger.debug(f"Detokenize {function}: {hexlify(buf)}, labels={labels}, function={function}")
+        self.logger.debug("Detokenize %s: %s, labels=%s, function=%s", function, hexlify(buf), labels, function)
         i = 0
         line_num = 0
         label_count = 0
@@ -222,7 +222,7 @@ class Kixtart:
                 if line_num > last_line:
                     last_line = line_num
                 try:
-                    self.script[line_num] += ":" + labels[i] + "\n"
+                    self.script[line_num] += f":{labels[i]}\n"
                 except Exception:
                     # No label for this line
                     pass
@@ -267,9 +267,9 @@ class Kixtart:
             # Macro
             if b == 0xE0:
                 if n in macros:
-                    self.script[line_num] += "@" + macros[n]
+                    self.script[line_num] += f"@{macros[n]}"
                 else:
-                    self.logger.warning(f"unrecognized macro 0x{n:02X}, using <UNKNOWN_MACRO>")
+                    self.logger.warning("unrecognized macro 0x%02X, using <UNKNOWN_MACRO>", n)
                     self.script[line_num] += "@<UNKNOWN_MACRO>"
                 i += 2
                 continue
@@ -277,14 +277,14 @@ class Kixtart:
             if b == 0xE7:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
-                self.script[line_num] += "$" + self.variables[offset].decode()
+                self.script[line_num] += f"${self.variables[offset].decode()}"
                 i += 3
                 continue
             # object method -  Fetch method name from vars table
             if b == 0xE8:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
-                self.script[line_num] += "." + self.variables[offset].decode()
+                self.script[line_num] += f".{self.variables[offset].decode()}"
                 i += 3
                 continue
             # Function? name from var table
@@ -299,7 +299,7 @@ class Kixtart:
                 if n in functions:
                     self.script[line_num] += functions[n]
                 else:
-                    self.logger.warning(f"Unrecognized function 0x{n:02X}, using <UNKNOWN_KEYWORD>")
+                    self.logger.warning("Unrecognized function 0x%02X, using <UNKNOWN_KEYWORD>", n)
                     self.script[line_num] += "<UNKNOWN_KEYWORD>"
                 i += 2
                 continue
@@ -324,7 +324,7 @@ class Kixtart:
                         self.script[last_line + 1] = "EndFunction"
                 return
 
-            self.logger.critical(f"Failed to parse token {b:02X} in {hexlify(buf[i-2:i+3])}")
+            self.logger.critical("Failed to parse token %02X in %s", b, hexlify(buf[i - 2 : i + 3]))
             return
 
 

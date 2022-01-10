@@ -19,7 +19,7 @@ def color(text, color_code):
     # mintty -> "xterm" (supports colors)
     if sys.platform == "win32" and os.getenv("TERM") != "xterm":
         return text
-    return "\x1b[%dm%s\x1b[0m" % (color_code, text)
+    return "\x1b[{}m{}\x1b[0m".format(color_code, text)
 
 
 def black(text):

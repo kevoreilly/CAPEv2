@@ -143,16 +143,14 @@ class AnalysisManager(threading.Thread):
                 return False
 
         if os.path.exists(copy_path):
-            log.info("Task #{0}: File already exists at '{1}'".format(self.task.id, copy_path))
+            log.info("Task #%s: File already exists at '%s'", self.task.id, copy_path)
         else:
             # TODO: do we really need to abort the analysis in case we are not able to store a copy of the file?
             try:
                 shutil.copy(self.task.target, copy_path)
             except (IOError, shutil.Error) as e:
                 log.error(
-                    "Task #{0}: Unable to store file from '{1}' to '{2}', analysis aborted".format(
-                        self.task.id, self.task.target, copy_path
-                    )
+                    "Task #%s: Unable to store file from '%s' to '%s', analysis aborted", self.task.id, self.task.target, copy_path
                 )
                 return False
 

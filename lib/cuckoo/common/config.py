@@ -26,7 +26,7 @@ def parse_options(options):
 
 def emit_options(options):
     """Emit the analysis options from a dictionary to a string."""
-    return ",".join("%s=%s" % (k, v) for k, v in sorted(options.items()))
+    return ",".join(f"{k}={v}" for k, v in sorted(options.items()))
 
 
 class Config:
@@ -43,14 +43,12 @@ class Config:
             config.read(cfg)
         else:
             try:
-                config.read(os.path.join(CUCKOO_ROOT, "conf", "%s.conf" % file_name))
+                config.read(os.path.join(CUCKOO_ROOT, "conf", f"{file_name}.conf"))
             except UnicodeDecodeError as e:
                 print(
                     bold(
                         red(
-                            "please fix your config file: {}.conf - Pay attention for bytes c2 xa - {}\n\n{}".format(
-                                file_name, e.object, e.reason
-                            )
+                            f"please fix your config file: {file_name}.conf - Pay attention for bytes c2 xa - {e.object}\n\n{e.reason}"
                         )
                     )
                 )
@@ -87,7 +85,7 @@ class Config:
         try:
             return getattr(self, section)
         except AttributeError as e:
-            raise CuckooOperationalError("Option %s is not found in " "configuration, error: %s" % (section, e))
+            raise CuckooOperationalError(f"Option {section} is not found in configuration, error: {e}")
 
     def get_config(self):
         return self.fullconfig

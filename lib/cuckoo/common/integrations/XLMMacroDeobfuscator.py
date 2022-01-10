@@ -69,6 +69,6 @@ def xlmdeobfuscate(filepath: str, task_id: int, password: str = "", on_demand: b
                 return xlmmacro
         except Exception as e:
             if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
-                log.info("Workbook not found. Probably not an Excel file.")
+                log.info("Workbook not found. Probably not an Excel file")
             else:
                 log.error(e, exc_info=True)

@@ -227,41 +227,17 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         data = results_db.analysis.aggregate(aggregation_command)
     elif repconf.elasticsearchdb.enabled:
         q = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "exists": {
-                                "field": "detections"
-                            }
-                        }
-                    ]
-                }
-            },
+            "query": {"bool": {"must": [{"exists": {"field": "detections"}}]}},
             "size": 0,
-            "aggs": {
-                "family": {
-                    "terms": {
-                        "field": "detections.keyword",
-                        "size": results_limit
-                    }
-                }
-            }
+            "aggs": {"family": {"terms": {"field": "detections.keyword", "size": results_limit}}},
         }
 
         if date_since:
-            q["query"]["bool"]["must"].append({
-                "range": {
-                    "info.started": {
-                        "gte": date_since.isoformat()
-                    }
-                }
-            })
+            q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
             print(q)
         res = es.search(index=get_analysis_index(), body=q)
-        data = [{'total': r['doc_count'], 'family': r['key']} for r in
-                res['aggregations']['family']['buckets']]
+        data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
     else:
         data = False
 
@@ -283,14 +259,14 @@ def get_stats_per_category(date_since, date_to, category):
                     "$gte": date_since.isoformat(),
                     "$lt": date_to.isoformat(),
                 },
-                "statistics.{}".format(category): {"$exists": True},
+                f"statistics.{category}": {"$exists": True},
             }
         },
-        {"$unwind": "$statistics.{}".format(category)},
+        {"$unwind": f"$statistics.{category}"},
         {
             "$group": {
-                "_id": "$statistics.{}.name".format(category),
-                "total_time": {"$sum": "$statistics.{}.time".format(category)},
+                "_id": f"$statistics.{category}.name",
+                "total_time": {"$sum": f"$statistics.{category}.time"},
                 "total_run": {"$sum": 1},
             }
         },
@@ -326,26 +302,11 @@ def statistics(s_days: int) -> dict:
         q = {
             "query": {
                 "bool": {
-                    "must": [
-                        {
-                            "exists": {
-                                "field": "statistics"
-                            }
-                        },
-                        {
-                            "range": {
-                                "info.started": {
-                                    "gte": date_since.isoformat()
-                                }
-                            }
-                        }
-                    ]
+                    "must": [{"exists": {"field": "statistics"}}, {"range": {"info.started": {"gte": date_since.isoformat()}}}]
                 }
             }
         }
-        data = [d['_source'] for d in
-                es.search(index=get_analysis_index(), body=q,
-                          _source=['statistics'])['hits']['hits']]
+        data = [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=["statistics"])["hits"]["hits"]]
     else:
         data = None
 
@@ -401,11 +362,9 @@ def statistics(s_days: int) -> dict:
             if not times_in_mins:
                 continue
             details[module_name].setdefault(entry, {})
-            details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
+            details[module_name][entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
-            details[module_name][entry]["average"] = float(
-                "{:.2f}".format(round(times_in_mins / tmp_data[module_name][entry]["runs"], 2))
-            )
+            details[module_name][entry]["average"] = float(f"{round(times_in_mins / tmp_data[module_name][entry]['runs'], 2):.2f}")
         details[module_name] = OrderedDict(sorted(details[module_name].items(), key=lambda x: x[1]["total"], reverse=True))
 
     # custom average
@@ -413,8 +372,8 @@ def statistics(s_days: int) -> dict:
         times_in_mins = tmp_custom[entry]["time"] / 60
         if not times_in_mins:
             continue
-        tmp_custom[entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
-        tmp_custom[entry]["average"] = float("{:.2f}".format(round(times_in_mins / tmp_custom[entry]["runs"], 2)))
+        tmp_custom[entry]["total"] = float(f"{round(times_in_mins, 2):.2f}")
+        tmp_custom[entry]["average"] = float(f"{round(times_in_mins / tmp_custom[entry]['runs'], 2):.2f}")
 
     details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
 
@@ -427,7 +386,7 @@ def statistics(s_days: int) -> dict:
         session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.completed_on.between(date_since, date_till)).all()
     )
     details["total"] = len(tasks)
-    details["average"] = "{:.2f}".format(round(details["total"] / s_days, 2))
+    details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
     details["tasks"] = {}
     for task in tasks or []:
         day = task.completed_on.strftime("%Y-%m-%d")
@@ -668,7 +627,7 @@ def download_file(**kwargs):
             r = requests.get(kwargs["url"], params=kwargs.get("params", {}), headers=kwargs.get("headers", {}), verify=False)
         except requests.exceptions.RequestException as e:
             logging.error(e)
-            return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
+            return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
         if (
             r.status_code == 200
@@ -678,30 +637,28 @@ def download_file(**kwargs):
             kwargs["content"] = r.content
         elif r.status_code == 403:
             return "error", {
-                "error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(kwargs["service"])
+                "error": f"API key provided is not a valid {kwargs['service']} key or is not authorized for {kwargs['service']} downloads"
             }
 
         elif r.status_code == 404:
-            return "error", {"error": "Server returns 404 from {}".format(kwargs["service"])}
+            return "error", {"error": f"Server returns 404 from {kwargs['service']}"}
         else:
-            return "error", {"error": "Was impossible to download from {0}".format(kwargs["service"])}
+            return "error", {"error": f"Was impossible to download from {kwargs['service']}"}
 
     if not kwargs["content"]:
-        return "error", {"error": "Error downloading file from {}".format(kwargs["service"])}
+        return "error", {"error": f"Error downloading file from {kwargs['service']}"}
     try:
         if kwargs.get("fhash", False):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
-                return "error", {
-                    "error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(kwargs["fhash"], retrieved_hash)
-                }
+                return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
         if not os.path.exists(kwargs.get("path")):
             f = open(kwargs["path"], "wb")
             f.write(kwargs["content"])
             f.close()
     except Exception as e:
         print(e)
-        return "error", {"error": "Error writing {} storing/download file to temporary path".format(kwargs["service"])}
+        return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
     if route and route not in ("none", "None") and all_nodes_exits_list:
@@ -721,9 +678,9 @@ def download_file(**kwargs):
                     tmp_workers.append(node)
             if tmp_workers:
                 if kwargs["options"]:
-                    kwargs["options"] += ",node=" + choice(tmp_workers)
+                    kwargs["options"] += f",node={choice(tmp_workers)}"
                 else:
-                    kwargs["options"] = "node=" + choice(tmp_workers)
+                    kwargs["options"] = f"node={choice(tmp_workers)}"
 
         # Remove workers prefixes
         if route.startswith(("socks5:", "vpn:")):
@@ -748,7 +705,7 @@ def download_file(**kwargs):
     elif machine:
         machine_details = db.view_machine(machine)
         if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-            return "error", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}
+            return "error", {"error": f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
         else:
             kwargs["task_machines"] = [machine]
     else:
@@ -799,7 +756,7 @@ def download_file(**kwargs):
             kwargs["task_ids"].extend(task_ids_new)
 
     if not onesuccess:
-        return "error", {"error": "Provided hash not found on {}".format(kwargs["service"])}
+        return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
     return "ok", kwargs["task_ids"]
 
@@ -807,7 +764,7 @@ def download_file(**kwargs):
 def url_defang(url):
     url = url.replace("[.]", ".").replace("[.", ".").replace(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
     if not url.startswith("http"):
-        url = "http://" + url
+        url = f"http://{url}"
     return url
 
 
@@ -826,8 +783,8 @@ def _download_file(route, url, options):
 
         elif route in socks5s:
             proxies = {
-                "http": "socks5://{}:{}".format(socks5s[route]["host"], socks5s[route]["port"]),
-                "https": "socks5://{}:{}".format(socks5s[route]["host"], socks5s[route]["port"]),
+                "http": f"socks5://{socks5s[route]['host']}:{socks5s[route]['port']}",
+                "https": f"socks5://{socks5s[route]['host']}:{socks5s[route]['port']}",
             }
 
     # load headers
@@ -982,59 +939,31 @@ normalized_int_terms = (
 def perform_ttps_search(value):
     if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
         if repconf.mongodb.enabled:
-            return results_db.analysis.find(
-                {"ttps." + value.upper(): {"$exist": 1}},
-                {"info.id": 1, "_id": 0}).sort([["_id", -1]])
+            return results_db.analysis.find({f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
         elif repconf.elasticsearchdb.enabled:
-            q = {
-                "query": {
-                    "match": {
-                        "ttps.ttp": value.upper()
-                    }
-                }
-            }
-            return es.search(index=get_analysis_index(), body=q)['hits']['hits']
+            q = {"query": {"match": {"ttps.ttp": value.upper()}}}
+            return es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
 
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:
         return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
     elif repconf.elasticsearchdb.enabled:
-        q = {
-            "query": {
-                "range": {
-                    "malscore": {
-                        "gte": float(value)
-                    }
-                }
-            }
-        }
+        q = {"query": {"range": {"malscore": {"gte": float(value)}}}}
         _source_fields = list(perform_search_filters.keys())[:-1]
-        return es.search(
-            index=get_analysis_index(),
-            body=q, _source=_source_fields
-        )['hits']['hits']
+        return es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]
 
 
 def perform_search(term, value, search_limit=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
-        multi_match_search = {
-            "query": {
-                "multi_match": {
-                    "query": value,
-                    "fields": ["*"]
-                }
-            }
-        }
-        numhits = es.search(
-            index=get_analysis_index(),
-            body=multi_match_search, size=0
-        )["hits"]["total"]
+        multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
+        numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
         return [
-            d['_source'] for d in es.search(
-                index=get_analysis_index(), body=multi_match_search,
-                sort="task_id:desc", size=numhits
-            )["hits"]["hits"]]
+            d["_source"]
+            for d in es.search(index=get_analysis_index(), body=multi_match_search, sort="task_id:desc", size=numhits)["hits"][
+                "hits"
+            ]
+        ]
 
     query_val = False
     if term in normalized_lower_terms:
@@ -1075,7 +1004,7 @@ def perform_search(term, value, search_limit=False):
         search_limit = web_cfg.general.get("search_limit", 50)
 
     if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
+        search_term_map[term] = f"CAPE.payloads.{hash_len.get(len(value))}"
 
     elif term == "configs":
         # check if family name is string only maybe?
@@ -1095,24 +1024,12 @@ def perform_search(term, value, search_limit=False):
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):
-            q = {'query': {'match': {search_term_map[term]: value}}}
-            return [d['_source'] for d in es.search(
-                index=get_analysis_index(), body=q,_source=_source_fields
-            )["hits"]["hits"]]
+            q = {"query": {"match": {search_term_map[term]: value}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
         else:
-            queries = [{'match': {search_term: value}} for search_term in
-                       search_term_map[term]]
-            q = {
-                'query': {
-                    'bool': {
-                        'should': queries, "minimum_should_match": 1
-                    }
-                }
-            }
-            return [d['_source'] for d in es.search(
-                index=get_analysis_index(), body=q,
-                _source=_source_fields
-            )["hits"]["hits"]]
+            queries = [{"match": {search_term: value}} for search_term in search_term_map[term]]
+            q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
 
 
 def force_int(value):
@@ -1199,9 +1116,9 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             os.makedirs(folder)
         base_dir = tempfile.mkdtemp(prefix="vtdl", dir=folder)
         if opt_filename:
-            filename = base_dir + "/" + opt_filename
+            filename = f"{base_dir}/{opt_filename}"
         else:
-            filename = base_dir + "/" + sanitize_filename(h)
+            filename = f"{base_dir}/{sanitize_filename(h)}"
         paths = db.sample_path_by_hash(h)
 
         # clean old content
@@ -1217,7 +1134,7 @@ def download_from_vt(vtdl, details, opt_filename, settings):
         else:
             details["errors"].append({"error": "Apikey not configured, neither passed as opt_apikey"})
             return details
-        details["url"] = "https://www.virustotal.com/api/v3/files/{id}/download".format(id=h.lower())
+        details["url"] = f"https://www.virustotal.com/api/v3/files/{h.lower()}/download"
         details["fhash"] = h
         details["path"] = filename
         details["service"] = "VirusTotal"

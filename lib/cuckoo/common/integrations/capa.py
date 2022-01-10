@@ -128,7 +128,7 @@ def render_capabilities(doc, ostream):
         if count == 1:
             capability = rule["meta"]["name"]
         else:
-            capability = "%s (%d matches)" % (rule["meta"]["name"], count)
+            capability = f"{rule['meta']['name']} ({count} matches)"
 
         ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], []).append(capability)
 
@@ -158,9 +158,9 @@ def render_attack(doc, ostream):
         inner_rows = []
         for (technique, subtechnique, id) in sorted(techniques):
             if subtechnique is None:
-                inner_rows.append("%s %s" % (technique, id))
+                inner_rows.append(f"{technique} {id}")
             else:
-                inner_rows.append("%s::%s %s" % (technique, subtechnique, id))
+                inner_rows.append(f"{technique}::{subtechnique} {id}")
         ostream["ATTCK"].setdefault(tactic.upper(), inner_rows)
 
 
@@ -192,9 +192,9 @@ def render_mbc(doc, ostream):
         inner_rows = []
         for (behavior, method, id) in sorted(behaviors):
             if method is None:
-                inner_rows.append("%s [%s]" % (behavior, id))
+                inner_rows.append(f"{behavior} [{id}]")
             else:
-                inner_rows.append("%s::%s [%s]" % (behavior, method, id))
+                inner_rows.append(f"{behavior}::{method} [{id}]")
         ostream["MBC"].setdefault(objective.upper(), inner_rows)
 
 

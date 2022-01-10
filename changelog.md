@@ -1,3 +1,6 @@
+### [8-1-2022]
+* Feature: AMSI dumps (enabled by default for Win10+)
+
 ### [17-12-2021]
 * Monitor: x64 debugger updates & improvements
 * Al-khaser bypass

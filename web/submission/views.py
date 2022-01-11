@@ -338,7 +338,8 @@ def index(request, resubmit_hash=False):
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
-                tmp_path = store_temp_file(sample.read(), sample.name)
+                filename = sanitize_filename(sample.name)
+                tmp_path = store_temp_file(sample.read(), filename)
 
                 path = unquarantine(tmp_path)
                 try:

@@ -39,7 +39,7 @@ except ImportError:
 sys.path.append(os.path.join("..", ".."))
 
 import lib.cuckoo.core.database as db
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import AnalysisConfig
 
 
 def upgrade():
@@ -277,7 +277,7 @@ def upgrade():
 def mongo_upgrade():
     """Migrate mongodb schema and data."""
     # Read reporting.conf to fetch mongo configuration.
-    config = Config(cfg=os.path.join("..", "..", "conf", "reporting.conf"))
+    config = AnalysisConfig(os.path.join("..", "..", "conf", "reporting.conf"))
     # Run migration only if mongo is enabled as reporting module.
     if config.mongodb.enabled:
         host = config.mongodb.get("host", "127.0.0.1")

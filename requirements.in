@@ -39,7 +39,7 @@ cython==0.29.24
 pyre2==0.3.6
 https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip
 six>=1.12.0
-django==3.2.5
+django==3.2.11
 sqlalchemy==1.4.22
 sqlalchemy-utils==0.37.8
 jinja2

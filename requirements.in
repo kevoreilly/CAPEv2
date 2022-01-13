@@ -27,13 +27,13 @@ https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d4
 pyattck==4.1.1
 distorm3==3.5.2
 openpyxl==3.0.7
-volatility3==1.0.1
+volatility3==2.0.0
 XLMMacroDeobfuscator==0.2.3
 https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip
 pyzipper==0.3.5
 mwcp==3.2.1
 malwareconfig==1.0.4
-flare-capa==3.0.2
+flare-capa==3.1.0
 greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6

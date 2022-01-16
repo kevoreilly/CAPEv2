@@ -96,12 +96,11 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
         chunks_ids = []
         # Loop on each process call.
         for _, call in enumerate(process["calls"]):
-            # If the chunk size is 100 or if the loop is completed
-            # then store the chunk in DB.
+            # If the chunk size is 100 or if the loop is completed then store the chunk in DB.
             if len(chunk) == 100:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
                 if mongo_calls_db is not None:
-                    chunk_id = mongo_calls_db.insert(to_insert)
+                    chunk_id = mongo_calls_db.insert_one(to_insert)
                 elif elastic_db is not None:
                     chunk_id = elastic_db.index(
                         index=get_daily_calls_index(),
@@ -119,7 +118,7 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
         if chunk:
             if mongo_calls_db is not None:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
-                chunk_id = mongo_calls_db.insert(to_insert)
+                chunk_id = mongo_calls_db.insert_one(to_insert)
             elif elastic_db is not None:
                 chunk_id = elastic_db.index(
                     index=get_daily_calls_index(),

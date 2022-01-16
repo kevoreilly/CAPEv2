@@ -436,7 +436,7 @@ class Retriever(threading.Thread):
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
 
-                if hasattr(os, "statvfs"):
+                if hasattr(os, "statvfs") and os.path.exists(dir_path):
                     dir_stats = os.statvfs(dir_path)
 
                     # Calculate the free disk space in megabytes.

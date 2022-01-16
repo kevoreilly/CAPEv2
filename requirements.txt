@@ -881,6 +881,7 @@ pefile==2021.9.3 \
     #   flare-capa
     #   malwareconfig
     #   mwcp
+    #   sflock2
     #   viv-utils
     #   volatility3
 pendulum==1.2.5 \
@@ -1480,8 +1481,8 @@ ruamel.yaml==0.17.20 \
     # via
     #   flare-capa
     #   mwcp
-sflock2==0.3.27 \
-    --hash=sha256:a3256b5467702912e9f0f66858339ac79f84e6852cbe135f185903d138330e45
+sflock2==0.3.31 \
+    --hash=sha256:4bd38986b07f2c388f6b40a42e3b04db1436fa4bdf19cad7fccba6bc0ec131f2
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \

@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import sys
 from datetime import datetime
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
@@ -148,7 +149,10 @@ class Task(Base):
 
 def create_session(db_connectionn, echo=False):
     # ToDo add chema version check
-    engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
-    Base.metadata.create_all(engine)
-    session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
-    return session
+    try:
+        engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
+        Base.metadata.create_all(engine)
+        session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
+        return session
+    except sqlalchemy.exc.OperationalError as e:
+        sys.exit(e)

@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, St
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
-
+from sqlalchemy.exc import OperationalError
 Base = declarative_base()
 
 schema = "b0fa23c3c9c0"
@@ -154,5 +154,5 @@ def create_session(db_connectionn, echo=False):
         Base.metadata.create_all(engine)
         session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
         return session
-    except sqlalchemy.exc.OperationalError as e:
+    except OperationalError as e:
         sys.exit(e)

@@ -420,7 +420,7 @@ Where 192.168.1.(2,3,4,5) is our CAPE workers::
     db.analysis.createIndex ( {"createdAt": 1 }, {expireAfterSeconds:60*60*24*5} )
     db.calls.createIndex ( {"createdAt": 1}, {expireAfterSeconds:60*60*24*5} )
 
-    mongo --port 27020
+    mongosh --port 27020
     sh.enableSharding("cuckoo")
     sh.shardCollection("cuckoo.analysis", { "_id": "hashed" })
     sh.shardCollection("cuckoo.calls", { "_id": "hashed" })
@@ -429,7 +429,7 @@ Where 192.168.1.(2,3,4,5) is our CAPE workers::
 To see stats on master::
 
     mongos using
-    mongo --host 127.0.0.1 --port 27020
+    mongosh --host 127.0.0.1 --port 27020
     sh.status()
 
 Modify cape reporting.conf [mongodb] to point all mongos in reporting.conf to
@@ -462,17 +462,17 @@ See any of these files on your system::
 Administration and some useful commands::
 
     https://docs.mongodb.com/manual/reference/command/nav-sharding/
-    $ mongo --host 127.0.0.1 --port 27020
+    $ mongosh --host 127.0.0.1 --port 27020
     $ use admin
     $ db.adminCommand( { listShards: 1 } )
 
-    $ mongo --host 127.0.0.1 --port 27019
+    $ mongosh --host 127.0.0.1 --port 27019
     $ db.adminCommand( { movePrimary: "cuckoo", to: "shard0000" } )
     $ db.adminCommand( { removeShard : "shard0002" } )
 
     $ # required for post movePrimary
     $ db.adminCommand("flushRouterConfig")
-    $ mongo --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
+    $ mongosh --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
 
     $ use cuckoo
     $ db.analysis.find({"shard" : "shard0002"},{"shard":1,"jumbo":1}).pretty()

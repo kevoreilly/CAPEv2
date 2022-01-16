@@ -4,10 +4,11 @@ from datetime import datetime
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
-from sqlalchemy.exc import OperationalError
+
 Base = declarative_base()
 
 schema = "b0fa23c3c9c0"

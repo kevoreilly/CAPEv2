@@ -1959,6 +1959,7 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
+    delete_mongo = request.POST.get("delete_mongo", True)
     for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)
@@ -1968,11 +1969,12 @@ def tasks_delete_many(request):
                 continue
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
-            task = results_db.analysis.find_one({"info.id": task_id})
-            if task is not None:
-                for processes in task.get("behavior", {}).get("processes", []):
-                    [results_db.calls.remove(call) for call in processes.get("calls", [])]
-                results_db.analysis.remove({"info.id": task_id})
+            if delete_mongo:
+                task = results_db.analysis.find_one({"info.id": task_id})
+                if task is not None:
+                    for processes in task.get("behavior", {}).get("processes", []):
+                        [results_db.calls.remove(call) for call in processes.get("calls", [])]
+                    results_db.analysis.remove({"info.id": task_id})
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

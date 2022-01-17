@@ -99,9 +99,9 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
             # If the chunk size is 100 or if the loop is completed then store the chunk in DB.
             if len(chunk) == 100:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
-                if mongo_calls_db:
+                if mongo_calls_db is not None:
                     chunk_id = mongo_calls_db.insert_one(to_insert).inserted_id
-                elif elastic_db:
+                elif elastic_db is not None:
                     chunk_id = elastic_db.index(
                         index=get_daily_calls_index(),
                         body={"pid": process["process_id"], "calls": chunk}
@@ -116,10 +116,10 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
             chunk.append(call)
         # Store leftovers.
         if chunk:
-            if mongo_calls_db:
+            if mongo_calls_db is not None:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
                 chunk_id = mongo_calls_db.insert_one(to_insert).inserted_id
-            elif elastic_db:
+            elif elastic_db is not None:
                 chunk_id = elastic_db.index(
                     index=get_daily_calls_index(),
                     body={"pid": process["process_id"], "calls": chunk}

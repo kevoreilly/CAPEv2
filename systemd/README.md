@@ -5,7 +5,7 @@ These files help run all the various parts of CAPE as systemd services, so that 
 - `cape-rooter.service` - Runs `rooter.py`
 - `cape-processor.service` - Runs `process.py`
 - `cape.service` - Runs `cuckoo.py`
-- `cape-web.service` - Runs the Cuckoo web interface as a WSGI application using Gunicorn bound to `127.0.0.1:8000`
+- `cape-web.service` - Runs the Cuckoo web interface as a WSGI application using UWSGI/Gunicorn bound to `127.0.0.1:8000`
 
 ## Setup
 0. You need to edit the default values in systemd to not get `too many open files`

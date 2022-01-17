@@ -1,0 +1,15 @@
+[Unit]
+Description=CAPE distributed
+Documentation=https://github.com/kevoreilly/CAPEv2
+
+[Service]
+WorkingDirectory=/opt/CAPEv2/utils/
+ExecStart=/usr/bin/python3 dist.py -ef
+User=cape
+Group=cape
+Restart=always
+RestartSec=5m
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

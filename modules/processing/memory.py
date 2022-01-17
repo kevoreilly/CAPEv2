@@ -133,13 +133,13 @@ class VolatilityAPI(object):
         plugin = self.plugin_list.get(plugin_class)
         try:
             automagics = automagic.choose_automagic(self.automagics, plugin)
+            constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
+            runned_plugin = constructed.run()
+            json_data, error = ReturnJsonRenderer().render(runned_plugin)
+            return json_data  # , error
         except AttributeError:
             log.error("Failing %s on %s", plugin_class, self.memdump)
             return {}
-        constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
-        runned_plugin = constructed.run()
-        json_data, error = ReturnJsonRenderer().render(runned_plugin)
-        return json_data  # , error
 
 
 """ keeping at the moment to see if we want to integrate more

@@ -339,7 +339,7 @@ class TestAnalysisManager:
             "evtx": False,
             "timeout": 10,
             "file_name": "test_scheduler.py",
-            "curtain": False,
+            "curtain": True,
             "procmon": False,
             "sysmon": False,
             "id": 1234,

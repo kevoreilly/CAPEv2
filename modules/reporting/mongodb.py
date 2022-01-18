@@ -167,9 +167,8 @@ class MongoDB(Report):
             log.debug("Deleting analysis data for Task %s", report["info"]["id"])
             for analysis in analyses:
                 for process in analysis["behavior"].get("processes", []) or []:
-                    for call in process["calls"]:
-                        self.db.calls.remove({"_id": ObjectId(call)})
-                self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                    self.db.calls.delete_many({"_id": {"$in": process["calls"]}})
+                self.db.analysis.delete_one({"_id": analysis["_id"]}).deleted_count
             log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         ensure_valid_utf8(report)

@@ -1913,10 +1913,10 @@ def remove(request, task_id):
             for analysis in analyses:
                 # Delete calls.
                 for process in analysis.get("behavior", {}).get("processes", []):
-                    for call in process["calls"]:
-                        results_db.calls.remove({"_id": ObjectId(call)})
+                    if process["calls"]:
+                        results_db.callsdelete_many({"_id": {"$in": process["calls"]}})
                 # Delete analysis data.
-                results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                results_db.analysis.delete_one({"_id": analysis["_id"]})
             analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
             if os.path.exists(analyses_path):
                 shutil.rmtree(analyses_path)

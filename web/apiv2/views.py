@@ -1972,9 +1972,10 @@ def tasks_delete_many(request):
             if delete_mongo:
                 task = results_db.analysis.find_one({"info.id": task_id})
                 if task is not None:
-                    for processes in task.get("behavior", {}).get("processes", []):
-                        [results_db.calls.remove(call) for call in processes.get("calls", [])]
-                    results_db.analysis.remove({"info.id": task_id})
+                    for process in task.get("behavior", {}).get("processes", []):
+                        if process.get("calls"):
+                            results_db.calls.delete_many({"_id": {"$in": process["calls"]}})
+                    results_db.analysis.delete_one({"info.id": task_id})
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

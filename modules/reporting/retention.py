@@ -11,8 +11,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Lock
 
-from bson.objectid import ObjectId
-
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -47,9 +45,9 @@ def delete_mongo_data(curtask, tid):
     if analyses.count() > 0:
         for analysis in analyses:
             for process in analysis.get("behavior", {}).get("processes", []):
-                for call in process["calls"]:
-                    results_db.calls.remove({"_id": ObjectId(call)})
-            results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                if process["calls"]:
+                    results_db.calls.delete_many({"_id": {"$in": process["calls"]}})
+            results_db.analysis.delete_one({"_id": analysis["_id"]})
         log.debug("Task #%s deleting MongoDB data for Task #%s", curtask, tid)
 
 

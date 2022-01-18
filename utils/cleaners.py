@@ -16,6 +16,7 @@ sys.path.append(CUCKOO_ROOT)
 
 from bson.objectid import ObjectId
 
+from dev_utils.mongodb import delete_mongo_data
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
@@ -150,20 +151,6 @@ def delete_data(tid):
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
         log.info("failed to remove faile task %s from DB" % (tid))
-
-
-def delete_mongo_data(tid):
-    try:
-        results_db = connect_to_mongo()[mdb]
-        analyses = results_db.analysis.find({"info.id": int(tid)}, {"behavior.processes": 1, "_id": 1})
-        for analysis in analyses or []:
-            log.info("deleting MongoDB data for Task #{0}".format(tid))
-            for process in analysis.get("behavior", {}).get("processes", []):
-                if process["calls"]:
-                    results_db.analysis.delete_many({"_id": {"$in": process["calls"]}})
-            results_db.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
-    except Exception as e:
-        log.info(e)
 
 
 def dist_delete_data(data, dist_db):

@@ -349,11 +349,13 @@ class AnalysisManager(threading.Thread):
             succeeded = True
         except (CuckooMachineError, CuckooNetworkError) as e:
             if not unlocked:
+                machinery.release(self.machine.label)
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
+                machinery.release(self.machine.label)
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:

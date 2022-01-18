@@ -37,6 +37,7 @@ if repconf.mongodb.enabled:
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 
+
 def connect_to_mongo():
     conn = False
     # Check if MongoDB reporting is enabled and drop that if it is.
@@ -59,9 +60,11 @@ def connect_to_mongo():
 
 def connect_to_es():
     from dev_utils.elasticsearchdb import elastic_handler
+
     es = elastic_handler
 
     return es
+
 
 def is_reporting_db_connected():
     try:
@@ -142,7 +145,7 @@ def delete_data(tid):
         elif repconf.elasticsearchdb.enabled:
             delete_analysis_and_related_calls(tid)
     except Exception as e:
-        log.info("failed to remove analysis info (may not exist) %s due to %s" % (tid, e))
+        log.error("failed to remove analysis info (may not exist) %s due to %s" % (tid, e), exc_info=True)
     if db.delete_task(tid):
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
@@ -153,19 +156,12 @@ def delete_mongo_data(tid):
     try:
         results_db = connect_to_mongo()[mdb]
         analyses = results_db.analysis.find({"info.id": int(tid)}, {"behavior.processes": 1, "_id": 1})
-        if analyses.count() > 0:
-            for analysis in analyses:
-                calls = []
-                log.info("deleting MongoDB data for Task #{0}".format(tid))
-                for process in analysis.get("behavior", {}).get("processes", []):
-                    calls = []
-                    for call in process["calls"]:
-                        # results_db.calls.delete_one({"_id": ObjectId(call)})
-                        calls.append(ObjectId(call))
-
-                if calls:
-                    results_db.analysis.delete_many({"_id": {"$in": calls}})
-                results_db.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
+        for analysis in analyses or []:
+            log.info("deleting MongoDB data for Task #{0}".format(tid))
+            for process in analysis.get("behavior", {}).get("processes", []):
+                if process["calls"]:
+                    results_db.analysis.delete_many({"_id": {"$in": process["calls"]}})
+            results_db.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
     except Exception as e:
         log.info(e)
 
@@ -213,15 +209,10 @@ def cuckoo_clean():
             log.warning("Unable to drop MongoDB database: %s", mdb)
 
     elif repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-        analyses = all_docs(
-            index=get_analysis_index(), query={"query": {"match_all": {}}},
-            _source=['info.id']
-        )
+        analyses = all_docs(index=get_analysis_index(), query={"query": {"match_all": {}}}, _source=["info.id"])
         if analyses:
             for analysis in analyses:
-                delete_analysis_and_related_calls(
-                    analysis["_source"]["info"]["id"]
-                )
+                delete_analysis_and_related_calls(analysis["_source"]["info"]["id"])
 
     # Paths to clean.
     paths = [
@@ -324,24 +315,14 @@ def cuckoo_clean_failed_url_tasks():
             {"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]
         ).limit(100)
     elif repconf.elasticsearchdb.enabled:
-        rtmp = [d['_source'] for d in all_docs(index=get_analysis_index(), query={
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "exists": {
-                                "field": "network.http"
-                            }
-                        },
-                        {
-                            "match": {
-                                "info.category": "url"
-                            }
-                        }
-                    ]
-                }
-            }
-        }, _source=["info.id"])]
+        rtmp = [
+            d["_source"]
+            for d in all_docs(
+                index=get_analysis_index(),
+                query={"query": {"bool": {"must": [{"exists": {"field": "network.http"}}, {"match": {"info.category": "url"}}]}}},
+                _source=["info.id"],
+            )
+        ]
     else:
         rtmp = []
 
@@ -372,16 +353,12 @@ def cuckoo_clean_lower_score(args):
         result = list(results_db.analysis.find({"malscore": {"$lte": args.malscore}}))
         id_arr = [entry["info"]["id"] for entry in result]
     elif repconf.elasticsearchdb.enabled:
-        id_arr = [d["_source"]["info"]["id"] for d in all_docs(
-            index=get_analysis_index(), query={
-                "query": {
-                    "range": {
-                      "malscore": {
-                        "lte": args.malscore
-                      }
-                    }
-                }
-            }, _source=["info.id"])]
+        id_arr = [
+            d["_source"]["info"]["id"]
+            for d in all_docs(
+                index=get_analysis_index(), query={"query": {"range": {"malscore": {"lte": args.malscore}}}}, _source=["info.id"]
+            )
+        ]
     log.info(("number of matching records %s" % len(id_arr)))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
@@ -496,18 +473,18 @@ def cuckoo_clean_sorted_pcap_dump():
 
     while not done:
         if repconf.mongodb and repconf.mongodb.enabled:
-            rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}}, {"info.id": 1}, sort=[("_id", -1)]).limit(
-                100
-            )
+            rtmp = results_db.analysis.find(
+                {"network.sorted_pcap_id": {"$exists": True}}, {"info.id": 1}, sort=[("_id", -1)]
+            ).limit(100)
         elif repconf.elasticsearchdb.enabled:
-            rtmp = [d['_source'] for d in
-                    all_docs(index=get_analysis_index(), query={
-                        "query": {
-                            "exists": {
-                                "field": "network.sorted_pcap_id"
-                            }
-                        }
-                    }, _source=['info.id'])]
+            rtmp = [
+                d["_source"]
+                for d in all_docs(
+                    index=get_analysis_index(),
+                    query={"query": {"exists": {"field": "network.sorted_pcap_id"}}},
+                    _source=["info.id"],
+                )
+            ]
         else:
             rtmp = 0
 
@@ -518,13 +495,10 @@ def cuckoo_clean_sorted_pcap_dump():
                     try:
                         if repconf.mongodb and repconf.mongodb.enabled:
                             results_db.analysis.update(
-                                {"info.id": int(e["info"]["id"])},
-                                {"$unset": {"network.sorted_pcap_id": ""}})
-                        elif repconf.elasticsearchdb.enabled:
-                            es.update(
-                                index=e["index"], id=e["info"]["id"],
-                                body={"network.sorted_pcap_id": ""}
+                                {"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}}
                             )
+                        elif repconf.elasticsearchdb.enabled:
+                            es.update(index=e["index"], id=e["info"]["id"], body={"network.sorted_pcap_id": ""})
                     except Exception:
                         log.info(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
                     try:

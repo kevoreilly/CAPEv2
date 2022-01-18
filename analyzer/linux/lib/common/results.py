@@ -8,7 +8,7 @@ import os
 import socket
 import time
 
-from lib.core.config import Config
+from lib.core.config import AnalysisConfig
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def upload_to_host(file_path, dump_path, pids=[], metadata="", category=""):
 
 class NetlogConnection(object):
     def __init__(self, proto=""):
-        config = Config(cfg="analysis.conf")
+        config = AnalysisConfig()
         self.hostip, self.hostport = config.ip, config.port
         self.sock = None
         self.proto = proto

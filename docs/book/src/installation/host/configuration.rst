@@ -15,6 +15,10 @@ CAPE relies on six main configuration files:
 To get CAPE working you have to edit :ref:`auxiliary_conf`:, :ref:`cuckoo_conf` and :ref:`machinery_conf` at least.
 We suggest you to check all configs before starting, to be familiar with possibilities that you have and what you want to be done.
 
+Alternatively, you may create a `custom/conf/` directory and put files in there
+whose names are the same as those in the top-level `conf/` directory. These
+files only need to include settings that will override the defaults.
+
 .. _cuckoo_conf:
 
 cuckoo.conf
@@ -155,3 +159,17 @@ Please see latest version here:
 
 By setting those option to *on* or *off* you enable or disable the generation
 of such reports.
+
+Using environment variables in config files
+===========================================
+
+Any of the above config files may reference environment variables in their
+values by using ``%(ENV:VARIABLE_NAME)s``. For example, instead of putting a
+VirusTotal Intelligence API key in :ref:`auxiliary_conf`, you could use the
+following::
+
+    [virustotaldl]
+    enabled = yes
+    dlintelkey = %(ENV:DLINTELKEY)s
+
+assuming the ``DLINTELKEY`` environment variable contains the API key.

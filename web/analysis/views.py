@@ -1278,7 +1278,7 @@ def report(request, task_id):
     except Exception as e:
         print(e)
 
-    report["procdump_size"] = 0
+    report["procdump"] = 0
     try:
         tmp_data = list(
             mongo_aggregate(

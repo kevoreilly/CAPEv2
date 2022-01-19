@@ -49,8 +49,18 @@ def mongo_insert_one(collection, query):
     return getattr(results_db, collection).insert_one(query)
 
 
-def mongo_find(collection, query, projection):
-    return getattr(results_db, collection).find(query, projection)
+def mongo_find(collection, query, projection=False, sort=[("_id", -1)]):
+    if projection:
+        return getattr(results_db, collection).find(query, sort=sort)
+    else:
+        return getattr(results_db, collection).find(query, projection, sort=sort)
+
+
+def mongo_find_one(collection, query, projection=False, sort=[("_id", -1)]):
+    if projection:
+        return getattr(results_db, collection).find_one(query, projection, sort=sort)
+    else:
+        return getattr(results_db, collection).find_one(query, sort=sort)
 
 
 def mongo_delete_one(collection, query):
@@ -59,10 +69,6 @@ def mongo_delete_one(collection, query):
 
 def mongo_delete_many(collection, query):
     return getattr(results_db, collection).delete_many(query)
-
-
-def mongo_find_one(collection, query, projection):
-    return getattr(results_db, collection).find_one(query, projection)
 
 
 def mongo_update(collection, query, projection):

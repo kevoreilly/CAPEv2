@@ -54,6 +54,7 @@ rule Emotet
         $snippetH = {FF 74 [2] 8D 84 [5] 68 [4] 50 FF 74 [2] 8B 54 [2] 8B 4C [2] E8 [4] 8B 94 [5] 83 C4 10 89 84 [5] 8B F8 03 84}
         $snippetI = {FF 74 [2] 8D 8C [5] FF 74 [2] 8B 54 [2] E8 [4] 8B 54 [2] 8B D8 8B 84 [5] 83 C4 0C 03 C3 89 5C [2] 8B FB 89 44 24 74}
         $snippetJ = {FF 74 [2] 8B 4C [2] 8D 44 [2] 50 BA [4] E8 [4] 8B 54 [2] 8B F8 59 89 44 [2] 03 44 [2] 59 89 44 [2] B9 [4] E9}
+        $snippetK = {FF 74 [2] FF 74 [2] 8B 54 [2] E8 [4] 8B 54 [2] 83 C4 0C 89 44 [2] 8B F8 03 44 [2] B9 [4] 89 44 [2] E9}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -65,6 +66,7 @@ rule Emotet
         $ref_ecc5 = {FF B4 [3] 00 00 8D 84 [3] 00 00 68 [4] 50 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 4C [2] E8 [4] FF B4 [3] 00 00 89 84 [3] 00 00 8D 84}
         $ref_ecc6 = {FF B4 [3] 00 00 8D 8C [3] 00 00 FF B4 [3] 00 00 8B 54 [2] E8 [4] 83 C4 0C 89 84 [5] 8D 8C [5] 68 [4] FF B4 [5] FF 74 [2] 8B 94 24 [4] E8}
         $ref_ecc7 = {FF B4 [3] 00 00 8B 8C [3] 00 00 8D 84 [3] 00 00 50 BA [4] E8 [4] FF B4 [3] 00 00 8B 8C [3] 00 00 BA [4] 89 84 [3] 00 00 8D 84 [3] 00 00 50 E8}
+        $ref_ecc8 = {FF B4 [3] 00 00 FF B4 [3] 00 00 8B 94 [3] 00 00 E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 B9 [4] 50 FF B4 [3]00 00 FF B4 [3]00 00 8B 94 [3]00 00 E8}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -383,6 +385,9 @@ def config(filebuf):
     elif yara_matches.get("$snippetJ"):
         delta = 14
         c2list_va_offset = int(yara_matches["$snippetJ"])
+    elif yara_matches.get("$snippetK"):
+        delta = -5
+        c2list_va_offset = int(yara_matches["$snippetK"])
 
     if c2list_va_offset and delta:
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -397,6 +402,9 @@ def config(filebuf):
         if not presize:
             return
         size = struct.unpack("I", presize)[0] ^ struct.unpack("I", key)[0]
+        if size > 500:
+            log.info("Anomalous C2 list size 0x%x", size)
+            return
         c2_list_offset += 8
         c2_list = xor_data(filebuf[c2_list_offset:], key)
         offset = 0
@@ -489,6 +497,10 @@ def config(filebuf):
                 ref_ecc_offset = int(yara_matches["$ref_ecc7"])
                 delta1 = 23
                 delta2 = 47
+            elif yara_matches.get("$ref_ecc8"):
+                ref_ecc_offset = int(yara_matches["$ref_ecc8"])
+                delta1 = -5
+                delta2 = 44
             if ref_ecc_offset:
                 ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
                 ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base

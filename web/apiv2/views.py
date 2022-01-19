@@ -22,7 +22,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
-from dev_utils.mongodb import delete_mongo_data
+from dev_utils.mongodb import mongo_delete_data
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -903,7 +903,7 @@ def tasks_delete(request, task_id, status=False):
 
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-            delete_mongo_data(task)
+            mongo_delete_data(task)
 
             s_deleted.append(task)
         else:
@@ -1960,7 +1960,7 @@ def tasks_delete_many(request):
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             if delete_mongo:
-                delete_mongo_data(task_id)
+                mongo_delete_data(task_id)
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

@@ -90,7 +90,7 @@ def mongo_drop_database(database):
     results_db.drop_database(database)
 
 
-def delete_mongo_data(task_ids):
+def mongo_delete_data(task_ids):
     try:
         if isinstance(task_ids, int):
             task_ids = [task_ids]

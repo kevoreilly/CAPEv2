@@ -34,7 +34,7 @@ resolver_pool = ThreadPool(50)
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
-    from dev_utils.mongodb import (connect_to_mongo, delete_mongo_data, mdb, mongo_delete_many, mongo_drop_database, mongo_find,
+    from dev_utils.mongodb import (connect_to_mongo, mongo_delete_data, mdb, mongo_delete_many, mongo_drop_database, mongo_find,
                                    mongo_update)
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
@@ -69,7 +69,7 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
         if delete_mongo:
-            delete_mongo_data(ids_tmp)
+            mongo_delete_data(ids_tmp)
 
             for id in ids_tmp:
                 if db.delete_task(id):
@@ -101,7 +101,7 @@ def delete_data(tid):
     try:
         log.info("removing %s from analysis db" % (tid))
         if repconf.mongodb.enabled:
-            delete_mongo_data(tid)
+            mongo_delete_data(tid)
         elif repconf.elasticsearchdb.enabled:
             delete_analysis_and_related_calls(tid)
     except Exception as e:

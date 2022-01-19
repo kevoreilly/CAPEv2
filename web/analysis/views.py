@@ -125,7 +125,7 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import delete_mongo_data, mongo_aggregate, mongo_find, mongo_find_one, mongo_update
+    from dev_utils.mongodb import mongo_delete_data, mongo_aggregate, mongo_find, mongo_find_one, mongo_update
 
 es_as_db = False
 essearch = False
@@ -1881,7 +1881,7 @@ def remove(request, task_id):
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
-        delete_mongo_data(int(task_id))
+        mongo_delete_data(int(task_id))
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         if os.path.exists(analyses_path):
             delete_folder(analyses_path)

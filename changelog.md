@@ -1,5 +1,6 @@
 ### [19-1-2022]
 * Monitor: PE dumping more tolerant of inaccessible sections (e.g. recent Emotet)
+* Updates for latest Emotet Epoch 4
 
 ### [8-1-2022]
 * Feature: AMSI dumps (enabled by default for Win10+)

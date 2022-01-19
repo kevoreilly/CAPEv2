@@ -97,13 +97,11 @@ class MongoDB(Report):
         if not HAVE_MONGO:
             raise CuckooDependencyError("Unable to import pymongo (install with `pip3 install pymongo`)")
 
-        self.connect()
-
         # move to startup
         # Set mongo schema version.
         # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
         if "cuckoo_schema" in mongo_collection_names():
-            if mongo_find_one("cuckoo_schema", {})["version"] != self.SCHEMA_VERSION:
+            if mongo_find_one("cuckoo_schema", {}, {"version":1})["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
             mongo_insert_one("cuckoo_schema", {"version": self.SCHEMA_VERSION})
@@ -116,7 +114,7 @@ class MongoDB(Report):
         if "network" not in report:
             report["network"] = {}
 
-        new_processes = insert_calls(report, mongo=True)
+        new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
@@ -190,5 +188,3 @@ class MongoDB(Report):
                     except Exception as e:
                         log.error("Failed to delete child key: %s", e)
                         error_saved = False
-
-        self.conn.close()

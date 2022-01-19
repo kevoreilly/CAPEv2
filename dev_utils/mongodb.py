@@ -105,6 +105,6 @@ def mongo_delete_data(task_ids):
             analyses_tmp.append(task["_id"])
 
         if analyses_tmp:
-            mongo_delete_many({"_id": {"$in": analyses_tmp}})
+            mongo_delete_many("analysis", {"_id": {"$in": analyses_tmp}})
     except Exception as e:
         log.error(e, exc_info=True)

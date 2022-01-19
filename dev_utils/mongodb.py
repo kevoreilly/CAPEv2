@@ -73,8 +73,8 @@ def mongo_update_one(collection, query, projection, bypass_document_validation=F
     return getattr(results_db, collection).update_one(query, projection, bypass_document_validation=bypass_document_validation)
 
 
-def mongo_aggregate(collection, query, projection):
-    return getattr(results_db, collection).aggregate(query, projection)
+def mongo_aggregate(collection, query):
+    return getattr(results_db, collection).aggregate(query)
 
 
 def mongo_collection_names():

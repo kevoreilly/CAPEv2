@@ -22,7 +22,7 @@ from lib.cuckoo.common.config import Config
 log = logging.getLogger()
 # ToDo store list of exclude files if conf enable to store them
 proc_cfg = Config("processing")
-skip_number = proc_cfg["antiransomware"]["skip_number"]
+skip_number = proc_cfg.antiransomware.skip_number
 do_not_skip = (
     "txt",
     "dll",

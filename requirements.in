@@ -1,5 +1,5 @@
 flor==1.1.3
-Pebble==4.6.1
+Pebble==4.6.3
 pymisp==2.4.144
 cryptography==3.3.2
 requests[security,socks]==2.26.0
@@ -24,8 +24,7 @@ maec==4.1.0.17
 regex==2021.7.6
 SFlock2==0.3.31
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
-pyattck==4.1.1
-distorm3==3.5.2
+pyattck==5.2.0
 #distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==2.0.0
@@ -71,7 +70,7 @@ python-tlsh==4.5.0
 djangorestframework==3.12.4
 yara-python>=4.1.0
 netstruct==1.1.2
-pymongo>=3.12.0
+pymongo>=4.0.1
 django-ratelimit==3.0.1
 psutil==5.8.0
 https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip

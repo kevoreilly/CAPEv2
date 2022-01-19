@@ -84,16 +84,7 @@ web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
 
 if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.db]
-
+    from dev_utils.mongodb import mongo_find, mongo_find_one
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
 
@@ -2281,7 +2272,8 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     if repconf.mongodb.enabled:
-                        tasks = results_db.analysis.find(
+                        tasks = mongo_find(
+                            "analysis",
                             {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
                             {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                         )
@@ -2318,7 +2310,8 @@ class Database(object, metaclass=Singleton):
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
                         if repconf.mongodb.enabled:
-                            tasks = results_db.analysis.find(
+                            tasks = mongo_find(
+                                "analysis",
                                 {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
                                 {category: 1, "_id": 0, "info.id": 1},
                             )
@@ -2368,8 +2361,8 @@ class Database(object, metaclass=Singleton):
                 if sample is None:
                     # search in Suricata files folder
                     if repconf.mongodb.enabled:
-                        tasks = results_db.analysis.find(
-                            {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
+                        tasks = mongo_find(
+                            "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
                         )
                     elif repconf.elasticsearchdb.enabled:
                         tasks = [

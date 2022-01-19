@@ -11,6 +11,9 @@ from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 
+if repconf.mongodb.enabled:
+    from dev_utils.mongodb import mongo_find_one
+
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
 
@@ -53,14 +56,14 @@ def combine_behavior_percentages(stats):
     return percentages
 
 
-def helper_percentages_mongo(results_db, tid1, tid2, ignore_categories=["misc"]):
+def helper_percentages_mongo(tid1, tid2, ignore_categories=["misc"]):
     counts = {}
 
     for tid in [tid1, tid2]:
         counts[tid] = {}
 
-        pids_calls = results_db.analysis.find_one(
-            {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
+        pids_calls = mongo_find_one(
+            "analysis", {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
         )
 
         if not pids_calls:
@@ -71,7 +74,7 @@ def helper_percentages_mongo(results_db, tid1, tid2, ignore_categories=["misc"])
             counts[tid][pid] = {}
 
             for coid in pdoc["calls"]:
-                chunk = results_db.calls.find_one({"_id": coid}, {"calls.category": 1})
+                chunk = mongo_find_one("calls", {"_id": coid}, {"calls.category": 1})
                 category_counts = behavior_categories_percent(chunk["calls"])
                 for cat, count in category_counts.items():
                     if cat in ignore_categories:
@@ -81,11 +84,11 @@ def helper_percentages_mongo(results_db, tid1, tid2, ignore_categories=["misc"])
     return combine_behavior_percentages(counts)
 
 
-def helper_summary_mongo(results_db, tid1, tid2):
+def helper_summary_mongo(tid1, tid2):
     summaries = {}
     left_sum, right_sum = None, None
-    left_sum = results_db.analysis.find_one({"info.id": int(tid1)}, {"behavior.summary": 1})
-    right_sum = results_db.analysis.find_one({"info.id": int(tid2)}, {"behavior.summary": 1})
+    left_sum = mongo_find_one("analysis", {"info.id": int(tid1)}, {"behavior.summary": 1})
+    right_sum = mongo_find_one("analysis", {"info.id": int(tid2)}, {"behavior.summary": 1})
     if left_sum and right_sum:
         summaries = get_similar_summary(left_sum, right_sum)
 

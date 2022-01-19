@@ -50,19 +50,6 @@ disable_warnings()
 logger = logging.getLogger(__name__)
 
 
-if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE,
-    )[settings.MONGO_DB]
-    FULL_DB = True
-
-
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
 

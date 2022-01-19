@@ -56,15 +56,7 @@ if repconf.distributed.enabled:
 
 
 if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.get("db", "cuckoo")]
+    from dev_utils.mongodb import mongo_aggregate, mongo_find
 
 es_as_db = False
 essearch = False
@@ -224,7 +216,7 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
     if repconf.mongodb.enabled:
-        data = results_db.analysis.aggregate(aggregation_command)
+        data = mongo_aggregate("analysis", aggregation_command)
     elif repconf.elasticsearchdb.enabled:
         q = {
             "query": {"bool": {"must": [{"exists": {"field": "detections"}}]}},
@@ -275,7 +267,7 @@ def get_stats_per_category(date_since, date_to, category):
         {"day": {"$dayOfMonth": "$info.started"}},
         {"$sort": {"total_time": -1}},
     ]
-    data = results_db.analysis.aggregate(aggregation_command)
+    data = mongo_aggregate("analysis", aggregation_command)
     if data:
         return data
 
@@ -295,8 +287,10 @@ def statistics(s_days: int) -> dict:
     tmp_custom = {}
     tmp_data = {}
     if repconf.mongodb.enabled:
-        data = results_db.analysis.find(
-            {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0}
+        data = mongo_find(
+            "analysis",
+            {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}},
+            {"statistics": 1, "_id": 0},
         )
     elif repconf.elasticsearchdb.enabled:
         q = {
@@ -938,7 +932,7 @@ normalized_int_terms = (
 def perform_ttps_search(value):
     if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
         if repconf.mongodb.enabled:
-            return results_db.analysis.find({f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
+            return mongo_find("analysis", {f"ttps.{value.upper()}": {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
         elif repconf.elasticsearchdb.enabled:
             q = {"query": {"match": {"ttps.ttp": value.upper()}}}
             return es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
@@ -946,7 +940,7 @@ def perform_ttps_search(value):
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:
-        return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
+        return mongo_find("analysis", {"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
     elif repconf.elasticsearchdb.enabled:
         q = {"query": {"range": {"malscore": {"gte": float(value)}}}}
         _source_fields = list(perform_search_filters.keys())[:-1]
@@ -1016,7 +1010,7 @@ def perform_search(term, value, search_limit=False):
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         return (
-            results_db.analysis.find(mongo_search_query, perform_search_filters)
+            mongo_find("analysis", mongo_search_query, perform_search_filters)
             .sort([["_id", -1]])
             .limit(web_cfg.general.get("search_limit", 50))
         )

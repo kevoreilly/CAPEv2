@@ -7,7 +7,6 @@ import base64
 import datetime
 import json
 import os
-import shutil
 import sys
 import tempfile
 import zipfile
@@ -31,6 +30,7 @@ sys.path.append(settings.CUCKOO_PATH)
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
                                          perform_ttps_search, rateblock, statistics)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
@@ -123,16 +123,10 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
                 enabledconf[item] = False
 
 if enabledconf["mongodb"]:
-    import pymongo
     from bson.objectid import ObjectId
 
-    results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE,
-    )[settings.MONGO_DB]
+    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update
+
 es_as_db = False
 essearch = False
 if enabledconf["elasticsearchdb"]:
@@ -196,7 +190,8 @@ def get_analysis_info(db, id=-1, task=None):
         new.update({"machine": machine})
 
     if enabledconf["mongodb"]:
-        rtmp = results_db.analysis.find_one(
+        rtmp = mongo_find_one(
+            "analysis",
             {"info.id": int(new["id"])},
             {
                 "info": 1,
@@ -214,7 +209,7 @@ def get_analysis_info(db, id=-1, task=None):
                 "trid": 1,
                 "_id": 0,
             },
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
 
     if es_as_db:
@@ -222,11 +217,20 @@ def get_analysis_info(db, id=-1, task=None):
             index=get_analysis_index(),
             query=get_query_by_info_id(str(new["id"])),
             _source=[
-                "info", "virustotal_summary", "malscore", "detections",
-                "network.pcap_sha256", "mlist_cnt", "f_mlist_cnt",
-                "target.file.clamav", "suri_tls_cnt", "suri_alert_cnt",
-                "suri_http_cnt", "suri_file_cnt", "trid"
-            ]
+                "info",
+                "virustotal_summary",
+                "malscore",
+                "detections",
+                "network.pcap_sha256",
+                "mlist_cnt",
+                "f_mlist_cnt",
+                "target.file.clamav",
+                "suri_tls_cnt",
+                "suri_alert_cnt",
+                "suri_http_cnt",
+                "suri_file_cnt",
+                "trid",
+            ],
         )["hits"]["hits"]
         if len(rtmp) > 1:
             rtmp = rtmp[-1]["_source"]
@@ -535,26 +539,26 @@ def load_files(request, task_id, category):
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
-                data = results_db.analysis.find_one(
+                data = mongo_find_one(
+                    "analysis",
                     {"info.id": int(task_id)},
                     {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid": 1, "info.tlp": 1, "_id": 0},
                 )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
             elif category == "network":
-                data = results_db.analysis.find_one(
-                    {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
+                data = mongo_find_one(
+                    "analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "_id": 0}
                 )
             else:
-                data = results_db.analysis.find_one({"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
-        elif enabledconf['elasticsearchdb']:
+                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+        elif enabledconf["elasticsearchdb"]:
             if category in ("behavior", "debugger"):
                 data = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
-                    _source=["behavior.processes", "behavior.processtree",
-                             "info.tlp"]
-                )['hits']['hits'][0]['_source']
+                    _source=["behavior.processes", "behavior.processtree", "info.tlp"],
+                )["hits"]["hits"][0]["_source"]
 
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
@@ -562,14 +566,12 @@ def load_files(request, task_id, category):
                 data = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
-                    _source=[category, "suricata", "cif", "info.tlp"]
-                )['hits']['hits'][0]['_source']
+                    _source=[category, "suricata", "cif", "info.tlp"],
+                )["hits"]["hits"][0]["_source"]
             else:
                 data = elastic_handler.search(
-                    index=get_analysis_index(),
-                    query=get_query_by_info_id(task_id),
-                    _source=[category, "info.tlp"]
-                )['hits']['hits'][0]['_source']
+                    index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=[category, "info.tlp"]
+                )["hits"]["hits"][0]["_source"]
 
         sha256_blocks = []
         if data:
@@ -633,7 +635,8 @@ def chunk(request, task_id, pid, pagenum):
 
     if request.is_ajax():
         if enabledconf["mongodb"]:
-            record = results_db.analysis.find_one(
+            record = mongo_find_one(
+                "analysis",
                 {"info.id": int(task_id), "behavior.processes.process_id": pid},
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
@@ -641,10 +644,12 @@ def chunk(request, task_id, pid, pagenum):
         if es_as_db:
             record = es.search(
                 index=get_analysis_index(),
-                body={'query': {'bool': {'must': [
-                    {'match': {'behavior.processes.process_id': pid}},
-                    {'match': {'info.id': task_id}}]}}},
-                _source=["behavior.processes.process_id", "behavior.processes.calls"]
+                body={
+                    "query": {
+                        "bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
+                    }
+                },
+                _source=["behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -661,12 +666,11 @@ def chunk(request, task_id, pid, pagenum):
         if pagenum >= 0 and pagenum < len(process["calls"]):
             objectid = process["calls"][pagenum]
             if enabledconf["mongodb"]:
-                chunk = results_db.calls.find_one({"_id": ObjectId(objectid)})
+                chunk = mongo_find_one("calls", {"_id": ObjectId(objectid)})
             if es_as_db:
-                chunk = es.search(
-                    index=get_calls_index(),
-                    body={'query': {'match': {'_id': objectid}}}
-                )["hits"]["hits"][0]["_source"]
+                chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": objectid}}})["hits"]["hits"][0][
+                    "_source"
+                ]
 
         else:
             chunk = dict(calls=[])
@@ -688,18 +692,20 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     if request.is_ajax():
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
-            record = results_db.analysis.find_one(
+            record = mongo_find_one(
+                "analysis",
                 {"info.id": int(task_id), "behavior.processes.process_id": int(pid)},
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
             record = es.search(
                 index=get_analysis_index(),
-                body={'query': {'bool': {'must': [
-                    {'match': {'behavior.processes.process_id': pid}},
-                    {'match': {'info.id': task_id}}
-                ]}}},
-                _source=["behavior.processes.process_id", "behavior.processes.calls"]
+                body={
+                    "query": {
+                        "bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": task_id}}]}
+                    }
+                },
+                _source=["behavior.processes.process_id", "behavior.processes.calls"],
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -730,12 +736,9 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
         for call in process["calls"]:
             if enabledconf["mongodb"]:
-                chunk = results_db.calls.find_one({"_id": call})
+                chunk = mongo_find_one("calls", {"_id": call})
             if es_as_db:
-                chunk = es.search(
-                    index=get_calls_index(),
-                    body={'query': {'match': {'_id': call}}}
-                )["hits"]["hits"][0]["_source"]
+                chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": call}}})["hits"]["hits"][0]["_source"]
             for call in chunk["calls"]:
                 # filter by call or tid
                 if caller != "null" or tid != 0:
@@ -948,20 +951,15 @@ def gen_moloch_from_antivirus(virustotal):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surialert(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0},
-            sort=[("_id", pymongo.DESCENDING)]
-        )
+        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
-        report = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["suricata.alerts"]
-        )['hits']['hits']
+        report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.alerts"])["hits"][
+            "hits"
+        ]
         if len(report) == 0:
             report = None
         else:
-            report = report[0]['_source']
+            report = report[0]["_source"]
     else:
         report = None
     if not report:
@@ -982,21 +980,22 @@ def surialert(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def shrike(request, task_id):
     if enabledconf["mongodb"]:
-        shrike = results_db.analysis.find_one(
+        shrike = mongo_find_one(
+            "analysis",
             {"info.id": int(task_id)},
             {"info.shrike_url": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_refer": 1, "_id": 0},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
     elif es_as_db:
         shrike = es.search(
             index=get_analysis_index(),
             query=get_query_by_info_id(task_id),
-            _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"]
-        )['hits']['hits']
+            _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"],
+        )["hits"]["hits"]
         if len(shrike) == 0:
             shrike = None
         else:
-            shrike = shrike[0]['_source']
+            shrike = shrike[0]["_source"]
     else:
         shrike = None
 
@@ -1010,19 +1009,15 @@ def shrike(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surihttp(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-        )
+        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
-        report = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["suricata.http"]
-        )['hits']['hits']
+        report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.http"])["hits"][
+            "hits"
+        ]
         if len(report) == 0:
             report = None
         else:
-            report = report[0]['_source']
+            report = report[0]["_source"]
     else:
         report = None
 
@@ -1044,19 +1039,15 @@ def surihttp(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def suritls(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-        )
+        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
-        report = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["suricata.tls"]
-        )['hits']['hits']
+        report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.tls"])["hits"][
+            "hits"
+        ]
         if len(report) == 0:
             report = None
         else:
-            report = report[0]['_source']
+            report = report[0]["_source"]
     else:
         report = None
 
@@ -1078,19 +1069,17 @@ def suritls(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surifiles(request, task_id):
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        report = mongo_find_one(
+            "analysis", {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif es_as_db:
-        report = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["suricata.files"]
-        )['hits']['hits']
+        report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.files"])["hits"][
+            "hits"
+        ]
         if len(report) == 0:
             report = None
         else:
-            report = report[0]['_source']
+            report = report[0]["_source"]
     else:
         report = None
 
@@ -1112,20 +1101,17 @@ def surifiles(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def antivirus(request, task_id):
     if enabledconf["mongodb"]:
-        rtmp = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0},
-            sort=[("_id", pymongo.DESCENDING)]
+        rtmp = mongo_find_one(
+            "analysis", {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif es_as_db:
-        rtmp = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["virustotal", "info.category"]
-        )['hits']['hits']
+        rtmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["virustotal", "info.category"])[
+            "hits"
+        ]["hits"]
         if len(rtmp) == 0:
             rtmp = None
         else:
-            rtmp = rtmp[0]['_source']
+            rtmp = rtmp[0]["_source"]
     else:
         rtmp = None
     if not rtmp:
@@ -1165,12 +1151,9 @@ def search_behavior(request, task_id):
 
         # Fetch anaylsis report
         if enabledconf["mongodb"]:
-            record = results_db.analysis.find_one({"info.id": int(task_id)}, {"behavior.processes": 1, "_id": 0})
+            record = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.processes": 1, "_id": 0})
         if es_as_db:
-            esquery = es.search(
-                index=get_analysis_index(),
-                query=get_query_by_info_id(task_id)
-            )["hits"]["hits"][0]
+            esquery = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             esidx = esquery["_index"]
             record = esquery["_source"]
 
@@ -1182,7 +1165,7 @@ def search_behavior(request, task_id):
             process_results = []
 
             if enabledconf["mongodb"]:
-                chunks = results_db.calls.find({"_id": {"$in": process["calls"]}})
+                chunks = mongo_find("calls", {"_id": {"$in": process["calls"]}})
             if es_as_db:
                 # I don't believe ES has a similar function to MongoDB's $in
                 # so we'll just iterate the call list and query appropriately
@@ -1220,29 +1203,28 @@ def search_behavior(request, task_id):
 def report(request, task_id):
     network_report = False
     if enabledconf["mongodb"]:
-        report = results_db.analysis.find_one(
+        report = mongo_find_one(
+            "analysis",
             {"info.id": int(task_id)},
             {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "procmemory": 0, "behavior.processes": 0, "network": 0, "memory": 0},
             sort=[("_id", pymongo.DESCENDING)],
         )
-        network_report = results_db.analysis.find_one(
+        network_report = mongo_find_one(
+            "analysis",
             {"info.id": int(task_id)},
             {"network.domains": 1, "network.dns": 1, "network.hosts": 1},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
 
     if es_as_db:
-        query = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id)
-        )["hits"]["hits"][0]
+        query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
         report = query["_source"]
         # Extract out data for Admin tab in the analysis page
         network_report = es.search(
             index=get_analysis_index(),
             query=get_query_by_info_id(task_id),
-            _source=["network.domains", "network.dns", "network.hosts"]
-        )["hits"]["hits"][0]['_source']
+            _source=["network.domains", "network.dns", "network.hosts"],
+        )["hits"]["hits"][0]["_source"]
 
         # Extract out data for Admin tab in the analysis page
         esdata = {"index": query["_index"], "id": query["_id"]}
@@ -1296,7 +1278,7 @@ def report(request, task_id):
         except Exception as e:
             print(e)
 
-        report["procdump_size"] = 0
+        report["procdump"] = 0
         try:
             tmp_data = list(
                 results_db.analysis.aggregate(
@@ -1637,14 +1619,9 @@ def procdump(request, task_id, process_id, start, end):
     tmp_file_path = None
     response = False
     if enabledconf["mongodb"]:
-        analysis = results_db.analysis.find_one(
-            {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-        )
+        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
     if es_as_db:
-        analysis = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id)
-        )["hits"]["hits"][0]["_source"]
+        analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
 
@@ -1691,7 +1668,7 @@ def procdump(request, task_id, process_id, start, end):
         if tmp_file_path:
             os.unlink(tmp_file_path)
         if tmpdir:
-            shutil.rmtree(tmpdir)
+            delete_folder(tmpdir)
     except Exception:
         pass
 
@@ -1903,32 +1880,12 @@ def remove(request, task_id):
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
-        analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
-        # Checks if more analysis found with the same ID, like if process.py was run manually.
-        if analyses.count() > 1:
-            message = "Multiple tasks with this ID deleted."
-        elif analyses.count() == 1:
-            message = "Task deleted."
-
-        if analyses.count() > 0:
-            # Delete dups too.
-            for analysis in analyses:
-                # Delete calls.
-                for process in analysis.get("behavior", {}).get("processes", []):
-                    for call in process["calls"]:
-                        results_db.calls.remove({"_id": ObjectId(call)})
-                # Delete analysis data.
-                results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-            analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-            if os.path.exists(analyses_path):
-                shutil.rmtree(analyses_path)
-        else:
-            return render(request, "error.html", {"error": "The specified analysis does not exist"})
+        mongo_delete_data(int(task_id))
+        analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
+        if os.path.exists(analyses_path):
+            delete_folder(analyses_path)
     if es_as_db:
-        analyses = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id)
-        )["hits"]["hits"]
+        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -1954,10 +1911,7 @@ def remove(request, task_id):
                 )
     elif essearch:
         # remove es search data
-        analyses = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id)
-        )["hits"]["hits"]
+        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -1985,17 +1939,15 @@ def pcapstream(request, task_id, conntuple):
     sport, dport = int(sport), int(dport)
 
     if enabledconf["mongodb"]:
-        conndata = results_db.analysis.find_one(
+        conndata = mongo_find_one(
+            "analysis",
             {"info.id": int(task_id)},
             {"network.sorted.tcp": 1, "network.sorted.udp": 1, "network.sorted_pcap_sha256": 1, "_id": 0},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
 
     if es_as_db:
-        conndata = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id)
-        )["hits"]["hits"][0]["_source"]
+        conndata = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
     if not conndata:
         return render(request, "standalone_error.html", {"error": "The specified analysis does not exist"})
@@ -2039,14 +1991,9 @@ def comments(request, task_id):
             return render(request, "error.html", {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = results_db.analysis.find_one(
-                {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
-            )
+            report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
         if es_as_db:
-            query = es.search(
-                index=get_analysis_index(),
-                query=get_query_by_info_id(task_id)
-            )["hits"]["hits"][0]
+            query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]
             esidx = query["_index"]
@@ -2069,9 +2016,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            results_db.analysis.update(
-                {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True
-            )
+            mongo_update("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True)
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -2225,7 +2170,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             print("Bingraph on demand error:", e)
 
     if details:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
             for block in buf[category].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
@@ -2250,7 +2195,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         if service == "virustotal" and category == "static":
             category = "virustotal"
 
-        results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        mongo_update("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 
     return redirect("report", task_id=task_id)

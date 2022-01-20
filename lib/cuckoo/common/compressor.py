@@ -96,7 +96,7 @@ class CuckooBsonCompressor:
 
     def run(self, file_path):
         if not os.path.isfile(file_path) and os.stat(file_path).st_size:
-            log.warning("File %s does not exists or it is invalid.", file_path)
+            log.warning("File %s does not exists or it is invalid", file_path)
             return False
 
         self.fd_in = open(file_path, "rb")
@@ -137,7 +137,7 @@ class CuckooBsonCompressor:
         # This function flushes ngram buffers within compressor and merges
         # threads compressed call lists trying preserve original order
 
-        compressed_path = file_path + ".compressed"
+        compressed_path = f"{file_path}.compressed"
         if os.path.isfile(compressed_path):
             os.remove(compressed_path)
 
@@ -164,8 +164,8 @@ class CuckooBsonCompressor:
                 edata = bson.BSON.encode(d)
                 fd.write(edata)
 
-            os.rename(file_path, "{}.raw".format(file_path))
-            os.symlink("{}.compressed".format(file_path), file_path)
+            os.rename(file_path, f"{file_path}.raw")
+            os.symlink(f"{file_path}.compressed", file_path)
         else:
             return False
 

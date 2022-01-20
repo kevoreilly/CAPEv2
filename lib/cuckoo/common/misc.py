@@ -26,8 +26,8 @@ def cwd(*args, **kwargs):
     if kwargs.get("root"):
         return _root
     elif kwargs.get("analysis"):
-        return os.path.join(_root, "storage", "analyses", "%s" % kwargs["analysis"], *args)
+        return os.path.join(_root, "storage", "analyses", str(kwargs["analysis"]), *args)
     elif kwargs:
-        raise RuntimeError("Invalid arguments provided to cwd(): %r %r" % (args, kwargs))
+        raise RuntimeError(f"Invalid arguments provided to cwd(): {args} {kwargs}")
     else:
         return os.path.join(_root, *args)

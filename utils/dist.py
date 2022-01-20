@@ -436,7 +436,7 @@ class Retriever(threading.Thread):
                 # case somebody decides to make a symbolic link out of it.
                 dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
 
-                if hasattr(os, "statvfs"):
+                if hasattr(os, "statvfs") and os.path.exists(dir_path):
                     dir_stats = os.statvfs(dir_path)
 
                     # Calculate the free disk space in megabytes.
@@ -649,7 +649,11 @@ class Retriever(threading.Thread):
                         os.makedirs(destination, mode=0o755)
                     destination = os.path.join(destination, sample_sha256)
                     if not os.path.exists(destination) and os.path.exists(t.path):
-                        shutil.move(t.path, destination)
+                        try:
+                            shutil.move(t.path, destination)
+                        except FileNotFoundError as e:
+                            pass
+
                     # creating link to analysis folder
                     if os.path.exists(t.path):
                         try:

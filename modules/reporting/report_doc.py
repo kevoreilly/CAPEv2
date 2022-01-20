@@ -2,10 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import logging
 import os
 
 from dev_utils.elasticsearchdb import get_daily_calls_index
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+
+log = logging.getLogger(__name__)
+repconf = Config("reporting")
+
+if repconf.mongodb.enabled:
+    from dev_utils.mongodb import mongo_insert_one
 
 
 def ensure_valid_utf8(obj):
@@ -28,9 +36,9 @@ def ensure_valid_utf8(obj):
         # we do not want to convert that.
         if isinstance(v, str):
             try:
-                v.encode("utf-8")
+                v.encode()
             except UnicodeEncodeError:
-                obj[k] = "".join(str(ord(_)) for _ in v).encode("utf-8")
+                obj[k] = "".join(str(ord(_)) for _ in v).encode()
         else:
             ensure_valid_utf8(v)
 
@@ -58,24 +66,18 @@ def get_json_document(results, analysis_path):
                 report["shots"].append(shot_file.replace(".jpg", ""))
 
     # Calculate the mlist_cnt for display if present to reduce db load
-    if "signatures" in results:
-        for entry in results["signatures"]:
-            if entry["name"] == "ie_martian_children":
-                report["mlist_cnt"] = len(entry["data"])
-            if entry["name"] == "office_martian_children":
-                report["f_mlist_cnt"] = len(entry["data"])
+    for entry in results.get("signatures", []) or []:
+        if entry["name"] == "ie_martian_children":
+            report["mlist_cnt"] = len(entry["data"])
+        if entry["name"] == "office_martian_children":
+            report["f_mlist_cnt"] = len(entry["data"])
 
     # Other info we want quick access to from the web UI
     if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
-        report["virustotal_summary"] = "%s/%s" % (
-            results["virustotal"]["positive"],
-            results["virustotal"]["total"]
-        )
+        report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positive"], results["virustotal"]["total"])
     if results.get("suricata", False):
-
         keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
-        keywords_dict = (
-            "suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
+        keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
         for keyword, keyword_value in zip(keywords, keywords_dict):
             if results["suricata"].get(keyword, 0):
                 report[keyword_value] = len(results["suricata"][keyword])
@@ -83,7 +85,7 @@ def get_json_document(results, analysis_path):
     return report
 
 
-def insert_calls(report, elastic_db=None, mongo_calls_db=None):
+def insert_calls(report, elastic_db=None, mongodb=False):
     ## Behaviour envolves storing stuffs in the DB
     # Store chunks of API calls in a different collection and reference
     # those chunks back in the report. In this way we should defeat the
@@ -96,17 +98,13 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
         chunks_ids = []
         # Loop on each process call.
         for _, call in enumerate(process["calls"]):
-            # If the chunk size is 100 or if the loop is completed
-            # then store the chunk in DB.
+            # If the chunk size is 100 or if the loop is completed then store the chunk in DB.
             if len(chunk) == 100:
                 to_insert = {"pid": process["process_id"], "calls": chunk}
-                if mongo_calls_db is not None:
-                    chunk_id = mongo_calls_db.insert(to_insert)
+                if mongodb:
+                    chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                 elif elastic_db is not None:
-                    chunk_id = elastic_db.index(
-                        index=get_daily_calls_index(),
-                        body={"pid": process["process_id"], "calls": chunk}
-                    )['_id']
+                    chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
                 else:
                     chunk_id = None
 
@@ -117,14 +115,11 @@ def insert_calls(report, elastic_db=None, mongo_calls_db=None):
             chunk.append(call)
         # Store leftovers.
         if chunk:
-            if mongo_calls_db is not None:
-                to_insert = {"pid": process["process_id"], "calls": chunk}
-                chunk_id = mongo_calls_db.insert(to_insert)
+            to_insert = {"pid": process["process_id"], "calls": chunk}
+            if mongodb:
+                chunk_id = mongo_insert_one("calls", to_insert).inserted_id
             elif elastic_db is not None:
-                chunk_id = elastic_db.index(
-                    index=get_daily_calls_index(),
-                    body={"pid": process["process_id"], "calls": chunk}
-                )['_id']
+                chunk_id = elastic_db.index(index=get_daily_calls_index(), body=to_insert)["_id"]
             else:
                 chunk_id = None
 

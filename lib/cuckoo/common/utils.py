@@ -152,7 +152,7 @@ def create_zip(files=False, folder=False, encrypted=False):
             zf.setpassword(zippwd)
         for file in files:
             if not os.path.exists(file):
-                log.error(f"File does't exist: {file}")
+                log.error("File does't exist: %s", file)
                 continue
 
             parent_folder = os.path.dirname(file).rsplit(os.sep, 1)[-1]
@@ -207,7 +207,7 @@ def get_memdump_path(id, analysis_folder=False):
     """
     id = str(id)
     if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
-        memdump_path = os.path.join(tmpfs.path, id + ".dmp")
+        memdump_path = os.path.join(tmpfs.path, f"{id}.dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
     return memdump_path
@@ -248,7 +248,7 @@ def create_folder(root=".", folder=None):
         except OSError as e:
             print(e)
             if e.errno != errno.EEXIST:
-                raise CuckooOperationalError("Unable to create folder: %s" % folder_path)
+                raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
         except Exception as e:
             print(e)
 
@@ -262,7 +262,7 @@ def delete_folder(folder):
         try:
             shutil.rmtree(folder)
         except OSError:
-            raise CuckooOperationalError("Unable to delete folder: " "{0}".format(folder))
+            raise CuckooOperationalError(f"Unable to delete folder: {folder}")
 
 
 # Don't allow all characters in "string.printable", as newlines, carriage
@@ -284,7 +284,7 @@ def convert_char(c):
     if c in PRINTABLE_CHARACTERS:
         return c
     else:
-        return "\\x%02x" % ord(c)
+        return f"\\x{ord(c):02x}"
 
 
 def is_printable(s):
@@ -307,7 +307,7 @@ def convert_filename_char(c):
     if c in FILENAME_CHARACTERS:
         return c
     else:
-        return "\\x%02x" % ord(c)
+        return f"\\x{ord(c):02x}"
 
 
 def is_sane_filename(s):
@@ -427,7 +427,7 @@ def simple_pretty_print_convert(argval, enumdict):
             retnames.append(key)
 
     if leftover:
-        retnames.append("0x{0:08x}".format(leftover))
+        retnames.append(f"0x{leftover:08x}")
 
     return "|".join(retnames)
 
@@ -826,7 +826,7 @@ def logtime(dt):
     @return: time string
     """
     t = time.strftime("%Y-%m-%d %H:%M:%S", dt.timetuple())
-    s = "%s,%03d" % (t, dt.microsecond / 1000)
+    s = f"{t},{dt.microsecond // 1000:03d}"
     return s
 
 

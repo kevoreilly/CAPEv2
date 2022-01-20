@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-
 from __future__ import absolute_import
 
 import lib.cuckoo.common.utils_dicts as utils_dicts
@@ -35,7 +34,7 @@ def api_name_ntcreatesection_arg_name_desiredaccess(arg_val):
         res.append("SECTION_MAP_EXECUTE_EXPLICIT")
         val &= ~0x20
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -61,7 +60,7 @@ def api_name_shgetfolderpathw_arg_name_folder(arg_val):
     if folder:
         res.append(folder)
     else:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -89,7 +88,7 @@ def api_name_createtoolhelp32snapshot_arg_name_flags(arg_val):
         res.append("TH32CS_INHERIT")
         val &= ~0x80000000
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -139,7 +138,7 @@ def shareaccess(arg_val):
         res.append("FILE_SHARE_DELETE")
         val &= ~4
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -179,7 +178,7 @@ def api_name_opensc_arg_name_desiredaccess(arg_val):
         res.append("SC_MANAGER_MODIFY_BOOT_CONFIG")
         val &= ~0x0020
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -241,7 +240,7 @@ def category_services_arg_name_desiredaccess(arg_val):
         res.append("SERVICE_USER_DEFINED_CONTROL")
         val &= ~0x0100
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -284,7 +283,7 @@ def category_registry_arg_name_access_desired_access(arg_val):
         res.append("STANDARD_RIGHTS_REQUIRED")
         val &= ~0x0F0000
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -325,7 +324,7 @@ def arg_name_protection_and_others(arg_val):
         res.append("PAGE_WRITECOMBINE")
         val &= ~0x00000400
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -383,7 +382,7 @@ def api_name_in_creation(arg_val):
         res.append("CREATE_NO_WINDOW")
         val &= ~0x08000000
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -403,7 +402,7 @@ def api_name_move_arg_name_flags(arg_val):
         res.append("MOVEFILE_WRITE_THROUGH")
         val &= ~0x00000008
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -455,7 +454,7 @@ def arg_name_fileattributes(arg_val):
         res.append("FILE_ATTRIBUTE_VIRTUAL")
         val &= ~0x00008000
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -541,7 +540,7 @@ def api_name_nt_arg_name_desiredaccess(arg_val):
         remove |= 0x01000000
     val &= ~remove
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -617,7 +616,7 @@ def api_name_ntopenprocess_arg_name_desiredaccess(arg_val):
         remove |= 0x100000
     val &= ~remove
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -684,7 +683,7 @@ def api_name_ntopenthread_arg_name_desiredaccess(arg_val):
         remove |= 0x0800
     val &= ~remove
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 
@@ -721,7 +720,7 @@ def api_name_cointernet_arg_name_flags(arg_val):
         res.append("SET_FEATURE_ON_THREAD_RESTRICTED")
         val &= ~0x00000080
     if val:
-        res.append("0x{0:08x}".format(val))
+        res.append(f"0x{val:08x}")
     return "|".join(res)
 
 

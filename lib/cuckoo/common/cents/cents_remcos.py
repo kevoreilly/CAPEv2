@@ -56,7 +56,7 @@ def _parse_mwcp(remcos_config):
                         {"Version": remcos_config.get("version", ""), "C2": tmp[0], "Port": tmp[1], "Password": tmp[2]}
                     )
                 else:
-                    log.debug(f"[CENTS - Remcos] MWCP config - found to be invalid --> {c}")
+                    log.debug("[CENTS - Remcos] MWCP config - found to be invalid --> %s", c)
 
     return remcos_config_list
 

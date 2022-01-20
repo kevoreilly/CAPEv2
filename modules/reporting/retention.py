@@ -11,8 +11,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from multiprocessing import Lock
 
-from bson.objectid import ObjectId
-
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -25,32 +23,12 @@ lock = Lock()
 
 # Global connections
 if repconf.mongodb.enabled:
-    from pymongo import MongoClient
-
-    results_db = MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.get("db", "cuckoo")]
+    from dev_utils.mongodb import mongo_delete_data
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from dev_utils.elasticsearchdb import delete_analysis_and_related_calls, elastic_handler
+
     es = elastic_handler
-
-
-def delete_mongo_data(curtask, tid):
-    # TODO: Class-ify this or make it a function in utils, some code reuse
-    # between this/process.py/django view
-    analyses = results_db.analysis.find({"info.id": int(tid)})
-    if analyses.count() > 0:
-        for analysis in analyses:
-            for process in analysis.get("behavior", {}).get("processes", []):
-                for call in process["calls"]:
-                    results_db.calls.remove({"_id": ObjectId(call)})
-            results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-        log.debug("Task #%s deleting MongoDB data for Task #%s", curtask, tid)
 
 
 def delete_elastic_data(curtask, tid):
@@ -164,7 +142,7 @@ class Retention(Report):
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
                             if repconf.mongodb.enabled:
-                                delete_mongo_data(curtask, lastTask)
+                                mongo_delete_data(curtask, lastTask)
                         elif item == "elastic":
                             if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)

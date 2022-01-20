@@ -59,9 +59,9 @@ def cents_trickbot(config_dict, suricata_dict, sid_counter, md5, date, task_link
 
     :return List of Suricata rules (`str`) or empty list if no rule has been created.
     """
-    log.debug(f"[CENTS] Config for TrickBot Starting")
+    log.debug("[CENTS] Config for TrickBot Starting")
     if not config_dict or not sid_counter or not md5 or not date or not task_link:
-        log.debug(f"[CENTS] Config did not get enough data to run")
+        log.debug("[CENTS] Config did not get enough data to run")
         return []
 
     next_sid = sid_counter
@@ -71,19 +71,19 @@ def cents_trickbot(config_dict, suricata_dict, sid_counter, md5, date, task_link
     gtag = config_dict.get("gtag", "")
     ver = config_dict.get("ver", "")
     trickbot_c2_certs = []
-    log.debug(f"[CENTS - TrickBot] Looking for certs from {len(servs)} c2 servers")
+    log.debug("[CENTS - TrickBot] Looking for certs from %d c2 servers", len(servs))
     for s in servs:
         # see if the server and port are also in the tls certs
         matching_tls = list(
             filter(lambda x: x["dstip"] == s["server"] and str(x["dstport"]) == str(s["port"]), suricata_dict.get("tls", []))
         )
-        log.debug(f"[CENTS - TrickBot] Found {len(matching_tls)} certs for {s}")
+        log.debug("[CENTS - TrickBot] Found %d certs for %s", len(matching_tls), s)
         for tls in matching_tls:
             _tmp_obj = {"subject": tls.get("subject", None), "issuerdn": tls.get("issuerdn")}
             if _tmp_obj not in trickbot_c2_certs:
                 trickbot_c2_certs.append(_tmp_obj)
 
-    log.debug(f"[CENTS - TrickBot] Building {len(trickbot_c2_certs)} rules based on c2 certs")
+    log.debug("[CENTS - TrickBot] Building %d rules based on c2 certs", len(trickbot_c2_certs))
     for c2_cert in trickbot_c2_certs:
         rule = (
             f'alert tls $EXTERNAL_NET any -> $HOME_NET any (msg:"ET CENTS Observed TrickBot C2 Certificate '

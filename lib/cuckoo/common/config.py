@@ -8,7 +8,7 @@ import os
 
 from lib.cuckoo.common.colors import bold, red
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooConfigNotInitializedError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.objects import Dictionary
 
 
@@ -26,47 +26,38 @@ def parse_options(options):
 
 def emit_options(options):
     """Emit the analysis options from a dictionary to a string."""
-    return ",".join("%s=%s" % (k, v) for k, v in sorted(options.items()))
+    return ",".join(f"{k}={v}" for k, v in sorted(options.items()))
 
 
-class _BaseConfig:
+class Config:
     """Configuration file parser."""
 
-    def get(self, section):
-        """Get option.
-        @param section: section to fetch.
-        @raise CuckooOperationalError: if section not found.
-        @return: option value.
+    def __init__(self, file_name="cuckoo", cfg=None):
         """
-        try:
-            return getattr(self, section)
-        except AttributeError as e:
-            raise CuckooOperationalError(
-                "Option %s is not found in configuration, error: %s" % (section, e)
-            )
-
-    def get_config(self):
-        return self.fullconfig
-
-    def _read_files(self, files):
+        @param file_name: file name without extension.
+        @param cfg: configuration file path.
+        """
         config = configparser.ConfigParser()
-        try:
-            config.read(files)
-        except UnicodeDecodeError as e:
-            print(
-                bold(
-                    red(
-                        f"please fix your config file(s): {', '.join(files)} - "
-                        f"Pay attention for bytes c2 xa - {e.object}\n\n{e.reason}"
+
+        if cfg:
+            config.read(cfg)
+        else:
+            try:
+                config.read(os.path.join(CUCKOO_ROOT, "conf", f"{file_name}.conf"))
+            except UnicodeDecodeError as e:
+                print(
+                    bold(
+                        red(
+                            f"please fix your config file: {file_name}.conf - Pay attention for bytes c2 xa - {e.object}\n\n{e.reason}"
+                        )
                     )
                 )
-            )
-            raise UnicodeDecodeError
+                raise UnicodeDecodeError
 
         self.fullconfig = config._sections
 
         for section in config.sections():
-            dct = Dictionary()
+            setattr(self, section, Dictionary())
             for name, _ in config.items(section):
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a
@@ -83,53 +74,18 @@ class _BaseConfig:
                     except ValueError:
                         value = config.get(section, name)
 
-                setattr(dct, name, value)
-            setattr(self, section, dct)
+                setattr(getattr(self, section), name, value)
 
+    def get(self, section):
+        """Get option.
+        @param section: section to fetch.
+        @raise CuckooOperationalError: if section not found.
+        @return: option value.
+        """
+        try:
+            return getattr(self, section)
+        except AttributeError as e:
+            raise CuckooOperationalError(f"Option {section} is not found in configuration, error: {e}")
 
-NOT_SET = object()
-
-
-class ConfigMeta(type):
-    """Only create one instance of a Config for each (non-analysis) config file."""
-
-    configs = {}
-
-    def __call__(cls, file_name="cuckoo"):
-        if file_name not in cls.configs:
-            cls.configs[file_name] = super(ConfigMeta, cls).__call__(
-                file_name=file_name
-            )
-        return cls.configs[file_name]
-
-    @classmethod
-    def reset(cls):
-        """This should really only be needed for testing."""
-        cls.configs.clear()
-
-
-class Config(_BaseConfig, metaclass=ConfigMeta):
-    config_dirs = NOT_SET
-
-    def __init__(self, file_name="cuckoo"):
-        if self.__class__.config_dirs is NOT_SET:
-            raise CuckooConfigNotInitializedError()
-        files = [os.path.join(CUCKOO_ROOT, "conf", f"{file_name}.conf")]
-        for config_dir in self.config_dirs:
-            files.append(os.path.join(config_dir, f"{file_name}.conf"))
-        self._read_files(files)
-
-    @classmethod
-    def initialize(cls, config_dirs=None):
-        if config_dirs is None:
-            config_dirs = []
-        for config_dir in config_dirs:
-            if not os.path.isdir(config_dir):
-                raise OSError(f"{config_dir} does not exist")
-        cls.config_dirs = config_dirs
-
-
-class AnalysisConfig(_BaseConfig):
-    def __init__(self, cfg="analysis.conf"):
-        files = (cfg,)
-        self._read_files(files)
+    def get_config(self):
+        return self.fullconfig

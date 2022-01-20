@@ -9,9 +9,9 @@ import socket
 import time
 from pathlib import Path
 
-from lib.core.config import AnalysisConfig
+from lib.core.config import Config
 
-config = AnalysisConfig()
+config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
 

@@ -183,7 +183,7 @@ def logger(message, *args, **kwargs):
     """Log a message to specific logger instance."""
     logfile = kwargs.pop("logfile", None)
     record = logging.LogRecord(None, logging.INFO, None, None, message, args, None, None)
-    record.asctime = "%s,%03d" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created)), record.msecs)
+    record.asctime = f"{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(record.created))},{record.msecs:03d}"
     record.message = record.getMessage()
     record.__dict__.update(kwargs)
 

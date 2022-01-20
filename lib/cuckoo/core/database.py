@@ -84,17 +84,10 @@ web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
 
 if repconf.mongodb.enabled:
-    import pymongo
-    results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.db]
-
+    from dev_utils.mongodb import mongo_find, mongo_find_one
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+
     es = elastic_handler
 
 SCHEMA_VERSION = "8537286ff4d5"
@@ -1306,6 +1299,7 @@ class Database(object, metaclass=Singleton):
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
+            tags = "x64,x86"
 
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout
@@ -1538,13 +1532,14 @@ class Database(object, metaclass=Singleton):
                     else:
                         log.info("Does sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     del f
-
+                    """
                     if package == "dll" and "function" not in options:
                         dll_exports = File(file).get_dll_exports()
                         if "DllRegisterServer" in dll_exports:
                             package = "regsvr"
                         elif "xlAutoOpen" in dll_exports:
                             package = "xls"
+                    """
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
@@ -2023,10 +2018,10 @@ class Database(object, metaclass=Singleton):
             return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
-            log.debug(f"Database RuntimeError error: {e}")
+            log.debug("Database RuntimeError error: %s", e)
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-            log.debug(f"Database AttributeError error: {e}")
+            log.debug("Database AttributeError error: %s", e)
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: %s", e)
         except Exception as e:
@@ -2045,7 +2040,10 @@ class Database(object, metaclass=Singleton):
         try:
             _min = session.query(func.min(Task.started_on).label("min")).first()
             _max = session.query(func.max(Task.completed_on).label("max")).first()
-            return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
+            if _min and _max:
+                return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
+            else:
+                return 0
         except SQLAlchemyError as e:
             log.debug("Database error counting tasks: %s", e)
             return 0
@@ -2274,21 +2272,20 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     if repconf.mongodb.enabled:
-                        tasks = results_db.analysis.find(
+                        tasks = mongo_find(
+                            "analysis",
                             {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
                             {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                         )
                     elif repconf.elasticsearchdb.enabled:
-                        tasks = [d['_source'] for d in es.search(
-                            index=get_analysis_index(), body={
-                                "query": {
-                                    "match": {
-                                        "CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash
-                                    }
-                                }
-                            },
-                            _source=["CAPE.payloads", "info.id"]
-                        )['hits']['hits']]
+                        tasks = [
+                            d["_source"]
+                            for d in es.search(
+                                index=get_analysis_index(),
+                                body={"query": {"match": {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                _source=["CAPE.payloads", "info.id"],
+                            )["hits"]["hits"]
+                        ]
                     else:
                         tasks = []
 
@@ -2313,21 +2310,20 @@ class Database(object, metaclass=Singleton):
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
                         if repconf.mongodb.enabled:
-                            tasks = results_db.analysis.find(
+                            tasks = mongo_find(
+                                "analysis",
                                 {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash},
                                 {category: 1, "_id": 0, "info.id": 1},
                             )
                         elif repconf.elasticsearchdb.enabled:
-                            tasks = [d['_source'] for d in es.search(
-                                index=get_analysis_index(), body={
-                                    "query": {
-                                        "match": {
-                                            category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash
-                                        }
-                                    }
-                                },
-                                _source=["info.id", category]
-                            )['hits']['hits']]
+                            tasks = [
+                                d["_source"]
+                                for d in es.search(
+                                    index=get_analysis_index(),
+                                    body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                    _source=["info.id", category],
+                                )["hits"]["hits"]
+                            ]
                         else:
                             tasks = []
 
@@ -2365,20 +2361,18 @@ class Database(object, metaclass=Singleton):
                 if sample is None:
                     # search in Suricata files folder
                     if repconf.mongodb.enabled:
-                        tasks = results_db.analysis.find(
-                            {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
+                        tasks = mongo_find(
+                            "analysis", {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
                         )
                     elif repconf.elasticsearchdb.enabled:
-                        tasks = [d['_source'] for d in es.search(
-                            index=get_analysis_index(), body={
-                                "query": {
-                                    "match": {
-                                        "suricata.files.sha256": sample_hash
-                                    }
-                                }
-                            },
-                            _source="suricata.files.file_info.path"
-                        )['hits']['hits']]
+                        tasks = [
+                            d["_source"]
+                            for d in es.search(
+                                index=get_analysis_index(),
+                                body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
+                                _source="suricata.files.file_info.path",
+                            )["hits"]["hits"]
+                        ]
                     else:
                         tasks = []
 

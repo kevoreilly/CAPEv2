@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from distutils.version import StrictVersion
 
 from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
-from lib.cuckoo.common.config import AnalysisConfig, Config
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
                                           CuckooReportError)
@@ -164,7 +164,7 @@ class RunAuxiliary(object):
                 continue
             except Exception:
                 log.exception(
-                    "Error performing callback %r on auxiliary module %r",
+                    "Error performing callback %s on auxiliary module %s",
                     name,
                     module.__class__.__name__,
                     extra={"task_id": self.task["id"]},
@@ -702,7 +702,7 @@ class RunReporting:
         # Give it the the relevant reporting.conf section.
         current.set_options(options)
         # Load the content of the analysis.conf file.
-        current.cfg = AnalysisConfig(current.conf_path)
+        current.cfg = Config(cfg=current.conf_path)
 
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)

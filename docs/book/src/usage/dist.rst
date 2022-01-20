@@ -301,6 +301,7 @@ uwsgi config for dist.py - /opt/CAPE/utils/dist.ini::
         protocol=http
         enable-threads = true
         lazy = true
+        lazy-apps = True
         timeout = 600
         chmod-socket = 664
         chown-socket = cape:cape
@@ -351,7 +352,7 @@ This commands should be executed only on master::
     /usr/bin/mongod --configsvr --replSet cuckoo_config --bind_ip_all
 
     # initialize the "cuckoo_config" replica set
-    mongo --port 27019
+    mongosh --port 27019
 
     Execute in mongo console:
         rs.initiate({
@@ -372,7 +373,8 @@ Add clients, execute on master mongo server::
     # start mongodb router instance that connects to the config server
     mongos --configdb cuckoo_config/192.168.1.13:27019 --port 27020 --bind_ip_all
 
-    mongo
+    # in another terminal
+    mongosh
     rs.initiate( {
        _id : "rs0",
        members: [
@@ -397,7 +399,7 @@ Add clients, execute on master mongo server::
     rs.add({"host": "192.168.1.50:27017", "priority": 0.5})
 
     # add shards
-    mongo --port 27020
+    mongosh --port 27020
 
     Execute in mongo console:
         sh.addShard( "rs0/192.168.1.13:27017")
@@ -418,7 +420,7 @@ Where 192.168.1.(2,3,4,5) is our CAPE workers::
     db.analysis.createIndex ( {"createdAt": 1 }, {expireAfterSeconds:60*60*24*5} )
     db.calls.createIndex ( {"createdAt": 1}, {expireAfterSeconds:60*60*24*5} )
 
-    mongo --port 27020
+    mongosh --port 27020
     sh.enableSharding("cuckoo")
     sh.shardCollection("cuckoo.analysis", { "_id": "hashed" })
     sh.shardCollection("cuckoo.calls", { "_id": "hashed" })
@@ -426,7 +428,8 @@ Where 192.168.1.(2,3,4,5) is our CAPE workers::
 
 To see stats on master::
 
-    mongos using mongo --host 127.0.0.1 --port 27020
+    mongos using
+    mongosh --host 127.0.0.1 --port 27020
     sh.status()
 
 Modify cape reporting.conf [mongodb] to point all mongos in reporting.conf to
@@ -459,17 +462,17 @@ See any of these files on your system::
 Administration and some useful commands::
 
     https://docs.mongodb.com/manual/reference/command/nav-sharding/
-    $ mongo --host 127.0.0.1 --port 27020
+    $ mongosh --host 127.0.0.1 --port 27020
     $ use admin
     $ db.adminCommand( { listShards: 1 } )
 
-    $ mongo --host 127.0.0.1 --port 27019
+    $ mongosh --host 127.0.0.1 --port 27019
     $ db.adminCommand( { movePrimary: "cuckoo", to: "shard0000" } )
     $ db.adminCommand( { removeShard : "shard0002" } )
 
     $ # required for post movePrimary
     $ db.adminCommand("flushRouterConfig")
-    $ mongo --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
+    $ mongosh --port 27020 --eval 'db.adminCommand("flushRouterConfig")' admin
 
     $ use cuckoo
     $ db.analysis.find({"shard" : "shard0002"},{"shard":1,"jumbo":1}).pretty()
@@ -513,18 +516,17 @@ NFS data fetching::
 
 To configure NFS on main server (NFS calls it client)
 
+    Install NFS client:
+        *  sudo apt install nfs-common
+
     On client create folder per worker:
         mkdir -p /mnt/cape_worker_<worker_name>
 
     Add workers to fstab:
-    ```
-    <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
-    ```
+        <worker_ip/hostname>:/opt/CAPEv2 /mnt/cape_worker_<worker_name> nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
 
     Example:
-    ```
-    192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
-    ```
+        192.168.1.3:/opt/CAPEv2 /mnt/cape_worker_1 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
 
 CAPE worker(s) (NFS calls it servers)::
 
@@ -540,8 +542,6 @@ CAPE worker(s) (NFS calls it servers)::
         /opt/CAPEv2 <clinet_ip/hostname>(rw,no_subtree_check,all_squash,anonuid=<uid>,anongid=<gid>)
     Example:
         /opt/CAPEv2 192.168.1.1(rw,no_subtree_check,all_squash,anonuid=997,anongid=1005)
-
-    systemctl enable nfs-kernel-server
 
 On CAPE main server run:
     Run `mount -a` to mount all NFS

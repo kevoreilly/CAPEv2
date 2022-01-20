@@ -53,7 +53,7 @@ def repeating_xor(s, key):
 
 
 def quote(f):
-    return lambda *args: '"""' + f(*args) + '"""'
+    return lambda *args: f'"""{f(*args)}"""'
 
 
 def decrypt(enc_type):
@@ -155,8 +155,8 @@ def handle_techniques(line, **opts):
     line = re.sub(r"(?i)Chr[A-Z$]\(Asc[A-Z$](.+?)\)\)", r"\1", line)
     line = re.sub(r'(?i)Asc[A-Z$]\("""(\w)\w*"""\)', lambda m: ord(m.group(1)), line)
     line = re.sub(r"(?i)((?:Chr[A-Z$]?\(\d+\)\s*&?\s*)+)", decode_chr, line)
-    line = re.sub(r'(?i)\b%s\s*\(\w+\("""(.+?)"""\),\s*\w+\("""(.+?)"""' % enc_func_name, decrypt_func, line)
-    line = re.sub(r'(?i)\b%s\((?:""")?(.+?)(?:""")?,\s*(?:""")?(.+?)(?:""")?\)' % enc_func_name, decrypt_func, line)
+    line = re.sub(rf'(?i)\b{enc_func_name}\s*\(\w+\("""(.+?)"""\),\s*\w+\("""(.+?)"""', decrypt_func, line)
+    line = re.sub(rf'(?i)\b{enc_func_name}\((?:""")?(.+?)(?:""")?,\s*(?:""")?(.+?)(?:""")?\)', decrypt_func, line)
     line = re.sub(r'(?i)StrReverse\(.+?"""(.+?)"""\)', decode_reverse, line)
     line = re.sub(r'""".+?"""\s+&+\s+""".+?""".+', concatenate, line)
     while "Chr(Asc(" in line:

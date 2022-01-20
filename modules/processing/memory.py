@@ -131,11 +131,15 @@ class VolatilityAPI(object):
             self.ctx.config["sandbox_round"] = round
 
         plugin = self.plugin_list.get(plugin_class)
-        automagics = automagic.choose_automagic(self.automagics, plugin)
-        constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
-        runned_plugin = constructed.run()
-        json_data, error = ReturnJsonRenderer().render(runned_plugin)
-        return json_data  # , error
+        try:
+            automagics = automagic.choose_automagic(self.automagics, plugin)
+            constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
+            runned_plugin = constructed.run()
+            json_data, error = ReturnJsonRenderer().render(runned_plugin)
+            return json_data  # , error
+        except AttributeError:
+            log.error("Failing %s on %s", plugin_class, self.memdump)
+            return {}
 
 
 """ keeping at the moment to see if we want to integrate more

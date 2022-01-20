@@ -10,11 +10,6 @@ import random
 import sys
 import tempfile
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -31,7 +26,6 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 # this required for hash searches
-FULL_DB = False
 cfg = Config("cuckoo")
 routing = Config("routing")
 repconf = Config("reporting")
@@ -48,19 +42,6 @@ from urllib3 import disable_warnings
 disable_warnings()
 
 logger = logging.getLogger(__name__)
-
-
-if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE,
-    )[settings.MONGO_DB]
-    FULL_DB = True
 
 
 def get_form_data(platform):
@@ -205,6 +186,10 @@ def index(request, resubmit_hash=False):
         if request.POST.get("unpack"):
             options += "unpack=yes,"
 
+        # amsidump is enabled by default in the monitor for Win10+
+        if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
+            options += "amsidump=0,"
+
         options = options[:-1]
 
         opt_apikey = False
@@ -334,7 +319,8 @@ def index(request, resubmit_hash=False):
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
-                tmp_path = store_temp_file(sample.read(), sample.name)
+                filename = sanitize_filename(sample.name)
+                tmp_path = store_temp_file(sample.read(), filename)
 
                 path = unquarantine(tmp_path)
                 try:
@@ -530,6 +516,7 @@ def index(request, resubmit_hash=False):
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
+        enabledconf["amsidump"] = web_conf.amsidump.enabled
 
         if all_vms_tags:
             enabledconf["tags"] = True

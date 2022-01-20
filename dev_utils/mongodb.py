@@ -33,7 +33,7 @@ def connect_to_mongo():
 
 # code.interact(local=dict(locals(), **globals()))
 # q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
-
+# https://pymongo.readthedocs.io/en/stable/changelog.html
 
 results_db = connect_to_mongo()[mdb]
 
@@ -84,12 +84,7 @@ def mongo_aggregate(collection, query):
 
 
 def mongo_collection_names():
-    if hasattr(results_db, "list_collection_names"):
-        collection_names = results_db.list_collection_names()
-    else:
-        collection_names = results_db.collection_names()
-
-    return collection_names
+    return results_db.list_collection_names()
 
 
 def mongo_drop_database(database):

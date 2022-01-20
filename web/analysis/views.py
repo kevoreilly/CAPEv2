@@ -1207,7 +1207,7 @@ def report(request, task_id):
             "analysis",
             {"info.id": int(task_id)},
             {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "procmemory": 0, "behavior.processes": 0, "network": 0, "memory": 0},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
         network_report = mongo_find_one(
             "analysis",

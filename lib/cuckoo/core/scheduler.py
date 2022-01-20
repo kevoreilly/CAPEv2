@@ -321,6 +321,10 @@ class AnalysisManager(threading.Thread):
 
             # Mark the selected analysis machine in the database as started.
             guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
+            
+            # Try to check machinery status,
+            # Prevent some abnormal states of the machine from affecting the analysis
+            machinery.initialize_check()
             # Start the machine.
             machinery.start(self.machine.label)
 
@@ -349,13 +353,11 @@ class AnalysisManager(threading.Thread):
             succeeded = True
         except (CuckooMachineError, CuckooNetworkError) as e:
             if not unlocked:
-                machinery.release(self.machine.label)
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
             dead_machine = True
         except CuckooGuestError as e:
             if not unlocked:
-                machinery.release(self.machine.label)
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:

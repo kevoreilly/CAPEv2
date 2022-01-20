@@ -23,7 +23,7 @@ lock = Lock()
 
 # Global connections
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import delete_mongo_data
+    from dev_utils.mongodb import mongo_delete_data
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from dev_utils.elasticsearchdb import delete_analysis_and_related_calls, elastic_handler
@@ -142,7 +142,7 @@ class Retention(Report):
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
                             if repconf.mongodb.enabled:
-                                delete_mongo_data(curtask, lastTask)
+                                mongo_delete_data(curtask, lastTask)
                         elif item == "elastic":
                             if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)

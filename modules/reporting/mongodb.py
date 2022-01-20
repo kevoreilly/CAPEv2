@@ -11,9 +11,8 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from bson.objectid import ObjectId
-    from pymongo import TEXT, MongoClient
-    from pymongo.errors import ConnectionFailure, InvalidDocument
+    from dev_utils.mongodb import (TEXT, InvalidDocument, mongo_collection_names, mongo_create_index, mongo_delete_data, mongo_find,
+                                   mongo_find_one, mongo_insert_one, mongo_update_one)
 
     HAVE_MONGO = True
 except ImportError:
@@ -32,24 +31,6 @@ class MongoDB(Report):
 
     # Mongo schema version, used for data migration.
     SCHEMA_VERSION = "1"
-
-    def connect(self):
-        """Connects to Mongo database, loads options and set connectors.
-        @raise CuckooReportError: if unable to connect.
-        """
-        try:
-            self.conn = MongoClient(
-                self.options.get("host", "127.0.0.1"),
-                port=self.options.get("port", 27017),
-                username=self.options.get("username"),
-                password=self.options.get("password"),
-                authSource=self.options.get("authsource", "cuckoo"),
-            )
-            self.db = self.conn[self.options.get("db", "cuckoo")]
-        except TypeError:
-            raise CuckooReportError("Mongo connection port must be integer")
-        except ConnectionFailure:
-            raise CuckooReportError("Cannot connect to MongoDB")
 
     def debug_dict_size(self, dct):
         if isinstance(dct, list):
@@ -95,13 +76,13 @@ class MongoDB(Report):
         if "_id" in keys:
             keys.remove("_id")
 
-        obj_id = self.db.analysis.insert_one({"info": report["info"]})
+        obj_id = mongo_insert_one("analysis", {"info": report["info"]}).inserted_id
         keys.remove("info")
 
         for key in keys:
             try:
-                self.db.analysis.update_one(
-                    {"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
+                mongo_update_one(
+                    "analysis", {"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
                 )
             except InvalidDocument as e:
                 log.warning("Investigate your key: %s", key)
@@ -116,22 +97,14 @@ class MongoDB(Report):
         if not HAVE_MONGO:
             raise CuckooDependencyError("Unable to import pymongo (install with `pip3 install pymongo`)")
 
-        self.connect()
-
+        # move to startup
         # Set mongo schema version.
         # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
-        collection_names = []
-
-        if hasattr(self.db, "list_collection_names"):
-            collection_names = self.db.list_collection_names()
-        else:
-            collection_names = self.db.collection_names()
-
-        if "cuckoo_schema" in collection_names:
-            if self.db.cuckoo_schema.find_one()["version"] != self.SCHEMA_VERSION:
+        if "cuckoo_schema" in mongo_collection_names():
+            if mongo_find_one("cuckoo_schema", {}, {"version":1})["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
-            self.db.cuckoo_schema.insert_one({"version": self.SCHEMA_VERSION})
+            mongo_insert_one("cuckoo_schema", {"version": self.SCHEMA_VERSION})
 
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
@@ -141,7 +114,7 @@ class MongoDB(Report):
         if "network" not in report:
             report["network"] = {}
 
-        new_processes = insert_calls(report, mongo_calls_db=self.db.calls)
+        new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
@@ -149,34 +122,28 @@ class MongoDB(Report):
         # Create an index based on the info.id dict key. Increases overall scalability
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
-        self.db.analysis.create_index("info.id", background=True)
+        mongo_create_index("analysis", "info.id")
 
         # We performs a lot of SHA256 hash lookup so we need this index
-        self.db.analysis.create_index(
+        mongo_create_index(
+            "analysis",
             [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
             name="ALL_SHA256",
-            background=True,
         )
 
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 
-        analyses = self.db.analysis.find({"info.id": int(report["info"]["id"])})
-        if analyses:
-            log.debug("Deleting analysis data for Task %s", report["info"]["id"])
-            for analysis in analyses:
-                for process in analysis["behavior"].get("processes", []) or []:
-                    self.db.calls.delete_many({"_id": {"$in": process["calls"]}})
-                self.db.analysis.delete_one({"_id": analysis["_id"]}).deleted_count
-            log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
+        mongo_delete_data(int(report["info"]["id"]))
+        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         ensure_valid_utf8(report)
         gc.collect()
 
         # Store the report and retrieve its object id.
         try:
-            self.db.analysis.insert_one(report)
+            mongo_insert_one("analysis", report)
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or str(e).endswith("must not contain '.'"):
                 self.loop_saver(report)
@@ -206,7 +173,7 @@ class MongoDB(Report):
                                 log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                 del report[parent_key][child_key]
                         try:
-                            self.db.analysis.insert_one(report)
+                            mongo_insert_one("analysis", report)
                             error_saved = False
                         except InvalidDocument as e:
                             if str(e).startswith("documents must have only string keys"):
@@ -221,5 +188,3 @@ class MongoDB(Report):
                     except Exception as e:
                         log.error("Failed to delete child key: %s", e)
                         error_saved = False
-
-        self.conn.close()

@@ -68,28 +68,12 @@ def check_working_directory():
 
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
-        import pymongo
-
-        bad = False
-        try:
-            conn = pymongo.MongoClient(
-                repconf.mongodb.host,
-                port=repconf.mongodb.port,
-                username=repconf.mongodb.get("username"),
-                password=repconf.mongodb.get("password"),
-                authSource=repconf.mongodb.get("authsource", "cuckoo"),
+        from dev_utils.mongodb import connect_to_mongo
+        good = connect_to_mongo
+        if not good:
+            sys.exit(
+                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
             )
-            # ToDo check how to give user permission to read this without admin
-            # conn.server_info()
-        except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning(
-                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration"
-            )
-            bad = True
-        finally:
-            conn.close()
-            if bad:
-                sys.exit(1)
 
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check

@@ -32,15 +32,7 @@ log = logging.getLogger(__name__)
 logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
 
 if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.db]
+    from dev_utils.mongodb import mongo_find_one
 
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
@@ -424,8 +416,8 @@ def static_config_lookup(file_path, sha256=False):
         sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
 
     if repconf.mongodb.enabled:
-        document_dict = results_db.analysis.find_one(
-            {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)]
+        document_dict = mongo_find_one(
+            "analysis", {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif repconf.elasticsearchdb.enabled:
         document_dict = es.search(

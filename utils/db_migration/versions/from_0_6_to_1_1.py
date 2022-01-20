@@ -277,50 +277,13 @@ def upgrade():
 def mongo_upgrade():
     """Migrate mongodb schema and data."""
     # Read reporting.conf to fetch mongo configuration.
-    config = Config(cfg=os.path.join("..", "..", "conf", "reporting.conf"))
+    config = Config("reporting")
     # Run migration only if mongo is enabled as reporting module.
     if config.mongodb.enabled:
-        host = config.mongodb.get("host", "127.0.0.1")
-        port = config.mongodb.get("port", 27017)
-        database = config.mongodb.get("db", "cuckoo")
-        user = config.mongodb.get("user")
-        password = config.mongodb.get("password")
-        print("Mongo reporting is enabled, strarting mongo data migration.")
-
-        if not port.isnumber():
-            print("Port must be an integer")
-            sys.exit()
-
-        # Support old Mongo.
-        try:
-            from pymongo.connection import Connection
-            from pymongo.errors import ConnectionFailure
-
-            conn = Connection(host, port)
-            db = conn.cuckoo
-            done = True
-        except ImportError:
-            print("Unable to import pymongo (install with `pip3 install pymongo`)")
-            done = False
-        except ConnectionFailure:
-            print("Cannot connect to MongoDB")
-            sys.exit()
-
-        try:
-            if not done:
-                import pymongo
-
-                try:
-                    db = pymongo.MongoClient(host, port=port, username=user, password=password, authSource=database)[database]
-                except pymongo.errors.ConnectionFailure:
-                    print("Cannot connect to MongoDB")
-                    sys.exit()
-        except ImportError:
-            print("Unable to import pymongo (install with `pip3 install pymongo`)")
-            sys.exit()
+        from dev_utils.mongodb import mongo_collection_names
 
         # Check for schema version and create it.
-        if "cuckoo_schema" in db.collection_names():
+        if "cuckoo_schema" in mongo_collection_names:
             print("Mongo schema version not expected")
             sys.exit()
         else:

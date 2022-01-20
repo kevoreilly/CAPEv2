@@ -217,11 +217,6 @@ class Machinery(object):
                 log.warning("Configuration details about machine %s are missing: %s", machine_id.strip(), e)
                 continue
 
-    def initialize_check(self):
-        """When start machine run all checks.
-        """
-        self._initialize_check()
-
     def _initialize_check(self):
         """Runs checks against virtualization software when a machine manager
         is initialized.
@@ -386,12 +381,6 @@ class LibVirtMachinery(Machinery):
         @param module:  machine manager module
         """
         super(LibVirtMachinery, self).initialize(module)
-
-    def initialize_check(self):
-        """When start machine run all checks.
-        @raise CuckooMachineError: if libvirt version is not supported.
-        """
-        self._initialize_check()
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.

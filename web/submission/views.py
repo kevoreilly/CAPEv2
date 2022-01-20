@@ -10,11 +10,6 @@ import random
 import sys
 import tempfile
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render

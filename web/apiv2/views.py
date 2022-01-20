@@ -66,7 +66,7 @@ if repconf.compression.enabled:
     zlib_compresion = True
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_find, mongo_find_one, mongo_update
+    from dev_utils.mongodb import mongo_find, mongo_find_one, mongo_find_one_and_update
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -1923,10 +1923,7 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return Response({"error": True, "msg": "Missed content data or category"})
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1})
-        if not buf:
-            return Response({"error": True, "msg": "Task id doesn't exist"})
-        mongo_update("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: content}})
+        _ = mongo_find_one_and_update("analysis", {"info.id": int(task_id)}, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}

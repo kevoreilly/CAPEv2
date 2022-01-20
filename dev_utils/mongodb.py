@@ -87,6 +87,10 @@ def mongo_collection_names():
     return results_db.list_collection_names()
 
 
+def mongo_find_one_and_update(collection, query, update, projection={"_id": 1}):
+    return getattr(results_db, collection).find_one_and_update(query, update, projection)
+
+
 def mongo_drop_database(database):
     results_db.drop_database(database)
 

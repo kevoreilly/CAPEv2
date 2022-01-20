@@ -31,7 +31,6 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 # this required for hash searches
-FULL_DB = False
 cfg = Config("cuckoo")
 routing = Config("routing")
 repconf = Config("reporting")

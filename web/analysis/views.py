@@ -1254,7 +1254,7 @@ def report(request, task_id):
     if enabledconf["mongodb"]:
         try:
             report["dropped"] = list(
-                results_db.analysis.aggregate(
+                mongo_aggregate("analysis",
                     [
                         {"$match": {"info.id": int(task_id)}},
                         {"$project": {"_id": 0, "dropped_size": {"$size": {"$ifNull": ["$dropped.sha256", []]}}}},
@@ -1267,7 +1267,7 @@ def report(request, task_id):
         report["CAPE"] = 0
         try:
             tmp_data = list(
-                results_db.analysis.aggregate(
+                mongo_aggregate("analysis",
                     [
                         {"$match": {"info.id": int(task_id)}},
                         {"$project": {"_id": 0, "cape_size": {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}}}},
@@ -1281,7 +1281,7 @@ def report(request, task_id):
         report["procdump"] = 0
         try:
             tmp_data = list(
-                results_db.analysis.aggregate(
+                mongo_aggregate("analysis",
                     [
                         {"$match": {"info.id": int(task_id)}},
                         {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}},
@@ -1294,7 +1294,7 @@ def report(request, task_id):
 
         report["memory"] = 0
         try:
-            tmp_data = list(results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}}))
+            tmp_data = list(mongo_find("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}))
             if tmp_data:
                 report["memory"] = tmp_data[0]["_id"] or 0
         except Exception as e:

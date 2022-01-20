@@ -125,7 +125,7 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import mongo_delete_data, mongo_aggregate, mongo_find, mongo_find_one, mongo_update
+    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update
 
 es_as_db = False
 essearch = False

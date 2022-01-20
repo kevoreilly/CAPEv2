@@ -321,10 +321,6 @@ class AnalysisManager(threading.Thread):
 
             # Mark the selected analysis machine in the database as started.
             guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
-            
-            # Try to check machinery status,
-            # Prevent some abnormal states of the machine from affecting the analysis
-            machinery.initialize_check()
             # Start the machine.
             machinery.start(self.machine.label)
 

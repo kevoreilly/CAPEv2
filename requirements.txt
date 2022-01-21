@@ -10,9 +10,7 @@ alembic==1.0.11 \
 altgraph==0.17 \
     --hash=sha256:1f05a47122542f97028caf78775a095fbe6a2699b5089de8477eb583167d69aa \
     --hash=sha256:c623e5f3408ca61d4016f23a681b9adb100802ca3e3da5e718915a9e4052cebe
-    # via
-    #   macholib
-    #   pyinstaller
+    # via pyinstaller
 androguard==3.3.5 \
     --hash=sha256:38ade525fc3c5cb466535f8e2c79e0578bbcc360846f029704b5c7b0cdabddd9 \
     --hash=sha256:e2d87b7952ccc61d541e8a86b1e5a5eea8a28d90037afe9ab4406cae3e69e115 \
@@ -22,10 +20,6 @@ appdirs==1.4.4 \
     --hash=sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41 \
     --hash=sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128
     # via mwcp
-appnope==0.1.2 \
-    --hash=sha256:93aa393e9d6c54c5cd570ccadd8edad61ea0c4b9ea7a01409020c9aa019eb442 \
-    --hash=sha256:dd83cd4b5b460958838f6eb3000c660b1f9caf2a5b1de4264e941512f603258a
-    # via ipython
 asgiref==3.4.0 \
     --hash=sha256:05914d0fa65a21711e732adc6572edad6c8da5f1435c3f0c060689ced5e85195 \
     --hash=sha256:d36fa91dd90e3aa3c81a6bd426ccc8fb20bd3d22b0cf14a12800289e9c3e2563
@@ -44,7 +38,7 @@ backcall==0.2.0 \
     --hash=sha256:5cbdbf27be5e7cfadb448baf0aa95508f91f2bbc6c6437cd9cd06e2a4c215e1e \
     --hash=sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255
     # via ipython
-https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip \
+batch-deobfuscator @ https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip \
     --hash=sha256:f8b1782d4820463c93340ab44ef91d01e93453c79cc5ad0aadb8c386c17f8ec9
     # via -r requirements.in
 beautifulsoup4==4.9.3 \
@@ -52,7 +46,7 @@ beautifulsoup4==4.9.3 \
     --hash=sha256:84729e322ad1d5b4d25f805bfa05b902dd96450f43842c4e99067d5e1369eb25 \
     --hash=sha256:fff47e031e34ec82bf17e00da8f592fe7de69aeea38be00523c04623c04fb666
     # via bs4
-https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip \
+bingraph @ https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip \
     --hash=sha256:7f81c8c07f1df403840b2b2af4aeac9f9a99c7d47756f363b138bd02f45dbfd9
     # via -r requirements.in
 brotli==1.0.7 \
@@ -282,6 +276,17 @@ deprecated==1.2.12 \
     --hash=sha256:08452d69b6b5bc66e8330adde0a4f8642e969b9e1702904d137eeb29c8ffc771 \
     --hash=sha256:6d2de2de7931a968874481ef30208fd4e08da39177d61d3d4ebdf4366e7dbca1
     # via pymisp
+django==3.2.11 \
+    --hash=sha256:0a0a37f0b93aef30c4bf3a839c187e1175bcdeb7e177341da0cb7b8194416891 \
+    --hash=sha256:69c94abe5d6b1b088bf475e09b7b74403f943e34da107e798465d2045da27e75
+    # via
+    #   -r requirements.in
+    #   django-allauth
+    #   django-csp
+    #   django-extensions
+    #   django-recaptcha
+    #   django-settings-export
+    #   djangorestframework
 django-allauth==0.45.0 \
     --hash=sha256:6d46be0e1480316ccd45476db3aefb39db70e038d2a543112d314b76bb999a4e
     # via -r requirements.in
@@ -307,17 +312,6 @@ django-recaptcha==2.0.6 \
 django-settings-export==1.2.1 \
     --hash=sha256:fceeae49fc597f654c1217415d8e049fc81c930b7154f5d8f28c432db738ff79
     # via -r requirements.in
-django==3.2.11 \
-    --hash=sha256:0a0a37f0b93aef30c4bf3a839c187e1175bcdeb7e177341da0cb7b8194416891 \
-    --hash=sha256:69c94abe5d6b1b088bf475e09b7b74403f943e34da107e798465d2045da27e75
-    # via
-    #   -r requirements.in
-    #   django-allauth
-    #   django-csp
-    #   django-extensions
-    #   django-recaptcha
-    #   django-settings-export
-    #   djangorestframework
 djangorestframework==3.12.4 \
     --hash=sha256:6d1d59f623a5ad0509fe0d6bfe93cbdfe17b8116ebc8eda86d45f6e16e819aaf \
     --hash=sha256:f747949a8ddac876e879190df194b925c177cdeb725a099db1460872f7c0a7f2
@@ -344,6 +338,11 @@ editorconfig==0.12.3 \
     --hash=sha256:57f8ce78afcba15c8b18d46b5170848c88d56fd38f05c2ec60dbbfcb8996e89e \
     --hash=sha256:6b0851425aa875b08b16789ee0eeadbd4ab59666e9ebe728e526314c4a2e52c1
     # via jsbeautifier
+enum34==1.1.10 \
+    --hash=sha256:a98a201d6de3f2ab3db284e70a33b0f896fbf35f8086594e8c9e74b909058d53 \
+    --hash=sha256:c3858660960c984d6ab0ebad691265180da2b43f07e061c0f8dca9ef3cffd328 \
+    --hash=sha256:cce6a7477ed816bd2542d03d53db9f0db935dd013b70f336a95c73979289f248
+    # via fire
 et-xmlfile==1.1.0 \
     --hash=sha256:8eb9e2bc2f8c97e37a2dc85a09ecdcdec9d8a396530a6d5a33b30b9a92da0c5c \
     --hash=sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada
@@ -381,13 +380,13 @@ future==0.18.2 \
     #   peepdf
     #   pefile
     #   python-whois
+geoip==1.3.2 \
+    --hash=sha256:a890da6a21574050692198f14b07aa4268a01371278dfc24f71cd9bc87ebf0e6
+    # via -r requirements.in
 geoip2==2.9.0 \
     --hash=sha256:a37ddac2d200ffb97c736da8b8ba9d5d8dc47da6ec0f162a461b681ecac53a14 \
     --hash=sha256:f7ffe9d258e71a42cf622ce6350d976de1d0312b9f2fbce3975c7d838b57ecf0
     # via socks5man
-geoip==1.3.2 \
-    --hash=sha256:a890da6a21574050692198f14b07aa4268a01371278dfc24f71cd9bc87ebf0e6
-    # via -r requirements.in
 gevent==20.4.0 \
     --hash=sha256:0b84a8d6f088b29a74402728681c9f11864b95e49f5587a666e6fbf5c683e597 \
     --hash=sha256:1ef086264e846371beb5742ebaeb148dc96adf72da2ff350ae5603421cdc2ad9 \
@@ -440,7 +439,7 @@ halo==0.0.31 \
     --hash=sha256:5350488fb7d2aa7c31a1344120cee67a872901ce8858f60da7946cef96c208ab \
     --hash=sha256:7b67a3521ee91d53b7152d4ee3452811e1d2a6321975137762eb3d70063cc9d6
     # via flare-capa
-https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip \
+httpreplay @ https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip \
     --hash=sha256:9b2d86dbbb71a0cf941a3e1698dfcddad11adb7df43c63ea6728f691fa616438
     # via -r requirements.in
 ida-netnode==3.0 \
@@ -460,14 +459,14 @@ idna==2.10 \
 intervaltree==3.1.0 \
     --hash=sha256:902b1b88936918f9b2a19e0e5eb7ccb430ae45cde4f39ea4b36932920d33952d
     # via viv-utils
+ipython==7.31.1 \
+    --hash=sha256:55df3e0bd0f94e715abd968bedd89d4e8a7bce4bf498fb123fed4f5398fea874 \
+    --hash=sha256:b5548ec5329a4bcf054a5deed5099b0f9622eb9ea51aaa7104d215fece201d8c
+    # via androguard
 ipython-genutils==0.2.0 \
     --hash=sha256:72dd37233799e619666c9f639a9da83c34013a73e8bbc79a7a6348d93c61fab8 \
     --hash=sha256:eb2e116e75ecef9d4d228fdc66af54269afa26ab4463042e33785b887c628ba8
     # via traitlets
-ipython==7.25.0 \
-    --hash=sha256:54bbd1fe3882457aaf28ae060a5ccdef97f212a741754e420028d4ec5c2291dc \
-    --hash=sha256:aa21412f2b04ad1a652e30564fff6b4de04726ce875eab222c8430edc6db383a
-    # via androguard
 itsdangerous==1.1.0 \
     --hash=sha256:321b033d07f2a4136d3ec762eac9f16a10ccd60f53c0c91af90217ace7ba1f19 \
     --hash=sha256:b12271b2047cb23eeb98c8b5622e2e5c5e9abd9784a153e9d8ef9cb4dd09d749
@@ -611,10 +610,6 @@ lxml==4.6.3 \
     #   cybox
     #   maec
     #   mixbox
-macholib==1.15.2 \
-    --hash=sha256:1542c41da3600509f91c165cb897e7e54c0e74008bd8da5da7ebbee519d593d2 \
-    --hash=sha256:885613dd02d3e26dbd2b541eb4cc4ce611b841f827c0958ab98656e478b9e6f6
-    # via pyinstaller
 maec==4.1.0.17 \
     --hash=sha256:d163626a11f27e046c3013d313e5b53ba97f8a9f2f563ac523be55dda6420235 \
     --hash=sha256:e6566684e606749ff75ef03f7c3454c6fff8f350fa159b4ef17cdd0e5c632ae6
@@ -685,10 +680,6 @@ markupsafe==2.0.1 \
     #   -r requirements.in
     #   jinja2
     #   mako
-matplotlib-inline==0.1.2 \
-    --hash=sha256:5cf1176f554abb4fa98cb362aa2b55c500147e4bdbb07e3fda359143e1da0811 \
-    --hash=sha256:f41d5ff73c9f5385775d5c0bc13b424535c8402fe70ea8210f93e11f3683993e
-    # via ipython
 matplotlib==3.3.0 \
     --hash=sha256:09b4096748178bcc764b81587b00ab720eac24965d2bf44ecbe09dcf4e8ed253 \
     --hash=sha256:19cf4db0272da286863a50406f6430101af129f288c421b1a7f33ddfc8d0180f \
@@ -715,6 +706,10 @@ matplotlib==3.3.0 \
     #   -r requirements.in
     #   androguard
     #   bingraph
+matplotlib-inline==0.1.2 \
+    --hash=sha256:5cf1176f554abb4fa98cb362aa2b55c500147e4bdbb07e3fda359143e1da0811 \
+    --hash=sha256:f41d5ff73c9f5385775d5c0bc13b424535c8402fe70ea8210f93e11f3683993e
+    # via ipython
 maxminddb==2.0.3 \
     --hash=sha256:47e86a084dd814fac88c99ea34ba3278a74bc9de5a25f4b815b608798747c7dc
     # via geoip2
@@ -866,7 +861,7 @@ pebble==4.6.3 \
     --hash=sha256:46e02767b239a29b8150466514fabb5c6632bea8c9b7456dfdb715f4636fc8a3 \
     --hash=sha256:694e1105db888f3576b8f00662f90b057cf3780e6f8b7f57955a568008d0f497
     # via -r requirements.in
-https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip \
+peepdf @ https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip \
     --hash=sha256:7a3cfaf47f7cf8dddf9c768503a1c985eddb7c8b4bc87641a5add789443198b6
     # via -r requirements.in
 pefile==2021.9.3 \
@@ -975,16 +970,16 @@ ptyprocess==0.7.0 \
     --hash=sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35 \
     --hash=sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220
     # via pexpect
-pyasn1-modules==0.2.4 \
-    --hash=sha256:79580acf813e3b7d6e69783884e6e83ac94bf4617b36a135b85c599d8a818a7b \
-    --hash=sha256:a52090e8c5841ebbf08ae455146792d9ef3e8445b21055d3a3b7ed9c712b7c7c
-    # via vivisect
 pyasn1==0.4.5 \
     --hash=sha256:da2420fe13a9452d8ae97a0e478adde1dee153b11ba832a95b223a2ba01c10f7 \
     --hash=sha256:da6b43a8c9ae93bc80e2739efb38cc776ba74a886e3e9318d65fe81a8b8a2c6e
     # via
     #   pyasn1-modules
     #   vivisect
+pyasn1-modules==0.2.4 \
+    --hash=sha256:79580acf813e3b7d6e69783884e6e83ac94bf4617b36a135b85c599d8a818a7b \
+    --hash=sha256:a52090e8c5841ebbf08ae455146792d9ef3e8445b21055d3a3b7ed9c712b7c7c
+    # via vivisect
 pyattck==5.2.0 \
     --hash=sha256:1ccffe3d4f48f4fbcd4a7457d81052d07f9d683c65c2263dddbe99cde291a4ee \
     --hash=sha256:c6cd7a3c1abb797767e7e5971e2094313454cea0849c333df9516b76fc75d49b
@@ -1056,10 +1051,6 @@ pygments==2.2.0 \
     #   androguard
     #   ipython
     #   mwcp
-pyinstaller-hooks-contrib==2021.2 \
-    --hash=sha256:57964f93eb69255c49159ffdf052aae893feed223b0f69773dfd010ca6c569d9 \
-    --hash=sha256:7f5d0689b30da3092149fc536a835a94045ac8c9f0e6dfb23ac171890f5ea8f2
-    # via pyinstaller
 pyinstaller==4.4 \
     --hash=sha256:0e802c082487719aab6b2a93575819944c008e6e1ba44c7836fc45660a9586c0 \
     --hash=sha256:2cfef29a878fc54040e2287c19ea4bdc667f473b59918fcb51a1e68366ecb814 \
@@ -1069,6 +1060,10 @@ pyinstaller==4.4 \
     --hash=sha256:b0f13d0a33b9a21659967db65b475c14645b456dc70ba68fa9cebf4bc29ef58e \
     --hash=sha256:d0b35f885650b9dc69072adf948b608bcb506c5256dd7f0d0967c1f177bb41b1
     # via -r requirements.in
+pyinstaller-hooks-contrib==2021.2 \
+    --hash=sha256:57964f93eb69255c49159ffdf052aae893feed223b0f69773dfd010ca6c569d9 \
+    --hash=sha256:7f5d0689b30da3092149fc536a835a94045ac8c9f0e6dfb23ac171890f5ea8f2
+    # via pyinstaller
 pyjwt[crypto]==2.1.0 \
     --hash=sha256:934d73fbba91b0483d3857d1aff50e96b2a892384ee2c17417ed3203f173fca1 \
     --hash=sha256:fba44e7898bbca160a2b2b501f492824fc8382485d3a6f11ba5d0c1937ce6130
@@ -1398,19 +1393,6 @@ regex==2021.7.6 \
     --hash=sha256:f9392a4555f3e4cb45310a65b403d86b589adc773898c25a39184b1ba4db8985 \
     --hash=sha256:f98dc35ab9a749276f1a4a38ab3e0e2ba1662ce710f6530f5b0a6656f1c32b58
     # via -r requirements.in
-requests-file==1.5.1 \
-    --hash=sha256:07d74208d3389d01c38ab89ef403af0cfec63957d53a0081d8eca738d0247d8e \
-    --hash=sha256:dfe5dae75c12481f68ba353183c53a65e6044c923e64c24b2209f6c7570ca953
-    # via
-    #   -r requirements.in
-    #   tldextract
-requests-oauthlib==1.3.0 \
-    --hash=sha256:7f71572defaecd16372f9006f33c2ec8c077c3cfa6f5911a9a90202beb513f3d \
-    --hash=sha256:b4261601a71fd721a8bd6d7aa1cc1d6a8a93b4a9f5e96626f8e4d91e8beeaa6a
-    # via django-allauth
-requests==2.26.0 \
-    --hash=sha256:6c1246513ecd5ecd4528a0906f910e8f0f9c6b8ec72030dc9fd154dc1a6efd24 \
-    --hash=sha256:b8aa58f8cf793ffd8782d3d8cb19e66ef36f7aba4353eec859e74678b01b07a7
 requests[security,socks]==2.26.0 \
     --hash=sha256:6c1246513ecd5ecd4528a0906f910e8f0f9c6b8ec72030dc9fd154dc1a6efd24 \
     --hash=sha256:b8aa58f8cf793ffd8782d3d8cb19e66ef36f7aba4353eec859e74678b01b07a7
@@ -1424,10 +1406,26 @@ requests[security,socks]==2.26.0 \
     #   requests-file
     #   requests-oauthlib
     #   tldextract
+requests-file==1.5.1 \
+    --hash=sha256:07d74208d3389d01c38ab89ef403af0cfec63957d53a0081d8eca738d0247d8e \
+    --hash=sha256:dfe5dae75c12481f68ba353183c53a65e6044c923e64c24b2209f6c7570ca953
+    # via
+    #   -r requirements.in
+    #   tldextract
+requests-oauthlib==1.3.0 \
+    --hash=sha256:7f71572defaecd16372f9006f33c2ec8c077c3cfa6f5911a9a90202beb513f3d \
+    --hash=sha256:b4261601a71fd721a8bd6d7aa1cc1d6a8a93b4a9f5e96626f8e4d91e8beeaa6a
+    # via django-allauth
 roman==3.3 \
     --hash=sha256:2c46ac8db827d34e4fa9ccc0577e7f0b0d84f16ffe112351bd4f1ec2eb12d73f \
     --hash=sha256:c2a1f14ab47373aecc141edbcdd66595949c9d0ed932fe76bd547df1b55f7278
     # via xlmmacrodeobfuscator
+ruamel.yaml==0.17.20 \
+    --hash=sha256:4b8a33c1efb2b443a93fcaafcfa4d2e445f8e8c29c528d9f5cdafb7cc9e4004c \
+    --hash=sha256:810eef9c46523a3f77479c66267a4708255ebe806a2d540078408c2227f011af
+    # via
+    #   flare-capa
+    #   mwcp
 ruamel.yaml.clib==0.2.6 \
     --hash=sha256:0847201b767447fc33b9c235780d3aa90357d20dd6108b92be544427bea197dd \
     --hash=sha256:1070ba9dd7f9370d0513d649420c3b362ac2d687fe78c6e888f5b12bf8bc7bee \
@@ -1455,12 +1453,6 @@ ruamel.yaml.clib==0.2.6 \
     --hash=sha256:dc6a613d6c74eef5a14a214d433d06291526145431c3b964f5e16529b1842bed \
     --hash=sha256:de9c6b8a1ba52919ae919f3ae96abb72b994dd0350226e28f3686cb4f142165c
     # via ruamel.yaml
-ruamel.yaml==0.17.20 \
-    --hash=sha256:4b8a33c1efb2b443a93fcaafcfa4d2e445f8e8c29c528d9f5cdafb7cc9e4004c \
-    --hash=sha256:810eef9c46523a3f77479c66267a4708255ebe806a2d540078408c2227f011af
-    # via
-    #   flare-capa
-    #   mwcp
 sflock2==0.3.31 \
     --hash=sha256:4bd38986b07f2c388f6b40a42e3b04db1436fa4bdf19cad7fccba6bc0ec131f2
     # via -r requirements.in
@@ -1486,7 +1478,7 @@ six==1.15.0 \
 smda==1.6.2 \
     --hash=sha256:902aa793dc9de181fffdd8cb2745c7ce28e9722bd3431f1150ebe5fd0856b398
     # via flare-capa
-https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip \
+socks5man @ https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip \
     --hash=sha256:5891b0759294e3351fff286bb9239714819dd100edda2f042a8c3c260ac47b06
     # via -r requirements.in
 sortedcontainers==2.4.0 \
@@ -1501,10 +1493,6 @@ spinners==0.0.24 \
     --hash=sha256:1eb6aeb4781d72ab42ed8a01dcf20f3002bf50740d7154d12fb8c9769bf9e27f \
     --hash=sha256:2fa30d0b72c9650ad12bbe031c9943b8d441e41b4f5602b0ec977a19f3290e98
     # via halo
-sqlalchemy-utils==0.37.8 \
-    --hash=sha256:a6aaee154f798be4e479af0ceffaa5034d35fcf6f40707c0947d21bde64e05e5 \
-    --hash=sha256:b1bf67d904fed16b16ef1dc07f03e5e93a6b23899f920f6b41c09be45fbb85f2
-    # via -r requirements.in
 sqlalchemy==1.4.22 \
     --hash=sha256:09dbb4bc01a734ccddbf188deb2a69aede4b3c153a72b6d5c6900be7fb2945b1 \
     --hash=sha256:12bac5fa1a6ea870bdccb96fe01610641dd44ebe001ed91ef7fcd980e9702db5 \
@@ -1541,6 +1529,10 @@ sqlalchemy==1.4.22 \
     #   alembic
     #   socks5man
     #   sqlalchemy-utils
+sqlalchemy-utils==0.37.8 \
+    --hash=sha256:a6aaee154f798be4e479af0ceffaa5034d35fcf6f40707c0947d21bde64e05e5 \
+    --hash=sha256:b1bf67d904fed16b16ef1dc07f03e5e93a6b23899f920f6b41c09be45fbb85f2
+    # via -r requirements.in
 sqlparse==0.4.2 \
     --hash=sha256:0c00730c74263a94e5a9919ade150dfc3b19c574389985446148402998287dae \
     --hash=sha256:48719e356bb8b42991bdbb1e8b83223757b93789c00910a616a071910ca4a64d

@@ -8,6 +8,7 @@ import sys
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
+from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 import requests
@@ -845,6 +846,95 @@ def tasks_view(request, task_id):
         if task.sample_id:
             sample = db.view_sample(task.sample_id)
             entry["sample"] = sample.to_dict()
+    
+    if repconf.mongodb.enabled:
+        rtmp = mongo_find_one(
+            "analysis",
+            {"info.id": int(task.id)},
+            {
+                "info": 1,
+                "virustotal_summary": 1,
+                "malscore": 1,
+                "detections": 1,
+                "network.pcap_sha256": 1,
+                "mlist_cnt": 1,
+                "f_mlist_cnt": 1,
+                "target.file.clamav": 1,
+                "suri_tls_cnt": 1,
+                "suri_alert_cnt": 1,
+                "suri_http_cnt": 1,
+                "suri_file_cnt": 1,
+                "trid": 1,
+                "_id": 0,
+            },
+            sort=[("_id", -1)],
+        )
+
+    if es_as_db:
+        rtmp = es.search(
+            index=get_analysis_index(),
+            query=get_query_by_info_id(str(task.id)),
+            _source=[
+                "info",
+                "virustotal_summary",
+                "malscore",
+                "detections",
+                "network.pcap_sha256",
+                "mlist_cnt",
+                "f_mlist_cnt",
+                "target.file.clamav",
+                "suri_tls_cnt",
+                "suri_alert_cnt",
+                "suri_http_cnt",
+                "suri_file_cnt",
+                "trid",
+            ],
+        )["hits"]["hits"]
+        if len(rtmp) > 1:
+            rtmp = rtmp[-1]["_source"]
+        elif len(rtmp) == 1:
+            rtmp = rtmp[0]["_source"]
+        else:
+            pass
+
+    if rtmp:
+        for keyword in (
+            "detections",
+            "virustotal_summary",
+            "mlist_cnt",
+            "f_mlist_cnt",
+            "suri_tls_cnt",
+            "suri_alert_cnt",
+            "suri_file_cnt",
+            "suri_http_cnt",
+            "mlist_cnt",
+            "f_mlist_cnt",
+            "malscore",
+        ):
+            if keyword in rtmp:
+                entry[keyword] = rtmp[keyword]
+
+        if "info" in rtmp:
+            for keyword in ("custom", "package"):
+                if rtmp["info"].get(keyword, False):
+                    entry[keyword] = rtmp["info"][keyword]
+
+        if "network" in rtmp and "pcap_sha256" in rtmp["network"]:
+            entry["pcap_sha256"] = rtmp["network"]["pcap_sha256"]
+
+        if rtmp.get("target", {}).get("file", False):
+            for keyword in ("clamav", "trid"):
+                if rtmp["info"].get(keyword, False):
+                    entry[keyword] = rtmp["info"]["target"][keyword]
+
+        if settings.MOLOCH_ENABLED:
+            if settings.MOLOCH_BASE[-1] != "/":
+                settings.MOLOCH_BASE += "/"
+            entry["moloch_url"] = (
+                settings.MOLOCH_BASE
+                + "?date=-1&expression=tags"
+                + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, task.id), safe="")
+            )
 
         resp["data"] = entry
     else:

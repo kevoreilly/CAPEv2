@@ -1292,7 +1292,7 @@ def report(request, task_id):
                         "hits"
                     ])
     except Exception as e:
-            print(e)
+        print(e)
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")

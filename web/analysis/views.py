@@ -1250,54 +1250,48 @@ def report(request, task_id):
     if "CAPE_children" in report:
         children = report["CAPE_children"]
 
-    # We need ES alternative to this
-    if enabledconf["mongodb"]:
-        try:
-            report["dropped"] = list(
-                mongo_aggregate("analysis",
-                    [
-                        {"$match": {"info.id": int(task_id)}},
-                        {"$project": {"_id": 0, "dropped_size": {"$size": {"$ifNull": ["$dropped.sha256", []]}}}},
-                    ]
-                )
-            )[0]["dropped_size"]
-        except Exception:
-            report["dropped"] = 0
 
-        report["CAPE"] = 0
-        try:
-            tmp_data = list(
-                mongo_aggregate("analysis",
-                    [
-                        {"$match": {"info.id": int(task_id)}},
-                        {"$project": {"_id": 0, "cape_size": {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}}}},
-                    ]
-                )
-            )
-            report["CAPE"] = tmp_data[0]["cape_size"] or 0
-        except Exception as e:
-            print(e)
+    report["CAPE"] = 0
+    report["dropped"] = 0
+    report["procdump"] = 0
+    report["memory"] = 0
 
-        report["procdump"] = 0
-        try:
-            tmp_data = list(
-                mongo_aggregate("analysis",
-                    [
-                        {"$match": {"info.id": int(task_id)}},
-                        {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}},
-                    ]
-                )
-            )
-            report["procdump"] = tmp_data[0]["procdump_size"] or 0
-        except Exception as e:
-            print(e)
+    for key, value in (("dropped", "dropped"), ("procdump", "procdump"), ("CAPE.payloads", "CAPE")):
+        if enabledconf["mongodb"]:
+            try:
+                report[value] = list(
+                    mongo_aggregate(
+                        "analysis",
+                        [
+                            {"$match": {"info.id": int(task_id)}},
+                            {"$project": {"_id": 0, f"{value}_size": {"$size": {"$ifNull": [f"${key}.sha256", []]}}}},
+                        ],
+                    )
+                )[0][f"{value}_size"]
+            except Exception:
+                report[key] = 0
 
-        report["memory"] = 0
-        try:
+        elif es_as_db:
+            try:
+                report[value] = len(
+                    es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=[f"{key}.sha256"])["hits"][
+                        "hits"
+                    ][0]["_source"].get(key)
+                )
+            except Exception as e:
+                print(e)
+
+    try:
+        if enabledconf["mongodb"]:
             tmp_data = list(mongo_find("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}))
             if tmp_data:
                 report["memory"] = tmp_data[0]["_id"] or 0
-        except Exception as e:
+        elif es_as_db:
+            report["memory"] = len(
+                    es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"][
+                        "hits"
+                    ])
+    except Exception as e:
             print(e)
 
     reports_exist = False
@@ -1716,7 +1710,7 @@ def filereport(request, task_id, category):
                 if res and res.ok and res.json()["status"] == 1:
                     url = res.json()["url"]
                     dist_task_id = res.json()["task_id"]
-                    return redirect(url.replace(":8090", ":8000")+"api/tasks/get/report/"+str(dist_task_id)+"/"+category+"/", permanent=True)
+                    return redirect(url+"api/tasks/get/report/"+str(dist_task_id)+"/"+category+"/", permanent=True)
             except Exception as e:
                 print(e)
         """
@@ -1734,14 +1728,13 @@ def full_memory_dump_file(request, analysis_number):
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
     elif enabledconf["distributed"]:
-        # check for memdump on slave
         try:
             res = requests.get("http://127.0.0.1:9003/task/{task_id}".format(task_id=analysis_number), verify=False, timeout=30)
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
                 return redirect(
-                    url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True
+                    url + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True
                 )
         except Exception as e:
             print(e)

@@ -205,7 +205,7 @@ class FileUpload(ProtocolHandler):
             file_path = os.path.join(self.storagepath, dump_path.decode())
 
             try:
-                #open_exclusive will failing if file_path already exists
+                # open_exclusive will failing if file_path already exists
                 if not os.path.exists(file_path):
                     self.fd = open_exclusive(file_path)
             except OSError as e:

@@ -16,6 +16,7 @@ import shutil
 import socket
 import string
 import struct
+import sys
 import tempfile
 import threading
 import time
@@ -183,6 +184,8 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             else:
                 free_space = config.cuckoo.freespace
 
+            if not os.path.exists(path):
+                sys.exit("Restart daemon/process, happens after full cleanup")
             space_available = shutil.disk_usage(path).free >> 20
             need_space = space_available < free_space
         except FileNotFoundError:

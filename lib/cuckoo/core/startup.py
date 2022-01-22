@@ -69,6 +69,7 @@ def check_working_directory():
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
         from dev_utils.mongodb import connect_to_mongo
+
         good = connect_to_mongo
         if not good:
             sys.exit(

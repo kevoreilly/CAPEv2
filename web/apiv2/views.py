@@ -8,8 +8,8 @@ import sys
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
+from urllib.parse import quote
 from wsgiref.util import FileWrapper
-from zlib import decompress
 
 import requests
 from bson.objectid import ObjectId
@@ -23,6 +23,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
+from dev_utils.mongodb import mongo_delete_data
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -36,7 +37,6 @@ from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file,
                                          search_term_map, statistics, validate_task)
 from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
-from utils.cleaners import delete_mongo_data
 
 try:
     import psutil
@@ -60,16 +60,14 @@ repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
 
-if repconf.mongodb.enabled:
-    import pymongo
+zlib_compresion = False
+if repconf.compression.enabled:
+    from zlib import decompress
 
-    results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE,
-    )[settings.MONGO_DB]
+    zlib_compresion = True
+
+if repconf.mongodb.enabled:
+    from dev_utils.mongodb import mongo_find, mongo_find_one, mongo_find_one_and_update
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -848,6 +846,95 @@ def tasks_view(request, task_id):
         if task.sample_id:
             sample = db.view_sample(task.sample_id)
             entry["sample"] = sample.to_dict()
+    
+    if repconf.mongodb.enabled:
+        rtmp = mongo_find_one(
+            "analysis",
+            {"info.id": int(task.id)},
+            {
+                "info": 1,
+                "virustotal_summary": 1,
+                "malscore": 1,
+                "detections": 1,
+                "network.pcap_sha256": 1,
+                "mlist_cnt": 1,
+                "f_mlist_cnt": 1,
+                "target.file.clamav": 1,
+                "suri_tls_cnt": 1,
+                "suri_alert_cnt": 1,
+                "suri_http_cnt": 1,
+                "suri_file_cnt": 1,
+                "trid": 1,
+                "_id": 0,
+            },
+            sort=[("_id", -1)],
+        )
+
+    if es_as_db:
+        rtmp = es.search(
+            index=get_analysis_index(),
+            query=get_query_by_info_id(str(task.id)),
+            _source=[
+                "info",
+                "virustotal_summary",
+                "malscore",
+                "detections",
+                "network.pcap_sha256",
+                "mlist_cnt",
+                "f_mlist_cnt",
+                "target.file.clamav",
+                "suri_tls_cnt",
+                "suri_alert_cnt",
+                "suri_http_cnt",
+                "suri_file_cnt",
+                "trid",
+            ],
+        )["hits"]["hits"]
+        if len(rtmp) > 1:
+            rtmp = rtmp[-1]["_source"]
+        elif len(rtmp) == 1:
+            rtmp = rtmp[0]["_source"]
+        else:
+            pass
+
+    if rtmp:
+        for keyword in (
+            "detections",
+            "virustotal_summary",
+            "mlist_cnt",
+            "f_mlist_cnt",
+            "suri_tls_cnt",
+            "suri_alert_cnt",
+            "suri_file_cnt",
+            "suri_http_cnt",
+            "mlist_cnt",
+            "f_mlist_cnt",
+            "malscore",
+        ):
+            if keyword in rtmp:
+                entry[keyword] = rtmp[keyword]
+
+        if "info" in rtmp:
+            for keyword in ("custom", "package"):
+                if rtmp["info"].get(keyword, False):
+                    entry[keyword] = rtmp["info"][keyword]
+
+        if "network" in rtmp and "pcap_sha256" in rtmp["network"]:
+            entry["pcap_sha256"] = rtmp["network"]["pcap_sha256"]
+
+        if rtmp.get("target", {}).get("file", False):
+            for keyword in ("clamav", "trid"):
+                if rtmp["info"].get(keyword, False):
+                    entry[keyword] = rtmp["info"]["target"][keyword]
+
+        if settings.MOLOCH_ENABLED:
+            if settings.MOLOCH_BASE[-1] != "/":
+                settings.MOLOCH_BASE += "/"
+            entry["moloch_url"] = (
+                settings.MOLOCH_BASE
+                + "?date=-1&expression=tags"
+                + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, task.id), safe="")
+            )
 
         resp["data"] = entry
     else:
@@ -904,10 +991,9 @@ def tasks_delete(request, task_id, status=False):
             f_deleted.append(task)
             continue
 
-        # ToDo missed mongo?
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-            delete_mongo_data(task)
+            mongo_delete_data(task)
 
             s_deleted.append(task)
         else:
@@ -1105,7 +1191,7 @@ def tasks_iocs(request, task_id, detail=None):
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)})
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)})
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if tmp:
@@ -1475,8 +1561,8 @@ def tasks_rollingsuri(request, window=60):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
-        results_db.analysis.find(
-            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
+        mongo_find(
+            "analysis", {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
         )
     )
     resp = []
@@ -1505,20 +1591,22 @@ def tasks_rollingshrike(request, window=60, msgfilter=None):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     if msgfilter:
-        result = results_db.analysis.find(
+        result = mongo_find(
+            "analysis",
             {
                 "info.shrike_url": {"$exists": True, "$ne": None},
                 "_id": {"$gte": dummy_id},
                 "info.shrike_msg": {"$regex": msgfilter, "$options": "-1"},
             },
             {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
     else:
-        result = results_db.analysis.find(
+        result = mongo_find(
+            "analysis",
             {"info.shrike_url": {"$exists": True, "$ne": None}, "_id": {"$gte": dummy_id}},
             {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", pymongo.DESCENDING)],
+            sort=[("_id", -1)],
         )
 
     resp = []
@@ -1878,12 +1966,7 @@ def tasks_config(request, task_id, cape_name=False):
 
     buf = {}
     if repconf.mongodb.get("enabled"):
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
-    if repconf.jsondump.get("enabled") and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
-            with open(jfile, "r") as jdata:
-                buf = json.load(jdata)
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"CAPE.configs": 1}, sort=[("_id", -1)])
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(tmp) > 1:
@@ -1892,34 +1975,31 @@ def tasks_config(request, task_id, cape_name=False):
             buf = tmp[0]["_source"]
         else:
             buf = None
+    if repconf.jsondump.get("enabled") and not buf:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+            with open(jfile, "r") as jdata:
+                buf = json.load(jdata)
 
-    if buf.get("CAPE"):
-        try:
+    if not buf.get("CAPE"):
+        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
+        return Response(resp)
+
+    if isinstance(buf, dict) and buf.get("CAPE", False):
+        if zlib_compresion:
             buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-        except Exception:
-            pass
-
-        if isinstance(buf, dict) and buf.get("CAPE", False):
-            try:
-                buf["CAPE"] = json.loads(decompress(buf["CAPE"]))
-            except Exception:
-                # In case compress results processing module is not enabled
-                pass
-            data = []
-            if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("configs"):
-                if cape_name and buf["CAPE"]["configs"].get("cape_name", "") == cape_name:
-                    return Response({cape_name.lower(): buf["CAPE"]["configs"][cape_name]})
-                data = buf["CAPE"]["configs"]
-            if data:
-                resp = {"error": False, "configs": data}
-            else:
-                resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return Response(resp)
+        data = []
+        if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("configs"):
+            if cape_name and buf["CAPE"]["configs"].get(cape_name, "") == cape_name:
+                return Response({cape_name.lower(): buf["CAPE"]["configs"][cape_name]})
+            data = buf["CAPE"]["configs"]
+        if data:
+            resp = {"error": False, "configs": data}
         else:
             resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
-            return Response(resp)
+        return Response(resp)
     else:
-        resp = {"error": True, "error_value": "Unable to retrieve results for task {}.".format(task_id)}
+        resp = {"error": True, "error_value": "CAPE config for task {} does not exist.".format(task_id)}
         return Response(resp)
 
 
@@ -1933,10 +2013,7 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return Response({"error": True, "msg": "Missed content data or category"})
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1})
-        if not buf:
-            return Response({"error": True, "msg": "Task id doesn't exist"})
-        results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: content}})
+        _ = mongo_find_one_and_update("analysis", {"info.id": int(task_id)}, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}
@@ -1970,12 +2047,7 @@ def tasks_delete_many(request):
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             if delete_mongo:
-                task = results_db.analysis.find_one({"info.id": task_id})
-                if task is not None:
-                    for process in task.get("behavior", {}).get("processes", []):
-                        if process.get("calls"):
-                            results_db.calls.delete_many({"_id": {"$in": process["calls"]}})
-                    results_db.analysis.delete_one({"info.id": task_id})
+                mongo_delete_data(task_id)
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"
@@ -1990,6 +2062,7 @@ def limit_exceeded(request, exception):
 dl_service_map = {
     "VirusTotal": "vtdl",
 }
+
 
 def common_download_func(service, request):
     resp = {}

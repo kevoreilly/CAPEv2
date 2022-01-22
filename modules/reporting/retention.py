@@ -23,32 +23,12 @@ lock = Lock()
 
 # Global connections
 if repconf.mongodb.enabled:
-    from pymongo import MongoClient
-
-    results_db = MongoClient(
-        repconf.mongodb.host,
-        port=repconf.mongodb.port,
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )[repconf.mongodb.get("db", "cuckoo")]
+    from dev_utils.mongodb import mongo_delete_data
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from dev_utils.elasticsearchdb import delete_analysis_and_related_calls, elastic_handler
+
     es = elastic_handler
-
-
-def delete_mongo_data(curtask, tid):
-    # TODO: Class-ify this or make it a function in utils, some code reuse
-    # between this/process.py/django view
-    analyses = results_db.analysis.find({"info.id": int(tid)})
-    if analyses.count() > 0:
-        for analysis in analyses:
-            for process in analysis.get("behavior", {}).get("processes", []):
-                if process["calls"]:
-                    results_db.calls.delete_many({"_id": {"$in": process["calls"]}})
-            results_db.analysis.delete_one({"_id": analysis["_id"]})
-        log.debug("Task #%s deleting MongoDB data for Task #%s", curtask, tid)
 
 
 def delete_elastic_data(curtask, tid):
@@ -162,7 +142,7 @@ class Retention(Report):
                             delete_files(curtask, delLocations[item], lastTask)
                         elif item == "mongo":
                             if repconf.mongodb.enabled:
-                                delete_mongo_data(curtask, lastTask)
+                                mongo_delete_data(curtask, lastTask)
                         elif item == "elastic":
                             if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)

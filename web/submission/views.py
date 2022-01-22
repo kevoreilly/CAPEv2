@@ -10,11 +10,6 @@ import random
 import sys
 import tempfile
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -31,7 +26,6 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 # this required for hash searches
-FULL_DB = False
 cfg = Config("cuckoo")
 routing = Config("routing")
 repconf = Config("reporting")
@@ -48,19 +42,6 @@ from urllib3 import disable_warnings
 disable_warnings()
 
 logger = logging.getLogger(__name__)
-
-
-if repconf.mongodb.enabled:
-    import pymongo
-
-    results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_AUTHSOURCE,
-    )[settings.MONGO_DB]
-    FULL_DB = True
 
 
 def get_form_data(platform):

@@ -40,14 +40,13 @@ cfg = Config()
 repconf = Config("reporting")
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
-    from pymongo import ASCENDING, DESCENDING, MongoClient
-    from pymongo.errors import ConnectionFailure
+
+    from dev_utils.mongodb import mongo_find, mongo_find_one
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch.exceptions import RequestError as ESRequestError
 
-    from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
-                                           get_query_by_info_id)
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es = elastic_handler
 
@@ -102,31 +101,6 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         log.info("[%s] (4) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
 
     if report:
-        if repconf.mongodb.enabled:
-            conn, mdata, analyses = _load_mongo_report(task_id)
-            if analyses:
-                log.debug("Deleting analysis data for Task %s" % task_id)
-                for analysis in analyses:
-                    for process in analysis.get("behavior", {}).get("processes", []):
-                        calls = []
-                        for call in process["calls"]:
-                            calls.append(ObjectId(call))
-                        mdata.calls.delete_many({"_id": {"$in": calls}})
-                    mdata.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
-            conn.close()
-            log.debug("Deleted previous MongoDB data for Task %s" % task_id)
-
-        if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-            try:
-                analyses = es.search(
-                    index=get_analysis_index(), query=get_query_by_info_id(task_id)
-                )["hits"]["hits"]
-                if analyses:
-                    for analysis in analyses:
-                        delete_analysis_and_related_calls(analysis["_id"])
-            except ESRequestError as e:
-                print(e)
-
         if auto or capeproc:
             reprocess = False
         else:
@@ -293,31 +267,39 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         pool.join()
 
 
-def _load_mongo_report(task_id: int, return_one: bool = False):
-    conn = MongoClient(
-        host=repconf.mongodb.get("host", "127.0.0.1"),
-        port=repconf.mongodb.get("port", 27017),
-        username=repconf.mongodb.get("username"),
-        password=repconf.mongodb.get("password"),
-        authSource=repconf.mongodb.get("authsource", "cuckoo"),
-    )
-    mdata = conn[repconf.mongodb.get("db", "cuckoo")]
+def _load_report(task_id: int, return_one: bool = False):
 
-    if return_one:
-        analysis = mdata.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", DESCENDING)])
-        for process in analysis.get("behavior", {}).get("processes", []):
-            calls = []
-            for call in process["calls"]:
-                calls.append(ObjectId(call))
-            process["calls"] = []
-            for call in mdata.calls.find({"_id": {"$in": calls}}, sort=[("_id", ASCENDING)]) or []:
-                process["calls"] += call["calls"]
-        return conn, mdata, analysis
+    if repconf.mongodb.enabled:
+        if return_one:
+            analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, sort=[("_id", -1)])
+            for process in analysis.get("behavior", {}).get("processes", []):
+                calls = []
+                for call in process["calls"]:
+                    calls.append(ObjectId(call))
+                process["calls"] = []
+                for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
+                    process["calls"] += call["calls"]
+            return analysis
 
-    else:
-        return conn, mdata, mdata.analysis.find({"info.id": int(task_id)})
+        else:
+            return mongo_find("analysis", {"info.id": int(task_id)})
 
-    return False, False, False
+    if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
+        try:
+            analyses = (
+                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), sort={"info.id": {"order": "desc"}})
+                .get("hits", {})
+                .get("hits", [])
+            )
+            if analyses:
+                if return_one:
+                    return analyses[0]
+                else:
+                    return analyses
+        except ESRequestError as e:
+            print(e)
+
+    return False
 
 
 def main():
@@ -396,11 +378,8 @@ def main():
         init_logging(tid=args.id, debug=args.debug)
         task = Database().view_task(int(args.id))
         if args.signatures:
-            conn = False
             report = False
-            # check mongo
-            if repconf.mongodb.enabled:
-                conn, _, results = _load_mongo_report(int(args.id), return_one=True)
+            results = _load_report(int(args.id), return_one=True)
             if not results:
                 # fallback to json
                 report = os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id, "reports", "report.json")

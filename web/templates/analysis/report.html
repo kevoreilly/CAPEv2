@@ -72,7 +72,7 @@ $(function() {
 
 <ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Quick Overview</a></li>
-    {% if analysis.static or config.virustotal and analysis.virustotal %}
+    {% if analysis.static %}
         <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static Analysis</a></li>
     {% endif %}
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
@@ -86,13 +86,13 @@ $(function() {
             <li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" data-toggle="tab">Dropped Files ({{analysis.dropped}})</a></li>
         {% endif %}
         {% if analysis.procmemory|length %}
-            <li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab" >Process Memory ({{analysis.procmemory|length}})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procmemory/" data-toggle="tab" >Process Memory ({{analysis.procmemory|length}})</a></li>
         {% endif %}
         {% if analysis.memory %}
             <li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" data-toggle="tab">Memory Analysis</a></li>
         {% endif %}
         {% if analysis.procdump %}
-            <li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump}})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/">Process Dumps ({{analysis.procdump_size}})</a></li>
         {% endif %}
         {% if analysis.CAPE %}
             <li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">Payloads ({{analysis.CAPE}})</a></li>
@@ -120,7 +120,7 @@ $(function() {
     <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
     </div>
-    {% if analysis.static or analysis.strings or config.virustotal and analysis.virustotal %}
+    {% if analysis.static %}
     <div class="tab-pane fade" id="static">
         {% include "analysis/static/index.html" %}
     </div>

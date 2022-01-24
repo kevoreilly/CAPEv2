@@ -12,11 +12,12 @@ import sys
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
+from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
+
 try:
     import bson
 
     from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-    from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
     from lib.cuckoo.common.logo import logo
     from lib.cuckoo.core.resultserver import ResultServer
     from lib.cuckoo.core.scheduler import Scheduler
@@ -105,7 +106,7 @@ if __name__ == "__main__":
             cuckoo_main(max_analysis_count=args.max_analysis_count)
     except CuckooCriticalError as e:
         message = "{0}: {1}".format(e.__class__.__name__, e)
-        if len(log.handlers):
+        if any(filter(lambda hdlr: not isinstance(hdlr, logging.NullHandler), log.handlers)):
             log.critical(message)
         else:
             sys.stderr.write("{0}\n".format(message))

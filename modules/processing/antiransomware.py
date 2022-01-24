@@ -125,7 +125,6 @@ class AntiRansomware(Processing):
         with open(self.files_metadata, "rb") as f:
             for line in f.readlines():
                 filename = json.loads(line).get("filepath", "")
-                print(filename)
                 if filename and not "." in filename:
                     continue
                 ext = filename.rsplit(".")

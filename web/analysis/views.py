@@ -1269,7 +1269,7 @@ def report(request, task_id):
                     )
                 )[0][f"{value}_size"]
             except Exception:
-                report[key] = 0
+                report[value] = 0
 
         elif es_as_db:
             try:

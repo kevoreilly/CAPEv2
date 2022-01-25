@@ -11,7 +11,7 @@
                 <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML</a></div>
             {% endif %}
             {% if config.reporthtmlsummary %}
-                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsumary" %}">HTML summary</a></div>
+                <div class="column"><a href="{% url "filereport" analysis.info.id "htmlsummary" %}">HTML summary</a></div>
             {% endif %}
             {% if config.reportpdf %}
                 <div class="column"><a href="{% url "filereport" analysis.info.id "pdf" %}">PDF</a></div>

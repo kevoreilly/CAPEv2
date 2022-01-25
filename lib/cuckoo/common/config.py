@@ -34,10 +34,10 @@ class _BaseConfig:
     """Configuration file parser."""
 
     def get(self, section):
-        """Get option.
+        """Get options for the given section.
         @param section: section to fetch.
         @raise CuckooOperationalError: if section not found.
-        @return: option value.
+        @return: dict of option key/values.
         """
         try:
             return getattr(self, section)
@@ -76,6 +76,8 @@ class _BaseConfig:
         for section in config.sections():
             dct = Dictionary()
             for name, _ in config.items(section):
+                if name.startswith('env:'):
+                    continue
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a
                     # boolean value.

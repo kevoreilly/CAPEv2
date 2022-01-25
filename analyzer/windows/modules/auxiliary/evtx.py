@@ -6,7 +6,7 @@ from threading import Thread
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import AnalysisConfig
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Evtx(Thread, Auxiliary):
     def __init__(self, options={}, config=None):
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
-        self.config = AnalysisConfig()
+        self.config = Config()
         self.enabled = self.config.evtx
         self.do_run = self.enabled
 

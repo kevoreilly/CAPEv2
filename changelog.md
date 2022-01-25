@@ -1,3 +1,6 @@
+### [26-01-2022]
+* Config extension, for short details see [PR](https://github.com/kevoreilly/CAPEv2/pull/724) or full [read docs](https://capev2.readthedocs.io/en/latest/installation/host/configuration.html)
+
 ### [20-1-2022]
 * MongoDB abstraction for easier upgrades when they depricate some apis + code cleanup
 

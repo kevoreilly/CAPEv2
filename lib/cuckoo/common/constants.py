@@ -8,6 +8,9 @@ import os
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 
+CUSTOM_ROOT = os.path.join(CUCKOO_ROOT, "custom")
+CUSTOM_CONF_DIR = os.path.join(CUSTOM_ROOT, "conf")
+
 ANALYSIS_BASE_PATH = os.path.join(CUCKOO_ROOT, "storage")
 
 CUCKOO_VERSION = "2.2-CAPE"

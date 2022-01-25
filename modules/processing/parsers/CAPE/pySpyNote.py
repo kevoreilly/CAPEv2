@@ -5,9 +5,12 @@ import argparse
 import os
 import zipfile
 
-from androguard.core.bytecodes import apk, dvm
+try:
+    from androguard.core.bytecodes import apk, dvm
+except ImportError:
+    print("Missed dependency: pip3 install androguard")
 
-
+# Jacob Soo Copyright (c) 2016
 # ------------------------------------------------------------------
 # extract_config : This extracts the C&C information from SpyNote.
 # ------------------------------------------------------------------
@@ -57,24 +60,6 @@ def check_apk_file(apk_file):
         return bJar
 
 
-# -------------------------------------------------------------
-# logo : Ascii Logos like the 90s. :P
-# -------------------------------------------------------------
-def logo():
-    print("\n")
-    print(" ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   ")
-    print(r'/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  ')
-    print(r'\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ ')
-    print(
-        r' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\'
-    )
-    print(r"  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/")
-    print("\n")
-    print(" Find the C&C for this Spynote mallie!")
-    print(" Jacob Soo")
-    print(" Copyright (c) 2016\n")
-
-
 if __name__ == "__main__":
     description = "C&C Extraction tool for Spynote"
     parser = argparse.ArgumentParser(description=description, epilog="--file and --directory are mutually exclusive")
@@ -97,7 +82,6 @@ if __name__ == "__main__":
         is_dir = os.path.isdir(Directory[0])
     except Exception:
         pass
-    logo()
     if Filename is not None and is_file:
         if check_apk_file(Filename[0]):
             extract_config(Filename[0])

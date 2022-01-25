@@ -62,6 +62,7 @@ domain_passlist_re = [
     "^r3\.o\.lencr\.org$",
     "^x1\.c\.lencr\.org$",
     "^pki\.goog$",
+    "^trustocean\.crt\.sectigo\.com$",
 ]
 
 
@@ -136,4 +137,5 @@ domain_passlist = [
     "r3.o.lencr.org",
     "x1.c.lencr.org",
     "pki.goog",
+    "trustocean.crt.sectigo.com",
 ]

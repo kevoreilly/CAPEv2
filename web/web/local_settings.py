@@ -58,3 +58,6 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
     },
 }
+
+## Uncomment and enter your VirusTotal API key, in case you want to upload to VT from the web interface
+#VTDL_PRIV_KEY = ""

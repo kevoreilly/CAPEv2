@@ -129,7 +129,7 @@ class Remcos(Parser):
 
         # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
         for s in slist:
-            if bool(re.search("^[12]\.\d+\d{0,1}.*[FLP].*", s)):
+            if bool(re.search(r"^[12]\.\d+\d{0,1}.*[FLP].*", s)):
                 return s
         return
 
@@ -153,7 +153,7 @@ class Remcos(Parser):
                 p_data = OrderedDict()
                 p_data["Version"] = self.check_version(filebuf)
 
-                configs = re.split(b"\|\x1e\x1e\x1f\|", decrypted_data)
+                configs = re.split(br"\|\x1e\x1e\x1f\|", decrypted_data)
 
                 for i, cont in enumerate(configs):
                     if cont == b"\x00" or cont == b"\x01":

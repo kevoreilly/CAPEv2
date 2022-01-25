@@ -11,7 +11,7 @@ from pathlib import Path
 
 from lib.core.config import Config
 
-config = Config()
+config = Config(cfg="analysis.conf")
 
 log = logging.getLogger(__name__)
 

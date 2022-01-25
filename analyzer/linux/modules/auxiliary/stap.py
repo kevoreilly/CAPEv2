@@ -21,7 +21,7 @@ class STAP(Auxiliary):
     priority = -10  # low prio to wrap tightly around the analysis
 
     def __init__(self, options={}, analyzer=None):
-        self.config = Config()
+        self.config = Config(cfg="analysis.conf")
         self.proc = None
 
     def start(self):

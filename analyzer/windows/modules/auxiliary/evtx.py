@@ -31,7 +31,7 @@ class Evtx(Thread, Auxiliary):
     def __init__(self, options={}, config=None):
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
-        self.config = Config()
+        self.config = Config(cfg="analysis.conf")
         self.enabled = self.config.evtx
         self.do_run = self.enabled
 

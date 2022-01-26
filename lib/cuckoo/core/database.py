@@ -2148,7 +2148,7 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def add_statistics_to_task(self, task_id, **details):
+    def add_statistics_to_task(self, task_id, details):
         """add statistic to task
         @param task_id: ID of the task to query.
         @param: details statistic.

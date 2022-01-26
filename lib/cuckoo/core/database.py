@@ -575,7 +575,7 @@ class Database(object, metaclass=Singleton):
         """Disconnects pool."""
         try:
             self.engine.dispose()
-        except KeyError:
+        except (KeyError, AttributeError):
             pass
 
     def _connect_database(self, connection_string):

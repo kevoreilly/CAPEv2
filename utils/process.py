@@ -33,7 +33,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
-from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures, RunStatistics
+from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
 
 cfg = Config()
@@ -106,8 +106,6 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         else:
             reprocess = report
 
-        if cfg.cuckoo.run_statistics:
-            RunStatistics(task=task.to_dict(), results=results).run()
         RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
         Database().set_status(task_id, TASK_REPORTED)
 

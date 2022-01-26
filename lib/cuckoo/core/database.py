@@ -2148,6 +2148,37 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
+    def add_statistics_to_task(self, task_id, **details):
+        """add statistic to task
+        @param task_id: ID of the task to query.
+        @param: details statistic.
+        @return true of false.
+        """
+        session = self.Session()
+        try:
+            task = session.query(Task).get(task_id)
+            if task:
+                task.dropped_files = details["dropped_files"]
+                task.running_processes = details["running_processes"]
+                task.api_calls = details["api_calls"]
+                task.domains = details["domains"]
+                task.signatures_total = details["signatures_total"]
+                task.signatures_alert = details["signatures_alert"]
+                task.files_written = details["files_written"]
+                task.registry_keys_modified = details["registry_keys_modified"]
+                task.crash_issues = details["crash_issues"]
+                task.anti_issues = details["anti_issues"]
+            session.commit()
+            session.refresh(task)
+        except SQLAlchemyError as e:
+            log.debug("Database error deleting task: %s", e)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return True
+
+    @classlock
     def delete_task(self, task_id):
         """Delete information on a task.
         @param task_id: ID of the task to query.

@@ -186,17 +186,16 @@
 
         {% if analysis.static.pe.imports %}
         <div>
-            {% for library in analysis.static.pe.imports %}
+            {% for dll, library in analysis.static.pe.imports.items %}
             <div class="card">
-                <div class="card-header" id="h_{{library.dll}}">
+                <div class="card-header">
                     <h5 class="mb-0">
-                    <button class="btn btn-link" data-toggle="collapse" href="#{{library.dll}}" data-target="#{{library.dll}}" aria-expanded="false" aria-controls="{{library.dll}}">
-                        <strong>Library {{library.dll}}</strong>:</a>
+                    <button class="btn btn-link" data-toggle="collapse" href="#{{library.dll_name}}" data-target="#{{library.dll_name}}" aria-expanded="false">
+                        <strong>Library {{dll}}</strong>:</a>
                     </button>
                     </h5>
                 </div>
-
-                <div id="{{library.dll}}" class="collapse show" aria-labelledby="h_{{library.dll}}" data-parent="#accordion">
+                <div id="{{library.dll_name}}" class="collapse">
                     <div class="card-body">
                         {% for function in library.imports %}
                         <div>&bull; <span class="mono">{{function.address}} <a href="http://social.msdn.microsoft.com/Search/en-US/windows/desktop?query={{function.name}}">{{function.name}}</a></span></div>

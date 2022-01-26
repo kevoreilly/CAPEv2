@@ -429,7 +429,7 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        imports = []
+        imports = {}
 
         if not hasattr(self.pe, "DIRECTORY_ENTRY_IMPORT"):
             return imports
@@ -437,15 +437,20 @@ class PortableExecutable(object):
         for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
             try:
                 symbols = []
+
                 for imported_symbol in entry.imports:
-                    symbol = {}
-                    symbol["address"] = hex(imported_symbol.address)
-                    symbol["name"] = bytes2str(imported_symbol.name)
-                    symbols.append(symbol)
-                imports_section = {}
-                imports_section["dll"] = bytes2str(entry.dll)
-                imports_section["imports"] = symbols
-                imports.append(imports_section)
+                    symbols.append({"address": hex(imported_symbol.address), "name": bytes2str(imported_symbol.name)})
+
+                dll_name = bytes2str(entry.dll)
+                if dll_name in imports:
+                    imports[dll_name]["imports"] += symbols
+                else:
+                    imports.setdefault(dll_name, {})
+                    imports[dll_name] = {
+                        "dll_name": bytes2str(entry.dll).replace(".dll", ""),
+                        "dll": bytes2str(entry.dll),
+                        "imports": symbols,
+                    }
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
@@ -464,6 +469,7 @@ class PortableExecutable(object):
             # In recent versions of pefile, get_string_at_rva returns a Python3-style bytes object.
             # Convert it to a Python2-style string to ensure expected behavior when iterating
             # through it character by character.
+            # ToDo maybe decode latin-1
             if not isinstance(dllname, str):
                 dllname = "".join([chr(c) for c in dllname])
 
@@ -1065,7 +1071,7 @@ class PortableExecutable(object):
         peresults["digital_signers"] = self._get_digital_signers()
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
-            peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+            peresults["imported_dll_count"] = len(peresults["imports"].keys())
 
         if HAVE_FLARE_CAPA:
             pretime = datetime.now()

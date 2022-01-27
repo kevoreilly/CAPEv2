@@ -59,7 +59,7 @@ def with_timeout(func, args=(), kwargs={}):
     it = ResultThread()
     it.start()
     it.join(DNS_TIMEOUT)
-    if it.isAlive():
+    if it.is_alive():
         return DNS_TIMEOUT_VALUE
     else:
         if it.error:

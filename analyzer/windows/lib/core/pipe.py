@@ -206,7 +206,7 @@ class PipeServer(threading.Thread):
         self.do_run = False
         for h in self.handlers:
             try:
-                if h.isAlive():
+                if h.is_alive():
                     h.stop()
             except Exception as e:
                 log.error(e, exc_info=True)

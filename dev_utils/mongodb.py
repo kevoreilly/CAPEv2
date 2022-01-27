@@ -76,9 +76,9 @@ def mongo_insert_one(collection, query):
 @graceful_auto_reconnect
 def mongo_find(collection, query, projection=False, sort=[("_id", -1)]):
     if projection:
-        return getattr(results_db, collection).find(query, sort=sort)
-    else:
         return getattr(results_db, collection).find(query, projection, sort=sort)
+    else:
+        return getattr(results_db, collection).find(query, sort=sort)
 
 
 @graceful_auto_reconnect

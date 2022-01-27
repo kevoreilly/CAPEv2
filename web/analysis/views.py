@@ -1175,7 +1175,7 @@ def search_behavior(request, task_id):
                     chunks.append(data)
 
             for chunk in chunks:
-                for call in chunk["calls"]:
+                for call in chunk.get("calls", []):
                     if search_tid and call["thread_id"] != search_tid:
                         continue
                     # TODO: ES can speed this up instead of parsing with

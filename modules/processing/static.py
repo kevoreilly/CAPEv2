@@ -441,13 +441,12 @@ class PortableExecutable(object):
                 for imported_symbol in entry.imports:
                     symbols.append({"address": hex(imported_symbol.address), "name": bytes2str(imported_symbol.name)})
 
-                dll_name = bytes2str(entry.dll)
+                dll_name = bytes2str(entry.dll).replace(".dll", "")
                 if dll_name in imports:
                     imports[dll_name]["imports"] += symbols
                 else:
                     imports.setdefault(dll_name, {})
                     imports[dll_name] = {
-                        "dll_name": bytes2str(entry.dll).replace(".dll", ""),
                         "dll": bytes2str(entry.dll),
                         "imports": symbols,
                     }

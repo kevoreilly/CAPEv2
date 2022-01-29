@@ -500,7 +500,7 @@ User authentication and roles::
         {
             user: "WORKER_USERNAME",
             pwd:  passwordPrompt(),   // or cleartext password
-            roles: [ { role: "readWrite", db: "cuckoo" }]
+            roles: [ { role: "readWrite", db: "cuckoo" }, { role : "dbAdmin", db : "cuckoo"  }]
         }
     )
 

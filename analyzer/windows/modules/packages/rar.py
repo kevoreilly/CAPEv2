@@ -112,7 +112,7 @@ class Rar(Package):
                         file_name = f.filename
                         break
                 # Default to the first one if none found
-                file_name = file_name if file_name else rarinfos[0].filename
+                file_name = file_name or rarinfos[0].filename
                 log.debug("Missing file option, auto executing: %s", file_name)
             else:
                 raise CuckooPackageError("Empty RAR archive")

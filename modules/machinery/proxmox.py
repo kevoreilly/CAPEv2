@@ -57,8 +57,7 @@ class Proxmox(Machinery):
             verify_ssl=False,
         )
 
-        # /cluster/resources[type=vm] will give us all VMs no matter which node
-        # they reside on
+        # /cluster/resources[type=vm] will give us all VMs no matter which node they reside on
         try:
             vms = proxmox.cluster.resources.get(type="vm")
         except ResourceException as e:
@@ -66,9 +65,7 @@ class Proxmox(Machinery):
 
         for vm in vms:
             if vm["name"] == label:
-                # dynamically address
-                # /nodes/<node>/{qemu,lxc,openvz,...}/<vmid> to get handle on
-                # VM
+                # dynamically address /nodes/<node>/{qemu,lxc,openvz,...}/<vmid> to get handle on VM
                 node = proxmox.nodes(vm["node"])
                 hv = node.__getattr__(vm["type"])
                 vm = hv.__getattr__(str(vm["vmid"]))

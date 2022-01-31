@@ -272,6 +272,4 @@ class XenServerMachinery(Machinery):
         """
 
         ref = self._get_vm_ref(label)
-        state = self._get_vm_power_state(ref)
-
-        return state
+        return self._get_vm_power_state(ref)

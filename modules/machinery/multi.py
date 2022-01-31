@@ -24,9 +24,8 @@ def import_plugin(name):
         raise CuckooCriticalError(f'Unable to import plugin "{name}": {e}')
 
     for name, value in inspect.getmembers(module):
-        if inspect.isclass(value):
-            if issubclass(value, Machinery) and value is not Machinery and value is not LibVirtMachinery:
-                return value
+        if inspect.isclass(value) and issubclass(value, Machinery) and value is not Machinery and value is not LibVirtMachinery:
+            return value
 
 
 class MultiMachinery(Machinery):
@@ -62,8 +61,7 @@ class MultiMachinery(Machinery):
                     machine = machinery["config"].get(machine_name)
                     machine["machinery"] = machinery_name
 
-                    if "interface" not in machine:
-                        machine["interface"] = machinery["config"].get(machinery_name)["interface"]
+                    machine.setdefault("interface", machinery["config"].get(machinery_name)["interface"])
 
                     machine_label = machine[machinery_label]
                     machine["mm_label"] = machine_label

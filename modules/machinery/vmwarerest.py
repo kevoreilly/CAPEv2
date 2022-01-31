@@ -72,8 +72,11 @@ class VMwareREST(Machinery):
     def get_vm_settings(self, id):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
-            status = s.get(f"https://{self.host}:{self.port}/api/vms/{vmmoid}", auth=(self.username, self.password))
-            return status
+            return s.get(
+                f"https://{self.host}:{self.port}/api/vms/{vmmoid}",
+                auth=(self.username, self.password),
+            )
+
         log.info("There was a problem getting settings for vm %s", id)
 
     def poweron_vm(self, id):
@@ -96,20 +99,22 @@ class VMwareREST(Machinery):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
             log.info("Powering off vm %s", id)
-            status = s.put(
+            return s.put(
                 f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power",
                 auth=(self.username, self.password),
                 data="off",
                 headers={"content-type": "application/vnd.vmware.vmw.rest-v1+json"},
             )
-            return status
         log.info("There was a problem powering off vm %s", id)
 
     def get_power_for_vm(self, id):
         vmmoid = self.get_vmmoid(id)
         if vmmoid:
-            status = s.get(f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power", auth=(self.username, self.password))
-            return status
+            return s.get(
+                f"https://{self.host}:{self.port}/api/vms/{vmmoid}/power",
+                auth=(self.username, self.password),
+            )
+
         log.info("There was a problem querying power status for vm %s", id)
 
     def start(self, id):

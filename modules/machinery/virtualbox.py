@@ -216,12 +216,8 @@ class VirtualBox(Machinery):
         except OSError as e:
             raise CuckooMachineError(f"VBoxManage failed return it's version: {e}")
 
-        if output[:1] == str(5):
-            # VirtualBox version 5.x
-            dumpcmd = "dumpvmcore"
-        else:
-            # VirtualBox version 4.x
-            dumpcmd = "dumpguestcore"
+        # VirtualBox version 5.x uses 'dumpvmcore' and version 4.x uses 'dumpguestcore'
+        dumpcmd = "dumpvmcore" if output[0] == "5" else "dumpguestcore"
 
         try:
             subprocess.call(

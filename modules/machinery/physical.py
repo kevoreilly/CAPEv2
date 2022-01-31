@@ -77,11 +77,7 @@ class Physical(Machinery):
             searchURL = f"http://{self.options.fog.hostname}/fog/task/active"
             r = requests.get(searchURL, headers=headers)
             tasks = r.json()["tasks"]
-            flag = True
-            for task in tasks:
-                if (task["host"]["id"]) == hostID:
-                    flag = False
-            return flag
+            return all(task["host"]["id"] != hostID for task in tasks)
         except Exception:
             raise CuckooMachineError(f"Error while checking for fog task state for hostID {hostID}: {sys.exc_info()[0]}")
 
@@ -102,7 +98,6 @@ class Physical(Machinery):
             raise CuckooMachineError(f"Error occurred while starting: {label} (STATUS={status})")
 
     def stop(self, label):
-
         """Stop a physical machine.
         @param label: physical machine name.
         @raise CuckooMachineError: if unable to stop.
@@ -131,9 +126,7 @@ class Physical(Machinery):
                     # Deploy Task to reset physical machine to former state
                     payload = json.dumps({"taskTypeID": taskID_Deploy, "shutdown": "", "wol": "true"}).encode()
 
-                    r_deploy = requests.post(
-                        f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload
-                    )
+                    requests.post(f"http://{self.options.fog.hostname}/fog/host/{hostID}/task", headers=headers, data=payload)
 
                     try:
                         requests.post(
@@ -167,12 +160,7 @@ class Physical(Machinery):
         """List physical machines installed.
         @return: physical machine names list.
         """
-        active_machines = []
-        for machine in self.machines():
-            if self._status(machine.label) == self.RUNNING:
-                active_machines.append(machine.label)
-
-        return active_machines
+        return [machine.label for machine in self.machines() if self._status(machine.label) == self.RUNNING]
 
     def _status(self, label):
         """Get current status of a physical machine.
@@ -197,8 +185,6 @@ class Physical(Machinery):
             return self.RUNNING
         except Exception:
             return self.STOPPED
-
-        return self.ERROR
 
     def fog_init(self):
         """Initiate by indexing FOG regarding all available machines."""

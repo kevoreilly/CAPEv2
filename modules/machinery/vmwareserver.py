@@ -119,7 +119,6 @@ class VMwareServer(Machinery):
             except OSError as e:
                 raise CuckooMachineError(f"Error shutting down machine {vmx_path}: {e}")
         else:
-
             log.warning("Trying to stop an already stopped machine: %s", vmx_path)
 
     def _revert(self, vmx_path, snapshot):
@@ -134,7 +133,6 @@ class VMwareServer(Machinery):
             f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
             f'-p {self.options.vmwareserver.password} revertToSnapshot "{vmx_path}" snapshot'
         )
-
         # log.debug("Revert string: %s", revert_string)
 
         try:
@@ -153,7 +151,6 @@ class VMwareServer(Machinery):
             f"{self.options.vmwareserver.path} -T ws-shared -h {self.options.vmwareserver.vmware_url} -u {self.options.vmwareserver.username} "
             f'-p {self.options.vmwareserver.password} list "{vmx_path}"'
         )
-
         # log.debug("List string: %s", list_string)
 
         try:

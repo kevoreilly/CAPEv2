@@ -150,15 +150,19 @@ class Sniffer(Auxiliary):
                 f.write("\n")
 
             subprocess.check_output(
-                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
             )
             subprocess.check_output(
                 ["ssh", remote_host, "nohup", "/bin/bash", f"/tmp/{self.task.id}.sh", ">", "/tmp/log", "2>", "/tmp/err"],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
             )
 
-            self.pid = subprocess.check_output(["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL).strip()
+            self.pid = subprocess.check_output(
+                ["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL
+            ).strip()
             log.info(
                 "Started remote sniffer @ %s with (interface=%s, host=%s, dump path=%s, pid=%s)",
                 remote_host,
@@ -168,7 +172,9 @@ class Sniffer(Auxiliary):
                 self.pid,
             )
             subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
             )
 
         else:
@@ -194,8 +200,12 @@ class Sniffer(Auxiliary):
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
             file_path2 = f"/tmp/tcp.dump.{self.task.id}"
 
-            subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-            subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            subprocess.check_output(
+                ["scp", "-q", f"{remote_host}:{file_path2}", file_path], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+            )
+            subprocess.check_output(
+                ["ssh", remote_host, "rm", "-f", file_path2], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+            )
             return
 
         if self.proc and not self.proc.poll():

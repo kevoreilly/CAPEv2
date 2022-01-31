@@ -32,7 +32,11 @@ class Sniffer(Auxiliary):
         bpf = self.options.get("bpf", "")
         remote = self.options.get("remote", False)
         remote_host = self.options.get("host", "")
-        file_path = f"/tmp/tcp.dump.{self.task.id}" if remote else os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
+        file_path = (
+            f"/tmp/tcp.dump.{self.task.id}"
+            if remote
+            else os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
+        )
         host = self.machine.ip
         # Selects per-machine interface if available.
         interface = self.machine.interface or self.options.get("interface")

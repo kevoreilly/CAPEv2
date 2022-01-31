@@ -8,7 +8,6 @@ import logging
 import os
 import subprocess
 from stat import S_ISUID
-from subprocess import DEVNULL
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
@@ -151,14 +150,15 @@ class Sniffer(Auxiliary):
                 f.write("\n")
 
             subprocess.check_output(
-                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], stderr=DEVNULL
+                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
             )
             subprocess.check_output(
                 ["ssh", remote_host, "nohup", "/bin/bash", f"/tmp/{self.task.id}.sh", ">", "/tmp/log", "2>", "/tmp/err"],
-                stderr=subprocess.STDOUT,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT
             )
 
-            self.pid = subprocess.check_output(["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=DEVNULL).strip()
+            self.pid = subprocess.check_output(["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL).strip()
             log.info(
                 "Started remote sniffer @ %s with (interface=%s, host=%s, dump path=%s, pid=%s)",
                 remote_host,
@@ -168,7 +168,7 @@ class Sniffer(Auxiliary):
                 self.pid,
             )
             subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], stderr=DEVNULL
+                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
             )
 
         else:
@@ -189,13 +189,13 @@ class Sniffer(Auxiliary):
             remote_host = self.options.get("host", "")
             remote_args = ["ssh", remote_host, "kill", "-2", self.pid]
 
-            subprocess.check_output(remote_args, stderr=DEVNULL)
+            subprocess.check_output(remote_args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
             file_path2 = f"/tmp/tcp.dump.{self.task.id}"
 
-            subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], stderr=DEVNULL)
-            subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], stderr=DEVNULL)
+            subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
             return
 
         if self.proc and not self.proc.poll():

@@ -15,6 +15,7 @@ suricata_blocklist = (
     "base64",
     "backdoor",
     "common",
+    "confidence",
     "custom",
     "dropper",
     "downloader",

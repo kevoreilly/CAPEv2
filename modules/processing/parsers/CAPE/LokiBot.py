@@ -27,7 +27,7 @@ import sys
 import pefile
 from Crypto.Cipher import DES3
 
-DESCRIPTION = "Loki configuration parser."
+DESCRIPTION = "LokiBot configuration parser."
 AUTHOR = "sysopfb"
 
 

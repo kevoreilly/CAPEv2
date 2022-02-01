@@ -1,9 +1,9 @@
-rule Loki
+rule LokiBot
 {
     meta:
         author = "kevoreilly"
-        description = "Loki Payload"
-        cape_type = "Loki Payload"
+        description = "LokiBot Payload"
+        cape_type = "LokiBot Payload"
     strings:
         $a1 = "DlRycq1tP2vSeaogj5bEUFzQiHT9dmKCn6uf7xsOY0hpwr43VINX8JGBAkLMZW"
         $a2 = "last_compatible_version"

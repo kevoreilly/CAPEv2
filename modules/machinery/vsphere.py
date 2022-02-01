@@ -112,11 +112,7 @@ class vSphere(Machinery):
                         raise CuckooCriticalError(
                             f"Snapshot for machine {machine.label} not in powered-on state, please create one"
                         )
-
-        except CuckooCriticalError:
-            raise
-
-        except Exception as e:
+        except Exception:
             raise CuckooCriticalError("Couldn't connect to vSphere host")
 
         super(vSphere, self)._initialize_check()
@@ -188,16 +184,14 @@ class vSphere(Machinery):
         def traverseDCFolders(conn, nodes, path=""):
             for node in nodes:
                 if hasattr(node, "childEntity"):
-                    for child, childpath in traverseDCFolders(conn, node.childEntity, f"{path}{node.name}/"):
-                        yield child, childpath
+                    yield from traverseDCFolders(conn, node.childEntity, f"{path}{node.name}/")
                 else:
                     yield node, path + node.name
 
         def traverseVMFolders(conn, nodes):
             for node in nodes:
                 if hasattr(node, "childEntity"):
-                    for child in traverseVMFolders(conn, node.childEntity):
-                        yield child
+                    yield from traverseVMFolders(conn, node.childEntity)
                 else:
                     yield node
 
@@ -238,28 +232,26 @@ class vSphere(Machinery):
     def _delete_snapshot(self, vm, name):
         """Remove named snapshot of virtual machine"""
         snapshot = self._get_snapshot_by_name(vm, name)
-        if snapshot:
-            log.info("Removing snapshot %s for machine %s", name, vm.summary.config.name)
-            task = snapshot.RemoveSnapshot_Task(removeChildren=True)
-            try:
-                self._wait_task(task)
-            except CuckooMachineError as e:
-                log.error("RemoveSnapshot: %s", e)
-        else:
+        if not snapshot:
             raise CuckooMachineError(f"Snapshot {name} for machine {vm.summary.config.name} not found")
+        log.info("Removing snapshot %s for machine %s", name, vm.summary.config.name)
+        task = snapshot.RemoveSnapshot_Task(removeChildren=True)
+        try:
+            self._wait_task(task)
+        except CuckooMachineError as e:
+            log.error("RemoveSnapshot: %s", e)
 
     def _revert_snapshot(self, vm, name):
         """Revert virtual machine to named snapshot"""
         snapshot = self._get_snapshot_by_name(vm, name)
-        if snapshot:
-            log.info("Reverting machine %s to snapshot %s", vm.summary.config.name, name)
-            task = snapshot.RevertToSnapshot_Task()
-            try:
-                self._wait_task(task)
-            except CuckooMachineError as e:
-                raise CuckooMachineError(f"RevertToSnapshot: {e}")
-        else:
+        if not snapshot:
             raise CuckooMachineError(f"Snapshot {name} for machine {vm.summary.config.name} not found")
+        log.info("Reverting machine %s to snapshot %s", vm.summary.config.name, name)
+        task = snapshot.RevertToSnapshot_Task()
+        try:
+            self._wait_task(task)
+        except CuckooMachineError as e:
+            raise CuckooMachineError(f"RevertToSnapshot: {e}")
 
     def _download_snapshot(self, conn, vm, name, path):
         """Download snapshot file from host to local path"""
@@ -277,7 +269,7 @@ class vSphere(Machinery):
                 break
 
         for f in vm.layoutEx.file:
-            if f.key == memorykey and (f.type == "snapshotMemory" or f.type == "suspendMemory"):
+            if f.key == memorykey and f.type in ("snapshotMemory", "suspendMemory"):
                 filespec = f.name
                 break
 
@@ -343,6 +335,5 @@ class vSphere(Machinery):
         """Recursive depth-first traversal of snapshot tree"""
         for node in root:
             if len(node.childSnapshotList) > 0:
-                for child in self._traverseSnapshots(node.childSnapshotList):
-                    yield child
+                yield from self._traverseSnapshots(node.childSnapshotList)
             yield node

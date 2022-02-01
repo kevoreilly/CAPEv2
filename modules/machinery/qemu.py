@@ -32,7 +32,6 @@ try:
 except ImportError:
     print("Missde dependency: pip3 install psutil")
 
-
 # this whole semi-hardcoded commandline thing is not the best
 #  but in the config files we can't do arrays etc so we'd have to parse the
 #  configured commandlines somehow and then fill in some more things
@@ -468,12 +467,11 @@ class QEMU(Machinery):
         stop_me = 0
         while proc.poll() is None:
             if stop_me < cfg.timeouts.vm_state:
-                time.sleep(1)
                 stop_me += 1
             else:
                 log.debug("Stopping vm %s timed out, killing", label)
                 proc.terminate()
-                time.sleep(1)
+            time.sleep(1)
 
         # if proc.returncode != 0 and stop_me < cfg.timeouts.vm_state:
         #     log.debug("QEMU exited with error powering off the machine")
@@ -485,7 +483,4 @@ class QEMU(Machinery):
         @param name: virtual machine name.
         @return: status string.
         """
-        p = self.state.get(name)
-        if p is not None:
-            return self.RUNNING
-        return self.STOPPED
+        return self.RUNNING if self.state.get(name) is not None else self.STOPPED

@@ -31,28 +31,19 @@ class Sniffer(Auxiliary):
         bpf = self.options.get("bpf", "")
         remote = self.options.get("remote", False)
         remote_host = self.options.get("host", "")
-        if remote:
-            file_path = f"/tmp/tcp.dump.{self.task.id}"
-        else:
-            file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
+        file_path = (
+            f"/tmp/tcp.dump.{self.task.id}"
+            if remote
+            else os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
+        )
         host = self.machine.ip
         # Selects per-machine interface if available.
-        if self.machine.interface:
-            interface = self.machine.interface
-        else:
-            interface = self.options.get("interface")
+        interface = self.machine.interface or self.options.get("interface")
         # Selects per-machine resultserver IP if available.
-        if self.machine.resultserver_ip:
-            resultserver_ip = str(self.machine.resultserver_ip)
-        else:
-            resultserver_ip = str(cfg.resultserver.ip)
+        resultserver_ip = str(self.machine.resultserver_ip or cfg.resultserver.ip)
         # Get resultserver port from its instance because it could change dynamically.
-        resultserver_port = str(ResultServer().port)
-
-        if self.machine.resultserver_port:
-            resultserver_port = str(self.machine.resultserver_port)
-        else:
-            resultserver_port = str(cfg.resultserver.port)
+        ResultServer()
+        resultserver_port = str(self.machine.resultserver_port or cfg.resultserver.port)
 
         if not os.path.exists(tcpdump):
             log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
@@ -144,8 +135,7 @@ class Sniffer(Auxiliary):
         # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
 
         if remote and bpf:
-            pargs.extend(["and", "("] + bpf.split(" ") + [")"])
-            pargs.extend(["'"])
+            pargs.extend(["and", "(", *bpf.split(" "), ")", "'"])
         elif bpf:
             pargs.extend(["and", "(", bpf, ")"])
 
@@ -153,29 +143,22 @@ class Sniffer(Auxiliary):
             log.exception("Failed to start sniffer, remote enabled but no ssh string has been specified")
             return
         elif remote:
-
-            try:
-                from subprocess import DEVNULL  # py3k
-            except ImportError:
-                DEVNULL = open(os.devnull, "wb")
-
-            f = open(f"/tmp/{self.task.id}.sh", "w")
-            if f:
+            with open(f"/tmp/{self.task.id}.sh", "w") as f:
                 f.write(f"{' '.join(pargs)} & PID=$!")
                 f.write("\n")
                 f.write(f"echo $PID > /tmp/{self.task.id}.pid")
                 f.write("\n")
-                f.close()
 
-            remote_output = subprocess.check_output(
-                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], stderr=DEVNULL
+            subprocess.check_output(
+                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"],
             )
-            remote_output = subprocess.check_output(
+            subprocess.check_output(
                 ["ssh", remote_host, "nohup", "/bin/bash", f"/tmp/{self.task.id}.sh", ">", "/tmp/log", "2>", "/tmp/err"],
-                stderr=subprocess.STDOUT,
             )
 
-            self.pid = subprocess.check_output(["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=DEVNULL).strip()
+            self.pid = subprocess.check_output(
+                ["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL
+            ).strip()
             log.info(
                 "Started remote sniffer @ %s with (interface=%s, host=%s, dump path=%s, pid=%s)",
                 remote_host,
@@ -184,8 +167,8 @@ class Sniffer(Auxiliary):
                 file_path,
                 self.pid,
             )
-            remote_output = subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], stderr=DEVNULL
+            subprocess.check_output(
+                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"],
             )
 
         else:
@@ -206,18 +189,13 @@ class Sniffer(Auxiliary):
             remote_host = self.options.get("host", "")
             remote_args = ["ssh", remote_host, "kill", "-2", self.pid]
 
-            try:
-                from subprocess import DEVNULL  # py3k
-            except ImportError:
-                DEVNULL = open(os.devnull, "wb")
-
-            remote_output = subprocess.check_output(remote_args, stderr=DEVNULL)
+            subprocess.check_output(remote_args)
 
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
             file_path2 = f"/tmp/tcp.dump.{self.task.id}"
 
-            remote_output = subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], stderr=DEVNULL)
-            remote_output = subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], stderr=DEVNULL)
+            subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path])
+            subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2])
             return
 
         if self.proc and not self.proc.poll():
@@ -230,6 +208,5 @@ class Sniffer(Auxiliary):
                         self.proc.kill()
                 except OSError as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
-                    pass
                 except Exception as e:
                     log.exception("Unable to stop the sniffer with pid %d: %s", self.proc.pid, e)

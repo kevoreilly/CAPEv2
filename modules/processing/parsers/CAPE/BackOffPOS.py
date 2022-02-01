@@ -7,13 +7,13 @@ from struct import unpack_from
 from sys import argv
 
 import pefile
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 header_ptrn = b"Content-Type: application/x-www-form-urlencoded"
 
 
 def RC4(key, data):
-    cipher = ARC4.new(key)
+    cipher = ARC4.new(key.encode())
     return cipher.decrypt(data)
 
 

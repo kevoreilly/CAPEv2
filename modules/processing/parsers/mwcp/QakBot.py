@@ -9,7 +9,7 @@ import socket
 import struct
 
 import pefile
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 from mwcp.parser import Parser
 
 try:
@@ -145,7 +145,7 @@ def decrypt_data(data):
         return
 
     rc4_key = data[:0x14]
-    decrypted_data = ARC4.new(rc4_key).decrypt(data[0x14:])
+    decrypted_data = ARC4.new(rc4_key.encode()).decrypt(data[0x14:])
 
     if not decrypted_data:
         return

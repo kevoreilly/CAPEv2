@@ -8,7 +8,7 @@ from io import StringIO
 from zipfile import ZipFile
 
 # Non Standard Imports
-from Crypto.Cipher import AES, ARC4, XOR
+from Cryptodome.Cipher import AES, ARC4, XOR
 
 # Helper Functions Go Here
 

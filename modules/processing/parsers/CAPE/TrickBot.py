@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 import pefile
 import yara
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 
 rule_source = """
 rule TrickBot

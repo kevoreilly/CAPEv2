@@ -25,7 +25,7 @@ import base64
 import zipfile
 from hashlib import pbkdf2_hmac
 
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 
 from lib.cuckoo.common.utils import store_temp_file
 

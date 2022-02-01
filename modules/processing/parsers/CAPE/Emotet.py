@@ -20,8 +20,8 @@ from itertools import cycle
 
 import pefile
 import yara
-from Crypto.PublicKey import RSA
-from Crypto.Util import asn1
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Util import asn1
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

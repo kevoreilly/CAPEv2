@@ -11,7 +11,7 @@ olefile==0.46
 networkx==2.5.1
 mixbox==1.0.5
 capstone==4.0.2
-PyCrypto==2.6.1
+pycryptodomex==3.14.0
 voluptuous==0.12.1
 xmltodict==0.12.0
 future==0.18.2
@@ -23,21 +23,16 @@ pyinstaller==4.4
 maec==4.1.0.17
 regex==2021.7.6
 SFlock2==0.3.31
-https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip
 pyattck==5.2.0
 #distorm3==3.5.2
 openpyxl==3.0.7
 volatility3==2.0.0
 XLMMacroDeobfuscator==0.2.3
-https://github.com/DissectMalware/batch_deobfuscator/archive/a0d9d51e28cf519a42b35587fde7f8df09c78be3.zip
 pyzipper==0.3.5
-mwcp==3.2.1
-malwareconfig==1.0.4
 flare-capa==3.1.0
 greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6
-https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip
 six>=1.12.0
 django==3.2.11
 sqlalchemy==1.4.22
@@ -57,9 +52,8 @@ pillow>=8.2.0
 python-whois==0.7.3
 bs4==0.0.1
 pydeep==0.4
-https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
-django-allauth==0.45.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
+django-allauth==0.47.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 django-crispy-forms==1.12.0
 django-settings-export==1.2.1
 django-csp==3.7
@@ -73,7 +67,6 @@ netstruct==1.1.2
 pymongo>=4.0.1
 django-ratelimit==3.0.1
 psutil==5.8.0
-https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip
 # theorically this is binGraph deps
 matplotlib==3.3.0
 numpy==1.19.1

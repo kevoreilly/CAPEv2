@@ -3,8 +3,8 @@ import logging
 import string
 
 import requests
-from Crypto.Cipher import AES
-from Crypto.Protocol.KDF import PBKDF2
+from Cryptodome.Cipher import AES
+from Cryptodome.Protocol.KDF import PBKDF2
 from malduck.extractor import Extractor
 
 log = logging.getLogger(__name__)

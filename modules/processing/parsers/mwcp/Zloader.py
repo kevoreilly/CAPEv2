@@ -17,7 +17,7 @@ import struct
 
 import pefile
 import yara
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 from mwcp.parser import Parser
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ yara_rules = yara.compile(source=rule_source)
 
 
 def decrypt_rc4(key, data):
-    cipher = ARC4.new(key)
+    cipher = ARC4.new(key.encode())
     return cipher.decrypt(data)
 
 

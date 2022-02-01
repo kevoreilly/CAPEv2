@@ -23,7 +23,7 @@ import struct
 
 import pefile
 import yara
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -58,7 +58,7 @@ def config(filebuf):
                         enc_data = section.get_data()
                         key = enc_data[:8]
                         enc_config = enc_data[8:592]
-                        decrypted_data = ARC4.new(key).decrypt(enc_config)
+                        decrypted_data = ARC4.new(key.encode()).decrypt(enc_config)
                         config = list(filter(None, decrypted_data.split(b"\x00")))
                         cfg = {
                             "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),

@@ -86,21 +86,14 @@ import re
 import sys
 import textwrap
 import time
+import urllib.request
 import zipfile
 import zlib
+from io import StringIO
 
-if sys.version_info[0] >= 3:
-    import urllib.request
-    from io import StringIO
+urllib23 = urllib.request
+import configparser as ConfigParser
 
-    urllib23 = urllib.request
-    import configparser as ConfigParser
-else:
-    import urllib2
-    from cStringIO import StringIO
-
-    urllib23 = urllib2
-    import ConfigParser
 try:
     import yara
 except Exception:
@@ -149,21 +142,15 @@ PS: this feature is experimental.
 
 # Convert 2 Bytes If Python 3
 def C2BIP3(string):
-    if sys.version_info[0] > 2:
-        if isinstance(string, bytes):
-            return string
-        else:
-            return bytes([ord(x) for x in string])
-    else:
+    if isinstance(string, bytes):
         return string
+    else:
+        return bytes([ord(x) for x in string])
 
 
 # Convert 2 String If Python 3
 def C2SIP3(bytes):
-    if sys.version_info[0] > 2:
-        return "".join([chr(byte) for byte in bytes])
-    else:
-        return bytes
+    return "".join([chr(byte) for byte in bytes])
 
 
 # CIC: Call If Callable
@@ -914,24 +901,13 @@ def FormatOutput(data, raw):
             return "".join(map(lambda x: x[1], data))
         else:
             return data
-    elif sys.version_info[0] > 2:
-        return ascii(data)
     else:
-        return repr(data)
+        return ascii(data)
 
 
 # Fix for http://bugs.python.org/issue11395
 def StdoutWriteChunked(data):
-    if sys.version_info[0] > 2:
-        sys.stdout.buffer.write(data)
-    else:
-        while data != "":
-            sys.stdout.write(data[0:10000])
-            try:
-                sys.stdout.flush()
-            except IOError:
-                return
-            data = data[10000:]
+    sys.stdout.buffer.write(data)
 
 
 def IfWIN32SetBinary(io):

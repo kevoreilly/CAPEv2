@@ -79,7 +79,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {"p0": "1", "p1": "h3ll0 w0rld!\n", "p2": "13",},
+                "arguments": {
+                    "p0": "1",
+                    "p1": "h3ll0 w0rld!\n",
+                    "p2": "13",
+                },
                 "instruction_pointer": "b7768cf9",
                 "pid": 681,
                 "process_name": "helloworld.sh",
@@ -91,7 +95,11 @@ def test_staplog():
             },
             {
                 "api": "read",
-                "arguments": {"p0": "10", "p1": "0x800665c0", "p2": "8192",},
+                "arguments": {
+                    "p0": "10",
+                    "p1": "0x800665c0",
+                    "p2": "8192",
+                },
                 "instruction_pointer": "b7768cf9",
                 "pid": 681,
                 "process_name": "helloworld.sh",
@@ -115,7 +123,12 @@ def test_staplog():
             },
             {
                 "api": "wait4",
-                "arguments": {"p0": "-1", "p1": "0xbfd4a134", "p2": "0x0", "p3": "0x0",},
+                "arguments": {
+                    "p0": "-1",
+                    "p1": "0xbfd4a134",
+                    "p2": "0x0",
+                    "p3": "0x0",
+                },
                 "instruction_pointer": "b7769cf9",
                 "pid": 680,
                 "process_name": "sh",
@@ -151,7 +164,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {"p0": "2", "p1": "BusyBox v1.16.0 (2010-02-06 04:51:36 CST)", "p2": "41",},
+                "arguments": {
+                    "p0": "2",
+                    "p1": "BusyBox v1.16.0 (2010-02-06 04:51:36 CST)",
+                    "p2": "41",
+                },
                 "instruction_pointer": "80dbdde",
                 "pid": 704,
                 "process_name": "busybox-i686",
@@ -163,7 +180,11 @@ def test_staplog():
             },
             {
                 "api": "write",
-                "arguments": {"p0": "2", "p1": "Copyright (C) 1998-2009 Erik Andersen, Rob La", "p2": "480",},
+                "arguments": {
+                    "p0": "2",
+                    "p1": "Copyright (C) 1998-2009 Erik Andersen, Rob La",
+                    "p2": "480",
+                },
                 "instruction_pointer": "80dbdde",
                 "pid": 668,
                 "process_name": "busybox-i686",
@@ -175,7 +196,11 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/comma,sh"], "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],},
+                "arguments": {
+                    "p0": "/usr/bin/sh",
+                    "p1": ["sh", "-c", "/tmp/comma,sh"],
+                    "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],
+                },
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",
@@ -187,7 +212,11 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/bracket]sh"], "p2": ["LANGUAGE=en_US:en", "HOME=/root"],},
+                "arguments": {
+                    "p0": "/usr/bin/sh",
+                    "p1": ["sh", "-c", "/tmp/bracket]sh"],
+                    "p2": ["LANGUAGE=en_US:en", "HOME=/root"],
+                },
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",

@@ -1,10 +1,9 @@
 [tool.black]
 line-length = 132
+include = "\\.py(_disabled)?$"
 
 [tool.isort]
 profile = "black"
 no_lines_before = ["FUTURE", "STDLIB"]
-multi_line_output = 0
 line_length = 132
-include_trailing_comma = false
-skip = ["lib/cuckoo/common/integrations/capa.py"]
+supported_extensions = ["py", "py_disabled"]

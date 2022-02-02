@@ -23,8 +23,17 @@ from urllib.request import urlopen
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary, Package
-from lib.common.constants import (CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME, LOGSERVER_PREFIX, PATHS, PIPE,
-                                  SHUTDOWN_MUTEX, TERMINATE_EVENT)
+from lib.common.constants import (
+    CAPEMON32_NAME,
+    CAPEMON64_NAME,
+    LOADER32_NAME,
+    LOADER64_NAME,
+    LOGSERVER_PREFIX,
+    PATHS,
+    PIPE,
+    SHUTDOWN_MUTEX,
+    TERMINATE_EVENT,
+)
 from lib.common.defines import ADVAPI32, EVENT_MODIFY_STATE, KERNEL32, NTDLL, SYSTEM_PROCESS_INFORMATION
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file

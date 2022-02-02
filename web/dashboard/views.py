@@ -13,8 +13,18 @@ from django.views.decorators.http import require_safe
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.web_utils import top_detections
-from lib.cuckoo.core.database import (TASK_COMPLETED, TASK_DISTRIBUTED, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING,
-                                      TASK_FAILED_REPORTING, TASK_PENDING, TASK_RECOVERED, TASK_REPORTED, TASK_RUNNING, Database)
+from lib.cuckoo.core.database import (
+    TASK_COMPLETED,
+    TASK_DISTRIBUTED,
+    TASK_FAILED_ANALYSIS,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_PENDING,
+    TASK_RECOVERED,
+    TASK_REPORTED,
+    TASK_RUNNING,
+    Database,
+)
 
 
 # Conditional decorator for web authentication

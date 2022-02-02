@@ -5,8 +5,16 @@
 from __future__ import absolute_import
 from ctypes import POINTER, wintypes
 
-from lib.common.defines import (ADVAPI32, KERNEL32, LUID, LUID_AND_ATTRIBUTES, PROCESS_ALL_ACCESS, SE_PRIVILEGE_ENABLED,
-                                TOKEN_ALL_ACCESS, TOKEN_PRIVILEGES)
+from lib.common.defines import (
+    ADVAPI32,
+    KERNEL32,
+    LUID,
+    LUID_AND_ATTRIBUTES,
+    PROCESS_ALL_ACCESS,
+    SE_PRIVILEGE_ENABLED,
+    TOKEN_ALL_ACCESS,
+    TOKEN_PRIVILEGES,
+)
 
 
 def grant_debug_privilege(pid=None):

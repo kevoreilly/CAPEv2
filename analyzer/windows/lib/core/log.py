@@ -9,9 +9,20 @@ import traceback
 from ctypes import addressof, byref, c_int, create_string_buffer, sizeof
 from threading import Thread
 
-from lib.common.defines import (ADVAPI32, ERROR_MORE_DATA, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE, KERNEL32,
-                                PIPE_ACCESS_INBOUND, PIPE_READMODE_MESSAGE, PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
-                                SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR)
+from lib.common.defines import (
+    ADVAPI32,
+    ERROR_MORE_DATA,
+    ERROR_PIPE_CONNECTED,
+    INVALID_HANDLE_VALUE,
+    KERNEL32,
+    PIPE_ACCESS_INBOUND,
+    PIPE_READMODE_MESSAGE,
+    PIPE_TYPE_MESSAGE,
+    PIPE_UNLIMITED_INSTANCES,
+    PIPE_WAIT,
+    SECURITY_ATTRIBUTES,
+    SECURITY_DESCRIPTOR,
+)
 
 log = logging.getLogger()
 

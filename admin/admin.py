@@ -43,8 +43,17 @@ except ImportError:
     sys.exit()
 
 try:
-    from admin_conf import (CAPE_DIST_URL, CAPE_PATH, JUMP_BOX, JUMP_BOX_PORT, JUMP_BOX_USERNAME, MASTER_NODE, REMOTE_SERVER_USER,
-                            SERVERS_STATIC_LIST, VOL_PATH)
+    from admin_conf import (
+        CAPE_DIST_URL,
+        CAPE_PATH,
+        JUMP_BOX,
+        JUMP_BOX_PORT,
+        JUMP_BOX_USERNAME,
+        MASTER_NODE,
+        REMOTE_SERVER_USER,
+        SERVERS_STATIC_LIST,
+        VOL_PATH,
+    )
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 

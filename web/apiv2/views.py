@@ -848,25 +848,27 @@ def tasks_view(request, task_id):
         resp = {"error": True, "error_value": "Task View API is Disabled"}
         return Response(resp)
 
-    resp = {}
     task = db.view_task(task_id, details=True)
-    resp["error"] = False
-    if task:
-        entry = task.to_dict()
-        if entry["category"] != "url":
-            entry["target"] = entry["target"].rsplit("/", 1)[-1]
-        entry["guest"] = {}
-        if task.guest:
-            entry["guest"] = task.guest.to_dict()
+    if not task:
+        resp = {"error": True, "error_value": "Task not found in database"}
+        return Response(resp)
 
-        entry["errors"] = []
-        for error in task.errors:
-            entry["errors"].append(error.message)
+    resp = {"error": False}
+    entry = task.to_dict()
+    if entry["category"] != "url":
+        entry["target"] = entry["target"].rsplit("/", 1)[-1]
+    entry["guest"] = {}
+    if task.guest:
+        entry["guest"] = task.guest.to_dict()
 
-        entry["sample"] = {}
-        if task.sample_id:
-            sample = db.view_sample(task.sample_id)
-            entry["sample"] = sample.to_dict()
+    entry["errors"] = []
+    for error in task.errors:
+        entry["errors"].append(error.message)
+
+    entry["sample"] = {}
+    if task.sample_id:
+        sample = db.view_sample(task.sample_id)
+        entry["sample"] = sample.to_dict()
 
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(
@@ -1038,12 +1040,13 @@ def tasks_status(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
-    status = db.view_task(task_id).to_dict()["status"]
-    if not status:
+    task = db.view_task(task_id)
+    if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
-    else:
-        resp = {"error": False, "data": status}
+        return Response(resp)
 
+    status = task.to_dict()["status"]
+    resp = {"error": False, "data": status}
     return Response(resp)
 
 

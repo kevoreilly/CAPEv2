@@ -850,6 +850,10 @@ def tasks_view(request, task_id):
 
     resp = {}
     task = db.view_task(task_id, details=True)
+    if not task:
+        resp = {"error": True, "error_value": "Task not found in database"}
+        return Response(resp)
+
     resp["error"] = False
     if task:
         entry = task.to_dict()

@@ -199,7 +199,7 @@ class Disguise(Auxiliary):
 
     def replace_reg_strings(self, regkey):
         regcmd = "C:\\Windows\\System32\\reg.exe"
-        filepath = os.path.join("C:\\Windows\\Temp", regkey.rstrip("\\").split("\\")[-1] + ".reg")
+        filepath = os.path.join("C:\\Windows\\Temp", regkey.rstrip("\\").rsplit("\\", 1)[-1] + ".reg")
 
         self.run_as_system([regcmd, "export", regkey, filepath, "/y"])
 

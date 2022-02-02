@@ -1040,12 +1040,13 @@ def tasks_status(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
-    status = db.view_task(task_id).to_dict()["status"]
-    if not status:
+    task = db.view_task(task_id)
+    if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
-    else:
-        resp = {"error": False, "data": status}
+        return Response(resp)
 
+    status = task.to_dict()["status"]
+    resp = {"error": False, "data": status}
     return Response(resp)
 
 

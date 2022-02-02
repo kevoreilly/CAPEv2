@@ -229,7 +229,7 @@ def _delete_many(node, ids, nodes, db):
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
-            data={"ids": ids},
+            data={"ids": ids, "delete_mongo": False},
             verify=False,
         )
         if res and res.status_code != 200:

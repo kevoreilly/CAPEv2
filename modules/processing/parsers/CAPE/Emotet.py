@@ -57,6 +57,8 @@ rule Emotet
         $snippetK = {FF 74 [2] FF 74 [2] 8B 54 [2] E8 [4] 8B 54 [2] 83 C4 0C 89 44 [2] 8B F8 03 44 [2] B9 [4] 89 44 [2] E9}
         $snippetL = {FF 74 [2] 8B 54 [2] 8D 4C [2] E8 [4] 59 89 44 [2] 8B F8 03 44 [2] 59 89 44 24 68 B9 [4] E9}
         $snippetM = {FF 74 [2] 8D 84 [3] 00 00 B9 [4] 50 FF 74 [2] FF 74 [2] 8B 94 [3] 00 00 E8 [4] 83 C4 10 89 44 [2] 8B F8 B9 [4] 03 84 [3] 00 00 89 44 [2] E9}
+        $snippetN = {FF 74 [2] 8D 44 [2] B9 [4] FF 74 [2] 50 FF 74 [2] 8B 54 [2] E8 [4] 8B 8C [3] 00 00 83 C4 10 03 C8 89 44 [2] 89 4C [2] 8B F8 B9 45 89 77 05 E9}
+        $snippetO = {8D 44 [2] B9 [4] 50 FF 74 [2] 8B 54 [2] E8 [4] 8B D0 8B 44 [2] 59 59 03 C2 89 54 [2] 8B FA 89 44 [2] B9 [4] E9}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -71,6 +73,8 @@ rule Emotet
         $ref_ecc8 = {FF B4 [3] 00 00 FF B4 [3] 00 00 8B 94 [3] 00 00 E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 B9 [4] 50 FF B4 [3]00 00 FF B4 [3]00 00 8B 94 [3]00 00 E8}
         $ref_ecc9 = {FF B4 [3] 00 00 8B 54 [2] 8D 8C [3] 00 00 E8 [4] 68 [4] FF B4 [3] 00 00 8B 94 [3] 00 00 8D 8C [3] 00 00 89 84 [3] 00 00 E8}
         $ref_eccA = {FF 74 [2] 8D 84 [3] 00 00 B9 [4] 50 FF 74 [2] FF B4 [3] 00 00 8B 94 [3] 00 00 E8 [4] FF B4 [3] 00 00 89 84 [3] 00 00 B9 [4] 8D 84 [3] 00 00 50}
+        $ref_eccB = {FF B4 [3] 00 00 8D 84 [3] 00 00 B9 [4] FF 74 [2] 50 FF B4 [3] 00 00 8B 94 [3] 00 00 E8 [4] FF B4 [3] 00 00 89 84 [3] 00 00 B9}
+        $ref_eccC = {8D 84 [3] 00 00 B9 [4] 50 FF 74 [2] 8B 94 [3] 00 00 E8 [4] 89 84 [3] 00 00 B9 [4] 8D 84 [3] 00 00 50 FF B4 [3] 00 00 8B 94 [3] 00 00 E8}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -398,6 +402,12 @@ def config(filebuf):
     elif yara_matches.get("$snippetM"):
         delta = 12
         c2list_va_offset = int(yara_matches["$snippetM"])
+    elif yara_matches.get("$snippetN"):
+        delta = 9
+        c2list_va_offset = int(yara_matches["$snippetN"])
+    elif yara_matches.get("$snippetO"):
+        delta = 5
+        c2list_va_offset = int(yara_matches["$snippetO"])
 
     if c2list_va_offset and delta:
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -519,6 +529,14 @@ def config(filebuf):
                 ref_ecc_offset = int(yara_matches["$ref_eccA"])
                 delta1 = 12
                 delta2 = 55
+            elif yara_matches.get("$ref_eccB"):
+                ref_ecc_offset = int(yara_matches["$ref_eccB"])
+                delta1 = 15
+                delta2 = 58
+            elif yara_matches.get("$ref_eccC"):
+                ref_ecc_offset = int(yara_matches["$ref_eccC"])
+                delta1 = 8
+                delta2 = 37
             if ref_ecc_offset:
                 ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
                 ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base

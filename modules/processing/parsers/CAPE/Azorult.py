@@ -17,6 +17,9 @@ import struct
 import pefile
 import yara
 
+DESCRIPTION = "Azorult configuration parser."
+AUTHOR = "kevoreilly"
+
 rule_source = """
 rule Azorult
 {
@@ -36,27 +39,20 @@ MAX_STRING_SIZE = 32
 
 
 def yara_scan(raw_data, rule_name):
-    addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
         if match.rule == "Azorult":
             for item in match.strings:
                 if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
-                    return addresses
+                    return {item[1]: item[0]}
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def config(filebuf):
-    DESCRIPTION = "Azorult configuration parser."
-    AUTHOR = "kevoreilly"
-
-    config = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
@@ -65,8 +61,6 @@ def config(filebuf):
         return
 
     ref_c2_offset = int(ref_c2["$ref_c2"])
-    if ref_c2_offset is None:
-        return
 
     c2_list_va = struct.unpack("i", filebuf[ref_c2_offset + 21 : ref_c2_offset + 25])[0]
     c2_list_rva = c2_list_va - image_base
@@ -78,6 +72,6 @@ def config(filebuf):
 
     c2_domain = string_from_offset(filebuf, c2_list_offset)
     if c2_domain:
-        config.setdefault("address", c2_domain.decode())
+        return {"address": c2_domain.decode()}
 
-    return config
+    return {}

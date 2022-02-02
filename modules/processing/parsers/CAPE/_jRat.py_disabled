@@ -11,20 +11,15 @@ from Crypto.Cipher import AES, DES3
 def run(md5, data):
     print("[+] Extracting Data from Jar")
     enckey, conf = get_parts(data)
-    if enckey == None:
+    if enckey is None:
         return
     print(f"[+] Decoding Config with Key: {enckey.encode().hex()}")
     if len(enckey) == 16:
         # Newer versions use a base64 encoded config.dat
-        if "==" in conf:  # this is not a great test but should work 99% of the time
-            b64_check = True
-        else:
-            b64_check = False
-        if b64_check:
-            raw_config = new_aes(conf, enckey)
-        else:
-            raw_config = old_aes(conf, enckey)
-    if len(enckey) == 32:
+        # this is not a great test but should work 99% of the time
+        decrypt_func = new_aes if "==" in conf else old_aes
+        raw_config = decrypt_func(conf, enckey)
+    elif len(enckey) == 32:
         raw_config = old_des(conf, enckey)
     config_dict = parse_config(raw_config, enckey)
     snortRule(md5, config_dict)
@@ -45,9 +40,9 @@ def get_parts(data):
             for name in zip.namelist():  # get all the file names
                 if name == "key.dat":  # this file contains the encrytpion key
                     enckey = zip.read(name)
-                if name == "enc.dat":  # if this file exists, jrat has an installer / dropper
+                elif name == "enc.dat":  # if this file exists, jrat has an installer / dropper
                     dropper = zip.read(name)
-                if name == "config.dat":  # this is the encrypted config file
+                elif name == "config.dat":  # this is the encrypted config file
                     conf = zip.read(name)
     except Exception:
         print(f"[+] Dropped File is not Jar File starts with Hex Chars: {data[:5].encode().hex()}")
@@ -116,26 +111,21 @@ def decrypt_des(enckey, data):
 def old_aes(conf, enckey):
     decoded_config = decrypt_aes(enckey, conf)
     clean_config = string_print(decoded_config)
-    raw_config = clean_config.split("SPLIT")
-    return raw_config
+    return clean_config.split("SPLIT")
 
 
 # Process versions 4.2. >
 def new_aes(conf, enckey):
     sections = messy_split(conf)
-    decoded_config = ""
-    for x in sections:
-        decoded_config += decrypt_aes(enckey, b64decode(x))
-    raw_config = string_print(decoded_config).split("SPLIT")
-    return raw_config
+    decoded_config = "".join(decrypt_aes(enckey, b64decode(x)) for x in sections)
+    return string_print(decoded_config).split("SPLIT")
 
 
 # process versions < 3.2.2
 def old_des(conf, enckey):
     decoded_config = decrypt_des(conf, enckey)
     clean_config = string_print(decoded_config)
-    raw_config = clean_config.split("SPLIT")
-    return raw_config
+    return clean_config.split("SPLIT")
 
 
 def parse_config(raw_config, enckey):
@@ -147,35 +137,35 @@ def parse_config(raw_config, enckey):
         key, value = kv.split("=")
         if key == "ip":
             config_dict["Domain"] = value
-        if key == "port":
+        elif key == "port":
             config_dict["Port"] = value
-        if key == "os":
+        elif key == "os":
             config_dict["OS"] = value
-        if key == "mport":
+        elif key == "mport":
             config_dict["MPort"] = value
-        if key == "perms":
+        elif key == "perms":
             config_dict["Perms"] = value
-        if key == "error":
+        elif key == "error":
             config_dict["Error"] = value
-        if key == "reconsec":
+        elif key == "reconsec":
             config_dict["RetryInterval"] = value
-        if key == "ti":
+        elif key == "ti":
             config_dict["TI"] = value
-        if key == "pass":
+        elif key == "pass":
             config_dict["Password"] = value
-        if key == "id":
+        elif key == "id":
             config_dict["CampaignID"] = value
-        if key == "mutex":
+        elif key == "mutex":
             config_dict["Mutex"] = value
-        if key == "toms":
+        elif key == "toms":
             config_dict["TimeOut"] = value
-        if key == "per":
+        elif key == "per":
             config_dict["Persistance"] = value
-        if key == "name":
+        elif key == "name":
             config_dict["Name"] = value
-        if key == "tiemout":
+        elif key == "tiemout":
             config_dict["TimeOutFlag"] = value
-        if key == "debugmsg":
+        elif key == "debugmsg":
             config_dict["DebugMsg"] = value
     config_dict["EncryptionKey"] = enckey
     return config_dict
@@ -184,24 +174,24 @@ def parse_config(raw_config, enckey):
 def snortRule(md5, conf):
     rules = []
     domain = conf["Domain"]
-    ipPattern = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+    ipPattern = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
     ipTest = ipPattern.search(domain)
     if len(domain) > 1:
         if ipTest:
             rules.append(
                 f"""alert tcp any any -> {domain}"""
-                + f""" any (msg: "jRat Beacon Domain: {domain}"""
-                + """"; classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
+                f""" any (msg: "jRat Beacon Domain: {domain}"""
+                """"; classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
         else:
             rules.append(
                 f"""alert udp any any -> any 53 (msg: "jRat Beacon Domain: {domain}"""
-                + f""""; content:"|0e|{domain}"""
-                + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
+                f""""; content:"|0e|{domain}"""
+                """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
             rules.append(
                 f"""alert tcp any any -> any 53 (msg: "jRat Beacon Domain: {domain}"""
-                + f""""; content:"|0e|{domain}"""
-                + """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
+                f""""; content:"|0e|{domain}"""
+                """|00|"; nocase;  classtype:trojan-activity; sid:5000000; rev:1; priority:1; reference:url,http://malwareconfig.com;)"""
             )
     database.insertSnort(md5, rules)

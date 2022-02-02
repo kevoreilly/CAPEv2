@@ -26,30 +26,24 @@ yara_rule = open(yara_path, "r").read()
 
 def yara_scan(raw_data):
     try:
-        addresses = {}
         yara_rules = yara.compile(source=yara_rule)
-        matches = yara_rules.match(data=raw_data)
-        return matches
+        return yara_rules.match(data=raw_data)
     except Exception as e:
         print(e)
 
 
 def iced_decode(data):
-    n = 0
     new = []
-    for x in data:
-        k = data[n] ^ data[n + 64]
+    for n, x in enumerate(data):
+        k = x ^ data[n + 64]
         new.append(k)
         if n > 32:
             break
-        n += 1
     gads, d = struct.unpack("I30s", bytes(new))
-    hostname = d.split(b"\00", 1)[0]
-    return hostname
+    return d.split(b"\00", 1)[0]
 
 
 def config(filebuf):
-    cfg = {}
     yara_hit = yara_scan(filebuf)
     for hit in yara_hit:
         if hit.rule == "IcedIDLoader":
@@ -57,9 +51,7 @@ def config(filebuf):
             for section in pe.sections:
                 if section.Name == b".d\x00\x00\x00\x00\x00\x00":
                     config_section = bytearray(section.get_data())
-                    decoded = iced_decode(config_section).decode()
-                    cfg["address"] = decoded
-                    return cfg
+                    return {"address": iced_decode(config_section).decode()}
 
 
 if __name__ == "__main__":

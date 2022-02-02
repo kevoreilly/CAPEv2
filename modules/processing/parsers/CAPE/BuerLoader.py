@@ -19,10 +19,7 @@ AUTHOR = "kevoreilly"
 
 
 def decrypt_string(string):
-    enc = []
-    for char in string:
-        enc.append(chr(ord(char) - 6))
-    return "".join(enc)
+    return "".join(chr(ord(char) - 6) for char in string)
 
 
 def config(filebuf):
@@ -32,11 +29,10 @@ def config(filebuf):
     if not data_sections:
         return None
     data = data_sections[0].get_data()
-    count = 0
     for item in data.split(b"\x00\x00"):
         try:
             dec = decrypt_string(item.lstrip(b"\x00").rstrip(b"\x00").decode())
-        except:
+        except Exception:
             pass
         if "dll" not in dec and " " not in dec and ";" not in dec and "." in dec:
             cfg.setdefault("address", []).append(dec)

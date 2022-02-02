@@ -29,17 +29,19 @@ from Crypto.Cipher import AES
 
 from lib.cuckoo.common.utils import store_temp_file
 
-unpad = lambda s: s[0 : -s[-1]]
+
+def unpad(s):
+    return s[: -s[-1]]
 
 
 def unzip_config(filepath):
     data = ""
     try:
-        z = zipfile.ZipFile(filepath.decode())
-        for name in z.namelist():
-            if "config.txt" in name:
-                data = z.read(name)
-                break
+        with zipfile.ZipFile(filepath.decode()) as z:
+            for name in z.namelist():
+                if "config.txt" in name:
+                    data = z.read(name)
+                    break
     except Exception:
         return
     return data
@@ -54,12 +56,12 @@ def aesdecrypt(data, passkey):
 
 def decode(data):
     decoded = ""
-    passkey = b"strigoi"
     try:
         data = base64.b64decode(data)
     except Exception as exc:
         return exc
     if data:
+        passkey = b"strigoi"
         try:
             decoded = aesdecrypt(data, passkey)
         except Exception:

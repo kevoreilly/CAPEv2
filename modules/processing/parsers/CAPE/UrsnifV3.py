@@ -20,6 +20,45 @@ from Crypto.PublicKey import RSA
 
 MAX_STRING_SIZE = 256
 
+# JOINER_SECTIONS = {
+#     0xE1285E64: "CRC_PUBLIC_KEY",
+#     0x8FB1DDE1: "CRC_CLIENT_INI",
+#     0xD722AFCB: "CRC_CLIENT_INI",
+#     0x4F75CEA7: "CRC_LOADER_DLL",
+#     0x90F8AAB5: "CRC_LOADER_DLL",
+#     0x7A042A8A: "CRC_INSTALL_INI",
+#     0x90F8AAB4: "CRC_CLIENT64",
+#     0xDA57D71A: "CRC_WORDLIST",
+#     0xC535D8BF: "CRC_LOADER_DLL",
+# }
+
+# INI_PARAMS = {
+#     0x4FA8693E: "CRC_SERVERKEY",
+#     0xD0665BF6: "CRC_HOSTS",
+#     0x656B798A: "CRC_GROUP",
+#     0x556AED8F: "CRC_SERVER",
+#     0x11271C7F: "CONF_TIMEOUT",
+#     0x48295783: "CONFIG_FAIL_TIMEOUT",
+#     0xEA9EA760: "CRC_BOOTSTRAP",
+#     0x31277BD5: "CRC_TASKTIMEOUT",
+#     0x955879A6: "CRC_SENDTIMEOUT",
+#     0x9FD13931: "CRC_BCSERVER",
+#     0x6DE85128: "CRC_BCTIMEOUT",
+#     0xACC79A02: "CRC_KNOCKERTIMEOUT",
+#     0x602C2C26: "CRC_KEYLOGLIST",
+#     0xD7A003C9: "CRC_CONFIGTIMEOUT",
+#     0x18A632BB: "CRC_CONFIGFAILTIMEOUT",
+#     0x73177345: "CRC_DGA_SEED_URL",
+#     0x510F22D2: "CRC_TORSERVER",
+#     0xEC99DF2E: "CRC_EXTERNALIP",
+#     0xC61EFA7A: "CRC_DGATLDS",
+#     0xDF351E24: "CRC_32BITDOWNLOAD",
+#     0x4B214F54: "CRC_64BITDOWNLOAD",
+#     0xCD850E68: "DGA_CRC",
+#     0xDF2E7488: "DGA_COUNT",
+#     0x584E5925: "TIMER",
+# }
+
 SECTION_KEYS = {
     0xD0665BF6: "Domains",
     0x73177345: "DGA Base URL",
@@ -47,17 +86,12 @@ SECTION_KEYS = {
 
 
 def string_from_offset(buffer, offset):
-    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0].decode()
-    return string
+    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0].decode()
 
 
 def get_config_item(config, offset):
     config_string = string_from_offset(config, offset)
-    if " " in config_string:
-        config_list = config_string.split(" ")
-        return config_list
-    else:
-        return config_string
+    return config_string.split(" ") if " " in config_string else config_string
 
 
 def convert_pubkey(pub):
@@ -81,7 +115,7 @@ def config(raw_data):
         config_dict["RSA public key"] = pempub
         return config_dict
 
-    dword1 = struct.unpack("I", raw_data[0:4])[0]
+    dword1 = struct.unpack("I", raw_data[:4])[0]
     dword2 = struct.unpack("I", raw_data[4:8])[0]
 
     if dword1 < 0x40:
@@ -123,9 +157,3 @@ def config(raw_data):
             section_offset += 24
 
     return config_dict
-
-
-# JOINER_SECTIONS = {0xe1285e64: "CRC_PUBLIC_KEY", 0x8fb1dde1: "CRC_CLIENT_INI", 0xd722afcb: "CRC_CLIENT_INI", 0x4f75cea7: "CRC_LOADER_DLL", 0x90f8aab5: "CRC_LOADER_DLL", 0x7a042a8a: "CRC_INSTALL_INI", 0x90f8aab4: "CRC_CLIENT64", 0xda57d71a: "CRC_WORDLIST", 0xc535d8bf: "CRC_LOADER_DLL"}
-# JOINER_SECTIONS = {0xe1285e64: "CRC_PUBLIC_KEY", 0x8fb1dde1: "CRC_CLIENT_INI", 0xd722afcb: "CRC_CLIENT_INI", 0x7a042a8a: "CRC_INSTALL_INI", 0x90f8aab4: "CRC_CLIENT64", 0xda57d71a: "CRC_WORDLIST"}
-# INI_PARAMS = {0x4fa8693e: "CRC_SERVERKEY", 0xd0665bf6: "CRC_HOSTS", 0x656b798a: "CRC_GROUP", 0x556aed8f: "CRC_SERVER", 0x11271c7f: "CONF_TIMEOUT", 0x48295783: "CONFIG_FAIL_TIMEOUT", 0xea9ea760: "CRC_BOOTSTRAP", 0x31277bd5: "CRC_TASKTIMEOUT",0x955879a6: "CRC_SENDTIMEOUT", 0x9fd13931: "CRC_BCSERVER", 0x6de85128: "CRC_BCTIMEOUT", 0xacc79a02: "CRC_KNOCKERTIMEOUT", 0x602c2c26: "CRC_KEYLOGLIST", 0x556aed8f: "CRC_SERVER", 0xd7a003c9: "CRC_CONFIGTIMEOUT", 0x18a632bb: "CRC_CONFIGFAILTIMEOUT", 0x73177345: "CRC_DGA_SEED_URL", 0x510f22d2: "CRC_TORSERVER", 0xec99df2e: "CRC_EXTERNALIP", 0xc61efa7a: "CRC_DGATLDS", 0xdf351e24: "CRC_32BITDOWNLOAD", 0x4b214f54: "CRC_64BITDOWNLOAD", 0xcd850e68: "DGA_CRC", 0xdf2e7488: "DGA_COUNT", 0x584e5925: "TIMER"}
-#

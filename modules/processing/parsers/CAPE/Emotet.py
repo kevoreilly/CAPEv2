@@ -97,9 +97,7 @@ def yara_scan(raw_data):
 
 
 def xor_data(data, key):
-    key = [q for q in key]
-    data = [q for q in data]
-    return bytes([c ^ k for c, k in zip(data, cycle(key))])
+    return bytes(c ^ k for c, k in zip(data, cycle(key)))
 
 
 def emotet_decode(data, size, xor_key):
@@ -133,7 +131,7 @@ def extract_emotet_rsakey(pe):
             delta += 4
         if res_list:
             res_list = list(set(res_list))
-            pub_key = res_list[0][0:106]
+            pub_key = res_list[0][:106]
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
@@ -157,7 +155,7 @@ def extract_emotet_rsakey(pe):
             delta += 4
         if res_list:
             res_list = list(set(res_list))
-            pub_key = res_list[0][0:106]
+            pub_key = res_list[0][:106]
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
@@ -179,61 +177,49 @@ def config(filebuf):
     if yara_matches.get("$snippet3"):
         c2list_va_offset = int(yara_matches["$snippet3"])
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 2 : c2list_va_offset + 6])[0]
-        if c2_list_va - image_base > 0x20000:
-            c2_list_va = c2_list_va & 0xFFFF
-        else:
-            c2_list_rva = c2_list_va - image_base
+        c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
+        except pefile.PEFormatError:
             pass
 
         while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-            except:
+            except Exception:
                 return
             if ip == 0:
                 return
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 return
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2_list_offset += 8
     elif yara_matches.get("$snippet4"):
         c2list_va_offset = int(yara_matches["$snippet4"])
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 8 : c2list_va_offset + 12])[0]
-        if c2_list_va - image_base > 0x20000:
-            c2_list_rva = c2_list_va & 0xFFFF
-        else:
-            c2_list_rva = c2_list_va - image_base
+        c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
+        except pefile.PEFormatError:
             pass
         while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-            except:
+            except Exception:
                 return
             if ip == 0:
                 return
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 return
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
             c2_list_offset += 8
     elif any(
-        [
-            yara_matches.get(name, False)
-            for name in ("$snippet5", "$snippet8", "$snippet9", "$snippetB", "$snippetC", "$comboA1", "$comboA2")
-        ]
+        yara_matches.get(name, False)
+        for name in ("$snippet5", "$snippet8", "$snippet9", "$snippetB", "$snippetC", "$comboA1", "$comboA2")
     ):
         delta = 5
         if yara_matches.get("$snippet5"):
@@ -261,10 +247,7 @@ def config(filebuf):
         if refc2list:
             c2list_va_offset = int(refc2list)
             c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
-            if c2_list_va - image_base > 0x40000:
-                c2_list_rva = c2_list_va & 0xFFFF
-            else:
-                c2_list_rva = c2_list_va - image_base
+            c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x40000 else c2_list_va - image_base
             try:
                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
             except pefile.PEFormatError as err:
@@ -283,11 +266,10 @@ def config(filebuf):
                     break
                 c2_address = socket.inet_ntoa(struct.pack("!L", ip))
                 port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-                if c2_address and port:
-                    conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                    c2found = True
-                else:
+                if not c2_address or not port:
                     break
+                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+                c2found = True
                 c2_list_offset += 8
     elif yara_matches.get("$snippet6"):
         c2list_va_offset = int(yara_matches["$snippet6"])
@@ -295,7 +277,7 @@ def config(filebuf):
         c2_list_rva = c2_list_va - image_base
         try:
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
+        except pefile.PEFormatError:
             pass
         while True:
             preip = filebuf[c2_list_offset : c2_list_offset + 4]
@@ -310,11 +292,10 @@ def config(filebuf):
                 break
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 break
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippet7"):
         c2list_va_offset = int(yara_matches["$snippet7"])
@@ -323,54 +304,46 @@ def config(filebuf):
         if hb:
             delta += 1
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
-        if c2_list_va - image_base > 0x20000:
-            c2_list_rva = c2_list_va & 0xFFFF
-        else:
-            c2_list_rva = c2_list_va - image_base
+        c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
+        except pefile.PEFormatError:
             pass
         while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-            except:
+            except Exception:
                 break
             if ip == 0:
                 break
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 break
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippetA"):
         c2list_va_offset = int(yara_matches["$snippetA"])
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + 24 : c2list_va_offset + 28])[0]
-        if c2_list_va - image_base > 0x20000:
-            c2_list_rva = c2_list_va & 0xFFFF
-        else:
-            c2_list_rva = c2_list_va - image_base
+        c2_list_rva = c2_list_va & 0xFFFF if c2_list_va - image_base > 0x20000 else c2_list_va - image_base
         try:
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
+        except pefile.PEFormatError:
             pass
         while True:
             try:
                 ip = struct.unpack("<I", filebuf[c2_list_offset : c2_list_offset + 4])[0]
-            except:
+            except Exception:
                 break
             if ip == 0:
                 break
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack("H", filebuf[c2_list_offset + 4 : c2_list_offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 break
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
             c2_list_offset += 8
     elif yara_matches.get("$snippetD"):
         delta = 6
@@ -431,17 +404,16 @@ def config(filebuf):
         while offset < size:
             try:
                 ip = struct.unpack(">I", c2_list[offset : offset + 4])[0]
-            except:
+            except Exception:
                 break
             if ip == struct.unpack(">I", key)[0]:
                 break
             c2_address = socket.inet_ntoa(struct.pack("!L", ip))
             port = str(struct.unpack(">H", c2_list[offset + 4 : offset + 6])[0])
-            if c2_address and port:
-                conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
-                c2found = True
-            else:
+            if not c2_address or not port:
                 break
+            conf_dict.setdefault("address", []).append(f"{c2_address}:{port}")
+            c2found = True
             offset += 8
 
     if not c2found:
@@ -478,7 +450,7 @@ def config(filebuf):
             ref_rsa_rva = ref_rsa_va - image_base
             try:
                 ref_rsa_offset = pe.get_offset_from_rva(ref_rsa_rva)
-            except:
+            except Exception:
                 return
             key = struct.unpack("<I", filebuf[ref_rsa_offset : ref_rsa_offset + 4])[0]
             xorsize = key ^ struct.unpack("<I", filebuf[ref_rsa_offset + 4 : ref_rsa_offset + 8])[0]
@@ -595,5 +567,6 @@ if __name__ == "__main__":
     if sys.argv[1] == "test":
         test_them_all(sys.argv[2])
     else:
-        file_data = open(sys.argv[1], "rb").read()
+        with open(sys.argv[1], "rb") as f:
+            file_data = f.read()
         print(config(file_data))

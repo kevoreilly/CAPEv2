@@ -100,7 +100,7 @@ def choose_package(file_type, file_name, exports, target):
     elif file_name.endswith((".xsl", ".xslt")) or "XSL stylesheet" in file_type:
         return "xslt"
     elif file_name.endswith(".sct"):
-        if re.search(br"(?is)<\?XML.*?<scriptlet.*?<registration", file_content):
+        if re.search(rb"(?is)<\?XML.*?<scriptlet.*?<registration", file_content):
             return "sct"
         else:
             return "hta"
@@ -110,7 +110,7 @@ def choose_package(file_type, file_name, exports, target):
         return "pdf"
     elif re.search(b'<script\\s+language="(J|VB|Perl)Script"', file_content, re.I):
         return "wsf"
-    elif file_name.endswith((".vbs", ".vbe")) or re.findall(br"\s?Dim\s", file_content, re.I):
+    elif file_name.endswith((".vbs", ".vbe")) or re.findall(rb"\s?Dim\s", file_content, re.I):
         return "vbs"
     elif b"Set-StrictMode" in file_content[:100]:
         return "ps1"

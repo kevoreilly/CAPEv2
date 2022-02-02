@@ -109,9 +109,9 @@ def file_recon(file, yara_category="CAPE"):
     elif b"def _generator(self" in f:
         TARGET = os.path.join(VOL_PATH, filename)
         OWNER = "root:staff"
-    elif re.findall(br"class .*\(Report\):", f):
+    elif re.findall(rb"class .*\(Report\):", f):
         TARGET = os.path.join(CAPE_PATH, "modules", "reporting", filename)
-    elif re.findall(br"class .*\(Processing\):", f):
+    elif re.findall(rb"class .*\(Processing\):", f):
         TARGET = os.path.join(CAPE_PATH, "modules", "processing", filename)
     elif filename.endswith(".yar") and b"rule " in f and b"condition:" in f:
         # capemon yara
@@ -120,7 +120,7 @@ def file_recon(file, yara_category="CAPE"):
         else:
             # server side rule
             TARGET = os.path.join(CAPE_PATH, "data", "yara", yara_category, filename)
-    elif re.findall(br"class .*\(Package\):", f):
+    elif re.findall(rb"class .*\(Package\):", f):
         TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "modules", "packages", filename)
     elif b"def choose_package(file_type, file_name, exports, target)" in f:
         TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "lib", "core", filename)

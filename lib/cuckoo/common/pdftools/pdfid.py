@@ -870,7 +870,7 @@ class cCVE_2009_3459:
 
     def Check(self, lastName, word):
         # decided to alert when the number of colors is expressed with more than 3 bytes
-        if lastName == "/Colors" and word.isdigit() and int(word) > 2 ** 24:
+        if lastName == "/Colors" and word.isdigit() and int(word) > 2**24:
             self.count += 1
 
 

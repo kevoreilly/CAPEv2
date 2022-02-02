@@ -153,7 +153,7 @@ class Remcos(Parser):
                 p_data = OrderedDict()
                 p_data["Version"] = self.check_version(filebuf)
 
-                configs = re.split(br"\|\x1e\x1e\x1f\|", decrypted_data)
+                configs = re.split(rb"\|\x1e\x1e\x1f\|", decrypted_data)
 
                 for i, cont in enumerate(configs):
                     if cont == b"\x00" or cont == b"\x01":

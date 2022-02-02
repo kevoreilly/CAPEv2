@@ -35,7 +35,6 @@ rule Zloader
     condition:
         uint16(0) == 0x5A4D and any of them
 }
-
 """
 MAX_STRING_SIZE = 32
 
@@ -48,12 +47,10 @@ def decrypt_rc4(key, data):
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 class Zloader(Parser):
-
     DESCRIPTION = "Zloader configuration parser"
     AUTHOR = "kevoreilly"
 

@@ -36,7 +36,6 @@ rule RedLeaf
 
         $crypto and $decrypt_config
 }
-
 """
 
 MAX_STRING_SIZE = 64
@@ -58,22 +57,18 @@ def yara_scan(raw_data, rule_name):
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     rva = va - image_base
-    data = pe.get_data(rva, size)
-    return data
+    return pe.get_data(rva, size)
 
 
 def string_from_offset(buffer, offset):
-    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def unicode_string_from_offset(buffer, offset):
-    string = buffer[offset : offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
-    return string
+    return buffer[offset : offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
 
 class redleaf(Parser):
-
     DESCRIPTION = "RedLeaf configuration parser."
     AUTHOR = "kevoreilly"
 
@@ -90,13 +85,9 @@ class redleaf(Parser):
             return
 
         config_rva = struct.unpack("i", filebuf[yara_offset + 23 : yara_offset + 27])[0] - image_base
-
         config_offset = pe.get_offset_from_rva(config_rva)
-
         xor_key = struct.unpack("b", filebuf[yara_offset + 27 : yara_offset + 28])[0]
-
         config_size = struct.unpack("i", filebuf[yara_offset + 30 : yara_offset + 34])[0]
-
         config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset : config_offset + config_size]])
 
         c2_address = config[8 : 8 + MAX_IP_STRING_SIZE]

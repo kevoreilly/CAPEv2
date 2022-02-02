@@ -33,7 +33,6 @@ rule BitPaymer
     condition:
         uint16(0) == 0x5A4D and all of them
 }
-
 """
 
 LEN_BLOB_KEY = 40
@@ -53,15 +52,13 @@ def decrypt_rc4(key, data):
 
 
 def yara_scan(raw_data, rule_name):
-    addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
         if match.rule == "BitPaymer":
             for item in match.strings:
                 if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
-                    return addresses
+                    return {item[1]: item[0]}
 
 
 def extract_rdata(pe):
@@ -72,7 +69,6 @@ def extract_rdata(pe):
 
 
 class BitPaymer(Parser):
-
     DESCRIPTION = "BitPaymer configuration parser."
     AUTHOR = "kevoreilly"
 

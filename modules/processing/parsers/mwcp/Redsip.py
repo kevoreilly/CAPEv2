@@ -32,7 +32,6 @@ rule Redsip
     condition:
         uint16(0) == 0x5A4D and $decrypt and $call_decrypt
 }
-
 """
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
@@ -52,27 +51,21 @@ def yara_scan(raw_data, rule_name):
 
 def unicode_string_from_offset(buffer, offset, max):
     try:
-        string = buffer[offset : offset + max].decode("utf-16")
+        return buffer[offset : offset + max].decode("utf-16")
     except Exception:
         return
-    return string
 
 
 def decode(ciphertext, size, key):
-
     if size == 0:
         return
 
-    key = key & 0xFF
+    key &= 0xFF
     decoded_chars = bytearray(size)
-    count = 0
 
-    while count < size:
-        if count % 10:
-            decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ ((key + count) & 0xFF)
-        else:
-            decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ key
-        count += 1
+    for count in range(size):
+        xor_key = (key + count) & 0xFF if count % 10 else key
+        decoded_chars[count] = struct.unpack("B", ciphertext[count : count + 1])[0] ^ xor_key
 
     return decoded_chars
 
@@ -89,7 +82,6 @@ def process_file(filepath, filesize, key):
 
 
 class Redsip(Parser):
-
     DESCRIPTION = "Redsip configuration parser."
     AUTHOR = "kevoreilly"
 
@@ -128,7 +120,7 @@ class Redsip(Parser):
             config = filebuf[config_offset : config_offset + size]
 
         c2_address = str(config[16 : 16 + MAX_IP_STRING_SIZE])
-        if c2_address == "":
+        if not c2_address:
             return
         self.reporter.add_metadata("c2_address", c2_address)
 

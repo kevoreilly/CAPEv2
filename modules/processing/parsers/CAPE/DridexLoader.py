@@ -43,7 +43,6 @@ rule DridexLoader
     condition:
         uint16(0) == 0x5A4D and any of them
 }
-
 """
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0

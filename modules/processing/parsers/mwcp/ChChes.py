@@ -30,7 +30,6 @@ rule ChChes
     condition:
         $payload1 or $payload2 or $payload3 or $payload4
 }
-
 """
 
 MAX_STRING_SIZE = 128
@@ -49,12 +48,10 @@ def yara_scan(raw_data, rule_name):
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 class ChChes(Parser):
-
     DESCRIPTION = "ChChes configuration parser."
     AUTHOR = "kevoreilly"
 
@@ -64,27 +61,18 @@ class ChChes(Parser):
         type1 = yara_scan(filebuf, "$payload1")
         type2 = yara_scan(filebuf, "$payload2")
         type3 = yara_scan(filebuf, "$payload3")
-        type4 = yara_scan(filebuf, "$payload4")
+        # type4 = yara_scan(filebuf, "$payload4")
 
+        c2_offsets = []
         if type1:
-            c2_offset = 0xE455
-
-            c2_url = string_from_offset(filebuf, c2_offset)
-            if c2_url:
-                self.reporter.add_metadata("c2_url", c2_url)
-
+            c2_offsets.append(0xE455)
         if type2:
-            c2_offset = 0xED55
-
-            c2_url = string_from_offset(filebuf, c2_offset)
-            if c2_url:
-                self.reporter.add_metadata("c2_url", c2_url)
-
+            c2_offsets.append(0xED55)
         if type3:
-            c2_offset = 0xE2B9
+            c2_offsets.append(0xE2B9)
+        # no c2 for type4
 
+        for c2_offset in c2_offsets:
             c2_url = string_from_offset(filebuf, c2_offset)
             if c2_url:
                 self.reporter.add_metadata("c2_url", c2_url)
-
-        # no c2 for type4

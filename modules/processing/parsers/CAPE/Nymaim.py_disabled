@@ -40,7 +40,7 @@ def pprint(*text):
 
 def rol(x, n, b=32):
     n = (b - 1) & n
-    return x << n | 2 ** n - 1 & x >> b - n
+    return x << n | 2**n - 1 & x >> b - n
 
 
 def chunks(data, n):

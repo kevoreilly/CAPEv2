@@ -37,7 +37,7 @@ def find_iv(pe):
         t = pe.get_memory_mapped_image()
     else:
         t = pe
-    temp = re.findall(br"""\x68...\x00.{1,10}\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
+    temp = re.findall(rb"""\x68...\x00.{1,10}\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
     if temp != []:
         (addr,) = struct.unpack_from("<I", temp[0][1:])
         addr -= 0x400000
@@ -106,7 +106,7 @@ def find_key(pe):
         t = pe.get_memory_mapped_image()
     else:
         t = pe
-    temp = re.findall(br"""\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
+    temp = re.findall(rb"""\x68...\x00\x68...\x00\x68...\x00\x03\xc1""", t)
     if temp != []:
         ret = "\x08\x02\x00\x00\x03\x66\x00\x00\x18\x00\x00\x00"
         temp = temp[0][:-2].split("\x68")[::-1]
@@ -122,7 +122,7 @@ def find_key(pe):
 def decoder(data):
     x_sect = None
 
-    urls = re.findall(br"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", data)
+    urls = re.findall(rb"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", data)
 
     pe = None
     try:
@@ -143,7 +143,7 @@ def decoder(data):
     for i in range(len(x)):
         x[i] ^= 0xFF
 
-    temp = re.findall(br"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", x)
+    temp = re.findall(rb"""https?:\/\/[a-zA-Z0-9\/\.:\-_]+""", x)
     urls += temp
 
     urls = [x for x in urls if x != "http://www.ibsensoftware.com/" and x != ""]
@@ -161,7 +161,7 @@ def decoder(data):
             for conf in confs:
                 dec = DES3.new(key[12:], DES3.MODE_CBC, iv)
                 temp += dec.decrypt(conf)
-            temp_urls = re.findall(br"""[a-zA-Z0-9\/\.:\-_]{6,}""", temp)
+            temp_urls = re.findall(rb"""[a-zA-Z0-9\/\.:\-_]{6,}""", temp)
             urls += temp_urls
 
     return urls

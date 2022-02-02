@@ -50,7 +50,7 @@ def pointer_converter_64bit(v):
 
 def default_converter_32bit(v):
     if isinstance(v, int) and v < 0:
-        return v % 2 ** 32
+        return v % 2**32
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
     if isinstance(v, str):

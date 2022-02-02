@@ -38,4 +38,5 @@ jobs:
       uses: wearerequired/lint-action@v1
       with:
         black: true
+        black_extensions: py,py_disabled
         auto_fix: true

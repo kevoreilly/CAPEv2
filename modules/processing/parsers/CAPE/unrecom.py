@@ -17,12 +17,10 @@ def extract_embedded(zip_data):
                 enckey = f"{partial_key}DESW7OWKEJRU4P2K"  # complete key
             if name == "load/MANIFEST.MF":  # this is the embedded jar
                 raw_embedded = zip.read(name)
-    if raw_embedded is not None:
-        # Decrypt The raw file
-        dec_embedded = decrypt_arc4(enckey, raw_embedded)
-        return dec_embedded
-    else:
+    if raw_embedded is None:
         return None
+    # Decrypt the raw file
+    return decrypt_arc4(enckey, raw_embedded)
 
 
 def parse_embedded(data):
@@ -41,7 +39,6 @@ def decrypt_arc4(enckey, data):
 
 
 def parse_config(config):
-    # try:
     xml = [x for x in config if x in string.printable]
     root = ET.fromstring(xml)
     raw_config = {}
@@ -50,32 +47,23 @@ def parse_config(config):
             raw_config["Version"] = child.text
         else:
             raw_config[child.attrib["key"]] = child.text
-    new_config = {}
-    new_config["Version"] = raw_config["Version"]
-    new_config["Delay"] = raw_config["delay"]
-    new_config["Domain"] = raw_config["dns"]
-    new_config["Extension"] = raw_config["extensionname"]
-    new_config["Install"] = raw_config["install"]
-    new_config["Port1"] = raw_config["p1"]
-    new_config["Port2"] = raw_config["p2"]
-    new_config["Password"] = raw_config["password"]
-    new_config["PluginFolder"] = raw_config["pluginfoldername"]
-    new_config["Prefix"] = raw_config["prefix"]
-    return new_config
-
-
-# except Exception:
-# return None
+    return {
+        "Version": raw_config["Version"],
+        "Delay": raw_config["delay"],
+        "Domain": raw_config["dns"],
+        "Extension": raw_config["extensionname"],
+        "Install": raw_config["install"],
+        "Port1": raw_config["p1"],
+        "Port2": raw_config["p2"],
+        "Password": raw_config["password"],
+        "PluginFolder": raw_config["pluginfoldername"],
+        "Prefix": raw_config["prefix"],
+    }
 
 
 def config(data):
     embedded = extract_embedded(data)
-    if embedded is not None:
-        config = parse_embedded(embedded)
-    else:
+    if embedded is None:
         return None
-    if config is not None:
-        config_dict = parse_config(config)
-        return config_dict
-    else:
-        return None
+    config = parse_embedded(embedded)
+    return parse_config(config) if config is not None else None

@@ -7,12 +7,13 @@ import logging
 import pefile
 from Crypto.Cipher import ARC4
 
+DESCRIPTION = "Hancitor config extractor."
+AUTHOR = "threathive"
+
 log = logging.getLogger(__name__)
 
 
 def config(filebuf):
-    DESCRIPTION = "Hancitor config extractor."
-    AUTHOR = "threathive"
     cfg = {}
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
@@ -36,5 +37,6 @@ def config(filebuf):
 if __name__ == "__main__":
     import sys
 
-    file_data = open(sys.argv[1], "rb").read()
+    with open(sys.argv[1], "rb") as f:
+        file_data = f.read()
     print(config(file_data))

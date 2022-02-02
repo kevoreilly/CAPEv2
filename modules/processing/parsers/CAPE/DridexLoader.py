@@ -19,6 +19,9 @@ import pefile
 import yara
 from Crypto.Cipher import ARC4
 
+DESCRIPTION = "DridexDropper configuration parser."
+AUTHOR = "kevoreilly"
+
 rule_source = """
 rule DridexLoader
 {
@@ -63,9 +66,6 @@ def extract_rdata(pe):
 
 
 def config(filebuf):
-    DESCRIPTION = "DridexDropper configuration parser."
-    AUTHOR = "kevoreilly"
-
     cfg = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -116,7 +116,7 @@ def config(filebuf):
         num_ips_offset = pe.get_offset_from_rva(num_ips_rva)
         num_ips = struct.unpack("B", filebuf[num_ips_offset : num_ips_offset + 1])[0]
 
-    for i in range(num_ips):
+    for _ in range(num_ips):
         ip = struct.unpack(">I", filebuf[c2_offset : c2_offset + 4])[0]
         c2_address = socket.inet_ntoa(struct.pack("!L", ip))
         port = str(struct.unpack("H", filebuf[c2_offset + 4 : c2_offset + 6])[0])

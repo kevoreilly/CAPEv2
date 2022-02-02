@@ -23,9 +23,9 @@ dll_url = re.compile(b".*\\.dll$")
 
 
 def config(memdump_path, read=False):
-    res = False
     if read:
-        F = open(memdump_path, "rb").read()
+        with open(memdump_path, "rb") as f:
+            F = f.read()
     else:
         F = memdump_path
     """
@@ -55,18 +55,13 @@ def config(memdump_path, read=False):
                     continue
                 if gate_url.match(url):
                     artifacts_raw["controllers"].append(url.lower().decode())
-                elif exe_url.match(url):
-                    artifacts_raw["downloads"].append(url.lower().decode())
-                elif dll_url.match(url):
+                elif exe_url.match(url) or dll_url.match(url):
                     artifacts_raw["downloads"].append(url.lower().decode())
         except Exception as e:
             print(e, sys.exc_info(), "PONY")
     artifacts_raw["controllers"] = list(set(artifacts_raw["controllers"]))
     artifacts_raw["downloads"] = list(set(artifacts_raw["downloads"]))
-    if len(artifacts_raw["controllers"]) != 0 or len(artifacts_raw["downloads"]) != 0:
-        res = artifacts_raw
-
-    return res
+    return artifacts_raw if len(artifacts_raw["controllers"]) != 0 or len(artifacts_raw["downloads"]) != 0 else False
 
 
 if __name__ == "__main__":

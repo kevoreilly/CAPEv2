@@ -50,7 +50,6 @@ def config(filebuf):
     for hit in yara_hit:
         if hit.rule == "IcedID":  # can be either a dll or a exe
             enc_data = None
-            cfg = {}
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 for section in pe.sections:
@@ -60,14 +59,12 @@ def config(filebuf):
                         enc_config = enc_data[8:592]
                         decrypted_data = ARC4.new(key).decrypt(enc_config)
                         config = list(filter(None, decrypted_data.split(b"\x00")))
-                        cfg = {
+                        return {
                             "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
                             "Minor Version": str(struct.unpack("I", decrypted_data[4:8])[0]),
                             "Path": config[1],
+                            "address": [controller[1:] for controller in config[2:]],
                         }
-                        cfg["address"] = [controller[1:] for controller in config[2:]]
-
             except Exception as e:
                 log.error("Error: %s", e)
-
-            return cfg
+            return {}

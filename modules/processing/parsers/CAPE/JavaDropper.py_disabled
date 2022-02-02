@@ -46,12 +46,11 @@ def parse_ek(key, drop):
 def parse_load(key, drop):
     raw_key = f"{key}ALSKEOPQLFKJDUSIKSJAUIE"
     enc_key = hashlib.sha256(raw_key).hexdigest()
-    decoded = decrypt_RC4(enc_key, drop)
-    return decoded
+    return decrypt_RC4(enc_key, drop)
 
 
 def parse_stub(drop):
-    keys = ["0kwi38djuie8oq89", "0B4wCrd5N2OxG93h"]
+    keys = ("0kwi38djuie8oq89", "0B4wCrd5N2OxG93h")
 
     for key in keys:
         decoded = decrypt_AES(key, drop)
@@ -66,41 +65,40 @@ def parse_stub(drop):
 def parse_xor(key, drop):
     key2 = 'FYj&w3bd"m/kSZjD'
     decoded = decrypt_XOR(key2, drop)
-    decompressed = zlib.decompress(decoded, 16 + zlib.MAX_WBITS)
-    return decompressed
+    return zlib.decompress(decoded, 16 + zlib.MAX_WBITS)
 
 
 # Jar Parser
 def config(raw_data):
     decoded = False
     jar_data = StringIO(raw_data)
-    jar = ZipFile(jar_data, "r")
+    with ZipFile(jar_data, "r") as jar:
+        files = jar.namelist()
+        if "e" in files and "k" in files:
+            print("Found EK Dropper")
+            key = jar.read("k")
+            drop = jar.read("e")
+            decoded = parse_ek(key, drop)
 
-    if "e" and "k" in jar.namelist():
-        print("Found EK Dropper")
-        key = jar.read("k")
-        drop = jar.read("e")
-        decoded = parse_ek(key, drop)
+        if "config.ini" in files and "password.ini" in files:
+            print("Found LoadStub Dropper")
+            key = jar.read("password.ini")
+            drop = jar.read("config.ini")
+            decoded = parse_load(key, drop)
 
-    if "config.ini" and "password.ini" in jar.namelist():
-        print("Found LoadStub Dropper")
-        key = jar.read("password.ini")
-        drop = jar.read("config.ini")
-        decoded = parse_load(key, drop)
+        if "stub/stub.dll" in files:
+            print("Found Stub Dropper")
+            drop = jar.read("stub/stub.dll")
+            decoded = parse_stub(drop)
 
-    if "stub/stub.dll" in jar.namelist():
-        print("Found Stub Dropper")
-        drop = jar.read("stub/stub.dll")
-        decoded = parse_stub(drop)
-
-    if "c.dat" in jar.namelist():
-        print("Found XOR Dropper")
-        key_file = b64decode(jar.read("c.dat"))
-        key_text = decrypt_XOR("\xdd", key_file)
-        drop_file = key_text.split("\n", 2)[1]
-        key = key_text.split("\n", 6)[5]
-        print(key)
-        decoded = parse_xor(key, jar.read(drop_file))
+        if "c.dat" in files:
+            print("Found XOR Dropper")
+            key_file = b64decode(jar.read("c.dat"))
+            key_text = decrypt_XOR("\xdd", key_file)
+            drop_file = key_text.split("\n", 2)[1]
+            key = key_text.split("\n", 6)[5]
+            print(key)
+            decoded = parse_xor(key, jar.read(drop_file))
 
     if decoded:
         return decoded

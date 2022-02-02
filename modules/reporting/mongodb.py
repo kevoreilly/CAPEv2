@@ -11,8 +11,17 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from dev_utils.mongodb import (TEXT, InvalidDocument, mongo_collection_names, mongo_create_index, mongo_delete_data, mongo_find,
-                                   mongo_find_one, mongo_insert_one, mongo_update_one)
+    from dev_utils.mongodb import (
+        TEXT,
+        InvalidDocument,
+        mongo_collection_names,
+        mongo_create_index,
+        mongo_delete_data,
+        mongo_find,
+        mongo_find_one,
+        mongo_insert_one,
+        mongo_update_one,
+    )
 
     HAVE_MONGO = True
 except ImportError:
@@ -81,9 +90,7 @@ class MongoDB(Report):
 
         for key in keys:
             try:
-                mongo_update_one(
-                    "analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
-                )
+                mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
             except InvalidDocument as e:
                 log.warning("Investigate your key: %s", key)
 
@@ -101,7 +108,7 @@ class MongoDB(Report):
         # Set mongo schema version.
         # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
         if "cuckoo_schema" in mongo_collection_names():
-            if mongo_find_one("cuckoo_schema", {}, {"version":1})["version"] != self.SCHEMA_VERSION:
+            if mongo_find_one("cuckoo_schema", {}, {"version": 1})["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
             mongo_insert_one("cuckoo_schema", {"version": self.SCHEMA_VERSION})

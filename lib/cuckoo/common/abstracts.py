@@ -17,8 +17,13 @@ import requests
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooDependencyError, CuckooMachineError, CuckooOperationalError,
-                                          CuckooReportError)
+from lib.cuckoo.common.exceptions import (
+    CuckooCriticalError,
+    CuckooDependencyError,
+    CuckooMachineError,
+    CuckooOperationalError,
+    CuckooReportError,
+)
 from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path

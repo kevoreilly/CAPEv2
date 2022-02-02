@@ -12,8 +12,15 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import (bytes2str, convert_to_printable, default_converter, get_options, logtime, pretty_print_arg,
-                                     pretty_print_retval)
+from lib.cuckoo.common.utils import (
+    bytes2str,
+    convert_to_printable,
+    default_converter,
+    get_options,
+    logtime,
+    pretty_print_arg,
+    pretty_print_retval,
+)
 
 log = logging.getLogger(__name__)
 cfg = Config()

@@ -30,11 +30,32 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.common.utils import (convert_to_printable, create_zip, delete_folder, generate_fake_name, get_options,
-                                     get_user_filename, sanitize_filename, store_temp_file, validate_referrer)
-from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file, download_from_vt, force_int, get_file_content,
-                                         parse_request_arguments, perform_malscore_search, perform_search, perform_ttps_search,
-                                         search_term_map, statistics, validate_task)
+from lib.cuckoo.common.utils import (
+    convert_to_printable,
+    create_zip,
+    delete_folder,
+    generate_fake_name,
+    get_options,
+    get_user_filename,
+    sanitize_filename,
+    store_temp_file,
+    validate_referrer,
+)
+from lib.cuckoo.common.web_utils import (
+    _download_file,
+    apiconf,
+    download_file,
+    download_from_vt,
+    force_int,
+    get_file_content,
+    parse_request_arguments,
+    perform_malscore_search,
+    perform_search,
+    perform_ttps_search,
+    search_term_map,
+    statistics,
+    validate_task,
+)
 from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
@@ -846,7 +867,7 @@ def tasks_view(request, task_id):
         if task.sample_id:
             sample = db.view_sample(task.sample_id)
             entry["sample"] = sample.to_dict()
-    
+
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(
             "analysis",

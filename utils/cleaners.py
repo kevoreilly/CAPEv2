@@ -20,8 +20,17 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.core.database import (TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_PENDING,
-                                      TASK_RECOVERED, TASK_REPORTED, Database, Sample, Task)
+from lib.cuckoo.core.database import (
+    TASK_FAILED_ANALYSIS,
+    TASK_FAILED_PROCESSING,
+    TASK_FAILED_REPORTING,
+    TASK_PENDING,
+    TASK_RECOVERED,
+    TASK_REPORTED,
+    Database,
+    Sample,
+    Task,
+)
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
 log = logging.getLogger()
@@ -34,8 +43,15 @@ resolver_pool = ThreadPool(50)
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
-    from dev_utils.mongodb import (connect_to_mongo, mdb, mongo_delete_data, mongo_delete_many, mongo_drop_database, mongo_find,
-                                   mongo_update)
+    from dev_utils.mongodb import (
+        connect_to_mongo,
+        mdb,
+        mongo_delete_data,
+        mongo_delete_many,
+        mongo_drop_database,
+        mongo_find,
+        mongo_update,
+    )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 

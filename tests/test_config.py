@@ -159,9 +159,7 @@ class TestConfig:
         config2 = Config("cuckoo")
         assert config1 is config2
 
-    def test_environment_interpolation(
-        self, default_config, custom_conf_dir, monkeypatch
-    ):
+    def test_environment_interpolation(self, default_config, custom_conf_dir, monkeypatch):
         """Verify that environment variables are able to be referenced in config
         files.
         """
@@ -197,9 +195,7 @@ class TestConfig:
         # Overridden from custom config and uses environment variable
         assert section.dlintelkey == custom_secret
 
-    def test_missing_environment_interpolation(
-        self, default_config, custom_conf_dir, monkeypatch
-    ):
+    def test_missing_environment_interpolation(self, default_config, custom_conf_dir, monkeypatch):
         """Verify that an exception is raised if an ENV variable is to be used in a
         config file, but that variable is not present in the environment.
         """

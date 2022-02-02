@@ -16,11 +16,35 @@ import urllib.request
 from ctypes import byref, c_int, c_ulong, create_string_buffer, sizeof
 from shutil import copy
 
-from lib.common.constants import (CAPEMON32_NAME, CAPEMON64_NAME, LOADER32_NAME, LOADER64_NAME, LOGSERVER_PREFIX, PATHS, PIPE,
-                                  SHUTDOWN_MUTEX, TERMINATE_EVENT)
-from lib.common.defines import (CREATE_NEW_CONSOLE, CREATE_SUSPENDED, EVENT_MODIFY_STATE, GENERIC_READ, GENERIC_WRITE, KERNEL32,
-                                NTDLL, OPEN_EXISTING, PROCESS_ALL_ACCESS, PROCESS_INFORMATION, PROCESSENTRY32, STARTUPINFO,
-                                SYSTEM_INFO, TH32CS_SNAPPROCESS, THREAD_ALL_ACCESS, ULONG_PTR)
+from lib.common.constants import (
+    CAPEMON32_NAME,
+    CAPEMON64_NAME,
+    LOADER32_NAME,
+    LOADER64_NAME,
+    LOGSERVER_PREFIX,
+    PATHS,
+    PIPE,
+    SHUTDOWN_MUTEX,
+    TERMINATE_EVENT,
+)
+from lib.common.defines import (
+    CREATE_NEW_CONSOLE,
+    CREATE_SUSPENDED,
+    EVENT_MODIFY_STATE,
+    GENERIC_READ,
+    GENERIC_WRITE,
+    KERNEL32,
+    NTDLL,
+    OPEN_EXISTING,
+    PROCESS_ALL_ACCESS,
+    PROCESS_INFORMATION,
+    PROCESSENTRY32,
+    STARTUPINFO,
+    SYSTEM_INFO,
+    TH32CS_SNAPPROCESS,
+    THREAD_ALL_ACCESS,
+    ULONG_PTR,
+)
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import upload_to_host

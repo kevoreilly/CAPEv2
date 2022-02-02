@@ -113,10 +113,23 @@ except ImportError as e:
 try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
-                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
-                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
-                                           describe_symbol_bind, describe_symbol_type)
+    from elftools.elf.descriptions import (
+        describe_dyn_tag,
+        describe_e_machine,
+        describe_e_type,
+        describe_e_version_numeric,
+        describe_ei_class,
+        describe_ei_data,
+        describe_ei_osabi,
+        describe_ei_version,
+        describe_note,
+        describe_p_flags,
+        describe_p_type,
+        describe_reloc_type,
+        describe_sh_type,
+        describe_symbol_bind,
+        describe_symbol_type,
+    )
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
     from elftools.elf.enums import ENUM_D_TAG

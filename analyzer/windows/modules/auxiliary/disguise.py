@@ -11,8 +11,21 @@ import re
 import subprocess
 from random import randint
 from uuid import uuid4
-from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CreateKeyEx,
-                    EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
+from winreg import (
+    HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE,
+    KEY_READ,
+    KEY_SET_VALUE,
+    KEY_WOW64_64KEY,
+    REG_DWORD,
+    REG_SZ,
+    CreateKeyEx,
+    EnumKey,
+    EnumValue,
+    OpenKey,
+    QueryInfoKey,
+    SetValueEx,
+)
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string

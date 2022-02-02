@@ -428,8 +428,8 @@ class cPDFParser:
                             if IsNumeric(self.token2[1]):
                                 self.token3 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
                                 if self.token3[1] == "obj":
-                                    self.objectId = int(self.token[1], 10)
-                                    self.objectVersion = int(self.token2[1], 10)
+                                    self.objectId = int(self.token[1])
+                                    self.objectVersion = int(self.token2[1])
                                     self.context = CONTEXT_OBJ
                                 else:
                                     self.oPDFTokenizer.unget(self.token3)
@@ -449,7 +449,7 @@ class cPDFParser:
                         elif self.token[1] == "startxref":
                             self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
                             if self.token2 and IsNumeric(self.token2[1]):
-                                return cPDFElementStartxref(int(self.token2[1], 10))
+                                return cPDFElementStartxref(int(self.token2[1]))
                             else:
                                 self.oPDFTokenizer.unget(self.token2)
                                 if self.verbose:

@@ -478,7 +478,7 @@ class Summary:
                 self.delete_keys.append(name)
         elif call["api"].startswith("RegCreateKeyEx"):
             name = self.get_argument(call, "FullName")
-            disposition = int(self.get_argument(call, "Disposition"), 10)
+            disposition = int(self.get_argument(call, "Disposition"))
             if name and name not in self.keys:
                 self.keys.append(name)
             # if disposition == 1 then we created a new key
@@ -490,7 +490,7 @@ class Summary:
                 self.keys.append(name)
         elif call["api"] == "NtCreateKey":
             name = self.get_argument(call, "ObjectAttributes")
-            disposition = int(self.get_argument(call, "Disposition"), 10)
+            disposition = int(self.get_argument(call, "Disposition"))
             if name and name not in self.keys:
                 self.keys.append(name)
             # if disposition == 1 then we created a new key
@@ -525,7 +525,7 @@ class Summary:
                 self.executed_commands.append(cmdline)
         elif call["api"] == "NtSetInformationFile":
             filename = self.get_argument(call, "HandleName")
-            infoclass = int(self.get_argument(call, "FileInformationClass"), 10)
+            infoclass = int(self.get_argument(call, "FileInformationClass"))
             fileinfo = self.get_raw_argument(call, "FileInformation")
             if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
                 if not isinstance(fileinfo, bytes):

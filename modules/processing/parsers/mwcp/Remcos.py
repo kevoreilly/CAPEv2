@@ -97,12 +97,9 @@ class Remcos(Parser):
     def get_rsrc(self, pe):
         ret = []
         for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
-            if resource_type.name is not None:
-                name = str(resource_type.name)
-            else:
-                name = str(pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
-            if name is None:
-                name = str(resource_type.struct.name)
+            name = str(resource_type.name if resource_type.name is not None else pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
+            # if name is None:
+            #     name = str(resource_type.struct.name)
             if hasattr(resource_type, "directory"):
                 for resource_id in resource_type.directory.entries:
                     if hasattr(resource_id, "directory"):
@@ -141,7 +138,7 @@ class Remcos(Parser):
             blob = False
             ResourceData = self.get_rsrc(pe)
             for rsrc in ResourceData:
-                if rsrc[0] in ["RT_RCDATA", "SETTINGS"]:
+                if rsrc[0] in ("RT_RCDATA", "SETTINGS"):
                     blob = rsrc[1]
                     break
 
@@ -156,26 +153,17 @@ class Remcos(Parser):
                 configs = re.split(rb"\|\x1e\x1e\x1f\|", decrypted_data)
 
                 for i, cont in enumerate(configs):
-                    if cont == b"\x00" or cont == b"\x01":
+                    if cont in (b"\x00", b"\x01"):
                         p_data[idx_list[i]] = FLAG[cont]
+                    elif i in (16, 25, 37):
+                        p_data[idx_list[i]] = setup_list[int(cont)]
+                    elif i == 0:
+                        host, port, password = cont.split(b"|", 1)[0].split(b":")
+                        p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
                     else:
-                        if i in [16, 25, 37]:
-                            p_data[idx_list[i]] = setup_list[int(cont)]
-                        elif i in [0]:
-                            host, port, password = cont.split(b"|", 1)[0].split(b":")
-                            p_data["Control"] = f"tcp://{host.decode()}:{port.decode()}:{password.decode()}"
+                        p_data[idx_list[i]] = cont
 
-                        else:
-                            p_data[idx_list[i]] = cont
-
-                out = {}
-                for id, param in p_data.items():
-                    try:
-                        out[id] = param.decode("utf-16").decode("ascii")
-                    except Exception:
-                        out[id] = param
-
-                for k, v in out.items():
+                for k, v in p_data.items():
                     self.reporter.add_metadata("other", {k: v})
 
         except Exception as e:

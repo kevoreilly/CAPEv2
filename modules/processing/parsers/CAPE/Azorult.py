@@ -32,7 +32,6 @@ rule Azorult
    condition:
         uint16(0) == 0x5A4D and all of them
 }
-
 """
 
 MAX_STRING_SIZE = 32

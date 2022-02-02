@@ -78,7 +78,6 @@ rule Emotet
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
-
 """
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0

@@ -38,7 +38,6 @@ rule EvilGrab
 
         $configure1 or $configure2 or $configure3
 }
-
 """
 
 MAX_STRING_SIZE = 65
@@ -59,27 +58,24 @@ def yara_scan(raw_data, rule_name):
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     rva = va - image_base
-    data = pe.get_data(rva, size)
-    return data
+    return pe.get_data(rva, size)
 
 
 def string_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 class evilgrab(Parser):
-
     DESCRIPTION = "EvilGrab configuration parser."
     AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
+        # image_base = pe.OPTIONAL_HEADER.ImageBase
 
         type1 = yara_scan(filebuf, "$configure1")
         type2 = yara_scan(filebuf, "$configure2")

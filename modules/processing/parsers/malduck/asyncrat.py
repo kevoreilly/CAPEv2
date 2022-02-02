@@ -33,8 +33,7 @@ class ASyncRAT(Extractor):
     def decrypt(self, key, ciphertext):
         aes_key = PBKDF2(key, self.get_salt(), 32, 50000)
         cipher = AES.new(aes_key, self.AES_CIPHER_MODE, ciphertext[32 : 32 + 16])
-        plaintext = cipher.decrypt(ciphertext[48:]).decode("ascii", "ignore").strip()
-        return plaintext
+        return cipher.decrypt(ciphertext[48:]).decode("ascii", "ignore").strip()
 
     @staticmethod
     def get_string(data, index):
@@ -45,7 +44,7 @@ class ASyncRAT(Extractor):
         plaintext = self.decrypt(key, data)
         if plaintext.lower() == "true":
             return True
-        if plaintext.lower() == "false":
+        elif plaintext.lower() == "false":
             return False
         return plaintext
 
@@ -57,16 +56,14 @@ class ASyncRAT(Extractor):
     # @staticmethod
     def get_wide_string2(self, key, data, index):
         # data = data[index][2:] + b"\x00"
+        # return data.decode("utf-16")
 
-        result = "".join(
+        return "".join(
             filter(
                 lambda x: x in string.printable,
                 self.decrypt(key, base64.b64decode(data[index][2:])),
             )
         )
-
-        # return data.decode("utf-16")
-        return result
 
     def decrypt_config_item_list(self, key, data, index):
         result = "".join(
@@ -80,13 +77,12 @@ class ASyncRAT(Extractor):
         return result.split(",")
 
     def decrypt_config_item_printable(self, key, data, index):
-        result = "".join(
+        return "".join(
             filter(
                 lambda x: x in string.printable,
                 self.decrypt(key, base64.b64decode(data[index][1:])),
             )
         )
-        return result
 
     @Extractor.extractor("magic_cslr_0")
     def asyncrat(self, p, addr):

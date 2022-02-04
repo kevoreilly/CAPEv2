@@ -348,7 +348,7 @@ class QEMU(Machinery):
         # 3 check for snapshot
         # 3. check tap device
 
-        for vm_label in qemu_cfg.qemu.machines.split(","):
+        for vm_label in qemu_cfg.qemu.machines:
             try:
                 vm_config = qemu_cfg.get(vm_label.strip())
                 if vm_config.get("platform", "").strip() != "linux":

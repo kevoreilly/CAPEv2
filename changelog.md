@@ -1,3 +1,6 @@
+### [TBD] Config extractors
+*  MWCP, malwareconfigs, and malduck won't be part of requirements.txt anymore, as they bring their own dependencies that not everyone requires. So if you enable that framework in processing.conf you need to install that dependencies.
+
 ### [4-2-2022]
 * Monitor updates:
     * Dump-on-API bug fix

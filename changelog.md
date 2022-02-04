@@ -1,4 +1,16 @@
-### [26-01-2022]
+### [4-2-2022]
+* Monitor updates:
+    * Dump-on-API bug fix
+    * YaraHarness: fix issue with delta variable
+    * End yara later during shutdown
+    * Prevent unloading core modules (fix #531)
+    * New crypto hooks: CryptDeriveKey, CryptDestroyKey, CryptDestroyHash
+    * YaraInit: log number of loaded sigs rather than a list
+    * Debugger push & pop actions
+    * WriteMemoryHandler: tiny code clean
+    * CreateProcessHandler: improve logging
+
+### [26-1-2022]
 * Config extension, for short details see [PR](https://github.com/kevoreilly/CAPEv2/pull/724) or full [read docs](https://capev2.readthedocs.io/en/latest/installation/host/configuration.html)
 
 ### [20-1-2022]

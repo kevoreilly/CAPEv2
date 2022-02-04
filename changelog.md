@@ -9,6 +9,8 @@
     * Debugger push & pop actions
     * WriteMemoryHandler: tiny code clean
     * CreateProcessHandler: improve logging
+    * Fix evasion techniques reported by (& many thanks to) Alexey Bukhteyev of Checkpoint
+* Update 'GetTickCount' anti-vm bypass with latest IcedID packers
 
 ### [26-1-2022]
 * Config extension, for short details see [PR](https://github.com/kevoreilly/CAPEv2/pull/724) or full [read docs](https://capev2.readthedocs.io/en/latest/installation/host/configuration.html)

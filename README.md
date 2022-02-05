@@ -64,7 +64,7 @@ The repository containing the code for the monitor DLLs is a distinct one: https
 
 Please contribute to this project by helping create new signatures, parsers or bypasses for further malware families. There are many in the works currently, so watch this space.
 
-## CAPEv2!
+## CAPEv2! - To not miss any important update keep an eye on: [changelog](https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md)
 
 A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 

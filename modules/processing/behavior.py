@@ -12,8 +12,15 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
-from lib.cuckoo.common.utils import (bytes2str, convert_to_printable, default_converter, get_options, logtime, pretty_print_arg,
-                                     pretty_print_retval)
+from lib.cuckoo.common.utils import (
+    bytes2str,
+    convert_to_printable,
+    default_converter,
+    get_options,
+    logtime,
+    pretty_print_arg,
+    pretty_print_retval,
+)
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -471,7 +478,7 @@ class Summary:
                 self.delete_keys.append(name)
         elif call["api"].startswith("RegCreateKeyEx"):
             name = self.get_argument(call, "FullName")
-            disposition = int(self.get_argument(call, "Disposition"), 10)
+            disposition = int(self.get_argument(call, "Disposition"))
             if name and name not in self.keys:
                 self.keys.append(name)
             # if disposition == 1 then we created a new key
@@ -483,7 +490,7 @@ class Summary:
                 self.keys.append(name)
         elif call["api"] == "NtCreateKey":
             name = self.get_argument(call, "ObjectAttributes")
-            disposition = int(self.get_argument(call, "Disposition"), 10)
+            disposition = int(self.get_argument(call, "Disposition"))
             if name and name not in self.keys:
                 self.keys.append(name)
             # if disposition == 1 then we created a new key
@@ -518,7 +525,7 @@ class Summary:
                 self.executed_commands.append(cmdline)
         elif call["api"] == "NtSetInformationFile":
             filename = self.get_argument(call, "HandleName")
-            infoclass = int(self.get_argument(call, "FileInformationClass"), 10)
+            infoclass = int(self.get_argument(call, "FileInformationClass"))
             fileinfo = self.get_raw_argument(call, "FileInformation")
             if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
                 if not isinstance(fileinfo, bytes):

@@ -115,10 +115,7 @@ class SuricataSC:
         cmdret = None
         data = ""
         while True:
-            if sys.version < "3":
-                data += self.socket.recv(INC_SIZE)
-            else:
-                data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
+            data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
             if data.endswith("\n"):
                 cmdret = json.loads(data)
                 break
@@ -135,10 +132,7 @@ class SuricataSC:
         if self.verbose:
             print(f"SND: {json.dumps(cmdmsg)}")
         cmdmsg_str = f"{json.dumps(cmdmsg)}\n"
-        if sys.version < "3":
-            self.socket.send(cmdmsg_str)
-        else:
-            self.socket.send(bytes(cmdmsg_str, "iso-8859-1"))
+        self.socket.send(bytes(cmdmsg_str, "iso-8859-1"))
 
         ready = select.select([self.socket], [], [], 600)
         if ready[0]:
@@ -165,10 +159,7 @@ class SuricataSC:
         # send version
         if self.verbose:
             print(f"SND: {json.dumps({'version': VERSION})}")
-        if sys.version < "3":
-            self.socket.send(json.dumps({"version": VERSION}))
-        else:
-            self.socket.send(bytes(json.dumps({"version": VERSION}), "iso-8859-1"))
+        self.socket.send(bytes(json.dumps({"version": VERSION}), "iso-8859-1"))
 
         ready = select.select([self.socket], [], [], 600)
         if ready[0]:

@@ -39,26 +39,23 @@ rule SmokeLoader
 
 
 def yara_scan(raw_data, rule_name):
-    addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
         if match.rule == "SmokeLoader":
             for item in match.strings:
                 if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
-                    return addresses
+                    return {item[1]: item[0]}
 
 
 def xor_decode(buffer, key):
     byte_key = 0xFF
     for i in range(4):
-        byte_key = byte_key ^ (key >> (i * 8) & 0xFF)
+        byte_key ^= key >> (i * 8) & 0xFF
     return "".join(chr(ord(x) ^ byte_key) for x in buffer)
 
 
 class SmokeLoader(Parser):
-
     DESCRIPTION = "SmokeLoader configuration parser."
     AUTHOR = "kevoreilly"
 
@@ -112,7 +109,7 @@ class SmokeLoader(Parser):
             table_delta = struct.unpack("i", filebuf[table_ref_offset + 26 : table_ref_offset + 30])[0]
             table_offset = table_ref_offset + table_delta + 30
 
-            for index in range(2):
+            for _ in range(2):
                 if image_base:
                     c2_rva = struct.unpack("Q", filebuf[table_offset : table_offset + 8])[0] - image_base
                     c2_offset = pe.get_offset_from_rva(c2_rva)

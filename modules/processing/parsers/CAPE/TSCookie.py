@@ -4,7 +4,7 @@
 # the GNU General Public License version 2
 #
 # Credit to JPCERT - this is derived from https://github.com/JPCERTCC/aa-tools/blob/master/tscookie_decode.py
-#
+
 from __future__ import absolute_import
 import collections
 import re
@@ -35,6 +35,7 @@ CONFIG_PATTERNS = [
     re.compile("\x6A\x04\x68(....)\x8D(.....)\x56\x50\xE8", re.DOTALL),
 ]
 CONFIG_SIZE = 0x8D4
+
 
 # RC4
 def rc4(data, key):

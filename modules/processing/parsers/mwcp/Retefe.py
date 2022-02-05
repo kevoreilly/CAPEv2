@@ -24,7 +24,6 @@ rule Retefe
     condition:
         uint16(0) == 0x5A4D and (all of them)
 }
-
 """
 
 
@@ -57,18 +56,16 @@ def number_gen(buffer_size, number, shifts, subtract_val):
 
 def pwd_calc(buffer_size, number, shifts, subtract_val):
     xor_arr = []
-
     seed = number_gen(buffer_size, number, shifts, subtract_val)
 
     while seed:
         xor_arr.append(seed & 0xFF)
-        seed = seed >> 8
+        seed >>= 8
 
     return xor_arr
 
 
 class Retefe(Parser):
-
     DESCRIPTION = "Retefe configuration parser."
     AUTHOR = "Tomasuh"
 
@@ -130,7 +127,7 @@ class Retefe(Parser):
         text_raw_base = None
 
         for section in pe.sections:
-            if section.Name == ".text" or section.Name.startswith(b".text\x00"):
+            if section.Name == b".text" or section.Name.startswith(b".text\x00"):
                 text_va_base = section.VirtualAddress
                 text_raw_base = section.PointerToRawData
 

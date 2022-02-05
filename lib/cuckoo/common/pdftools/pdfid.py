@@ -65,6 +65,7 @@ Todo:
 
 import binascii
 import collections
+import configparser as ConfigParser
 import fnmatch
 import glob
 import json
@@ -77,17 +78,9 @@ import random
 import re
 import sys
 import traceback
+import urllib.request as urllib23
 import xml.dom.minidom
 import zipfile
-
-if sys.version_info[0] >= 3:
-    import urllib.request as urllib23
-else:
-    import urllib2 as urllib23
-if sys.version_info[0] >= 3:
-    import configparser as ConfigParser
-else:
-    import ConfigParser
 
 # Convert 2 Bytes If Python 3
 
@@ -97,10 +90,7 @@ FCH_ERROR = 2
 
 
 def C2BIP3(string):
-    if sys.version_info[0] > 2:
-        return bytes([ord(x) for x in string])
-    else:
-        return string
+    return bytes([ord(x) for x in string])
 
 
 def Hex2Bytes(hexadecimal):
@@ -407,13 +397,6 @@ def InterpretInteger(token):
         return None
 
 
-def C2IIP2(data):
-    if sys.version_info[0] > 2:
-        return data
-    else:
-        return ord(data)
-
-
 def InterpretHexInteger(token):
     if token[0] != STATE_IDENTIFIER:
         return None
@@ -424,7 +407,7 @@ def InterpretHexInteger(token):
         return None
     integer = 0
     for byte in bytes:
-        integer = integer * 0x100 + C2IIP2(byte)
+        integer = integer * 0x100 + byte
     return integer
 
 
@@ -887,7 +870,7 @@ class cCVE_2009_3459:
 
     def Check(self, lastName, word):
         # decided to alert when the number of colors is expressed with more than 3 bytes
-        if lastName == "/Colors" and word.isdigit() and int(word) > 2 ** 24:
+        if lastName == "/Colors" and word.isdigit() and int(word) > 2**24:
             self.count += 1
 
 

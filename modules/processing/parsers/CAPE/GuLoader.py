@@ -3,18 +3,15 @@ try:
 except ImportError:
     import re
 
-url_regex = re.compile(br"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+url_regex = re.compile(rb"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 
 
 def config(data):
-    urls_dict = {}
-
     try:
-        urls_dict["URLs"] = [url.lower().decode() for url in url_regex.findall(data)]
+        urls = [url.lower().decode() for url in url_regex.findall(data)]
+        if urls:
+            return {"URLs": urls}
     except Exception as e:
         print(e)
-
-    if "URLs" in urls_dict and len(urls_dict["URLs"]) > 0:
-        return urls_dict
 
     return None

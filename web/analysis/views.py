@@ -31,8 +31,15 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.utils import delete_folder
-from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
-                                         perform_ttps_search, rateblock, statistics)
+from lib.cuckoo.common.web_utils import (
+    my_rate_minutes,
+    my_rate_seconds,
+    perform_malscore_search,
+    perform_search,
+    perform_ttps_search,
+    rateblock,
+    statistics,
+)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 
@@ -1250,7 +1257,6 @@ def report(request, task_id):
     if "CAPE_children" in report:
         children = report["CAPE_children"]
 
-
     report["CAPE"] = 0
     report["dropped"] = 0
     report["procdump"] = 0
@@ -1288,9 +1294,8 @@ def report(request, task_id):
                 report["memory"] = tmp_data[0]["_id"] or 0
         elif es_as_db:
             report["memory"] = len(
-                    es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"][
-                        "hits"
-                    ])
+                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"]["hits"]
+            )
     except Exception as e:
         print(e)
 
@@ -1733,9 +1738,7 @@ def full_memory_dump_file(request, analysis_number):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(
-                    url + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True
-                )
+                return redirect(url + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             print(e)
     if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
@@ -2098,18 +2101,14 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if (
-        service
-        not in (
-            "bingraph",
-            "flare_capa",
-            "vba2graph",
-            "virustotal",
-            "xlsdeobf",
-            "strings",
-        )
-        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
-    ):
+    if service not in (
+        "bingraph",
+        "flare_capa",
+        "vba2graph",
+        "virustotal",
+        "xlsdeobf",
+        "strings",
+    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

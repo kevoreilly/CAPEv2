@@ -113,10 +113,23 @@ except ImportError as e:
 try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
-                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
-                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
-                                           describe_symbol_bind, describe_symbol_type)
+    from elftools.elf.descriptions import (
+        describe_dyn_tag,
+        describe_e_machine,
+        describe_e_type,
+        describe_e_version_numeric,
+        describe_ei_class,
+        describe_ei_data,
+        describe_ei_osabi,
+        describe_ei_version,
+        describe_note,
+        describe_p_flags,
+        describe_p_type,
+        describe_reloc_type,
+        describe_sh_type,
+        describe_symbol_bind,
+        describe_symbol_type,
+    )
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
     from elftools.elf.enums import ENUM_D_TAG
@@ -441,7 +454,7 @@ class PortableExecutable(object):
                 for imported_symbol in entry.imports:
                     symbols.append({"address": hex(imported_symbol.address), "name": bytes2str(imported_symbol.name)})
 
-                dll_name = bytes2str(entry.dll).split(".")[0]
+                dll_name = bytes2str(entry.dll).split(".", 1)[0]
                 if dll_name in imports:
                     imports[dll_name]["imports"] += symbols
                 else:
@@ -2625,7 +2638,7 @@ class EncodedScriptFile(object):
                 r.append(ch)
             o += 1
 
-        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
+        if (c % 2**32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return b"".join(ch for ch in r).decode("latin-1")

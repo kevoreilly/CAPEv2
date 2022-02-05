@@ -24,7 +24,9 @@ class Stream(StringIO):
         return struct.unpack("=B", self.read(1))[0]
 
 
-get_strings = lambda d: re.findall("[ -~]{3,}", d)
+def get_strings(d):
+    return re.findall("[ -~]{3,}", d)
+
 
 indent_level = 0
 indent_text = "    "
@@ -40,7 +42,7 @@ def pprint(*text):
 
 def rol(x, n, b=32):
     n = (b - 1) & n
-    return x << n | 2 ** n - 1 & x >> b - n
+    return x << n | 2**n - 1 & x >> b - n
 
 
 def chunks(data, n):
@@ -48,7 +50,6 @@ def chunks(data, n):
 
 
 def ror(n, bits, b=32):
-    m = (2 << b - 1) - 1
     return ((n & b) >> bits) | ((n << (b - bits)) & b)
 
 
@@ -150,7 +151,7 @@ class NymaimExtractor:
         """
         prev_chr = 0
         result = ""
-        for i, c in enumerate(raw):
+        for c in raw:
             bl = ((key0 & 0x000000FF) + prev_chr) & 0xFF
             key0 = (key0 & 0xFFFFFF00) + bl
             prev_chr = ord(c) ^ bl

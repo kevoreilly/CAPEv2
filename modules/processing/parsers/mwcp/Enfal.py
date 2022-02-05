@@ -28,7 +28,6 @@ rule Enfal
     condition:
         $config
 }
-
 """
 
 MAX_STRING_SIZE = 128
@@ -47,18 +46,15 @@ def yara_scan(raw_data, rule_name):
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def list_from_offset(data, offset):
     string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    list = string.split(b",")
-    return list
+    return string.split(b",")
 
 
 class enfal(Parser):
-
     DESCRIPTION = "Enfal configuration parser."
     AUTHOR = "kevoreilly"
 
@@ -91,9 +87,9 @@ class enfal(Parser):
                 self.reporter.add_metadata("registrypath", registrypath)
 
             if filebuf[yara_offset + 0x14A2 : yara_offset + 0x14A3] == "C":
+                servicename = ""
                 filepaths = list_from_offset(filebuf, yara_offset + 0x14A2)
                 filepaths[0] = filepaths[0].split(b" ", 1)[0]
-                servicename = ""
             elif filebuf[yara_offset + 0x14B0 : yara_offset + 0x14B1] != "\0":
                 servicename = string_from_offset(filebuf, yara_offset + 0x14B0)
                 filepaths = list_from_offset(filebuf, yara_offset + 0x14C0)

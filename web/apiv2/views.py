@@ -30,11 +30,32 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.common.utils import (convert_to_printable, create_zip, delete_folder, generate_fake_name, get_options,
-                                     get_user_filename, sanitize_filename, store_temp_file, validate_referrer)
-from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file, download_from_vt, force_int, get_file_content,
-                                         parse_request_arguments, perform_malscore_search, perform_search, perform_ttps_search,
-                                         search_term_map, statistics, validate_task)
+from lib.cuckoo.common.utils import (
+    convert_to_printable,
+    create_zip,
+    delete_folder,
+    generate_fake_name,
+    get_options,
+    get_user_filename,
+    sanitize_filename,
+    store_temp_file,
+    validate_referrer,
+)
+from lib.cuckoo.common.web_utils import (
+    _download_file,
+    apiconf,
+    download_file,
+    download_from_vt,
+    force_int,
+    get_file_content,
+    parse_request_arguments,
+    perform_malscore_search,
+    perform_search,
+    perform_ttps_search,
+    search_term_map,
+    statistics,
+    validate_task,
+)
 from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
@@ -827,26 +848,28 @@ def tasks_view(request, task_id):
         resp = {"error": True, "error_value": "Task View API is Disabled"}
         return Response(resp)
 
-    resp = {}
     task = db.view_task(task_id, details=True)
-    resp["error"] = False
-    if task:
-        entry = task.to_dict()
-        if entry["category"] != "url":
-            entry["target"] = entry["target"].rsplit("/", 1)[-1]
-        entry["guest"] = {}
-        if task.guest:
-            entry["guest"] = task.guest.to_dict()
+    if not task:
+        resp = {"error": True, "error_value": "Task not found in database"}
+        return Response(resp)
 
-        entry["errors"] = []
-        for error in task.errors:
-            entry["errors"].append(error.message)
+    resp = {"error": False}
+    entry = task.to_dict()
+    if entry["category"] != "url":
+        entry["target"] = entry["target"].rsplit("/", 1)[-1]
+    entry["guest"] = {}
+    if task.guest:
+        entry["guest"] = task.guest.to_dict()
 
-        entry["sample"] = {}
-        if task.sample_id:
-            sample = db.view_sample(task.sample_id)
-            entry["sample"] = sample.to_dict()
-    
+    entry["errors"] = []
+    for error in task.errors:
+        entry["errors"].append(error.message)
+
+    entry["sample"] = {}
+    if task.sample_id:
+        sample = db.view_sample(task.sample_id)
+        entry["sample"] = sample.to_dict()
+
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(
             "analysis",
@@ -1017,12 +1040,13 @@ def tasks_status(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
-    status = db.view_task(task_id).to_dict()["status"]
-    if not status:
+    task = db.view_task(task_id)
+    if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
-    else:
-        resp = {"error": False, "data": status}
+        return Response(resp)
 
+    status = task.to_dict()["status"]
+    resp = {"error": False, "data": status}
     return Response(resp)
 
 

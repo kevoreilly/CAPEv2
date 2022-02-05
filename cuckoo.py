@@ -21,9 +21,19 @@ try:
     from lib.cuckoo.common.logo import logo
     from lib.cuckoo.core.resultserver import ResultServer
     from lib.cuckoo.core.scheduler import Scheduler
-    from lib.cuckoo.core.startup import (check_configs, check_linux_dist, check_webgui_mongo, check_working_directory,
-                                         create_structure, init_logging, init_modules, init_rooter, init_routing, init_tasks,
-                                         init_yara)
+    from lib.cuckoo.core.startup import (
+        check_configs,
+        check_linux_dist,
+        check_webgui_mongo,
+        check_working_directory,
+        create_structure,
+        init_logging,
+        init_modules,
+        init_rooter,
+        init_routing,
+        init_tasks,
+        init_yara,
+    )
 
     bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:

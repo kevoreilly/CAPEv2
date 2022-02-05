@@ -16,9 +16,15 @@ if repconf.elasticsearchdb.enabled:
     try:
         from elasticsearch.exceptions import AuthorizationException, ConnectionError, RequestError
 
-        from dev_utils.elasticsearchdb import (daily_analysis_index_exists, daily_calls_index_exists,
-                                               delete_analysis_and_related_calls, elastic_handler, get_analysis_index_mapping,
-                                               get_daily_analysis_index, get_daily_calls_index)
+        from dev_utils.elasticsearchdb import (
+            daily_analysis_index_exists,
+            daily_calls_index_exists,
+            delete_analysis_and_related_calls,
+            elastic_handler,
+            get_analysis_index_mapping,
+            get_daily_analysis_index,
+            get_daily_calls_index,
+        )
 
         HAVE_ELASTICSEARCH = True
     except ImportError:
@@ -26,6 +32,7 @@ if repconf.elasticsearchdb.enabled:
 
 log = logging.getLogger(__name__)
 logging.getLogger("elasticsearch").setLevel("ERROR")
+
 
 class ElasticSearchDB(Report):
     """Stores report in ElasticSearchDB."""
@@ -40,8 +47,7 @@ class ElasticSearchDB(Report):
         try:
             self.es = elastic_handler
         except TypeError:
-            raise CuckooReportError(
-                "Elasticsearch connection port must be integer")
+            raise CuckooReportError("Elasticsearch connection port must be integer")
         except ConnectionError:
             raise CuckooReportError("Cannot connect to ElasticsearchDB")
 
@@ -50,34 +56,25 @@ class ElasticSearchDB(Report):
 
     def check_analysis_index(self):
         try:
-            log.debug('Check if the index exists')
+            log.debug("Check if the index exists")
             if not daily_analysis_index_exists():
-                self.es.indices.create(index=get_daily_analysis_index(),
-                                       body=get_analysis_index_mapping())
+                self.es.indices.create(index=get_daily_analysis_index(), body=get_analysis_index_mapping())
         except (RequestError, AuthorizationException) as e:
-            raise CuckooDependencyError(
-                f"Unable to create Elasticsearch index {e}"
-            )
+            raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
 
     def check_calls_index(self):
         try:
-            log.debug('Check if the index exists')
+            log.debug("Check if the index exists")
             if not daily_calls_index_exists():
                 self.es.indices.create(index=get_daily_calls_index())
         except (RequestError, AuthorizationException) as e:
-            raise CuckooDependencyError(
-                f"Unable to create Elasticsearch index {e}"
-            )
+            raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
 
     def format_dates(self, report):
-        report['info']['started'] = datetime.strptime(report['info']['started'],
-                                                      "%Y-%m-%d %H:%M:%S")
-        report['info']['ended'] = datetime.strptime(report['info']['ended'],
-                                                    "%Y-%m-%d %H:%M:%S")
-        report['info']['machine']['started_on'] = datetime.strptime(
-            report['info']['machine']['started_on'], "%Y-%m-%d %H:%M:%S")
-        report['info']['machine']['shutdown_on'] = datetime.strptime(
-            report['info']['machine']['shutdown_on'], "%Y-%m-%d %H:%M:%S")
+        report["info"]["started"] = datetime.strptime(report["info"]["started"], "%Y-%m-%d %H:%M:%S")
+        report["info"]["ended"] = datetime.strptime(report["info"]["ended"], "%Y-%m-%d %H:%M:%S")
+        report["info"]["machine"]["started_on"] = datetime.strptime(report["info"]["machine"]["started_on"], "%Y-%m-%d %H:%M:%S")
+        report["info"]["machine"]["shutdown_on"] = datetime.strptime(report["info"]["machine"]["shutdown_on"], "%Y-%m-%d %H:%M:%S")
 
     def run(self, results):
         """Writes report.
@@ -87,8 +84,7 @@ class ElasticSearchDB(Report):
         # We put the raise here and not at the import because it would
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_ELASTICSEARCH:
-            raise CuckooDependencyError(
-                "Unable to import elasticsearch (install with `pip3 install elasticsearch`)")
+            raise CuckooDependencyError("Unable to import elasticsearch (install with `pip3 install elasticsearch`)")
 
         self.connect()
 

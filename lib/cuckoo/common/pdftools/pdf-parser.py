@@ -86,21 +86,14 @@ import re
 import sys
 import textwrap
 import time
+import urllib.request
 import zipfile
 import zlib
+from io import StringIO
 
-if sys.version_info[0] >= 3:
-    import urllib.request
-    from io import StringIO
+urllib23 = urllib.request
+import configparser as ConfigParser
 
-    urllib23 = urllib.request
-    import configparser as ConfigParser
-else:
-    import urllib2
-    from cStringIO import StringIO
-
-    urllib23 = urllib2
-    import ConfigParser
 try:
     import yara
 except Exception:
@@ -149,21 +142,15 @@ PS: this feature is experimental.
 
 # Convert 2 Bytes If Python 3
 def C2BIP3(string):
-    if sys.version_info[0] > 2:
-        if isinstance(string, bytes):
-            return string
-        else:
-            return bytes([ord(x) for x in string])
-    else:
+    if isinstance(string, bytes):
         return string
+    else:
+        return bytes([ord(x) for x in string])
 
 
 # Convert 2 String If Python 3
 def C2SIP3(bytes):
-    if sys.version_info[0] > 2:
-        return "".join([chr(byte) for byte in bytes])
-    else:
-        return bytes
+    return "".join([chr(byte) for byte in bytes])
 
 
 # CIC: Call If Callable
@@ -441,8 +428,8 @@ class cPDFParser:
                             if IsNumeric(self.token2[1]):
                                 self.token3 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
                                 if self.token3[1] == "obj":
-                                    self.objectId = int(self.token[1], 10)
-                                    self.objectVersion = int(self.token2[1], 10)
+                                    self.objectId = int(self.token[1])
+                                    self.objectVersion = int(self.token2[1])
                                     self.context = CONTEXT_OBJ
                                 else:
                                     self.oPDFTokenizer.unget(self.token3)
@@ -462,7 +449,7 @@ class cPDFParser:
                         elif self.token[1] == "startxref":
                             self.token2 = self.oPDFTokenizer.TokenIgnoreWhiteSpace()
                             if self.token2 and IsNumeric(self.token2[1]):
-                                return cPDFElementStartxref(int(self.token2[1], 10))
+                                return cPDFElementStartxref(int(self.token2[1]))
                             else:
                                 self.oPDFTokenizer.unget(self.token2)
                                 if self.verbose:
@@ -914,24 +901,13 @@ def FormatOutput(data, raw):
             return "".join(map(lambda x: x[1], data))
         else:
             return data
-    elif sys.version_info[0] > 2:
-        return ascii(data)
     else:
-        return repr(data)
+        return ascii(data)
 
 
 # Fix for http://bugs.python.org/issue11395
 def StdoutWriteChunked(data):
-    if sys.version_info[0] > 2:
-        sys.stdout.buffer.write(data)
-    else:
-        while data != "":
-            sys.stdout.write(data[0:10000])
-            try:
-                sys.stdout.flush()
-            except IOError:
-                return
-            data = data[10000:]
+    sys.stdout.buffer.write(data)
 
 
 def IfWIN32SetBinary(io):

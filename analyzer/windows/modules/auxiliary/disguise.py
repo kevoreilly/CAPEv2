@@ -11,8 +11,21 @@ import re
 import subprocess
 from random import randint
 from uuid import uuid4
-from winreg import (HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_64KEY, REG_DWORD, REG_SZ, CreateKeyEx,
-                    EnumKey, EnumValue, OpenKey, QueryInfoKey, SetValueEx)
+from winreg import (
+    HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE,
+    KEY_READ,
+    KEY_SET_VALUE,
+    KEY_WOW64_64KEY,
+    REG_DWORD,
+    REG_SZ,
+    CreateKeyEx,
+    EnumKey,
+    EnumValue,
+    OpenKey,
+    QueryInfoKey,
+    SetValueEx,
+)
 
 from lib.common.abstracts import Auxiliary
 from lib.common.rand import random_integer, random_string
@@ -199,7 +212,7 @@ class Disguise(Auxiliary):
 
     def replace_reg_strings(self, regkey):
         regcmd = "C:\\Windows\\System32\\reg.exe"
-        filepath = os.path.join("C:\\Windows\\Temp", regkey.rstrip("\\").split("\\")[-1] + ".reg")
+        filepath = os.path.join("C:\\Windows\\Temp", regkey.rstrip("\\").rsplit("\\", 1)[-1] + ".reg")
 
         self.run_as_system([regcmd, "export", regkey, filepath, "/y"])
 

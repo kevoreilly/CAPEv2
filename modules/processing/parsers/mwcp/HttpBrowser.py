@@ -38,7 +38,6 @@ rule HttpBrowser
 
         $connect_1 or $connect_2 or $connect_3 or $connect_4
 }
-
 """
 
 MAX_STRING_SIZE = 67
@@ -59,35 +58,31 @@ def yara_scan(raw_data, rule_name):
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     rva = va - image_base
-    data = pe.get_data(rva, size)
-    return data
+    return pe.get_data(rva, size)
 
 
 def ascii_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def unicode_from_va(pe, offset):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     string_rva = struct.unpack("i", pe.__data__[offset : offset + 4])[0] - image_base
     string_offset = pe.get_offset_from_rva(string_rva)
-    string = pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
-    return string
+    return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
 
 class HttpBrowser(Parser):
-
     DESCRIPTION = "HttpBrowser configuration parser."
     AUTHOR = "kevoreilly"
 
     def run(self):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
+        # image_base = pe.OPTIONAL_HEADER.ImageBase
 
         type1 = yara_scan(filebuf, "$connect_1")
         type2 = yara_scan(filebuf, "$connect_2")

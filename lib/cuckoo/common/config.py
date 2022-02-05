@@ -42,9 +42,7 @@ class _BaseConfig:
         try:
             return getattr(self, section)
         except AttributeError as e:
-            raise CuckooOperationalError(
-                f"Option {section} is not found in configuration, error: {e}"
-            )
+            raise CuckooOperationalError(f"Option {section} is not found in configuration, error: {e}")
 
     def get_config(self):
         return self.fullconfig
@@ -53,10 +51,7 @@ class _BaseConfig:
         config = configparser.ConfigParser(
             # Escape the percent signs so that ConfigParser doesn't try to do
             # interpolation of the value as well.
-            dict(
-                (f"ENV:{key}", val.replace("%", "%%"))
-                for key, val in os.environ.items()
-            )
+            dict((f"ENV:{key}", val.replace("%", "%%")) for key, val in os.environ.items())
         )
         try:
             config.read(files)
@@ -76,7 +71,7 @@ class _BaseConfig:
         for section in config.sections():
             dct = Dictionary()
             for name, _ in config.items(section):
-                if name.startswith('env:'):
+                if name.startswith("env:"):
                     continue
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a
@@ -104,9 +99,7 @@ class ConfigMeta(type):
 
     def __call__(cls, fname_base="cuckoo"):
         if fname_base not in cls.configs:
-            cls.configs[fname_base] = super(ConfigMeta, cls).__call__(
-                fname_base=fname_base
-            )
+            cls.configs[fname_base] = super(ConfigMeta, cls).__call__(fname_base=fname_base)
         return cls.configs[fname_base]
 
     @classmethod
@@ -125,13 +118,7 @@ class Config(_BaseConfig, metaclass=ConfigMeta):
             os.path.join(CUCKOO_ROOT, "conf", f"{fname_base}.conf"),
             os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf"),
         ]
-        files.extend(
-            sorted(
-                glob.glob(
-                    os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf.d", "*.conf")
-                )
-            )
-        )
+        files.extend(sorted(glob.glob(os.path.join(CUSTOM_CONF_DIR, f"{fname_base}.conf.d", "*.conf"))))
         return files
 
 

@@ -13,8 +13,13 @@ import time
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import (CuckooCriticalError, CuckooGuestError, CuckooMachineError, CuckooNetworkError,
-                                          CuckooOperationalError)
+from lib.cuckoo.common.exceptions import (
+    CuckooCriticalError,
+    CuckooGuestError,
+    CuckooMachineError,
+    CuckooNetworkError,
+    CuckooOperationalError,
+)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
 from lib.cuckoo.core.database import TASK_COMPLETED, Database

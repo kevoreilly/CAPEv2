@@ -26,10 +26,7 @@ def config(raw_data):
             return False
         # C2 Line is not a straight domain on this one.
 
-        if config_dict:
-            return config_dict
-        else:
-            return False
+        return config_dict or False
     except Exception as e:
         print("PREDATORPAIN EXTRACTOR", e)
         return False
@@ -52,8 +49,7 @@ def decrypt_string(key, salt, coded):
     # Crypto
     mode = AES.MODE_CBC
     cipher = AES.new(aes_key, mode, IV=aes_iv)
-    value = cipher.decrypt(b64decode(coded)).replace("\x00", "")
-    return value
+    return cipher.decrypt(b64decode(coded)).replace("\x00", "")
 
 
 # except Exception:
@@ -61,16 +57,11 @@ def decrypt_string(key, salt, coded):
 
 # Get a list of strings from a section
 def get_strings(pe, dir_type):
-    counter = 0
     string_list = []
     m = pe.ntHeaders.optionalHeader.DATA_DIRECTORY[14].info
     # m = pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[14].dump_dict().get("VirtualAddress", {})
     for s in m.netMetaDataStreams[dir_type].info:
-
-        for offset, value in s.items():
-            string_list.append(value)
-            # print counter, value
-        counter += 1
+        string_list.extend(s.values())
     return string_list
 
 
@@ -93,22 +84,17 @@ def get_version(string_list):
 
 
 def config_12(string_list):
-    config_dict = {}
-    config_dict["Version"] = "Predator Pain v12"
-    config_dict["Email Address"] = string_list[4]
-    config_dict["Email Password"] = string_list[5]
-    config_dict["SMTP Server"] = string_list[6]
-    config_dict["SMTP Port"] = string_list[7]
-    config_dict["Interval Timer"] = string_list[8]
-    if string_list[9].startswith("ReplaceBind"):
-        config_dict["BindFile1"] = "False"
-    else:
-        config_dict["BindFile1"] = "True"
+    config_dict = {
+        "Version": "Predator Pain v12",
+        "Email Address": string_list[4],
+        "Email Password": string_list[5],
+        "SMTP Server": string_list[6],
+        "SMTP Port": string_list[7],
+        "Interval Timer": string_list[8],
+        "BindFile1": "False" if string_list[9].startswith("ReplaceBind") else "True",
+    }
 
-    if string_list[10].startswith("ReplaceBind"):
-        config_dict["BindFile2"] = "False"
-    else:
-        config_dict["BindFile2"] = "True"
+    config_dict["BindFile2"] = "False" if string_list[10].startswith("ReplaceBind") else "True"
     return config_dict
 
 
@@ -124,15 +110,16 @@ def config_13(key, salt, string_list):
     elif "email" in string_list[14]:
         dup = False
 
-    config_dict = {}
-    config_dict["Version"] = "Predator Pain v13"
-    config_dict["Email Address"] = decrypt_string(key, salt, string_list[4])
-    config_dict["Email Password"] = decrypt_string(key, salt, string_list[5])
-    config_dict["SMTP Server"] = decrypt_string(key, salt, string_list[6])
-    config_dict["SMTP Port"] = string_list[7]
-    config_dict["Interval Timer"] = string_list[8]
-    config_dict["FTP Host"] = decrypt_string(key, salt, string_list[10])
-    config_dict["FTP User"] = decrypt_string(key, salt, string_list[11])
+    config_dict = {
+        "Version": "Predator Pain v13",
+        "Email Address": decrypt_string(key, salt, string_list[4]),
+        "Email Password": decrypt_string(key, salt, string_list[5]),
+        "SMTP Server": decrypt_string(key, salt, string_list[6]),
+        "SMTP Port": string_list[7],
+        "Interval Timer": string_list[8],
+        "FTP Host": decrypt_string(key, salt, string_list[10]),
+        "FTP User": decrypt_string(key, salt, string_list[11]),
+    }
     if dup:
         config_dict["FTP Pass"] = decrypt_string(key, salt, string_list[5])
         config_dict["PHP Link"] = decrypt_string(key, salt, string_list[12])
@@ -140,10 +127,7 @@ def config_13(key, salt, string_list):
         config_dict["Use FTP"] = string_list[14]
         config_dict["Use PHP"] = string_list[15]
         config_dict["Download & Exec"] = string_list[20]
-        if string_list[19] == "bindfiles":
-            config_dict["Bound Files"] = "False"
-        else:
-            config_dict["Bound Files"] = "True"
+        config_dict["Bound Files"] = "False" if string_list[19] == "bindfiles" else "True"
     else:
         config_dict["FTP Pass"] = decrypt_string(key, salt, string_list[12])
         config_dict["PHP Link"] = decrypt_string(key, salt, string_list[13])
@@ -151,10 +135,7 @@ def config_13(key, salt, string_list):
         config_dict["Use FTP"] = string_list[15]
         config_dict["Use PHP"] = string_list[16]
         config_dict["Download & Exec"] = string_list[21]
-        if string_list[20] == "bindfiles":
-            config_dict["Bound Files"] = "False"
-        else:
-            config_dict["Bound Files"] = "True"
+        config_dict["Bound Files"] = "False" if string_list[20] == "bindfiles" else True
     return config_dict
 
 
@@ -171,34 +152,29 @@ def config_14(key, salt, string_list):
     elif "email" in string_list[19]:
         dup = False
 
-    config_dict = {}
-    config_dict["Version"] = "Predator Pain v14"
-    config_dict["Email Address"] = decrypt_string(key, salt, string_list[4])
-    config_dict["Email Password"] = decrypt_string(key, salt, string_list[5])
-    config_dict["SMTP Server"] = decrypt_string(key, salt, string_list[6])
-    config_dict["SMTP Port"] = string_list[7]
-    config_dict["Interval Timer"] = string_list[8]
-    config_dict["FTP Host"] = decrypt_string(key, salt, string_list[12])
-    config_dict["FTP User"] = decrypt_string(key, salt, string_list[13])
-    config_dict["FTP Pass"] = decrypt_string(key, salt, string_list[14])
-    config_dict["PHP Link"] = decrypt_string(key, salt, string_list[15])
+    config_dict = {
+        "Version": "Predator Pain v14",
+        "Email Address": decrypt_string(key, salt, string_list[4]),
+        "Email Password": decrypt_string(key, salt, string_list[5]),
+        "SMTP Server": decrypt_string(key, salt, string_list[6]),
+        "SMTP Port": string_list[7],
+        "Interval Timer": string_list[8],
+        "FTP Host": decrypt_string(key, salt, string_list[12]),
+        "FTP User": decrypt_string(key, salt, string_list[13]),
+        "FTP Pass": decrypt_string(key, salt, string_list[14]),
+        "PHP Link": decrypt_string(key, salt, string_list[15]),
+    }
     if dup:
         config_dict["PHP Link"] = decrypt_string(key, salt, string_list[15])
         config_dict["Use Email"] = string_list[18]
         config_dict["Use FTP"] = string_list[19]
         config_dict["Use PHP"] = string_list[20]
         config_dict["Download & Exec"] = string_list[25]
-        if string_list[24] == "bindfiles":
-            config_dict["Bound Files"] = "False"
-        else:
-            config_dict["Bound Files"] = "True"
+        config_dict["Bound Files"] = "False" if string_list[24] == "bindfiles" else "True"
     else:
         config_dict["Use Email"] = string_list[19]
         config_dict["Use FTP"] = string_list[20]
         config_dict["Use PHP"] = string_list[21]
         config_dict["Download & Exec"] = string_list[26]
-        if string_list[25] == "bindfiles":
-            config_dict["Bound Files"] = "False"
-        else:
-            config_dict["Bound Files"] = "True"
+        config_dict["Bound Files"] = "False" if string_list[25] == "bindfiles" else "True"
     return config_dict

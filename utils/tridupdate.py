@@ -18,21 +18,16 @@ import argparse
 import hashlib
 import os
 import sys
-
-if sys.version_info.major >= 3:
-    from urllib.request import urlopen
-else:
-    from urllib import urlopen
-
 import tempfile
 import zipfile
+from urllib.request import urlopen
 
 PROGRAM_VER = "1.10"
 
 
 def errexit(mess, errlev=1):
     """Display an error and exit."""
-    print("%s: error: %s" % (os.path.split(sys.argv[0])[1], mess))
+    print("%s: error: %s" % (os.path.split(sys.argv[0], 2)[1], mess))
     sys.exit(errlev)
 
 

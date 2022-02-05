@@ -31,8 +31,12 @@ if repconf.mongodb.enabled:
     FULL_DB = True
 
 if repconf.elasticsearchdb.enabled:
-    from dev_utils.elasticsearchdb import (delete_analysis_and_related_calls, elastic_handler, get_analysis_index,
-                                           get_query_by_info_id)
+    from dev_utils.elasticsearchdb import (
+        delete_analysis_and_related_calls,
+        elastic_handler,
+        get_analysis_index,
+        get_query_by_info_id,
+    )
 
     es = elastic_handler
 
@@ -53,14 +57,14 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 def remove(task_id):
     if repconf.mongodb.enabled or repconf.elasticsearchdb.enabled:
         if repconf.mongodb.enabled:
-            analyses = list(results_db.analysis.find(
-                {"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
-            )
+            analyses = list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1}))
         elif repconf.elasticsearchdb.enabled:
-            analyses = [d['_source'] for d in es.search(
-                index=get_analysis_index(), query=get_query_by_info_id(task_id),
-                _source=["behavior.processes"]
-            )['hits']['hits']]
+            analyses = [
+                d["_source"]
+                for d in es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["behavior.processes"])[
+                    "hits"
+                ]["hits"]
+            ]
         else:
             analyses = []
 

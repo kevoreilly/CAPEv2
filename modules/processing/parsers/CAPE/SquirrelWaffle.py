@@ -35,8 +35,7 @@ MAX_STRING_SIZE = 32
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
-    return string
+    return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
 def extract_rdata(pe):
@@ -47,9 +46,7 @@ def extract_rdata(pe):
 
 
 def xor_data(data, key):
-    key = [q for q in key]
-    data = [q for q in data]
-    return bytes([c ^ k for c, k in zip(data, cycle(key))])
+    return bytes(c ^ k for c, k in zip(data, cycle(key)))
 
 
 def config(data):
@@ -57,7 +54,7 @@ def config(data):
     pe = None
     try:
         pe = pefile.PE(data=data)
-    except Exception as e:
+    except Exception:
         return config
 
     if pe is not None:

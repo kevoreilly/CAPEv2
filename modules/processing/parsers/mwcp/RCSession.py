@@ -31,7 +31,6 @@ rule RCSession
     condition:
         (any of ($a*))
 }
-
 """
 
 MAX_IP_STRING_SIZE = 16  # aaa.bbb.ccc.ddd\0
@@ -51,8 +50,7 @@ def yara_scan(raw_data, rule_name):
 
 
 def unicode_string_from_offset(buffer, offset, max):
-    string = buffer[offset : offset + max].decode("utf-16")
-    return string
+    return buffer[offset : offset + max].decode("utf-16")
 
 
 def decode(ciphertext, size, key):
@@ -81,7 +79,6 @@ def decode(ciphertext, size, key):
 
 
 class RCSession(Parser):
-
     DESCRIPTION = "RCSession configuration parser."
     AUTHOR = "kevoreilly"
 

@@ -20,8 +20,16 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import generate_fake_name, get_options, get_user_filename, sanitize_filename, store_temp_file
-from lib.cuckoo.common.web_utils import (_download_file, all_nodes_exits_list, all_vms_tags, download_file, download_from_vt,
-                                         get_file_content, parse_request_arguments, perform_search)
+from lib.cuckoo.common.web_utils import (
+    _download_file,
+    all_nodes_exits_list,
+    all_vms_tags,
+    download_file,
+    download_from_vt,
+    get_file_content,
+    parse_request_arguments,
+    perform_search,
+)
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 

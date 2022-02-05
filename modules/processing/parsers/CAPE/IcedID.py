@@ -70,7 +70,9 @@ def config(filebuf):
 
             return {}
 
+
 if __name__ == "__main__":
     import sys
+
     with open(sys.argv[1], "rb") as f:
         print(config(f.read()))

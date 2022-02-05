@@ -59,5 +59,3 @@ if __name__ == "__main__":
 
     with open(sys.argv[1], "rb") as f:
         print(config(f.read()))
-
-

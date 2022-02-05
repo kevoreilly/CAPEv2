@@ -16,7 +16,7 @@ from __future__ import absolute_import
 import binascii
 import struct
 
-from Crypto.PublicKey import RSA
+from Cryptodome.PublicKey import RSA
 
 MAX_STRING_SIZE = 256
 

@@ -39,7 +39,7 @@ def iced_decode(data):
         new.append(k)
         if n > 32:
             break
-    gads, d = struct.unpack("I30s", bytes(new))
+    _, d = struct.unpack("I30s", bytes(new))
     return d.split(b"\00", 1)[0]
 
 
@@ -58,6 +58,4 @@ if __name__ == "__main__":
     import sys
 
     with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
-    print(config(data))
+        print(config(f.read()))

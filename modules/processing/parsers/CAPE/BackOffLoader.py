@@ -5,7 +5,7 @@ from struct import unpack_from
 from sys import argv
 
 import pefile
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 CFG_START = "1020304050607080"
 

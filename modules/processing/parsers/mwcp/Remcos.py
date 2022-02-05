@@ -11,7 +11,7 @@ import string
 from collections import OrderedDict
 
 import pefile
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 from mwcp.parser import Parser
 
 # From JPCERT

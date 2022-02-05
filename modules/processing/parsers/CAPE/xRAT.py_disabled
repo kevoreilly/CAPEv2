@@ -4,7 +4,7 @@ import re
 from base64 import b64decode
 
 import pefile
-from Crypto.Cipher import AES, XOR
+from Cryptodome.Cipher import AES, XOR
 
 
 def string_print(line):

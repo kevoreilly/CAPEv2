@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 from zipfile import ZipFile
 
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 
 def extract_embedded(zip_data):
@@ -33,8 +33,8 @@ def parse_embedded(data):
     return config
 
 
-def decrypt_arc4(enckey, data):
-    cipher = ARC4.new(enckey)  # set the ciper
+def decrypt_arc4(key, data):
+    cipher = ARC4.new(key)  # set the ciper
     return cipher.decrypt(data)  # decrpyt the data
 
 

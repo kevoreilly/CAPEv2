@@ -16,7 +16,7 @@ import string
 
 import pefile
 import yara
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 from mwcp.parser import Parser
 
 rule_source = """

@@ -23,7 +23,7 @@ import struct
 
 import pefile
 import yara
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -67,4 +67,12 @@ def config(filebuf):
                         }
             except Exception as e:
                 log.error("Error: %s", e)
+
             return {}
+
+
+if __name__ == "__main__":
+    import sys
+
+    with open(sys.argv[1], "rb") as f:
+        print(config(f.read()))

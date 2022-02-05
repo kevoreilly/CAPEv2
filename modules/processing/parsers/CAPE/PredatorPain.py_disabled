@@ -4,7 +4,7 @@ from binascii import unhexlify
 
 # import pefile
 import pype32
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 from pbkdf2 import PBKDF2
 
 
@@ -39,7 +39,7 @@ def string_clean(line):
     return "".join((char for char in line if 32 < ord(char) < 127))
 
 
-# Crypto Stuffs
+# Cryptodome.Stuffs
 def decrypt_string(key, salt, coded):
     # try:
     # Derive key

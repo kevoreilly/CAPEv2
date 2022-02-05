@@ -17,7 +17,7 @@ import struct
 
 import pefile
 import yara
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 DESCRIPTION = "DridexDropper configuration parser."
 AUTHOR = "kevoreilly"

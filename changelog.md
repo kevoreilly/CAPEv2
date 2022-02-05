@@ -1,5 +1,14 @@
-### [TBD] Config extractors
-*  MWCP, malwareconfigs, and malduck won't be part of requirements.txt anymore, as they bring their own dependencies that not everyone requires. So if you enable that framework in processing.conf you need to install that dependencies.
+### [5-02-2022] Config extractors
+*  MWCP, malwareconfigs, and malduck are not part of requirements.txt anymore! They bring their own dependencies that not everyone needs. If you enable that framework in processing.conf you need to install that dependencies.
+    * TIP: You need to figurate the proper version(is another reason why we abondone them)
+        * `pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP`
+        * `pip3 install git+https://github.com/kevthehermit/RATDecoders`
+        * `pip3 install git+https://github.com/CERT-Polska/malduck/`
+* `PyCrypto` replaced with [PyCryptoDoMeX](https://pycryptodome.readthedocs.io/en/latest/src/installation.html)
+* __ACTION REQUIRED__
+    * `pip3 install pycryptodomex==3.14.0`
+    * Restart:
+        * CAPE service `systemctl restart cape-processor`
 
 ### [4-2-2022]
 * Monitor updates:

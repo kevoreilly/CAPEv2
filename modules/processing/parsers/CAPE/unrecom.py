@@ -35,8 +35,8 @@ def parse_embedded(data):
     return config
 
 
-def decrypt_arc4(enckey, data):
-    cipher = ARC4.new(enckey.encode())  # set the ciper
+def decrypt_arc4(key, data):
+    cipher = ARC4.new(key)  # set the ciper
     return cipher.decrypt(data)  # decrpyt the data
 
 

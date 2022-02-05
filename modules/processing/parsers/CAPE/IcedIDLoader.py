@@ -26,7 +26,6 @@ yara_rule = open(yara_path, "r").read()
 
 def yara_scan(raw_data):
     try:
-        addresses = {}
         yara_rules = yara.compile(source=yara_rule)
         matches = yara_rules.match(data=raw_data)
         return matches
@@ -43,7 +42,7 @@ def iced_decode(data):
         if n > 32:
             break
         n += 1
-    gads, d = struct.unpack("I30s", bytes(new))
+    _, d = struct.unpack("I30s", bytes(new))
     hostname = d.split(b"\00", 1)[0]
     return hostname
 
@@ -66,6 +65,6 @@ if __name__ == "__main__":
     import sys
 
     with open(sys.argv[1], "rb") as f:
-        data = f.read()
+        print(config(f.read()))
 
-    print(config(data))
+

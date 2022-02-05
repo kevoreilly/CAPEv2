@@ -149,14 +149,14 @@ class Remcos(Parser):
                 keylen = blob[0]
                 key = blob[1 : keylen + 1]
 
-                decrypted_data = ARC4.new(key.encode()).decrypt(blob[keylen + 1 :])
+                decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1 :])
                 p_data = OrderedDict()
                 p_data["Version"] = self.check_version(filebuf)
 
                 configs = re.split(br"\|\x1e\x1e\x1f\|", decrypted_data)
 
                 for i, cont in enumerate(configs):
-                    if cont == b"\x00" or cont == b"\x01":
+                    if cont in (b"\x00", b"\x01"):
                         p_data[idx_list[i]] = FLAG[cont]
                     else:
                         if i in [16, 25, 37]:

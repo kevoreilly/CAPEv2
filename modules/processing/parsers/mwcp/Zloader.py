@@ -43,7 +43,7 @@ yara_rules = yara.compile(source=rule_source)
 
 
 def decrypt_rc4(key, data):
-    cipher = ARC4.new(key.encode())
+    cipher = ARC4.new(key)
     return cipher.decrypt(data)
 
 

@@ -58,7 +58,7 @@ def config(filebuf):
                         enc_data = section.get_data()
                         key = enc_data[:8]
                         enc_config = enc_data[8:592]
-                        decrypted_data = ARC4.new(key.encode()).decrypt(enc_config)
+                        decrypted_data = ARC4.new(key).decrypt(enc_config)
                         config = list(filter(None, decrypted_data.split(b"\x00")))
                         cfg = {
                             "Bot ID": str(struct.unpack("I", decrypted_data[:4])[0]),
@@ -71,3 +71,8 @@ def config(filebuf):
                 log.error("Error: %s", e)
 
             return cfg
+
+if __name__ == "__main__":
+    import sys
+    with open(sys.argv[1], "rb") as f:
+        print(config(f.read()))

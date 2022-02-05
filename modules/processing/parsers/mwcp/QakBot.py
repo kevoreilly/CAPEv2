@@ -144,8 +144,8 @@ def decrypt_data(data):
     if not data:
         return
 
-    rc4_key = data[:0x14]
-    decrypted_data = ARC4.new(rc4_key.encode()).decrypt(data[0x14:])
+    key = data[:0x14]
+    decrypted_data = ARC4.new(key).decrypt(data[0x14:])
 
     if not decrypted_data:
         return

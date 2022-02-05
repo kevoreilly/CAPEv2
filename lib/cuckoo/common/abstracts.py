@@ -29,9 +29,6 @@ from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database
 
-# from django.core.validators import URLValidator
-# url_validator = URLValidator(schemes=["http", "https", "udp", "tcp"])
-
 try:
     import re2 as re
 except ImportError:
@@ -794,13 +791,13 @@ class Signature(object):
 
         target = self.results.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
-            for keyword in ("yara", "cape_yara"):
+            for keyword in ("cape_yara", "yara"):
                 for block in self.results["target"]["file"].get(keyword, []):
                     if re.findall(name, block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
-            for sub_keyword in ("yara", "cape_yara"):
+            for sub_keyword in ("cape_yara", "yara"):
                 for sub_block in block.get(sub_keyword, []):
                     if re.findall(name, sub_block["name"], re.I):
                         yield sub_keyword, block["path"], sub_block
@@ -810,25 +807,14 @@ class Signature(object):
                 for block in self.results.get(keyword, []):
                     if not isinstance(block, dict):
                         continue
-                    for sub_keyword in ("yara", "cape_yara"):
+                    for sub_keyword in ("cape_yara", "yara"):
                         for sub_block in block.get(sub_keyword, []):
                             if re.findall(name, sub_block["name"], re.I):
-                                if keyword in ("procdump", "dropped", "extracted", "procmemory"):
-                                    if block.get("file", False):
-                                        path = block["file"]
-                                    elif block.get("path", False):
-                                        path = block["path"]
-                                    else:
-                                        path = ""
-                                elif keyword == "CAPE":
-                                    path = block["path"]
-                                else:
-                                    path = ""
+                                path = block["path"] if block.get("path", False) else ""
                                 yield keyword, path, sub_block
 
-                    if keyword == "procmemory":
-                        for pe in block.get("extracted_pe", []) or []:
-                            for sub_keyword in ("yara", "cape_yara"):
+                        if keyword == "procmemory":
+                            for pe in block.get("extracted_pe", []) or []:
                                 for sub_block in pe.get(sub_keyword, []) or []:
                                     if re.findall(name, sub_block["name"], re.I):
                                         yield "extracted_pe", pe["path"], sub_block

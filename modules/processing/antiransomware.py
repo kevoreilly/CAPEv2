@@ -121,7 +121,7 @@ class AntiRansomware(Processing):
 
         extensions = {}
         tmp_ext_list = {}
-        self.report["ransom_exclude_files"] = []
+        self.results["ransom_exclude_files"] = []
         with open(self.files_metadata, "rb") as f:
             for line in f.readlines():
                 filename = json.loads(line).get("filepath", "")
@@ -137,4 +137,4 @@ class AntiRansomware(Processing):
         for ext, count in extensions.iteritems():
             if count > skip_number:
                 log.debug("Skipping all files with extension: %s", ext)
-                self.report["ransom_exclude_files"] += tmp_ext_list.get(ext, [])
+                self.results["ransom_exclude_files"] += tmp_ext_list.get(ext, [])

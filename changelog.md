@@ -21,7 +21,7 @@
     * Debugger push & pop actions
     * WriteMemoryHandler: tiny code clean
     * CreateProcessHandler: improve logging
-    * Fix evasion techniques reported by (& many thanks to) Alexey Bukhteyev of Checkpoint
+    * Fix evasion techniques reported by (& many thanks to) Alexey Bukhteyev of Checkpoint, [writeup](https://research.checkpoint.com/2022/invisible-cuckoo-cape-sandbox-evasion/)
 * Update 'GetTickCount' anti-vm bypass with latest IcedID packers
 
 ### [26-1-2022]

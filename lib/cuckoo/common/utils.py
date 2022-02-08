@@ -337,6 +337,14 @@ def bytes2str(convert):
 
         return convert
 
+    if isinstance(convert, bytearray):
+        try:
+            convert = convert.decode()
+        except UnicodeDecodeError:
+            convert = "".join(chr(_) for _ in convert)
+
+        return convert
+
     items = []
     if isinstance(convert, dict):
         tmp_dict = {}

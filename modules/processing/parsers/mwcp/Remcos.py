@@ -75,6 +75,17 @@ idx_list = {
     53: "Unknown53",
     54: "Keylog file max size",
     55: "Unknown55",
+    56: "Unknown56",
+    57: "Unknown57",
+    58: "Unknown58",
+    59: "Unknown59",
+    60: "Unknown60",
+    61: "Unknown61",
+    62: "Unknown62",
+    63: "Unknown63",
+    64: "Unknown64",
+    65: "Unknown65",
+    66: "Unknown66",
 }
 
 # From JPCERT
@@ -89,10 +100,27 @@ setup_list = {
     8: "Application path",
 }
 
+utf_16_string_list = [
+    "Copy file",
+    "Startup value",
+    "Keylog file",
+    "Take screenshot title",
+    "Copy folder",
+    "Keylog folder"
+]
+
 
 class Remcos(Parser):
     DESCRIPTION = "Remcos config extractor."
     AUTHOR = "threathive,sysopfb,kevoreilly"
+
+    @classmethod
+    def identify(cls, file_object):
+        """
+        :returns: boolean indicating if file is a Remcos sample
+        """
+        return  True
+
 
     def get_rsrc(self, pe):
         ret = []
@@ -108,6 +136,7 @@ class Remcos(Parser):
                             ret.append((name, data, resource_lang.data.struct.Size, resource_type))
 
         return ret
+
 
     def check_version(self, filedata):
         printable = set(string.printable)
@@ -128,7 +157,8 @@ class Remcos(Parser):
         for s in slist:
             if bool(re.search(r"^[12]\.\d+\d{0,1}.*[FLP].*", s)):
                 return s
-        return
+        return ""
+
 
     def run(self):
         try:
@@ -155,7 +185,7 @@ class Remcos(Parser):
                 for i, cont in enumerate(configs):
                     if cont in (b"\x00", b"\x01"):
                         p_data[idx_list[i]] = FLAG[cont]
-                    elif i in (16, 25, 37):
+                    elif i in (9, 16, 25, 37):
                         p_data[idx_list[i]] = setup_list[int(cont)]
                     elif i == 0:
                         host, port, password = cont.split(b"|", 1)[0].split(b":")
@@ -164,6 +194,8 @@ class Remcos(Parser):
                         p_data[idx_list[i]] = cont
 
                 for k, v in p_data.items():
+                    if k in utf_16_string_list:
+                        v = v.decode("utf16").strip("\00")
                     self.reporter.add_metadata("other", {k: v})
 
         except Exception as e:

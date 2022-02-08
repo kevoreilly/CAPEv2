@@ -20,7 +20,7 @@
                         </tr>
                         <tr>
                             <th>Executable Path</th>
-                            <td>{{proc.path}}</td>
+                            <td>{{proc.proc_path}}</td>
                         </tr>
                         {% if proc.yara %}
                         <tr>
@@ -53,7 +53,7 @@
                             </td>
                         </tr>
                         {% endif %}
-                        {% if proc.file %}
+                        {% if proc.path %}
                             <tr>
                                 <th>Full Dump</th>
                                 <td>
@@ -95,7 +95,7 @@
                                     {% else %}
                                     <td><span class="badge badge-primary">No</span></td>
                                     {% endif %}
-                                    {% if proc.file %}
+                                    {% if proc.path %}
                                     <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
                                     {% endif %}
                                 </tr>
@@ -107,7 +107,7 @@
                                         <td>{{chunk.size}}</td>
                                         <td>{{chunk.prot}}</td>
                                         <td></td>
-                                        {% if proc.file %}
+                                        {% if proc.path %}
                                         <td><a class="btn btn-secondary btn-small" href="{% url "procdump" analysis.info.id proc.pid chunk.start chunk.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
                                         {% endif %}
                                     </tr>

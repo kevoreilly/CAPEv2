@@ -4,7 +4,8 @@
     * Extend ntdll protection to cover VirtualProtectEx, make more stealthy
 
 ### [5-02-2022] Config extractors
-*  MWCP, malwareconfigs, and malduck are not part of requirements.txt anymore! They bring their own dependencies that not everyone needs. If you enable that framework in processing.conf you need to install that dependencies.
+* Make standard file key for all `path` keys. No more: `file`, `path`, etc. Now just `x["path"]`
+* MWCP, malwareconfigs, and malduck are not part of requirements.txt anymore! They bring their own dependencies that not everyone needs. If you enable that framework in processing.conf you need to install that dependencies.
     * TIP: You need to figurate the proper version(is another reason why we abondone them)
         * `pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP`
         * `pip3 install git+https://github.com/kevthehermit/RATDecoders`

@@ -27,7 +27,7 @@ class ProcessMemory(Processing):
 
     def get_procmemory_pe(self, mem_pe):
         res = []
-        file_item = open(mem_pe.get("file"), "rb")
+        file_item = open(mem_pe.get("path"), "rb")
 
         for memmap in mem_pe.get("address_space") or []:
             if not memmap.get("PE"):
@@ -98,10 +98,10 @@ class ProcessMemory(Processing):
                 procdump = ProcDump(dmp_path, pretty=True)
 
                 proc = dict(
-                    file=dmp_path,
+                    path=dmp_path,
                     pid=process_id,
                     name=process_name,
-                    path=process_path,
+                    proc_path=process_path,
                     yara=dmp_file.get_yara(category="memory"),
                     cape_yara=dmp_file.get_yara(category="CAPE"),
                     address_space=procdump.pretty_print(),

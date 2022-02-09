@@ -134,7 +134,7 @@ class AntiRansomware(Processing):
                     extensions[ext[-1]] += 1
                     tmp_ext_list.setdefault(ext[-1], []).append(filename)
 
-        for ext, count in extensions.iteritems():
+        for ext, count in extensions.items():
             if count > skip_number:
                 log.debug("Skipping all files with extension: %s", ext)
                 self.results["ransom_exclude_files"] += tmp_ext_list.get(ext, [])

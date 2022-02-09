@@ -41,7 +41,7 @@ def yara_scan(raw_data):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "Emotet":
+        if match.rule == "ChChes":
             for item in match.strings:
                 addresses[item[1]] = item[0]
     return addresses

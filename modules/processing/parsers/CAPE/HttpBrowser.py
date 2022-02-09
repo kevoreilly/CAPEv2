@@ -12,11 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "HttpBrowser configuration parser."
+AUTHOR = "kevoreilly"
+
+
 import struct
 
 import pefile
 import yara
-from mwcp.parser import Parser
 
 rule_source = """
 rule HttpBrowser
@@ -43,15 +46,14 @@ rule HttpBrowser
 MAX_STRING_SIZE = 67
 
 
-def yara_scan(raw_data, rule_name):
+def yara_scan(raw_data):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
         if match.rule == "HttpBrowser":
             for item in match.strings:
-                if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
+                addresses[item[1]] = item[0]
     return addresses
 
 
@@ -75,68 +77,48 @@ def unicode_from_va(pe, offset):
     return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
 
-class HttpBrowser(Parser):
-    DESCRIPTION = "HttpBrowser configuration parser."
-    AUTHOR = "kevoreilly"
+match_map = {
+    "$connect_1": [39, 49],
+    "$connect_2": [35, 45],
+    "$connect_3": [18, 28, 66],
+    "$connect_4": [35, 90, 13],
+}
 
-    def run(self):
-        filebuf = self.file_object.file_data
-        pe = pefile.PE(data=self.file_object.file_data, fast_load=False)
-        # image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        type1 = yara_scan(filebuf, "$connect_1")
-        type2 = yara_scan(filebuf, "$connect_2")
-        type3 = yara_scan(filebuf, "$connect_3")
-        type4 = yara_scan(filebuf, "$connect_4")
+def config(filebuf):
+    pe = pefile.PE(data=filebuf, fast_load=True)
+    # image_base = pe.OPTIONAL_HEADER.ImageBase
 
-        if type1:
-            yara_offset = int(type1["$connect_1"])
+    yara_matches = yara_scan(filebuf)
+    config = {}
+    for key, values in match_map.keys():
+        if yara_matches.get(key):
+            yara_offset = int(yara_matches[key])
 
-            port = ascii_from_va(pe, yara_offset + 39)
-            if port:
-                self.reporter.add_metadata("port", [port, "tcp"])
+            if key in ("$connect_1", "$connect_2", "$connect_3"):
+                port = ascii_from_va(pe, yara_offset + values[0])
+                if port:
+                    config["port"] = [port, "tcp"]
 
-            c2_address = unicode_from_va(pe, yara_offset + 49)
-            if c2_address:
-                self.reporter.add_metadata("c2_address", c2_address)
+                c2_address = unicode_from_va(pe, yara_offset + values[1])
+                if c2_address:
+                    config.setdefault("c2_address", []).append(c2_address)
 
-        if type2:
-            yara_offset = int(type2["$connect_2"])
+                if key == "$connect_3":
+                    c2_address = unicode_from_va(pe, yara_offset + values[2])
+                    if c2_address:
+                        config.setdefault("c2_address", []).append(c2_address)
+            else:
+                c2_address = unicode_from_va(pe, yara_offset + values[0])
+                if c2_address:
+                    config["c2_address"] = c2_address
 
-            port = ascii_from_va(pe, yara_offset + 35)
-            if port:
-                self.reporter.add_metadata("port", [port, "tcp"])
+                filepath = unicode_from_va(pe, yara_offset + values[1])
+                if filepath:
+                    config["filepath"] = filepath
 
-            c2_address = unicode_from_va(pe, yara_offset + 45)
-            if c2_address:
-                self.reporter.add_metadata("c2_address", c2_address)
+                injectionprocess = unicode_from_va(pe, yara_offset - values[2])
+                if injectionprocess:
+                    config["injectionprocess"] = injectionprocess
 
-        if type3:
-            yara_offset = int(type3["$connect_3"])
-
-            port = ascii_from_va(pe, yara_offset + 18)
-            if port:
-                self.reporter.add_metadata("port", [port, "tcp"])
-
-            c2_address = unicode_from_va(pe, yara_offset + 28)
-            if c2_address:
-                self.reporter.add_metadata("c2_address", c2_address)
-
-            c2_address = unicode_from_va(pe, yara_offset + 66)
-            if c2_address:
-                self.reporter.add_metadata("c2_address", c2_address)
-
-        if type4:
-            yara_offset = int(type4["$connect_4"])
-
-            c2_address = unicode_from_va(pe, yara_offset + 35)
-            if c2_address:
-                self.reporter.add_metadata("c2_address", c2_address)
-
-            filepath = unicode_from_va(pe, yara_offset + 90)
-            if filepath:
-                self.reporter.add_metadata("filepath", filepath)
-
-            injectionprocess = unicode_from_va(pe, yara_offset - 13)
-            if injectionprocess:
-                self.reporter.add_metadata("injectionprocess", injectionprocess)
+    return config

@@ -162,4 +162,4 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    print(config(data))
+    print(extract_config(data))

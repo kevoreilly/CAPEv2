@@ -19,7 +19,6 @@ import struct
 
 import pefile
 import yara
-from mwcp.parser import Parser
 
 rule_source = """
 rule SmokeLoader

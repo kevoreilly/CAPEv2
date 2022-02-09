@@ -52,7 +52,7 @@ def string_from_offset(data, offset):
 
 
 def config(filebuf):
-    config = {}
+    tmp_config = {}
     yara_matches = yara_scan(filebuf)
 
     c2_offsets = []
@@ -67,4 +67,6 @@ def config(filebuf):
     for c2_offset in c2_offsets:
         c2_url = string_from_offset(filebuf, c2_offset)
         if c2_url:
-            config.setdefault("c2_url", []).append(c2_url)
+            tmp_config.setdefault("c2_url", []).append(c2_url)
+
+    return tmp_config

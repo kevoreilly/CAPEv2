@@ -84,15 +84,15 @@ def config(filebuf):
     config_offset = pe.get_offset_from_rva(config_rva)
     xor_key = struct.unpack("b", filebuf[yara_offset + 27 : yara_offset + 28])[0]
     config_size = struct.unpack("i", filebuf[yara_offset + 30 : yara_offset + 34])[0]
-    config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset : config_offset + config_size]])
+    tmp_config = "".join([chr(xor_key ^ ord(x)) for x in filebuf[config_offset : config_offset + config_size]])
     end_config = {}
-    c2_address = config[8 : 8 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[8 : 8 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
-    c2_address = config[0x48 : 0x48 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[0x48 : 0x48 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
-    c2_address = config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
+    c2_address = tmp_config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
     missionid = string_from_offset(config, 0x1EC)

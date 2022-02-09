@@ -94,27 +94,27 @@ def config(filebuf):
     size = struct.unpack("i", filebuf[yara_offset + 88 : yara_offset + 92])[0]
     key = struct.unpack("i", filebuf[config_offset + 128 : config_offset + 132])[0]
     end_config = {}
-    config = decode(filebuf[config_offset : config_offset + size], size, key)
+    tmp_config = decode(filebuf[config_offset : config_offset + size], size, key)
 
     c2_address = str(config[156 : 156 + MAX_IP_STRING_SIZE])
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
-    c2_address = str(config[224 : 224 + MAX_IP_STRING_SIZE])
+    c2_address = str(tmp_config[224 : 224 + MAX_IP_STRING_SIZE])
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
-    installdir = unicode_string_from_offset(bytes(config), 0x2A8, 128)
+    installdir = unicode_string_from_offset(bytes(tmp_config), 0x2A8, 128)
     if installdir:
         end_config["directory"] = installdir
-    executable = unicode_string_from_offset(config, 0x4B0, 128)
+    executable = unicode_string_from_offset(tmp_config, 0x4B0, 128)
     if executable:
         end_config["filename"] = executable
-    servicename = unicode_string_from_offset(config, 0x530, 128)
+    servicename = unicode_string_from_offset(tmp_config, 0x530, 128)
     if servicename:
         end_config["servicename"] = servicename
-    displayname = unicode_string_from_offset(config, 0x738, 128)
+    displayname = unicode_string_from_offset(tmp_config, 0x738, 128)
     if displayname:
         end_config["servicedisplayname"] = displayname
-    description = unicode_string_from_offset(config, 0x940, 512)
+    description = unicode_string_from_offset(tmp_config, 0x940, 512)
     if description:
         end_config["servicedescription"] = description
 

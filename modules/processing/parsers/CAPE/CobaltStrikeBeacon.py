@@ -441,7 +441,7 @@ if __name__ == "__main__":
 
 
 # CAPE
-def config(data):
+def extract_config(data):
     output = cobaltstrikeConfig(data).parse_config(quiet=False, as_json=True)
     if output is None:
         output = cobaltstrikeConfig(data).parse_encrypted_config(quiet=False, as_json=True)

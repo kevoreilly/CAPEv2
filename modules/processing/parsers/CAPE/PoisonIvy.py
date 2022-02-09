@@ -113,7 +113,7 @@ def domain_parse(config):
     return [domain.split(":", 1)[0] for domain in raw_domains.split("|")]
 
 
-def config(data):
+def extract_config(data):
     try:
         # Split to get start of Config.
         one = first_split(data)

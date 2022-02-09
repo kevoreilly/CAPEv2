@@ -43,7 +43,7 @@ def iced_decode(data):
     return d.split(b"\00", 1)[0]
 
 
-def config(filebuf):
+def extract_config(filebuf):
     yara_hit = yara_scan(filebuf)
     for hit in yara_hit:
         if hit.rule == "IcedIDLoader":

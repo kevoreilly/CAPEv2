@@ -57,7 +57,7 @@ def xor_decode(buffer, key):
     return "".join(chr(ord(x) ^ byte_key) for x in buffer)
 
 
-def config(filebuf):
+def extract_config(filebuf):
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
         image_base = pe.OPTIONAL_HEADER.ImageBase

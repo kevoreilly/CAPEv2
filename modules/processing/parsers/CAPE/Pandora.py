@@ -69,7 +69,7 @@ def get_config(data):
         return
 
 
-def config(data):
+def extract_config(data):
     raw_config = get_config(data)
     if raw_config:
         if len(raw_config) == 19:

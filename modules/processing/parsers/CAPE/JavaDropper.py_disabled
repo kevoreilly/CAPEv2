@@ -69,7 +69,7 @@ def parse_xor(key, drop):
 
 
 # Jar Parser
-def config(raw_data):
+def extract_config(raw_data):
     decoded = False
     jar_data = StringIO(raw_data)
     with ZipFile(jar_data, "r") as jar:

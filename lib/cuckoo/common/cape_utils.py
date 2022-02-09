@@ -295,7 +295,10 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running CAPE")
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
-            cape_configraw = cape_malware_parsers[cape_name].config(file_data)
+            if hasattr(cape_malware_parsers[cape_name], "extract_config"):
+                cape_configraw = cape_malware_parsers[cape_name].extract_config(file_data)
+            else:
+                cape_configraw = cape_malware_parsers[cape_name].config(file_data)
             if isinstance(cape_configraw, list):
                 for (key, value) in cape_configraw[0].items():
                     # python3 map object returns iterator by default, not list and not serializeable in JSON.

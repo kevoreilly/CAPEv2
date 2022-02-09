@@ -24,7 +24,7 @@ def domain_parse(config):
     return [domain.split(":", 1)[0] for domain in config["Domains"].split(";")]
 
 
-def config(data):
+def extract_config(data):
     try:
         config_raw = extract_config(data)
         if config_raw:

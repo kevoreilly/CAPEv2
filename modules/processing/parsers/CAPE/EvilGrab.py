@@ -75,8 +75,7 @@ map_offset = {
     "$configure3": [38, 99, 132, 167, 195],
 }
 
-
-def config(filebuf):
+def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     # image_base = pe.OPTIONAL_HEADER.ImageBase
     yara_matches = yara_scan(filebuf)

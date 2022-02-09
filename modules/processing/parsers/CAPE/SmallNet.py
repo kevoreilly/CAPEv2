@@ -95,7 +95,7 @@ def ver_5(data):
     return [config_dict, [config_dict["Domain"]]]
 
 
-def config(data):
+def extract_config(data):
     if "!!<3SAFIA<3!!" in data:
         return ver_52(data)
 

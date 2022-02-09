@@ -64,7 +64,7 @@ def extract_rdata(pe):
     return None
 
 
-def config(filebuf):
+def extract_config(filebuf):
     cfg = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase

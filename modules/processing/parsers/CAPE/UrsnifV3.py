@@ -107,7 +107,7 @@ def convert_pubkey(pub):
     return keypub, pempub
 
 
-def config(raw_data):
+def extract_config(raw_data):
     config_dict = {}
 
     if len(raw_data) == 132:

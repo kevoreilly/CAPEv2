@@ -147,7 +147,7 @@ def decoder(data):
     return urls
 
 
-def config(filebuf):
+def extract_config(filebuf):
     urls = decoder(filebuf)
     return {"address": [url.decode() for url in urls]}
 

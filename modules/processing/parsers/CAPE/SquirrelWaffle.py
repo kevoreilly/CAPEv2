@@ -49,7 +49,7 @@ def xor_data(data, key):
     return bytes(c ^ k for c, k in zip(data, cycle(key)))
 
 
-def config(data):
+def extract_config(data):
     config = {}
     pe = None
     try:

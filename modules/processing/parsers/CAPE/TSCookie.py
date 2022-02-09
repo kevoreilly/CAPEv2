@@ -137,7 +137,7 @@ def load_resource(pe, data):
     return rc_data
 
 
-def config(data):
+def extract_config(data):
     try:
         dll = pefile.PE(data=data)
     except Exception:

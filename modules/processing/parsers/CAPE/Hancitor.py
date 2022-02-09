@@ -13,7 +13,7 @@ AUTHOR = "threathive"
 log = logging.getLogger(__name__)
 
 
-def config(filebuf):
+def extract_config(filebuf):
     cfg = {}
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)

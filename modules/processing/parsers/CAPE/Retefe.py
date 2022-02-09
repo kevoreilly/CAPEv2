@@ -66,7 +66,7 @@ def pwd_calc(buffer_size, number, shifts, subtract_val):
     return xor_arr
 
 
-def config(filebuf):
+def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
 
     yara_matches = yara_scan(filebuf)

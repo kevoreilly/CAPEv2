@@ -22,7 +22,7 @@ def decrypt_string(string):
     return "".join(chr(ord(char) - 6) for char in string)
 
 
-def config(filebuf):
+def extract_config(filebuf):
     cfg = {}
     pe = pefile.PE(data=filebuf)
     data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]

@@ -51,7 +51,7 @@ def string_from_offset(data, offset):
     return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
-def config(filebuf):
+def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
 

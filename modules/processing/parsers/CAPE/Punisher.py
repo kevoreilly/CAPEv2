@@ -1,4 +1,4 @@
-def config(data):
+def extract_config(data):
     config_parts = data.split("abccba")
     if len(config_parts) <= 5:
         return None

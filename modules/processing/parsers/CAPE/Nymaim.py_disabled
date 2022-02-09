@@ -259,7 +259,7 @@ def set_prog_version(m, hit, *args):
     }
 
 
-def config(raw):
+def extract_config(raw):
     m = Mem(raw, 0)
     ext = NymaimExtractor()
     return ext.nymaim_brute_blob(m)

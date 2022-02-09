@@ -56,7 +56,7 @@ def list_from_offset(data, offset):
     return string.split(b",")
 
 
-def config(filebuf):
+def extract_config(filebuf):
     config = yara_scan(filebuf, "$config")
     return_conf = {}
     if config:

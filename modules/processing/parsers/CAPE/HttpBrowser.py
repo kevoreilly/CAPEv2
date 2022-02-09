@@ -85,7 +85,7 @@ match_map = {
 }
 
 
-def config(filebuf):
+def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=True)
     # image_base = pe.OPTIONAL_HEADER.ImageBase
 

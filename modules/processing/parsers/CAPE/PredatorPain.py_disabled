@@ -8,7 +8,7 @@ from Cryptodome.Cipher import AES
 from pbkdf2 import PBKDF2
 
 
-def config(raw_data):
+def extract_config(raw_data):
     try:
         pe = pype32.PE(data=raw_data)
         # pe = pefile.PE(data=raw_data)

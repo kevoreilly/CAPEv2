@@ -143,7 +143,7 @@ def check_version(filedata):
     return ""
 
 
-def config(filebuf):
+def extract_config(filebuf):
     config = {}
 
     try:

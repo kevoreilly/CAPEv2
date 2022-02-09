@@ -61,7 +61,7 @@ def parse_config(config):
     }
 
 
-def config(data):
+def extract_config(data):
     embedded = extract_embedded(data)
     if embedded is None:
         return None

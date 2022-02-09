@@ -155,7 +155,8 @@ def decrypt_data2(data):
     return decrypted_data
 
 
-def config(filebuf):
+
+def extract_config(filebuf):
     end_config = {}
     if not HAVE_BLZPACK:
         return

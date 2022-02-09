@@ -177,7 +177,7 @@ def decode_onboard_config(data):
         return data[8 : length + 8]
 
 
-def config(data):
+def extract_config(data):
     xml = decode_onboard_config(data)
     try:
         root = ET.fromstring(xml)

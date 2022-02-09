@@ -70,7 +70,7 @@ def extract_rdata(pe):
     return None
 
 
-def config(file_data):
+def extract_config(file_data):
     pe = pefile.PE(data=file_data, fast_load=False)
     config = {}
     blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])

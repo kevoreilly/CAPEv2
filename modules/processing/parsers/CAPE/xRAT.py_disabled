@@ -89,7 +89,7 @@ def get_parts(long_line):
     return coded_config
 
 
-def config(data):
+def extract_config(data):
     long_line, ver = get_long_line(data)
     if ver is None:
         return

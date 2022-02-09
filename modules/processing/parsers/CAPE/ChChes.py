@@ -51,7 +51,7 @@ def string_from_offset(data, offset):
     return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
-def config(filebuf):
+def extract_config(filebuf):
     tmp_config = {}
     yara_matches = yara_scan(filebuf)
 

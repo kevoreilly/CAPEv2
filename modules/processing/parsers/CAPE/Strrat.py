@@ -69,7 +69,7 @@ def decode(data):
     return decoded.decode()
 
 
-def config(data):
+def extract_config(data):
     raw_config = {}
     configdata = ""
     tmpzip = store_temp_file(data, "badjar.zip", b"strrat_tmp")

@@ -39,7 +39,7 @@ def extract_config(data):
     return config_data
 
 
-def config(task_info, data):
+def extract_config(task_info, data):
     return extract_config(data)
 
 

@@ -549,7 +549,7 @@ def test_them_all(path):
                 with open(file, "rb") as f:
                     file_data = f.read()
 
-                result = config(file_data)
+                result = extract_config(file_data)
                 if result:
                     log.info("[+] %s", file)
                 else:

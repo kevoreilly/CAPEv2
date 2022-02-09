@@ -121,24 +121,29 @@ def get_rsrc(pe):
     return ret
 
 
+def get_strings(data, min=4):
+    result = ""
+    for c in data:
+        if chr(c) in string.printable:
+            result += chr(c)
+            continue
+        if len(result) >= min:
+            yield result
+        result = ""
+    if len(result) >= min:
+        yield result
+
+
 def check_version(filedata):
     printable = set(string.printable)
 
     s = ""
-    slist = []
     # find strings in binary file
-    for c in filedata:
-        if len(s) > 4 and c == 0:  # no strings <= 4
-            slist.append(s)
-            s = ""
-            continue
-
-        if chr(c) in printable:
-            s += chr(c)
+    slist = get_strings(filedata)
 
     # find and extract version string e.g. "2.0.5 Pro", "1.7 Free" or "1.7 Light"
     for s in slist:
-        if bool(re.search(r"^[12]\.\d+\d{0,1}.*[FLP].*", s)):
+        if bool(re.search("^\d+\.\d+\.\d+\s+\w+$", s)):
             return s
     return ""
 

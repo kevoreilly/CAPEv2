@@ -56,7 +56,6 @@ def yara_scan(raw_data):
     return addresses
 
 
-
 def pe_data(pe, va, size):
     image_base = pe.OPTIONAL_HEADER.ImageBase
     rva = va - image_base
@@ -69,11 +68,13 @@ def string_from_va(pe, offset):
     string_offset = pe.get_offset_from_rva(string_rva)
     return pe.__data__[string_offset : string_offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
+
 map_offset = {
     "$configure1": [24, 71, 60, 90, 132, 186],
     "$configure2": [27, 78, 67, 91, 133, 188],
     "$configure3": [38, 99, 132, 167, 195],
 }
+
 
 def config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
@@ -89,7 +90,7 @@ def config(filebuf):
         c2_address = string_from_va(pe, yara_offset + values[0])
         if c2_address:
             end_config["c2_address"] = c2_address
-        port = str(struct.unpack("h", filebuf[yara_offset + values[1] : yara_offset + values[1]+2])[0])
+        port = str(struct.unpack("h", filebuf[yara_offset + values[1] : yara_offset + values[1] + 2])[0])
         if port:
             end_config["port"] = [port, "tcp"]
         missionid = string_from_va(pe, yara_offset + values[3])

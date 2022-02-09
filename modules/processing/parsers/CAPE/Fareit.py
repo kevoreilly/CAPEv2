@@ -65,5 +65,5 @@ def extract_config(memdump_path, read=False):
 
 
 if __name__ == "__main__":
-    res = config(sys.argv[1], read=True)
+    res = extract_config(sys.argv[1], read=True)
     print(res)

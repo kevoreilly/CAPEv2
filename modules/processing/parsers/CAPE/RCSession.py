@@ -96,7 +96,7 @@ def extract_config(filebuf):
     end_config = {}
     tmp_config = decode(filebuf[config_offset : config_offset + size], size, key)
 
-    c2_address = str(config[156 : 156 + MAX_IP_STRING_SIZE])
+    c2_address = str(tmp_config[156 : 156 + MAX_IP_STRING_SIZE])
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
     c2_address = str(tmp_config[224 : 224 + MAX_IP_STRING_SIZE])

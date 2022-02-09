@@ -96,13 +96,13 @@ def extract_config(filebuf):
     c2_address = tmp_config[0x88 : 0x88 + MAX_IP_STRING_SIZE]
     if c2_address:
         end_config.setdefault("c2_address", []).append(c2_address)
-    missionid = string_from_offset(config, 0x1EC)
+    missionid = string_from_offset(tmp_config, 0x1EC)
     if missionid:
         end_config["missionid"] = missionid
-    mutex = unicode_string_from_offset(config, 0x508)
+    mutex = unicode_string_from_offset(tmp_config, 0x508)
     if mutex:
         end_config["mutex"] = mutex
-    key = string_from_offset(config, 0x832)
+    key = string_from_offset(tmp_config, 0x832)
     if key:
         end_config["key"] = key
 

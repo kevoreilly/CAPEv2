@@ -38,12 +38,8 @@ def extract_config(data):
     return config_data
 
 
-def extract_config(task_info, data):
-    return extract_config(data)
-
-
 if __name__ == "__main__":
     filename = argv[1]
     with open(filename, "r") as infile:
-        t = config(0, infile.read())
+        t = extract_config(infile.read())
     print(t)

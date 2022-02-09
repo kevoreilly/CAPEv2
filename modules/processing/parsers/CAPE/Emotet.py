@@ -568,4 +568,4 @@ if __name__ == "__main__":
     else:
         with open(sys.argv[1], "rb") as f:
             file_data = f.read()
-        print(config(file_data))
+        print(extract_config(file_data))

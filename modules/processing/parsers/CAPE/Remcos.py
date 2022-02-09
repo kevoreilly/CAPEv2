@@ -189,4 +189,4 @@ def extract_config(filebuf):
 if __name__ == "__main__":
     import sys
 
-    print(config(open(sys.argv[1], "rb").read()))
+    print(extract_config(open(sys.argv[1], "rb").read()))

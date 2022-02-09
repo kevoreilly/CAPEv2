@@ -52,7 +52,6 @@ def string_from_offset(data, offset):
     return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
-
 def extract_config(filebuf):
     end_config = {}
     pe = pefile.PE(data=filebuf, fast_load=False)

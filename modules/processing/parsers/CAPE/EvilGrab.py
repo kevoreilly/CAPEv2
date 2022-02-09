@@ -75,6 +75,7 @@ map_offset = {
     "$configure3": [38, 99, 132, 167, 195],
 }
 
+
 def extract_config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     # image_base = pe.OPTIONAL_HEADER.ImageBase

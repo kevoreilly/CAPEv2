@@ -38,6 +38,7 @@ def extract_config(data):
             }
     return config_data
 
+
 if __name__ == "__main__":
     filename = argv[1]
     with open(filename, "rb") as infile:

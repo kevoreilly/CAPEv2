@@ -9,8 +9,8 @@
 DESCRIPTION = "Remcos config extractor."
 AUTHOR = "threathive,sysopfb,kevoreilly"
 
-import re
 import logging
+import re
 import string
 from collections import OrderedDict
 
@@ -104,7 +104,7 @@ setup_list = {
 }
 
 utf_16_string_list = ["Copy file", "Startup value", "Keylog file", "Take screenshot title", "Copy folder", "Keylog folder"]
-logger = logging.getLogget(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_rsrc(pe):
@@ -158,7 +158,6 @@ def config(filebuf):
         if blob:
             keylen = blob[0]
             key = blob[1 : keylen + 1]
-
             decrypted_data = ARC4.new(key).decrypt(blob[keylen + 1 :])
             p_data = OrderedDict()
             p_data["Version"] = check_version(filebuf)
@@ -185,3 +184,8 @@ def config(filebuf):
         logger.error(f"Caught an exception: {e}")
 
     return config
+
+
+if __name__ == "__main__":
+    import sys
+    print(config(open(sys.argv[1], "rb").read()))

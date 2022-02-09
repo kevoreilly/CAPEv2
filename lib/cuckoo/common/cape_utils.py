@@ -317,30 +317,28 @@ def static_config_parsers(yara_hit, file_data):
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in malware_parsers:
         logging.debug("Running MWCP")
         try:
-            reporter = mwcp.Reporter()
-            reporter.run_parser(malware_parsers[cape_name], data=file_data)
-            if not reporter.errors:
+            report = mwcp.run(malware_parsers[cape_name], data=file_data)
+            reportmeta = report.as_dict_legacy()
+            if not report.errors:
                 parser_loaded = True
                 tmp_dict = {}
-                if reporter.metadata.get("debug"):
-                    del reporter.metadata["debug"]
-                if reporter.metadata.get("other"):
-                    for key, value in reporter.metadata["other"].items():
+                if reportmeta.get("debug"):
+                    del reportmeta["debug"]
+                if reportmeta.get("other"):
+                    for key, value in reportmeta["other"].items():
                         tmp_dict.setdefault(key, [])
                         if value not in tmp_dict[key]:
                             tmp_dict[key].append(value)
-                    del reporter.metadata["other"]
+                    del reportmeta["other"]
 
-                tmp_dict.update(reporter.metadata)
+                tmp_dict.update(reportmeta)
                 cape_config[cape_name] = convert(tmp_dict)
                 logging.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
-                error_lines = reporter.errors[0].split("\n")
+                error_lines = report.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
                         logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ", 2)[1])
-            reporter._Reporter__cleanup()
-            del reporter
         except pefile.PEFormatError:
             logging.error("pefile PEFormatError")
         except Exception as e:

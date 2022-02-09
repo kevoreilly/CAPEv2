@@ -69,6 +69,7 @@ def string_from_offset(buffer, offset):
 def unicode_string_from_offset(buffer, offset):
     return buffer[offset : offset + MAX_STRING_SIZE].split(b"\x00\x00", 1)[0]
 
+
 def config(filebuf):
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase

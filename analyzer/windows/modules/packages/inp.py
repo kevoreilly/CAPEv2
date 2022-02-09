@@ -17,7 +17,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-# While this should work, it is an experimental rule - do a PR if you see fit!
+# While this should work, it is an experimental package - do a PR if you see fit!
 class INP(Package):
     """Inpage (Urdu/Arabic) Word Processor analysis package."""
 

@@ -17,7 +17,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-# While this should work, it is an experimental rule - do a PR if you see fit! Viewer only.
+# While this should work, it is an experimental package - do a PR if you see fit! Ichitaro Viewer only.
 class ichitaro(Package):
     """Ichitaro (Japanese) Word Processor analysis package."""
 
@@ -25,6 +25,6 @@ class ichitaro(Package):
 
     def start(self, path):
         ichitaro = self.get_path("TAROVIEW.EXE")
-        # Rename file to file.inp so it can open properly.
+        # Rename file to file.jtd so it can open properly.
         path = check_file_extension(path, ".jtd")
         return self.execute(ichitaro, f'"{path}"', path)

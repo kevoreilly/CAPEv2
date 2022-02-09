@@ -69,7 +69,7 @@ def choose_package(file_type, file_name, exports, target):
         return "python"
     elif file_name.endswith(".ps1"):
         return "ps1"
-    elif file_name.endswith(".msg"):
+    elif file_name.endswith((".msg", ".rpmsg")) or "rpmsg Restricted Permission Message" in file_type:
         return "msg"
     elif file_name.endswith((".eml", ".ics")) or "vCalendar calendar" in file_type:
         return "eml"

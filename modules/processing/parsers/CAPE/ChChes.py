@@ -11,9 +11,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+DESCRIPTION = "ChChes configuration parser."
+AUTHOR = "kevoreilly"
 
 import yara
-from mwcp.parser import Parser
 
 rule_source = """
 rule ChChes
@@ -35,15 +36,14 @@ rule ChChes
 MAX_STRING_SIZE = 128
 
 
-def yara_scan(raw_data, rule_name):
+def yara_scan(raw_data):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "ChChes":
+        if match.rule == "Emotet":
             for item in match.strings:
-                if item[1] == rule_name:
-                    addresses[item[1]] = item[0]
+                addresses[item[1]] = item[0]
     return addresses
 
 
@@ -51,28 +51,20 @@ def string_from_offset(data, offset):
     return data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
 
 
-class ChChes(Parser):
-    DESCRIPTION = "ChChes configuration parser."
-    AUTHOR = "kevoreilly"
+def config(filebuf):
+    config = {}
+    yara_matches = yara_scan(filebuf)
 
-    def run(self):
-        filebuf = self.file_object.file_data
+    c2_offsets = []
+    if yara_matches.get("$payload1"):
+        c2_offsets.append(0xE455)
+    if yara_matches.get("$payload2"):
+        c2_offsets.append(0xED55)
+    if yara_matches.get("$payload3"):
+        c2_offsets.append(0xE2B9)
+    # no c2 for type4
 
-        type1 = yara_scan(filebuf, "$payload1")
-        type2 = yara_scan(filebuf, "$payload2")
-        type3 = yara_scan(filebuf, "$payload3")
-        # type4 = yara_scan(filebuf, "$payload4")
-
-        c2_offsets = []
-        if type1:
-            c2_offsets.append(0xE455)
-        if type2:
-            c2_offsets.append(0xED55)
-        if type3:
-            c2_offsets.append(0xE2B9)
-        # no c2 for type4
-
-        for c2_offset in c2_offsets:
-            c2_url = string_from_offset(filebuf, c2_offset)
-            if c2_url:
-                self.reporter.add_metadata("c2_url", c2_url)
+    for c2_offset in c2_offsets:
+        c2_url = string_from_offset(filebuf, c2_offset)
+        if c2_url:
+            config.setdefault("c2_url", []).append(c2_url)

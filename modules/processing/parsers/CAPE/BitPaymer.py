@@ -12,24 +12,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+DESCRIPTION = "BitPaymer configuration parser."
+AUTHOR = "kevoreilly"
+
 import string
 
 import pefile
 import yara
 from Cryptodome.Cipher import ARC4
-from mwcp.parser import Parser
 
 rule_source = """
-rule DoppelPaymer
+rule BitPaymer
 {
     meta:
         author = "kevoreilly"
-        description = "DoppelPaymer Payload"
-        cape_type = "DoppelPaymer Payload"
+        description = "BitPaymer Payload"
+        cape_type = "BitPaymer Payload"
 
     strings:
-        $getproc32 = {81 FB ?? ?? ?? ?? 74 2D 8B CB E8 ?? ?? ?? ?? 85 C0 74 0C 8B C8 8B D7 E8 ?? ?? ?? ?? 5B 5F C3}
-        $cmd_string = "Setup run\n" wide
+        $decrypt32 = {6A 40 58 3B C8 0F 4D C1 39 46 04 7D 50 53 57 8B F8 81 E7 3F 00 00 80 79 05 4F 83 CF C0 47 F7 DF 99 1B FF 83 E2 3F 03 C2 F7 DF C1 F8 06 03 F8 C1 E7 06 57}
+        $antidefender = "TouchMeNot" wide
     condition:
         uint16(0) == 0x5A4D and all of them
 }
@@ -40,6 +42,7 @@ LEN_BLOB_KEY = 40
 
 def convert_char(c):
     if c in (string.letters + string.digits + string.punctuation + " \t\r\n"):
+        # ToDo gonna break as its int
         return c
     else:
         return f"\\x{ord(c):02x}"
@@ -54,7 +57,7 @@ def yara_scan(raw_data, rule_name):
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "DoppelPaymer":
+        if match.rule == "BitPaymer":
             for item in match.strings:
                 if item[1] == rule_name:
                     return {item[1]: item[0]}
@@ -67,25 +70,20 @@ def extract_rdata(pe):
     return None
 
 
-class DoppelPaymer(Parser):
-    DESCRIPTION = "DoppelPaymer configuration parser."
-    AUTHOR = "kevoreilly"
-
-    def run(self):
-        filebuf = self.file_object.file_data
-        pe = pefile.PE(data=filebuf, fast_load=False)
-
-        blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])
-        for blob in blobs:
-            if len(blob) < LEN_BLOB_KEY:
-                continue
-            raw = decrypt_rc4(blob[:LEN_BLOB_KEY][::-1], blob[LEN_BLOB_KEY:])
-            if not raw:
-                continue
-            for item in raw.split(b"\x00"):
-                data = "".join(convert_char(c) for c in item)
-                if len(data) == 406:
-                    self.reporter.add_metadata("other", {"RSA public key": data})
-                elif len(data) > 1 and "\\x" not in data:
-                    self.reporter.add_metadata("other", {"strings": data})
-        return
+def config(file_data):
+    pe = pefile.PE(data=file_data, fast_load=False)
+    config = {}
+    blobs = filter(None, [x.strip(b"\x00\x00\x00\x00") for x in extract_rdata(pe).split(b"\x00\x00\x00\x00")])
+    for blob in blobs:
+        if len(blob) < LEN_BLOB_KEY:
+            continue
+        raw = decrypt_rc4(blob[:LEN_BLOB_KEY][::-1], blob[LEN_BLOB_KEY:])
+        if not raw:
+            continue
+        for item in raw.split(b"\x00"):
+            data = "".join(convert_char(c) for c in item)
+            if len(data) == 760:
+                config["RSA public key"] = data
+            elif len(data) > 1 and "\\x" not in data:
+                config["strings"] = data
+    return config

@@ -11,9 +11,11 @@ mdb = repconf.mongodb.get("db", "cuckoo")
 
 
 if repconf.mongodb.enabled:
-    from pymongo import TEXT, MongoClient
+    from pymongo import TEXT, MongoClient, version_tuple
     from pymongo.errors import AutoReconnect, ConnectionFailure, InvalidDocument, ServerSelectionTimeoutError
 
+    if version_tuple[0] < 4:
+        log.warning("You using old version of PyMongo, upgrade: pip3 install pymongo -U")
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 

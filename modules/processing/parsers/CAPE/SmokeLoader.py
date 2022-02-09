@@ -58,7 +58,6 @@ def xor_decode(buffer, key):
     return "".join(chr(ord(x) ^ byte_key) for x in buffer)
 
 
-
 def config(filebuf):
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
@@ -159,4 +158,3 @@ def config(filebuf):
                 table_loop = False
             table_offset += 4
         return end_config
-

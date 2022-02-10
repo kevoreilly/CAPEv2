@@ -34,7 +34,7 @@ greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6
 six>=1.12.0
-django==3.2.11
+django==3.2.12
 sqlalchemy==1.4.22
 sqlalchemy-utils==0.37.8
 jinja2

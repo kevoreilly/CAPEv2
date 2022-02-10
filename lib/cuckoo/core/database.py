@@ -1283,7 +1283,7 @@ class Database(object, metaclass=Singleton):
 
             # Assign architecture to task to fetch correct VM type
             # This isn't 100% full proof
-            if "PE32+" in file_type or "64-bit" in file_type:
+            if "PE32+" in file_type or "64-bit" in file_type or package.endswith("_x64"):
                 if tags:
                     tags += ",x64"
                 else:

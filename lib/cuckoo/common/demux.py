@@ -134,10 +134,10 @@ def demux_office(filename, password):
         ofile = OfficeFile(sfFile.from_path(filename))
         d = ofile.decrypt(password)
         if hasattr(d, "contents"):
-            with open(decrypted_name, "w") as outs:
-                outs.write(d.contents)
             # TODO add decryption verification checks
             if "Encrypted" not in d.magic:
+                with open(decrypted_name, "wb") as outs:
+                    outs.write(d.contents)
                 retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
@@ -236,11 +236,15 @@ def demux_sample(filename, package, options, use_sflock=True):
         ignore = ["Outlook", "Message", "Disk Image"]
         if any(x in magic for x in ignore):
             pass
-        elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
-            password = False
-            tmp_pass = options2passwd(options)
-            if tmp_pass:
-                password = tmp_pass
+    elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
+        password = False
+        tmp_pass = options2passwd(options)
+        if tmp_pass:
+            password = tmp_pass
+        if HAS_SFLOCK and use_sflock:
+            return demux_office(filename, password)
+        else:
+            log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
     if "Java Jar" in magic:

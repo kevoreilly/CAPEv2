@@ -46,7 +46,7 @@ class RunStatistics(Report):
         """Count Domains
         @return int value.
         """
-        return len(results.get("network").get("domains"))
+        return len(results.get("network", {}).get("domains", []))
 
     def getSignaturesAndAlertCount(self, results):
         """Count signature, signature alert, crash issues, anti issues.

@@ -103,7 +103,7 @@
                         <th>Keyword</th>
                         <th>Count</th>
                     </tr>
-                    {% for keyword, count in analysis.static.pdf.Keywords.iteritems %}
+                    {% for keyword, count in analysis.static.pdf.Keywords.items %}
                     <tr>
                         <td>{{keyword}}</td>
                         <td>{{count}}</td>

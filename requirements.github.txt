@@ -1,5 +1,4 @@
 https://github.com/doomedraven/socks5man/archive/7b335d027297b67abdf28f38cc7d5d42c9d810b5.zip#egg=socks5man==0.3.0
 https://codeload.github.com/DissectMalware/batch_deobfuscator/zip/a0d9d51e28cf519a42b35587fde7f8df09c78be3#egg=batch_deobfuscator==1.0
-https://github.com/CAPESandbox/peepdf/archive/20eda78d7d77fc5b3b652ffc2d8a5b0af796e3dd.zip#egg=peepdf==0.4.2
 https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip#egg=httpreplay==0.3
 https://github.com/CAPESandbox/binGraph/archive/552d1210ac6770f8b202d0d1fc4610cc14d878ec.zip#egg=binGraph==3.3

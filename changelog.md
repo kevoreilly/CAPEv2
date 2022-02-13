@@ -1,3 +1,6 @@
+### [13-02-2022] PEEPDF
+* [peepdf](https://github.com/CAPESandbox/peepdf) isn't installed anymore by default, python3 version is pretty buggy, so if you want to fix it you are more than welcome!
+
 ### [7-2-2022]
 * Monitor updates:
     * Add hooks for NtAllocateVirtualMemoryEx, NtMapViewOfSectionEx, NtUnmapViewOfSectionEx (Win10+)

@@ -11,6 +11,7 @@ from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 
 log = logging.getLogger(__name__)
 
+
 class PDF(object):
     """PDF Analysis."""
 
@@ -63,4 +64,3 @@ class PDF(object):
         log.debug("Starting to load PDF")
         results = self._parse(self.file_path)
         return results
-

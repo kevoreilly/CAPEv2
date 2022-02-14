@@ -30,6 +30,7 @@ import requests
 
 log = logging.getLogger(__name__)
 
+
 class URL(object):
     """URL 'Static' Analysis"""
 
@@ -165,4 +166,3 @@ class URL(object):
                 results["url"]["bitly"]["created_at"] = f"{newtime.strftime('%Y-%m-%d %H:%M:%S')} GMT"
 
         return results
-

@@ -11,6 +11,7 @@ from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
+
 class DotNETExecutable(object):
     """.NET analysis"""
 

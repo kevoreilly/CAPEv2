@@ -23,14 +23,14 @@ class HwpDocument(object):
     def __init__(self, filepath, results):
         self.filepath = filepath
         self.files = {}
-        #self.ex = ExtractManager.for_task(task_id)
+        # self.ex = ExtractManager.for_task(task_id)
 
     def unpack_hwp(self):
         """Unpacks ole-based zip files."""
         ole = olefile.OleFileIO(self.filepath)
         streams = ole.listdir()
         for stream in streams:
-            stream_name = '/'.join(stream)
+            stream_name = "/".join(stream)
         # content = ole.openstream(stream).read()
         try:
             stream_content = zlib.decompress(ole.openstream(stream).read(), -15)
@@ -52,6 +52,4 @@ class HwpDocument(object):
 
         self.ex.peek_office(self.files)
 
-        return {
-            "eps": self.extract_eps()
-        }
+        return {"eps": self.extract_eps()}

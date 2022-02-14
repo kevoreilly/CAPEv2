@@ -1,4 +1,3 @@
-
 # Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
@@ -10,6 +9,7 @@ import struct
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
 log = logging.getLogger(__name__)
+
 
 class LnkShortcut(object):
     signature = [0x4C, 0x00, 0x00, 0x00]

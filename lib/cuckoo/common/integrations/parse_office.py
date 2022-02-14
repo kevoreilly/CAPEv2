@@ -44,8 +44,8 @@ if not processing_conf.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 
-
 log = logging.getLogger(__name__)
+
 
 class Office(object):
     """Office Document Static Analysis
@@ -319,4 +319,3 @@ class Office(object):
             return None
         results = self._parse(self.file_path)
         return results
-

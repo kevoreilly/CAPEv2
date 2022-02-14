@@ -79,8 +79,9 @@ class PortableExecutable(object):
             return {}
 
         # Advanced check if is real PE
-        if not IsPEImage(open(self.file_path, "rb").read()):
-            return {}
+        with open(self.file_path, "rb") as f:
+            if not IsPEImage(f.read()):
+                return {}
 
         results = {}
         peresults = results["pe"] = {}

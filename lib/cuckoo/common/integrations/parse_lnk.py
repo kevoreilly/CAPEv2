@@ -76,7 +76,8 @@ class LnkShortcut(object):
         return offset + 2 + length, ret
 
     def run(self):
-        buf = self.buf = open(self.filepath, "rb").read()
+        with open(self.filepath, "rb") as f:
+            buf = self.buf = f.read()
         if len(buf) < ctypes.sizeof(LnkHeader):
             log.warning("Provided .lnk file is corrupted or incomplete")
             return

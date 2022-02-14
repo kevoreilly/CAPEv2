@@ -30,9 +30,8 @@ class Java(object):
         results["java"] = {}
 
         if self.decomp_jar:
-            f = open(self.file_path, "rb")
-            data = f.read()
-            f.close()
+            with open(self.file_path, "rb") as f:
+                data = f.read()
             jar_file = store_temp_file(data, "decompile.jar")
 
             try:

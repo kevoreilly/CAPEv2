@@ -827,7 +827,6 @@ class File(object):
 
         return file_type
 
-
     def get_resources(self, pe):
         """Get resources.
         @return: resources dict or None.

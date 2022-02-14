@@ -801,6 +801,33 @@ class File(object):
 
         return f"{pe.OPTIONAL_HEADER.MajorOperatingSystemVersion}.{pe.OPTIONAL_HEADER.MinorOperatingSystemVersion}"
 
+    # This function is duplicated
+    def _get_filetype(self, data):
+        """Gets filetype, uses libmagic if available.
+        @param data: data to be analyzed.
+        @return: file type or None.
+        """
+        if not HAVE_MAGIC:
+            return None
+
+        try:
+            ms = magic.open(magic.MAGIC_SYMLINK)
+            ms.load()
+            file_type = ms.buffer(data)
+        except Exception:
+            try:
+                file_type = magic.from_buffer(data)
+            except Exception:
+                return None
+        finally:
+            try:
+                ms.close()
+            except Exception:
+                pass
+
+        return file_type
+
+
     def get_resources(self, pe):
         """Get resources.
         @return: resources dict or None.
@@ -825,8 +852,7 @@ class File(object):
                         if hasattr(resource_id, "directory"):
                             for resource_lang in resource_id.directory.entries:
                                 data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
-                                # ToDo
-                                filetype = _get_filetype(data)
+                                filetype = self._get_filetype(data)
                                 language = pefile.LANG.get(resource_lang.data.lang)
                                 sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
                                 resource["name"] = name

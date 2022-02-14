@@ -54,10 +54,9 @@ class Static(Processing):
                 if decomp_jar and not os.path.exists(decomp_jar):
                     log.error("procyon_path specified in processing.conf but the file does not exist")
                 static = Java(self.file_path, decomp_jar).run()
-            # It's possible to fool libmagic into thinking our 2007+ file is a
-            # zip. So until we have static analysis for zip files, we can use
-            # oleid to fail us out silently, yeilding no static analysis
-            # results for actual zip files.
+            # It's possible to fool libmagic into thinking our 2007+ file is a zip.
+            # So until we have static analysis for zip files, we can use oleid to fail us out silently,
+            # yeilding no static analysis results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
                 static = Office(self.file_path, self.results, self.task["options"]).run()
             elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":

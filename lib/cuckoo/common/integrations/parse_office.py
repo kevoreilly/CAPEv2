@@ -2,15 +2,15 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
-import logging
 import hashlib
+import logging
+import os
 
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import convert_to_printable, get_options
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable, get_options
 
 try:
     import olefile

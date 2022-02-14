@@ -28,7 +28,6 @@ except ImportError:
 
 import requests
 
-
 log = logging.getLogger(__name__)
 
 class URL(object):

@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import logging
 import base64
+import logging
 import struct
 
 log = logging.getLogger(__name__)

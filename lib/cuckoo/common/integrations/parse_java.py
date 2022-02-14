@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
 import logging
+import os
 from subprocess import PIPE, Popen
 
 from lib.cuckoo.common.utils import convert_to_printable, store_temp_file

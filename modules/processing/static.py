@@ -8,15 +8,15 @@ import os
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
-
-from lib.cuckoo.common.integrations.parse_url import URL, HAVE_WHOIS
-from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
-from lib.cuckoo.common.integrations.parse_wse import EncodedScriptFile, WindowsScriptFile
-from lib.cuckoo.common.integrations.parse_office import Office, HAVE_OLETOOLS
-from lib.cuckoo.common.integrations.parse_java import Java
-from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, HAVE_PEFILE, File
+from lib.cuckoo.common.integrations.parse_java import Java
+from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
+from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
+from lib.cuckoo.common.integrations.parse_pdf import PDF
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, File, PortableExecutable
+from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
+from lib.cuckoo.common.integrations.parse_wse import EncodedScriptFile, WindowsScriptFile
+
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 
 log = logging.getLogger(__name__)

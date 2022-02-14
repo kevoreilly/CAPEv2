@@ -2,8 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import zlib
 import logging
+import zlib
 
 try:
     import olefile

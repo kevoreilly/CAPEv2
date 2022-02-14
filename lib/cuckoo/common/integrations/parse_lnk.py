@@ -3,9 +3,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import struct
 import ctypes
 import logging
+import struct
 
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 

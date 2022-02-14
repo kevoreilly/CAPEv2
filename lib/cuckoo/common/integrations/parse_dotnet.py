@@ -3,8 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
+import os
 from datetime import datetime
 from subprocess import PIPE, Popen
+
 from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)

@@ -2,9 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
 import json
 import logging
+import os
 
 from lib.cuckoo.common.integrations.peepdf import peepdf_parse
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON

@@ -27,6 +27,7 @@ from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
@@ -238,7 +239,7 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = file_obj.get_dll_exports()
+            options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
             del file_obj
 
         # options from auxiliar.conf

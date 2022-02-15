@@ -23,7 +23,6 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 
 try:

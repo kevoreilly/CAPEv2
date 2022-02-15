@@ -21,6 +21,7 @@ from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyError, CuckooOperationalError
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
+
 # from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 
 try:

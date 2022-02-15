@@ -4,10 +4,12 @@
 import array
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import math
 import os
+import struct
 import time
 from datetime import datetime
 from io import BytesIO

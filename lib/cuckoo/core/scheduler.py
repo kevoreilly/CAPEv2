@@ -20,6 +20,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooNetworkError,
     CuckooOperationalError,
 )
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
 from lib.cuckoo.core.database import TASK_COMPLETED, Database
@@ -27,7 +28,6 @@ from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
 from lib.cuckoo.core.resultserver import ResultServer
 from lib.cuckoo.core.rooter import _load_socks5_operational, rooter, vpns
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False

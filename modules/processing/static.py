@@ -26,7 +26,7 @@ from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.integration.peepdf import peepdf_parse
+from lib.cuckoo.common.integrations.peepdf import peepdf_parse
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader

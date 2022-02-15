@@ -5,8 +5,8 @@ By Gal Kristal from SentinelOne (gkristal.w@gmail.com)
 Inspired by https://github.com/JPCERTCC/aa-tools/blob/master/cobaltstrikescan.py
 
 TODO:
-    1. Parse headers modifiers
-    2. Dynamic size parsing
+ 1. Parse headers modifiers
+ 2. Dynamic size parsing
 """
 
 from __future__ import absolute_import, print_function
@@ -91,12 +91,11 @@ class packedSetting:
         if datatype == confConsts.TYPE_STR and length == 0:
             raise (Exception("if datatype is TYPE_STR then length must not be 0"))
 
+        self.length = length
         if datatype == confConsts.TYPE_SHORT:
             self.length = 2
         elif datatype == confConsts.TYPE_INT:
             self.length = 4
-        else:
-            self.length = length
 
     def binary_repr(self):
         """
@@ -118,7 +117,8 @@ class packedSetting:
         if self.datatype == confConsts.TYPE_SHORT:
             conf_data = unpack(">H", conf_data)[0]
             if self.is_bool:
-                return str(conf_data != self.bool_false_value)
+                ret = "False" if conf_data == self.bool_false_value else "True"
+                return ret
             elif self.enum:
                 return self.enum[conf_data]
             elif self.mask:
@@ -136,14 +136,15 @@ class packedSetting:
             if self.is_ipaddress:
                 return inet_ntoa(conf_data)
 
-            conf_data = unpack(">I", conf_data)[0]
-            if self.is_date and conf_data != 0:
-                fulldate = str(conf_data)
-                return f"{fulldate[:4]}-{fulldate[4:6]}-{fulldate[6:]}"
+            else:
+                conf_data = unpack(">I", conf_data)[0]
+                if self.is_date and conf_data != 0:
+                    fulldate = str(conf_data)
+                    return f"{fulldate[0:4]}-{fulldate[4:6]}-{fulldate[6:]}"
 
-            return conf_data
+                return conf_data
 
-        elif self.is_blob:
+        if self.is_blob:
             if self.enum is not None:
                 ret_arr = []
                 i = 0
@@ -168,47 +169,48 @@ class packedSetting:
                 if conf_data == bytes(len(conf_data)):
                     return "Empty"
 
-                prepend_length = unpack(">I", conf_data[:4])[0]
+                ret_arr = []
+                prepend_length = unpack(">I", conf_data[0:4])[0]
                 prepend = conf_data[4 : 4 + prepend_length].hex()
                 append_length_offset = prepend_length + 4
                 append_length = unpack(">I", conf_data[append_length_offset : append_length_offset + 4])[0]
                 append = conf_data[append_length_offset + 4 : append_length_offset + 4 + append_length].hex()
-                ret_arr = [
-                    prepend,
-                    append if append_length < 256 and append != bytes(append_length) else "Empty",
-                ]
-
+                ret_arr.append(prepend)
+                ret_arr.append(append if append_length < 256 and append != bytes(append_length) else "Empty")
                 return ret_arr
 
             elif self.is_malleable_stream:
-                conf_data = []
+                prog = []
                 fh = io.BytesIO(conf_data)
-                op = read_dword_be(fh)
-                while op:
-                    if op == 1:
-                        bytes_len = read_dword_be(fh)
-                        conf_data.append(f"Remove {bytes_len} bytes from the end")
-                    elif op == 2:
-                        bytes_len = read_dword_be(fh)
-                        conf_data.append(f"Remove {bytes_len} bytes from the beginning")
-                    elif op == 3:
-                        conf_data.append("Base64 decode")
-                    elif op == 8:
-                        conf_data.append("NetBIOS decode 'a'")
-                    elif op == 11:
-                        conf_data.append("NetBIOS decode 'A'")
-                    elif op == 13:
-                        conf_data.append("Base64 URL-safe decode")
-                    elif op == 15:
-                        conf_data.append("XOR mask w/ random key")
+                while True:
                     op = read_dword_be(fh)
+                    if not op:
+                        break
+                    if op == 1:
+                        l = read_dword_be(fh)
+                        prog.append(f"Remove {l} bytes from the end")
+                    elif op == 2:
+                        l = read_dword_be(fh)
+                        prog.append(f"Remove {l} bytes from the beginning")
+                    elif op == 3:
+                        prog.append("Base64 decode")
+                    elif op == 8:
+                        prog.append("NetBIOS decode 'a'")
+                    elif op == 11:
+                        prog.append("NetBIOS decode 'A'")
+                    elif op == 13:
+                        prog.append("Base64 URL-safe decode")
+                    elif op == 15:
+                        prog.append("XOR mask w/ random key")
+
+                conf_data = prog
 
             else:
                 conf_data = conf_data.hex()
 
             return conf_data
 
-        elif self.is_headers:
+        if self.is_headers:
             conf_data = conf_data.strip(b"\x00")
             conf_data = [chunk[1:].decode() for chunk in conf_data.split(b"\x00") if len(chunk) > 1]
             return conf_data
@@ -288,10 +290,10 @@ class BeaconSettings:
         self.settings["bCFGCaution"] = packedSetting(39, confConsts.TYPE_SHORT, isBool=True)
         self.settings["KillDate"] = packedSetting(40, confConsts.TYPE_INT, isDate=True)
         # Inner parameter, does not seem interesting so silencing
-        # self.settings["textSectionEnd (0 if !sleep_mask)"] = packedSetting(41, confConsts.TYPE_INT)
+        # self.settings['textSectionEnd (0 if !sleep_mask)'] = packedSetting(41, confConsts.TYPE_INT)
 
         # TODO: dynamic size parsing
-        # self.settings["ObfuscateSectionsInfo"] = packedSetting(42, confConsts.TYPE_STR, %d, isBlob=True)
+        # self.settings['ObfuscateSectionsInfo'] = packedSetting(42, confConsts.TYPE_STR, %d, isBlob=True)
         self.settings["bProcInject_StartRWX"] = packedSetting(43, confConsts.TYPE_SHORT, isBool=True, boolFalseValue=4)
         self.settings["bProcInject_UseRWX"] = packedSetting(44, confConsts.TYPE_SHORT, isBool=True, boolFalseValue=32)
         self.settings["bProcInject_MinAllocSize"] = packedSetting(45, confConsts.TYPE_INT)
@@ -306,7 +308,7 @@ class BeaconSettings:
         self.settings["ProcInject_AllocationMethod"] = packedSetting(52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
 
         # Unknown data, silencing for now
-        # self.settings["ProcInject_Stub"] = packedSetting(53, confConsts.TYPE_STR, 16, isBlob=True)
+        # self.settings['ProcInject_Stub'] = packedSetting(53, confConsts.TYPE_STR, 16, isBlob=True)
         self.settings["bUsesCookies"] = packedSetting(50, confConsts.TYPE_SHORT, isBool=True)
         self.settings["HostHeader"] = packedSetting(54, confConsts.TYPE_STR, 128)
 
@@ -319,7 +321,7 @@ class cobaltstrikeConfig:
 
     @staticmethod
     def decode_config(cfg_blob, version):
-        return bytes(cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob)
+        return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
         parsed_config = {}
@@ -402,11 +404,12 @@ class cobaltstrikeConfig:
         key_found = False
         while offset < len(data):
             key = data[offset : offset + 4]
-            if key != bytes(4) and data.count(key) >= THRESHOLD:
-                key_found = True
-                size = int.from_bytes(data[offset - 4 : offset], "little")
-                encrypted_data_offset = offset + 16 - (offset % 16)
-                break
+            if key != bytes(4):
+                if data.count(key) >= THRESHOLD:
+                    key_found = True
+                    size = int.from_bytes(data[offset - 4 : offset], "little")
+                    encrypted_data_offset = offset + 16 - (offset % 16)
+                    break
 
             offset += 4
 
@@ -414,9 +417,12 @@ class cobaltstrikeConfig:
             log.info("Failed to find encrypted data (try to lower the threshold constant)")
             return None
 
-        # decrypt and parse
+        ## decrypt and parse
         enc_data = data[encrypted_data_offset : encrypted_data_offset + size]
-        dec_data = [c ^ key[i % 4] for i, c in enumerate(enc_data)]
+        dec_data = []
+        for i, c in enumerate(enc_data):
+            dec_data.append(c ^ key[i % 4])
+
         dec_data = bytes(dec_data)
         return cobaltstrikeConfig(dec_data).parse_config(version, quiet, as_json)
 
@@ -438,7 +444,6 @@ if __name__ == "__main__":
     parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
     if args.json:
         print(json.dumps(parsed_config, cls=Base64Encoder))
-
 
 # CAPE
 def extract_config(data):

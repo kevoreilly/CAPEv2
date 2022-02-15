@@ -32,11 +32,11 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Lint with isort
-      uses: isort/isort-action@master
     - name: Lint with black
       uses: wearerequired/lint-action@v1
       with:
         black: true
         black_extensions: py,py_disabled
         auto_fix: true
+    - name: Lint with isort
+      uses: isort/isort-action@master

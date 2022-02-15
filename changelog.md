@@ -1,3 +1,8 @@
+### [15-2-2022]
+* Monitor updates:
+    * Do not call notify_successful_load() if tlsdump mode (avoid lsass being added to analyzer process list)
+    * Fix: ensure module (ntdll) is writeable before calling restore_hooks_on_range()
+
 ### [13-02-2022] PEEPDF
 * [peepdf](https://github.com/CAPESandbox/peepdf) isn't installed anymore by default, python3 version is pretty buggy, so if you want to fix it you are more than welcome!
 

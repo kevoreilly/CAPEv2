@@ -675,7 +675,7 @@ class File(object):
 
         if self.pe:
             # import PE and run it
-            infos["pe"]  = PortableExecutable.run(self.file_path).run()
+            infos["pe"] = PortableExecutable.run(self.file_path).run()
 
         return infos, self.pe
 

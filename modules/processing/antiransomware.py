@@ -116,7 +116,6 @@ do_not_skip = (
 class AntiRansomware(Processing):
     """Disable processing encrypted files."""
 
-
     def run(self):
         """Run analysis."""
         self.key = "antiransomware"

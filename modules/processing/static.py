@@ -14,6 +14,7 @@ from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
+
 # from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
@@ -43,11 +44,11 @@ class Static(Processing):
 
             # We extract PE data in targetinfo.py in File(X).get_all()
             if (
-                    static
-                    and self.results.get("target", {}).get("file", {}).get("pe")
-                    and "Mono" in File(self.file_path).get_content_type()
-                ):
-                    static.update(DotNETExecutable(self.file_path, self.results).run())
+                static
+                and self.results.get("target", {}).get("file", {}).get("pe")
+                and "Mono" in File(self.file_path).get_content_type()
+            ):
+                static.update(DotNETExecutable(self.file_path, self.results).run())
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):

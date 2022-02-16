@@ -1,3 +1,6 @@
+### [16-02-2022] Depricate static part 1
+* To be able to generate the same info as was generated for initial binary under static tab. We decided to depricate static module and make it reusable for any other files like dropped, downloaded, etc.
+
 ### [15-2-2022]
 * Monitor updates:
     * Do not call notify_successful_load() if tlsdump mode (avoid lsass being added to analyzer process list)

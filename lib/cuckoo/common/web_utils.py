@@ -15,7 +15,7 @@ import requests
 from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import HAVE_PEFILE, IsPEImage, pefile
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
 from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns

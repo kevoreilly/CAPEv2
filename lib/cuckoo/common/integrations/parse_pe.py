@@ -69,7 +69,7 @@ log = logging.getLogger(__name__)
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 # if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
-#from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+# from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 
 IMAGE_DOS_SIGNATURE = 0x5A4D
@@ -148,7 +148,6 @@ def IsPEImage(buf, size=False):
     # To pass the above tests it should now be safe to assume it's a PE image
 
     return True
-
 
 
 class PortableExecutable(object):
@@ -692,8 +691,8 @@ class PortableExecutable(object):
                                 entry = {}
                                 # entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
                                 # entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                                entry["name"] = list(var_entry.entry.keys())[0] #.decode("latin-1")
-                                entry["value"] = list(var_entry.entry.values())[0] #.decode("latin-1")
+                                entry["name"] = list(var_entry.entry.keys())[0]  # .decode("latin-1")
+                                entry["value"] = list(var_entry.entry.values())[0]  # .decode("latin-1")
                                 if entry["name"] == b"Translation" and len(entry["value"]) == 10:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 peresults.append(entry)
@@ -826,7 +825,7 @@ class PortableExecutable(object):
 
         return retlist
 
-    def get_guest_digital_signers(self, task_id: str=False):
+    def get_guest_digital_signers(self, task_id: str = False):
         retdata = {}
         cert_data = {}
         if not task_id:
@@ -904,7 +903,6 @@ class PortableExecutable(object):
         except Exception:
             return None
 
-
     def run(self, task_id: str = False):
         """Run analysis.
         @return: analysis results dict or None.
@@ -917,7 +915,6 @@ class PortableExecutable(object):
         with open(self.file_path, "rb") as f:
             if not IsPEImage(f.read()):
                 return {}
-
 
         pe = pefile.PE(self.file_path)
         peresults = {}

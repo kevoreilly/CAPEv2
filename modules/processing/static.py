@@ -43,8 +43,12 @@ class Static(Processing):
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 # we extract this in targetinfo.py in File(X).get_all()
-                #static["pe"] = PortableExecutable(self.file_path).run(str(self.results["info"]["id"]))
-                if static and  self.results.get("target", {}).get("file", {}).get("pe") and "Mono" in File(self.file_path).get_content_type():
+                # static["pe"] = PortableExecutable(self.file_path).run(str(self.results["info"]["id"]))
+                if (
+                    static
+                    and self.results.get("target", {}).get("file", {}).get("pe")
+                    and "Mono" in File(self.file_path).get_content_type()
+                ):
                     static.update(DotNETExecutable(self.file_path, self.results).run())
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()

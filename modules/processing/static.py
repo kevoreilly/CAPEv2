@@ -17,6 +17,7 @@ from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, File, PortableE
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 from lib.cuckoo.common.integrations.parse_wse import EncodedScriptFile, WindowsScriptFile
 
+
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 
 log = logging.getLogger(__name__)

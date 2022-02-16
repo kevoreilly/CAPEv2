@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 import json
 import logging
+import os
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -118,10 +119,12 @@ class AntiRansomware(Processing):
 
     def run(self):
         """Run analysis."""
-
+        self.key = "antiransomware"
         extensions = {}
         tmp_ext_list = {}
         self.results["ransom_exclude_files"] = []
+        if not os.path.exists(self.files_metadata):
+            return
         with open(self.files_metadata, "rb") as f:
             for line in f.readlines():
                 filename = json.loads(line).get("filepath", "")

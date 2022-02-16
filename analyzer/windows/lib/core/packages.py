@@ -71,7 +71,17 @@ def choose_package(file_type, file_name, exports, target):
         return "ps1"
     elif file_name.endswith((".msg", ".rpmsg")) or "rpmsg Restricted Permission Message" in file_type:
         return "msg"
-    elif file_name.endswith((".eml", ".ics")) or "vCalendar calendar" in file_type:
+    elif file_name.endswith((".eml", ".ics")) or (
+        "RFC 822 mail" in file_type
+        or "old news" in file_type
+        or "mail forwarding" in file_type
+        or "smtp mail" in file_type
+        or "news" in file_type
+        or "news or mail" in file_type
+        or "saved news" in file_type
+        or "MIME entity" in file_type
+        or "vCalendar calendar" in file_type
+    ):
         return "eml"
     elif file_name.endswith((".js", ".jse")):
         return "js"

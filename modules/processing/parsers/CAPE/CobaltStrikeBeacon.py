@@ -181,28 +181,28 @@ class packedSetting:
                 return ret_arr
 
             elif self.is_malleable_stream:
-                conf_data = []
+                prog = []
                 fh = io.BytesIO(conf_data)
                 op = read_dword_be(fh)
                 while op:
                     if op == 1:
                         bytes_len = read_dword_be(fh)
-                        conf_data.append(f"Remove {bytes_len} bytes from the end")
+                        prog.append(f"Remove {bytes_len} bytes from the end")
                     elif op == 2:
                         bytes_len = read_dword_be(fh)
-                        conf_data.append(f"Remove {bytes_len} bytes from the beginning")
+                        prog.append(f"Remove {bytes_len} bytes from the beginning")
                     elif op == 3:
-                        conf_data.append("Base64 decode")
+                        prog.append("Base64 decode")
                     elif op == 8:
-                        conf_data.append("NetBIOS decode 'a'")
+                        prog.append("NetBIOS decode 'a'")
                     elif op == 11:
-                        conf_data.append("NetBIOS decode 'A'")
+                        prog.append("NetBIOS decode 'A'")
                     elif op == 13:
-                        conf_data.append("Base64 URL-safe decode")
+                        prog.append("Base64 URL-safe decode")
                     elif op == 15:
-                        conf_data.append("XOR mask w/ random key")
+                        prog.append("XOR mask w/ random key")
                     op = read_dword_be(fh)
-
+                conf_data = prog
             else:
                 conf_data = conf_data.hex()
 
@@ -436,6 +436,8 @@ if __name__ == "__main__":
     with open(args.path, "rb") as f:
         data = f.read()
     parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
+    if parsed_config is None:
+        parsed_config = cobaltstrikeConfig(data).parse_encrypted_config(quiet=args.quiet, as_json=args.json)
     if args.json:
         print(json.dumps(parsed_config, cls=Base64Encoder))
 

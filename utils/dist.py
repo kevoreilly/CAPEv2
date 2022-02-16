@@ -225,7 +225,7 @@ def _delete_many(node, ids, nodes, db):
     try:
         url = os.path.join(nodes[node].url, "tasks", "delete_many/")
         apikey = nodes[node].apikey
-        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        log.debug("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
@@ -235,8 +235,6 @@ def _delete_many(node, ids, nodes, db):
         if res and res.status_code != 200:
             log.info("{} - {}".format(res.status_code, res.content))
             db.rollback()
-        else:
-            log.error(f"{res.status_code} - {res.text}")
 
     except Exception as e:
         log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
@@ -477,7 +475,7 @@ class Retriever(threading.Thread):
 
     def notification_loop(self):
         urls = reporting_conf.callback.url.split(",")
-        headers = {"x-api-key": reporting_conf.callback.key}
+        # headers = {"x-api-key": reporting_conf.callback.key}
 
         db = session()
         while True:
@@ -489,7 +487,8 @@ class Retriever(threading.Thread):
                     log.debug("reporting main_task_id: {}".format(task.main_task_id))
                     for url in urls:
                         try:
-                            res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(task.main_task_id)}))
+                            #  headers=headers,
+                            res = requests.post(url, data=json.dumps({"task_id": int(task.main_task_id)}))
                             if res and res.ok:
                                 # log.info(res.content)
                                 task.notificated = True
@@ -565,6 +564,7 @@ class Retriever(threading.Thread):
                         .first()
                     )
                     if tasker is None:
+                        # log.debug(f"Node ID: {node.id} - Task ID: {task['id']} - adding to cleaner")
                         self.cleaner_queue.put((node.id, task["id"]))
                         continue
                     try:
@@ -804,25 +804,25 @@ class Retriever(threading.Thread):
     def remove_from_worker(self):
         db = session()
         nodes = {}
-        details = {}
         for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).all():
             nodes.setdefault(node.id, node)
 
         while True:
-            node_id, task_id = self.cleaner_queue.get()
-            details[node_id] = []
-            details[node_id].append(str(task_id))
-            if task_id in self.t_is_none.get(node_id, []):
-                self.t_is_none[node_id].remove(task_id)
+            details = {}
+            for _ in range(self.cleaner_queue.qsize()):
+                node_id, task_id = self.cleaner_queue.get()
+                details.setdefault(node_id, []).append(str(task_id))
+                if task_id in self.t_is_none.get(node_id, []):
+                    self.t_is_none[node_id].remove(task_id)
 
-            node = nodes[node_id]
-            if node and details[node_id]:
-                ids = ",".join(list(set(details[node_id])))
-                _delete_many(node_id, ids, nodes, db)
+            for node_id in details:
+                node = nodes[node_id]
+                if node and details[node_id]:
+                    ids = ",".join(list(set(details[node_id])))
+                    _delete_many(node_id, ids, nodes, db)
 
             db.commit()
             time.sleep(20)
-        db.close()
 
 
 class StatusThread(threading.Thread):

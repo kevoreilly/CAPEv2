@@ -23,7 +23,8 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, IsPEImage
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, HAVE_PEFILE, IsPEImage, IMAGE_FILE_MACHINE_AMD64
+
 
 try:
     import magic
@@ -327,34 +328,6 @@ class File(object):
         except Exception:
             return None
 
-    def get_imagebase(self, pe):
-        """Get information on the Image Base
-        @return: image base or None.
-        """
-        try:
-            return f"0x{pe.OPTIONAL_HEADER.ImageBase:08x}"
-        except Exception:
-            return None
-
-    def get_entrypoint(self, pe):
-        """Get entry point (PE).
-        @return: entry point.
-        """
-
-        try:
-            return f"0x{pe.OPTIONAL_HEADER.ImageBase + pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}"
-        except Exception:
-            return None
-
-    def get_ep_bytes(self, pe):
-        """Get entry point bytes (PE).
-        @return: entry point bytes (16).
-        """
-        try:
-            return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10)).decode()
-        except Exception:
-            return None
-
     def get_content_type(self):
         """Get MIME content file type (example: image/jpeg).
         @return: file content type.
@@ -597,8 +570,7 @@ class File(object):
         infos["sha3_384"] = self.get_sha3_384()
 
         if self.pe:
-            # import PE and run it
-            infos["pe"] = PortableExecutable.run(self.file_path).run()
+            infos["pe"] = PortableExecutable(self.file_path).run()
 
         return infos, self.pe
 

@@ -23,8 +23,7 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, HAVE_PEFILE, IsPEImage, IMAGE_FILE_MACHINE_AMD64
-
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IMAGE_FILE_MACHINE_AMD64, IsPEImage, PortableExecutable
 
 try:
     import magic

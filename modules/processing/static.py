@@ -7,7 +7,6 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
@@ -18,7 +17,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 # from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
 from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
-
+from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 

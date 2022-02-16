@@ -8,6 +8,13 @@
         {% endif %}
         >
 
+        {% if source_url %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">File downloaded from</th>
+                <td style="border-top: 0; word-wrap: break-word;">{{source_url|escape}}</td>
+            </tr>
+            {% endif %}
+
         {% if file.cape_type %}
             <tr>
                 <th style="border-top: 0; width: 15%;">Type</th>

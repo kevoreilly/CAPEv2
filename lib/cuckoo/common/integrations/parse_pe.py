@@ -381,7 +381,8 @@ class PortableExecutable(object):
                 symbols = []
 
                 for imported_symbol in entry.imports:
-                    symbols.append({"address": hex(imported_symbol.address), "name": imported_symbol.name.decode("latin-1")})
+                    if imported_symbol.name and imported_symbol.address:
+                        symbols.append({"address": hex(imported_symbol.address), "name": imported_symbol.name.decode("latin-1")})
 
                 dll_name = entry.dll.decode("latin-1").split(".", 1)[0]
                 if dll_name in imports:

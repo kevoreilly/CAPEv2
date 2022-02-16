@@ -30,7 +30,7 @@
 
 {% if analysis.info.category != "pcap" %}
     {% if analysis.info.category in "file,static" and analysis.target %}
-        {% include "analysis/overview/_file.html" %}
+        {% include "analysis/generic/_file_info.html" %}
     {% elif analysis.info.category == "url" %}
         {% include "analysis/overview/_url.html" %}
     {% endif %}

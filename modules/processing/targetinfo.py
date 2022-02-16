@@ -23,7 +23,6 @@ class TargetInfo(Processing):
         # We have to deal with file or URL targets.
         if self.task["category"] in ("file", "static"):
             target_info["file"] = {}
-
             # Let's try to get as much information as possible, i.e., the
             # filename if the file is not available anymore.
             if os.path.exists(self.file_path):

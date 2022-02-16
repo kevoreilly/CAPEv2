@@ -13,7 +13,7 @@
                         {% if file.pe.pdbpath %} <th style="width: 15%;">PDB Path</th> {% endif %}
                         {% if file.pe.timestamp %} <th style="width: 10%;">Compile Time</th> {% endif %}
                         {% if file.pe.imphash %} <th style="width: 15%;">Import Hash</th> {% endif %}
-                        {% if file.pe.icon %} <th style="width: 15%;">Icon</th>{% endif %}
+                        {% if file.pe.icon %} <th style="width: 5%;">Icon</th>{% endif %}
                         {% if file.pe.icon_hash %} <th style="width: 15%;">Icon Exact Hash</th> {% endif %}
                         {% if file.pe.icon_fuzzy %} <th style="width: 15%;">Icon Similarity Hash</th> {% endif %}
                         {% if file.pe.icon_dhash %} <th style="width: 10%;">Icon DHash</th> {% endif %}
@@ -45,7 +45,7 @@
                             <td>{{file.pe.imphash}}</td>
                             {% endif %}
                             {% if file.pe.icon %}
-                            <td><img src="data:image/jpeg;base64,{{file.pe.icon}}" /></td>
+                            <td><img src="data:image/jpeg;base64,{{file.pe.icon}}" width="32" height="32" /></td>
                             {% endif %}
                             {% if file.pe.icon_hash %}
                             <td>{{file.pe.icon_hash}}</td>

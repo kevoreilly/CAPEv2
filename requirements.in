@@ -69,4 +69,4 @@ django-ratelimit==3.0.1
 psutil==5.8.0
 # theorically this is binGraph deps
 matplotlib==3.3.0
-numpy==1.21.0
+numpy==1.19.1

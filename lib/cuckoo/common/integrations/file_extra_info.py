@@ -49,6 +49,7 @@ except ImportError:
 processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 
+
 def static_info(infos: dict, file_path: str, task_id: str, package: str, options: str):
 
     if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in infos["type"] and package in ("doc", "ppt", "xls", "pub"):
@@ -78,6 +79,7 @@ def static_info(infos: dict, file_path: str, task_id: str, package: str, options
     #    infos["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
     #    infos["hwp"] = HwpDocument(file_path).run()
+
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
     """

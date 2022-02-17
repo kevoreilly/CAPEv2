@@ -273,12 +273,6 @@
             </tr>
             </br>
         {% endif %}
-        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
-            <tr>
-                <th></th>
-                <td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td>
-            </tr>
-        {% endif %}
         {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:sub_file.sha256 %}
             <tr><th></th>
                 <td>{{ graphs.vba2graph.content|getkey:sub_file.sha256|safe }}</td>
@@ -338,6 +332,10 @@
             </br>
         {% endif %}
     </table>
+    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
+        <center>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</center>
+        </hr>
+        {% endif %}
     {% if file.pe %}
             <tr>
                 <th></th><td>

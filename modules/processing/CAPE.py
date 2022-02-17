@@ -42,7 +42,7 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
-ssdeep_threshold = 90
+ssdeep_threshold = 95
 
 # CAPE output types
 # To correlate with cape\cape.h in monitor
@@ -340,15 +340,15 @@ class CAPE(Processing):
                 if HAVE_PYDEEP:
                     ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode(), cape_file["ssdeep"].encode())
                     if ssdeep_grade >= ssdeep_threshold:
+                        log.debug("CAPE duplicate output file skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold)
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
                     if (
-                        file_info.get("entrypoint")
-                        and file_info["entrypoint"] == cape_file["entrypoint"]
+                        file_info["entrypoint"] == cape_file["entrypoint"]
                         and file_info["cape_type_code"] == cape_file["cape_type_code"]
                         and file_info["ep_bytes"] == cape_file["ep_bytes"]
                     ):
-                        log.debug("CAPE duplicate output file skipped")
+                        log.debug("CAPE duplicate output file skipped: matching entrypoint")
                         append_file = False
 
         if append_file:

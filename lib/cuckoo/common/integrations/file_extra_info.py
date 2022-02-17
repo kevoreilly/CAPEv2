@@ -5,9 +5,17 @@ import shutil
 import subprocess
 import tempfile
 
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
+from lib.cuckoo.common.integrations.parse_java import Java
+from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
+from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
+# ToDo duplicates logging here
+from lib.cuckoo.common.integrations.parse_pdf import PDF
+from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
+
+# from lib.cuckoo.common.integrations.parse_elf import ELF
+from lib.cuckoo.common.sub_utils import get_options
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +44,36 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
+def static_info(infos: dict, file_path: str, task_id: str, package: str):
+
+    if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in infos["type"] and package in ("doc", "ppt", "xls", "pub"):
+        log.info("Missed dependencies: pip3 install oletools")
+
+    if HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
+        # options is dict where we need to get pass get_options
+        infos["office"] = Office(file_path, task_id, infos["sha256"], get_options(self.task["options"])).run()
+    elif "PDF" in infos["type"] or file_path.endswith(".pdf"):
+        infos["pdf"] = PDF(file_path).run()
+    elif package == "wsf" or infos["type"] == "XML document text" or file_path.endswith(".wsf") or package == "hta":
+        infos["wsf"] = WindowsScriptFile(file_path).run()
+    elif package == "js" or package == "vbs":
+        static = EncodedScriptFile(file_path).run()
+    elif package == "lnk":
+        static["lnk"] = LnkShortcut(file_path).run()
+    elif "Java Jar" in infos["type"] or file_path.endswith(".jar"):
+        decomp_jar = options.get("procyon_path")
+        if decomp_jar and not os.path.exists(decomp_jar):
+            log.error("procyon_path specified in processing.conf but the file does not exist")
+        infos["java"] = Java(file_path, decomp_jar).run()
+
+    # It's possible to fool libmagic into thinking our 2007+ file is a zip.
+    # So until we have static analysis for zip files, we can use oleid to fail us out silently,
+    # yeilding no static analysis results for actual zip files.
+    # elif file_path.endswith(".elf") or "ELF" in thetype:
+    #    infos["elf"] = ELF(file_path).run()
+    #    infos["keys"] = f.get_keys()
+    # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
+    #    infos["hwp"] = HwpDocument(file_path).run()
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
     """

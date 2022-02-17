@@ -473,7 +473,7 @@ class CAPE_PlugX(Signature):
     description = "Behavioural detection: PlugX"
     severity = 3
     categories = ["chinese", "malware"]
-    families = ["plugx"]
+    families = ["PlugX"]
     authors = ["kevoreilly"]
     minimum = "1.3"
     evented = True

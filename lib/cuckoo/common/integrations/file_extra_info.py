@@ -5,17 +5,18 @@ import shutil
 import subprocess
 import tempfile
 
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import is_text_file
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
+
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
+from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.sub_utils import get_options
+from lib.cuckoo.common.utils import is_text_file
 
 log = logging.getLogger(__name__)
 

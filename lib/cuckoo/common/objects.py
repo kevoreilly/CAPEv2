@@ -23,10 +23,8 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IMAGE_FILE_MACHINE_AMD64, IsPEImage, PortableExecutable
-
 
 try:
     import magic

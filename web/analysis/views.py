@@ -132,7 +132,7 @@ for cfile in ["reporting", "processing", "auxiliary", "web"]:
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update
+    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update_one
 
 es_as_db = False
 essearch = False
@@ -2018,7 +2018,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            mongo_update("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True)
+            mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -2193,7 +2193,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         if service == "virustotal" and category == "static":
             category = "virustotal"
 
-        mongo_update("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
 
     return redirect("report", task_id=task_id)

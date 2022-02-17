@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from subprocess import PIPE, Popen
 
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.sub_utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
@@ -15,9 +15,8 @@ log = logging.getLogger(__name__)
 class DotNETExecutable(object):
     """.NET analysis"""
 
-    def __init__(self, file_path, results):
+    def __init__(self, file_path):
         self.file_path = file_path
-        self.results = results
 
     def add_statistic(self, name, field, value):
         self.results["statistics"]["processing"].append(

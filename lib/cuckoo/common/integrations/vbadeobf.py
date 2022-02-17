@@ -7,7 +7,7 @@ import string
 from binascii import unhexlify
 from itertools import chain, repeat
 
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.sub_utils import convert_to_printable
 
 try:
     import re2 as re

@@ -23,7 +23,18 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
+from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
+from lib.cuckoo.common.integrations.parse_java import Java
+from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
+from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
+
+# ToDo generates duplicated logging here
+from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IMAGE_FILE_MACHINE_AMD64, IsPEImage, PortableExecutable
+from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
+
+# from lib.cuckoo.common.integrations.parse_elf import ELF
+from lib.cuckoo.common.sub_utils import get_options
 
 try:
     import magic
@@ -544,7 +555,7 @@ class File(object):
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
-    def get_all(self):
+    def get_all(self, package: str = False, task_id: int = False, options: str = False):
         """Get all information available.
         @return: information dict.
         """
@@ -570,7 +581,38 @@ class File(object):
 
         if self.pe:
             infos["pe"] = PortableExecutable(self.file_path).run()
+            if "Mono" in infos["type"]:
+                infos["pe"].update(DotNETExecutable(self.file_path).run())
+        """
+        if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in infos["type"] and package in ("doc", "ppt", "xls", "pub"):
+            log.info("Missed dependencies: pip3 install oletools")
 
+
+        if HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
+            # options is dict where we need to get pass get_options
+            infos["office"] = Office(self.file_path, task_id, infos["sha256"], get_options(self.task["options"])).run()
+        elif "PDF" in infos["type"] or self.file_path.endswith(".pdf"):
+            infos["pdf"] = PDF(self.file_path).run()
+        elif package == "wsf" or infos["type"] == "XML document text" or self.file_path.endswith(".wsf") or package == "hta":
+            static = WindowsScriptFile(self.file_path).run()
+        elif package == "js" or package == "vbs":
+            static = EncodedScriptFile(self.file_path).run()
+        elif package == "lnk":
+            static["lnk"] = LnkShortcut(self.file_path).run()
+        elif "Java Jar" in infos["type"] or self.task["target"].endswith(".jar"):
+            decomp_jar = self.options.get("procyon_path")
+            if decomp_jar and not os.path.exists(decomp_jar):
+                log.error("procyon_path specified in processing.conf but the file does not exist")
+            static = Java(self.file_path, decomp_jar).run()
+        """
+        # It's possible to fool libmagic into thinking our 2007+ file is a zip.
+        # So until we have static analysis for zip files, we can use oleid to fail us out silently,
+        # yeilding no static analysis results for actual zip files.
+        # elif self.file_path.endswith(".elf") or "ELF" in thetype:
+        #    infos["elf"] = ELF(self.file_path).run()
+        #    infos["keys"] = f.get_keys()
+        # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
+        #    infos["hwp"] = HwpDocument(self.file_path).run()
         return infos, self.pe
 
 

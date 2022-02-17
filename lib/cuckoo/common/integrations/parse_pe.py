@@ -852,7 +852,7 @@ class PortableExecutable(object):
         return retdata
 
     def get_dll_exports(self):
-        file_type = self.get_type()
+        file_type = self._get_filetype(self.file_data)
         if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
             try:
                 pe = pefile.PE(self.file_path)

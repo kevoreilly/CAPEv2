@@ -340,7 +340,9 @@ class CAPE(Processing):
                 if HAVE_PYDEEP:
                     ssdeep_grade = pydeep.compare(file_info["ssdeep"].encode(), cape_file["ssdeep"].encode())
                     if ssdeep_grade >= ssdeep_threshold:
-                        log.debug("CAPE duplicate output file skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold)
+                        log.debug(
+                            "CAPE duplicate output file skipped: ssdeep grade %d, threshold %d", ssdeep_grade, ssdeep_threshold
+                        )
                         append_file = False
                 if file_info.get("entrypoint") and file_info.get("ep_bytes") and cape_file.get("entrypoint"):
                     if (

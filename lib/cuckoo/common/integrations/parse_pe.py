@@ -156,8 +156,15 @@ class PortableExecutable(object):
     def __init__(self, file_path):
         """@param file_path: file path."""
         self.file_path = file_path
+        self._file_data = None
         # pe = None
         # self.results = results
+
+    @property
+    def file_data(self):
+        if not self._file_data:
+            self._file_data = open(self.file_path, "rb").read()
+        return self._file_data
 
     def add_statistic(self, name, field, value):
         self.results["statistics"]["processing"].append({"name": name, field: value})

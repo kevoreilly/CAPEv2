@@ -74,10 +74,8 @@ class _BaseConfig:
                 if name.startswith("env:"):
                     continue
                 try:
-                    # Ugly fix to avoid '0' and '1' to be parsed as a
-                    # boolean value.
-                    # We raise an exception to goto fail^w parse it
-                    # as integer.
+                    # Ugly fix to avoid '0' and '1' to be parsed as a boolean value.
+                    # We raise an exception to goto fail^w parse it as integer.
                     if config.get(section, name) in ["0", "1"]:
                         raise ValueError
 

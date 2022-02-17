@@ -9,8 +9,7 @@ import os
 import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-
-# from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.sub_utils import convert_to_printable
 
 try:
@@ -254,9 +253,8 @@ class Office(object):
                         with open(macro_file, "w") as f:
                             f.write(convert_to_printable(vba_code))
                         macrores["info"][outputname] = {}
-                        # ToDo
-                        # macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                        # macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                        macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
                         suspicious = detect_suspicious(vba_code)
                         iocs = False

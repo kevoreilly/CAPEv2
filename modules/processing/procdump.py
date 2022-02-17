@@ -8,8 +8,9 @@ import os
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, generic_file_extractors
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.integrations.file_extra_info import generic_file_extractors
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 

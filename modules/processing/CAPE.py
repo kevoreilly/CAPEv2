@@ -22,9 +22,10 @@ import shutil
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import BUFSIZE, generic_file_extractors, pe_map, plugx_parser, static_config_parsers, upx_harness
+from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, plugx_parser, static_config_parsers, upx_harness
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.integrations.file_extra_info import generic_file_extractors
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
 

@@ -7,7 +7,7 @@ import json
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.integrations.file_extra_info import generic_file_extractors
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
 

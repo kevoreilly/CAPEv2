@@ -1,9 +1,10 @@
+import hashlib
+import logging
 import os
 import shutil
-import logging
-import tempfile
-import hashlib
 import subprocess
+import tempfile
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file

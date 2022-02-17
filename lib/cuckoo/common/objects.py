@@ -11,7 +11,6 @@ import mmap
 import os
 import struct
 import subprocess
-import time
 
 from lib.cuckoo.common.defines import (
     PAGE_EXECUTE,
@@ -24,6 +23,7 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IMAGE_FILE_MACHINE_AMD64, IsPEImage, PortableExecutable
 
 try:
     import magic
@@ -127,83 +127,6 @@ yara_error = {
     "48": "ERROR_INVALID_EXTERNAL_VARIABLE_TYPE",
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
-
-IMAGE_DOS_SIGNATURE = 0x5A4D
-IMAGE_NT_SIGNATURE = 0x00004550
-OPTIONAL_HEADER_MAGIC_PE = 0x10B
-OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20B
-IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
-IMAGE_FILE_MACHINE_I386 = 0x014C
-IMAGE_FILE_MACHINE_AMD64 = 0x8664
-DOS_HEADER_LIMIT = 0x40
-PE_HEADER_LIMIT = 0x200
-
-
-def IsPEImage(buf, size=False):
-    if not buf:
-        return False
-    if not size:
-        size = len(buf)
-    if size < DOS_HEADER_LIMIT:
-        return False
-    if isinstance(buf, str):
-        buf = buf.encode()
-    dos_header = buf[:DOS_HEADER_LIMIT]
-    nt_headers = None
-
-    if size < PE_HEADER_LIMIT:
-        return False
-
-    # Check for sane value in e_lfanew
-    (e_lfanew,) = struct.unpack("<L", dos_header[60:64])
-    if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
-        offset = 0
-        while offset < PE_HEADER_LIMIT - 86:
-            # ToDo
-            try:
-                machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
-            except struct.error:
-                machine_probe = ""
-            if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
-                nt_headers = buf[offset - 4 : offset + 252]
-                break
-            offset += 2
-    else:
-        nt_headers = buf[e_lfanew : e_lfanew + 256]
-
-    if not nt_headers:
-        return False
-
-    try:
-        # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-        if (
-            struct.unpack("<H", nt_headers[4:6]) == 0
-            or struct.unpack("<H", nt_headers[20:22]) == 0
-            or struct.unpack("<H", nt_headers[84:86]) == 0
-        ):
-            return False
-
-        # if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
-        if (struct.unpack("<H", nt_headers[22:24])[0] & IMAGE_FILE_EXECUTABLE_IMAGE) == 0:
-            return False
-
-        # if (pNtHeader->FileHeader.SizeOfOptionalHeader & (sizeof (ULONG_PTR) - 1))
-        if struct.unpack("<H", nt_headers[20:22])[0] & 3 != 0:
-            return False
-
-        # if ((pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC) && (pNtHeader->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC))
-        if (
-            struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE
-            and struct.unpack("<H", nt_headers[24:26])[0] != OPTIONAL_HEADER_MAGIC_PE_PLUS
-        ):
-            return False
-
-    except struct.error:
-        return False
-
-    # To pass the above tests it should now be safe to assume it's a PE image
-
-    return True
 
 
 class Dictionary(dict):
@@ -404,25 +327,6 @@ class File(object):
         except Exception:
             return None
 
-    def get_entrypoint(self, pe):
-        """Get entry point (PE).
-        @return: entry point.
-        """
-
-        try:
-            return pe.OPTIONAL_HEADER.AddressOfEntryPoint
-        except Exception:
-            return None
-
-    def get_ep_bytes(self, pe):
-        """Get entry point bytes (PE).
-        @return: entry point bytes (16).
-        """
-        try:
-            return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10)).decode()
-        except Exception:
-            return None
-
     def get_content_type(self):
         """Get MIME content file type (example: image/jpeg).
         @return: file content type.
@@ -595,31 +499,6 @@ class File(object):
         else:
             return False
 
-    def get_dll_exports(self):
-        file_type = self.get_type()
-        if HAVE_PEFILE and ("PE32" in file_type or "MS-DOS executable" in file_type):
-            try:
-                pe = pefile.PE(self.file_path)
-                if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
-                    exports = []
-                    for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                        try:
-                            if not exported_symbol.name:
-                                continue
-                            if isinstance(exported_symbol.name, bytes):
-                                exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode())
-                            else:
-                                exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
-                        except Exception as e:
-                            log.error(e, exc_info=True)
-
-                    return ",".join(exports)
-            except Exception as e:
-                log.error("PE type not recognised")
-                log.error(e, exc_info=True)
-
-        return ""
-
     def get_rh_hash(self):
         if not self.pe:
             return None
@@ -690,9 +569,7 @@ class File(object):
         infos["sha3_384"] = self.get_sha3_384()
 
         if self.pe:
-            infos["entrypoint"] = self.get_entrypoint(self.pe)
-            infos["ep_bytes"] = self.get_ep_bytes(self.pe)
-            infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(self.pe.FILE_HEADER.TimeDateStamp))
+            infos["pe"] = PortableExecutable(self.file_path).run()
 
         return infos, self.pe
 

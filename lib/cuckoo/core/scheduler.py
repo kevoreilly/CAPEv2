@@ -20,6 +20,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooNetworkError,
     CuckooOperationalError,
 )
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path
 from lib.cuckoo.core.database import TASK_COMPLETED, Database
@@ -238,7 +239,7 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = file_obj.get_dll_exports()
+            options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
             del file_obj
 
         # options from auxiliar.conf

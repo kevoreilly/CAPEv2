@@ -22,6 +22,8 @@ from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyEr
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
+# from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+
 try:
     from sqlalchemy import (
         Boolean,
@@ -1549,7 +1551,7 @@ class Database(object, metaclass=Singleton):
                     del f
                     """
                     if package == "dll" and "function" not in options:
-                        dll_exports = File(file).get_dll_exports()
+                        dll_exports = PortableExecutable(file).get_dll_exports()
                         if "DllRegisterServer" in dll_exports:
                             package = "regsvr"
                         elif "xlAutoOpen" in dll_exports:

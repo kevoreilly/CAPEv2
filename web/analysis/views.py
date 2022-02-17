@@ -1411,6 +1411,12 @@ def report(request, task_id):
         "analysis/report.html",
         {
             "analysis": report,
+            # ToDo test
+            "file": report.get("target", {}).get("file", {}),
+            "id": report["info"]["id"],
+            "tab_name": "static",
+            "source_url": report["info"].get("source_url", ""),
+            # till here
             "children": children,
             "domainlookups": domainlookups,
             "iplookups": iplookups,

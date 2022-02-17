@@ -14,9 +14,7 @@
     <div class="tab-content">
         {% if analysis.info.category in "file,static" %}
         <div class="tab-pane fade show active" id="static_analysis_tab">
-            {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
-                {% include "analysis/static/_pe32.html" %}
-            {% elif analysis.info.package == "pdf" %}
+            {% if analysis.info.package == "pdf" %}
                 {% include "analysis/static/_pdf.html" %}
             {% elif analysis.target.file.type == "XML document text" or analysis.info.package == "wsf" or analysis.info.package == "hta" %}
                 {% include "analysis/static/_script.html" %}

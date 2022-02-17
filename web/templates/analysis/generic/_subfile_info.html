@@ -194,7 +194,11 @@
         </tr>
         {% else %}
         <tr>
-            <th></th>
+            <th>
+                {% if file.pe %}
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>
+                {% endif %}
+            </th>
             <td>
                 {% if not config.zipped_download %}
                     <a href="{% url "file" tab_name id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
@@ -334,4 +338,18 @@
             </br>
         {% endif %}
     </table>
+    {% if file.pe %}
+            <tr>
+                <th></th><td>
+                <div class="collapse" id="pe_{{file.sha256}}">
+                    <div class="card card-body">
+                        {% for pe in file.pe %}
+                            {% include "analysis/generic/_pe.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </td>
+            </tr>
+            </br>
+        {% endif %}
 </div>

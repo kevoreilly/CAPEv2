@@ -62,6 +62,7 @@ class AnalysisInfo(Processing):
         @return: information dict.
         """
         self.key = "info"
+        self.order = 1
 
         try:
             started = time.strptime(self.task["started_on"], "%Y-%m-%d %H:%M:%S")

@@ -78,11 +78,8 @@ def load_mwcp_parsers():
         import mwcp
 
         logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-        mwcp.register_parser_directory(
-            os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        _malware_parsers = {
-            block.name.rsplit(".", 1)[-1]: block.name
-            for block in mwcp.get_parser_descriptions(config_only=False)}
+        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
+        _malware_parsers = {block.name.rsplit(".", 1)[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
         assert "MWCP_TEST" in _malware_parsers
         return _malware_parsers, mwcp
     except ImportError as e:
@@ -104,8 +101,7 @@ def load_malwareconfig_parsers():
         if process_cfg.ratdecoders.modules_path:
             from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
 
-            ratdecoders_local_modules = ratdecodedr_load_decoders(
-                [os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
+            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
             assert "TestRats" in __decoders__

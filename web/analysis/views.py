@@ -1295,7 +1295,7 @@ def report(request, task_id):
                     [
                         {"$match": {"info.id": int(task_id)}},
                         {"$project": {"_id": 0, "procmemory_size": {"$size": {"$ifNull": ["$procmemory.path", []]}}}},
-                    ]
+                    ],
                 )
             )[0]["procmemory_size"]
         except Exception:

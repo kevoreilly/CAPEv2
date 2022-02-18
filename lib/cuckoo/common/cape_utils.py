@@ -19,7 +19,6 @@ try:
 except ImportError:
     HAVE_YARA = False
 
-malware_parsers = {}
 cape_malware_parsers = {}
 
 # Config variables
@@ -70,38 +69,55 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-HAS_MWCP = False
-if process_cfg.mwcp.enabled:
+
+def load_mwcp_parsers():
+    if not process_cfg.mwcp.enabled:
+        return {}
     # Import All config parsers
     try:
         import mwcp
 
         logging.getLogger("mwcp").setLevel(logging.CRITICAL)
-        mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
-        malware_parsers = {block.name.rsplit(".", 1)[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
-        HAS_MWCP = True
-        assert "MWCP_TEST" in malware_parsers
+        mwcp.register_parser_directory(
+            os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
+        _malware_parsers = {
+            block.name.rsplit(".", 1)[-1]: block.name
+            for block in mwcp.get_parser_descriptions(config_only=False)}
+        assert "MWCP_TEST" in _malware_parsers
+        return _malware_parsers
     except ImportError as e:
-        logging.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: %s", e)
+        logging.info("Missed MWCP -> pip3 install mwcp\nDetails: %s", e)
+        return {}
 
-HAS_MALWARECONFIGS = False
-if process_cfg.ratdecoders.enabled:
+
+malware_parsers = load_mwcp_parsers()
+HAS_MWCP = bool(malware_parsers)
+
+
+def load_malwareconfig_parsers():
+    if not process_cfg.ratdecoders.enabled:
+        return False
     try:
         from malwareconfig import fileparser
         from malwareconfig.modules import __decoders__
 
-        HAS_MALWARECONFIGS = True
         if process_cfg.ratdecoders.modules_path:
             from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
 
-            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
+            ratdecoders_local_modules = ratdecodedr_load_decoders(
+                [os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
             assert "TestRats" in __decoders__
+        return True
     except ImportError:
-        logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
+        logging.info("Missed RATDecoders -> pip3 install malwareconfig")
     except Exception as e:
         logging.error(e, exc_info=True)
+    return False
+
+
+HAS_MALWARECONFIGS = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:

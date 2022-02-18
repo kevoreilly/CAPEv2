@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from subprocess import PIPE, Popen
 
-from lib.cuckoo.common.sub_utils import convert_to_printable
+from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 

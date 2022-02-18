@@ -16,8 +16,7 @@ from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsS
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
-from lib.cuckoo.common.sub_utils import get_options
-from lib.cuckoo.common.utils import is_text_file
+from lib.cuckoo.common.utils import get_options, is_text_file
 
 log = logging.getLogger(__name__)
 

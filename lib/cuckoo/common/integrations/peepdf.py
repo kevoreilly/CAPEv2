@@ -4,7 +4,7 @@
 
 import logging
 
-from lib.cuckoo.common.sub_utils import convert_to_printable
+from lib.cuckoo.common.utils import convert_to_printable
 
 try:
     import v8py

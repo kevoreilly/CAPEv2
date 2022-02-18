@@ -33,9 +33,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-# backward compatibility
-from lib.cuckoo.common.sub_utils import PRINTABLE_CHARACTERS, bytes2str, convert_char, convert_to_printable, is_printable
-
 try:
     import re2 as re
 except ImportError:
@@ -279,7 +276,7 @@ def delete_folder(folder):
 
 FILENAME_CHARACTERS = string.ascii_letters + string.digits + string.punctuation.replace("/", "") + " "
 
-'''
+
 def convert_char(c):
     """Escapes characters.
     @param c: dirty char.
@@ -301,6 +298,7 @@ def is_printable(s):
         if c not in PRINTABLE_CHARACTERS:
             return False
     return True
+
 
 def bytes2str(convert):
     """Converts bytes to string
@@ -369,7 +367,6 @@ def convert_to_printable(s: str, cache=None):
     elif not s in cache:
         cache[s] = "".join(convert_char(c) for c in s)
     return cache[s]
-'''
 
 
 def convert_filename_char(c):
@@ -1000,6 +997,20 @@ class SuperLock(object):
     def __exit__(self, type, value, traceback):
         self.mlock.release()
         self.tlock.release()
+
+
+def get_options(optstring):
+    """Get analysis options.
+    @return: options dict.
+    """
+    # The analysis package can be provided with some options in the following format:
+    #   option1=value1,option2=value2,option3=value3
+    #
+    # Here we parse such options and provide a dictionary that will be made accessible to the analysis package.
+    if not optstring:
+        return {}
+
+    return dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
 
 
 # get iface ip

@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
@@ -14,7 +15,7 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
-from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
+from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
 from lib.cuckoo.common.objects import File
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -49,7 +50,7 @@ except ImportError:
 
 processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
-
+unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
 
@@ -131,7 +132,7 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract):
+    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract, UnAutoIt_extract):
         try:
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
@@ -261,3 +262,31 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "Kixtart")
+
+def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
+
+    if not os.path.exists(unautoit_bin):
+        log.error(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+        return
+
+    if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
+        return
+
+    metadata = list()
+
+    with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
+        try:
+            output = subprocess.check_output([unautoit_bin, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
+            if output:
+                files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir]
+                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")

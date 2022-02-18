@@ -13,7 +13,7 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, HAVE_PEFILE
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
 from lib.cuckoo.common.objects import File
 

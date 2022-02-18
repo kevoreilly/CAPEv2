@@ -166,23 +166,6 @@ class PortableExecutable(object):
             self._file_data = open(self.file_path, "rb").read()
         return self._file_data
 
-    def add_statistic(self, name, field, value):
-        self.results["statistics"]["processing"].append({"name": name, field: value})
-
-    def add_statistic_tmp(self, name, field, pretime):
-        posttime = datetime.now()
-        timediff = posttime - pretime
-        value = float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}")
-
-        if name not in self.results["temp_processing_stats"]:
-            self.results["temp_processing_stats"][name] = {}
-
-        # To be able to add yara/capa and others time summary over all processing modules
-        if field in self.results["temp_processing_stats"][name]:
-            self.results["temp_processing_stats"][name][field] += value
-        else:
-            self.results["temp_processing_stats"][name][field] = value
-
     # Obtained from
     # https://github.com/erocarrera/pefile/blob/master/pefile.py
     # Copyright Ero Carrera and released under the MIT License:
@@ -955,13 +938,10 @@ class PortableExecutable(object):
         peresults["timestamp"] = self.get_timestamp(pe)
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len(peresults["imports"].keys())
-        """
+
         if HAVE_FLARE_CAPA:
-            pretime = datetime.now()
             capa_details = flare_capa_details(self.file_path, "static")
             if capa_details:
-                results["flare_capa"] = capa_details
-            self.add_statistic_tmp("flare_capa", "time", pretime)
-        """
+                peresults["flare_capa"] = capa_details
         del pe
         return peresults

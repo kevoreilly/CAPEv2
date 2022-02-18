@@ -4,7 +4,6 @@
 
 import logging
 import os
-from datetime import datetime
 from subprocess import PIPE, Popen
 
 from lib.cuckoo.common.utils import convert_to_printable
@@ -17,14 +16,6 @@ class DotNETExecutable(object):
 
     def __init__(self, file_path):
         self.file_path = file_path
-
-    def add_statistic(self, name, field, value):
-        self.results["statistics"]["processing"].append(
-            {
-                "name": name,
-                field: value,
-            }
-        )
 
     def _get_custom_attrs(self):
         try:
@@ -140,14 +131,10 @@ class DotNETExecutable(object):
         results = {}
 
         try:
-            pretime = datetime.now()
             results["typerefs"] = self._get_type_refs()
             results["assemblyrefs"] = self._get_assembly_refs()
             results["assemblyinfo"] = self._get_assembly_info()
             results["customattrs"] = self._get_custom_attrs()
-            posttime = datetime.now()
-            timediff = posttime - pretime
-            self.add_statistic("static_dotnet", "time", float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"))
             return results
         except Exception as e:
             log.error(e, exc_info=True)

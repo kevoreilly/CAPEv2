@@ -561,7 +561,7 @@ class File(object):
         infos["sha512"] = self.get_sha512()
         infos["rh_hash"] = self.get_rh_hash()
         infos["ssdeep"] = self.get_ssdeep()
-        infos["type"] = self.get_type()
+        infos["type"] = self.get_content_type()
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()

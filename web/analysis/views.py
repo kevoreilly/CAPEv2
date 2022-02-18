@@ -1566,7 +1566,7 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
-    elif category == "pcap":
+    elif category in ("pcap", "pcapzip"):
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
@@ -1616,7 +1616,7 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
             if mem_zip:
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)

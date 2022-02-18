@@ -2,6 +2,7 @@
 
     <div class="alert alert-primary center">
         <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
+        <a class="btn btn-secondary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
         {% if tlskeys_exists %}
             <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
         {% endif %}

@@ -72,7 +72,7 @@ except ImportError:
 
 def load_mwcp_parsers():
     if not process_cfg.mwcp.enabled:
-        return {}
+        return {}, False
     # Import All config parsers
     try:
         import mwcp
@@ -96,7 +96,7 @@ HAS_MWCP = bool(malware_parsers)
 
 def load_malwareconfig_parsers():
     if not process_cfg.ratdecoders.enabled:
-        return False
+        return False, False, False
     try:
         from malwareconfig import fileparser
         from malwareconfig.modules import __decoders__
@@ -109,15 +109,15 @@ def load_malwareconfig_parsers():
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
             assert "TestRats" in __decoders__
-        return True
+        return True, __decoders__, fileparser
     except ImportError:
         logging.info("Missed RATDecoders -> pip3 install malwareconfig")
     except Exception as e:
         logging.error(e, exc_info=True)
-    return False
+    return False, False, False
 
 
-HAS_MALWARECONFIGS = load_malwareconfig_parsers()
+HAS_MALWARECONFIGS, __decoders__, fileparser = load_malwareconfig_parsers()
 
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:

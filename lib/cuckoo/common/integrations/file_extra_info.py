@@ -53,7 +53,11 @@ decomp_jar = processing_conf.static.procyon_path
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
 
-    if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in data_dictionary["type"] and package in ("doc", "ppt", "xls", "pub"):
+    if (
+        not HAVE_OLETOOLS
+        and "Zip archive data, at least v2.0" in data_dictionary["type"]
+        and package in ("doc", "ppt", "xls", "pub")
+    ):
         log.info("Missed dependencies: pip3 install oletools")
 
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
@@ -85,11 +89,11 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
-
     with open(file_path, "rb") as f:
         is_text_file(data_dictionary, file_path, 8192, f.read())
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
+
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
     """

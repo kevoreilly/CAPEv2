@@ -48,7 +48,14 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
                 # ToDo should we pass PE object?
-                static_file_info(file_info, file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.dropped_path)
+                static_file_info(
+                    file_info,
+                    file_path,
+                    self.task["id"],
+                    self.task.get("package", ""),
+                    self.task.get("options", ""),
+                    self.dropped_path,
+                )
 
                 file_info.update(meta.get(file_info["path"][0], {}))
                 if file_path in meta:
@@ -82,7 +89,14 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-                static_file_info(file_info, file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.dropped_path)
+                static_file_info(
+                    file_info,
+                    file_path,
+                    self.task["id"],
+                    self.task.get("package", ""),
+                    self.task.get("options", ""),
+                    self.dropped_path,
+                )
 
                 dropped_files.append(file_info)
 

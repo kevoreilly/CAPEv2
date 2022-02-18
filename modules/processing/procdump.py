@@ -111,7 +111,9 @@ class ProcDump(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime)
 
             # should we use dropped path here?
-            static_file_info(file_info, file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.dropped_path)
+            static_file_info(
+                file_info, file_path, self.task["id"], self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
+            )
 
             procdump_files.append(file_info)
 

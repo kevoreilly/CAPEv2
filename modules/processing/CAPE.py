@@ -146,7 +146,9 @@ class CAPE(Processing):
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
         # should we use dropped path here?
-        static_file_info(file_info, file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.dropped_path)
+        static_file_info(
+            file_info, file_path, self.task["id"], self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
+        )
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:

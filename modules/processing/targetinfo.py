@@ -13,6 +13,7 @@ from lib.cuckoo.common.objects import File
 
 processing_conf = Config("processing")
 
+
 class TargetInfo(Processing):
     """General information about a file."""
 
@@ -32,7 +33,14 @@ class TargetInfo(Processing):
                 if pefile_object:
                     self.results.setdefault("pefiles", {}).setdefault(target_info["file"]["sha256"], pefile_object)
 
-                static_file_info(target_info["file"], self.file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.analysis_path)
+                static_file_info(
+                    target_info["file"],
+                    self.file_path,
+                    self.task["id"],
+                    self.task.get("package", ""),
+                    self.task.get("options", ""),
+                    self.analysis_path,
+                )
 
             target_info["file"]["name"] = File(self.task["target"]).get_name()
         elif self.task["category"] == "url":

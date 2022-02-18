@@ -25,9 +25,8 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, plugx_parser, static_config_parsers, upx_harness
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.integrations.file_extra_info import generic_file_extractors
+from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import is_text_file
 
 try:
     import pydeep
@@ -146,14 +145,12 @@ class CAPE(Processing):
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-        # Allows to put execute file extractors/unpackers
-        generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
+        # should we use dropped path here?
+        static_file_info(file_info, file_path, self.task["id"], self.task.get("package", ""),  self.task.get("options", ""), self.dropped_path)
 
         # Get the file data
         with open(file_info["path"], "rb") as file_open:
             file_data = file_open.read()
-
-        is_text_file(file_info, self.CAPE_path, buf, file_data)
 
         if metadata.get("pids", False):
             if len(metadata["pids"]) == 1:

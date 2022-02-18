@@ -51,40 +51,45 @@ processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 
 
-def static_info(infos: dict, file_path: str, task_id: str, package: str, options: str):
+def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
 
-    if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in infos["type"] and package in ("doc", "ppt", "xls", "pub"):
+    if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in data_dictionary["type"] and package in ("doc", "ppt", "xls", "pub"):
         log.info("Missed dependencies: pip3 install oletools")
 
-    if HAVE_PEFILE and ("PE32" in infos["type"] or "MS-DOS executable" in infos["type"]):
-        infos["pe"] = PortableExecutable(file_path).run()
-        if "Mono" in infos["type"]:
-            infos["dotnet"] = DotNETExecutable(file_path).run()
+    if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
+        data_dictionary["pe"] = PortableExecutable(file_path).run()
+        if "Mono" in data_dictionary["type"]:
+            data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
         # options is dict where we need to get pass get_options
-        infos["office"] = Office(file_path, task_id, infos["sha256"], get_options(options)).run()
-    elif "PDF" in infos["type"] or file_path.endswith(".pdf"):
-        infos["pdf"] = PDF(file_path).run()
-    elif package == "wsf" or infos["type"] == "XML document text" or file_path.endswith(".wsf") or package == "hta":
-        infos["wsf"] = WindowsScriptFile(file_path).run()
+        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], get_options(options)).run()
+    elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
+        data_dictionary["pdf"] = PDF(file_path).run()
+    elif package == "wsf" or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf") or package == "hta":
+        data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     elif package == "js" or package == "vbs":
         static = EncodedScriptFile(file_path).run()
     elif package == "lnk":
         static["lnk"] = LnkShortcut(file_path).run()
-    elif "Java Jar" in infos["type"] or file_path.endswith(".jar"):
+    elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if decomp_jar and not os.path.exists(decomp_jar):
             log.error("procyon_path specified in processing.conf but the file does not exist")
-        infos["java"] = Java(file_path, decomp_jar).run()
+        data_dictionary["java"] = Java(file_path, decomp_jar).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
     # elif file_path.endswith(".elf") or "ELF" in thetype:
-    #    infos["elf"] = ELF(file_path).run()
-    #    infos["keys"] = f.get_keys()
+    #    data_dictionary["elf"] = ELF(file_path).run()
+    #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
-    #    infos["hwp"] = HwpDocument(file_path).run()
+    #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
+
+    with open(file_path, "rb") as f:
+        is_text_file(data_dictionary, file_path, 8192, f.read())
+
+    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
     """

@@ -343,6 +343,7 @@
                 <th></th><td>
                 <div class="collapse" id="extracted_files_{{file.sha256}}">
                     <div class="card card-body">
+                        <!--ToDo test rename subfile to file and see if that works with including the same template-->
                         {% for sub_file in file.extracted_files %}
                             {% include "analysis/overview/_subfile_info.html" %}
                         {% endfor %}

@@ -1287,6 +1287,29 @@ def report(request, task_id):
             except Exception as e:
                 print(e)
 
+    if enabledconf["mongodb"]:
+        try:
+            report["procmemory"] = list(
+                mongo_aggregate(
+                    "analysis",
+                    [
+                        {"$match": {"info.id": int(task_id)}},
+                        {"$project": {"_id": 0, "procmemory_size": {"$size": {"$ifNull": ["$procmemory.path", []]}}}},
+                    ]
+                )
+            )[0]["procmemory_size"]
+        except Exception:
+            report["procmemory"] = 0
+    elif es_as_db:
+        try:
+            report["procmemory"] = len(
+                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["procmemory.path"])["hits"][
+                    "hits"
+                ][0]["_source"].get("procmemory")
+            )
+        except Exception as e:
+            print(e)
+
     try:
         if enabledconf["mongodb"]:
             tmp_data = list(mongo_find("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}))

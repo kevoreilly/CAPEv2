@@ -1,5 +1,5 @@
 <section id="static_analysis">
-    {% if analysis.static and file.dotnet %}
+    {% if file.dotnet %}
         {% if file.dotnet.typerefs or file.dotnet.assemblyrefs or file.dotnet.assemblyinfo or file.dotnet.customattrs %}
             <div>
                 <h4>Assembly Information</h4>

@@ -76,7 +76,6 @@ class URL(object):
         if self.domain:
             try:
                 w = whois(self.domain)
-                results["url"] = {}
                 # Create static fields if they don't exist, EG if the WHOIS
                 # data is stale.
                 fields = [
@@ -147,7 +146,7 @@ class URL(object):
                 "\n    ".join(w["name_servers"]),
                 "\n    ".join(w["referral_url"]),
             )
-            results["url"]["whois"] = output
+            results["whois"] = output
 
         # ToDo this should be in config
         if self.domain == "bit.ly":
@@ -161,8 +160,8 @@ class URL(object):
                         output = self.parse_json_in_javascript(content, 1)
 
             if output:
-                results["url"]["bitly"] = {k: v for d in output for k, v in d.iteritems()}
-                newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
-                results["url"]["bitly"]["created_at"] = f"{newtime.strftime('%Y-%m-%d %H:%M:%S')} GMT"
+                results["bitly"] = {k: v for d in output for k, v in d.iteritems()}
+                newtime = datetime.fromtimestamp(int(results["bitly"]["created_at"]))
+                results["bitly"]["created_at"] = f"{newtime.strftime('%Y-%m-%d %H:%M:%S')} GMT"
 
         return results

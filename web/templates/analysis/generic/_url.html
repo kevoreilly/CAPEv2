@@ -1,5 +1,5 @@
 <section id="static_url">
-  {% if analysis.static.url.bitly %}
+  {% if url.bitly %}
   <div>
     <div id="bitly_unshortener">
       <h4>Bitly Unshortener</h4>
@@ -12,19 +12,19 @@
             </tr>
             <tr>
               <th style="width: 10%">Unshortened URL</th>
-              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.long_url}}</td>
+              <td style="word-wrap: break-word;">{{url.bitly.long_url}}</td>
             </tr>
             <tr>
               <th style="width: 10%">Amount of Clicks</th>
-              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.user_clicks}}</td>
+              <td style="word-wrap: break-word;">{{url.bitly.user_clicks}}</td>
             </tr>
             <tr>
               <th style="width: 10%">Creation Date</th>
-              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.created_at}}</td>
+              <td style="word-wrap: break-word;">{{url.bitly.created_at}}</td>
             </tr>
             <tr>
               <th style="width: 10%">Created By</th>
-              <td style="word-wrap: break-word;">{{analysis.static.url.bitly.created_by.display_name}}</td>
+              <td style="word-wrap: break-word;">{{url.bitly.created_by.display_name}}</td>
             </tr>
           </tbody>
         </table>
@@ -35,7 +35,7 @@
   <div>
     <div id="whois_information">
       <h4>WHOIS Information</h4>
-      <pre>{{ analysis.static.url.whois }}</pre>
+      <pre>{{ url.whois }}</pre>
     </div>
   </div>
 </section>

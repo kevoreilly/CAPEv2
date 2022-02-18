@@ -43,6 +43,7 @@ except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
 
+
 def load_mwcp_parsers():
     if not process_cfg.mwcp.enabled:
         return {}, False

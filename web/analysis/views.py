@@ -1514,7 +1514,7 @@ def file(request, category, task_id, dlfile):
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
     elif category in (
-        "samplezip",
+        "staticzip",
         "dropped",
         "droppedzip",
         "CAPE",
@@ -1526,7 +1526,7 @@ def file(request, category, task_id, dlfile):
     ):
         # ability to download password protected zip archives
         path = ""
-        if category in ("sample", "samplezip"):
+        if category in ("static", "staticzip",):
             path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
         elif category in ("dropped", "droppedzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
@@ -1547,7 +1547,7 @@ def file(request, category, task_id, dlfile):
             file_name += ".dmp"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
@@ -1613,7 +1613,7 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
-        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if mem_zip:
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)

@@ -1,5 +1,6 @@
-### [16-02-2022] Depricate static part 1
+### [18-02-2022] Depricate static
 * To be able to generate the same info as was generated for initial binary under static tab. We decided to depricate static module and make it reusable for any other files like dropped, downloaded, etc.
+* So now you will be able all file static info on each file to speedup your analysis
 
 ### [15-2-2022]
 * Monitor updates:

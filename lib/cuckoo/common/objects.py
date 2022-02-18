@@ -23,7 +23,7 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IMAGE_FILE_MACHINE_AMD64, IsPEImage, PortableExecutable
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 
 try:
     import magic
@@ -567,9 +567,6 @@ class File(object):
         infos["clamav"] = self.get_clamav()
         infos["tlsh"] = self.get_tlsh()
         infos["sha3_384"] = self.get_sha3_384()
-
-        if self.pe:
-            infos["pe"] = PortableExecutable(self.file_path).run()
 
         return infos, self.pe
 

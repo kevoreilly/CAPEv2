@@ -16,7 +16,7 @@ from io import BytesIO
 
 from PIL import Image
 
-# from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
 
@@ -64,12 +64,12 @@ if os.path.exists(userdb_path):
 
 log = logging.getLogger(__name__)
 
-# processing_conf = Config("processing")
+processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-# if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
-# from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
+    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 
 IMAGE_DOS_SIGNATURE = 0x5A4D

@@ -15,9 +15,8 @@ log = logging.getLogger(__name__)
 class DotNETExecutable(object):
     """.NET analysis"""
 
-    def __init__(self, file_path, results):
+    def __init__(self, file_path):
         self.file_path = file_path
-        self.results = results
 
     def add_statistic(self, name, field, value):
         self.results["statistics"]["processing"].append(
@@ -141,12 +140,11 @@ class DotNETExecutable(object):
         results = {}
 
         try:
-            results["dotnet"] = {}
             pretime = datetime.now()
-            results["dotnet"]["typerefs"] = self._get_type_refs()
-            results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
-            results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
-            results["dotnet"]["customattrs"] = self._get_custom_attrs()
+            results["typerefs"] = self._get_type_refs()
+            results["assemblyrefs"] = self._get_assembly_refs()
+            results["assemblyinfo"] = self._get_assembly_info()
+            results["customattrs"] = self._get_custom_attrs()
             posttime = datetime.now()
             timediff = posttime - pretime
             self.add_statistic("static_dotnet", "time", float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"))

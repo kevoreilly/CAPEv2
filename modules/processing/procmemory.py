@@ -27,27 +27,26 @@ class ProcessMemory(Processing):
 
     def get_procmemory_pe(self, mem_pe):
         res = []
-        file_item = open(mem_pe.get("path"), "rb")
+        with open(mem_pe.get("path"), "rb") as file_item:
+            for memmap in mem_pe.get("address_space") or []:
+                if not memmap.get("PE"):
+                    continue
+                data = b""
+                for chunk in memmap["chunks"]:
+                    if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(memmap["end"], 16):
+                        file_item.seek(chunk["offset"])
+                        data += file_item.read(int(chunk["size"], 16))
 
-        for memmap in mem_pe.get("address_space") or []:
-            if not memmap.get("PE"):
-                continue
-            data = b""
-            for chunk in memmap["chunks"]:
-                if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(memmap["end"], 16):
-                    file_item.seek(chunk["offset"])
-                    data += file_item.read(int(chunk["size"], 16))
+                # save pe to disk
+                path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
+                with open(path, "wb") as f:
+                    f.write(data)
 
-            # save pe to disk
-            path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-            with open(path, "wb") as f:
-                f.write(data)
-
-            data, pefile_object = File(path).get_all()
-            if pefile_object:
-                self.results.setdefault("pefiles", {})
-                self.results["pefiles"].setdefault(data["sha256"], pefile_object)
-            res.append(data)
+                data, pefile_object = File(path).get_all()
+                if pefile_object:
+                    self.results.setdefault("pefiles", {})
+                    self.results["pefiles"].setdefault(data["sha256"], pefile_object)
+                res.append(data)
         return res
 
     def get_yara_memblock(self, addr_space, yaraoffset):

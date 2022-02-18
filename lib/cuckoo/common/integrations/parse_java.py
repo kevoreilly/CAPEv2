@@ -39,7 +39,7 @@ class Java(object):
                     p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
                 else:
                     p = Popen([self.decomp_jar, jar_file], stdout=PIPE)
-                results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
+                results["decompiled"] = convert_to_printable(p.stdout.read())
             except Exception as e:
                 log.error(e, exc_info=True)
                 pass

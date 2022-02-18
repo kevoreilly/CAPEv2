@@ -8,8 +8,9 @@ import os
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, generic_file_extractors
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 
@@ -109,8 +110,10 @@ class ProcDump(Processing):
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime)
 
-            # Allows to put execute file extractors/unpackers
-            generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
+            # should we use dropped path here?
+            static_file_info(
+                file_info, file_path, self.task["id"], self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
+            )
 
             procdump_files.append(file_info)
 

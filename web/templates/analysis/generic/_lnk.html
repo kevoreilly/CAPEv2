@@ -1,6 +1,6 @@
 <section id="static_analysis">
-    {% if analysis.static and analysis.static.lnk %}
-        {% if analysis.static.lnk.flags %}
+    {% if file.lnk %}
+        {% if file.lnk.flags %}
         <div>
             <h4>Flags</h4>
             <div id="pe_information">
@@ -9,22 +9,22 @@
                         <col width="150" />
                         <col width="*" />
                     </colgroup>
-                    {% if analysis.static.lnk.flags.relapath %}
+                    {% if file.lnk.flags.relapath %}
                     <tr>
                         <td><strong>Icon</strong></td>
-                        <td>{{analysis.static.lnk.relapath}}</td>
+                        <td>{{file.lnk.relapath}}</td>
                     </tr>
                     {% endif %}
-                    {% if analysis.static.lnk.flags.shellidlist %}
+                    {% if file.lnk.flags.shellidlist %}
                     <tr>
                         <td><strong>CMD line</strong></td>
-                        <td>{{analysis.static.lnk.cmdline}}</td>
+                        <td>{{file.lnk.cmdline}}</td>
                     </tr>
                     {% endif %}
-                    {% if analysis.static.lnk.flags.icon %}
+                    {% if file.lnk.flags.icon %}
                     <tr>
                         <td><strong>Icon</strong></td>
-                        <td>{{analysis.static.lnk.icon}}</td>
+                        <td>{{file.lnk.icon}}</td>
                     </tr>
                     {% endif %}
 

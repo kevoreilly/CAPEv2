@@ -273,7 +273,6 @@ def delete_folder(folder):
 # The above is true, but apparently we only care about \x0b and \x0c given
 # the code below
 PRINTABLE_CHARACTERS = string.ascii_letters + string.digits + string.punctuation + " \t\r\n"
-
 FILENAME_CHARACTERS = string.ascii_letters + string.digits + string.punctuation.replace("/", "") + " "
 
 
@@ -300,30 +299,6 @@ def is_printable(s):
     return True
 
 
-def convert_filename_char(c):
-    """Escapes filename characters.
-    @param c: dirty char.
-    @return: sanitized char.
-    """
-    if isinstance(c, int):
-        c = chr(c)
-    if c in FILENAME_CHARACTERS:
-        return c
-    else:
-        return f"\\x{ord(c):02x}"
-
-
-def is_sane_filename(s):
-    """Test if a filename is sane."""
-    for c in s:
-        if isinstance(c, int):
-            c = chr(c)
-        if c not in FILENAME_CHARACTERS:
-            return False
-    return True
-
-
-# ToDo improve
 def bytes2str(convert):
     """Converts bytes to string
     @param convert: string as bytes.
@@ -371,6 +346,51 @@ def bytes2str(convert):
     return convert
 
 
+def convert_to_printable(s: str, cache=None):
+    """Convert char to printable.
+    @param s: string.
+    @param cache: an optional cache
+    @return: sanitized string.
+    """
+    if isinstance(s, int):
+        return str(s)
+
+    if isinstance(s, bytes):
+        return bytes2str(s)
+
+    if is_printable(s):
+        return s
+
+    if cache is None:
+        return "".join(convert_char(c) for c in s)
+    elif not s in cache:
+        cache[s] = "".join(convert_char(c) for c in s)
+    return cache[s]
+
+
+def convert_filename_char(c):
+    """Escapes filename characters.
+    @param c: dirty char.
+    @return: sanitized char.
+    """
+    if isinstance(c, int):
+        c = chr(c)
+    if c in FILENAME_CHARACTERS:
+        return c
+    else:
+        return f"\\x{ord(c):02x}"
+
+
+def is_sane_filename(s):
+    """Test if a filename is sane."""
+    for c in s:
+        if isinstance(c, int):
+            c = chr(c)
+        if c not in FILENAME_CHARACTERS:
+            return False
+    return True
+
+
 def wide2str(string: Tuple[str, bytes]):
     """wide string detection, for strings longer than 11 chars
 
@@ -394,28 +414,6 @@ def wide2str(string: Tuple[str, bytes]):
             return string.encode().decode("utf-16")
     else:
         return string
-
-
-def convert_to_printable(s: str, cache=None):
-    """Convert char to printable.
-    @param s: string.
-    @param cache: an optional cache
-    @return: sanitized string.
-    """
-    if isinstance(s, int):
-        return str(s)
-
-    if isinstance(s, bytes):
-        return bytes2str(s)
-
-    if is_printable(s):
-        return s
-
-    if cache is None:
-        return "".join(convert_char(c) for c in s)
-    elif not s in cache:
-        cache[s] = "".join(convert_char(c) for c in s)
-    return cache[s]
 
 
 def sanitize_pathname(s: str):
@@ -1004,12 +1002,10 @@ def get_options(optstring):
     """Get analysis options.
     @return: options dict.
     """
-    # The analysis package can be provided with some options in the
-    # following format:
+    # The analysis package can be provided with some options in the following format:
     #   option1=value1,option2=value2,option3=value3
     #
-    # Here we parse such options and provide a dictionary that will be made
-    # accessible to the analysis package.
+    # Here we parse such options and provide a dictionary that will be made accessible to the analysis package.
     if not optstring:
         return {}
 

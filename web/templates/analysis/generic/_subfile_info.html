@@ -201,9 +201,14 @@
         {% else %}
         <tr>
             <th>
-                {% if file.pe %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>
-                {% endif %}
+                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
+                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pdf_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
+                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
+                {% if file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
+                {% if file.office %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#office_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>{% endif %}
+                <!--ToDo missed URL-->
+            </th>
+
             </th>
             <td>
                 {% if not config.zipped_download %}
@@ -338,22 +343,10 @@
             </br>
         {% endif %}
     </table>
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
-        <center>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</center>
-        </hr>
-        {% endif %}
-    {% if file.pe %}
-            <tr>
-                <th></th><td>
-                <div class="collapse" id="pe_{{file.sha256}}">
-                    <div class="card card-body">
-                        {% for pe in file.pe %}
-                            {% include "analysis/generic/_pe.html" %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </td>
-            </tr>
-            </br>
-        {% endif %}
+    {% if file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
+    {% if file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
+    {% if file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
+    {% if file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
+    {% if file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></hr>{% endif %}
 </div>

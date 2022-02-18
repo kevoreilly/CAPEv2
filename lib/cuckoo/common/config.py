@@ -10,7 +10,16 @@ import os
 from lib.cuckoo.common.colors import bold, red
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUSTOM_CONF_DIR
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from lib.cuckoo.common.objects import Dictionary
+
+
+class Dictionary(dict):
+    """Cuckoo custom dict."""
+
+    def __getattr__(self, key):
+        return self.get(key)
+
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 def parse_options(options):

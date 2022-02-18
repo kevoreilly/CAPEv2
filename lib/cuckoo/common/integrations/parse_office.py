@@ -10,7 +10,7 @@ import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable, get_options
+from lib.cuckoo.common.utils import convert_to_printable
 
 try:
     import olefile
@@ -60,10 +60,11 @@ class Office(object):
     - Rich Text Format (.rtf)
     """
 
-    def __init__(self, file_path, results, options):
+    def __init__(self, file_path, task_id, sha256, options):
         self.file_path = file_path
-        self.results = results
-        self.options = get_options(options)
+        self.options = options
+        self.task_id = str(task_id)
+        self.sha256 = sha256
 
     def _get_meta(self, meta):
         ret = {}
@@ -85,7 +86,7 @@ class Office(object):
         results = {}
         rtfp = RtfObjParser(data)
         rtfp.parse()
-        save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "rtf_objects")
+        save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "rtf_objects")
         if rtfp.objects and not os.path.exists(save_dir):
             os.makedirs(save_dir)
         for rtfobj in rtfp.objects:
@@ -168,7 +169,6 @@ class Office(object):
             if temp_dict:
                 results[str(rtfobj.format_id)].append(temp_dict)
 
-        log.debug(results)
         return results
 
     def _parse(self, filepath):
@@ -196,7 +196,7 @@ class Office(object):
         else:
             return results
 
-        officeresults = results["office"] = {}
+        officeresults = {}
 
         try:
             # extract DDE
@@ -209,7 +209,7 @@ class Office(object):
             log.error(e, exc_info=True)
 
         metares = officeresults["Metadata"] = {}
-        macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
+        macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
@@ -289,7 +289,7 @@ class Office(object):
                 del macrores["Analysis"]["HexStrings"]
 
             if HAVE_VBA2GRAPH:
-                vba2graph_func(filepath, str(self.results["info"]["id"]), self.results["target"]["file"]["sha256"])
+                vba2graph_func(filepath, self.task_id, self.sha256)
 
         else:
             metares["HasMacros"] = "No"
@@ -305,7 +305,7 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF:
-            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"], self.options.get("password", ""))
+            tmp_xlmmacro = xlmdeobfuscate(filepath, self.task_id, self.options.get("password", ""))
             if tmp_xlmmacro:
                 results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 

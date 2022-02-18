@@ -7,7 +7,7 @@ import json
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
+from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
 
@@ -47,6 +47,16 @@ class Dropped(Processing):
                 if pefile_object:
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+                # ToDo should we pass PE object?
+                static_file_info(
+                    file_info,
+                    file_path,
+                    self.task["id"],
+                    self.task.get("package", ""),
+                    self.task.get("options", ""),
+                    self.dropped_path,
+                )
+
                 file_info.update(meta.get(file_info["path"][0], {}))
                 if file_path in meta:
                     guest_paths = list(set([path.get("filepath") for path in meta[file_path]]))
@@ -79,8 +89,14 @@ class Dropped(Processing):
                     self.results.setdefault("pefiles", {})
                     self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-                # Allows to put execute file extractors/unpackers
-                generic_file_extractors(file_path, self.dropped_path, file_info.get("type", ""), file_info)
+                static_file_info(
+                    file_info,
+                    file_path,
+                    self.task["id"],
+                    self.task.get("package", ""),
+                    self.task.get("options", ""),
+                    self.dropped_path,
+                )
 
                 dropped_files.append(file_info)
 

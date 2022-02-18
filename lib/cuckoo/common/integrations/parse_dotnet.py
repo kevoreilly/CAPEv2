@@ -136,7 +136,7 @@ class DotNETExecutable(object):
             results["assemblyinfo"] = self._get_assembly_info()
             results["customattrs"] = self._get_custom_attrs()
 
-            if results != {'typerefs': [], 'assemblyrefs': [], 'assemblyinfo': {}, 'customattrs': []}:
+            if results != {"typerefs": [], "assemblyrefs": [], "assemblyinfo": {}, "customattrs": []}:
                 return results
             else:
                 return

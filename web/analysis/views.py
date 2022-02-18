@@ -1550,7 +1550,7 @@ def file(request, category, task_id, dlfile):
             file_name += ".dmp"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:

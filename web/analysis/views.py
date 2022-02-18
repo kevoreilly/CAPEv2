@@ -1523,6 +1523,7 @@ def file(request, category, task_id, dlfile):
         "procdumpzip",
         "memdumpzip",
         "networkzip",
+        "pcapzip",
     ):
         # ability to download password protected zip archives
         path = ""
@@ -1548,6 +1549,10 @@ def file(request, category, task_id, dlfile):
         elif category.startswith("memdumpzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
             file_name += ".dmp"
+        elif category in ("pcap", "pcapzip"):
+            file_name += ".pcap"
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
+            cd = "application/vnd.tcpdump.pcap"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
         if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
@@ -1566,10 +1571,6 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
-    elif category in ("pcap", "pcapzip"):
-        file_name += ".pcap"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
-        cd = "application/vnd.tcpdump.pcap"
     elif category == "usage":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "usage.svg")
         file_name = "usage.svg"

@@ -6,12 +6,14 @@ import subprocess
 import tempfile
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 
 # ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable, HAVE_PEFILE
 from lib.cuckoo.common.integrations.parse_wsf import EncodedScriptFile, WindowsScriptFile
 from lib.cuckoo.common.objects import File
 
@@ -54,7 +56,11 @@ def static_info(infos: dict, file_path: str, task_id: str, package: str, options
     if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in infos["type"] and package in ("doc", "ppt", "xls", "pub"):
         log.info("Missed dependencies: pip3 install oletools")
 
-    if HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
+    if HAVE_PEFILE and ("PE32" in infos["type"] or "MS-DOS executable" in infos["type"]):
+        infos["pe"] = PortableExecutable(file_path).run()
+        if "Mono" in infos["type"]:
+            infos["pe"].update(DotNETExecutable(file_path).run())
+    elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
         # options is dict where we need to get pass get_options
         infos["office"] = Office(file_path, task_id, infos["sha256"], get_options(options)).run()
     elif "PDF" in infos["type"] or file_path.endswith(".pdf"):

@@ -545,7 +545,7 @@ class File(object):
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
-    def get_all(self, package: str = False, task_id: int = False, options: str = False):
+    def get_all(self):
         """Get all information available.
         @return: information dict.
         """
@@ -568,11 +568,6 @@ class File(object):
         infos["clamav"] = self.get_clamav()
         infos["tlsh"] = self.get_tlsh()
         infos["sha3_384"] = self.get_sha3_384()
-
-        if self.pe:
-            infos["pe"] = PortableExecutable(self.file_path).run()
-            if "Mono" in infos["type"]:
-                infos["pe"].update(DotNETExecutable(self.file_path).run())
 
         return infos, self.pe
 

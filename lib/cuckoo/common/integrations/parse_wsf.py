@@ -52,5 +52,4 @@ class WindowsScriptFile(object):
 
             ret.append(source)
 
-        results["wsf"] = ret
-        return results
+        return ret

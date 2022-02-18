@@ -45,15 +45,14 @@ class PDF(object):
         for keyword in pdfid_data["pdfid"]["keywords"]["keyword"]:
             keywords[str(keyword["name"])] = keyword["count"]
 
-        result = {}
-        pdfresult = result["pdf"] = {}
+        pdfresult = {}
         pdfresult["Info"] = info
         pdfresult["Dates"] = dates
         pdfresult["Keywords"] = keywords
 
         pdfresult = peepdf_parse(self.file_path, pdfresult)
 
-        return result
+        return pdfresult
 
     def run(self):
         """Run analysis.

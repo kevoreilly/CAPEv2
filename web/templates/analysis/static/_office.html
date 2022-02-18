@@ -1,8 +1,7 @@
 <section id="static_analysis">
     {% load key_tags %}
-    {% if analysis.static %}
-        {% if analysis.static.office %}
-            {% if analysis.mmbot %}
+        {% if file.office %}
+            {% if file.mmbot %}
                 <div>
                     <div id="mmbot_results">
                         <h4>Malicious Macro Bot Results</h4>
@@ -11,7 +10,7 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% for key, value in analysis.mmbot.items|dictsort:"0.lower" %}
+                            {% for key, value in file.mmbot.items|dictsort:"0.lower" %}
                                 <tr>
                                     <td>{{key}}</td>
                                     <td>{{value}}</td>
@@ -21,8 +20,8 @@
                     </div>
                 </div>
             {% endif %}
-            {% if analysis.static.office.Metadata %}
-                {% if analysis.static.office.Metadata.SummaryInformation %}
+            {% if file.office.Metadata %}
+                {% if file.office.Metadata.SummaryInformation %}
                 <div>
                     <div id="si_metadata">
                         <h4>SummaryInformation Metadata</h4>
@@ -31,70 +30,70 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% if analysis.static.office.Metadata.SummaryInformation.creating_application %}
+                            {% if file.office.Metadata.SummaryInformation.creating_application %}
                             <tr>
                                 <td>Creating Application</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.creating_application}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.creating_application}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.author %}
+                            {% if file.office.Metadata.SummaryInformation.author %}
                             <tr>
                                 <td>Author</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.author}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.author}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.last_saved_by %}
+                            {% if file.office.Metadata.SummaryInformation.last_saved_by %}
                             <tr>
                                 <td>Last Saved By</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.last_saved_by}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.last_saved_by}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.create_time %}
+                            {% if file.office.Metadata.SummaryInformation.create_time %}
                             <tr>
                                 <td>Creation Time</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.create_time}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.create_time}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.last_saved_time %}
+                            {% if file.office.Metadata.SummaryInformation.last_saved_time %}
                             <tr>
                                 <td>Last Saved Time</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.last_saved_time}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.last_saved_time}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.total_edit_time %}
+                            {% if file.office.Metadata.SummaryInformation.total_edit_time %}
                             <tr>
                                 <td>Total Edit Time</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.total_edit_time}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.total_edit_time}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.title %}
+                            {% if file.office.Metadata.SummaryInformation.title %}
                             <tr>
                                 <td>Document Title</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.title}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.title}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.subject %}
+                            {% if file.office.Metadata.SummaryInformation.subject %}
                             <tr>
                                 <td>Document Subject</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.subject}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.subject}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.num_pages %}
+                            {% if file.office.Metadata.SummaryInformation.num_pages %}
                             <tr>
                                 <td>Amount of Pages</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.num_pages}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.num_pages}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.num_words %}
+                            {% if file.office.Metadata.SummaryInformation.num_words %}
                             <tr>
                                 <td>Amount of Words</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.num_words}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.num_words}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.SummaryInformation.num_chars %}
+                            {% if file.office.Metadata.SummaryInformation.num_chars %}
                             <tr>
                                 <td>Amount of Characters</td>
-                                <td>{{analysis.static.office.Metadata.SummaryInformation.num_chars}}</td>
+                                <td>{{file.office.Metadata.SummaryInformation.num_chars}}</td>
                             </tr>
                             {% endif %}
                         </table>
@@ -102,7 +101,7 @@
                 </div>
                 <hr />
                 {% endif %}
-                {% if analysis.static.office.Metadata.DocumentSummaryInformation %}
+                {% if file.office.Metadata.DocumentSummaryInformation %}
                 <div>
                     <div id="dsi_metadata">
                         <h4>DocumentSummaryInformation Metadata</h4>
@@ -111,34 +110,34 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.company %}
+                            {% if file.office.Metadata.DocumentSummaryInformation.company %}
                             <tr>
                                 <td>Company</td>
-                                <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.company}}</td>
+                                <td>{{file.office.Metadata.DocumentSummaryInformation.company}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.doc_version %}
+                            {% if file.office.Metadata.DocumentSummaryInformation.doc_version %}
                             <tr>
                                 <td>Document Version</td>
-                                <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.doc_version}}</td>
+                                <td>{{file.office.Metadata.DocumentSummaryInformation.doc_version}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.dig_sig %}
+                            {% if file.office.Metadata.DocumentSummaryInformation.dig_sig %}
                             <tr>
                                 <td>Digital Signature</td>
-                                <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.dig_sig}}</td>
+                                <td>{{file.office.Metadata.DocumentSummaryInformation.dig_sig}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.language %}
+                            {% if file.office.Metadata.DocumentSummaryInformation.language %}
                             <tr>
                                 <td>Language</td>
-                                <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.language}}</td>
+                                <td>{{file.office.Metadata.DocumentSummaryInformation.language}}</td>
                             </tr>
                             {% endif %}
-                            {% if analysis.static.office.Metadata.DocumentSummaryInformation.notes %}
+                            {% if file.office.Metadata.DocumentSummaryInformation.notes %}
                             <tr>
                                 <td>Notes</td>
-                                <td>{{analysis.static.office.Metadata.DocumentSummaryInformation.notes}}</td>
+                                <td>{{file.office.Metadata.DocumentSummaryInformation.notes}}</td>
                             </tr>
                             {% endif %}
                         </table>
@@ -147,11 +146,11 @@
                 <hr />
                 {% endif %}
             {% endif %}
-            {% if analysis.static.office.Macro %}
-                {% if analysis.static.office.Macro.Analysis %}
+            {% if file.office.Macro %}
+                {% if file.office.Macro.Analysis %}
                     <div id="analysis_sigs">
                         <h4>File Analysis (Signatures)</h4>
-                        {% for detection in analysis.static.office.Macro.Analysis %}
+                        {% for detection in file.office.Macro.Analysis %}
                         <div>
                             <div class="panel" id="accordion" style="margin-top: 20px;">
                             <div class="card-header">
@@ -164,7 +163,7 @@
                                     <col width="*">
                                 </colgroup>
                                 <th colspan="2">{{detection}}</th>
-                                {% for indicator, description in analysis.static.office.Macro.Analysis|getkey:detection %}
+                                {% for indicator, description in file.office.Macro.Analysis|getkey:detection %}
                                     <tr>
                                         <td>{{indicator}}</td>
                                         <td>{{description}}</td>
@@ -178,16 +177,16 @@
                 </div>
                 <hr />
                 {% endif %}
-                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator %}
+                {% if file.office.Macro.Code and not file.office.XLMMacroDeobfuscator %}
                 <div>
                     <div id="macro">
                     <h4>Extracted Macros</h4>
-                    {% for macrodata in analysis.static.office.Macro.Code %}
+                    {% for macrodata in file.office.Macro.Code %}
                     <table class="table table-striped table-bordered">
                         <col style="width:20%">
                         <col style="width:60%">
                         <col style="width:20%">
-                        {% for name, code in analysis.static.office.Macro.Code|getkey:macrodata %}
+                        {% for name, code in file.office.Macro.Code|getkey:macrodata %}
                         <tr>
                             <td>VBA Filename</td>
                             <td>{{name}}</td>
@@ -204,12 +203,12 @@
                 {% endif %}
             {% endif %}
         {% endif %}
-        {% if analysis.static.office_rtf %}
+        {% if file.office_rtf %}
             <div>
                 <div id="si_metadata">
                     <h4>RTF document details</h4>
                     <table class="table table-striped table-bordered">
-                        {% for key, value in analysis.static.office_rtf.items %}
+                        {% for key, value in file.office_rtf.items %}
                             <h5>Object ID: {{key}}</h5>
                             <tr>
                                 <th width=10%>Filename</th>
@@ -239,7 +238,7 @@
             </div>
             <hr />
         {% endif %}
-        {% if analysis.static.office_dde %}
+        {% if file.office_dde %}
         <div id="si_metadata">
         <table class="table table-striped table-bordered">
             <colgroup>
@@ -248,10 +247,9 @@
             </colgroup>
             <tr>
                 <td><h4>DDE Detected</h4></td>
-                <td>{{analysis.static.office_dde}}</td>
+                <td>{{file.office_dde}}</td>
             </tr>
         </table>
         </div>
-    {% endif %}
 {% endif %}
 </section>

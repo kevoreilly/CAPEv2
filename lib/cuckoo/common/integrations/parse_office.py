@@ -196,7 +196,7 @@ class Office(object):
         else:
             return results
 
-        officeresults = results["office"] = {}
+        officeresults = {}
 
         try:
             # extract DDE

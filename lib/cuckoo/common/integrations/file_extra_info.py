@@ -59,7 +59,7 @@ def static_info(infos: dict, file_path: str, task_id: str, package: str, options
     if HAVE_PEFILE and ("PE32" in infos["type"] or "MS-DOS executable" in infos["type"]):
         infos["pe"] = PortableExecutable(file_path).run()
         if "Mono" in infos["type"]:
-            infos["pe"].update(DotNETExecutable(file_path).run())
+            infos["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
         # options is dict where we need to get pass get_options
         infos["office"] = Office(file_path, task_id, infos["sha256"], get_options(options)).run()

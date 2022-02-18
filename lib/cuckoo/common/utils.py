@@ -272,8 +272,7 @@ def delete_folder(folder):
 # returns, tabs, \x0b, and \x0c may mess up reports.
 # The above is true, but apparently we only care about \x0b and \x0c given
 # the code below
-# PRINTABLE_CHARACTERS = string.ascii_letters + string.digits + string.punctuation + " \t\r\n"
-
+PRINTABLE_CHARACTERS = string.ascii_letters + string.digits + string.punctuation + " \t\r\n"
 FILENAME_CHARACTERS = string.ascii_letters + string.digits + string.punctuation.replace("/", "") + " "
 
 

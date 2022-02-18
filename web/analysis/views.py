@@ -1526,7 +1526,10 @@ def file(request, category, task_id, dlfile):
     ):
         # ability to download password protected zip archives
         path = ""
-        if category in ("static", "staticzip",):
+        if category in (
+            "static",
+            "staticzip",
+        ):
             path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
         elif category in ("dropped", "droppedzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)

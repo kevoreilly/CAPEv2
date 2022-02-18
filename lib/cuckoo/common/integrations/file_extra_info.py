@@ -52,6 +52,7 @@ processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
 
+
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
 
     if (
@@ -262,6 +263,7 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "Kixtart")
+
 
 def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 

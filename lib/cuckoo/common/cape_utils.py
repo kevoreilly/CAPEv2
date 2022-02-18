@@ -84,13 +84,13 @@ def load_mwcp_parsers():
             block.name.rsplit(".", 1)[-1]: block.name
             for block in mwcp.get_parser_descriptions(config_only=False)}
         assert "MWCP_TEST" in _malware_parsers
-        return _malware_parsers
+        return _malware_parsers, mwcp
     except ImportError as e:
         logging.info("Missed MWCP -> pip3 install mwcp\nDetails: %s", e)
-        return {}
+        return {}, False
 
 
-malware_parsers = load_mwcp_parsers()
+malware_parsers, mwcp = load_mwcp_parsers()
 HAS_MWCP = bool(malware_parsers)
 
 

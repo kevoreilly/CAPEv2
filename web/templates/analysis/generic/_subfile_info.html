@@ -16,6 +16,12 @@
                 {% endfor %}
             </td>
         </tr>
+        {% if sub_file.type %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">File Type</th>
+                <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.type}}</b></td>
+            </tr>
+        {% endif %}
         {% if sub_file.guest_paths and tab_name == "dropped" %}
             <tr>
                 <th style="border-top: 0; width: 15%;">Associated Filenames</th>

@@ -71,10 +71,10 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
         data_dictionary["pdf"] = PDF(file_path).run()
     elif package == "wsf" or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf") or package == "hta":
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
-    elif package == "js" or package == "vbs":
-        static = EncodedScriptFile(file_path).run()
+    # elif package == "js" or package == "vbs":
+    #    static = EncodedScriptFile(file_path).run()
     elif package == "lnk":
-        static["lnk"] = LnkShortcut(file_path).run()
+        data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if decomp_jar and not os.path.exists(decomp_jar):
             log.error("procyon_path specified in processing.conf but the file does not exist")

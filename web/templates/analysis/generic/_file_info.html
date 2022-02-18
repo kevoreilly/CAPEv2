@@ -29,6 +29,12 @@
                 {% endfor %}
             </td>
         </tr>
+        {% if file.type %}
+            <tr>
+                <th style="border-top: 0; width: 15%;">File Type</th>
+                <td style="border-top: 0; word-wrap: break-word;"><b>{{file.type}}</b></td>
+            </tr>
+        {% endif %}
         {% if file.guest_paths and tab_name == "dropped" %}
             <tr>
                 <th style="border-top: 0; width: 15%;">Associated Filenames</th>
@@ -289,12 +295,6 @@
             </tr>
             </br>
         {% endif %}
-        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-            <tr>
-                <th></th>
-                <td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td>
-            </tr>
-        {% endif %}
         {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
             <tr><th></th>
                 <td>{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</td>
@@ -362,4 +362,5 @@
     {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
     {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
     {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td></center></hr>{% endif %}
 </div>

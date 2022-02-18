@@ -50,7 +50,7 @@ if repconf.mongodb.enabled:
         mongo_delete_many,
         mongo_drop_database,
         mongo_find,
-        mongo_update,
+        mongo_update_one,
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
@@ -439,7 +439,9 @@ def cuckoo_clean_sorted_pcap_dump():
                     log.info((e["info"]["id"]))
                     try:
                         if repconf.mongodb.enabled:
-                            mongo_update("analysis", {"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}})
+                            mongo_update_one(
+                                "analysis", {"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}}
+                            )
                         elif repconf.elasticsearchdb.enabled:
                             es.update(index=e["index"], id=e["info"]["id"], body={"network.sorted_pcap_id": ""})
                     except Exception:

@@ -11,6 +11,7 @@ from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
 
+
 class Dropped(Processing):
     """Dropped files analysis."""
 

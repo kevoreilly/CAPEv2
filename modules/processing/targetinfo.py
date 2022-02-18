@@ -5,11 +5,11 @@
 from __future__ import absolute_import
 import os.path
 
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.integrations.parse_url import HAVE_WHOIS, URL
+from lib.cuckoo.common.objects import File
 
 processing_conf = Config("processing")
 

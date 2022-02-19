@@ -114,7 +114,9 @@ def detect_it_easy_info(file_path, data_dictionary):
         return
 
     try:
-        output = subprocess.check_output([processing_conf.die.binary, "-j",  file_path], stderr=subprocess.STDOUT, universal_newlines=True)
+        output = subprocess.check_output(
+            [processing_conf.die.binary, "-j", file_path], stderr=subprocess.STDOUT, universal_newlines=True
+        )
         if "detects" not in output:
             return
 

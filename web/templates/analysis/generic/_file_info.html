@@ -205,6 +205,19 @@
             </td>
         </tr>
         {% endif %}
+        {% if file.trid %}
+        <tr>
+            <th>TriD</th>
+            <td>
+            <ul style="margin-top: 0;margin-bottom: 0;">
+                {% for str in file.trid %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            <td>
+        </tr>
+        {% endif %}
+
         {% if file.dropdir %}
         <tr>
             <th></th>

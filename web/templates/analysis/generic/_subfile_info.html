@@ -192,6 +192,18 @@
             </td>
         </tr>
         {% endif %}
+        {% if sub_file.trid %}
+        <tr>
+            <th>TriD</th>
+            <td>
+            <ul style="margin-top: 0;margin-bottom: 0;">
+                {% for str in sub_file.trid %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            <td>
+        </tr>
+        {% endif %}
         {% if sub_file.dropdir %}
         <tr>
             <th></th>

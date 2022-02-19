@@ -201,9 +201,23 @@
                     <li>{{str}}</li>
                 {% endfor %}
             </ul>
-            <td>
+            </td>
         </tr>
         {% endif %}
+
+        {% if sub_file.die %}
+        <tr>
+            <th>Detect It Easy</th>
+            <td>
+            <ul style="margin-top: 0;margin-bottom: 0;">
+                {% for str in sub_file.die %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            </td>
+        </tr>
+        {% endif %}
+
         {% if sub_file.dropdir %}
         <tr>
             <th></th>

@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import json
 import shutil
 import subprocess
 import tempfile
@@ -53,11 +54,9 @@ decomp_jar = processing_conf.static.procyon_path
 unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
 
 # Replace with DIE
-HAVE_TRID = False
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
-    HAVE_TRID = True
 
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
@@ -103,8 +102,31 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
 
-    if HAVE_TRID:
+    if processing_conf.trid.enabled:
         trid_info(file_path, data_dictionary)
+
+    if processing_conf.die.enabled:
+        detect_it_easy_info(file_path, data_dictionary)
+
+
+def detect_it_easy_info(file_path, data_dictionary):
+    if not os.path.exists(processing_conf.die.binary):
+        return
+
+    try:
+        output = subprocess.check_output([processing_conf.die.binary, "-j",  file_path], stderr=subprocess.STDOUT, universal_newlines=True)
+        if "detects" not in output:
+            return
+
+        strings = []
+        for block in json.loads(output).get("detects", []) or []:
+            strings += [sub["string"] for sub in block.get("values", [])]
+
+        if strings:
+            data_dictionary["die"] = strings
+    except subprocess.CalledProcessError:
+        log.warning("You need to configure your server to make TrID work properly")
+        log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
 
 
 def trid_info(file_path, data_dictionary):

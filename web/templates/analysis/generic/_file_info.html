@@ -214,7 +214,20 @@
                     <li>{{str}}</li>
                 {% endfor %}
             </ul>
+            </td>
+        </tr>
+        {% endif %}
+
+        {% if file.die %}
+        <tr>
+            <th>Detect It Easy</th>
             <td>
+            <ul>
+                {% for str in file.die %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            </td>
         </tr>
         {% endif %}
 

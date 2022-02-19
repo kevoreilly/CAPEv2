@@ -56,8 +56,9 @@ unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
 HAVE_TRID = False
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
-    definitions = os.path.join(CUCKOO_ROOT,  processing_conf.trid.definitions)
+    definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
     HAVE_TRID = True
+
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
 
@@ -105,6 +106,7 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     if HAVE_TRID:
         trid_info(file_path, data_dictionary)
 
+
 def trid_info(file_path, data_dictionary):
 
     try:
@@ -115,6 +117,7 @@ def trid_info(file_path, data_dictionary):
     except subprocess.CalledProcessError:
         log.warning("You need to configure your server to make TrID work properly")
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
     """

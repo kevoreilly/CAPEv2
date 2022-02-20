@@ -313,11 +313,11 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
 
 def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
-    if not os.path.exists(unautoit_bin):
-        # log.error(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+    if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
         return
 
-    if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
+    if not os.path.exists(unautoit_bin):
+        log.warning(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
         return
 
     metadata = list()

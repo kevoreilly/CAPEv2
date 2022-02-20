@@ -340,6 +340,7 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
+
 def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
 
     if "RAR self-extracting archive" not in data_dictionary.get("type", ""):
@@ -355,7 +356,11 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
         try:
             output = subprocess.check_output([unrar, "e", file, tempdir], universal_newlines=True)
             if output:
-                files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir if os.path.isfile(os.path.join(tempdir, extracted_file))]
+                files = [
+                    os.path.join(tempdir, extracted_file)
+                    for extracted_file in tempdir
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                ]
                 print(files)
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 

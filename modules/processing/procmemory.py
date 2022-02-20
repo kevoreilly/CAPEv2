@@ -98,6 +98,7 @@ class ProcessMemory(Processing):
 
                 proc = dict(
                     path=dmp_path,
+                    sha256=dmp_file.get_sha256(),
                     pid=process_id,
                     name=process_name,
                     proc_path=process_path,

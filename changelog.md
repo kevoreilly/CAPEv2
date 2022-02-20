@@ -1,9 +1,10 @@
 ### [20-02-2022] [UnAutoIt](https://github.com/x0r19x91/UnAutoIt) by @x0r19x91
 * You need to compile it by yourself and put binary under `/opt/CAPEv2/data/UnAutoIt`
 ````
+cd /opt/CAPEv2/data/
 snap install go --classic
-GOOS="linux" GOARCH="amd64" go build -o ./build/UnAutoIt-linux-amd64.bin
-mv ./build/UnAutoIt-linux-amd64.bin /opt/CAPEv2/data/UnAutoIt
+git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
+GOOS="linux" GOARCH="amd64" go build -o /opt/CAPEv2/data/UnAutoIt
 ```
 
 ### [19-02-2022] [Detect It Easy](https://github.com/horsicq/Detect-It-Easy/) by @horsicq

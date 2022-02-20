@@ -51,7 +51,7 @@ except ImportError:
 
 processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
-unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "UnAutoIt")
+unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "UnAutoIt", "UnAutoIt")
 
 # Replace with DIE
 if processing_conf.trid.enabled:

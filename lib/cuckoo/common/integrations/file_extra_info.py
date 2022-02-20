@@ -52,6 +52,7 @@ except ImportError:
 processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "UnAutoIt", "UnAutoIt")
+unrar = "/usr/bin/unrar"
 
 # Replace with DIE
 if processing_conf.trid.enabled:
@@ -179,7 +180,7 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract, UnAutoIt_extract):
+    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract, UnAutoIt_extract, RarSFX_extract):
         try:
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
@@ -338,3 +339,32 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
+
+def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
+
+    if "RAR self-extracting archive" not in data_dictionary.get("type", ""):
+        return
+
+    if not os.path.exists(unrar):
+        log.warning(f"Missed UnRar binary: {unautoit_bin}. sudo apt install unrar")
+        return
+
+    metadata = list()
+
+    with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
+        try:
+            output = subprocess.check_output([unrar, "e", file, tempdir], universal_newlines=True)
+            if output:
+                files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir if os.path.isfile(os.path.join(tempdir, extracted_file))]
+                print(files)
+                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")

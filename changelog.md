@@ -4,7 +4,7 @@
 cd /opt/CAPEv2/data/
 snap install go --classic
 git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
-GOOS="linux" GOARCH="amd64" go build -o /opt/CAPEv2/data/UnAutoIt
+GOOS="linux" GOARCH="amd64" go build -o UnAutoIt
 ```
 
 ### [19-02-2022] [Detect It Easy](https://github.com/horsicq/Detect-It-Easy/) by @horsicq

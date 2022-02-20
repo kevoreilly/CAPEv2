@@ -234,8 +234,7 @@
         {% if file.dropdir %}
         <tr>
             <th></th>
-            <td><a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
-            </td>
+            <td><a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a></td>
         </tr>
         {% else %}
         <tr>
@@ -347,22 +346,18 @@
             </tr>
         {% endif %}
         {% if file.data %}
-            <tr>
-                <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{file.data|escape}}</pre>
+                    <p>{{file.data|escape}}</p>
                     </div>
                 </div>
-            </td>
-            </tr>
         {% endif %}
         {% if file.decoded_files %}
             <tr>
                 <th></th><td>
                 <div class="collapse" id="decoded_files_{{file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{file.decoded_files|escape}}</pre>
+                    <p>{{file.decoded_files|escape}}</p>
                     </div>
                 </div>
             </td>

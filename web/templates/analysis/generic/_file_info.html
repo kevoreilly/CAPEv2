@@ -128,7 +128,10 @@
         </tr>
         <tr>
             <th>SHA256</th>
-            <td style="word-wrap: break-word;">{{file.sha256}}</td>
+            <td style="word-wrap: break-word;">{{file.sha256}}
+                <a href="https://mwdb.cert.pl/file/{{file.sha256}}" style="color: #e74c3c">[MWDB]
+                </a> <a href="https://bazaar.abuse.ch/sample/{{file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
+            </td>
         </tr>
         {% if file.sha3_384 %}
         <tr>

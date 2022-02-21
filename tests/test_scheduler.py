@@ -347,27 +347,6 @@ class TestAnalysisManager:
             "upload_max_size": 100000000,
         }
 
-    def test_build_options_false_pe(self, mocker, caplog):
-        class mock_machine(object):
-            resultserver_ip = "1.2.3.4"
-            resultserver_port = "1337"
-
-        mock_task_build_opts = mock_task()
-        mock_task_build_opts.package = "foo"
-        mock_task_build_opts.enforce_timeout = 1
-        mock_task_build_opts.clock = datetime.strptime("01-01-2099 09:01:01", "%m-%d-%Y %H:%M:%S")
-        mock_task_build_opts.timeout = 10
-
-        analysis_man = AnalysisManager(task=mock_task_build_opts, error_queue=queue.Queue())
-        analysis_man.machine = mock_machine()
-        mocker.patch(
-            "lib.cuckoo.core.scheduler.File.get_type", return_value="PE32 executable (console) Intel 80386, for MS Windows"
-        )
-
-        opts = analysis_man.build_options()
-        opts["target"] = opts["target"].rsplit("/", 1)[-1]
-        assert "PE type not recognised" in caplog.text
-
     def test_build_options_pe(self, grab_sample):
         class mock_machine(object):
             resultserver_ip = "1.2.3.4"

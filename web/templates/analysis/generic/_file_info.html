@@ -349,11 +349,15 @@
             </tr>
         {% endif %}
         {% if file.data %}
+            <tr>
+                <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
                     <p>{{file.data|escape}}</p>
                     </div>
                 </div>
+                </td>
+            </tr>
         {% endif %}
         {% if file.decoded_files %}
             <tr>

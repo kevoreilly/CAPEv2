@@ -341,7 +341,7 @@ if __name__ == "__main__":
     if args.username:
         JUMP_BOX_USERNAME = args.username
 
-    if JUMP_BOX_USERNAME and args.jump_box:
+    if JUMP_BOX_USERNAME and args.jump_box and not args.dry_run:
         jumpbox_used = True
 
         jumpbox = SSHClient()

@@ -51,7 +51,7 @@ def load_mwcp_parsers():
     try:
         import mwcp
 
-        log.getLogger("mwcp").setLevel(log.CRITICAL)
+        logging.getLogger("mwcp").setLevel(log.CRITICAL)
         mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
         _malware_parsers = {block.name.rsplit(".", 1)[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
         assert "MWCP_TEST" in _malware_parsers

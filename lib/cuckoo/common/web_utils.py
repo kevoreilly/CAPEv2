@@ -897,6 +897,7 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
+    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
 }
 
 # search terms that will be forwarded to mongodb in a lowered normalized form

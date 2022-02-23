@@ -249,6 +249,7 @@
                 {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
                 {% if file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
                 {% if file.office %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#office_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>{% endif %}
+                {% if file.office.XLMMacroDeobfuscator %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#xlmmacro_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="xlmmacro_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display XLM Macro"><span class="fas fa-file-lines"></span> XLM Macro</a>{% endif %}
                 <!--ToDo missed URL-->
             </th>
             <td>
@@ -288,6 +289,9 @@
                 {% endif %}
                 {% if config.virustotal and not file.virustotal and on_demand.virustotal %}
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
+                {% endif %}
+                {% if file.office and config.xlsdeobf and not file.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
+                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "xlsdeobf" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Run XLMMacroDeobfuscator"><span class="fas fa-cogs"></span><i class="far fa-file-excel"></i> XLMMacros</a>
                 {% endif %}
                 {% if config.vtupload and tlp != "Red" %}
                     <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
@@ -393,5 +397,6 @@
     {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
     {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
     {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_xlmmacro.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td></center></br>{% endif %}
 </div>

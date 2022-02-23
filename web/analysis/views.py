@@ -1593,9 +1593,7 @@ def file(request, category, task_id, dlfile):
         return render(
             request,
             "error.html",
-            {
-                "error": "Files not found or option is not enabled in conf/web.conf -> [zipped_download] -> download_all"
-            },
+            {"error": "Files not found or option is not enabled in conf/web.conf -> [zipped_download] -> download_all"},
         )
 
     test_path = path

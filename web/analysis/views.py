@@ -1523,6 +1523,7 @@ def file(request, category, task_id, dlfile):
             path = category_all_files(
                 task_id, sub_cat, os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat])
             )
+            file_name = f"{task_id}_{category}"
     elif category.startswith("CAPE"):
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE", file_name)
         if os.path.isdir(buf):

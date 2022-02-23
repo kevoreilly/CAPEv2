@@ -68,6 +68,7 @@ DLNEXEC = web_cfg.dlnexec.get("enabled", False)
 ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
 if not isinstance(ZIP_PWD, bytes):
     ZIP_PWD = ZIP_PWD.encode()
+ZIPPED_DOWNLOAD_ALL = zip_cfg.get("download_all", False)
 MOLOCH_BASE = moloch_cfg.get("base")
 MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
@@ -392,6 +393,7 @@ AUTHENTICATION_BACKENDS = (
 SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
+    "ZIPPED_DOWNLOAD_ALL",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

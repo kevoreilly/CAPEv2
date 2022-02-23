@@ -32,6 +32,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.common.web_utils import (
+    category_all_files,
     my_rate_minutes,
     my_rate_seconds,
     perform_malscore_search,
@@ -1472,6 +1473,25 @@ def file_nl(request, category, task_id, dlfile):
     return resp
 
 
+zip_categories = (
+    "staticzip",
+    "droppedzip",
+    "CAPEzip",
+    "procdumpzip",
+    "memdumpzip",
+    "networkzip",
+    "pcapzip",
+    "droppedzipall",
+    "procdumpzipall",
+    "CAPEzipall",
+)
+category_map = {
+    "CAPE": "CAPE",
+    "procdump": "procdump",
+    "dropped": "files",
+}
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @csrf_exempt
@@ -1480,9 +1500,9 @@ def file_nl(request, category, task_id, dlfile):
 @api_view(["GET"])
 def file(request, category, task_id, dlfile):
     file_name = dlfile
-    cd = ""
+    cd = "application/octet-stream"
+    path = ""
     mem_zip = False
-    size = 0
     extmap = {
         "memdump": ".dmp",
         "memdumpstrings": ".dmp.strings",
@@ -1490,60 +1510,36 @@ def file(request, category, task_id, dlfile):
 
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-    elif category in (
-        "staticzip",
-        "dropped",
-        "droppedzip",
-        "CAPE",
-        "CAPEzip",
-        "procdump",
-        "procdumpzip",
-        "memdumpzip",
-        "networkzip",
-        "pcapzip",
-    ):
-        # ability to download password protected zip archives
-        path = ""
-        if category in (
-            "static",
-            "staticzip",
-        ):
-            path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
-        elif category in ("dropped", "droppedzip"):
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
-        elif category.startswith("CAPE"):
-            buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE", file_name)
-            if os.path.isdir(buf):
-                dfile = min(os.listdir(buf), key=len)
-                path = os.path.join(buf, dfile)
-            else:
-                path = buf
-        elif category == "networkzip":
-            buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
+
+    if category in ("static", "staticzip"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
+    elif category in ("dropped", "droppedzip"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
+    elif category in ("droppedzipall", "procdumpzipall", "CAPEzipall"):
+        if web_cfg.zipped_download.download_all:
+            sub_cat = category.replace("zipall", "")
+            path = category_all_files(
+                task_id, sub_cat, os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat])
+            )
+    elif category.startswith("CAPE"):
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE", file_name)
+        if os.path.isdir(buf):
+            dfile = min(os.listdir(buf), key=len)
+            path = os.path.join(buf, dfile)
+        else:
             path = buf
-        elif category.startswith("procdump"):
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
-        elif category.startswith("memdumpzip"):
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
-            file_name += ".dmp"
-        elif category in ("pcap", "pcapzip"):
-            file_name += ".pcap"
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
-            cd = "application/vnd.tcpdump.pcap"
-        if path and not os.path.exists(path):
-            return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
-            if HAVE_PYZIPPER:
-                mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(settings.ZIP_PWD)
-                    with open(path, "rb") as f:
-                        zf.writestr(os.path.basename(path), f.read())
-            else:
-                return render(request, "error.html", {"error": "Missed pyzipper library"})
-            file_name += ".zip"
-            path = os.path.join(tempfile.gettempdir(), file_name)
-            cd = "application/zip"
+    elif category == "networkzip":
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
+        path = buf
+    elif category.startswith("procdump"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
+    elif category.startswith("memdumpzip"):
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
+        file_name += ".dmp"
+    elif category in ("pcap", "pcapzip"):
+        file_name += ".pcap"
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
+        cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
     elif category == "rtf":
@@ -1591,20 +1587,39 @@ def file(request, category, task_id, dlfile):
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
-    if not cd:
-        cd = "application/octet-stream"
+    if path and (not os.path.exists(path) or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH)):
+        return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
+    if not path:
+        return render(
+            request,
+            "error.html",
+            {
+                "error": "Files not found or option is not enabled in conf/web.conf -> [zipped_download]".format(
+                    os.path.basename(path)
+                )
+            },
+        )
+
     try:
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
-            if mem_zip:
+        if category in zip_categories:
+            if HAVE_PYZIPPER:
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    zf.setpassword(settings.ZIP_PWD)
+                    if not isinstance(path, list):
+                        path = [path]
+                    for file in path:
+                        with open(file, "rb") as f:
+                            zf.writestr(os.path.basename(file), f.read())
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)
                 resp["Content-Length"] = len(mem_zip.getvalue())
+            else:
+                return render(request, "error.html", {"error": "Missed pyzipper library"})
+            file_name += ".zip"
+            path = os.path.join(tempfile.gettempdir(), file_name)
+            cd = "application/zip"
         else:
-            if not os.path.exists(path):
-                return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-
-            if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
-                return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = os.path.getsize(path)
         resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
@@ -2105,14 +2120,18 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

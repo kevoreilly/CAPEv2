@@ -1,3 +1,6 @@
+### [23-2-2022]
+* Loader update: fix check for previous IAT patch with corrected size (fixes #748 - Obsidium packers)
+
 ### [20-02-2022] [UnAutoIt](https://github.com/x0r19x91/UnAutoIt) by @x0r19x91
 * You need to compile it by yourself and put binary under `/opt/CAPEv2/data/UnAutoIt`
 ````

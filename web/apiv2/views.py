@@ -959,10 +959,7 @@ def tasks_view(request, task_id):
                 + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, task.id), safe="")
             )
 
-        resp["data"] = entry
-    else:
-        resp = {"error": True, "error_value": "Task not found in database"}
-
+    resp["data"] = entry
     return Response(resp)
 
 

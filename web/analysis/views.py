@@ -1589,18 +1589,21 @@ def file(request, category, task_id, dlfile):
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
-    if path and (not os.path.exists(path) or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH)):
-        return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
     if not path:
         return render(
             request,
             "error.html",
             {
-                "error": "Files not found or option is not enabled in conf/web.conf -> [zipped_download]".format(
-                    os.path.basename(path)
-                )
+                "error": "Files not found or option is not enabled in conf/web.conf -> [zipped_download] -> download_all"
             },
         )
+
+    test_path = path
+    if isinstance(path, list):
+        test_path = path[0]
+
+    if test_path and (not os.path.exists(test_path) or not os.path.normpath(test_path).startswith(ANALYSIS_BASE_PATH)):
+        return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(test_path))})
 
     try:
         if category in zip_categories:

@@ -1508,10 +1508,12 @@ def file(request, category, task_id, dlfile):
         "memdumpstrings": ".dmp.strings",
     }
 
+    if category in zip_categories and not HAVE_PYZIPPER:
+        return render(request, "error.html", {"error": "Missed pyzipper library"})
+
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-
-    if category in ("static", "staticzip"):
+    elif category in ("static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
@@ -1602,20 +1604,17 @@ def file(request, category, task_id, dlfile):
 
     try:
         if category in zip_categories:
-            if HAVE_PYZIPPER:
-                mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(settings.ZIP_PWD)
-                    if not isinstance(path, list):
-                        path = [path]
-                    for file in path:
-                        with open(file, "rb") as f:
-                            zf.writestr(os.path.basename(file), f.read())
-                mem_zip.seek(0)
-                resp = StreamingHttpResponse(mem_zip, content_type=cd)
-                resp["Content-Length"] = len(mem_zip.getvalue())
-            else:
-                return render(request, "error.html", {"error": "Missed pyzipper library"})
+            mem_zip = BytesIO()
+            with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                zf.setpassword(settings.ZIP_PWD)
+                if not isinstance(path, list):
+                    path = [path]
+                for file in path:
+                    with open(file, "rb") as f:
+                        zf.writestr(os.path.basename(file), f.read())
+            mem_zip.seek(0)
+            resp = StreamingHttpResponse(mem_zip, content_type=cd)
+            resp["Content-Length"] = len(mem_zip.getvalue())
             file_name += ".zip"
             path = os.path.join(tempfile.gettempdir(), file_name)
             cd = "application/zip"

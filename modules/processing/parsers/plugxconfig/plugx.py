@@ -46,9 +46,9 @@ class PlugXConfig:
 
     @staticmethod
     def get_str_utf16le(buff):
-        tstrend = buff.find("\x00\x00")
+        tstrend = buff.find(b"\x00\x00")
         tstr = buff[: tstrend + (tstrend & 1)]
-        return tstr.decode("utf_16le")
+        return tstr.decode()
 
     @staticmethod
     def get_proto(proto):
@@ -151,7 +151,7 @@ class PlugXConfig:
             proto, cc_port, cc_address = unpack_from("<2H64s", cfg_blob)
             cfg_blob = cfg_blob[0x44:]
             proto = get_proto(proto)
-            cc_address = cc_address.split("\x00", 1)[0]
+            cc_address = cc_address.split(b"\x00", 1)[0].decode()
             if cc_address != "":
                 cc_list.append(f"{cc_address}:{cc_port} (proto)")
         if cc_list:
@@ -161,7 +161,7 @@ class PlugXConfig:
         num_url = 4 if cfg_sz not in (0x36A4, 0x4EA4) else 16
         url_list = []
         for _ in range(num_url):
-            url = cfg_blob[:0x80].split("\x00", 1)[0]
+            url = cfg_blob[:0x80].split(b"\x00", 1)[0].decode()
             cfg_blob = cfg_blob[0x80:]
             if len(url) > 0 and str(url) != "HTTP://":
                 url_list.append(str(url))
@@ -175,9 +175,9 @@ class PlugXConfig:
             ptype, port, proxy, user, passwd = unpack_from("<2H64s64s64s", cfg_blob)
             cfg_blob = cfg_blob[calcsize("<2H64s64s64s") :]
             if proxy[0] != "\x00":
-                proxy_list.append("{}:{}".format(proxy.split("\x00", 1)[0], port))
-                if user[0] != "\x00":
-                    proxy_creds.append(f"{user} / {passwd}\0")
+                proxy_list.append("{}:{}".format(proxy.split(b"\x00", 1)[0].decode(), port))
+                if user[0] != b"\x00":
+                    proxy_creds.append(f"{user.decode()} / {passwd.decode()}\0")
         if proxy_list:
             config_output.update({"Proxy": proxy_list})
         if proxy_creds:
@@ -193,17 +193,17 @@ class PlugXConfig:
             config_output.update({"Persistence Type": persistence})
         install_dir = self.get_str_utf16le(cfg_blob[:str_sz])
         cfg_blob = cfg_blob[str_sz:]
-        config_output.update({"Install Dir": install_dir.encode("ascii", "ignore")})
+        config_output.update({"Install Dir": install_dir})
         # Service
         service_name = self.get_str_utf16le(cfg_blob[:str_sz])
         cfg_blob = cfg_blob[str_sz:]
-        config_output.update({"Service Name": service_name.encode("ascii", "ignore")})
+        config_output.update({"Service Name": service_name})
         service_disp = self.get_str_utf16le(cfg_blob[:str_sz])
         cfg_blob = cfg_blob[str_sz:]
-        config_output.update({"Service Disp": service_disp.encode("ascii", "ignore")})
+        config_output.update({"Service Disp": service_disp})
         service_desc = self.get_str_utf16le(cfg_blob[:str_sz])
         cfg_blob = cfg_blob[str_sz:]
-        config_output.update({"Service Desc": service_desc.encode("ascii", "ignore")})
+        config_output.update({"Service Desc": service_desc})
         # Run key
         if cfg_sz in (0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
             reg_hive = unpack_from("<L", cfg_blob)[0]
@@ -212,9 +212,9 @@ class PlugXConfig:
             cfg_blob = cfg_blob[str_sz:]
             reg_value = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Registry hive": self.regs[reg_hive].encode("ascii", "ignore")})
-            config_output.update({"Registry key": reg_key.encode("ascii", "ignore")})
-            config_output.update({"Registry value": reg_value.encode("ascii", "ignore")})
+            config_output.update({"Registry hive": self.regs[reg_hive]})
+            config_output.update({"Registry key": reg_key})
+            config_output.update({"Registry value": reg_value})
 
         # Net injection
         if cfg_sz in (0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
@@ -226,7 +226,7 @@ class PlugXConfig:
                 inject_in = self.get_str_utf16le(cfg_blob[:str_sz])
                 cfg_blob = cfg_blob[str_sz:]
                 if inject_in != "":
-                    config_output.update({"Net injection process": inject_in.encode("ascii", "ignore")})
+                    config_output.update({"Net injection process": inject_in})
 
         # Elevation injection
         if cfg_sz in (0x2D58, 0x36A4, 0x4EA4):
@@ -237,24 +237,24 @@ class PlugXConfig:
                 inject_in = self.get_str_utf16le(cfg_blob[:str_sz])
                 cfg_blob = cfg_blob[str_sz:]
                 if inject_in != "":
-                    config_output.update({"Elevation injection process": inject_in.encode("ascii", "ignore")})
+                    config_output.update({"Elevation injection process": inject_in})
 
         # Memo / Pass / Mutex
         if cfg_sz in (0xBE4, 0x150C, 0x1510, 0x170C, 0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
             online_pass = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Online Pass": online_pass.encode("ascii", "ignore")})
+            config_output.update({"Online Pass": online_pass})
             memo = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Memo": memo.encode("ascii", "ignore")})
+            config_output.update({"Memo": memo})
         if cfg_sz in (0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
             mutex = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Mutex": mutex.encode("ascii", "ignore")})
+            config_output.update({"Mutex": mutex})
         if cfg_sz == 0x170C:
             app = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Application Name": app.encode("ascii", "ignore")})
+            config_output.update({"Application Name": app})
 
         # Screenshots
         if cfg_sz in (0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
@@ -266,7 +266,7 @@ class PlugXConfig:
             )
             screen_path = self.get_str_utf16le(cfg_blob[:str_sz])
             cfg_blob = cfg_blob[str_sz:]
-            config_output.update({"Screenshots path": screen_path.encode("ascii", "ignore")})
+            config_output.update({"Screenshots path": screen_path})
 
         # Lateral
         if cfg_sz in (0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4):
@@ -324,7 +324,7 @@ class PlugXConfig:
                 process_name = self.get_str_utf16le(cfg_blob[:0x100])
                 cfg_blob = cfg_blob[0x100:]
                 if process_name != "":
-                    process_list.append(process_name.encode("ascii", "ignore"))
+                    process_list.append(process_name)
             if process_list:
                 config_output.update({"Process black list": process_list})
             file_list = []
@@ -332,7 +332,7 @@ class PlugXConfig:
                 file_name = self.get_str_utf16le(cfg_blob[:0x100])
                 cfg_blob = cfg_blob[0x100:]
                 if process_name != "":
-                    file_list.append(file_name.encode("ascii", "ignore"))
+                    file_list.append(file_name)
             if file_list:
                 config_output.update({"File black list": file_list})
             reg_list = []
@@ -340,7 +340,7 @@ class PlugXConfig:
                 reg_name = self.get_str_utf16le(cfg_blob[:0x100])
                 cfg_blob = cfg_blob[0x100:]
                 if process_name != "":
-                    reg_list.append(reg_name.encode("ascii", "ignore"))
+                    reg_list.append(reg_name)
             if reg_list:
                 config_output.update({"Registry black list": reg_list})
         return config_output

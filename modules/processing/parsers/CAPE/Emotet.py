@@ -61,6 +61,8 @@ rule Emotet
         $snippetO = {8D 44 [2] B9 [4] 50 FF 74 [2] 8B 54 [2] E8 [4] 8B D0 8B 44 [2] 59 59 03 C2 89 54 [2] 8B FA 89 44 [2] B9 [4] E9}
         $snippetP = {FF 74 [2] 8B 54 [2] 8D 44 [2] 8B 4C [2] 68 [4] 50 E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
         $snippetQ = {FF 74 [2] BA [4] 8D 4C [2] FF 74 [2] E8 [4] 59 89 84 [3] 00 00 8B F8 03 44 [2] 59 89 44 [2] B9 [4] 81 F9 [4] 74 28 8B 54 [2] E9}
+        $snippetR = {8D 44 [2] 50 FF 74 [2] 8B 54 [2] 8B 4C [2] 68 [4] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
+        $snippetS = {FF 74 [2] 8D 54 [2] FF 74 [2] 8B 4C [2] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -79,6 +81,8 @@ rule Emotet
         $ref_eccC = {8D 84 [3] 00 00 B9 [4] 50 FF 74 [2] 8B 94 [3] 00 00 E8 [4] 89 84 [3] 00 00 B9 [4] 8D 84 [3] 00 00 50 FF B4 [3] 00 00 8B 94 [3] 00 00 E8}
         $ref_eccD = {FF B4 [3] 00 00 8B 54 [2] 8D 84 [3] 00 00 8B 8C [3] 00 00 68 [4] 50 E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 4C [2] 68 [4] 50 E8}
         $ref_eccE = {FF B4 [3] 00 00 BA [4] 8D 8C [3] 00 00 FF B4 [3] 00 00 E8 [4] FF 74 [2] BA [4] 89 84 [3] 00 00 FF 74 [2] 8D 8C [3] 00 00 E8}
+        $ref_eccF = {FF B4 [3] 00 00 8D 94 [3] 00 00 FF B4 [3] 00 00 8B 4C [2] E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 94 [3] 00 00 68 [4] FF 74 [2] FF B4 [3] 00 00 8B 4C [2] E8}
+        $ref_eccG = {8D 84 [3] 00 00 50 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 50 FF 74 [2] 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -390,6 +394,12 @@ def extract_config(filebuf):
     elif yara_matches.get("$snippetQ"):
         delta = 5
         c2list_va_offset = int(yara_matches["$snippetQ"])
+    elif yara_matches.get("$snippetR"):
+        delta = 18
+        c2list_va_offset = int(yara_matches["$snippetR"])
+    elif yara_matches.get("$snippetS"):
+        delta = -4
+        c2list_va_offset = int(yara_matches["$snippetS"])
 
     if c2list_va_offset and delta:
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -526,6 +536,14 @@ def extract_config(filebuf):
                 ref_ecc_offset = int(yara_matches["$ref_eccE"])
                 delta1 = 8
                 delta2 = 36
+            elif yara_matches.get("$ref_eccF"):
+                ref_ecc_offset = int(yara_matches["$ref_eccF"])
+                delta1 = -4
+                delta2 = 48
+            elif yara_matches.get("$ref_eccG"):
+                ref_ecc_offset = int(yara_matches["$ref_eccG"])
+                delta1 = 30
+                delta2 = 76
             if ref_ecc_offset:
                 ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
                 ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base

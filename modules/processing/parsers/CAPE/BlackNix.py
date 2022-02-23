@@ -1,7 +1,7 @@
 import pefile
 
 
-def extract_config(raw_data):
+def extract_raw_config(raw_data):
     try:
         pe = pefile.PE(data=raw_data)
         rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_RCDATA"])
@@ -26,7 +26,7 @@ def domain_parse(config):
 
 def extract_config(data):
     try:
-        config_raw = extract_config(data)
+        config_raw = extract_raw_config(data)
         if config_raw:
             return {
                 "Mutex": decode(config_raw[1])[::-1],

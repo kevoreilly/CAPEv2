@@ -56,7 +56,7 @@ if repconf.distributed.enabled:
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_aggregate, mongo_find
+    from dev_utils.mongodb import mongo_aggregate, mongo_find, mongo_find_one
 
 es_as_db = False
 essearch = False
@@ -790,6 +790,24 @@ def _download_file(route, url, options):
         print(e)
 
     return response
+
+
+def category_all_files(task_id, category, base_path):
+    analysis = False
+    query_category = category
+    if category == "CAPE":
+        category = "CAPE.payloads"
+    if repconf.mongodb.enabled:
+        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {f"{category}.sha256": 1, "_id": 0}, sort=[("_id", -1)])
+    # if es_as_db:
+    #    # ToDo missed category
+    #    analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
+
+    if analysis:
+        if query_category == "CAPE":
+            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(query_category, {}).get("payloads", [])]
+        else:
+            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(category, [])]
 
 
 def validate_task(tid, status=TASK_REPORTED):

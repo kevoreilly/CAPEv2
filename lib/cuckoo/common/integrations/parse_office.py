@@ -307,7 +307,7 @@ class Office(object):
         if HAVE_XLM_DEOBF:
             tmp_xlmmacro = xlmdeobfuscate(filepath, self.task_id, self.options.get("password", ""))
             if tmp_xlmmacro:
-                results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
+                results.setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
         return results
 

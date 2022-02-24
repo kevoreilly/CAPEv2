@@ -86,12 +86,12 @@ class Office(object):
 
     def _get_xml_meta(self, filepath):
         zfile = zipfile.ZipFile(filepath)
-        core = xml.dom.minidom.parseString(zfile.read('docProps/core.xml'))
-        app = xml.dom.minidom.parseString(zfile.read('docProps/app.xml'))
+        core = xml.dom.minidom.parseString(zfile.read("docProps/core.xml"))
+        app = xml.dom.minidom.parseString(zfile.read("docProps/app.xml"))
 
         metares = dict()
-        metares['SummaryInformation'] = {}
-        coretags = metares['SummaryInformation']
+        metares["SummaryInformation"] = {}
+        coretags = metares["SummaryInformation"]
 
         for elem in core._get_documentElement().childNodes:
             n = elem._get_tagName()
@@ -102,8 +102,8 @@ class Office(object):
                 log.error(e, exc_info=True)
                 pass
 
-        metares['DocumentSummaryInformation'] = {}
-        apptags = metares['DocumentSummaryInformation']
+        metares["DocumentSummaryInformation"] = {}
+        apptags = metares["DocumentSummaryInformation"]
 
         for elem in app._get_documentElement().childNodes:
             n = elem._get_tagName()

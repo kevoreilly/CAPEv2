@@ -5,8 +5,8 @@
 import hashlib
 import logging
 import os
-import zipfile
 import xml.dom.minidom
+import zipfile
 
 import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config

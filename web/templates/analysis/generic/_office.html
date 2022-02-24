@@ -10,7 +10,7 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% for key, value in file.mmbot.items|dictsort:"0.lower" %}
+                            {% for key, value in file.mmbot.items|dictsort:0 %}
                                 <tr>
                                     <td>{{key}}</td>
                                     <td>{{value}}</td>
@@ -30,72 +30,12 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% if file.office.Metadata.SummaryInformation.creating_application %}
-                            <tr>
-                                <td>Creating Application</td>
-                                <td>{{file.office.Metadata.SummaryInformation.creating_application}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.author %}
-                            <tr>
-                                <td>Author</td>
-                                <td>{{file.office.Metadata.SummaryInformation.author}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.last_saved_by %}
-                            <tr>
-                                <td>Last Saved By</td>
-                                <td>{{file.office.Metadata.SummaryInformation.last_saved_by}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.create_time %}
-                            <tr>
-                                <td>Creation Time</td>
-                                <td>{{file.office.Metadata.SummaryInformation.create_time}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.last_saved_time %}
-                            <tr>
-                                <td>Last Saved Time</td>
-                                <td>{{file.office.Metadata.SummaryInformation.last_saved_time}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.total_edit_time %}
-                            <tr>
-                                <td>Total Edit Time</td>
-                                <td>{{file.office.Metadata.SummaryInformation.total_edit_time}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.title %}
-                            <tr>
-                                <td>Document Title</td>
-                                <td>{{file.office.Metadata.SummaryInformation.title}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.subject %}
-                            <tr>
-                                <td>Document Subject</td>
-                                <td>{{file.office.Metadata.SummaryInformation.subject}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.num_pages %}
-                            <tr>
-                                <td>Amount of Pages</td>
-                                <td>{{file.office.Metadata.SummaryInformation.num_pages}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.num_words %}
-                            <tr>
-                                <td>Amount of Words</td>
-                                <td>{{file.office.Metadata.SummaryInformation.num_words}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.SummaryInformation.num_chars %}
-                            <tr>
-                                <td>Amount of Characters</td>
-                                <td>{{file.office.Metadata.SummaryInformation.num_chars}}</td>
-                            </tr>
-                            {% endif %}
+                            {% for key, value in file.office.Metadata.SummaryInformation.items|dictsort:0 %}
+                                <tr>
+                                    <td>{{key}}</td>
+                                    <td>{{value}}</td>
+                                </tr>
+                            {% endfor %}
                         </table>
                     </div>
                 </div>
@@ -110,36 +50,12 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
-                            {% if file.office.Metadata.DocumentSummaryInformation.company %}
-                            <tr>
-                                <td>Company</td>
-                                <td>{{file.office.Metadata.DocumentSummaryInformation.company}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.DocumentSummaryInformation.doc_version %}
-                            <tr>
-                                <td>Document Version</td>
-                                <td>{{file.office.Metadata.DocumentSummaryInformation.doc_version}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.DocumentSummaryInformation.dig_sig %}
-                            <tr>
-                                <td>Digital Signature</td>
-                                <td>{{file.office.Metadata.DocumentSummaryInformation.dig_sig}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.DocumentSummaryInformation.language %}
-                            <tr>
-                                <td>Language</td>
-                                <td>{{file.office.Metadata.DocumentSummaryInformation.language}}</td>
-                            </tr>
-                            {% endif %}
-                            {% if file.office.Metadata.DocumentSummaryInformation.notes %}
-                            <tr>
-                                <td>Notes</td>
-                                <td>{{file.office.Metadata.DocumentSummaryInformation.notes}}</td>
-                            </tr>
-                            {% endif %}
+                            {% for key, value in file.office.Metadata.DocumentSummaryInformation.items|dictsort:0 %}
+                                <tr>
+                                    <td>{{key}}</td>
+                                    <td>{{value}}</td>
+                                </tr>
+                            {% endfor %}
                         </table>
                     </div>
                 </div>

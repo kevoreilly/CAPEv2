@@ -5,6 +5,8 @@
 import hashlib
 import logging
 import os
+import zipfile
+import xml.dom.minidom
 
 import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.config import Config
@@ -81,6 +83,38 @@ class Office(object):
                 continue
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
+
+    def _get_xml_meta(self, filepath):
+        zfile = zipfile.ZipFile(filepath)
+        core = xml.dom.minidom.parseString(zfile.read('docProps/core.xml'))
+        app = xml.dom.minidom.parseString(zfile.read('docProps/app.xml'))
+
+        metares = dict()
+        metares['SummaryInformation'] = {}
+        coretags = metares['SummaryInformation']
+
+        for elem in core._get_documentElement().childNodes:
+            n = elem._get_tagName()
+            try:
+                data = core.getElementsByTagName(n)[0].childNodes[0].data
+                coretags[n.split(":")[1]] = convert_to_printable(data)
+            except (IndexError, AttributeError) as e:
+                log.error(e, exc_info=True)
+                pass
+
+        metares['DocumentSummaryInformation'] = {}
+        apptags = metares['DocumentSummaryInformation']
+
+        for elem in app._get_documentElement().childNodes:
+            n = elem._get_tagName()
+            try:
+                data = app.getElementsByTagName(n)[0].childNodes[0].data
+                apptags[n] = convert_to_printable(data)
+            except (IndexError, AttributeError) as e:
+                log.error(e, exc_info=True)
+                pass
+
+        return metares
 
     def _parse_rtf(self, data):
         results = {}
@@ -210,8 +244,6 @@ class Office(object):
 
         metares = officeresults["Metadata"] = {}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", self.task_id, "macros")
-        # The bulk of the metadata checks are in the OLE Structures
-        # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
             ole = olefile.OleFileIO(filepath)
             meta = ole.get_metadata()
@@ -223,6 +255,13 @@ class Office(object):
             if metares.get("SummaryInformation", {}).get("last_saved_time", ""):
                 metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
+        else:
+            try:
+                officeresults["Metadata"] = self._get_xml_meta(filepath)
+                metares = officeresults["Metadata"]
+            except KeyError:
+                pass
+
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = {}
@@ -307,9 +346,9 @@ class Office(object):
         if HAVE_XLM_DEOBF:
             tmp_xlmmacro = xlmdeobfuscate(filepath, self.task_id, self.options.get("password", ""))
             if tmp_xlmmacro:
-                results.setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
+                officeresults.setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
-        return results
+        return officeresults
 
     def run(self):
         """Run analysis.

@@ -238,12 +238,13 @@
                 </div>
             </div>
         {% endif %}
-                {% if file.pe.digital_signers %}
-        <div class="card-header">
-            <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
-        </div>
-        <hr />
-        <div id="pe_digital_signers" class="collapse" style="text-align: left;">
+
+        {% if file.pe.digital_signers %}
+            <div class="card-header">
+                <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
+            </div>
+            <hr />
+            <div id="pe_digital_signers" class="collapse" style="text-align: left;">
                 <div id="digital_signers">
                     {% for cert in file.pe.digital_signers %}
                     <table class="table table-striped table-bordered">
@@ -374,8 +375,7 @@
                     {% endfor %}
                     </table>
                 </div>
-            {% endif %}
-            {% if file.pe.guest_signers and file.pe.guest_signers.aux_signers %}
+            {% if file.pe.guest_signers.aux_signers %}
             <div>
                 <h4>Microsoft Certificate Validation (Sign Tool)</h4>
                 <div id="digital_signers_validation">
@@ -419,8 +419,9 @@
                     </table>
                 </div>
             </div>
-        <hr />
-        </div>
+            {% endif %}
+            <hr />
+            </div>
         {% endif %}
     {% else %}
         Nothing to display.

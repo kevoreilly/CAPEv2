@@ -719,7 +719,7 @@ class PortableExecutable(object):
 
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
-    def _get_digital_signers(self, pe):
+    def get_digital_signers(self, pe):
         """If this executable is signed, get its signature(s)."""
         if not pe:
             return []
@@ -910,6 +910,7 @@ class PortableExecutable(object):
         pe = pefile.PE(self.file_path)
         peresults = {}
         peresults["guest_signers"] = self.get_guest_digital_signers(task_id)
+        peresults["digital_signers"] = self.get_digital_signers(pe)
         peresults["imagebase"] = self.get_imagebase(pe)
         peresults["entrypoint"] = self.get_entrypoint(pe)
         peresults["ep_bytes"] = self.get_ep_bytes(pe)

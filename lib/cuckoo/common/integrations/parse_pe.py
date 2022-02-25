@@ -821,7 +821,7 @@ class PortableExecutable(object):
         cert_data = {}
         if not task_id:
             return retdata
-        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "DigiSig.json")
+        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux", "DigiSig.json")
 
         if os.path.exists(cert_info):
             with open(cert_info, "r") as cert_file:

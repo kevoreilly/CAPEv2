@@ -1697,6 +1697,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
     return render(request, "error.html", {"error": "File not found"})
 
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def filereport(request, task_id, category):

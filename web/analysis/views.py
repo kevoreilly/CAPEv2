@@ -1534,8 +1534,6 @@ def file(request, category, task_id, dlfile):
     elif category == "networkzip":
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
         path = buf
-    elif category.startswith("procdump"):
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
     elif category.startswith("memdumpzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
         file_name += ".dmp"
@@ -1565,7 +1563,7 @@ def file(request, category, task_id, dlfile):
             path = os.path.join(buf, dfile)
         else:
             path = buf
-    elif category == "procdump":
+    elif category.startswith("procdump"):
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
         if os.path.isdir(buf):
             dfile = min(os.listdir(buf), key=len)
@@ -1632,7 +1630,7 @@ def file(request, category, task_id, dlfile):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def procdump(request, task_id, process_id, start, end):
+def procdump(request, task_id, process_id, start, end, zipped=False):
     origname = process_id + ".dmp"
     tmpdir = None
     tmp_file_path = None
@@ -1656,15 +1654,15 @@ def procdump(request, task_id, process_id, start, end):
         tmp_file_path = f.extract(origname, path=tmpdir)
         f.close()
         dumpfile = tmp_file_path
-    try:
-        file_item = open(dumpfile, "rb")
-    except IOError:
-        file_item = None
+
+    content_type = "application/octet-stream"
+
+    if not os.path.exists(dumpfile):
+        return render(request, "error.html", {"error": "File not found"})
 
     file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
-
-    if file_item and analysis and "procmemory" in analysis:
-        for proc in analysis["procmemory"]:
+    with open(dumpfile, "rb") as file_item:
+        for proc in analysis.get("procmemory", []) or []:
             if proc["pid"] == int(process_id):
                 s = BytesIO()
                 for memmap in proc["address_space"]:
@@ -1674,15 +1672,24 @@ def procdump(request, task_id, process_id, start, end):
                             s.write(file_item.read(int(chunk["size"], 16)))
                 s.seek(0)
                 size = len(s.getvalue())
+                if zipped and HAVE_PYZIPPER:
+                    mem_zip = BytesIO()
+                    with pyzipper.AESZipFile(s, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                        zf.setpassword(settings.ZIP_PWD)
+                        if not isinstance(path, list):
+                            path = [path]
+                        for file in path:
+                            with open(file, "rb") as f:
+                                zf.writestr(file_name, s.getvalue())
+                    size = len(mem_zip.getvalue())
+                    file_name += ".zip"
+                    content_type = "application/zip"
                 if size:
-                    content_type = "application/octet-stream"
                     response = StreamingHttpResponse(s, content_type=content_type)
                     response["Content-Length"] = size
                     response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
                     break
 
-    if file_item:
-        file_item.close()
     try:
         if tmp_file_path:
             os.unlink(tmp_file_path)
@@ -1693,8 +1700,6 @@ def procdump(request, task_id, process_id, start, end):
 
     if response:
         return response
-
-    return render(request, "error.html", {"error": "File not found"})
 
 
 @require_safe
@@ -2121,14 +2126,18 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if (
+        service
+        not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+        )
+        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
+    ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

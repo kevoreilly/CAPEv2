@@ -96,7 +96,11 @@
                                     <td><span class="badge badge-primary">No</span></td>
                                     {% endif %}
                                     {% if proc.path %}
-                                    <td><a class="btn btn-secondary btn-small" href="{% url "procdump" id proc.pid memmap.start memmap.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
+                                    <td>
+                                        <a class="btn btn-secondary btn-small" href="{% url "procdump" id proc.pid memmap.start memmap.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a>
+                                        <a class="btn btn-secondary btn-small" href="{% url "procdumpzip" id proc.pid  memmap.start memmap.end 1 %}" data-bs-toggle="tooltip" title="Download password-protected archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                                    </td>
+
                                     {% endif %}
                                 </tr>
                                 {% if memmap.chunks|length >= 2 %}
@@ -108,7 +112,10 @@
                                         <td>{{chunk.prot}}</td>
                                         <td></td>
                                         {% if proc.path %}
-                                        <td><a class="btn btn-secondary btn-small" href="{% url "procdump" id proc.pid chunk.start chunk.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a></td>
+                                        <td>
+                                            <a class="btn btn-secondary btn-small" href="{% url "procdump" id proc.pid chunk.start chunk.end %}" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></a>
+                                            <a class="btn btn-secondary btn-small" href="{% url "procdumpzip" id proc.pid chunk.start chunk.end 1 %}" data-bs-toggle="tooltip" title="Download password-protected archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                                        </td>
                                         {% endif %}
                                     </tr>
                                 {% endfor %}

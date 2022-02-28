@@ -1660,7 +1660,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     if not os.path.exists(dumpfile):
         return render(request, "error.html", {"error": "File not found"})
 
-    file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
+    file_name = f"{process_id}_{int(start, 16):x}.dmp"
     with open(dumpfile, "rb") as file_item:
         for proc in analysis.get("procmemory", []) or []:
             if proc["pid"] == int(process_id):
@@ -1673,11 +1673,12 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 s.seek(0)
                 if zipped and HAVE_PYZIPPER:
                     mem_zip = BytesIO()
-                    with pyzipper.AESZipFile(s, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
                         zf.writestr(file_name, s.getvalue())
                     file_name += ".zip"
                     content_type = "application/zip"
+                    mem_zip.seek(0)
                     s = mem_zip
                 response = StreamingHttpResponse(s, content_type=content_type)
                 response["Content-Length"] = len(s.getvalue())

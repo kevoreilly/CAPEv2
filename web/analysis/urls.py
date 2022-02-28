@@ -34,7 +34,7 @@ urlpatterns = [
     url(r"^ban_user/(?P<user_id>[\d]+)/$", views.ban_user, name="ban_user"),
     url(r"^procdump/(?P<task_id>\d+)/(?P<process_id>\d+)/(?P<start>\w+)/(?P<end>\w+)/$", views.procdump, name="procdump"),
     url(
-        r"^procdump/(?P<task_id>\d+)/(?P<process_id>\d+)/(?P<start>\w+)/(?P<end>\w+)/(?P<zipped>)\d/$",
+        r"^procdump/(?P<task_id>\d+)/(?P<process_id>\d+)/(?P<start>\w+)/(?P<end>\w+)/(?P<zipped>\d)/$",
         views.procdump,
         name="procdump",
     ),

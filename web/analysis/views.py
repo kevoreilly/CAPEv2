@@ -1671,20 +1671,18 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                             file_item.seek(chunk["offset"])
                             s.write(file_item.read(int(chunk["size"], 16)))
                 s.seek(0)
-                size = len(s.getvalue())
                 if zipped and HAVE_PYZIPPER:
                     mem_zip = BytesIO()
                     with pyzipper.AESZipFile(s, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
                         zf.writestr(file_name, s.getvalue())
-                    size = len(mem_zip.getvalue())
                     file_name += ".zip"
                     content_type = "application/zip"
-                if size:
-                    response = StreamingHttpResponse(s, content_type=content_type)
-                    response["Content-Length"] = size
-                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-                    break
+                    s = mem_zip
+                response = StreamingHttpResponse(s, content_type=content_type)
+                response["Content-Length"] = len(s.getvalue())
+                response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                break
 
     try:
         if tmp_file_path:
@@ -1697,6 +1695,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     if response:
         return response
 
+    return render(request, "error.html", {"error": "File not found"})
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

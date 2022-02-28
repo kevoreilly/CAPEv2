@@ -1676,11 +1676,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                     mem_zip = BytesIO()
                     with pyzipper.AESZipFile(s, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
-                        if not isinstance(path, list):
-                            path = [path]
-                        for file in path:
-                            with open(file, "rb") as f:
-                                zf.writestr(file_name, s.getvalue())
+                        zf.writestr(file_name, s.getvalue())
                     size = len(mem_zip.getvalue())
                     file_name += ".zip"
                     content_type = "application/zip"
@@ -2126,18 +2122,14 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if (
-        service
-        not in (
-            "bingraph",
-            "flare_capa",
-            "vba2graph",
-            "virustotal",
-            "xlsdeobf",
-            "strings",
-        )
-        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
-    ):
+    if service not in (
+        "bingraph",
+        "flare_capa",
+        "vba2graph",
+        "virustotal",
+        "xlsdeobf",
+        "strings",
+    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

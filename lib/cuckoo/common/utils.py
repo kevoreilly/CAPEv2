@@ -655,8 +655,6 @@ def get_vt_consensus(namelist):
         "trojandownloader",
         "trojandropper",
         "dropper",
-        "generik",
-        "generic",
         "tsgeneric",
         "malware",
         "dldr",
@@ -664,8 +662,12 @@ def get_vt_consensus(namelist):
         "injector",
         "agent",
         "nsis",
+        "genetic",
+        "generik",
+        "generic",
         "generickd",
         "genericgb",
+        "generickdz",
         "behaveslike",
         "heur",
         "inject2",
@@ -688,7 +690,6 @@ def get_vt_consensus(namelist):
         "packed",
         "trojware",
         "worm",
-        "genetic",
         "backdoor",
         "email",
         "obfuscated",
@@ -751,6 +752,7 @@ def get_vt_consensus(namelist):
         "krypt",
         "linux",
         "unix",
+        "ftmn",
     ]
 
     finaltoks = defaultdict(int)

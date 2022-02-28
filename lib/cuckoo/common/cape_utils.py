@@ -224,36 +224,6 @@ def hash_file(method, path):
     return h.hexdigest()
 
 
-def upx_harness(raw_data):
-    upxfile = tempfile.NamedTemporaryFile(delete=False)
-    upxfile.write(raw_data)
-    upxfile.close()
-    try:
-        ret = subprocess.call(f"(upx -d {upxfile.name})", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except Exception as e:
-        log.error("CAPE: UPX Error %s", e)
-        os.unlink(upxfile.name)
-        return
-
-    if ret == 0:
-        sha256 = hash_file(hashlib.sha256, upxfile.name)
-        newname = os.path.join(os.path.dirname(upxfile.name), sha256)
-        os.rename(upxfile.name, newname)
-        log.info("CAPE: UPX - Statically unpacked binary %s", upxfile.name)
-        return newname
-    elif ret == 127:
-        log.error("CAPE: Error - UPX not installed")
-    elif ret == 1:
-        log.error("CAPE: Error - UPX CantUnpackException")
-    elif ret == 2:
-        log.error("CAPE: Error - UPX 'not packed' exception")
-    else:
-        log.error("CAPE: Unknown error - check UPX is installed and working")
-
-    os.unlink(upxfile.name)
-    return
-
-
 def convert(data):
     if isinstance(data, str):
         return str(data)

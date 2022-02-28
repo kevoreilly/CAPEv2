@@ -180,7 +180,16 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         kixtart_extract
     """
 
-    for funcname in (msi_extract, kixtart_extract, vbe_extract, batch_extract, UnAutoIt_extract, RarSFX_extract):
+    for funcname in (
+        msi_extract,
+        kixtart_extract,
+        vbe_extract,
+        batch_extract,
+        UnAutoIt_extract,
+        RarSFX_extract,
+        UPX_unpack,
+        NSIS_unpack,
+    ):
         try:
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
@@ -361,7 +370,6 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
                     for extracted_file in tempdir
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
-                print(files)
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 
         except Exception as e:
@@ -373,3 +381,75 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
+
+
+def UPX_unpack(file, destination_folder, filetype, data_dictionary):
+
+    # ToDo maybe check yara for UPX?
+    # hit["name"] == "UPX":
+    if "UPX compressed" not in filetype:
+        return
+
+    metadata = list()
+
+    with tempfile.TemporaryDirectory(prefix="unupx_") as tempdir:
+        try:
+            dest_path = f"{os.path.join(tempdir, os.path.basename(file))}_unpacked"
+            output = subprocess.check_output(
+                [
+                    "upx",
+                    "-d",
+                    file,
+                    f"-o{dest_path}",
+                ],
+                universal_newlines=True,
+            )
+            if output and "Unpacked 1 file." in output:
+                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[dest_path])
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "UnUPX")
+
+
+def NSIS_unpack(file, destination_folder, filetype, data_dictionary):
+
+    if "Nullsoft Installer self-extracting archive" not in filetype:
+        return
+
+    metadata = list()
+
+    with tempfile.TemporaryDirectory(prefix="unnsis_") as tempdir:
+        try:
+            output = subprocess.check_output(
+                [
+                    "7z",
+                    "e",
+                    file,
+                    f"-o{tempdir}",
+                ],
+                universal_newlines=True,
+            )
+            if output:
+                files = [
+                    os.path.join(tempdir, extracted_file)
+                    for extracted_file in tempdir
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                ]
+                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "UnNSIS")

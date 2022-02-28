@@ -22,7 +22,7 @@ import shutil
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, plugx_parser, static_config_parsers, upx_harness
+from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, plugx_parser, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
@@ -101,31 +101,6 @@ class CAPE(Processing):
         if cape_name not in self.results["detections2pid"][str(pid)]:
             self.results["detections2pid"][str(pid)].append(cape_name)
 
-    def upx_unpack(self, file_data):
-        unpacked_file = upx_harness(file_data)
-        if unpacked_file and os.path.exists(unpacked_file):
-            for unpacked_hit in File(unpacked_file).get_yara(category="CAPE"):
-                if unpacked_hit["name"] == "UPX":
-                    # Failed to unpack
-                    log.info("CAPE: Failed to unpack UPX")
-                    break
-            if not os.path.exists(self.CAPE_path):
-                os.makedirs(self.CAPE_path)
-            newname = os.path.join(self.CAPE_path, os.path.basename(unpacked_file))
-            if os.path.exists(unpacked_file):
-                shutil.move(unpacked_file, newname)
-                # Recursive process of unpacked file
-                upx_extract = self.process_file(newname, True, {})
-                if upx_extract and upx_extract["type"]:
-                    upx_extract["cape_type"] = "UPX-extracted "
-                    type_strings = upx_extract["type"].split()
-                    if type_strings[0] in ("PE32+", "PE32"):
-                        upx_extract["cape_type"] += pe_map[type_strings[0]]
-                        if type_strings[2][0] == "(DLL)":
-                            upx_extract["cape_type"] += "DLL"
-                        else:
-                            upx_extract["cape_type"] += "executable"
-
     def process_file(self, file_path, append_file, metadata={}):
         """Process file.
         @return: file_info
@@ -138,7 +113,7 @@ class CAPE(Processing):
         if not os.path.exists(file_path):
             return
 
-        buf = self.options.get("buffer", BUFSIZE)
+        # buf = self.options.get("buffer", BUFSIZE)
 
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
         if pefile_object:
@@ -287,10 +262,6 @@ class CAPE(Processing):
 
         # Process CAPE Yara hits
         for hit in file_info["cape_yara"]:
-            # Check to see if file is packed with UPX
-            if hit["name"] == "UPX":
-                log.info("CAPE: Found UPX Packed sample - attempting to unpack")
-                self.upx_unpack(file_data)
 
             # Check for a payload or config hit
             extraction_types = ("payload", "config", "loader")

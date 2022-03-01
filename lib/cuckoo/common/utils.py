@@ -724,6 +724,7 @@ def get_vt_consensus(namelist):
         "application",
         "risktool",
         "multi",
+        "msoffice",
         "ransom",
         "autoit",
         "yakes",

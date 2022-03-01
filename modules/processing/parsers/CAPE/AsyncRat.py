@@ -94,24 +94,27 @@ def extract_config(filebuf):
         if match[1] == "$magic_cslr_0":
             addr = match[0]
 
-    # import code;code.interact(local=dict(locals(), **globals()))
     strings_offset = struct.unpack("<I", filebuf[addr + 0x40 : addr + 0x44])[0]
     strings_size = struct.unpack("<I", filebuf[addr + 0x44 : addr + 0x48])[0]
     data = filebuf[addr + strings_offset : addr + strings_offset + strings_size]
     data = data.split(b"\x00\x00")
     key = base64.b64decode(get_string(data, 7))
     log.debug("extracted key: " + str(key))
-    config = {
-        "family": "asyncrat",
-        "hosts": decrypt_config_item_list(key, data, 2),
-        "ports": decrypt_config_item_list(key, data, 1),
-        "version": decrypt_config_item_printable(key, data, 3),
-        "install_folder": get_wide_string(data, 5),
-        "install_file": get_wide_string(data, 6),
-        "install": decrypt_config_item_printable(key, data, 4),
-        "mutex": decrypt_config_item_printable(key, data, 8),
-        "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b""),
-    }
+    try:
+        config = {
+            "family": "asyncrat",
+            "hosts": decrypt_config_item_list(key, data, 2),
+            "ports": decrypt_config_item_list(key, data, 1),
+            "version": decrypt_config_item_printable(key, data, 3),
+            "install_folder": get_wide_string(data, 5),
+            "install_file": get_wide_string(data, 6),
+            "install": decrypt_config_item_printable(key, data, 4),
+            "mutex": decrypt_config_item_printable(key, data, 8),
+            "pastebin": decrypt(key, base64.b64decode(data[12][1:])).encode("ascii").replace(b"\x0f", b""),
+        }
+    except Exception as e:
+        print(e)
+        return {}
 
     if config["version"].startswith("0"):
         return config

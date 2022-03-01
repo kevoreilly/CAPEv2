@@ -45,6 +45,6 @@ class TargetInfo(Processing):
             target_info["file"]["name"] = File(self.task["target"]).get_name()
         elif self.task["category"] == "url":
             target_info["url"] = self.task["target"]
-            if HAVE_WHOIS and processing_conf.static.whois.enabled:
+            if HAVE_WHOIS and processing_conf.static.whois:
                 self.results["url"] = URL(self.task["target"]).run()
         return target_info

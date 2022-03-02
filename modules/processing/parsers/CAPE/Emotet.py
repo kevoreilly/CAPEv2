@@ -47,7 +47,7 @@ rule Emotet
         $snippetA = {85 C0 74 5? 8B ?8 04 89 78 28 89 38 89 70 2C EB 04 41 89 48 04 39 34 CD [4] 75 F3 FF 75 DC FF 75 F0 8B 55 F8 FF 75 10 8B 4D EC E8 [4] 83 C4 0C 85 C0 74 05}
         $snippetB = {EB 04 4? 89 [2] 39 [6] 75 F3}
         $snippetC = {EB 03 4? 89 1? 39 [6] 75 F4}
-        $snippetD = {8D 44 [2] 50 68 [4] FF 74 [2] FF 74 [2] 8B 54 [2] 8B 4C [2] E8 [4] 8B 54 [2] 83 C4 10 89 44 [2] 8B F8 03 44 [2] B9 [4] 89 44 [2] E9 [2] FF FF}
+        $snippetD = {8D 44 [2] 50 68 [4] FF 74 [2] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $snippetE = {FF 74 [2] 8D 54 [2] FF 74 [2] 68 [4] FF 74 [2] 8B 4C [2] E8 [4] 8B 54 [2] 83 C4 10 89 44 [2] 8B F8 03 44 [2] B9 [4] 89 44 [2] E9 [2] FF FF}
         $snippetF = {FF 74 [2] 8D 44 [2] BA [4] FF 74 [2] 8B 4C [2] 50 E8 [4] 8B 54 [2] 8B D8 8B 84 [5] 83 C4 0C 03 C3 89 5C [2] 8B FB 89 44}
         $snippetG = {FF 74 [2] 8B 54 [2] 8D 44 [2] 8B 4C [2] 50 E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 89 44}
@@ -63,6 +63,7 @@ rule Emotet
         $snippetQ = {FF 74 [2] BA [4] 8D 4C [2] FF 74 [2] E8 [4] 59 89 84 [3] 00 00 8B F8 03 44 [2] 59 89 44 [2] B9 [4] 81 F9 [4] 74 28 8B 54 [2] E9}
         $snippetR = {8D 44 [2] 50 FF 74 [2] 8B 54 [2] 8B 4C [2] 68 [4] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
         $snippetS = {FF 74 [2] 8D 54 [2] FF 74 [2] 8B 4C [2] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
+        $snippetT = {8B 54 [2] 8D 44 [2] 8B 4C [2] 68 [4] 50 E8 [4] 8B 9C [3] 00 00 8B F8 59 59 03 D8 89 44 [2] 89 5C [2] B9 [4] EB}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -83,6 +84,8 @@ rule Emotet
         $ref_eccE = {FF B4 [3] 00 00 BA [4] 8D 8C [3] 00 00 FF B4 [3] 00 00 E8 [4] FF 74 [2] BA [4] 89 84 [3] 00 00 FF 74 [2] 8D 8C [3] 00 00 E8}
         $ref_eccF = {FF B4 [3] 00 00 8D 94 [3] 00 00 FF B4 [3] 00 00 8B 4C [2] E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 94 [3] 00 00 68 [4] FF 74 [2] FF B4 [3] 00 00 8B 4C [2] E8}
         $ref_eccG = {8D 84 [3] 00 00 50 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 50 FF 74 [2] 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8}
+        $ref_eccH = {8D 84 [5] 50 68 [4] FF 74 [2] FF B4 [3] 00 00 8B 94 [3] 00 00 8B 8C [3] 00 00 E8 [4] 89 84 [3] 00 00 8D 84 [3] 00 00 50 68}
+        $ref_eccI = {8B 94 [3] 00 00 8D 84 [3] 00 00 8B 8C [3] 00 00 68 [4] 50 E8 [4] 8B 54 [2] 8B 8C [3] 00 00 89 84 [3] 00 00 8D 84 [3] 00 00 68 [4] 50 E8}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -400,6 +403,9 @@ def extract_config(filebuf):
     elif yara_matches.get("$snippetS"):
         delta = -4
         c2list_va_offset = int(yara_matches["$snippetS"])
+    elif yara_matches.get("$snippetT"):
+        delta = 13
+        c2list_va_offset = int(yara_matches["$snippetT"])
 
     if c2list_va_offset and delta:
         c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -544,6 +550,14 @@ def extract_config(filebuf):
                 ref_ecc_offset = int(yara_matches["$ref_eccG"])
                 delta1 = 30
                 delta2 = 76
+            if yara_matches.get("$ref_eccH"):
+                ref_ecc_offset = int(yara_matches["$ref_eccH"])
+                delta1 = 9
+                delta2 = 59
+            if yara_matches.get("$ref_eccI"):
+                ref_ecc_offset = int(yara_matches["$ref_eccI"])
+                delta1 = 22
+                delta2 = 58
             if ref_ecc_offset:
                 ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
                 ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base

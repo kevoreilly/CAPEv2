@@ -1,3 +1,6 @@
+### [2-3-2022]
+* Emotet updates
+
 ### [23-2-2022]
 * Loader update: fix check for previous IAT patch with corrected size (fixes #748 - Obsidium packers)
 * PlugX updates

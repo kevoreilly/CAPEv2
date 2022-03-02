@@ -24,7 +24,7 @@ from lib.cuckoo.common.colors import bold, green, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import to_unicode, store_temp_file, sanitize_filename
+from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database
 
 

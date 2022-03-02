@@ -102,7 +102,7 @@ def yara_scan(raw_data):
         if match.rule == "Emotet":
             for item in match.strings:
                 addresses[item[1]] = item[0]
-    #log.debug(addresses)
+    # log.debug(addresses)
     return addresses
 
 

@@ -24,7 +24,7 @@ from lib.cuckoo.common.colors import bold, green, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import to_unicode
+from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database
 
 
@@ -314,8 +314,9 @@ def main():
                     continue
 
                 try:
+                    tmp_path = store_temp_file(open(file_path, "rb").read(), sanitize_filename(os.path.basename(file_path)))
                     task_ids, extra_details = db.demux_sample_and_add_to_db(
-                        file_path=file_path.encode(),
+                        file_path=tmp_path,
                         package=args.package,
                         timeout=sane_timeout,
                         options=args.options,

@@ -8,7 +8,7 @@
 
 ### [20-02-2022] [UnAutoIt](https://github.com/x0r19x91/UnAutoIt) by @x0r19x91
 * You need to compile it by yourself and put binary under `/opt/CAPEv2/data/UnAutoIt`
-````
+```
 cd /opt/CAPEv2/data/
 snap install go --classic
 git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt

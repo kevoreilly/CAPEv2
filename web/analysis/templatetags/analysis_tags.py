@@ -18,6 +18,7 @@ from django.utils.safestring import mark_safe
 def is_string(value):
     return isinstance(value, str)
 
+
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""
@@ -50,9 +51,11 @@ def is_dict(value):
     """Checks if value is an instance of dict"""
     return isinstance(value, dict)
 
+
 @register.filter
 def get_key(dictionary):
     return dictionary.keys()[0]
+
 
 @register.filter
 def get_item(dictionary, key):

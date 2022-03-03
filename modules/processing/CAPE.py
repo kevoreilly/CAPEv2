@@ -299,9 +299,10 @@ class CAPE(Processing):
 
         if cape_name:
             if cape_name != "UPX" and cape_name:
-                detection = {"family": cape_name, "detection": "yara", "sha256": file_info["sha256"]}
-                if detection not in self.results.get("detections", []):
-                    self.results.setdefault("detections", []).append(detection)
+                self.results.setdefault("detections", {})
+                if cape_name not in self.results["detections"]:
+                    self.results["detections"].setdefault(cape_name, {})
+                self.results["detections"][cape_name].setdefault("details", []).append({file_info["sha256"]: "yara"})
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
 

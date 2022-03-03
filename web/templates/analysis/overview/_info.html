@@ -1,22 +1,19 @@
 <section id="information">
-    <div class="row">
-    {% if analysis.malfamily_tag and analysis.detections %}
-    <div class="col-lg-1" style="padding-right: 0px;">
-        <div class="panel panel-primary" style="height: 114px;">
-            <div class="panel-heading">
-                <h4 class="panel-title" style="text-align: center;">Detections</h4>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    <h5 style="text-align:center;font-size: 16px";>{{analysis.malfamily_tag}}:</h5>
-                    <h5 style="text-align:center; font-size: 16px%;font-weight-bold";><a href="/analysis/search/detections:{{analysis.detections}}"><span class="badge badge-danger">{{analysis.detections}}</span></a></h5>
-                </div>
-              </div>
 
-        </div>
-    </div>
+    {% if analysis.detections %}
+        <p  style="text-align:center; font-size: 16px;font-weight-bold";>Detection(s):
+        <!--ToDo remove soon-->
+        {% if analysis.detections|is_string %}
+            <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{analysis.detections}}</span></a>
+        {% else %}
+            {% for family  in analysis.detections %}
+                <a href="/analysis/search/detections:{{family}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{family}}</span></a>
+            {% endfor %}
+            </p>
+        {% endif %}
     {% endif %}
 
+    <div class="row">
     {% if children|length > 0 %}
     <div class="col-lg-1" style="padding-right: 0px;">
         <div class="panel panel-primary" style="height: 114px;">
@@ -34,9 +31,9 @@
     </div>
     {% endif %}
     {% if analysis.detections and children|length > 0 %}
-        <div class="col-lg-10">
-    {% elif analysis.detections or children|length > 0 %}
         <div class="col-lg-11">
+    {% elif analysis.detections or children|length > 0 %}
+        <div class="col-lg-12">
     {% else %}
         <div class="col-lg-12">
     {% endif %}

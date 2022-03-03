@@ -1016,6 +1016,9 @@ def perform_search(term, value, search_limit=False):
         # check if family name is string only maybe?
         search_term_map[term] = f"CAPE.configs.{value}"
         query_val = {"$exists": True}
+    elif term == "detections":
+        search_term_map[term] = f"detections.{value}"
+        query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
         if isinstance(search_term_map[term], str):

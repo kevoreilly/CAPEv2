@@ -147,7 +147,8 @@ class ProcessMemory(Processing):
 
                 cape_name = cape_name_from_yara(proc, process_id, self.results)
                 if cape_name:
-                    detection = {"family": cape_name, "detection": "yara", "sha256": proc["sha256"]}
-                    if detection not in self.results.get("detections", []):
-                        self.results.setdefault("detections", []).append(detection)
+                    self.results.setdefault("detections", {})
+                    if cape_name not in self.results["detections"]:
+                        self.results["detections"].setdefault(cape_name, {})
+                    self.results["detections"][cape_name].setdefault("details", []).append({proc["sha256"]: "yara"})
         return results

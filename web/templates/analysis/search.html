@@ -354,7 +354,14 @@
                         </td>
                         <td>
                             {% if analysis.detections %}
-                                <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                                <!--ToDo get_type is to show correctly old detection. so To be removed. 1 detection we show the name, more detection we show multi and add tooltip-->
+                                {% if analysis.detections|is_string %}
+                                    <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                                {% elif analysis.detections|length == 1 %}
+                                    <a href="/analysis/search/detections:{{analysis.detections|get_key}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections|get_key}}</span></a>
+                                {% elif analysis.detections|length > 1 %}
+                                    <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
+                                {% endif %}
                             {% endif %}
                         </td>
                         {% if config.expanded_dashboard %}

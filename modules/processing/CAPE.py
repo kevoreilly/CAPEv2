@@ -298,10 +298,10 @@ class CAPE(Processing):
                 config.update(tmp_config)
 
         if cape_name:
-            if "detections" not in self.results:
-                if cape_name != "UPX":
-                    # ToDo list of keys
-                    self.results["detections"] = cape_name
+            if cape_name != "UPX" and cape_name:
+                detection = {"family": cape_name, "detection": "yara", "sha256": file_info["sha256"]}
+                if detection not in self.results.get("detections", []):
+                    self.results.setdefault("detections", []).append(detection)
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
 

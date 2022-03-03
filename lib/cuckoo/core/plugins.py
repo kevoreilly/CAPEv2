@@ -322,6 +322,7 @@ class RunProcessing(object):
         return self.results
 
     def _detect_family(self):
+        # ToDo this is outdated, move to new format
         if not self.cfg.detections.enabled:
             return
 
@@ -329,7 +330,7 @@ class RunProcessing(object):
         malfamily_tag = ""
 
         if self.cfg.detections.yara:
-            family = self.results.get("detections", "")
+            family = self.results.get("detections", [])
             if family:
                 malfamily_tag = "Yara"
 
@@ -341,6 +342,7 @@ class RunProcessing(object):
                         malfamily_tag = "Suricata"
                         break
 
+        # this should be done on each file
         if self.results["info"]["category"] == "file":
             if self.cfg.detections.virustotal and not family:
                 family = self.results.get("virustotal", {}).get("detection", "")
@@ -357,7 +359,7 @@ class RunProcessing(object):
                             break
 
         if family:
-            self.results["detections"] = family
+            # self.results["detections"] = family
             self.results["malfamily_tag"] = malfamily_tag
 
 

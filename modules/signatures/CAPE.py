@@ -589,8 +589,8 @@ class CAPEDetectedThreat(Signature):
     evented = True
 
     def run(self):
-        if self.results.get("detections", False):
-            self.description = "CAPE detected the %s malware family" % self.results["detections"]
+        if self.results.get("detections"):
+            self.description = "CAPE detected the %s malware" % ",".join(self.results["detections"])
             return True
 
         return False

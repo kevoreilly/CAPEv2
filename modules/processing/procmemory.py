@@ -16,6 +16,13 @@ processing_conf = Config("processing")
 
 log = logging.getLogger(__name__)
 
+try:
+    import re2 as re
+
+    HAVE_RE2 = True
+except ImportError:
+    HAVE_RE2 = False
+
 
 class ProcessMemory(Processing):
     """Analyze process memory dumps."""

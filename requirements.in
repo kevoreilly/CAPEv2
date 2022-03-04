@@ -70,3 +70,4 @@ psutil==5.8.0
 # theorically this is binGraph deps
 matplotlib==3.3.0
 numpy==1.19.1
+imagehash==4.2.1

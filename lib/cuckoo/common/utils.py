@@ -646,7 +646,7 @@ def store_temp_file(filedata, filename, path=None):
     return tmp_file_path
 
 
-def add_family_detection(results, family, detected_by, detected_on):
+def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
     results.setdefault("detections", [])
     found = False
     for block in results["detections"]:
@@ -657,7 +657,7 @@ def add_family_detection(results, family, detected_by, detected_on):
         results["detections"].append({"family": family, "details": [{detected_by: detected_on}]})
 
 
-def get_clamav_consensus(self, namelist):
+def get_clamav_consensus(namelist: list):
     for detection in namelist:
         if detection.startswith("Win.Trojan."):
             words = re.findall(r"[A-Za-z0-9]+", detection)
@@ -666,7 +666,7 @@ def get_clamav_consensus(self, namelist):
                 return family
 
 
-def get_vt_consensus(namelist):
+def get_vt_consensus(namelist: list):
     banlist = [
         "other",
         "troj",

@@ -12,8 +12,12 @@ import subprocess
 import time
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.utils import add_family_detection, convert_to_printable
+
+processing_cfg = Config("processing")
 
 try:
     import orjson
@@ -381,12 +385,19 @@ class Suricata(Processing):
         if SURICATA_FILES_DIR_FULL_PATH and os.path.exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH and os.path.exists(Z7_PATH):
             # /usr/bin/7z a -pinfected -y files.zip files-json.log files
             cmdstr = f"cd {self.logs_path} && {Z7_PATH} a -p{FILES_ZIP_PASS} -y files.zip {SURICATA_FILE_LOG} {SURICATA_FILES_DIR}"
-            ret, stdout, stderr = self.cmd_wrapper(cmdstr)
+            ret, _, stderr = self.cmd_wrapper(cmdstr)
             if ret > 1:
                 log.warning("Suricata: Failed to create %s/files.zip - Error %d", self.logs_path, ret)
 
         suricata["alerts"] = self.sort_by_timestamp(suricata["alerts"])
         suricata["http"] = self.sort_by_timestamp(suricata["http"])
         suricata["tls"] = self.sort_by_timestamp(suricata["tls"])
+
+        if processing_cfg.detections.suricata:
+            for alert in suricata.get("alerts", []):
+                if alert.get("signature", "").startswith(et_categories):
+                    family = get_suricata_family(alert["signature"])
+                    if family:
+                        add_family_detection(self.results, family, "Suricata", alert["signature"])
 
         return suricata

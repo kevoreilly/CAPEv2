@@ -5,13 +5,12 @@
 <h4>Information for {{days}} days. Total number of tasks: {{statistics.total}}, Average per day: {{statistics.average}}</h4>
 
 {% if statistics.detections %}
-<h4>Top 20 detections</h4>
   <table class="table table-striped table-bordered">
-    {% for block in statistics.detections %}
-      {% if block.family %}
-        <td>{{block.total}}: <a href="/analysis/search/detections:{{block.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{block.family}}</span></a></td>
+    {% for family, total in statistics.detections.items %}
+      {% if family %}
+        <td>{{total}}: <a href="/analysis/search/detections:{{family}}"><span style="color:#EE1B2F;font-weight: bold;">{{family}}</span></a></td>
       {% endif %}
-      {% if forloop.counter|divisibleby:"4" %}
+      {% if forloop.counter|divisibleby:"5" %}
           </tr>
       {% elif forloop.last %}
           </tr>

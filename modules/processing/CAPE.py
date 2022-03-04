@@ -18,15 +18,15 @@ import imp
 import json
 import logging
 import os
-import shutil
 from datetime import datetime
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import BUFSIZE, pe_map, plugx_parser, static_config_parsers
+from lib.cuckoo.common.cape_utils import pe_map, plugx_parser, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus
 
 try:
     import pydeep
@@ -113,12 +113,16 @@ class CAPE(Processing):
         if not os.path.exists(file_path):
             return
 
-        # buf = self.options.get("buffer", BUFSIZE)
-
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
+
         if pefile_object:
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+
+        if file_info.get("clamav") and processing_conf.detections.clamav:
+            clamav_detection = get_clamav_consensus(file_info["clamav"])
+            if clamav_detection:
+                add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
         static_file_info(
@@ -298,10 +302,9 @@ class CAPE(Processing):
                 config.update(tmp_config)
 
         if cape_name:
-            if "detections" not in self.results:
-                if cape_name != "UPX":
-                    # ToDo list of keys
-                    self.results["detections"] = cape_name
+            if cape_name != "UPX" and cape_name:
+                if processing_conf.detections.yara:
+                    add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
 

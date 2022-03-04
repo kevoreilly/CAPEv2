@@ -116,11 +116,14 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.detections %}
+                            {% if analysis.detections|is_string %}
                                 <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                            {% elif analysis.detections|length == 1 %}
+                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections.0.family}}</span></a>
+                            {% elif analysis.detections|length > 1 %}
+                                <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
                             {% endif %}
                         </td>
-
                         {% if config.display_task_tags %}
                         <td>
                             {% if analysis.user_task_tags %}
@@ -216,15 +219,6 @@
                         </td>
                         {% endif %}
                         {% if config.expanded_dashboard %}
-                        <td>
-                            <span class="mono">
-                                {% if analysis.detections %}
-                                {{analysis.detections}}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </span>
-                        </td>
                         <td>
                             <span class="mono">
                             {% if analysis.pcap_sha256 %}
@@ -399,8 +393,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.detections %}
+                           <!--1 detection we show the name, more detection we show multi and add tooltip-->
+                            {% if analysis.detections|is_string %}
+                                    <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                            {% elif analysis.detections|length == 1 %}
                                 <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                            {% elif analysis.detections|length > 1 %}
+                                <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
                             {% endif %}
                         </td>
 
@@ -971,15 +970,6 @@
                     </td>
                     {% endif %}
                     {% if config.expanded_dashboard %}
-                    <td>
-                        <span class="mono">
-                            {% if analysis.detections %}
-                                {{analysis.detections}}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </span>
-                    </td>
                     <td>
                         <span class="mono">
                             {% if analysis.pcap_sha256 %}

@@ -21,8 +21,6 @@ HAVE_FLARE_CAPA = False
 if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
-processing_conf = Config("processing")
-
 
 class ProcDump(Processing):
     """ProcDump files analysis."""

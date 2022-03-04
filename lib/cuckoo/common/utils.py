@@ -9,7 +9,6 @@ import inspect
 import logging
 import multiprocessing
 import ntpath
-import operator
 import os
 import random
 import shutil
@@ -22,7 +21,6 @@ import threading
 import time
 import xmlrpc.client
 import zipfile
-from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from typing import Tuple
@@ -646,143 +644,24 @@ def store_temp_file(filedata, filename, path=None):
     return tmp_file_path
 
 
-def get_vt_consensus(namelist):
-    banlist = [
-        "other",
-        "troj",
-        "trojan",
-        "win32",
-        "trojandownloader",
-        "trojandropper",
-        "dropper",
-        "tsgeneric",
-        "malware",
-        "dldr",
-        "downloader",
-        "injector",
-        "agent",
-        "nsis",
-        "genetic",
-        "generik",
-        "generic",
-        "generickd",
-        "genericgb",
-        "generickdz",
-        "behaveslike",
-        "heur",
-        "inject2",
-        "trojanspy",
-        "trojanpws",
-        "reputation",
-        "script",
-        "w97m",
-        "pp97m",
-        "lookslike",
-        "macro",
-        "dloadr",
-        "kryptik",
-        "graftor",
-        "artemis",
-        "zbot",
-        "w2km",
-        "docdl",
-        "variant",
-        "packed",
-        "trojware",
-        "worm",
-        "backdoor",
-        "email",
-        "obfuscated",
-        "cryptor",
-        "obfus",
-        "virus",
-        "xpack",
-        "crypt",
-        "rootkit",
-        "malwares",
-        "malicious",
-        "suspicious",
-        "riskware",
-        "risk",
-        "win64",
-        "troj64",
-        "drop",
-        "hacktool",
-        "exploit",
-        "msil",
-        "inject",
-        "dropped",
-        "program",
-        "unwanted",
-        "heuristic",
-        "patcher",
-        "tool",
-        "potentially",
-        "rogue",
-        "keygen",
-        "unsafe",
-        "application",
-        "risktool",
-        "multi",
-        "msoffice",
-        "ransom",
-        "autoit",
-        "yakes",
-        "java",
-        "ckrf",
-        "html",
-        "bngv",
-        "bnaq",
-        "o97m",
-        "blqi",
-        "bmbg",
-        "mikey",
-        "kazy",
-        "x97m",
-        "msword",
-        "cozm",
-        "eldorado",
-        "fakems",
-        "cloud",
-        "stealer",
-        "dangerousobject",
-        "symmi",
-        "zusy",
-        "dynamer",
-        "obfsstrm",
-        "krypt",
-        "linux",
-        "unix",
-        "ftmn",
-    ]
+def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
+    results.setdefault("detections", [])
+    found = False
+    for block in results["detections"]:
+        if family == block.get("family", ""):
+            found = True
+            block["details"].append({detected_by: detected_on})
+    if not found:
+        results["detections"].append({"family": family, "details": [{detected_by: detected_on}]})
 
-    finaltoks = defaultdict(int)
-    for name in namelist:
-        toks = re.findall(r"[A-Za-z0-9]+", name)
-        for tok in toks:
-            finaltoks[tok.title()] += 1
-    for tok in list(finaltoks):
-        lowertok = tok.lower()
-        accepted = True
-        numlist = [x for x in tok if x.isdigit()]
-        if len(numlist) > 2 or len(tok) < 4:
-            accepted = False
-        if accepted:
-            for black in banlist:
-                if black == lowertok:
-                    accepted = False
-                    break
-        if not accepted:
-            del finaltoks[tok]
 
-    sorted_finaltoks = sorted(list(finaltoks.items()), key=operator.itemgetter(1), reverse=True)
-    if len(sorted_finaltoks) == 1 and sorted_finaltoks[0][1] >= 2:
-        return sorted_finaltoks[0][0]
-    elif len(sorted_finaltoks) > 1 and (sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2 or sorted_finaltoks[0][1] > 8):
-        return sorted_finaltoks[0][0]
-    elif len(sorted_finaltoks) > 1 and sorted_finaltoks[0][1] == sorted_finaltoks[1][1] and sorted_finaltoks[0][1] > 2:
-        return sorted_finaltoks[0][0]
-    return ""
+def get_clamav_consensus(namelist: list):
+    for detection in namelist:
+        if detection.startswith("Win.Trojan."):
+            words = re.findall(r"[A-Za-z0-9]+", detection)
+            family = words[2]
+            if family:
+                return family
 
 
 class TimeoutServer(xmlrpc.client.ServerProxy):

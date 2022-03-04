@@ -8,7 +8,13 @@ import os
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.utils import add_family_detection
+
+processing_conf = Config("processing")
+
+log = logging.getLogger(__name__)
 
 try:
     import re2 as re
@@ -16,8 +22,6 @@ try:
     HAVE_RE2 = True
 except ImportError:
     HAVE_RE2 = False
-
-log = logging.getLogger(__name__)
 
 
 class ProcessMemory(Processing):
@@ -145,7 +149,8 @@ class ProcessMemory(Processing):
                 procdump.close()
                 results.append(proc)
 
-                cape_name = cape_name_from_yara(proc, process_id, self.results)
-                if cape_name and "detections" not in self.results:
-                    self.results["detections"] = cape_name
+                if processing_conf.detections.yara:
+                    cape_name = cape_name_from_yara(proc, process_id, self.results)
+                    if cape_name:
+                        add_family_detection(self.results, cape_name, "Yara", proc["sha256"])
         return results

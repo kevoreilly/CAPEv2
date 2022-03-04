@@ -589,8 +589,11 @@ class CAPEDetectedThreat(Signature):
     evented = True
 
     def run(self):
-        if self.results.get("detections", False):
-            self.description = "CAPE detected the %s malware family" % self.results["detections"]
+        if self.results.get("detections"):
+            self.description = "CAPE detected the %s malware" % ", ".join(block["family"] for block in self.results["detections"])
+            for block in self.results["detections"]:
+                # ToDo make data more beautiful
+                self.data.append({block["family"]: block["details"]})
             return True
 
         return False

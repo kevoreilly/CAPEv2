@@ -14,6 +14,11 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 
+@register.filter("is_string")
+def is_string(value):
+    return isinstance(value, str)
+
+
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""

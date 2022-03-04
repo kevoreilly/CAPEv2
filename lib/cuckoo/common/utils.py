@@ -9,7 +9,6 @@ import inspect
 import logging
 import multiprocessing
 import ntpath
-import operator
 import os
 import random
 import shutil

@@ -4,6 +4,7 @@
 
 import hashlib
 import logging
+import operator
 import os
 from collections import defaultdict
 

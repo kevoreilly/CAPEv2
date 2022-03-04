@@ -544,14 +544,6 @@ class File(object):
         # Close PE file and return RichPE hash digest
         return md5.hexdigest()
 
-    def get_clamav_consensus(self, namelist):
-        for detection in namelist:
-            if detection.startswith("Win.Trojan."):
-                words = re.findall(r"[A-Za-z0-9]+", detection)
-                family = words[2]
-                if family:
-                    return family
-
     def get_all(self):
         """Get all information available.
         @return: information dict.
@@ -573,8 +565,6 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
-        if infos["clamav"]:
-            infos["clamav_detection"] = self.get_clamav_consensus(infos["clamav"])
         infos["tlsh"] = self.get_tlsh()
         infos["sha3_384"] = self.get_sha3_384()
 

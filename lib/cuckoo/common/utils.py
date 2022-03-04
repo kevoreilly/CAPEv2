@@ -657,6 +657,15 @@ def add_family_detection(results, family, detected_by, detected_on):
         results["detections"].append({"family": family, "details": [{detected_by: detected_on}]})
 
 
+def get_clamav_consensus(self, namelist):
+    for detection in namelist:
+        if detection.startswith("Win.Trojan."):
+            words = re.findall(r"[A-Za-z0-9]+", detection)
+            family = words[2]
+            if family:
+                return family
+
+
 def get_vt_consensus(namelist):
     banlist = [
         "other",

@@ -26,7 +26,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus
 
 try:
     import pydeep
@@ -119,8 +119,10 @@ class CAPE(Processing):
             self.results.setdefault("pefiles", {})
             self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
 
-        if file_info.get("clamav_detection") and processing_conf.detections.clamav:
-            add_family_detection(self.results, file_info["clamav_detection"], "ClamAV", file_info["sha256"])
+        if file_info.get("clamav") and processing_conf.detections.clamav:
+            clamav_detection = get_clamav_consensus(file_info["clamav"])
+            if clamav_detection:
+                add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
         static_file_info(

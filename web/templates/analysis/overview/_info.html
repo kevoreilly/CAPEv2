@@ -6,8 +6,8 @@
         {% if analysis.detections|is_string %}
             <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{analysis.detections}}</span></a>
         {% else %}
-            {% for family  in analysis.detections %}
-                <a href="/analysis/search/detections:{{family}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{family}}</span></a>
+            {% for block  in analysis.detections %}
+                <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{block.family}}</span></a>
             {% endfor %}
             </p>
         {% endif %}

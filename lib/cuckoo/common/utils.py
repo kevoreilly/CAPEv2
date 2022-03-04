@@ -646,6 +646,17 @@ def store_temp_file(filedata, filename, path=None):
     return tmp_file_path
 
 
+def add_family_detection(results, family, detected_by, detected_on):
+    results.setdefault("detections", [])
+    found = False
+    for block in results["detections"]:
+        if family == block.get("family", ""):
+            found = True
+            block["details"].append({detected_by: detected_on})
+    if not found:
+        results["detections"].append({"family": family, "details": [{detected_by: detected_on}]})
+
+
 def get_vt_consensus(namelist):
     banlist = [
         "other",

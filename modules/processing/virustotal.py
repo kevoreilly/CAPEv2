@@ -12,7 +12,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_vt_consensus
+from lib.cuckoo.common.utils import add_family_detection, get_vt_consensus
 
 try:
     import re2 as re
@@ -162,5 +162,8 @@ class VirusTotal(Processing):
         vt_response = vt_lookup(self.task["category"], target)
         if "error" in vt_response:
             raise CuckooProcessingError(vt_response["msg"])
+
+        if processing_conf.detections.virustotal and self.task["category"] == "file" and vt_response.get("detection", False):
+            add_family_detection(self.results, vt_response["detection"], "VirusTotal", vt_response["sha256"])
 
         return vt_response

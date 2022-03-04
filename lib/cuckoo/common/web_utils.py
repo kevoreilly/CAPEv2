@@ -191,6 +191,7 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
 
+    """
     t = int(time.time())
 
     # caches results for 10 minutes
@@ -198,14 +199,14 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         ct, data = top_detections.cache
         if t - ct < 600:
             return data
-
+    """
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
 
     aggregation_command = [
-        {"$match": {"detections": {"$exists": True}}},
-        {"$group": {"_id": "$detections", "total": {"$sum": 1}}},
+        {"$match": {"detections.family": {"$exists": True}}},
+        {"$group": {"_id": "$detections.family", "total": {"$sum": 1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"family": "$_id"}},
         {"$project": {"_id": 0}},
@@ -217,27 +218,35 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
     if repconf.mongodb.enabled:
         data = mongo_aggregate("analysis", aggregation_command)
+        # need to loop data
+        new_data = {}
+        for block in data:
+            for family in block["family"]:
+                new_data.setdefault(family, 0)
+                new_data[family] += 1
+        data = new_data
     elif repconf.elasticsearchdb.enabled:
+        # ToDo update to new format
         q = {
-            "query": {"bool": {"must": [{"exists": {"field": "detections"}}]}},
+            "query": {"bool": {"must": [{"exists": {"field": "detections.family"}}]}},
             "size": 0,
-            "aggs": {"family": {"terms": {"field": "detections.keyword", "size": results_limit}}},
+            "aggs": {"family": {"terms": {"field": "detections.family.keyword", "size": results_limit}}},
         }
 
         if date_since:
             q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
-            print(q)
         res = es.search(index=get_analysis_index(), body=q)
         data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
     else:
         data = False
 
-    if data:
-        data = list(data)
+    # if data:
+    #    data = list(data)
 
+    # import code;code.interact(local=dict(locals(), **globals()))
     # save to cache
-    top_detections.cache = (t, data)
+    # top_detections.cache = (t, data)
 
     return data
 
@@ -828,7 +837,7 @@ def validate_task(tid, status=TASK_REPORTED):
 perform_search_filters = {
     "info": 1,
     "virustotal_summary": 1,
-    "detections": 1,
+    "detections.family": 1,
     "malfamily_tag": 1,
     "malscore": 1,
     "network.pcap_sha256": 1,
@@ -865,7 +874,7 @@ search_term_map = {
     "ip": "network.hosts.ip",
     "signature": "signatures.description",
     "signame": "signatures.name",
-    "detections": "detections",
+    "detections": "detections.family",
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
@@ -1015,9 +1024,6 @@ def perform_search(term, value, search_limit=False):
     elif term == "configs":
         # check if family name is string only maybe?
         search_term_map[term] = f"CAPE.configs.{value}"
-        query_val = {"$exists": True}
-    elif term == "detections":
-        search_term_map[term] = f"detections.{value}"
         query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:

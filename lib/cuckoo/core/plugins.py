@@ -23,7 +23,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooProcessingError,
     CuckooReportError,
 )
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.utils import add_family_detection
 from lib.cuckoo.core.database import Database
 
 try:
@@ -290,8 +290,6 @@ class RunProcessing(object):
         else:
             log.info("No processing modules loaded")
 
-        self._detect_family()
-
         # Add temp_processing stats to global processing stats
         if self.results["temp_processing_stats"]:
             for plugin_name in self.results["temp_processing_stats"]:
@@ -320,47 +318,6 @@ class RunProcessing(object):
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
         return self.results
-
-    def _detect_family(self):
-        # ToDo this is outdated, move to new format
-        if not self.cfg.detections.enabled:
-            return
-
-        family = ""
-        malfamily_tag = ""
-
-        if self.cfg.detections.yara:
-            family = self.results.get("detections", [])
-            if family:
-                malfamily_tag = "Yara"
-
-        if self.cfg.detections.suricata and not family:
-            for alert in self.results.get("suricata", {}).get("alerts", []):
-                if alert.get("signature", "").startswith(et_categories):
-                    family = get_suricata_family(alert["signature"])
-                    if family:
-                        malfamily_tag = "Suricata"
-                        break
-
-        # this should be done on each file
-        if self.results["info"]["category"] == "file":
-            if self.cfg.detections.virustotal and not family:
-                family = self.results.get("virustotal", {}).get("detection", "")
-                if family:
-                    malfamily_tag = "VirusTotal"
-
-            if self.cfg.detections.clamav and not family:
-                for detection in self.results.get("target", {}).get("file", {}).get("clamav", []):
-                    if detection.startswith("Win.Trojan."):
-                        words = re.findall(r"[A-Za-z0-9]+", detection)
-                        family = words[2]
-                        if family:
-                            malfamily_tag = "ClamAV"
-                            break
-
-        if family:
-            # self.results["detections"] = family
-            self.results["malfamily_tag"] = malfamily_tag
 
 
 class RunSignatures(object):
@@ -644,8 +601,7 @@ class RunSignatures(object):
         ):
             for match in matched:
                 if match.get("families"):
-                    self.results["detections"] = match["families"][0]
-                    self.results["malfamily_tag"] = "Behavior"
+                    add_family_detection(self.results, match["families"][0], "Behavior", "")
                     break
 
 

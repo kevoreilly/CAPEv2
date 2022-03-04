@@ -5,6 +5,7 @@
 import hashlib
 import logging
 import os
+from collections import defaultdict
 
 import requests
 
@@ -12,7 +13,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_vt_consensus
+from lib.cuckoo.common.utils import add_family_detection
 
 try:
     import re2 as re
@@ -39,6 +40,147 @@ headers = {"x-apikey": key}
 from modules.processing.virustotal import vt_lookup
 res = vt_lookup("file", "d17f3c491d68d8cb37c37752689bdca8c2664a2bc305530e2e2beb3704fcca4b", on_demand=True)
 """
+
+banlist = (
+    "other",
+    "troj",
+    "trojan",
+    "win32",
+    "trojandownloader",
+    "trojandropper",
+    "dropper",
+    "tsgeneric",
+    "malware",
+    "dldr",
+    "downloader",
+    "injector",
+    "agent",
+    "nsis",
+    "genetic",
+    "generik",
+    "generic",
+    "generickd",
+    "genericgb",
+    "generickdz",
+    "behaveslike",
+    "heur",
+    "inject2",
+    "trojanspy",
+    "trojanpws",
+    "reputation",
+    "script",
+    "w97m",
+    "pp97m",
+    "lookslike",
+    "macro",
+    "dloadr",
+    "kryptik",
+    "graftor",
+    "artemis",
+    "zbot",
+    "w2km",
+    "docdl",
+    "variant",
+    "packed",
+    "trojware",
+    "worm",
+    "backdoor",
+    "email",
+    "obfuscated",
+    "cryptor",
+    "obfus",
+    "virus",
+    "xpack",
+    "crypt",
+    "rootkit",
+    "malwares",
+    "malicious",
+    "suspicious",
+    "riskware",
+    "risk",
+    "win64",
+    "troj64",
+    "drop",
+    "hacktool",
+    "exploit",
+    "msil",
+    "inject",
+    "dropped",
+    "program",
+    "unwanted",
+    "heuristic",
+    "patcher",
+    "tool",
+    "potentially",
+    "rogue",
+    "keygen",
+    "unsafe",
+    "application",
+    "risktool",
+    "multi",
+    "msoffice",
+    "ransom",
+    "autoit",
+    "yakes",
+    "java",
+    "ckrf",
+    "html",
+    "bngv",
+    "bnaq",
+    "o97m",
+    "blqi",
+    "bmbg",
+    "mikey",
+    "kazy",
+    "x97m",
+    "msword",
+    "cozm",
+    "eldorado",
+    "fakems",
+    "cloud",
+    "stealer",
+    "dangerousobject",
+    "symmi",
+    "zusy",
+    "dynamer",
+    "obfsstrm",
+    "krypt",
+    "linux",
+    "unix",
+    "ftmn",
+)
+
+
+def get_vt_consensus(namelist: list):
+
+    finaltoks = defaultdict(int)
+    for name in namelist:
+        toks = re.findall(r"[A-Za-z0-9]+", name)
+        for tok in toks:
+            finaltoks[tok.title()] += 1
+    for tok in list(finaltoks):
+        lowertok = tok.lower()
+        accepted = True
+        numlist = [x for x in tok if x.isdigit()]
+        if len(numlist) > 2 or len(tok) < 4:
+            accepted = False
+        if accepted:
+            for black in banlist:
+                if black == lowertok:
+                    accepted = False
+                    break
+        if not accepted:
+            del finaltoks[tok]
+
+    sorted_finaltoks = sorted(list(finaltoks.items()), key=operator.itemgetter(1), reverse=True)
+    if len(sorted_finaltoks) == 1 and sorted_finaltoks[0][1] >= 2:
+        return sorted_finaltoks[0][0]
+    elif len(sorted_finaltoks) > 1 and (sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2 or sorted_finaltoks[0][1] > 8):
+        return sorted_finaltoks[0][0]
+    elif len(sorted_finaltoks) > 1 and sorted_finaltoks[0][1] == sorted_finaltoks[1][1] and sorted_finaltoks[0][1] > 2:
+        return sorted_finaltoks[0][0]
+    return ""
+
 
 # https://developers.virustotal.com/v3.0/reference#file-info
 def vt_lookup(category: str, target: str, on_demand: bool = False):

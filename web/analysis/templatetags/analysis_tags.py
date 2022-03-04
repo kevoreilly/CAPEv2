@@ -53,11 +53,6 @@ def is_dict(value):
 
 
 @register.filter
-def get_key(dictionary):
-    return dictionary.keys()[0]
-
-
-@register.filter
 def get_item(dictionary, key):
     return dictionary.get(key, "")
 

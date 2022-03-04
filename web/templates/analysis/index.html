@@ -397,7 +397,7 @@
                             {% if analysis.detections|is_string %}
                                     <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
                             {% elif analysis.detections|length == 1 %}
-                                <a href="/analysis/search/detections:{{analysis.detections}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections}}</span></a>
+                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}" data-bs-toggle="tooltip" title="{{analysis.detections.0.details}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections.0.family}}</span></a>
                             {% elif analysis.detections|length > 1 %}
                                 <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
                             {% endif %}

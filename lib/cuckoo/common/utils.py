@@ -647,12 +647,14 @@ def store_temp_file(filedata, filename, path=None):
 def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
     results.setdefault("detections", [])
     found = False
+    detection = {detected_by: detected_on}
     for block in results["detections"]:
         if family == block.get("family", ""):
             found = True
-            block["details"].append({detected_by: detected_on})
+            if not detection in block["details"]:
+                block["details"].append(detection)
     if not found:
-        results["detections"].append({"family": family, "details": [{detected_by: detected_on}]})
+        results["detections"].append({"family": family, "details": [detection]})
 
 
 def get_clamav_consensus(namelist: list):

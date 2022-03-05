@@ -122,7 +122,7 @@
                             {% elif analysis.detections|length == 1 %}
                                 <a href="/analysis/search/detections:{{analysis.detections.0.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{analysis.detections.0.family}}</span></a>
                             {% elif analysis.detections|length > 1 %}
-                                <span style="color:#EE1B2F;font-weight: bold;">Multiple</span>
+                                <span style="color:#EE1B2F;font-weight: bold;" title="{% for block in analysis.detections %} {% if block.family %} {{block.family}} {% endif %} {% endfor %}">Multiple</span>
                             {% endif %}
                         </td>
                         {% if config.display_task_tags %}

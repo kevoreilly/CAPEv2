@@ -191,7 +191,6 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
 
-    """
     t = int(time.time())
 
     # caches results for 10 minutes
@@ -199,13 +198,16 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         ct, data = top_detections.cache
         if t - ct < 600:
             return data
-    """
+
     """function that gets detection: count
-    based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
+    New: https://stackoverflow.com/a/21509359/1294762
     """
 
     aggregation_command = [
         {"$match": {"detections.family": {"$exists": True}}},
+        {"$project": {"_id": 0, "detections.family": 1}},
+        {"$unwind": "$detections"},
         {"$group": {"_id": "$detections.family", "total": {"$sum": 1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"family": "$_id"}},
@@ -218,13 +220,6 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
     if repconf.mongodb.enabled:
         data = mongo_aggregate("analysis", aggregation_command)
-        # need to loop data
-        new_data = {}
-        for block in data:
-            for family in block["family"]:
-                new_data.setdefault(family, 0)
-                new_data[family] += 1
-        data = new_data
     elif repconf.elasticsearchdb.enabled:
         # ToDo update to new format
         q = {
@@ -241,12 +236,11 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     else:
         data = False
 
-    # if data:
-    #    data = list(data)
+    if data:
+        data = list(data)
 
-    # import code;code.interact(local=dict(locals(), **globals()))
     # save to cache
-    # top_detections.cache = (t, data)
+    top_detections.cache = (t, data)
 
     return data
 

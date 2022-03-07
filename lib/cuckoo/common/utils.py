@@ -646,14 +646,13 @@ def store_temp_file(filedata, filename, path=None):
 
 def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
     results.setdefault("detections", [])
-    found = False
     detection = {detected_by: detected_on}
     for block in results["detections"]:
         if family == block.get("family", ""):
-            found = True
-            if not detection in block["details"]:
+            if not any(map(lambda d: d == detection, block["details"])):
                 block["details"].append(detection)
-    if not found:
+            break
+    else:
         results["detections"].append({"family": family, "details": [detection]})
 
 

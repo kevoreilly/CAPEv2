@@ -907,7 +907,12 @@ class PortableExecutable(object):
             if not IsPEImage(f.read()):
                 return {}
 
-        pe = pefile.PE(self.file_path)
+        try:
+            pe = pefile.PE(self.file_path)
+        except Exception as e:
+            log.error("PE type not recognised")
+            log.error(e, exc_info=True)
+            return {}
         peresults = {}
         peresults["guest_signers"] = self.get_guest_digital_signers(task_id)
         peresults["digital_signers"] = self.get_digital_signers(pe)

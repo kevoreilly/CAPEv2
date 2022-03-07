@@ -242,9 +242,10 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                         log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
-                    if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_origin_path):
-                        os.unlink(copy_origin_path)
+                    if copy_path != None:
+                        copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                        if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_origin_path):
+                            os.unlink(copy_origin_path)
                     break
                 if not added:
                     # don't hog cpu

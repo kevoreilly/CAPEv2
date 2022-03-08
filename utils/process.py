@@ -166,7 +166,7 @@ def processing_finished(future):
         result = future.result()
         log.info("Task #%d: reports generation completed", task_id)
     except TimeoutError as error:
-        log.error("Processing Timeout %s", error)
+        log.error("Processing Timeout %s - Task ID: %d", error, task_id)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
     except pebble.ProcessExpired as error:
         log.error("Exception when processing task %s: %s", task_id, error)

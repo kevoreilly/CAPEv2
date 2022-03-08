@@ -278,7 +278,9 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         try:
             files = subprocess.check_output([msiextract, file, "--directory", tempdir], universal_newlines=True)
             if files:
-                files = list(filter(None, files.split("\n")))
+                files = [
+                    extracted_file for extracted_file in list(filter(None, files.split("\n"))) if os.path.isfile(extracted_file)
+                ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 
         except Exception as e:
@@ -336,7 +338,11 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
         try:
             output = subprocess.check_output([unautoit_bin, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
             if output:
-                files = [os.path.join(tempdir, extracted_file) for extracted_file in tempdir]
+                files = [
+                    os.path.join(tempdir, extracted_file)
+                    for extracted_file in tempdir
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 
         except Exception as e:
@@ -406,6 +412,8 @@ def UPX_unpack(file, destination_folder, filetype, data_dictionary):
             )
             if output and "Unpacked 1 file." in output:
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[dest_path])
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack UPX for %s", file)
 
         except Exception as e:
             logging.error(e, exc_info=True)
@@ -443,6 +451,9 @@ def NSIS_unpack(file, destination_folder, filetype, data_dictionary):
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack NSIS for %s", file)
 
         except Exception as e:
             logging.error(e, exc_info=True)

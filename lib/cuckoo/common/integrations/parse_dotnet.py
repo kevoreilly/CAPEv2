@@ -48,6 +48,8 @@ class DotNETExecutable(object):
                 item["value"] = convert_to_printable(valueval)
                 ret.append(item)
             return ret
+        except UnicodeDecodeError:
+            log.error("UnicodeDecodeError: /usr/bin/monodis --customattr %s", self.file_path)
         except Exception as e:
             log.error(e, exc_info=True)
             return None

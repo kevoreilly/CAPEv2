@@ -279,7 +279,9 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
             files = subprocess.check_output([msiextract, file, "--directory", tempdir], universal_newlines=True)
             if files:
                 files = [
-                    extracted_file for extracted_file in list(filter(None, files.split("\n"))) if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    extracted_file
+                    for extracted_file in list(filter(None, files.split("\n")))
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 

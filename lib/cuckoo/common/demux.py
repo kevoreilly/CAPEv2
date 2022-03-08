@@ -33,7 +33,7 @@ if sf_version:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
         sys.exit()
     # Latest release
-    if int(sf_version_splited[-1]) < 31:
+    if int(sf_version_splited[-1]) < 33:
         print("You using old version of sflock! Upgrade: pip3 install -U SFlock2")
 
 log = logging.getLogger(__name__)

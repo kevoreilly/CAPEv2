@@ -267,9 +267,9 @@ filelock==3.0.12 \
 fire==0.3.1 \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
     # via pyattck
-flare-capa==3.1.0 \
-    --hash=sha256:9e5e5b248dcd945b23aba9ccd63492c7fdf7fde265f904606cfee114b2599632 \
-    --hash=sha256:e3331654cc9a51eb4884dbe6f5dcd0e864083b1e6992c28d54986a1be1dc6a46
+flare-capa==3.2.0 \
+    --hash=sha256:d68bfa874810143a426907046b2beab309ab7cef6510d953eb044f6d4249d744 \
+    --hash=sha256:e9f10d7c5b988510eab594df511ce8ddf87e1400eaaef39dc5d88690ecb919e9
     # via -r requirements.in
 flor==1.1.3 \
     --hash=sha256:1fac101e161446dbb2ee5379d5b950bb015fe6d90568385a549b538ca12fe942 \
@@ -854,9 +854,9 @@ pycryptodomex==3.14.0 \
 pydeep==0.4 \
     --hash=sha256:22866eb422d1d5907f8076ee792da65caecb172425d27576274e2a8eacf6afc1
     # via -r requirements.in
-pyelftools==0.27 \
-    --hash=sha256:5609aa6da1123fccfae2e8431a67b4146aa7fad5b3889f808df12b110f230937 \
-    --hash=sha256:cde854e662774c5457d688ca41615f6594187ba7067af101232df889a6b7a66b
+pyelftools==0.28 \
+    --hash=sha256:1509d30756a14a8c9a6670778144fb9a04b311751ddac019dcc0c2f28da03ccc \
+    --hash=sha256:53e5609cac016471d40bd88dc410cd90755942c25e58a61021cfdf7abdfeacff
     # via flare-capa
 pygal==2.4.0 \
     --hash=sha256:27abab93cbc31e21f3c6bdecc05bda6cd3570cbdbd8297b7caa6904051b50d72 \
@@ -1255,9 +1255,9 @@ roman==3.3 \
     --hash=sha256:2c46ac8db827d34e4fa9ccc0577e7f0b0d84f16ffe112351bd4f1ec2eb12d73f \
     --hash=sha256:c2a1f14ab47373aecc141edbcdd66595949c9d0ed932fe76bd547df1b55f7278
     # via xlmmacrodeobfuscator
-ruamel-yaml==0.17.20 \
-    --hash=sha256:4b8a33c1efb2b443a93fcaafcfa4d2e445f8e8c29c528d9f5cdafb7cc9e4004c \
-    --hash=sha256:810eef9c46523a3f77479c66267a4708255ebe806a2d540078408c2227f011af
+ruamel-yaml==0.17.21 \
+    --hash=sha256:742b35d3d665023981bd6d16b3d24248ce5df75fdb4e2924e93a05c1f8b61ca7 \
+    --hash=sha256:8b7ce697a2f212752a35c1ac414471dc16c424c9573be4926b56ff3f5d23b7af
     # via flare-capa
 ruamel-yaml-clib==0.2.6 \
     --hash=sha256:0847201b767447fc33b9c235780d3aa90357d20dd6108b92be544427bea197dd \
@@ -1332,8 +1332,8 @@ six==1.15.0 \
     #   python-dateutil
     #   requests-file
     #   sqlalchemy-utils
-smda==1.6.2 \
-    --hash=sha256:902aa793dc9de181fffdd8cb2745c7ce28e9722bd3431f1150ebe5fd0856b398
+smda==1.7.0 \
+    --hash=sha256:a8a11d1a126f06d389c79217d4960681bb1137ce6e08ab011a41c5793368b0b3
     # via flare-capa
 sortedcontainers==2.4.0 \
     --hash=sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88 \
@@ -1403,13 +1403,9 @@ tldextract==3.1.0 \
     --hash=sha256:cfae9bc8bda37c3e8c7c8639711ad20e95dc85b207a256b60b0b23d7ff5540ea \
     --hash=sha256:e57f22b6d00a28c21673d2048112f1bdcb6a14d4711568305f6bb96cf5bb53a1
     # via -r requirements.in
-tqdm==4.62.3 \
-    --hash=sha256:8dd278a422499cd6b727e6ae4061c40b48fce8b76d1ccbf5d34fca9b7f925b0c \
-    --hash=sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d
-    # via flare-capa
-typing==3.7.4.3 \
-    --hash=sha256:1187fb9c82fd670d10aa07bbb6cfcfe4bdda42d6fab8d5134f04e8c4d0b71cc9 \
-    --hash=sha256:283d868f5071ab9ad873e5e52268d611e851c870a2ba354193026f2dfb29d8b5
+tqdm==4.63.0 \
+    --hash=sha256:1d9835ede8e394bb8c9dcbffbca02d717217113adc679236873eeaac5bc0b3cd \
+    --hash=sha256:e643e071046f17139dea55b880dc9b33822ce21613b4a4f5ea57f202833dbc29
     # via flare-capa
 tzlocal==2.1 \
     --hash=sha256:643c97c5294aedc737780a49d9df30889321cbe1204eac2c2ec6134035a92e44 \
@@ -1430,13 +1426,13 @@ urllib3==1.26.6 \
     --hash=sha256:39fb8672126159acb139a7718dd10806104dec1e2f0f6c88aab05d17df10c8d4 \
     --hash=sha256:f57b4c16c62fa2760b7e3d97c35b255512fb6b59a259730f36ba32ce9f8e342f
     # via requests
-viv-utils[flirt]==0.6.9 \
-    --hash=sha256:8fb885cd714448a1cbcb30c540e54366fc90c2ec1ae47c5b7738bc04bf8a002b \
-    --hash=sha256:b4102447f68699c2317a1f3f5c5b56512d4d95a085facfa9a5e0ec63dc5ee15a
+viv-utils[flirt]==0.6.11 \
+    --hash=sha256:d8c9bf73678550a66ddab487006b9ff1b823d6313d0ba0ced6fe4ee5555e99ad \
+    --hash=sha256:f9a7d49e6ec46ca1140dcf4ae474b9f9e407b900371d3fb1159f015e0b8ec2e4
     # via flare-capa
-vivisect==1.0.5 \
-    --hash=sha256:3265145b891e87410ec73d6fdd96103862970e600d31e4aa609fe4d243dd44da \
-    --hash=sha256:f629dc0143656b06b64e2da1772deda67d37a3e048e74bd728de4a4f24bf877b
+vivisect==1.0.7 \
+    --hash=sha256:727a27ac1eb95d5a41f4430f6912e79940525551314fe68a2811fc9d51eaf2e9 \
+    --hash=sha256:e61944b1b4c19c51cb4d36d2df131a517f4d17d2502a63184ccd52ed870cc6c7
     # via
     #   flare-capa
     #   viv-utils

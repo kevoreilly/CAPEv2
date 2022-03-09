@@ -29,7 +29,7 @@ openpyxl==3.0.7
 volatility3==2.0.0
 XLMMacroDeobfuscator==0.2.5
 pyzipper==0.3.5
-flare-capa==3.1.0
+flare-capa==3.2.0
 greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6

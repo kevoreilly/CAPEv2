@@ -231,16 +231,10 @@ class CAPE(Processing):
                             # tmpstr = f"{file_info['pid']},{file_info['process_path']},{file_info['module_path']}"
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
-                                # outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
-                                # with open(f"{filepath}_info.txt", "w") as infofd:
-                                #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
-                                # outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
-                                # with open(f"{filepath}_info.txt", "w") as infofd:
-                                #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
                                     cfile.write(bindata)
                             if os.path.exists(filepath):

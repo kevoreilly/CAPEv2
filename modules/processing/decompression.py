@@ -21,20 +21,18 @@ class Decompression(Processing):
 
         if os.path.exists(f"{self.memory_path}.zip"):
             try:
-                thezip = zipfile.ZipFile(f"{self.memory_path}.zip", "r")
-                thezip.extractall(path=self.analysis_path)
-                thezip.close()
+                with zipfile.ZipFile(f"{self.memory_path}.zip", "r") as thezip:
+                    thezip.extractall(path=self.analysis_path)
                 os.unlink(f"{self.memory_path}.zip")
             except Exception as e:
-                raise CuckooProcessingError(f"Error extracting ZIP: {e}")
+                raise CuckooProcessingError(f"Error extracting ZIP: {e}") from e
 
         for fzip in glob.glob(os.path.join(self.pmemory_path, "*.zip")):
             try:
-                thezip = zipfile.ZipFile(fzip, "r")
-                thezip.extractall(path=self.pmemory_path)
-                thezip.close()
+                with zipfile.ZipFile(fzip, "r") as thezip:
+                    thezip.extractall(path=self.pmemory_path)
                 os.unlink(fzip)
             except Exception as e:
-                raise CuckooProcessingError(f"Error extracting ZIP: {e}")
+                raise CuckooProcessingError(f"Error extracting ZIP: {e}") from e
 
         return []

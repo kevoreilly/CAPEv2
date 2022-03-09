@@ -92,11 +92,12 @@ logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 if enabled_passlist and passlist_file:
     with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-        for domain in list(set(f.read().splitlines())):
-            if domain.startswith("#") or len(domain.strip()) == 0:
-                # comment or empty line
-                continue
-            domain_passlist_re.append(domain)
+        domains = list(set(f.read().splitlines()))
+    for domain in domains:
+        if domain.startswith("#") or len(domain.strip()) == 0:
+            # comment or empty line
+            continue
+        domain_passlist_re.append(domain)
 
 
 ip_passlist = set()
@@ -166,11 +167,7 @@ class Pcap:
             return False
 
         # Is DNS recording coming from allowed NS server.
-        if not self.known_dns:
-            pass
-        elif conn.get("src") in self.known_dns or conn.get("dst") in self.known_dns:
-            pass
-        else:
+        if conn.get("src") not in self.known_dns and conn.get("dst") not in self.known_dns:
             return False
 
         # Is hostname safelisted.
@@ -181,14 +178,9 @@ class Pcap:
 
     def _build_known_dns(self):
         """Build known DNS list."""
-        result = []
         _known_dns = self.options.get("allowed_dns")
-        _known_dns = None
         if _known_dns is not None:
-            for r in _known_dns.split(","):
-                result.append(r.strip())
-            return result
-
+            return [r.strip() for r in _known_dns.split(",")]
         return []
 
     def _dns_gethostbyname(self, name):
@@ -196,11 +188,7 @@ class Pcap:
         @param name: hostname.
         @return: IP address or blank
         """
-        if cfg.processing.resolve_dns:
-            ip = resolve(name)
-        else:
-            ip = ""
-        return ip
+        return resolve(name) if cfg.processing.resolve_dns else ""
 
     def _is_private_ip(self, ip):
         """Check if the IP belongs to private network blocks.
@@ -208,7 +196,7 @@ class Pcap:
         @return: boolean representing whether the IP belongs or not to
                  a private network block.
         """
-        networks = [
+        networks = (
             ("0.0.0.0", 8),
             ("10.0.0.0", 8),
             ("100.64.0.0", 10),
@@ -225,7 +213,7 @@ class Pcap:
             ("240.0.0.0", 4),
             ("255.255.255.255", 32),
             ("224.0.0.0", 4),
-        ]
+        )
 
         try:
             ipaddr = struct.unpack(">I", socket.inet_aton(ip))[0]
@@ -308,7 +296,7 @@ class Pcap:
         if self._check_http(data):
             self._add_http(conn, data)
         # SMTP.
-        if conn["dport"] == 25 or conn["dport"] == 587:
+        if conn["dport"] in (25, 587):
             self._reassemble_smtp(conn, data)
         # IRC.
         if conn["dport"] != 21 and self._check_irc(data):
@@ -323,9 +311,8 @@ class Pcap:
         @param data: payload data.
         """
         # Select DNS and MDNS traffic.
-        if conn["dport"] == 53 or conn["sport"] == 53 or conn["dport"] == 5353 or conn["sport"] == 5353:
-            if self._check_dns(data):
-                self._add_dns(data)
+        if (conn["dport"] in (53, 5353) or conn["sport"] in (53, 5353)) and self._check_dns(data):
+            self._add_dns(data)
 
     def _check_icmp(self, icmp_data):
         """Checks for ICMP traffic.
@@ -342,24 +329,22 @@ class Pcap:
         @param data: payload data.
         """
 
-        if self._check_icmp(data):
-            # If ICMP packets are coming from the host, it probably isn't
-            # relevant traffic, hence we can skip from reporting it.
-            if conn["src"] == cfg.resultserver.ip:
-                return
+        if not self._check_icmp(data):
+            return
 
-            entry = {}
-            entry["src"] = conn["src"]
-            entry["dst"] = conn["dst"]
-            entry["type"] = data.type
+        # If ICMP packets are coming from the host, it probably isn't
+        # relevant traffic, hence we can skip from reporting it.
+        if conn["src"] == cfg.resultserver.ip:
+            return
 
-            # Extract data from dpkg.icmp.ICMP.
-            try:
-                entry["data"] = convert_to_printable(data.data.data)
-            except Exception:
-                entry["data"] = ""
+        entry = {"src": conn["src"], "dst": conn["dst"], "type": data.type}
+        # Extract data from dpkg.icmp.ICMP.
+        try:
+            entry["data"] = convert_to_printable(data.data.data)
+        except Exception:
+            entry["data"] = ""
 
-            self.icmp_requests.append(entry)
+        self.icmp_requests.append(entry)
 
     def _check_dns(self, udpdata):
         """Checks for DNS traffic.
@@ -381,7 +366,7 @@ class Pcap:
         # DNS query parsing.
         query = {}
 
-        if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or dns.qr == dpkt.dns.DNS_R or dns.opcode == dpkt.dns.DNS_QUERY or True:
+        if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or dns.qr == dpkt.dns.DNS_R or dns.opcode == dpkt.dns.DNS_QUERY:
             # DNS question.
             try:
                 q_name = dns.qd[0].name
@@ -392,99 +377,81 @@ class Pcap:
             query["request"] = q_name
 
             # See https://dpkt.readthedocs.io/en/latest/_modules/dpkt/dns.html
-            if q_type == dpkt.dns.DNS_A:
-                query["type"] = "A"
-            elif q_type == dpkt.dns.DNS_NS:
-                query["type"] = "NS"
-            elif q_type == dpkt.dns.DNS_CNAME:
-                query["type"] = "CNAME"
-            elif q_type == dpkt.dns.DNS_SOA:
-                query["type"] = "SOA"
-            elif q_type == dpkt.dns.DNS_NULL:
-                query["type"] = "NULL"
-            elif q_type == dpkt.dns.DNS_PTR:
-                query["type"] = "PTR"
-            elif q_type == dpkt.dns.DNS_HINFO:
-                query["type"] = "HINFO"
-            elif q_type == dpkt.dns.DNS_MX:
-                query["type"] = "MX"
-            elif q_type == dpkt.dns.DNS_TXT:
-                query["type"] = "TXT"
-            elif q_type == dpkt.dns.DNS_AAAA:
-                query["type"] = "AAAA"
-            elif q_type == dpkt.dns.DNS_SRV:
-                query["type"] = "SRV"
-            elif q_type == dpkt.dns.DNS_OPT:
-                query["type"] = "OPT"
+            type_mapping = {
+                dpkt.dns.DNS_A: "A",
+                dpkt.dns.DNS_NS: "NS",
+                dpkt.dns.DNS_CNAME: "CNAME",
+                dpkt.dns.DNS_SOA: "SOA",
+                dpkt.dns.DNS_NULL: "NULL",
+                dpkt.dns.DNS_PTR: "PTR",
+                dpkt.dns.DNS_HINFO: "HINFO",
+                dpkt.dns.DNS_MX: "MX",
+                dpkt.dns.DNS_TXT: "TXT",
+                dpkt.dns.DNS_AAAA: "AAAA",
+                dpkt.dns.DNS_SRV: "SRV",
+                dpkt.dns.DNS_OPT: "OPT",
+            }
+            if q_type in type_mapping:
+                query["type"] = type_mapping[q_type]
 
             # DNS answer.
             query["answers"] = []
             for answer in dns.an:
                 ans = {}
                 if answer.type == dpkt.dns.DNS_A:
-                    ans["type"] = "A"
+                    ans = {"type": "A"}
                     try:
                         ans["data"] = socket.inet_ntoa(answer.rdata)
                     except socket.error:
                         continue
                 elif answer.type == dpkt.dns.DNS_AAAA:
-                    ans["type"] = "AAAA"
+                    ans = {"type": "AAAA"}
                     try:
                         ans["data"] = socket.inet_ntop(socket.AF_INET6, answer.rdata)
                     except (socket.error, ValueError):
                         continue
                 elif answer.type == dpkt.dns.DNS_CNAME:
-                    ans["type"] = "CNAME"
-                    ans["data"] = answer.cname
+                    ans = {"type": "CNAME", "data": answer.cname}
                 elif answer.type == dpkt.dns.DNS_MX:
-                    ans["type"] = "MX"
-                    ans["data"] = answer.mxname
+                    ans = {"type": "MX", "data": answer.mxname}
                 elif answer.type == dpkt.dns.DNS_PTR:
-                    ans["type"] = "PTR"
-                    ans["data"] = answer.ptrname
+                    ans = {"type": "PTR", "data": answer.ptrname}
                 elif answer.type == dpkt.dns.DNS_NS:
-                    ans["type"] = "NS"
-                    ans["data"] = answer.nsname
+                    ans = {"type": "NS", "data": answer.nsname}
                 elif answer.type == dpkt.dns.DNS_SOA:
-                    ans["type"] = "SOA"
-                    ans["data"] = ",".join(
-                        [
-                            answer.mname,
-                            answer.rname,
-                            str(answer.serial),
-                            str(answer.refresh),
-                            str(answer.retry),
-                            str(answer.expire),
-                            str(answer.minimum),
-                        ]
-                    )
+                    ans = {
+                        "type": "SOA",
+                        "data": ",".join(
+                            [
+                                answer.mname,
+                                answer.rname,
+                                str(answer.serial),
+                                str(answer.refresh),
+                                str(answer.retry),
+                                str(answer.expire),
+                                str(answer.minimum),
+                            ]
+                        ),
+                    }
                 elif answer.type == dpkt.dns.DNS_HINFO:
-                    ans["type"] = "HINFO"
-                    ans["data"] = " ".join(answer.text)
+                    ans = {"type": "HINFO", "data": " ".join(answer.text)}
                 elif answer.type == dpkt.dns.DNS_TXT:
-                    ans["type"] = "TXT"
-                    ans["data"] = " ".join(answer.text)
+                    ans = {"type": "TXT", "data": " ".join(answer.text)}
 
                 # TODO: add srv handling
                 query["answers"].append(ans)
 
             if dns.rcode == dpkt.dns.DNS_RCODE_NXDOMAIN:
-                ans = {}
-                ans["type"] = "NXDOMAIN"
-                ans["data"] = ""
+                ans = {"type": "NXDOMAIN", "data": ""}
                 query["answers"].append(ans)
 
             if enabled_passlist:
                 for reject in domain_passlist_re:
-                    try:
-                        if re.search(reject, query["request"]):
-                            if query["answers"]:
-                                for addip in query["answers"]:
-                                    if addip["type"] == "A" or addip["type"] == "AAAA":
-                                        ip_passlist.add(addip["data"])
-                            return True
-                    except re.RegexError as e:
-                        log.error("Bad regex: %s, error: %s", reject, e)
+                    if re.search(reject, query["request"]):
+                        for addip in query["answers"]:
+                            if addip["type"] in ("A", "AAAA"):
+                                ip_passlist.add(addip["data"])
+                        return True
 
             self._add_domain(query["request"])
 
@@ -492,9 +459,10 @@ class Pcap:
                 reqtuple = query["type"], query["request"]
                 if reqtuple not in self.dns_requests:
                     self.dns_requests[reqtuple] = query
-                new_answers = set((i["type"], i["data"]) for i in query["answers"]) - self.dns_answers
+                new_answers = {(i["type"], i["data"]) for i in query["answers"]} - self.dns_answers
+
                 self.dns_answers.update(new_answers)
-                self.dns_requests[reqtuple]["answers"] += [dict(type=i[0], data=i[1]) for i in new_answers]
+                self.dns_requests[reqtuple]["answers"].extend({"type": i[0], "data": i[1]} for i in new_answers)
             # else:
             #    print(query)
         return True
@@ -503,7 +471,7 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
-        filters = [".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$"]
+        filters = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
 
         regexps = [re.compile(filter) for filter in filters]
         for regexp in regexps:
@@ -550,7 +518,7 @@ class Pcap:
             entry = {"count": 1}
 
             if "host" in http.headers and re.match(
-                "^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
+                r"^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
                 http.headers["host"],
                 re.IGNORECASE,
             ):
@@ -566,7 +534,7 @@ class Pcap:
             entry["port"] = conn["dport"]
 
             # Manually deal with cases when destination port is not the default one,
-            # and it is  not included in host header.
+            # and it is not included in host header.
             netloc = entry["host"]
             if entry["port"] != 80 and ":" not in netloc:
                 netloc += f":{entry['port']}"
@@ -575,15 +543,9 @@ class Pcap:
             entry["uri"] = convert_to_printable(urlunparse(("http", netloc, http.uri, None, None, None)))
             entry["body"] = convert_to_printable(http.body)
             entry["path"] = convert_to_printable(http.uri)
-
-            if "user-agent" in http.headers:
-                entry["user-agent"] = convert_to_printable(http.headers["user-agent"])
-            else:
-                entry["user-agent"] = ""
-
+            entry["user-agent"] = convert_to_printable(http.headers["user-agent"]) if "user-agent" in http.headers else ""
             entry["version"] = convert_to_printable(http.version)
             entry["method"] = convert_to_printable(http.method)
-
             self.http_requests[tcpdata] = entry
         except Exception:
             return False
@@ -595,9 +557,9 @@ class Pcap:
         Random in order to identify the accompanying master secret later."""
         try:
             record = dpkt.ssl.TLSRecord(data)
-        except dpkt.NeedData as e:
+        except dpkt.NeedData:
             return
-        except Exception as e:
+        except Exception:
             log.exception("Error reading possible TLS Record")
             return
 
@@ -631,10 +593,7 @@ class Pcap:
         @param conn: connection dict.
         @param data: raw data.
         """
-        if conn["dst"] in self.smtp_flow:
-            self.smtp_flow[conn["dst"]] += data
-        else:
-            self.smtp_flow[conn["dst"]] = data
+        self.smtp_flow.setdefault(conn["dst"], []).append(data)
 
     def _process_smtp(self):
         """Process SMTP flow."""
@@ -662,11 +621,8 @@ class Pcap:
         @param tcpdata: TCP data in flow
         """
 
-        if enabled_passlist:
-            if conn["src"] in ip_passlist:
-                return False
-            if conn["dst"] in ip_passlist:
-                return False
+        if enabled_passlist and conn["src"] in ip_passlist or conn["dst"] in ip_passlist:
+            return False
 
         try:
             reqc = ircMessage()
@@ -710,7 +666,7 @@ class Pcap:
 
         try:
             pcap = dpkt.pcap.Reader(file)
-        except dpkt.dpkt.NeedData as e:
+        except dpkt.dpkt.NeedData:
             log.error('Unable to read PCAP file at path "%s"', self.filepath)
             return self.results
         except ValueError:
@@ -752,7 +708,7 @@ class Pcap:
 
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data)
-                        src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                        src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
                             (dst, dport, src, sport) in self.tcp_connections_seen
                             or (src, sport, dst, dport) in self.tcp_connections_seen
@@ -784,7 +740,7 @@ class Pcap:
                     if len(udp.data) > 0:
                         self._udp_dissect(connection, udp.data)
 
-                    src, sport, dst, dport = (connection["src"], connection["sport"], connection["dst"], connection["dport"])
+                    src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
                         (dst, dport, src, sport) in self.udp_connections_seen
                         or (src, sport, dst, dport) in self.udp_connections_seen
@@ -823,7 +779,6 @@ class Pcap:
             self.results["dns"] = list(self.dns_requests.values())
             self.results["smtp"] = self.smtp_requests
             self.results["irc"] = self.irc_requests
-
             self.results["dead_hosts"] = []
         else:
             self.results["sorted"] = {}
@@ -834,7 +789,7 @@ class Pcap:
                 for keyword in ("tcp", "udp"):
                     for host in self.results["sorted"][keyword]:
                         for delip in ip_passlist:
-                            if delip == host["src"] or delip == host["dst"]:
+                            if delip in (host["src"], host["dst"]):
                                 self.results["sorted"][keyword].remove(host)
             return self.results
 
@@ -851,7 +806,6 @@ class Pcap:
 
         # Remove hosts that have an IP which correlate to a passlisted domain
         if enabled_passlist:
-
             for host in self.results["hosts"]:
                 for delip in ip_passlist:
                     if delip == host["ip"]:
@@ -860,7 +814,7 @@ class Pcap:
             for keyword in ("tcp", "udp", "icmp"):
                 for host in self.results[keyword]:
                     for delip in ip_passlist:
-                        if delip == host["src"] or delip == host["dst"]:
+                        if delip in (host["src"], host["dst"]):
                             self.results[keyword].remove(host)
 
         return self.results
@@ -901,7 +855,7 @@ class Pcap2(object):
         r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
 
         try:
-            l = sorted(r.process(), key=lambda x: x[1])
+            sorted_r = sorted(r.process(), key=lambda x: x[1])
         except TypeError as e:
             log.warning("You running old httpreplay %s: pip3 install -U git+https://github.com/CAPESandbox/httpreplay", e)
             traceback.print_exc()
@@ -911,7 +865,7 @@ class Pcap2(object):
             traceback.print_exc()
             return results
 
-        for s, ts, protocol, sent, recv in l:
+        for s, ts, protocol, sent, recv in sorted_r:
             srcip, srcport, dstip, dstport = s
 
             if enabled_passlist:
@@ -957,7 +911,7 @@ class Pcap2(object):
                     }
                 )
 
-            if protocol == "http" or protocol == "https":
+            if protocol in ("http", "https"):
                 response = b""
                 request = b""
                 if isinstance(sent.raw, bytes):
@@ -1014,7 +968,7 @@ class Pcap2(object):
                                 if not data:
                                     continue
                                 s1 = " ".join([f"{i:02x}" for i in data])  # hex string
-                                s1 = f"{s1[0:23]} {s1[23:]}"  # insert extra space between groups of 8 hex values
+                                s1 = f"{s1[:23]} {s1[23:]}"  # insert extra space between groups of 8 hex values
                                 s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data])  # ascii string; chained comparison
                                 resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
                                 c += 16
@@ -1074,9 +1028,7 @@ class NetworkAnalysis(Processing):
 
         ja3_fprints = self._import_ja3_fprints()
 
-        results = {}
-
-        results["pcap_sha256"] = File(self.pcap_path).get_sha256()
+        results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
         results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:

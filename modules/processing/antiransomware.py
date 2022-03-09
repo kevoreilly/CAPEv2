@@ -126,16 +126,16 @@ class AntiRansomware(Processing):
         if not os.path.exists(self.files_metadata):
             return
         with open(self.files_metadata, "rb") as f:
-            for line in f.readlines():
-                filename = json.loads(line).get("filepath", "")
-                if filename and not "." in filename:
-                    continue
-                ext = filename.rsplit(".")
-                # do not count interesting extensions
-                if ext and ext[-1] not in do_not_skip:
-                    extensions.setdefault(ext[-1], 0)
-                    extensions[ext[-1]] += 1
-                    tmp_ext_list.setdefault(ext[-1], []).append(filename)
+            lines = f.readlines()
+        for line in lines:
+            filename = json.loads(line).get("filepath", "")
+            if filename and "." not in filename:
+                continue
+            ext = filename.rsplit(".")
+            # do not count interesting extensions
+            if ext and ext[-1] not in do_not_skip:
+                extensions[ext[-1]] = extensions.setdefault(ext[-1], 0) + 1
+                tmp_ext_list.setdefault(ext[-1], []).append(filename)
 
         for ext, count in extensions.items():
             if count > skip_number:

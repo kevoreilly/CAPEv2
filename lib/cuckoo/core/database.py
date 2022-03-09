@@ -2250,7 +2250,7 @@ class Database(object, metaclass=Singleton):
         return sample
 
     @classlock
-    def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id=None):
+    def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id: int=None):
         """Search samples by MD5, SHA1, or SHA256.
         @param md5: md5 string
         @param sha1: sha1 string
@@ -2270,7 +2270,7 @@ class Database(object, metaclass=Singleton):
                 sample = session.query(Sample).filter_by(sha256=sha256).first()
             elif parent:
                 sample = session.query(Sample).filter_by(parent=parent).all()
-            elif task_id and task_id.is_digit():
+            elif task_id:
                 sample = session.query(Task).filter(Task.id == task_id).filter(Sample.id == Task.sample_id).all()
         except SQLAlchemyError as e:
             log.debug("Database error searching sample: %s", e)

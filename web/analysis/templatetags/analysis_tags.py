@@ -21,7 +21,7 @@ def is_string(value):
 
 @register.filter("comma_join")
 def comma_join(value):
-    return ",".join(value)
+    return ",".join(str(task) for task in value)
 
 
 @register.filter("network_rn")

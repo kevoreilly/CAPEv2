@@ -190,12 +190,6 @@ class CAPE(Processing):
                     cape_name = name_mapping[file_info["cape_type_code"]]
                 append_file = True
 
-                """
-                ConfigData = format(file_data)
-                if ConfigData:
-                    config[cape_name].update({ConfigItem: [ConfigData]})
-                """
-
             # PlugX
             elif file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
@@ -230,13 +224,10 @@ class CAPE(Processing):
                             filepath = os.path.join(self.CAPE_path, sha256)
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
-                                with open(filepath, "w") as cfile:
-                                    cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
-                                with open(filepath, "wb") as cfile:
-                                    cfile.write(bindata)
-                            if os.path.exists(filepath):
+                            with open(filepath, "w") as cfile:
+                                cfile.write(bindata)
                                 self.script_dump_files.append(filepath)
                         else:
                             file_info["cape_type"] = "Script Dump"

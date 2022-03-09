@@ -14,24 +14,18 @@ __version__ = "1.0.0"
 
 
 def parseXmlToJson(xml):
-    response = {}
-    for child in list(xml):
-        if len(list(child)) > 0:
-            response[child.tag] = parseXmlToJson(child)
-        else:
-            response[child.tag] = child.text or ""
-    return response
+    return {child.tag: parseXmlToJson(child) if list(child) else child.text or "" for child in list(xml)}
 
 
 class Sysmon(Processing):
     def remove_noise(self, data):
-        filtered_proc_creations_re = [
+        filtered_proc_creations_re = (
             r"C:\\Windows\\System32\\wevtutil\.exe\s+clear-log\s+microsoft-windows-(sysmon|powershell)\/operational",
             r"bin\\is32bit.exe",
             r"bin\\inject-(?:x86|x64).exe",
             r"C:\\Windows\\System32\\wevtutil.exe\s+query-events microsoft-windows-powershell\/operational\s+\/rd:true\s+\/e:root\s+\/format:xml\s+\/uni:true",
             r"C:\\Windows\\System32\\wevtutil.exe\s+query-events\s+microsoft-windows-sysmon\/operational\s+\/format:xml",
-        ]
+        )
 
         filtered = []
         for event in data:
@@ -78,7 +72,7 @@ class Sysmon(Processing):
             root = tree.getroot()
             data = parseXmlToJson(root.attrib)
         except Exception as e:
-            raise CuckooProcessingError(f"Failed parsing sysmon.xml with ET: {e}")
+            raise CuckooProcessingError(f"Failed parsing sysmon.xml with ET: {e}") from e
 
         if not root:
             return

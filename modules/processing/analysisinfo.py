@@ -29,14 +29,14 @@ class AnalysisInfo(Processing):
         """Test if the analysis had a timeout"""
         if os.path.exists(self.log_path):
             try:
-                analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
-            except ValueError as e:
-                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}")
-            except (IOError, OSError) as e:
-                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}")
-            else:
+                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                    analysis_log = f.read()
                 if "INFO: Analysis timeout hit, terminating analysis" in analysis_log:
                     return True
+            except ValueError as e:
+                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
+            except (IOError, OSError) as e:
+                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}") from e
         return False
 
     def get_package(self):
@@ -46,9 +46,9 @@ class AnalysisInfo(Processing):
             try:
                 analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}")
+                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
             except (IOError, OSError) as e:
-                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}")
+                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}") from e
             else:
                 try:
                     idx = analysis_log.index('INFO: Automatically selected analysis package "')
@@ -79,7 +79,7 @@ class AnalysisInfo(Processing):
         task = db.view_task(self.task["id"], details=True)
 
         if task and task.guest:
-            # Get machine description ad json.
+            # Get machine description as json.
             machine = task.guest.to_dict()
             # Remove useless task_id.
             del machine["task_id"]
@@ -91,26 +91,26 @@ class AnalysisInfo(Processing):
             parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
-        return dict(
-            version=CUCKOO_VERSION,
-            started=self.task["started_on"],
-            ended=self.task.get("completed_on", "none"),
-            duration=duration,
-            id=int(self.task["id"]),
-            category=self.task["category"],
-            custom=self.task["custom"],
-            machine=self.task["machine"],
-            package=self.get_package(),
-            timeout=self.had_timeout(),
-            shrike_url=self.task["shrike_url"],
-            shrike_refer=self.task["shrike_refer"],
-            shrike_msg=self.task["shrike_msg"],
-            shrike_sid=self.task["shrike_sid"],
-            parent_id=self.task["parent_id"],
-            tlp=self.task["tlp"],
-            parent_sample=parent_sample_details,
-            options=parsed_options,
-            source_url=source_url,
-            route=self.task.get("route"),
-            user_id=self.task.get("user_id"),
-        )
+        return {
+            "version": CUCKOO_VERSION,
+            "started": self.task["started_on"],
+            "ended": self.task.get("completed_on", "none"),
+            "duration": duration,
+            "id": int(self.task["id"]),
+            "category": self.task["category"],
+            "custom": self.task["custom"],
+            "machine": self.task["machine"],
+            "package": self.get_package(),
+            "timeout": self.had_timeout(),
+            "shrike_url": self.task["shrike_url"],
+            "shrike_refer": self.task["shrike_refer"],
+            "shrike_msg": self.task["shrike_msg"],
+            "shrike_sid": self.task["shrike_sid"],
+            "parent_id": self.task["parent_id"],
+            "tlp": self.task["tlp"],
+            "parent_sample": parent_sample_details,
+            "options": parsed_options,
+            "source_url": source_url,
+            "route": self.task.get("route"),
+            "user_id": self.task.get("user_id"),
+        }

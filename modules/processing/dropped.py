@@ -9,7 +9,7 @@ import os
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable, wide2str
+from lib.cuckoo.common.utils import convert_to_printable_and_truncate, wide2str
 
 
 class Dropped(Processing):
@@ -30,15 +30,16 @@ class Dropped(Processing):
             return dropped_files
 
         if os.path.exists(self.files_metadata):
-            for line in open(self.files_metadata, "rb"):
-                entry = json.loads(line)
-                filepath = os.path.join(self.analysis_path, entry["path"])
-                meta.setdefault(filepath, []).append(
-                    {
-                        "pids": entry["pids"],
-                        "filepath": entry["filepath"],
-                    }
-                )
+            with open(self.files_metadata, "rb") as f:
+                for line in f:
+                    entry = json.loads(line)
+                    filepath = os.path.join(self.analysis_path, entry["path"])
+                    meta.setdefault(filepath, []).append(
+                        {
+                            "pids": entry["pids"],
+                            "filepath": entry["filepath"],
+                        }
+                    )
 
         for dir_name, _, file_names in os.walk(self.dropped_path):
             for file_name in file_names:
@@ -58,26 +59,16 @@ class Dropped(Processing):
                 )
 
                 file_info.update(meta.get(file_info["path"][0], {}))
-                if file_path in meta:
-                    guest_paths = list(set([path.get("filepath") for path in meta[file_path]]))
-                    guest_names = list(set([path.get("filepath", "").rsplit("\\", 1)[-1] for path in meta[file_path]]))
-                else:
-                    guest_paths = []
-                    guest_names = []
-
-                file_info["guest_paths"] = guest_paths if isinstance(guest_paths, list) else [guest_paths]
-                file_info["name"] = guest_names
+                file_info["guest_paths"] = list({path.get("filepath") for path in meta.get(file_path, [])})
+                file_info["name"] = list({path.get("filepath", "").rsplit("\\", 1)[-1] for path in meta.get(file_path, [])})
 
                 try:
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf + 1)
 
                     filedata = wide2str(filedata)
-                    if len(filedata) > buf:
-                        file_info["data"] = convert_to_printable(f"{filedata[:buf]} <truncated>")
-                    else:
-                        file_info["data"] = convert_to_printable(filedata)
-                except UnicodeDecodeError as e:
+                    file_info["data"] = convert_to_printable_and_truncate(filedata, buf)
+                except UnicodeDecodeError:
                     pass
                 dropped_files.append(file_info)
 

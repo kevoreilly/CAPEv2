@@ -33,7 +33,6 @@ class Usage(Processing):
         if not os.path.exists(usage_log):
             return usage
 
-        lines = []
         with open(usage_log, "r") as f:
             lines = [x.strip().split(" ") for x in f.readlines()]
         if not lines:

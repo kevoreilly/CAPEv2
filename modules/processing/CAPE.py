@@ -96,16 +96,18 @@ class CAPE(Processing):
     """CAPE output file processing."""
 
     def detect2pid(self, pid, cape_name):
-        self.results.setdefault("detections2pid", {})
-        self.results["detections2pid"].setdefault(str(pid), [])
-        if cape_name not in self.results["detections2pid"][str(pid)]:
-            self.results["detections2pid"][str(pid)].append(cape_name)
+        pid = str(pid)
+        self.results.setdefault("detections2pid", {}).setdefault(pid, [])
+        if cape_name not in self.results["detections2pid"][pid]:
+            self.results["detections2pid"][pid].append(cape_name)
 
-    def process_file(self, file_path, append_file, metadata={}):
+    def process_file(self, file_path, append_file, metadata=None):
         """Process file.
         @return: file_info
         """
 
+        if metadata is None:
+            metadata = {}
         config = {}
         cape_name = ""
         type_string = ""
@@ -116,8 +118,7 @@ class CAPE(Processing):
         file_info, pefile_object = File(file_path, metadata.get("metadata", "")).get_all()
 
         if pefile_object:
-            self.results.setdefault("pefiles", {})
-            self.results["pefiles"].setdefault(file_info["sha256"], pefile_object)
+            self.results.setdefault("pefiles", {}).setdefault(file_info["sha256"], pefile_object)
 
         if file_info.get("clamav") and processing_conf.detections.clamav:
             clamav_detection = get_clamav_consensus(file_info["clamav"])
@@ -134,10 +135,7 @@ class CAPE(Processing):
             file_data = file_open.read()
 
         if metadata.get("pids", False):
-            if len(metadata["pids"]) == 1:
-                file_info["pid"] = metadata["pids"][0]
-            else:
-                file_info["pid"] = ",".join(metadata["pids"])
+            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
 
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
@@ -155,17 +153,17 @@ class CAPE(Processing):
                 if len(metastrings) > 4:
                     type_string = metastrings[3]
 
-            if file_info["cape_type_code"] == COMPRESSION:
+            elif file_info["cape_type_code"] == COMPRESSION:
                 file_info["cape_type"] = "Decompressed PE Image"
 
-            if file_info["cape_type_code"] in inject_map:
+            elif file_info["cape_type_code"] in inject_map:
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
                     file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
                     file_info["target_pid"] = metastrings[4]
 
-            if file_info["cape_type_code"] in unpack_map:
+            elif file_info["cape_type_code"] in unpack_map:
                 file_info["cape_type"] = unpack_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["virtual_address"] = metastrings[3]
@@ -199,21 +197,19 @@ class CAPE(Processing):
                 """
 
             # PlugX
-            if file_info["cape_type_code"] == PLUGX_CONFIG:
+            elif file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
                 if plugx_parser:
                     plugx_config = plugx_parser.parse_config(file_data, len(file_data))
                     if plugx_config:
                         cape_name = "PlugX"
-                        config[cape_name] = {}
-                        for key, value in plugx_config.items():
-                            config[cape_name].update({key: [value]})
+                        config[cape_name] = plugx_config
                     else:
                         log.error("CAPE: PlugX config parsing failure - size many not be handled")
                     append_file = False
 
             # Attempt to decrypt script dump
-            if file_info["cape_type_code"] == SCRIPT_DUMP:
+            elif file_info["cape_type_code"] == SCRIPT_DUMP:
                 data = file_data.decode("utf-16").replace("\x00", "")
                 cape_name = "ScriptDump"
                 malwareconfig_loaded = False
@@ -232,19 +228,17 @@ class CAPE(Processing):
                             bindata = script_data["data"]
                             sha256 = hashlib.sha256(bindata).hexdigest()
                             filepath = os.path.join(self.CAPE_path, sha256)
-                            tmpstr = file_info["pid"]
-                            tmpstr += f",{file_info['process_path']}"
-                            tmpstr += f",{file_info['module_path']}"
+                            # tmpstr = f"{file_info['pid']},{file_info['process_path']},{file_info['module_path']}"
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
-                                outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
+                                # outstr = f"{MOREEGGSJS_PAYLOAD},{tmpstr}\n"
                                 # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "w") as cfile:
                                     cfile.write(bindata)
                             elif "binary" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsBin"
-                                outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
+                                # outstr = f"{MOREEGGSBIN_PAYLOAD},{tmpstr}\n"
                                 # with open(f"{filepath}_info.txt", "w") as infofd:
                                 #    infofd.write(outstr)
                                 with open(filepath, "wb") as cfile:
@@ -259,7 +253,7 @@ class CAPE(Processing):
                 append_file = True
 
             # More_Eggs
-            if file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
+            elif file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
                 file_info["cape_type"] = "More Eggs JS Payload"
                 cape_name = "MoreEggs"
                 append_file = True
@@ -280,10 +274,7 @@ class CAPE(Processing):
             if "-bit" not in file_info["cape_type"]:
                 if type_strings[0] in ("PE32+", "PE32"):
                     file_info["cape_type"] += pe_map[type_strings[0]]
-                    if type_strings[2] == ("(DLL)"):
-                        file_info["cape_type"] += "DLL"
-                    else:
-                        file_info["cape_type"] += "executable"
+                    file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if hit["name"] == "GuLoader":
                 self.detect2pid(file_info["pid"], "GuLoader")

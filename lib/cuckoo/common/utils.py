@@ -366,6 +366,10 @@ def convert_to_printable(s: str, cache=None):
     return cache[s]
 
 
+def convert_to_printable_and_truncate(s: str, buf: int, cache=None):
+    return convert_to_printable(f"{s[:buf]} <truncated>" if len(s) > buf else s, cache=cache)
+
+
 def convert_filename_char(c):
     """Escapes filename characters.
     @param c: dirty char.

@@ -23,14 +23,12 @@ def extract_strings(path, nulltermonly, minchars):
     strings = []
 
     try:
-        data = open(path, "rb").read()
+        with open(path, "rb") as f:
+            data = f.read()
     except (IOError, OSError) as e:
-        raise CuckooProcessingError(f"Error opening file {e}")
+        raise CuckooProcessingError(f"Error opening file {e}") from e
 
-    endlimit = b""
-    if not HAVE_RE2:
-        endlimit = b"8192"
-
+    endlimit = b"8192" if not HAVE_RE2 else b""
     if nulltermonly:
         apat = b"([\x20-\x7e]{" + str(minchars).encode() + b"," + endlimit + b"})\x00"
         upat = b"((?:[\x20-\x7e][\x00]){" + str(minchars).encode() + b"," + endlimit + b"})\x00\x00"
@@ -39,9 +37,7 @@ def extract_strings(path, nulltermonly, minchars):
         upat = b"(?:[\x20-\x7e][\x00]){" + str(minchars).encode() + b"," + endlimit + b"}"
 
     strings = [bytes2str(string) for string in re.findall(apat, data)]
-    for ws in re.findall(upat, data):
-        strings.append(str(ws.decode("utf-16le")))
-
+    strings.extend(str(ws.decode("utf-16le")) for ws in re.findall(upat, data))
     return strings
 
 
@@ -57,8 +53,7 @@ class Strings(Processing):
         nulltermonly = self.options.get("nullterminated_only", True)
         minchars = self.options.get("minchars", 5)
 
-        if self.task["category"] in ("file", "static"):
-            if not os.path.exists(self.file_path):
-                raise CuckooProcessingError(f'Sample file doesn\'t exist: "{self.file_path}"')
+        if self.task["category"] in ("file", "static") and not os.path.exists(self.file_path):
+            raise CuckooProcessingError(f'Sample file doesn\'t exist: "{self.file_path}"')
 
         return extract_strings(self.file_path, nulltermonly, minchars)

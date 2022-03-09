@@ -25,9 +25,8 @@ class Deduplicate(Processing):
         """
 
         def is_image(filename):
-            img_ext = [".jpg", ".png", ".gif", ".bmp", ".gif"]
-            f = filename.lower()
-            return any(f.endswith(ext) for ext in img_ext)
+            img_ext = (".jpg", ".png", ".gif", ".bmp", ".gif")
+            return filename.lower().endswith(img_ext)
 
         """
         Available hashs functions:
@@ -43,8 +42,8 @@ class Deduplicate(Processing):
         images = {}
         for img in sorted(image_filenames):
             hash = hashfunc(Image.open(img))
-            images[hash] = images.get(hash, []) + [img]
-        for k, img_list in images.items():
+            images.setdefault(hash, []).append(img)
+        for img_list in images.values():
             dd_img_set.append(os.path.basename(img_list[0]))
         # Found that we get slightly more complete images in most cases when getting rid of images with close bit distance.
         # We flip the list back around after prune.
@@ -72,10 +71,8 @@ class Deduplicate(Processing):
 
             shots_path = os.path.join(self.analysis_path, "shots")
             if os.path.exists(shots_path):
-                screenshots = self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc)
-                screenshots.sort()
-                for screenshot in screenshots:
-                    shots.append(screenshot.replace(".jpg", ""))
+                screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
+                shots = [screenshot.replace(".jpg", "") for screenshot in screenshots]
         except Exception as e:
             log.error(e)
 

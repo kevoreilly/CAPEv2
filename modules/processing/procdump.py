@@ -12,7 +12,7 @@ from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.utils import convert_to_printable_and_truncate
 
 processing_conf = Config("processing")
 
@@ -75,28 +75,18 @@ class ProcDump(Processing):
                     file_info["cape_type"] += ": 64-bit "
                 elif type_strings[0] == ("PE32"):
                     file_info["cape_type"] += ": 32-bit "
-                if type_strings[2] == ("(DLL)"):
-                    file_info["cape_type"] += "DLL"
-                else:
-                    file_info["cape_type"] += "executable"
+                file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
+
             texttypes = [
                 "ASCII",
                 "Windows Registry text",
                 "XML document text",
                 "Unicode text",
             ]
-            readit = False
-            for texttype in texttypes:
-                if texttype in file_info["type"]:
-                    readit = True
-                    break
-            if readit:
+            if any(texttype in file_info["type"] for texttype in texttypes):
                 with open(file_info["path"], "r") as drop_open:
                     filedata = drop_open.read(buf + 1)
-                if len(filedata) > buf:
-                    file_info["data"] = convert_to_printable(f"{filedata[:buf]} <truncated>")
-                else:
-                    file_info["data"] = convert_to_printable(filedata)
+                file_info["data"] = convert_to_printable_and_truncate(filedata, buf)
 
             if file_info["pid"]:
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)

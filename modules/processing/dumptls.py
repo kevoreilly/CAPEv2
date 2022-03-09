@@ -25,11 +25,8 @@ class TLSMasterSecrets(Processing):
     key = "dumptls"
 
     def run(self):
-        metakeys = {}
-
         # Build server random <-> session id mapping from the PCAP.
-        for row in self.results.get("network", {}).get("tls", []) or []:
-            metakeys[row["server_random"]] = row["session_id"]
+        metakeys = {row["server_random"]: row["session_id"] for row in self.results.get("network", {}).get("tls", [])}
 
         results = {}
         dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
@@ -59,4 +56,4 @@ class TLSMasterSecrets(Processing):
             # Write the TLS master secrets file.
             with open(self.tlsmaster_path, "w") as f:
                 for session_id, master_secret in sorted(results.items()):
-                    f.write("RSA Session-ID:{session_id} Master-Key:{master_secret}")
+                    f.write("RSA Session-ID:{session_id} Master-Key:{master_secret}\n")

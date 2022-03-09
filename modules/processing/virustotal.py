@@ -186,96 +186,89 @@ def get_vt_consensus(namelist: list):
 
 # https://developers.virustotal.com/v3.0/reference#file-info
 def vt_lookup(category: str, target: str, on_demand: bool = False):
-    if processing_conf.virustotal.enabled and (not processing_conf.virustotal.get("on_demand", False) or on_demand):
-
-        if category not in ("file", "url"):
-            return {"error": True, "msg": "VT category isn't supported"}
-
-        if category == "file":
-            if not do_file_lookup:
-                return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
-            if not os.path.exists(target) and len(target) != 64:
-                return {"error": True, "msg": "File doesn't exist"}
-
-            if len(target) == 64:
-                sha256 = target
-            else:
-                sha256 = File(target).get_sha256()
-            url = VIRUSTOTAL_FILE_URL.format(id=sha256)
-
-        elif category == "url":
-            if not do_url_lookup:
-                return {"error": True, "msg": "VT URL lookup disabled in processing.conf"}
-            if urlscrub:
-                urlscrub_compiled_re = None
-                try:
-                    urlscrub_compiled_re = re.compile(urlscrub)
-                except Exception as e:
-                    raise CuckooProcessingError(f"Failed to compile urlscrub regex: {e}")
-                try:
-                    target = re.sub(urlscrub_compiled_re, "", target)
-                except Exception as e:
-                    return {"error": True, "msg": f"Failed to scrub url: {e}"}
-
-            # normalize the URL the way VT appears to
-            if not target.lower().startswith("http://") and not target.lower().startswith("https://"):
-                target = f"http://{target}"
-            slashsplit = target.split("/")
-            slashsplit[0] = slashsplit[0].lower()
-            slashsplit[2] = slashsplit[2].lower()
-            if len(slashsplit) == 3:
-                slashsplit.append("")
-            target = "/".join(slashsplit)
-
-            sha256 = hashlib.sha256(target.encode()).hexdigest()
-            url = VIRUSTOTAL_URL_URL.format(id=target)
-
-        try:
-            r = requests.get(url, headers=headers, verify=True, timeout=timeout)
-            if r.ok:
-                vt_response = r.json()
-                engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
-                if engines:
-                    virustotal = {}
-                    virustotal["names"] = vt_response.get("data", {}).get("attributes", {}).get("names")
-                    virustotal["scan_id"] = vt_response.get("data", {}).get("id")
-                    virustotal["md5"] = vt_response.get("data", {}).get("attributes", {}).get("md5")
-                    virustotal["sha1"] = vt_response.get("data", {}).get("attributes", {}).get("sha1")
-                    virustotal["sha256"] = vt_response.get("data", {}).get("attributes", {}).get("sha256")
-                    virustotal["tlsh"] = vt_response.get("data", {}).get("attributes", {}).get("tlsh")
-                    virustotal["positive"] = (
-                        vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious")
-                    )
-                    virustotal["total"] = len(engines.keys())
-                    virustotal["permalink"] = vt_response.get("data", {}).get("links", {}).get("self")
-                    if remove_empty:
-                        virustotal["scans"] = dict(
-                            (engine.replace(".", "_"), block) for engine, block in engines.items() if block["result"]
-                        )
-                    else:
-                        virustotal["scans"] = dict((engine.replace(".", "_"), block) for engine, block in engines.items())
-                    virustotal["resource"] = sha256
-
-                    virustotal["results"] = []
-                    detectnames = []
-                    for engine, block in engines.items():
-                        virustotal["results"] += [{"vendor": engine.replace(".", "_"), "sig": block["result"]}]
-                        if block["result"] and "Trojan.Heur." not in block["result"]:
-                            # weight Microsoft's detection, they seem to be more accurate than the rest
-                            if engine == "Microsoft":
-                                detectnames.append(block["result"])
-                            detectnames.append(block["result"])
-
-                    virustotal["detection"] = get_vt_consensus(detectnames)
-                    return virustotal
-                else:
-                    return {}
-            else:
-                return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
-        except requests.exceptions.RequestException as e:
-            return {"error": True, "msg": f"Unable to complete connection to VirusTotal: {e}"}
-    else:
+    if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
+    if category not in ("file", "url"):
+        return {"error": True, "msg": "VT category isn't supported"}
+
+    if category == "file":
+        if not do_file_lookup:
+            return {"error": True, "msg": "VT File lookup disabled in processing.conf"}
+        if not os.path.exists(target) and len(target) != 64:
+            return {"error": True, "msg": "File doesn't exist"}
+
+        sha256 = target if len(target) == 64 else File(target).get_sha256()
+        url = VIRUSTOTAL_FILE_URL.format(id=sha256)
+
+    elif category == "url":
+        if not do_url_lookup:
+            return {"error": True, "msg": "VT URL lookup disabled in processing.conf"}
+        if urlscrub:
+            urlscrub_compiled_re = None
+            try:
+                urlscrub_compiled_re = re.compile(urlscrub)
+            except Exception as e:
+                raise CuckooProcessingError(f"Failed to compile urlscrub regex: {e}") from e
+            try:
+                target = re.sub(urlscrub_compiled_re, "", target)
+            except Exception as e:
+                return {"error": True, "msg": f"Failed to scrub url: {e}"}
+
+        # normalize the URL the way VT appears to
+        if not target.lower().startswith(("http://", "https://")):
+            target = f"http://{target}"
+        slashsplit = target.split("/")
+        slashsplit[0] = slashsplit[0].lower()
+        slashsplit[2] = slashsplit[2].lower()
+        if len(slashsplit) == 3:
+            slashsplit.append("")
+        target = "/".join(slashsplit)
+
+        sha256 = hashlib.sha256(target.encode()).hexdigest()
+        url = VIRUSTOTAL_URL_URL.format(id=target)
+
+    try:
+        r = requests.get(url, headers=headers, verify=True, timeout=timeout)
+        if not r.ok:
+            return {"error": True, "msg": f"Unable to complete connection to VirusTotal. Status code: {r.status_code}"}
+        vt_response = r.json()
+        engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
+        if not engines:
+            return {}
+        virustotal = {
+            "names": vt_response.get("data", {}).get("attributes", {}).get("names"),
+            "scan_id": vt_response.get("data", {}).get("id"),
+            "md5": vt_response.get("data", {}).get("attributes", {}).get("md5"),
+            "sha1": vt_response.get("data", {}).get("attributes", {}).get("sha1"),
+            "sha256": vt_response.get("data", {}).get("attributes", {}).get("sha256"),
+            "tlsh": vt_response.get("data", {}).get("attributes", {}).get("tlsh"),
+            "positive": vt_response.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}).get("malicious"),
+            "total": len(engines.keys()),
+            "permalink": vt_response.get("data", {}).get("links", {}).get("self"),
+        }
+        if remove_empty:
+            virustotal["scans"] = {engine.replace(".", "_"): block for engine, block in engines.items() if block["result"]}
+        else:
+            virustotal["scans"] = {engine.replace(".", "_"): block for engine, block in engines.items()}
+
+        virustotal["resource"] = sha256
+        virustotal["results"] = []
+        detectnames = []
+        for engine, block in engines.items():
+            virustotal["results"] += [{"vendor": engine.replace(".", "_"), "sig": block["result"]}]
+            if block["result"] and "Trojan.Heur." not in block["result"]:
+                # weight Microsoft's detection, they seem to be more accurate than the rest
+                if engine == "Microsoft":
+                    detectnames.append(block["result"])
+                detectnames.append(block["result"])
+
+        virustotal["detection"] = get_vt_consensus(detectnames)
+        return virustotal
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": True,
+            "msg": f"Unable to complete connection to VirusTotal: {e}",
+        }
 
 
 class VirusTotal(Processing):

@@ -81,14 +81,11 @@ class ParseProcessLog(list):
 
     def parse_first_and_reset(self):
         """Open file and init Bson Parser. Read till first process"""
-        self.fd = open(self._log_path, "rb")
-
-        if self._log_path.endswith(".bson"):
-            self.parser = BsonParser(self)
-        else:
-            self.fd.close()
-            self.fd = None
+        if not self._log_path.endswith(".bson"):
             return
+
+        self.fd = open(self._log_path, "rb")
+        self.parser = BsonParser(self)
 
         # Get the process information from file
         # Note that we have to read in all messages until we
@@ -116,7 +113,7 @@ class ParseProcessLog(list):
 
     def __iter__(self):
         # import inspect
-        # log.debug("iter called by this guy: %s", inspect.stack()[1])
+        # log.debug("iter called by: %s", inspect.stack()[1])
         # import code; code.interact(local=dict(locals(), **globals()))
         return self
 
@@ -140,9 +137,9 @@ class ParseProcessLog(list):
         @param b: call b
         @return: True if a == b else False
         """
-        if a["api"] == b["api"] and a["status"] == b["status"] and a["arguments"] == b["arguments"] and a["return"] == b["return"]:
-            return True
-        return False
+        return (
+            a["api"] == b["api"] and a["status"] == b["status"] and a["arguments"] == b["arguments"] and a["return"] == b["return"]
+        )
 
     def wait_for_lastcall(self):
         """If there is no lastcall, iterate through messages till a call is found or EOF.
@@ -188,15 +185,14 @@ class ParseProcessLog(list):
     def __next__(self):
         """Just accessing the cache"""
 
-        if cfg.processing.ram_boost:
-            res = self.api_call_cache[self.api_pointer]
-            if res is None:
-                self.reset()
-                raise StopIteration()
-            self.api_pointer += 1
-            return res
-        else:
+        if not cfg.processing.ram_boost:
             return self.cacheless_next()
+        res = self.api_call_cache[self.api_pointer]
+        if res is None:
+            self.reset()
+            raise StopIteration()
+        self.api_pointer += 1
+        return res
 
     def log_process(self, context, timestring, pid, ppid, modulepath, procname):
         """log process information parsed from data file
@@ -231,7 +227,14 @@ class ParseProcessLog(list):
         @param funcname:
         @param msg:
         """
-        self.lastcall = dict(thread_id=tid, category="anomaly", api="", subcategory=subcategory, funcname=funcname, msg=msg)
+        self.lastcall = {
+            "thread_id": tid,
+            "category": "anomaly",
+            "api": "",
+            "subcategory": subcategory,
+            "funcname": funcname,
+            "msg": msg,
+        }
 
     def log_call(self, context, apiname, category, arguments):
         """log an api call from data file
@@ -257,21 +260,19 @@ class ParseProcessLog(list):
         self.reporting_mode = True
         if cfg.processing.ram_boost:
             idx = 0
-            while True:
-                ent = self.api_call_cache[idx]
-                if not ent:
-                    break
+            ent = self.api_call_cache[idx]
+            while not ent:
                 # remove the values we don't want to encode in reports
                 for arg in ent["arguments"]:
                     del arg["raw_value"]
                 idx += 1
+                ent = self.api_call_cache[idx]
 
     def _parse(self, row):
         """Parse log row.
         @param row: row data.
         @return: parsed information dict.
         """
-        call = {}
         arguments = []
 
         try:
@@ -290,20 +291,18 @@ class ParseProcessLog(list):
 
         # Now walk through the remaining columns, which will contain API
         # arguments.
-        for index in range(9, len(row)):
-            argument = {}
-
+        for api_arg in row[9:]:
             # Split the argument name with its value based on the separator.
             try:
-                arg_name, arg_value = row[index]
+                arg_name, arg_value = api_arg
             except ValueError as e:
-                log.debug("Unable to parse analysis row argument (row=%s): %s", row[index], e)
+                log.debug("Unable to parse analysis row argument (row=%s): %s", api_arg, e)
                 continue
 
-            argument["name"] = arg_name
+            argument = {"name": arg_name}
             if isinstance(arg_value, bytes):
                 arg_value = bytes2str(arg_value)
-            argument["value"] = convert_to_printable(str(arg_value), self.conversion_cache)
+            argument["value"] = convert_to_printable(arg_value, self.conversion_cache)
             if not self.reporting_mode:
                 argument["raw_value"] = arg_value
             pretty = pretty_print_arg(category, api_name, arg_name, argument["value"])
@@ -311,15 +310,17 @@ class ParseProcessLog(list):
                 argument["pretty_value"] = pretty
             arguments.append(argument)
 
-        call["timestamp"] = timestamp
-        call["thread_id"] = str(thread_id)
-        call["caller"] = f"0x{default_converter(caller):08x}"
-        call["parentcaller"] = f"0x{default_converter(parentcaller):08x}"
-        call["category"] = category
-        call["api"] = api_name
-        call["status"] = bool(int(status_value))
+        call = {
+            "timestamp": timestamp,
+            "thread_id": str(thread_id),
+            "caller": f"0x{default_converter(caller):08x}",
+            "parentcaller": f"0x{default_converter(parentcaller):08x}",
+            "category": category,
+            "api": api_name,
+            "status": bool(int(status_value)),
+        }
 
-        if isinstance(return_value, int) or isinstance(return_value, int):
+        if isinstance(return_value, int):
             call["return"] = f"0x{default_converter(return_value):08x}"
         else:
             call["return"] = convert_to_printable(str(return_value), self.conversion_cache)
@@ -373,7 +374,7 @@ class Processes:
             if os.path.isdir(file_path):
                 continue
 
-            # Skipping the current log file if it's too big.
+            # Skipping the current log file if it's too big
             if os.stat(file_path).st_size > cfg.processing.analysis_size_limit:
                 log.warning("Behavioral log %s too big to be processed, skipped", file_name)
                 continue
@@ -441,19 +442,16 @@ class Summary:
         self.resolved_apis = []
 
     def get_argument(self, call, argname, strip=False):
-        for arg in call["arguments"]:
-            if arg["name"] == argname:
-                if strip:
-                    return arg["value"].strip()
-                else:
-                    return arg["value"]
-        return None
+        return next(
+            (arg["value"].strip() if strip else arg["value"] for arg in call["arguments"] if arg["name"] == argname),
+            None,
+        )
 
     def get_raw_argument(self, call, argname):
-        for arg in call["arguments"]:
-            if arg["name"] == argname:
-                return arg["raw_value"]
-        return None
+        return next(
+            (arg["raw_value"] for arg in call["arguments"] if arg["name"] == argname),
+            None,
+        )
 
     def event_apicall(self, call, process):
         """Generate processes list from streamed calls/processes.
@@ -470,7 +468,7 @@ class Summary:
                 self.keys.append(name)
             if name and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif call["api"] == "NtDeleteValueKey" or call["api"] == "NtDeleteKey" or call["api"].startswith("RegDeleteValue"):
+        elif call["api"] in ("NtDeleteValueKey", "NtDeleteKey") or call["api"].startswith("RegDeleteValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -496,9 +494,7 @@ class Summary:
             # if disposition == 1 then we created a new key
             if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif (
-            call["api"].startswith("RegQueryValue") or call["api"] == "NtQueryValueKey" or call["api"] == "NtQueryMultipleValueKey"
-        ):
+        elif call["api"] in ("NtQueryValueKey", "NtQueryMultipleValueKey") or call["api"].startswith("RegQueryValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -518,9 +514,7 @@ class Summary:
                 self.files.append(filename)
             path = self.get_argument(call, "FilePath", strip=True)
             params = self.get_argument(call, "Parameters", strip=True)
-            cmdline = None
-            if path:
-                cmdline = f"{path} {params}"
+            cmdline = f"{path} {params}" if path else None
             if cmdline and cmdline not in self.executed_commands:
                 self.executed_commands.append(cmdline)
         elif call["api"] == "NtSetInformationFile":
@@ -553,7 +547,7 @@ class Summary:
             if servicename and servicename not in self.created_services:
                 self.created_services.append(servicename)
 
-        elif call["api"] in ["CreateProcessInternalW", "NtCreateUserProcess", "CreateProcessWithTokenW", "CreateProcessWithLogonW"]:
+        elif call["api"] in ("CreateProcessInternalW", "NtCreateUserProcess", "CreateProcessWithTokenW", "CreateProcessWithLogonW"):
             cmdline = self.get_argument(call, "CommandLine", strip=True)
             appname = self.get_argument(call, "ApplicationName", strip=True)
             if appname and cmdline:
@@ -582,7 +576,7 @@ class Summary:
             if cmdline and cmdline not in self.executed_commands:
                 self.executed_commands.append(cmdline)
 
-        elif call["api"] == "MoveFileWithProgressW" or call["api"] == "MoveFileWithProgressTransactedW":
+        elif call["api"] in ("MoveFileWithProgressW", "MoveFileWithProgressTransactedW"):
             origname = self.get_argument(call, "ExistingFileName")
             newname = self.get_argument(call, "NewFileName")
             if origname:
@@ -602,10 +596,8 @@ class Summary:
                 filename = self.get_argument(call, "DirectoryName")
             srcfilename = self.get_argument(call, "ExistingFileName")
             dstfilename = self.get_argument(call, "NewFileName")
-            access = None
             accessval = self.get_argument(call, "DesiredAccess")
-            if accessval:
-                access = int(accessval, 16)
+            access = int(accessval, 16) if accessval else None
             if filename:
                 if (
                     access
@@ -700,11 +692,7 @@ class Enhanced(object):
             """
             Load arguments from call
             """
-            res = {}
-            for argument in call["arguments"]:
-                res[argument["name"]] = argument["value"]
-
-            return res
+            return {argument["name"]: argument["value"] for argument in call["arguments"]}
 
         def _generic_handle_details(self, call, item):
             """
@@ -915,22 +903,22 @@ class Enhanced(object):
 
         if event:
             if (
-                call["api"] in ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle"]
+                call["api"] in ("LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle")
                 and call["status"]
             ):
                 self._add_loaded_module(args.get("FileName", ""), args.get("ModuleHandle", ""))
 
-            elif call["api"] in ["LdrLoadDll"] and call["status"]:
+            elif call["api"] == "LdrLoadDll" and call["status"]:
                 self._add_loaded_module(args.get("FileName", ""), args.get("BaseAddress", ""))
 
-            elif call["api"] in ["LdrGetProcedureAddress"] and call["status"]:
+            elif call["api"] == "LdrGetProcedureAddress" and call["status"]:
                 self._add_procedure(args.get("ModuleHandle", ""), args.get("FunctionName", ""), args.get("FunctionAddress", ""))
                 event["data"]["module"] = self._get_loaded_module(args.get("ModuleHandle", ""))
 
-            elif call["api"] in ["SetWindowsHookExA"]:
+            elif call["api"] == "SetWindowsHookExA":
                 event["data"]["module"] = self._get_loaded_module(args.get("ModuleAddress", ""))
 
-            if call["api"] in ["ControlService"]:
+            elif call["api"] == "ControlService":
                 event["data"]["action"] = _get_service_action(args["ControlCode"])
 
             return event
@@ -975,19 +963,19 @@ class Anomaly(object):
         for row in call["arguments"]:
             if row["name"] == "Subcategory":
                 category = row["value"]
-            if row["name"] == "FunctionName":
+            elif row["name"] == "FunctionName":
                 funcname = row["value"]
-            if row["name"] == "Message":
+            elif row["name"] == "Message":
                 message = row["value"]
 
         self.anomalies.append(
-            dict(
-                name=process["process_name"],
-                pid=process["process_id"],
-                category=category,
-                funcname=funcname,
-                message=message,
-            )
+            {
+                "name": process["process_name"],
+                "pid": process["process_id"],
+                "category": category,
+                "funcname": funcname,
+                "message": message,
+            }
         )
 
     def run(self):
@@ -1032,15 +1020,15 @@ class ProcessTree:
                 return
 
         self.processes.append(
-            dict(
-                name=process["process_name"],
-                pid=process["process_id"],
-                parent_id=process["parent_id"],
-                module_path=process["module_path"],
-                children=[],
-                threads=process["threads"],
-                environ=process["environ"],
-            )
+            {
+                "name": process["process_name"],
+                "pid": process["process_id"],
+                "parent_id": process["parent_id"],
+                "module_path": process["module_path"],
+                "children": [],
+                "threads": process["threads"],
+                "environ": process["environ"],
+            }
         )
 
     def run(self):
@@ -1083,19 +1071,16 @@ class EncryptedBuffers:
         self.bufs = []
 
     def get_argument(self, call, argname, strip=False):
-        for arg in call["arguments"]:
-            if arg["name"] == argname:
-                if strip:
-                    return arg["value"].strip()
-                else:
-                    return arg["value"]
-        return None
+        return next(
+            (arg["value"].strip() if strip else arg["value"] for arg in call["arguments"] if arg["name"] == argname),
+            None,
+        )
 
     def get_raw_argument(self, call, argname):
-        for arg in call["arguments"]:
-            if arg["name"] == argname:
-                return arg["raw_value"]
-        return None
+        return next(
+            (arg["raw_value"] for arg in call["arguments"] if arg["name"] == argname),
+            None,
+        )
 
     def event_apicall(self, call, process):
         """Generate processes list from streamed calls/processes.
@@ -1107,13 +1092,13 @@ class EncryptedBuffers:
             bufsize = self.get_argument(call, "BufferSize")
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(
-                        process_name=process["process_name"],
-                        pid=process["process_id"],
-                        api_call="SslEncryptPacket",
-                        buffer=buf,
-                        buffer_size=bufsize,
-                    )
+                    {
+                        "process_name": process["process_name"],
+                        "pid": process["process_id"],
+                        "api_call": "SslEncryptPacket",
+                        "buffer": buf,
+                        "buffer_size": bufsize,
+                    }
                 )
 
         if call["api"].startswith("CryptEncrypt"):
@@ -1121,25 +1106,25 @@ class EncryptedBuffers:
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(
-                        process_name=process["process_name"],
-                        pid=process["process_id"],
-                        api_call="CryptEncrypt",
-                        buffer=buf,
-                        crypt_key=key,
-                    )
+                    {
+                        "process_name": process["process_name"],
+                        "pid": process["process_id"],
+                        "api_call": "CryptEncrypt",
+                        "buffer": buf,
+                        "crypt_key": key,
+                    }
                 )
 
         if call["api"].startswith("CryptEncryptMessage"):
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(
-                        process_name=process["process_name"],
-                        pid=process["process_id"],
-                        api_call="CryptEncryptMessage",
-                        buffer=buf,
-                    )
+                    {
+                        "process_name": process["process_name"],
+                        "pid": process["process_id"],
+                        "api_call": "CryptEncryptMessage",
+                        "buffer": buf,
+                    }
                 )
 
     def run(self):
@@ -1158,8 +1143,7 @@ class BehaviorAnalysis(Processing):
         """Run analysis.
         @return: results dict.
         """
-        behavior = {}
-        behavior["processes"] = Processes(self.logs_path, self.task).run()
+        behavior = {"processes": Processes(self.logs_path, self.task).run()}
 
         instances = [
             Anomaly(),

@@ -25,9 +25,9 @@ class Debug(Processing):
             try:
                 debug["log"] = codecs.open(self.log_path, "rb", "utf-8").read()
             except ValueError as e:
-                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}")
+                raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
             except (IOError, OSError) as e:
-                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}")
+                raise CuckooProcessingError(f"Error opening {self.log_path}: {e}") from e
 
         for error in Database().view_errors(int(self.task["id"])):
             debug["errors"].append(error.message)

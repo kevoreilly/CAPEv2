@@ -31,7 +31,7 @@ try:
 
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
-except Exception as e:
+except ImportError:
     print("Missed dependency: pip3 install volatility3 -U")
     HAVE_VOLATILITY = False
 
@@ -65,9 +65,7 @@ class ReturnJsonRenderer(JsonRenderer):
             for column_index, column in enumerate(grid.columns):
                 renderer = self._type_renderers.get(column.type, self._type_renderers["default"])
                 data = renderer(list(node.values)[column_index])
-                if isinstance(data, interfaces.renderers.BaseAbsentValue):
-                    data = None
-                node_dict[column.name] = data
+                node_dict[column.name] = None if isinstance(data, interfaces.renderers.BaseAbsentValue) else data
             if node.parent:
                 acc_map[node.parent.path]["__children"].append(node_dict)
             else:
@@ -92,12 +90,9 @@ class VolatilityAPI(object):
         self.loaded = False
         self.plugin_list = []
         self.ctx = False
-        if not memdump.startswith("file:///") and os.path.exists(memdump):
-            self.memdump = f"file:///{memdump}"
-        else:
-            self.memdump = memdump
+        self.memdump = f"file:///{memdump}" if not memdump.startswith("file:///") and os.path.exists(memdump) else memdump
 
-    def run(self, plugin_class, pids=[], round=1):
+    def run(self, plugin_class, pids=None, round=1):
         """Module which initialize all volatility 3 internals
         https://github.com/volatilityfoundation/volatility3/blob/stable/doc/source/using-as-a-library.rst
         @param plugin_class: plugin class. Ex. windows.pslist.PsList
@@ -110,7 +105,7 @@ class VolatilityAPI(object):
         if not self.loaded:
             self.ctx = contexts.Context()
             constants.PARALLELISM = constants.Parallelism.Off
-            failures = framework.import_files(volatility3.plugins, True)
+            framework.import_files(volatility3.plugins, True)
             self.automagics = automagic.available(self.ctx)
             self.plugin_list = framework.list_plugins()
             seen_automagics = set()
@@ -120,13 +115,12 @@ class VolatilityAPI(object):
                     continue
                 seen_automagics.add(amagic)
 
-            base_config_path = "plugins"
             single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
             if os.path.exists(yara_rules_path):
                 self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
 
-        if pids:
+        if pids is not None:
             self.ctx.config["sandbox_pids"] = pids
             self.ctx.config["sandbox_round"] = round
 
@@ -293,30 +287,28 @@ class VolatilityManager(object):
                 self.taint_pid.add(item["PID"])
 
     def do_strings(self):
-        if self.voptions.basic.dostrings:
-            try:
-                data = open(self.memfile, "rb").read()
-            except (IOError, OSError, MemoryError) as e:
-                raise CuckooProcessingError(f"Error opening file {e}")
+        if not self.voptions.basic.dostrings:
+            return None
+        try:
+            with open(self.memfile, "rb") as f:
+                data = f.read()
+        except (IOError, OSError, MemoryError) as e:
+            raise CuckooProcessingError(f"Error opening file {e}") from e
 
-            nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
-            minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode()
+        nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
+        minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode()
 
-            if nulltermonly:
-                apat = b"([\x20-\x7e]{" + minchars + b",})\x00"
-                upat = b"((?:[\x20-\x7e][\x00]){" + minchars + b",})\x00\x00"
-            else:
-                apat = b"[\x20-\x7e]{" + minchars + b",}"
-                upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
+        if nulltermonly:
+            apat = b"([\x20-\x7e]{" + minchars + b",})\x00"
+            upat = b"((?:[\x20-\x7e][\x00]){" + minchars + b",})\x00\x00"
+        else:
+            apat = b"[\x20-\x7e]{" + minchars + b",}"
+            upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
 
-            strings = re.findall(apat, data)
-            for ws in re.findall(upat, data):
-                strings.append(ws.decode("utf-16le").encode())
-            f = open(f"{self.memfile}.strings", "wb")
+        strings = re.findall(apat, data) + [ws.decode("utf-16le").encode() for ws in re.findall(upat, data)]
+        with open(f"{self.memfile}.strings", "wb") as f:
             f.write(b"\n".join(strings))
-            f.close()
-            return f"{self.memfile}.strings"
-        return None
+        return f"{self.memfile}.strings"
 
     def cleanup(self):
         """Delete the memory dump (if configured to do so)."""

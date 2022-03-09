@@ -93,7 +93,7 @@ class ProcessMemory(Processing):
                 process_name = ""
                 process_path = ""
                 process_id = int(os.path.splitext(os.path.basename(dmp_path))[0])
-                for process in self.results.get("behavior", {}).get("processes", []) or []:
+                for process in self.results.get("behavior", {}).get("processes", []):
                     if process_id == process["process_id"]:
                         process_name = process["process_name"]
                         process_path = process["module_path"]
@@ -121,10 +121,7 @@ class ProcessMemory(Processing):
                 # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
 
-                endlimit = b""
-                if not HAVE_RE2:
-                    endlimit = b"8192"
-
+                endlimit = b"" if HAVE_RE2 else b"8192"
                 if do_strings:
                     if nulltermonly:
                         apat = b"([\x20-\x7e]{" + minchars + b"," + endlimit + b"})\x00"
@@ -142,10 +139,8 @@ class ProcessMemory(Processing):
 
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    f = open(proc["strings_path"], "wb")
-                    f.write(b"\n".join(strings))
-                    f.close()
-
+                    with open(proc["strings_path"], "wb") as f:
+                        f.write(b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

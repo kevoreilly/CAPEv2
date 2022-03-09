@@ -21,10 +21,7 @@ class ProcmonLog(list):
             if element.tag != "event":
                 continue
 
-            entry = {}
-            for child in element.getchildren():
-                entry[child.tag] = child.text
-            yield entry
+            yield {child.tag: child.text for child in element.getchildren()}
 
     def __nonzero__(self):
         # For documentation on this please refer to MonitorProcessLog.

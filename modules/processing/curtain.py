@@ -34,11 +34,10 @@ print(deobfuscate(message))
 def buildBehaviors(entry, behaviorTags):
     # Generates possible code injection variations
     # {Behavior:[["entry1","entry2"],["entry3","entry4"]]}
-    behaviorCol = {}
 
-    codeInject = [
-        ["VirtualAlloc", "NtAllocateVirtualMemory", "ZwAllocateVirtualMemory", "HeapAlloc"],
-        [
+    codeInject = (
+        ("VirtualAlloc", "NtAllocateVirtualMemory", "ZwAllocateVirtualMemory", "HeapAlloc"),
+        (
             "CallWindowProcA",
             "CallWindowProcW",
             "DialogBoxIndirectParamA",
@@ -89,170 +88,172 @@ def buildBehaviors(entry, behaviorTags):
             "SetWindowsHookExA",
             "SetWindowsHookExW",
             "CreateThread",
-        ],
-    ]
+        ),
+    )
 
-    behaviorCol["Code Injection"] = list(itertools.product(*codeInject))
+    behaviorCol = {
+        "Code Injection": list(itertools.product(*codeInject)),
+        "Downloader": (
+            ("New-Object", "Net.WebClient", "DownloadFile"),
+            ("New-Object", "Net.WebClient", "DownloadString"),
+            ("New-Object", "Net.WebClient", "DownloadData"),
+            ("WebProxy", "Net.CredentialCache"),
+            (
+                "Import-Module BitsTransfer",
+                "Start-BitsTransfer",
+                "Source",
+                "Destination",
+            ),
+            ("New-Object", "Net.Sockets.TCPClient", "GetStream"),
+            ("$env:LocalAppData"),
+            ("Invoke-WebRequest"),
+            ("wget"),
+            ("Get-Content"),
+        ),
+        "Starts Process": (
+            ("Start-Process"),
+            ("New-Object", "IO.MemoryStream", "IO.StreamReader"),
+            ("Diagnostics.Process)::Start"),
+        ),
+        "Compression": (
+            ("Convert", "FromBase64String", "System.Text.Encoding"),
+            ("IO.Compression.GzipStream"),
+            ("(IO.Compression.CompressionMode)::Decompress"),
+            ("IO.Compression.DeflateStream"),
+        ),
+        "Uses Stealth": (
+            ("WindowStyle", "Hidden"),
+            ("CreateNoWindow=$true"),
+            ("ErrorActionPreference", "SilentlyContinue"),
+        ),
+        "Key Logging": (("GetAsyncKeyState", "Windows.Forms.Keys")),
+        "Screen Scraping": (
+            ("New-Object", "Drawing.Bitmap", "Width", "Height"),
+            ("(Drawing.Graphics)::FromImage"),
+            ("CopyFroMScreen", "Location", "(Drawing.Point)::Empty", "Size"),
+        ),
+        "Custom Web Fields": (("Headers.Add"), ("SessionKey", "SessiodID")),
+        "Persistence": (
+            ("New-Object", "-COMObject", "Schedule.Service"),
+            ("SCHTASKS"),
+        ),
+        "Sleeps": (("Start-Sleep")),
+        "Uninstalls Apps": (("foreach", "UninstallString")),
+        "Obfuscation": (("-Join", "(int)", "-as", "(char)")),
+        "Crypto": (
+            (
+                "New-Object",
+                "Security.Cryptography.AESCryptoServiceProvider",
+                "Mode",
+                "Key",
+                "IV",
+            ),
+            ("CreateEncryptor().TransformFinalBlock"),
+            ("CreateDecryptor().TransformFinalBlock"),
+        ),
+        "Enumeration/Profiling": (
+            ("(Environment)::UserDomainName"),
+            ("(Environment)::UserName"),
+            ("$env:username"),
+            ("(Environment)::MachineName"),
+            ("(Environment)::GetFolderPath"),
+            ("(System.IO.Path)::GetTempPath"),
+            ("$env:windir"),
+            ("GWMI Win32_NetworkAdapterConfiguration"),
+            ("Get-WMIObject Win32_NetworkAdapterConfiguration"),
+            ("GWMI Win32_OperatingSystem"),
+            ("Get-WMIObject Win32_OperatingSystem"),
+            ("(Security.Principal.WindowsIdentity)::GetCurrent"),
+            ("(Security.Principal.WindowsBuiltInRole)", "Administrator"),
+            ("(System.Diagnostics.Process)::GetCurrentProcess"),
+            ("PSVersionTable.PSVersion"),
+            ("New-Object", "Diagnostics.ProcessStartInfo"),
+            ("GWMI Win32_ComputerSystemProduct"),
+            ("Get-WMIObject Win32_ComputerSystemProduct"),
+            ("Get-Process -id"),
+            ("$env:userprofile"),
+            ("(Windows.Forms.SystemInformation)::VirtualScreen"),
+        ),
+        "Registry": (
+            ("HKCU:\\"),
+            ("HKLM:\\"),
+            ("New-ItemProperty", "-Path", "-Name", "-PropertyType", "-Value"),
+        ),
+        "Sends Data": (("UploadData", "POST")),
+        "AppLocker Bypass": (("regsvr32", "/i:http", "scrobj.dll")),
+        "AMSI Bypass": (
+            ("Management.Automation.AMSIUtils", "amsiInitFailed"),
+            ("Expect100Continue"),
+        ),
+        "Disables Windows Defender": (
+            ("DisableBehaviorMonitoring"),
+            ("DisableBlockAtFirstSeen"),
+            ("DisableIntrusionPreventionSystem"),
+            ("DisableIOAVProtection"),
+            ("DisablePrivacyMode"),
+            ("DisableRealtimeMonitoring"),
+            ("DisableScriptScanning"),
+            ("LowThreatDefaultAction"),
+            ("ModerateThreatDefaultAction"),
+            ("SevereThreatDefaultAction)"),
+        ),
+        "Clear Logs": (("GlobalSession.ClearLog")),
+        "Invokes C# .NET Assemblies": (("Add-Type")),
+        "Modifies Shadowcopy": (("Win32_Shadowcopy")),
+    }
 
-    behaviorCol["Downloader"] = [
-        ["New-Object", "Net.WebClient", "DownloadFile"],
-        ["New-Object", "Net.WebClient", "DownloadString"],
-        ["New-Object", "Net.WebClient", "DownloadData"],
-        ["WebProxy", "Net.CredentialCache"],
-        ["Import-Module BitsTransfer", "Start-BitsTransfer", "Source", "Destination"],
-        ["New-Object", "Net.Sockets.TCPClient", "GetStream"],
-        ["$env:LocalAppData"],
-        ["Invoke-WebRequest"],
-        ["wget"],
-        ["Get-Content"],
-    ]
-
-    behaviorCol["Starts Process"] = [
-        ["Start-Process"],
-        ["New-Object", "IO.MemoryStream", "IO.StreamReader"],
-        ["Diagnostics.Process]::Start"],
-    ]
-
-    behaviorCol["Compression"] = [
-        ["Convert", "FromBase64String", "System.Text.Encoding"],
-        ["IO.Compression.GzipStream"],
-        ["[IO.Compression.CompressionMode]::Decompress"],
-        ["IO.Compression.DeflateStream"],
-    ]
-
-    behaviorCol["Uses Stealth"] = [
-        ["WindowStyle", "Hidden"],
-        ["CreateNoWindow=$true"],
-        ["ErrorActionPreference", "SilentlyContinue"],
-    ]
-
-    behaviorCol["Key Logging"] = [["GetAsyncKeyState", "Windows.Forms.Keys"]]
-
-    behaviorCol["Screen Scraping"] = [
-        ["New-Object", "Drawing.Bitmap", "Width", "Height"],
-        ["[Drawing.Graphics]::FromImage"],
-        ["CopyFroMScreen", "Location", "[Drawing.Point]::Empty", "Size"],
-    ]
-
-    behaviorCol["Custom Web Fields"] = [["Headers.Add"], ["SessionKey", "SessiodID"]]
-
-    behaviorCol["Persistence"] = [["New-Object", "-COMObject", "Schedule.Service"], ["SCHTASKS"]]
-
-    behaviorCol["Sleeps"] = [["Start-Sleep"]]
-
-    behaviorCol["Uninstalls Apps"] = [["foreach", "UninstallString"]]
-
-    behaviorCol["Obfuscation"] = [["-Join", "[int]", "-as", "[char]"]]
-
-    behaviorCol["Crypto"] = [
-        ["New-Object", "Security.Cryptography.AESCryptoServiceProvider", "Mode", "Key", "IV"],
-        ["CreateEncryptor().TransformFinalBlock"],
-        ["CreateDecryptor().TransformFinalBlock"],
-    ]
-
-    behaviorCol["Enumeration/Profiling"] = [
-        ["[Environment]::UserDomainName"],
-        ["[Environment]::UserName"],
-        ["$env:username"],
-        ["[Environment]::MachineName"],
-        ["[Environment]::GetFolderPath"],
-        ["[System.IO.Path]::GetTempPath"],
-        ["$env:windir"],
-        ["GWMI Win32_NetworkAdapterConfiguration"],
-        ["Get-WMIObject Win32_NetworkAdapterConfiguration"],
-        ["GWMI Win32_OperatingSystem"],
-        ["Get-WMIObject Win32_OperatingSystem"],
-        ["[Security.Principal.WindowsIdentity]::GetCurrent"],
-        ["[Security.Principal.WindowsBuiltInRole]", "Administrator"],
-        ["[System.Diagnostics.Process]::GetCurrentProcess"],
-        ["PSVersionTable.PSVersion"],
-        ["New-Object", "Diagnostics.ProcessStartInfo"],
-        ["GWMI Win32_ComputerSystemProduct"],
-        ["Get-WMIObject Win32_ComputerSystemProduct"],
-        ["Get-Process -id"],
-        ["$env:userprofile"],
-        ["[Windows.Forms.SystemInformation]::VirtualScreen"],
-    ]
-
-    behaviorCol["Registry"] = [["HKCU:\\"], ["HKLM:\\"], ["New-ItemProperty", "-Path", "-Name", "-PropertyType", "-Value"]]
-
-    behaviorCol["Sends Data"] = [["UploadData", "POST"]]
-
-    behaviorCol["AppLocker Bypass"] = [["regsvr32", "/i:http", "scrobj.dll"]]
-
-    behaviorCol["AMSI Bypass"] = [["Management.Automation.AMSIUtils", "amsiInitFailed"], ["Expect100Continue"]]
-
-    behaviorCol["Disables Windows Defender"] = [
-        ["DisableBehaviorMonitoring"],
-        ["DisableBlockAtFirstSeen"],
-        ["DisableIntrusionPreventionSystem"],
-        ["DisableIOAVProtection"],
-        ["DisablePrivacyMode"],
-        ["DisableRealtimeMonitoring"],
-        ["DisableScriptScanning"],
-        ["LowThreatDefaultAction"],
-        ["ModerateThreatDefaultAction"],
-        ["SevereThreatDefaultAction]"],
-    ]
-
-    behaviorCol["Clear Logs"] = [["GlobalSession.ClearLog"]]
-    behaviorCol["Invokes C# .NET Assemblies"] = [["Add-Type"]]
-
-    behaviorCol["Modifies Shadowcopy"] = [["Win32_Shadowcopy"]]
     for event in entry:
         for message in entry[event]:
             message = entry[event][message]
             for behavior in behaviorCol:
                 # Check Behavior Keywords
                 for check in behaviorCol[behavior]:
-                    bhFlag = True
-                    for value in check:
-                        if value.lower() not in message.lower():
-                            bhFlag = False
-                    if bhFlag:
-                        if behavior not in behaviorTags:
-                            behaviorTags.append(behavior)
+                    if behavior not in behaviorTags and all(value.lower() in message.lower() for value in check):
+                        behaviorTags.append(behavior)
                 # Check Character Frequency Analysis
-                if behavior == "Obfuscation":
-
-                    if (
-                        message.count("w") >= 500
-                        or message.count("4") >= 250
-                        or message.count("_") >= 250
-                        or message.count("D") >= 250
-                        or message.count("C") >= 200
-                        or message.count("K") >= 200
-                        or message.count("O") >= 200
-                        or message.count(":") >= 100
-                        or message.count(";") >= 100
-                        or message.count(",") >= 100
-                        or (message.count("(") >= 50 and message.count(")") >= 50)
-                        or (message.count("[") >= 50 and message.count("]") >= 50)
-                        or (message.count("{") >= 50 and message.count("}") >= 50)
-                    ):
-
-                        if behavior not in behaviorTags:
-                            behaviorTags.append(behavior)
+                if (
+                    behavior == "Obfuscation"
+                    and (
+                        (
+                            message.count("w") >= 500
+                            or message.count("4") >= 250
+                            or message.count("_") >= 250
+                            or message.count("D") >= 250
+                            or message.count("C") >= 200
+                            or message.count("K") >= 200
+                            or message.count("O") >= 200
+                            or message.count(":") >= 100
+                            or message.count(";") >= 100
+                            or message.count(",") >= 100
+                            or (message.count("(") >= 50 and message.count(")") >= 50)
+                            or (message.count("[") >= 50 and message.count("]") >= 50)
+                            or (message.count("{") >= 50 and message.count("}") >= 50)
+                        )
+                    )
+                    and behavior not in behaviorTags
+                ):
+                    behaviorTags.append(behavior)
 
     return behaviorTags
 
 
 def formatReplace(inputString, MODFLAG):
-    # OLD: ("{1}{0}{2}" -F"AMP","EX","LE")
-    # NEW: "EXAMPLE"
+    """
+    OLD: ("{1}{0}{2}" -F"AMP","EX","LE")
+    NEW: "EXAMPLE"
+    """
     # Find group of obfuscated string
-    obfGroup = re.search("(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", inputString).group()
+    obfGroup = re.search(r"(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", inputString).group()
     # There are issues with multiple nested groupings that I haven't been able to solve yet, but doesn't change the final output of the PS script
-    # obfGroup = re.search("(\"|\')(\{[0-9]{1,2}\})+(\"|\')[ -fF]+?(\"|\').+?(\"|\')(?=\)([!.\"\';)( ]))", inputString).group()
+    # obfGroup = re.search(r"(\"|\')(\{[0-9]{1,2}\})+(\"|\')[ -fF]+?(\"|\').+?(\"|\')(?=\)([!.\"\';)( ]))", inputString).group()
 
     # Build index and string lists
-    indexList = [int(x) for x in re.findall("\d+", obfGroup.split("-", 1)[0])]
+    indexList = [int(x) for x in re.findall(r"\d+", obfGroup.split("-", 1)[0])]
 
     # This is to address scenarios where the string built is more PS commands with quotes
     stringList = re.search("(\"|').+", "-".join(obfGroup.split("-")[1:])[:-1]).group()
     stringChr = stringList[0]
-    stringList = stringList.replace(f"{stringChr},{stringChr}", "\x00")
-    stringList = stringList[1:-1]
+    stringList = stringList.replace(f"{stringChr},{stringChr}", "\x00")[1:-1]
     stringList = stringList.replace("'", "\x01").replace('"', "\x02")
     stringList = stringList.replace("\x00", f"{stringChr},{stringChr}")
     stringList = ast.literal_eval(f"[{stringChr}{stringList}{stringChr}]")
@@ -276,9 +277,11 @@ def formatReplace(inputString, MODFLAG):
 
 
 def charReplace(inputString, MODFLAG):
-    # OLD: [char]101
-    # NEW: e
-    for value in re.findall("\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", inputString):
+    """
+    OLD: [char]101
+    NEW: e
+    """
+    for value in re.findall(r"\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", inputString):
         inputString = inputString.replace(value, f'"{chr(int(value.split("]", 2)[1]))}"')
     if MODFLAG == 0:
         MODFLAG = 1
@@ -286,17 +289,18 @@ def charReplace(inputString, MODFLAG):
 
 
 def spaceReplace(inputString, MODFLAG):
-    # OLD: $var=    "EXAMPLE"
-    # NEW: $var= "EXAMPLE"
-    if MODFLAG == 0:
-        MODFLAG = 0
-
+    """
+    OLD: $var=    "EXAMPLE"
+    NEW: $var= "EXAMPLE"
+    """
     return re.sub(" +", " ", inputString), MODFLAG
 
 
 def joinStrings(inputString, MODFLAG):
-    # OLD: $var=("EX"+"AMP"+"LE")
-    # NEW: $var=("EXAMPLE")
+    """
+    OLD: $var=("EX"+"AMP"+"LE")
+    NEW: $var=("EXAMPLE")
+    """
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString.replace("'+'", "").replace('"+"', ""), MODFLAG
@@ -304,72 +308,78 @@ def joinStrings(inputString, MODFLAG):
 
 def removeNull(inputString, MODFLAG):
     # Windows/Unicode null bytes will interfere with regex
-    if MODFLAG == 0:
-        MODFLAG = 0
     return inputString.replace("\x00", ""), MODFLAG
 
 
 def removeEscape(inputString, MODFLAG):
-    # OLD: $var=\'EXAMPLE\'
-    # NEW: $var='EXAMPLE'
-    if MODFLAG == 0:
-        MODFLAG = 0
+    """
+    OLD: $var=\'EXAMPLE\'
+    NEW: $var='EXAMPLE'
+    """
     return inputString.replace("\\'", "'").replace('\\"', '"'), MODFLAG
 
 
 def removeTick(inputString, MODFLAG):
-    # OLD: $v`a`r=`"EXAMPLE"`
-    # NEW: $var="EXAMPLE"
+    """
+    OLD: $v`a`r=`"EXAMPLE"`
+    NEW: $var="EXAMPLE"
+    """
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString.replace("`", ""), MODFLAG
 
 
 def removeCaret(inputString, MODFLAG):
-    # OLD: $v^a^r=^"EXAMPLE"^
-    # NEW: $var="EXAMPLE"
+    """
+    OLD: $v^a^r=^"EXAMPLE"^
+    NEW: $var="EXAMPLE"
+    """
     if MODFLAG == 0:
         MODFLAG = 1
     return inputString.replace("^", ""), MODFLAG
 
 
 def adjustCase(inputString, MODFLAG):
-    # OLD: $vAR="ExAmpLE"
-    # NEW: $var="example"
-    if MODFLAG == 0:
-        MODFLAG = 0
+    """
+    OLD: $vAR="ExAmpLE"
+    NEW: $var="example"
+    """
     return inputString.lower(), MODFLAG
 
 
 def removeParenthesis(inputString, MODFLAG):
-    # OLD ('ls11, ')+('tls'))
-    # NEW: tls11,tls
-    matches = re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", inputString)
+    """
+    OLD ('ls11, ')+('tls'))
+    NEW: tls11,tls
+    """
+    matches = re.findall(r"\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", inputString)
     if matches:
         MODFLAG = 1
-    for pattern in matches or []:
+    for pattern in matches:
         inputString = inputString.replace(f"({pattern})", pattern)  # .replace("'", "")
 
-    matches = re.findall("\('[\w\d\s,\/\-\/\*\.:]+", inputString)
+    matches = re.findall(r"\('[\w\d\s,\/\-\/\*\.:]+", inputString)
     if matches:
         MODFLAG = 1
-    for pattern in matches or []:
+    for pattern in matches:
         inputString = inputString.replace(f"({pattern}", pattern)
 
-    matches += re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", inputString)
+    matches += re.findall(r"'[\w\d\s,\/\-\/\*\.:]+'\)", inputString)
     if matches:
         MODFLAG = 1
-    for pattern in matches or []:
+    for pattern in matches:
         inputString = inputString.replace(f"{pattern})", pattern)
 
     return inputString, MODFLAG
 
 
 def base64FindAndDecode(inputString):
-    # OLD: TVo=
-    # NEW: set MZ
+    """
+    OLD: TVo=
+    NEW: set MZ
+    """
     matched = re.findall("[-A-Za-z0-9+]+={1,2}", inputString)
-    for pattern in matched or []:
+    for pattern in matched:
         try:
             decoded = base64.b64decode(pattern)
             inputString = inputString.replace(pattern, decoded)
@@ -380,16 +390,15 @@ def base64FindAndDecode(inputString):
 
 
 def replaceDecoder(inputString, MODFLAG):
-    # OLD: (set GmBtestGmb).replace('GmB',[Char]39)
-    # NEW: set 'test'
+    """
+    OLD: (set GmBtestGmb).replace('GmB',[Char]39)
+    NEW: set 'test'
+    """
     inputString = inputString.replace("'+'", "")
     inputString = inputString.replace("'|'", "char[124]")
 
-    if "|" in inputString:
-        if "replace" not in inputString.rsplit("|", 1)[-1]:
-            inputString = inputString.rsplit("|", 1)[0]
-        else:
-            pass
+    if "|" in inputString and "replace" not in inputString.rsplit("|", 1)[-1]:
+        inputString = inputString.rsplit("|", 1)[0]
 
     while "replace" in inputString.rsplit(".", 1)[-1].lower() or "replace" in inputString.rsplit("-", 1)[-1].lower():
 
@@ -410,32 +419,20 @@ def replaceDecoder(inputString, MODFLAG):
             else:
                 firstPart = replaceString.split(",", 1)[0].split("'", 2)[1].replace("'", "").replace('"', "")
 
-            secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
         else:
             tempString = inputString.rsplit(".", 1)[0]
             replaceString = inputString.rsplit(".", 1)[-1]
             firstPart = replaceString.split(",", 1)[0].rsplit("(", 1)[-1].replace("'", "").replace('"', "")
-            secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
-
+        secondPart = replaceString.split(",", 2)[1].split(")", 1)[0].replace("'", "").replace('"', "")
         if "+" in firstPart:
-
-            newFirst = ""
-
-            for entry in firstPart.split("+"):
-                newFirst += chr(int(re.search("[0-9]+", entry).group()))
-
+            newFirst = "".join(chr(int(re.search("[0-9]+", entry).group())) for entry in firstPart.split("+"))
             firstPart = newFirst
 
         if re.search("char", firstPart, re.IGNORECASE):
             firstPart = chr(int(re.search("[0-9]+", firstPart).group()))
 
         if "+" in secondPart:
-
-            newSecond = ""
-
-            for entry in secondPart.split("+"):
-                newSecond += chr(int(re.search("[0-9]+", entry).group()))
-
+            newSecond = "".join(chr(int(re.search("[0-9]+", entry).group())) for entry in secondPart.split("+"))
             secondPart = newSecond
 
         if re.search("char", secondPart, re.IGNORECASE):
@@ -483,15 +480,15 @@ def deobfuscate(MESSAGE):
     if re.search("`", ALTMSG):
         ALTMSG, MODFLAG = removeTick(ALTMSG, MODFLAG)
 
-    if re.search("\^", ALTMSG):
+    if re.search(r"\^", ALTMSG):
         ALTMSG, MODFLAG = removeCaret(ALTMSG, MODFLAG)
 
-    # strip - ('ls11, ')+('tls'))
+    # strip - ('ls11, ')+('tls')
     # import code;code.interact(local=dict(locals(), **globals()))
     if (
-        re.findall("\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", ALTMSG)
-        or re.findall("\('[\w\d\s,\/\-\/\*\.:]+", ALTMSG)
-        or re.findall("'[\w\d\s,\/\-\/\*\.:]+'\)", ALTMSG)
+        re.search(r"\(('[\w\d\s,\/\-\/\*\.:'+]+')\)", ALTMSG)
+        or re.search(r"\('[\w\d\s,\/\-\/\*\.:]+", ALTMSG)
+        or re.search(r"'[\w\d\s,\/\-\/\*\.:]+'\)", ALTMSG)
     ):
         ALTMSG, MODFLAG = removeParenthesis(ALTMSG, MODFLAG)
 
@@ -499,17 +496,17 @@ def deobfuscate(MESSAGE):
         ALTMSG, MODFLAG = spaceReplace(ALTMSG, MODFLAG)
 
     # One run pre charPreplace
-    if re.search("\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", ALTMSG):
+    if re.search(r"\[[Cc][Hh][Aa][Rr]\][0-9]{1,3}", ALTMSG):
         ALTMSG, MODFLAG = charReplace(ALTMSG, MODFLAG)
 
-    if re.search("(\"\+\"|'\+')", ALTMSG):
+    if re.search(r"(\"\+\"|'\+')", ALTMSG):
         ALTMSG, MODFLAG = joinStrings(ALTMSG, MODFLAG)
 
-    while re.search("(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", ALTMSG):
+    while re.search(r"(\"|')(\{[0-9]{1,2}\})+(\"|')[ -fF].+?'.+?'\)(?!(\"|'|;))", ALTMSG):
         ALTMSG, MODFLAG = formatReplace(ALTMSG, MODFLAG)
 
     # One run post formatReplace for new strings
-    if re.search("(\"\+\"|'\+')", ALTMSG):
+    if re.search(r"(\"\+\"|'\+')", ALTMSG):
         ALTMSG, MODFLAG = joinStrings(ALTMSG, MODFLAG)
 
     if "replace" in ALTMSG.lower():
@@ -519,27 +516,29 @@ def deobfuscate(MESSAGE):
             log.error("Curtain processing error for entry - %s", e)
 
     # https://malwaretips.com/threads/how-to-de-obfuscate-powershell-script-commands-examples.76369/
-    if re.findall("-join\s+?\(\s?'(.+)\.split\(.+\)\s+?\|\s+?foreach", MESSAGE, re.I):
-        chars = re.findall("\d{1,3}", MESSAGE)
+    if re.search(r"-join\s+?\(\s?'(.+)\.split\(.+\)\s+?\|\s+?foreach", MESSAGE, re.I):
+        chars = re.findall(r"\d{1,3}", MESSAGE)
         ALTMSG = "".join([chr(int(i)) for i in chars])
         MODFLAG = 1
 
-    if re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I):
-        xorkey = re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I)[0]
-        chars = re.findall("\d{1,3}", MESSAGE)
+    if re.search(r"join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I):
+        xorkey = re.findall(r"join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I)[
+            0
+        ]
+        chars = re.findall(r"\d{1,3}", MESSAGE)
         ALTMSG = "".join([chr(int(i) ^ int(xorkey, 16)) for i in chars])
         MODFLAG = 1
 
-    if re.findall('"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I):
-        res = re.findall('"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I)
+    if re.search(r'"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I):
+        res = re.findall(r'"([{\d{1,3}\}]+)"\-f(.+)\)\)\s+(-replace.*)', MESSAGE, re.I)
         formated, data, replaces = res[0]
         r = formated.format(*data.split("','")).replace("'", "")
         # split by blocks
-        blocks = re.findall("([\[cHAR\]\d{1,3}\+']+\)),(\[char\]\d{1,3})", MESSAGE, re.I)
+        blocks = re.findall(r"([\[cHAR\]\d{1,3}\+']+\)),(\[char\]\d{1,3})", MESSAGE, re.I)
         for i in blocks:
             ALTMSG = r.replace(
-                "".join([chr(int(i)) for i in re.findall("\d{1,3}", i[0])]),
-                "".join([chr(int(i)) for i in re.findall("\d{1,3}", i[1])]),
+                "".join([chr(int(i)) for i in re.findall(r"\d{1,3}", i[0])]),
+                "".join([chr(int(i)) for i in re.findall(r"\d{1,3}", i[1])]),
             )
             MODFLAG = 1
             # Remove camel case obfuscation as last step
@@ -558,7 +557,7 @@ class Curtain(Processing):
 
         self.key = "curtain"
         # Remove some event entries which are commonly found in all samples (noise reduction)
-        noise = [
+        noise = (
             "$global:?",
             "# Compute file-hash using the crypto object",
             "# Construct the strongly-typed crypto object",
@@ -613,14 +612,13 @@ class Curtain(Processing):
             "$_.PSParentPath.Replace",
             "$ExecutionContext.SessionState.Path.Combine",
             "get-help about_Command_Precedence",
-        ]
+        )
 
         # Determine oldest Curtain log and remove the rest
         curtLog = os.path.join(self.analysis_path, "curtain")
         if not os.path.exists(curtLog):
             return
-        curtLog = [f for f in os.listdir(curtLog)]
-        curtLog.sort()
+        curtLog = sorted(list(os.listdir(curtLog)))
 
         root = False
         for curtain_log in curtLog[::-1]:
@@ -629,7 +627,7 @@ class Curtain(Processing):
                 root = tree.getroot()
                 os.rename(f"{self.analysis_path}/curtain/{curtain_log}", f"{self.analysis_path}/curtain/curtain.log")
                 break
-            except Exception as e:
+            except Exception:
                 # malformed file
                 pass
 
@@ -676,7 +674,7 @@ class Curtain(Processing):
                 else:
                     messages_by_task.setdefault(task, {}).update({"message": MESSAGE, "pid": PID})
 
-        new_dict = [block_dict for block_dict in messages_by_task.values()]
+        new_dict = list(messages_by_task.values())
 
         for block in new_dict:
             MESSAGE = block["message"]
@@ -690,47 +688,43 @@ class Curtain(Processing):
                 # Save the output
                 pids[pid]["events"].append({str(COUNTER): {"original": MESSAGE.strip(), "altered": ALTMSG}})
 
-        remove = []
+        remove = set()
 
         # Find Curtain PID if it was picked up in log
-        for pid in pids:
-            for event in pids[pid]["events"]:
+        for pid, value in pids.items():
+            for event in value["events"]:
                 for entry in event.values():
                     if (
                         "Process { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog"
                         in entry["original"]
                     ):
-                        if pid not in remove:
-                            remove.append(pid)
+                        remove.add(pid)
 
         # Find empty PID
-        for pid in pids:
-            if len(pids[pid]["events"]) == 0:
-                if pid not in remove:
-                    remove.append(pid)
+        for pid, value in pids.items():
+            if len(value["events"]) == 0:
+                remove.add(pid)
 
         # Remove PIDs
         for pid in remove:
             del pids[pid]
 
         # Reorder event counts
-        for pid in pids:
-            tempEvents = []
+        for pid, value in pids.items():
             eventCount = len(pids[pid]["events"])
-            for index, entry in enumerate(pids[pid]["events"]):
-                tempEvents.append({f"{eventCount - index:02d}": list(entry.values())[0]})
+            tempEvents = [{f"{eventCount - index:02d}": list(entry.values())[0]} for index, entry in enumerate(value["events"])]
+
             pids[pid]["events"] = tempEvents
 
-            tempEvents = []
             eventCount = len(pids[pid]["filter"])
-            for index, entry in enumerate(pids[pid]["filter"]):
-                tempEvents.append({f"{eventCount - index:02d}": list(entry.values())[0]})
+            tempEvents = [{f"{eventCount - index:02d}": list(entry.values())[0]} for index, entry in enumerate(pids[pid]["filter"])]
+
             pids[pid]["filter"] = tempEvents
 
         # Identify behaviors per PID
-        for pid in pids:
+        for pid, value in pids.items():
             behaviorTags = []
-            for entry in pids[pid]["events"]:
+            for entry in value["events"]:
                 behaviorTags = buildBehaviors(entry, behaviorTags)
                 pids[pid]["behaviors"] = behaviorTags
 

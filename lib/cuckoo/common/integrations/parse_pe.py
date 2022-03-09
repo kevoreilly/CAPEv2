@@ -910,8 +910,7 @@ class PortableExecutable(object):
         try:
             pe = pefile.PE(self.file_path)
         except Exception as e:
-            log.error("PE type not recognised")
-            log.error(e, exc_info=True)
+            log.error("PE type not recognised: %s", str(e))
             return {}
         peresults = {}
         peresults["guest_signers"] = self.get_guest_digital_signers(task_id)

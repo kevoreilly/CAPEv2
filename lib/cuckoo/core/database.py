@@ -2250,7 +2250,7 @@ class Database(object, metaclass=Singleton):
         return sample
 
     @classlock
-    def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id: int=None):
+    def find_sample(self, md5=None, sha1=None, sha256=None, parent=None, task_id: int = None):
         """Search samples by MD5, SHA1, or SHA256.
         @param md5: md5 string
         @param sha1: sha1 string

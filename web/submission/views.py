@@ -261,7 +261,6 @@ def index(request, resubmit_hash=False):
                         for record in records:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
 
-
         elif "sample" in request.FILES:
             samples = request.FILES.getlist("sample")
             details["service"] = "WebGUI"

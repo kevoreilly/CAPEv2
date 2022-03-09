@@ -601,7 +601,7 @@ class RunSignatures(object):
         ):
             for match in matched:
                 if match.get("families"):
-                    add_family_detection(self.results, match["families"][0].capitalize(), "Behavior", "")
+                    add_family_detection(self.results, match["families"][0], "Behavior", "")
                     break
 
 

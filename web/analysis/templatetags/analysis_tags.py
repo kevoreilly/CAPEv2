@@ -19,6 +19,11 @@ def is_string(value):
     return isinstance(value, str)
 
 
+@register.filter("comma_join")
+def comma_join(value):
+    return ",".join(value)
+
+
 @register.filter("network_rn")
 def network_rn_func(value):
     """get basename from path"""

@@ -228,7 +228,6 @@ class CAPE(Processing):
                             bindata = script_data["data"]
                             sha256 = hashlib.sha256(bindata).hexdigest()
                             filepath = os.path.join(self.CAPE_path, sha256)
-                            # tmpstr = f"{file_info['pid']},{file_info['process_path']},{file_info['module_path']}"
                             if "text" in script_data["datatype"]:
                                 file_info["cape_type"] = "MoreEggsJS"
                                 with open(filepath, "w") as cfile:

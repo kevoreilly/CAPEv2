@@ -1,13 +1,13 @@
 <section id="information">
 
     {% if analysis.detections %}
-        <p  style="text-align:center; font-size: 16px;font-weight-bold";>Detection(s):
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
         <!--ToDo remove soon-->
         {% if analysis.detections|is_string %}
-            <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary">{{analysis.detections}}</span></a>
+            <a href="/analysis/search/detections:{{analysis.detections}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger">{{analysis.detections}}</span></a>
         {% else %}
             {% for block  in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge bg-secondary"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
+                <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
             {% endfor %}
             </p>
         {% endif %}

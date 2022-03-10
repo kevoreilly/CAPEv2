@@ -61,8 +61,11 @@ results_db = conn[mdb]
 
 
 @graceful_auto_reconnect
-def mongo_create_index(collection: str, index, background: bool = True, name: str = None):
-    getattr(results_db, collection).create_index(index, background=background, name=name)
+def mongo_create_index(collection: str, index, background: bool = True, name: str = False):
+    if name:
+        getattr(results_db, collection).create_index(index, background=background, name=name)
+    else:
+        getattr(results_db, collection).create_index(index, background=background)
 
 
 @graceful_auto_reconnect

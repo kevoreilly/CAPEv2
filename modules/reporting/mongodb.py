@@ -12,16 +12,15 @@ from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, i
 
 try:
     from dev_utils.mongodb import (
-        TEXT,
-        InvalidDocument,
         mongo_collection_names,
         mongo_create_index,
         mongo_delete_data,
-        mongo_find,
         mongo_find_one,
         mongo_insert_one,
         mongo_update_one,
     )
+
+    from pymongo import TEXT, InvalidDocument
 
     HAVE_MONGO = True
 except ImportError:

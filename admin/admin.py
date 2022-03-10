@@ -25,7 +25,6 @@ import sys
 from hashlib import sha256
 from queue import Queue
 from threading import Thread
-from typing import Iterable
 from urllib import urlparse
 
 import urllib3
@@ -74,21 +73,21 @@ ssh.load_system_host_keys()
 ssh.set_missing_host_key_policy(AutoAddPolicy())
 
 
-def color(text: str, color_code: int) -> str:
+def color(text, color_code):
     if sys.platform == "win32" and os.getenv("TERM") != "xterm" or CI:
         return text
     return "\x1b[%dm%s\x1b[0m" % (color_code, text)
 
 
-def red(text: str) -> str:
+def red(text):
     return color(text, 31)
 
 
-def green(text: str) -> str:
+def green(text):
     return color(text, 32)
 
 
-def file_recon(file: str, yara_category: str = "CAPE"):
+def file_recon(file, yara_category="CAPE"):
     if not os.path.isfile(file):
         return
 
@@ -152,7 +151,7 @@ def file_recon(file: str, yara_category: str = "CAPE"):
     return TARGET, REMOTE_COMMAND, LOCAL_SHA256
 
 
-def _connect_via_jump_box(server: str) -> SSHClient:
+def _connect_via_jump_box(server):
     ssh = SSHClient()
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
@@ -176,7 +175,7 @@ def _connect_via_jump_box(server: str) -> SSHClient:
     return ssh
 
 
-def execute_command_on_all(remote_command: str):
+def execute_command_on_all(remote_command):
     for server in servers:
         try:
             ssh = _connect_via_jump_box(server)
@@ -184,16 +183,18 @@ def execute_command_on_all(remote_command: str):
             ssh_out = ssh_stdout.read().decode().strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] Service %s", green("restarted successfully and is UP"))
-            elif ssh_out:
-                log.info(green(f"[+] {server} - {ssh_out}"))
             else:
-                log.info(green(f"[+] {server}"))
+                if ssh_out:
+                    log.info(green(f"[+] {server} - {ssh_out}"))
+                else:
+                    log.info(green(f"[+] {server}"))
             ssh.close()
         except Exception as e:
             log.error(e, exc_info=True)
 
 
-def bulk_deploy(files: Iterable[str], yara_category: str):
+def bulk_deploy(files, yara_category):
+
     queue = Queue()
     for file in files:
         parameters = file_recon(file, yara_category)
@@ -281,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-yc",
         "--yara-category",
-        choices=("CAPE", "binaries", "urls", "memory"),
+        choices=["CAPE", "binaries", "urls", "memory"],
         default="CAPE",
         action="store",
         help="Yara category, default to CAPE",
@@ -382,10 +383,10 @@ if __name__ == "__main__":
         queue.put((servers, local_file, remote_file, False, local_sha256))
         _ = deploy_file(queue)
     elif args.deploy_local_changes:
-        out = subprocess.check_output(("git", "ls-files", "--other", "--modified", "--exclude-standard"))
+        out = subprocess.check_output(["git", "ls-files", "--other", "--modified", "--exclude-standard"])
         files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.deploy_remote_changes:
-        out = subprocess.check_output(("git", "diff", "--name-only", "origin/master"))
+        out = subprocess.check_output(["git", "diff", "--name-only", "origin/master"])
         files = [file.decode() for file in filter(None, out.split(b"\n"))]
     elif args.sync_community:
         community_folder, destiny_folder, head = args.sync_community
@@ -415,7 +416,7 @@ if __name__ == "__main__":
                 files.remove(file)
                 continue
 
-            if "/conf/" in file or "/custom/" in file and file.endswith(".conf"):
+            if "/conf/" in file and file.endswith(".conf"):
                 files.remove(file)
                 continue
 

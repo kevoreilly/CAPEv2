@@ -246,7 +246,9 @@ def index(request, resubmit_hash=False):
                             else:
                                 tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
                                 for tmp_task in tmp_tasks:
-                                    tmp_path = os.path.join(settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"])
+                                    tmp_path = os.path.join(
+                                        settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"]
+                                    )
                                     if os.path.exists(tmp_path):
                                         path = tmp_path
                                         break

@@ -98,8 +98,10 @@ def IsPEImage(buf, size=False):
     if size < PE_HEADER_LIMIT:
         return False
 
-    # Check for sane value in e_lfanew
-    (e_lfanew,) = struct.unpack("<L", dos_header[60:64])
+    e_lfanew = False
+    if len(dos_header[:64]) == 64:
+        # Check for sane value in e_lfanew
+        (e_lfanew,) = struct.unpack("<L", dos_header[60:64])
     if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
         offset = 0
         while offset < PE_HEADER_LIMIT - 86:

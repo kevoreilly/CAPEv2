@@ -132,7 +132,7 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
-def mongo_delete_data(task_ids: Iterable[int] | int):
+def mongo_delete_data(task_ids: Iterable[int]): #  | int
     try:
         if isinstance(task_ids, int):
             task_ids = [task_ids]

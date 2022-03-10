@@ -69,12 +69,12 @@ class DotNETExecutable(object):
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
-                splitline = output[idx + 1].split("Name=")
+                splitline = output[idx + 1].split(b"Name=")
                 if len(splitline) < 2:
                     continue
                 nameval = splitline[1]
                 item = {}
-                item["name"] = convert_to_printable(nameval)
+                item["name"] = convert_to_printable(nameval.decode())
                 item["version"] = convert_to_printable(verval)
                 ret.append(item)
             return ret

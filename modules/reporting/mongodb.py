@@ -11,7 +11,8 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
-    from pymongo import TEXT, InvalidDocument
+    from pymongo import TEXT
+    from pymongo.errors import InvalidDocument
 
     from dev_utils.mongodb import (
         mongo_collection_names,

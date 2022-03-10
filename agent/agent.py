@@ -109,7 +109,7 @@ class MiniHTTPServer(object):
         self.s.allow_reuse_address = True
         self.s.serve_forever()
 
-    def route(self, path: str, methods: Iterable[str] = ("GET")):
+    def route(self, path: str, methods: Iterable[str] = ["GET"]):
         def register(fn):
             for method in methods:
                 self.routes[method].append((re.compile(f"{path}$"), fn))

@@ -21,7 +21,7 @@ from io import StringIO
 from typing import Iterable
 from zipfile import ZipFile
 
-from pydantic import ipaddress
+import ipaddress
 
 try:
     import re2 as re
@@ -232,7 +232,7 @@ def get_status():
     return json_success("Analysis status", status=state.get("status"), description=state.get("description"))
 
 
-@app.route("/status", methods=("POST"))
+@app.route("/status", methods=["POST"])
 def put_status():
     if "status" not in request.form:
         return json_error(400, "No status has been provided")
@@ -262,7 +262,7 @@ def get_path():
     return json_success("Agent path", filepath=os.path.abspath(__file__))
 
 
-@app.route("/mkdir", methods=("POST"))
+@app.route("/mkdir", methods=["POST"])
 def do_mkdir():
     if "dirpath" not in request.form:
         return json_error(400, "No dirpath has been provided")
@@ -307,7 +307,7 @@ def do_mkdtemp():
     return json_success("Successfully created temporary directory", dirpath=dirpath)
 
 
-@app.route("/store", methods=("POST"))
+@app.route("/store", methods=["POST"])
 def do_store():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
@@ -324,7 +324,7 @@ def do_store():
     return json_success("Successfully stored file")
 
 
-@app.route("/retrieve", methods=("POST"))
+@app.route("/retrieve", methods=["POST"])
 def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
@@ -332,7 +332,7 @@ def do_retrieve():
     return send_file(request.form["filepath"])
 
 
-@app.route("/extract", methods=("POST"))
+@app.route("/extract", methods=["POST"])
 def do_extract():
     if "dirpath" not in request.form:
         return json_error(400, "No dirpath has been provided")
@@ -349,7 +349,7 @@ def do_extract():
     return json_success("Successfully extracted zip file")
 
 
-@app.route("/remove", methods=("POST"))
+@app.route("/remove", methods=["POST"])
 def do_remove():
     if "path" not in request.form:
         return json_error(400, "No path has been provided")
@@ -375,7 +375,7 @@ def do_remove():
     return json_success(message)
 
 
-@app.route("/execute", methods=("POST"))
+@app.route("/execute", methods=["POST"])
 def do_execute():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
@@ -407,7 +407,7 @@ def do_execute():
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
 
 
-@app.route("/execpy", methods=("POST"))
+@app.route("/execpy", methods=["POST"])
 def do_execpy():
     if "filepath" not in request.form:
         return json_error(400, "No Python file has been provided")

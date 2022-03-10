@@ -226,12 +226,29 @@ def index(request, resubmit_hash=False):
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
             for hash in request.POST.get("hash").strip().split(","):
+                paths = []
                 if len(hash) in (32, 40, 64):
                     paths = db.sample_path_by_hash(hash)
                 else:
                     tmp_paths = db.find_sample(task_id=int(hash))
-                    if tmp_paths is not None:
-                        paths = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in tmp_paths] if _f]
+                    if not tmp_paths:
+                        details["errors"].append({hash: "Task not found for resubmission"})
+                        continue
+                    for tmp_sample in tmp_paths:
+                        path = False
+                        tmp_dict = tmp_sample.to_dict()
+                        if os.path.exists(tmp_dict.get("target", "")):
+                            path = tmp_dict["target"]
+                        else:
+                            tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
+                            for tmp_task in tmp_tasks:
+                                tmp_path = os.path.join(settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"])
+                                if os.path.exists(tmp_path):
+                                    path = tmp_path
+                                    break
+                        if path:
+                            paths.append(path)
+
                 if not paths:
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue

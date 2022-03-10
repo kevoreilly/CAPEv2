@@ -10,6 +10,7 @@ from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 
+# Note universal_newlines should be False as some binaries fails to convert bytes to text
 
 class DotNETExecutable(object):
     """.NET analysis"""
@@ -21,12 +22,12 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True)
+                Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=False)
                 .stdout.read()
-                .split("\n")
+                .split(b"\n")
             )
             for line in output[1:]:
-                splitline = line.split()
+                splitline = line.decode("latin-1").split()
                 if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
@@ -58,12 +59,12 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True)
+                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=False)
                 .stdout.read()
-                .split("\n")
+                .split(b"\n")
             )
             for idx, line in enumerate(output):
-                splitline = line.split("Version=")
+                splitline = line.decode("latin-1").split("Version=")
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
@@ -85,11 +86,12 @@ class DotNETExecutable(object):
         try:
             ret = {}
             output = (
-                Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
+                Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=False)
                 .stdout.read()
-                .split("\n")
+                .split(b"\n")
             )
             for line in output:
+                line = line.decode("latin-1")
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
                 if line.startswith("Version:"):
@@ -103,12 +105,12 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True)
+                Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=False)
                 .stdout.read()
-                .split("\n")
+                .split(b"\n")
             )
             for line in output[1:]:
-                restline = "".join(line.split(":")[1:])
+                restline = "".join(line.decode("latin-1").split(":")[1:])
                 restsplit = restline.split("]")
                 asmname = restsplit[0][2:]
                 typename = "".join(restsplit[1:])

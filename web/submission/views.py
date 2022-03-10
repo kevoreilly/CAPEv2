@@ -233,12 +233,12 @@ def index(request, resubmit_hash=False):
                     if tmp_paths is not None:
                         paths = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in tmp_paths] if _f]
                 if not paths:
-                    details["errors"].append({hash, "File not found on hdd for resubmission"})
+                    details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue
 
                 content = get_file_content(paths)
                 if not content:
-                    details["errors"].append({hash, f"Can't find {hash} on disk"})
+                    details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
                 if not os.path.exists(folder):

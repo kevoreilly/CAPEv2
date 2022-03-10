@@ -17,11 +17,11 @@ if repconf.elasticsearchdb.enabled:
         from elasticsearch.exceptions import AuthorizationException, ConnectionError, RequestError
 
         from dev_utils.elasticsearchdb import (
+            ANALYSIS_INDEX_MAPPING,
             daily_analysis_index_exists,
             daily_calls_index_exists,
             delete_analysis_and_related_calls,
             elastic_handler,
-            get_analysis_index_mapping,
             get_daily_analysis_index,
             get_daily_calls_index,
         )
@@ -58,7 +58,7 @@ class ElasticSearchDB(Report):
         try:
             log.debug("Check if the index exists")
             if not daily_analysis_index_exists():
-                self.es.indices.create(index=get_daily_analysis_index(), body=get_analysis_index_mapping())
+                self.es.indices.create(index=get_daily_analysis_index(), body=ANALYSIS_INDEX_MAPPING)
         except (RequestError, AuthorizationException) as e:
             raise CuckooDependencyError(f"Unable to create Elasticsearch index {e}")
 

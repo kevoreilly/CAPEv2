@@ -18,7 +18,10 @@ import sys
 import tempfile
 import traceback
 from io import StringIO
+from typing import Iterable
 from zipfile import ZipFile
+
+from pydantic import ipaddress
 
 try:
     import re2 as re
@@ -48,8 +51,7 @@ STATUS_COMPLETED = 0x0003
 STATUS_FAILED = 0x0004
 
 ANALYZER_FOLDER = ""
-state = {}
-state["status"] = STATUS_INIT
+state = {"status": STATUS_INIT}
 
 # To send output to stdin comment out this 2 lines
 sys.stdout = StringIO()
@@ -102,15 +104,15 @@ class MiniHTTPServer(object):
             "POST": [],
         }
 
-    def run(self, host="0.0.0.0", port=8000):
+    def run(self, host: ipaddress.IPv4Address = "0.0.0.0", port: int = 8000):
         self.s = socketserver.TCPServer((host, port), self.handler)
         self.s.allow_reuse_address = True
         self.s.serve_forever()
 
-    def route(self, path, methods=["GET"]):
+    def route(self, path: str, methods: Iterable[str] = ("GET")):
         def register(fn):
             for method in methods:
-                self.routes[method].append((re.compile(path + "$"), fn))
+                self.routes[method].append((re.compile(f"{path}$"), fn))
             return fn
 
         return register
@@ -204,19 +206,19 @@ class request(object):
 app = MiniHTTPServer()
 
 
-def json_error(error_code, message):
+def json_error(error_code: int, message: str) -> jsonify:
     r = jsonify(message=message, error_code=error_code)
     r.status_code = error_code
     return r
 
 
-def json_exception(message):
+def json_exception(message: str) -> jsonify:
     r = jsonify(message=message, error_code=500, traceback=traceback.format_exc())
     r.status_code = 500
     return r
 
 
-def json_success(message, **kwargs):
+def json_success(message: str, **kwargs) -> jsonify:
     return jsonify(message=message, **kwargs)
 
 
@@ -230,7 +232,7 @@ def get_status():
     return json_success("Analysis status", status=state.get("status"), description=state.get("description"))
 
 
-@app.route("/status", methods=["POST"])
+@app.route("/status", methods=("POST"))
 def put_status():
     if "status" not in request.form:
         return json_error(400, "No status has been provided")
@@ -260,7 +262,7 @@ def get_path():
     return json_success("Agent path", filepath=os.path.abspath(__file__))
 
 
-@app.route("/mkdir", methods=["POST"])
+@app.route("/mkdir", methods=("POST"))
 def do_mkdir():
     if "dirpath" not in request.form:
         return json_error(400, "No dirpath has been provided")
@@ -275,7 +277,7 @@ def do_mkdir():
     return json_success("Successfully created directory")
 
 
-@app.route("/mktemp", methods=["GET", "POST"])
+@app.route("/mktemp", methods=("GET", "POST"))
 def do_mktemp():
     suffix = request.form.get("suffix", "")
     prefix = request.form.get("prefix", "tmp")
@@ -291,7 +293,7 @@ def do_mktemp():
     return json_success("Successfully created temporary file", filepath=filepath)
 
 
-@app.route("/mkdtemp", methods=["GET", "POST"])
+@app.route("/mkdtemp", methods=("GET", "POST"))
 def do_mkdtemp():
     suffix = request.form.get("suffix", "")
     prefix = request.form.get("prefix", "tmp")
@@ -305,7 +307,7 @@ def do_mkdtemp():
     return json_success("Successfully created temporary directory", dirpath=dirpath)
 
 
-@app.route("/store", methods=["POST"])
+@app.route("/store", methods=("POST"))
 def do_store():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
@@ -322,7 +324,7 @@ def do_store():
     return json_success("Successfully stored file")
 
 
-@app.route("/retrieve", methods=["POST"])
+@app.route("/retrieve", methods=("POST"))
 def do_retrieve():
     if "filepath" not in request.form:
         return json_error(400, "No filepath has been provided")
@@ -330,7 +332,7 @@ def do_retrieve():
     return send_file(request.form["filepath"])
 
 
-@app.route("/extract", methods=["POST"])
+@app.route("/extract", methods=("POST"))
 def do_extract():
     if "dirpath" not in request.form:
         return json_error(400, "No dirpath has been provided")
@@ -347,7 +349,7 @@ def do_extract():
     return json_success("Successfully extracted zip file")
 
 
-@app.route("/remove", methods=["POST"])
+@app.route("/remove", methods=("POST"))
 def do_remove():
     if "path" not in request.form:
         return json_error(400, "No path has been provided")
@@ -373,12 +375,12 @@ def do_remove():
     return json_success(message)
 
 
-@app.route("/execute", methods=["POST"])
+@app.route("/execute", methods=("POST"))
 def do_execute():
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
 
-    if request.client_ip == "127.0.0.1" or request.client_ip == local_ip:
+    if request.client_ip in ("127.0.0.1", local_ip):
         return json_error(500, "Not allowed to execute commands")
     if "command" not in request.form:
         return json_error(400, "No command has been provided")
@@ -405,7 +407,7 @@ def do_execute():
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
 
 
-@app.route("/execpy", methods=["POST"])
+@app.route("/execpy", methods=("POST"))
 def do_execpy():
     if "filepath" not in request.form:
         return json_error(400, "No Python file has been provided")
@@ -416,10 +418,10 @@ def do_execpy():
     cwd = request.form.get("cwd")
     stdout = stderr = None
 
-    args = [
+    args = (
         sys.executable,
         request.form["filepath"],
-    ]
+    )
 
     try:
         if async_exec:
@@ -458,7 +460,7 @@ def do_kill():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="0.0.0.0")
-    parser.add_argument("port", nargs="?", default="8000")
+    parser.add_argument("port", type=int, nargs="?", default=8000)
     # ToDo redir to stdout
     args = parser.parse_args()
-    app.run(host=args.host, port=int(args.port))
+    app.run(host=args.host, port=args.port)

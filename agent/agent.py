@@ -6,6 +6,7 @@ from __future__ import absolute_import, print_function
 import argparse
 import cgi
 import http.server
+import ipaddress
 import json
 import os
 import platform
@@ -20,8 +21,6 @@ import traceback
 from io import StringIO
 from typing import Iterable
 from zipfile import ZipFile
-
-import ipaddress
 
 try:
     import re2 as re

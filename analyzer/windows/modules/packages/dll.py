@@ -42,7 +42,11 @@ class Dll(Package):
         except (ValueError, AssertionError):
             pass
 
-        args = f'"{path}",{function}'
+
+        if dllloader == "regsvcs.exe":
+            args = f'"{path}"'
+        else:
+            args = f'"{path}",{function}'
         if arguments:
             args += f" {arguments}"
 

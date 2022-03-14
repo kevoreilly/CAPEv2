@@ -443,6 +443,8 @@ class RunSignatures(object):
                 log.debug('Analysis matched signature "%s"', current.name)
                 # Return information on the matched signature.
                 return current.as_result()
+        except KeyError as e:
+            log.error('Failed to run signature "%s": %s', current.name, e)
         except NotImplementedError:
             return None
         except Exception as e:

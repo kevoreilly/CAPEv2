@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 """
     Config Map
 """
-CONFIG = {b"10": b"Campaign ID", b"3": b"Config timestamp"}
+CONFIG = {b"10": "Campaign ID", b"3": "Config timestamp"}
 
 BRIEFLZ_HEADER = b"\x62\x6C\x7A\x1A\x00\x00\x00\x01"
 QAKBOT_HEADER = b"\x61\x6c\xd3\x1a\x00\x00\x00\x01"
@@ -155,6 +155,20 @@ def decrypt_data2(data):
     return decrypted_data
 
 
+def decrypt_data3(data):
+    if not data:
+        return
+
+    hash_obj = hashlib.sha1(b"\\System32\\WindowsPowerShel1\\v1.0\\powershel1.exe")
+    rc4_key = hash_obj.digest()
+    decrypted_data = ARC4.new(rc4_key).decrypt(data)
+
+    if not decrypted_data:
+        return
+
+    return decrypted_data
+
+
 def extract_config(filebuf):
     end_config = {}
     if not HAVE_BLZPACK:
@@ -166,6 +180,7 @@ def extract_config(filebuf):
             for entry in rsrc.directory.entries:
                 if entry.name is not None:
                     # log.info("id: %s", entry.name)
+                    controllers = []
                     config = {}
                     offset = entry.directory.entries[0].data.struct.OffsetToData
                     size = entry.directory.entries[0].data.struct.Size
@@ -202,11 +217,17 @@ def extract_config(filebuf):
                     elif str(entry.name) == "3719":
                         dec_bytes = decrypt_data2(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
+                    elif str(entry.name) == "26F517AB":
+                        dec_bytes = decrypt_data3(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes)
                     elif str(entry.name) == "524":
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
                     elif str(entry.name) == "5812":
                         dec_bytes = decrypt_data2(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) == "18270D2E":
+                        dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
                     for k, v in config.items():

@@ -116,8 +116,9 @@
         <tr>
             <th>SHA256</th>
             <td style="word-wrap: break-word;">{{sub_file.sha256}}
-                <a href="https://mwdb.cert.pl/file/{{sub_file.sha256}}" style="color: #e74c3c">[MWDB]
-                </a> <a href="https://bazaar.abuse.ch/sample/{{sub_file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
+                <a href="https://www.virustotal.com/gui/file/{{subfile.sha256}}/" style="color: #e74c3c">[VT]</a>
+                <a href="https://mwdb.cert.pl/file/{{sub_file.sha256}}" style="color: #e74c3c">[MWDB]</a>
+                <a href="https://bazaar.abuse.ch/sample/{{sub_file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
             </td>
         </tr>
         {% if sub_file.sha3_384 %}

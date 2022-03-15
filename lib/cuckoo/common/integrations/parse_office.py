@@ -23,6 +23,7 @@ except ImportError:
     print("Missed olefile dependency: pip3 install olefile")
 
 try:
+    from csv import Error as csv_error
     from oletools import oleobj
     from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID
@@ -255,6 +256,8 @@ class Office(object):
             dde = extract_dde(filepath)
             if dde:
                 results["office_dde"] = convert_to_printable(dde)
+        except csv_error:
+            pass
         except AttributeError:
             log.warning("OleFile library bug: AttributeError! fix: pip3 install -U olefile")
         except Exception as e:

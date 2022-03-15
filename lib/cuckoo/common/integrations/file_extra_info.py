@@ -158,6 +158,12 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         if file_details:
             file_details = file_details[0]
 
+        if processing_conf.trid.enabled:
+            trid_info(full_path, file_details)
+
+        if processing_conf.die.enabled:
+            detect_it_easy_info(full_path, file_details)
+
         metadata.append(file_details)
         dest_path = os.path.join(destination_folder, file_details["sha256"])
         if not os.path.exists(dest_path):

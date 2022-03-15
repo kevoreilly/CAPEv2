@@ -24,6 +24,7 @@ except ImportError:
 
 try:
     from csv import Error as csv_error
+
     from oletools import oleobj
     from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID

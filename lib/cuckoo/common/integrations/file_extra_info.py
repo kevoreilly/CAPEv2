@@ -330,7 +330,8 @@ def Inno_extract(file, destination_folder, filetype, data_dictionary):
                     files.append(file)
 
             metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
-
+        except subprocess.CalledProcessError:
+            return
         except Exception as e:
             logging.error(e, exc_info=True)
 

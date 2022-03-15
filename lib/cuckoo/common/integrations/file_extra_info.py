@@ -306,7 +306,7 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
 def Inno_extract(file, destination_folder, filetype, data_dictionary):
     """Work on Inno Installers"""
 
-    if data_dictionary.get("die") and not any(["Inno Setup" in string for string in data_dictionary["die"]]):
+    if "die" not in data_dictionary or not any(["Inno Setup" in string for string in data_dictionary["die"]]):
         return
 
     if not os.path.exists(selfextract_conf.Inno_extract.binary):

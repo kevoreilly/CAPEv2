@@ -34,6 +34,7 @@ except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
+logging.getLogger("msodde").setLevel(logging.CRITICAL)
 
 processing_conf = Config("processing")
 
@@ -96,11 +97,19 @@ class Office(object):
         for elem in core._get_documentElement().childNodes:
             n = elem._get_tagName()
             try:
-                data = core.getElementsByTagName(n)[0].childNodes[0].data
-                coretags[n.split(":")[1]] = convert_to_printable(data)
+                data = core.getElementsByTagName(n)
+                if not data:
+                    continue
+
+                data = data[0].childNodes
+                if not data:
+                    continue
+
+                if not hasattr(data[0], "data"):
+                    continue
+                coretags[n.split(":")[1]] = convert_to_printable(data[0].data)
             except (IndexError, AttributeError) as e:
                 log.error(e, exc_info=True)
-                pass
 
         metares["DocumentSummaryInformation"] = {}
         apptags = metares["DocumentSummaryInformation"]
@@ -108,11 +117,20 @@ class Office(object):
         for elem in app._get_documentElement().childNodes:
             n = elem._get_tagName()
             try:
-                data = app.getElementsByTagName(n)[0].childNodes[0].data
-                apptags[n] = convert_to_printable(data)
+                data = app.getElementsByTagName(n)
+                if not data:
+                    continue
+
+                data = data[0].childNodes
+                if not data:
+                    continue
+
+                if not hasattr(data[0], "data"):
+                    continue
+
+                apptags[n] = convert_to_printable(data[0].data)
             except (IndexError, AttributeError) as e:
                 log.error(e, exc_info=True)
-                pass
 
         return metares
 

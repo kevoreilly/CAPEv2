@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from zipfile import BadZipFile
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -74,10 +73,7 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
             data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
         # options is dict where we need to get pass get_options
-        try:
-            data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], get_options(options)).run()
-        except BadZipFile:
-            pass
+        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], get_options(options)).run()
     elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
         data_dictionary["pdf"] = PDF(file_path).run()
     elif package == "wsf" or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf") or package == "hta":

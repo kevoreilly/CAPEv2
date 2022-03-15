@@ -88,11 +88,15 @@ class Office(object):
         return ret
 
     def _get_xml_meta(self, filepath):
-        zfile = zipfile.ZipFile(filepath)
+        try:
+            zfile = zipfile.ZipFile(filepath)
+        except zipfile.BadZipFile:
+            return {}
+
         core = xml.dom.minidom.parseString(zfile.read("docProps/core.xml"))
         app = xml.dom.minidom.parseString(zfile.read("docProps/app.xml"))
 
-        metares = dict()
+        metares = {}
         metares["SummaryInformation"] = {}
         coretags = metares["SummaryInformation"]
 

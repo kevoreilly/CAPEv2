@@ -311,7 +311,9 @@ def Inno_extract(file, destination_folder, filetype, data_dictionary):
 
     with tempfile.TemporaryDirectory(prefix="innoextract_") as tempdir:
         try:
-            _ = subprocess.check_output([selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir], universal_newlines=True)
+            _ = subprocess.check_output(
+                [selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir], universal_newlines=True
+            )
 
             files = []
             for root, _, filenames in os.walk(tempdir):
@@ -369,14 +371,18 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
         return
 
     if not os.path.exists(selfextract_conf.UnAutoIt_extract.binary):
-        log.warning(f"Missed UnAutoIt binary: {selfextract_conf.UnAutoIt_extract.binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+        log.warning(
+            f"Missed UnAutoIt binary: {selfextract_conf.UnAutoIt_extract.binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
+        )
         return
 
     metadata = list()
 
     with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
         try:
-            output = subprocess.check_output([selfextract_conf.UnAutoIt_extract.binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
+            output = subprocess.check_output(
+                [selfextract_conf.UnAutoIt_extract.binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True
+            )
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)

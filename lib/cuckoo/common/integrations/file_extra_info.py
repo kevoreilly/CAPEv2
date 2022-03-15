@@ -50,9 +50,7 @@ except ImportError:
     print("Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 processing_conf = Config("processing")
-decomp_jar = processing_conf.static.procyon_path
-unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "UnAutoIt", "UnAutoIt")
-unrar = "/usr/bin/unrar"
+selfextract_conf = Config("selfextract")
 
 # Replace with DIE
 if processing_conf.trid.enabled:
@@ -85,9 +83,9 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     elif package == "lnk":
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
-        if decomp_jar and not os.path.exists(decomp_jar):
+        if selfextract_conf.procyon.binary and not os.path.exists(selfextract_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
-        data_dictionary["java"] = Java(file_path, decomp_jar).run()
+        data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
@@ -176,8 +174,6 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
     data_dictionary - where to add data
 
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
-        msi_extract
-        kixtart_extract
     """
 
     for funcname in (
@@ -189,7 +185,12 @@ def generic_file_extractors(file, destination_folder, filetype, data_dictionary)
         RarSFX_extract,
         UPX_unpack,
         NSIS_unpack,
+        Inno_extract,
     ):
+
+        if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
+            continue
+
         try:
             funcname(file, destination_folder, filetype, data_dictionary)
         except Exception as e:
@@ -296,6 +297,43 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
 
 
+def Inno_extract(file, destination_folder, filetype, data_dictionary):
+    """Work on Inno Installers"""
+
+    if data_dictionary.get("die") and not any(["Inno Setup" in string for string in data_dictionary["die"]]):
+        return
+
+    if not os.path.exists(selfextract_conf.Inno_extract.binary):
+        logging.error("Missed dependency: sudo apt install innoextract")
+        return
+
+    metadata = []
+
+    with tempfile.TemporaryDirectory(prefix="innoextract_") as tempdir:
+        try:
+            _ = subprocess.check_output([selfextract_conf.Inno_extract.binary, file, "--output-dir", tempdir], universal_newlines=True)
+
+            files = []
+            for root, _, filenames in os.walk(tempdir):
+                for file in filenames:
+                    file = os.path.join(root, file)
+                    if not os.path.isfile(file):
+                        continue
+                    files.append(file)
+
+            metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+
+        except Exception as e:
+            logging.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", "InnoExtract")
+
+
 def kixtart_extract(file, destination_folder, filetype, data_dictionary):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
@@ -330,15 +368,15 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
     if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
         return
 
-    if not os.path.exists(unautoit_bin):
-        log.warning(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+    if not os.path.exists(selfextract_conf.UnAutoIt_extract.binary):
+        log.warning(f"Missed UnAutoIt binary: {selfextract_conf.UnAutoIt_extract.binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
         return
 
     metadata = list()
 
     with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
         try:
-            output = subprocess.check_output([unautoit_bin, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
+            output = subprocess.check_output([selfextract_conf.UnAutoIt_extract.binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True)
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)
@@ -363,15 +401,15 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
     if "RAR self-extracting archive" not in data_dictionary.get("type", ""):
         return
 
-    if not os.path.exists(unrar):
-        log.warning(f"Missed UnRar binary: {unautoit_bin}. sudo apt install unrar")
+    if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
+        log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
         return
 
     metadata = list()
 
     with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
         try:
-            output = subprocess.check_output([unrar, "e", file, tempdir], universal_newlines=True)
+            output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)

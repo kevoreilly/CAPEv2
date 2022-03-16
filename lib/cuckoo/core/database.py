@@ -1834,8 +1834,30 @@ class Database(object, metaclass=Singleton):
         else:
             tags = task.tags
 
+        def _ensure_valid_target(task):
+            if task.category == "url":
+                # URL tasks always have valid targets, return it as-is.
+                return task.target
+
+            # All other task types have a "target" pointing to a temp location,
+            # so get a stable path "target" based on the sample hash.
+            paths = self.sample_path_by_hash(task.sample.sha256)
+            paths = [x for x in paths if os.path.exists(x)]
+            if not paths:
+                return None
+
+            if task.category == 'pcap':
+                # PCAP task paths are represented as bytes
+                return paths[0].encode()
+            return paths[0]
+
+        task_target = _ensure_valid_target(task)
+        if not task_target:
+            log.warning("Unable to find valid target for task: %s", task_id)
+            return
+
         return add(
-            task.target,
+            task_target,
             task.timeout,
             task.package,
             task.options,

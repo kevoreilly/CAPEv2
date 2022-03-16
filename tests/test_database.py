@@ -3,10 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import base64
 import os
+import shutil
 from tempfile import NamedTemporaryFile
 
 from lib.cuckoo.core.database import Database, Task
+from lib.cuckoo.common.utils import store_temp_file
 
 
 class TestDatabaseEngine(object):
@@ -17,14 +20,20 @@ class TestDatabaseEngine(object):
     def setup_method(self):
         with NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write("hehe")
-        self.temp = f.name
+        self.temp_filename = f.name
+        pcap_header_base64 = b"1MOyoQIABAAAAAAAAAAAAAAABAABAAAA"
+        pcap_bytes = base64.b64decode(pcap_header_base64)
+        self.temp_pcap = store_temp_file(pcap_bytes, "%s.pcap" % f.name)
         self.d = Database(dsn="sqlite://")
         # self.d.connect(dsn=self.URI)
         self.session = self.d.Session()
+        self.binary_storage = os.path.join(os.getcwd(), "storage/binaries")
+        os.makedirs(self.binary_storage)
 
     def teardown_method(self):
         del self.d
-        os.unlink(self.temp)
+        os.unlink(self.temp_filename)
+        shutil.rmtree(self.binary_storage)
 
     def add_url(self, url, priority=1, status="pending"):
         task_id = self.d.add_url(url, priority=priority)
@@ -35,7 +44,7 @@ class TestDatabaseEngine(object):
 
         # Add task.
         count = self.session.query(Task).count()
-        self.d.add_path(self.temp)
+        self.d.add_path(self.temp_filename)
         assert self.session.query(Task).count() == count + 1
 
         # Add url.
@@ -56,14 +65,81 @@ class TestDatabaseEngine(object):
         assert err and len(err[0].message) == 1024
 
     def test_task_set_options(self):
-        assert self.d.add_path(self.temp, options={"foo": "bar"}) is None
-        t1 = self.d.add_path(self.temp, options="foo=bar")
+        assert self.d.add_path(self.temp_filename, options={"foo": "bar"}) is None
+        t1 = self.d.add_path(self.temp_filename, options="foo=bar")
         assert self.d.view_task(t1).options == "foo=bar"
 
     def test_task_tags_str(self):
-        task = self.d.add_path(self.temp, tags="foo,,bar")
+        task = self.d.add_path(self.temp_filename, tags="foo,,bar")
         tag_list = list(self.d.view_task(task).tags)
         assert [str(x.name) for x in tag_list].sort() == ["foo", "bar"].sort()
+
+    def test_reschedule_file(self):
+        count = self.session.query(Task).count()
+        task_id = self.d.add_path(self.temp_filename)
+        assert self.session.query(Task).count() == count + 1
+        task = self.d.view_task(task_id)
+        assert task is not None
+        assert task.category == "file"
+
+        # write a real sample to storage
+        sample_path = os.path.join(self.binary_storage, task.sample.sha256)
+        shutil.copy(self.temp_filename, sample_path)
+
+        new_task_id = self.d.reschedule(task_id)
+        assert new_task_id is not None
+        new_task = self.d.view_task(new_task_id)
+        assert new_task.category == "file"
+
+    def test_reschedule_static(self):
+        count = self.session.query(Task).count()
+        task_id = self.d.add_static(self.temp_filename)
+        assert self.session.query(Task).count() == count + 1
+        task = self.d.view_task(task_id)
+        assert task is not None
+        assert task.category == "static"
+
+        # write a real sample to storage
+        static_path = os.path.join(self.binary_storage, task.sample.sha256)
+        shutil.copy(self.temp_filename, static_path)
+
+        new_task_id = self.d.reschedule(task_id)
+        assert new_task_id is not None
+        new_task = self.d.view_task(new_task_id)
+        assert new_task.category == "static"
+
+    def test_reschedule_pcap(self):
+        count = self.session.query(Task).count()
+        task_id = self.d.add_pcap(self.temp_pcap)
+        assert self.session.query(Task).count() == count + 1
+        task = self.d.view_task(task_id)
+        assert task is not None
+        assert task.category == "pcap"
+
+        # write a real sample to storage
+        pcap_path = os.path.join(self.binary_storage, task.sample.sha256)
+        shutil.copy(self.temp_pcap, pcap_path)
+
+        # reschedule the PCAP task
+        new_task_id = self.d.reschedule(task_id)
+        assert new_task_id is not None
+        new_task = self.d.view_task(new_task_id)
+        assert new_task.category == "pcap"
+
+    def test_reschedule_url(self):
+        # add a URL task
+        count = self.session.query(Task).count()
+        task_id = self.d.add_url("test_reschedule_url")
+        assert self.session.query(Task).count() == count + 1
+        task = self.d.view_task(task_id)
+        assert task is not None
+        assert task.category == "url"
+
+        # reschedule the URL task
+        new_task_id = self.d.reschedule(task_id)
+        assert new_task_id is not None
+        new_task = self.d.view_task(new_task_id)
+        assert new_task.category == "url"
 
     def test_add_machine(self):
         self.d.add_machine(

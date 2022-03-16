@@ -302,7 +302,15 @@ class ParseProcessLog(list):
             argument = {"name": arg_name}
             if isinstance(arg_value, bytes):
                 arg_value = bytes2str(arg_value)
-            argument["value"] = convert_to_printable(arg_value, self.conversion_cache)
+
+            if isinstance(arg_value, list) and isinstance(arg_value[0], bytes):
+                arg_value = " ".join(bytes2str(arg_value))
+
+            try:
+                argument["value"] = convert_to_printable(arg_value, self.conversion_cache)
+            except Exception as e:
+                log.error(arg_value, exc_info=True)
+                continue
             if not self.reporting_mode:
                 argument["raw_value"] = arg_value
             pretty = pretty_print_arg(category, api_name, arg_name, argument["value"])

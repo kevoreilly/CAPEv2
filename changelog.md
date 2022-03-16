@@ -1,3 +1,14 @@
+### [16-3-2022]
+* Monitor updates:
+    * Add 'Unwind' debugger action for x86
+    * Fix for NtCreateThreadEx hook not initialising thread breakpoints
+    * Filter dlls alongside target process executable in add_all_dlls_to_dll_ranges()
+    * Fix issues with WriteMemoryHandler invocation in hooks, update NtWow64 function prototypes
+    * Show dll load notifications in behavior log, use already_hooked() on load check
+    * Add module name to debugger log exception output
+    * Do RestoreHeaders() at end of init    
+    * Add Yara logging switch
+
 ### [4-3-2022]
 * Rewritten detection.
     * Now if you have many different detections it will show all of them, not only 1. Details about each detection is in CAPE signature

@@ -331,7 +331,7 @@ def Inno_extract(file, destination_folder, filetype, data_dictionary):
 
             metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
         except subprocess.CalledProcessError:
-            return
+            logging.error("Can't unpack InnoSetup for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 
@@ -397,7 +397,8 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
-
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack AutoIT for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 
@@ -431,6 +432,8 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
                 ]
                 metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack SFX for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 

@@ -1846,7 +1846,7 @@ class Database(object, metaclass=Singleton):
             if not paths:
                 return None
 
-            if task.category == 'pcap':
+            if task.category == "pcap":
                 # PCAP task paths are represented as bytes
                 return paths[0].encode()
             return paths[0]

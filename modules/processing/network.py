@@ -90,20 +90,21 @@ ip_passlist_file = proc_cfg.network.ipwhitelist_file
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
+comment_re = re.compile(r"\s*#.*")
 if enabled_passlist and passlist_file:
     with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-        domains = list(set(f.read().splitlines()))
-    for domain in domains:
-        if domain.startswith("#") or len(domain.strip()) == 0:
-            # comment or empty line
-            continue
-        domain_passlist_re.append(domain)
-
+        for domain in f.readlines():
+            domain = comment_re.sub("", domain).strip()
+            if domain:
+                domain_passlist_re.append(domain)
 
 ip_passlist = set()
 if enabled_ip_passlist and ip_passlist_file:
     with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
-        ip_passlist = set(f.read().split("\n"))
+        for ip in f.readlines():
+            ip = comment_re.sub("", ip).strip()
+            if ip:
+                ip_passlist.add(ip)
 
 
 class Pcap:

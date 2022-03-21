@@ -20,7 +20,7 @@ from itertools import cycle
 
 import pefile
 import yara
-from Cryptodome.PublicKey import RSA
+from Cryptodome.PublicKey import RSA, ECC
 from Cryptodome.Util import asn1
 
 log = logging.getLogger()
@@ -570,15 +570,15 @@ def extract_config(filebuf):
                 key = filebuf[eck_offset : eck_offset + 4]
                 size = struct.unpack("I", filebuf[eck_offset + 4 : eck_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 eck_offset += 8
-                eck_key = base64.b64encode(xor_data(filebuf[eck_offset : eck_offset + size], key))
-                # self.reporter.add_metadata("other", {"ECC ECK1": eck_key})
-                conf_dict.setdefault("ECC ECK1", eck_key.decode("latin-1"))
+                eck_key = xor_data(filebuf[eck_offset : eck_offset + size], key)
+                key_len = struct.unpack('<I',eck_key[4:8])[0]
+                conf_dict.setdefault("ECC ECK1", ECC.construct(curve="p256", point_x=int.from_bytes(eck_key[8:8+key_len], "big"), point_y=int.from_bytes(eck_key[8+key_len:], "big")).export_key(format="PEM"))
                 key = filebuf[ecs_offset : ecs_offset + 4]
                 size = struct.unpack("I", filebuf[ecs_offset + 4 : ecs_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 ecs_offset += 8
-                ecs_key = base64.b64encode(xor_data(filebuf[ecs_offset : ecs_offset + size], key))
-                # self.reporter.add_metadata("other", {"ECC ECS1": ecs_key})
-                conf_dict.setdefault("ECC ECS1", ecs_key.decode("latin-1"))
+                ecs_key = xor_data(filebuf[ecs_offset : ecs_offset + size], key)
+                key_len = struct.unpack('<I',ecs_key[4:8])[0]
+                conf_dict.setdefault("ECC ECS1", ECC.construct(curve="p256", point_x=int.from_bytes(ecs_key[8:8+key_len], "big"), point_y=int.from_bytes(ecs_key[8+key_len:], "big")).export_key(format="PEM"))
     return conf_dict
 
 

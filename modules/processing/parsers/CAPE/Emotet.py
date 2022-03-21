@@ -571,14 +571,28 @@ def extract_config(filebuf):
                 size = struct.unpack("I", filebuf[eck_offset + 4 : eck_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 eck_offset += 8
                 eck_key = xor_data(filebuf[eck_offset : eck_offset + size], key)
-                key_len = struct.unpack('<I',eck_key[4:8])[0]
-                conf_dict.setdefault("ECC ECK1", ECC.construct(curve="p256", point_x=int.from_bytes(eck_key[8:8+key_len], "big"), point_y=int.from_bytes(eck_key[8+key_len:], "big")).export_key(format="PEM"))
+                key_len = struct.unpack("<I", eck_key[4:8])[0]
+                conf_dict.setdefault(
+                    "ECC ECK1",
+                    ECC.construct(
+                        curve="p256",
+                        point_x=int.from_bytes(eck_key[8 : 8 + key_len], "big"),
+                        point_y=int.from_bytes(eck_key[8 + key_len :], "big"),
+                    ).export_key(format="PEM"),
+                )
                 key = filebuf[ecs_offset : ecs_offset + 4]
                 size = struct.unpack("I", filebuf[ecs_offset + 4 : ecs_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 ecs_offset += 8
                 ecs_key = xor_data(filebuf[ecs_offset : ecs_offset + size], key)
-                key_len = struct.unpack('<I',ecs_key[4:8])[0]
-                conf_dict.setdefault("ECC ECS1", ECC.construct(curve="p256", point_x=int.from_bytes(ecs_key[8:8+key_len], "big"), point_y=int.from_bytes(ecs_key[8+key_len:], "big")).export_key(format="PEM"))
+                key_len = struct.unpack("<I", ecs_key[4:8])[0]
+                conf_dict.setdefault(
+                    "ECC ECS1",
+                    ECC.construct(
+                        curve="p256",
+                        point_x=int.from_bytes(ecs_key[8 : 8 + key_len], "big"),
+                        point_y=int.from_bytes(ecs_key[8 + key_len :], "big"),
+                    ).export_key(format="PEM"),
+                )
     return conf_dict
 
 

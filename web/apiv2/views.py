@@ -58,10 +58,10 @@ from lib.cuckoo.common.web_utils import (
 )
 from lib.cuckoo.core.database import (
     TASK_COMPLETED,
-    TASK_RECOVERED,
-    TASK_REPORTED,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
+    TASK_RECOVERED,
+    TASK_REPORTED,
     TASK_RUNNING,
     Database,
     Task,

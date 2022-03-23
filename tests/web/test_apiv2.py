@@ -1,21 +1,24 @@
 import os
-from unittest.mock import patch
 import unittest.mock
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
+
 from lib.cuckoo.core.database import (
-    Task,
-    TASK_REPORTED,
+    TASK_BANNED,
     TASK_COMPLETED,
-    TASK_RECOVERED,
+    TASK_DISTRIBUTED,
+    TASK_DISTRIBUTED_COMPLETED,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
-    TASK_DISTRIBUTED_COMPLETED,
-    TASK_BANNED,
     TASK_PENDING,
+    TASK_RECOVERED,
+    TASK_REPORTED,
     TASK_RUNNING,
-    TASK_DISTRIBUTED,
+    Task,
 )
+
 
 class ReprocessTask(SimpleTestCase):
     def test_api_disabled(self):

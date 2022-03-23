@@ -17,7 +17,7 @@ sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-RUNNING_TESTS = 'test' in sys.argv
+RUNNING_TESTS = "test" in sys.argv
 
 from lib.cuckoo.common.config import Config
 

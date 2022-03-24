@@ -303,7 +303,7 @@ class ParseProcessLog(list):
             if isinstance(arg_value, bytes):
                 arg_value = bytes2str(arg_value)
 
-            if arg_value and isinstance(arg_value, list) and isinstance(arg_value[0], bytes):
+            if arg_value and isinstance(arg_value, list) and len(arg_value) >= 1 and isinstance(arg_value[0], bytes):
                 arg_value = " ".join(bytes2str(arg_value))
 
             try:

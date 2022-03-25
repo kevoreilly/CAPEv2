@@ -99,13 +99,13 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     with open(file_path, "rb") as f:
         is_text_file(data_dictionary, file_path, 8192, f.read())
 
-    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
-
     if processing_conf.trid.enabled:
         trid_info(file_path, data_dictionary)
 
     if processing_conf.die.enabled:
         detect_it_easy_info(file_path, data_dictionary)
+
+    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
 
 
 def detect_it_easy_info(file_path, data_dictionary):
@@ -150,24 +150,40 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         files - file names
     """
     metadata = []
+    filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
     if not files:
         files = os.listdir(folder)
-    for file in files:
-        full_path = os.path.join(folder, file)
-        file_details = File(full_path).get_all()
-        if file_details:
-            file_details = file_details[0]
+    with open(filelog, "a") as f:
+        for file in files:
+            full_path = os.path.join(folder, file)
+            file_details = File(full_path).get_all()
+            if file_details:
+                file_details = file_details[0]
 
-        if processing_conf.trid.enabled:
-            trid_info(full_path, file_details)
+            if processing_conf.trid.enabled:
+                trid_info(full_path, file_details)
 
-        if processing_conf.die.enabled:
-            detect_it_easy_info(full_path, file_details)
+            if processing_conf.die.enabled:
+                detect_it_easy_info(full_path, file_details)
 
-        metadata.append(file_details)
-        dest_path = os.path.join(destination_folder, file_details["sha256"])
-        if not os.path.exists(dest_path):
-            shutil.move(full_path, dest_path)
+            metadata.append(file_details)
+            dest_path = os.path.join(destination_folder, file_details["sha256"])
+            if not os.path.exists(dest_path):
+                shutil.move(full_path, dest_path)
+                print(
+                    json.dumps(
+                        {
+                            "path": os.path.join("files", file_details["sha256"]),
+                            "filepath": file_details["name"],
+                            "pids": [],
+                            "ppids": [],
+                            "metadata": "",
+                            "category": "files",
+                        },
+                        ensure_ascii=False,
+                    ),
+                    file=f,
+                )
 
     return metadata
 
@@ -411,38 +427,37 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
 
 def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
+    if any(["SFX: WinRAR" in string for string in data_dictionary.get("die", {})]) or \
+            any(["RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {})]) or \
+            "RAR self-extracting archive" in data_dictionary.get("type", ""):
+        if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
+            log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
+            return
 
-    if "RAR self-extracting archive" not in data_dictionary.get("type", ""):
-        return
+        metadata = list()
 
-    if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
-        log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
-        return
+        with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
+            try:
+                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
+                if output:
+                    files = [
+                        os.path.join(tempdir, extracted_file)
+                        for extracted_file in tempdir
+                        if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    ]
+                    metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
 
-    metadata = list()
+            except subprocess.CalledProcessError:
+                logging.error("Can't unpack SFX for %s", file)
+            except Exception as e:
+                logging.error(e, exc_info=True)
 
-    with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
-        try:
-            output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
-            if output:
-                files = [
-                    os.path.join(tempdir, extracted_file)
-                    for extracted_file in tempdir
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
-                ]
-                metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=files)
+        if metadata:
+            for meta in metadata:
+                is_text_file(meta, destination_folder, 8192)
 
-        except subprocess.CalledProcessError:
-            logging.error("Can't unpack SFX for %s", file)
-        except Exception as e:
-            logging.error(e, exc_info=True)
-
-    if metadata:
-        for meta in metadata:
-            is_text_file(meta, destination_folder, 8192)
-
-        data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
+            data_dictionary.setdefault("extracted_files", metadata)
+            data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
 
 
 def UPX_unpack(file, destination_folder, filetype, data_dictionary):

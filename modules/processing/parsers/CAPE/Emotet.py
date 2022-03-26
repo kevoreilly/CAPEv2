@@ -20,7 +20,7 @@ from itertools import cycle
 
 import pefile
 import yara
-from Cryptodome.PublicKey import RSA, ECC
+from Cryptodome.PublicKey import ECC, RSA
 from Cryptodome.Util import asn1
 
 log = logging.getLogger()

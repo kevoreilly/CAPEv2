@@ -72,5 +72,5 @@ numpy==1.19.1
 imagehash==4.2.1
 
 #problematic libs
-fire==0.3.1
+fire==0.3.1 # pyattck
 django-allauth==0.47.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html

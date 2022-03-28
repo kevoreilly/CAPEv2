@@ -24,7 +24,7 @@ def grab_sample():
 
 
 class TestDemux:
-    """ ToDo reenable
+    """ToDo reenable
     @pytest.mark.skip("Takes minutes to run, skipping!")
     def test_demux_sample_microsoft_docx(self, grab_sample):
         # .docx file

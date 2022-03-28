@@ -44,7 +44,6 @@ jobs:
           python -m pip install --disable-pip-version-check --no-deps -r requirements.txt
           python -m pip install --disable-pip-version-check -r requirements.github.txt
           python -m pip install --disable-pip-version-check -r requirements.tests.in
-          pip install -e .
 
       - name: Run unit tests
         run: python -m pytest --import-mode=append tests/

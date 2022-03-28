@@ -24,12 +24,9 @@ jobs:
       - name: Switch to Current Branch
         run: git checkout ${{ env.BRANCH }}
 
-      - name: Install pipenv
-        run: python -m pip install --upgrade pipenv wheel
-
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install -e .
 

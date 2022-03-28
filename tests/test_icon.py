@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import pathlib
 
 import pytest
@@ -28,10 +27,12 @@ def sample():
 
 class TestPEGroupIconDir:
     # Sample taken from https://www.scintilla.org/wscite32_446.zip
+    @pytest.mark.skip(reason="TODO")
     def test_init(self, sample):
         return_obj = PEGroupIconDir(data=sample("438117c7bd53653b3113903bcdb8bd369904a152b524b4676b18a626c2b60e82"))
         assert len(return_obj.icons) == 3
 
+    @pytest.mark.skip(reason="TODO")
     def test_get_icon_file(self, sample):
         return_obj = PEGroupIconDir(data=sample("438117c7bd53653b3113903bcdb8bd369904a152b524b4676b18a626c2b60e82"))
         assert (

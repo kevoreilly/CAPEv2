@@ -24,11 +24,11 @@ from lib.cuckoo.common.config import Config
 # In case we have VPNs enabled we need to initialize through the following
 # two methods as they verify the interaction with VPNs as well as gather
 # which VPNs are available (for representation upon File/URL submission).
-if not RUNNING_TESTS:
-    from lib.cuckoo.core.startup import init_rooter, init_routing
+# if not RUNNING_TESTS:
+from lib.cuckoo.core.startup import init_rooter, init_routing
 
-    init_rooter()
-    init_routing()
+init_rooter()
+init_routing()
 
 
 cfg = Config("reporting")
@@ -446,22 +446,22 @@ TEST_RUNNER = "django.test.runner.DiscoverRunner"
 # the site admins on every HTTP 500 error when DEBUG=False.
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
-if not RUNNING_TESTS:
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
-        "handlers": {
-            "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"}
+# if not RUNNING_TESTS:
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
+    "handlers": {
+        "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"}
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["mail_admins"],
+            "level": "ERROR",
+            "propagate": True,
         },
-        "loggers": {
-            "django.request": {
-                "handlers": ["mail_admins"],
-                "level": "ERROR",
-                "propagate": True,
-            },
-        },
-    }
+    },
+}
 
 SILENCED_SYSTEM_CHECKS = [
     "admin.E408",

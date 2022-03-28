@@ -18,14 +18,31 @@ jobs:
         python-version: [3.8]
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Check out repository code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Cache Python modules
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-python-modules
+      with:
+        path: ~/.python
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip flake8 black
+        python -m pip install --upgrade pip flake8 black wheel
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -38,5 +55,26 @@ jobs:
         black: true
         black_extensions: py,py_disabled
         auto_fix: true
+
     - name: Lint with isort
       uses: isort/isort-action@master
+
+    # Setup Python (faster than using Python container)
+    - name: Setup Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Switch to Current Branch
+      run: git checkout ${{ env.BRANCH }}
+
+    - name: Install dependencies
+      run: |
+        sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev
+        python -m pip install --disable-pip-version-check 'setuptools<58'  # https://github.com/pycrypto/pycrypto/issues/327
+        python -m pip install --disable-pip-version-check --no-deps -r requirements.txt
+        python -m pip install --disable-pip-version-check -r requirements.github.txt
+        python -m pip install --disable-pip-version-check -r requirements.tests.in
+
+    - name: Run unit tests
+      run: python -m pytest --import-mode=append tests/

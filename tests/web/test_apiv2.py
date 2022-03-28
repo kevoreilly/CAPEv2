@@ -1,8 +1,9 @@
-""" ToDo those tests are not valid
+
 import os
 import unittest.mock
 from unittest.mock import patch
 
+import pytest
 from django.test import SimpleTestCase
 
 from lib.cuckoo.core.database import (
@@ -22,6 +23,7 @@ from lib.cuckoo.core.database import (
 
 
 class ReprocessTask(SimpleTestCase):
+    @pytest.mark.skip(reason="TODO")
     def test_api_disabled(self):
         patch_target = "lib.cuckoo.common.web_utils.apiconf.taskreprocess"
         with patch.dict(patch_target, {"enabled": False}):
@@ -31,6 +33,7 @@ class ReprocessTask(SimpleTestCase):
         json_body = {"error": True, "error_value": "Task Reprocess API is Disabled"}
         assert response.json() == json_body
 
+    @pytest.mark.skip(reason="TODO")
     def test_task_does_not_exist(self):
         patch_target = "lib.cuckoo.core.database.Database.view_task"
         with patch(patch_target, return_value=None):
@@ -40,6 +43,7 @@ class ReprocessTask(SimpleTestCase):
         json_body = {"error": True, "error_value": "Task ID does not exist in the database"}
         assert response.json() == json_body
 
+    @pytest.mark.skip(reason="TODO")
     def test_can_reprocess(self):
         task = Task()
         valid_status = (TASK_REPORTED, TASK_RECOVERED, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING)
@@ -54,6 +58,7 @@ class ReprocessTask(SimpleTestCase):
                     assert response.headers["content-type"] == "application/json"
                     assert response.json() == expected_response
 
+    @pytest.mark.skip(reason="TODO")
     def test_cant_reprocess(self):
         task = Task()
         invalid_status = (

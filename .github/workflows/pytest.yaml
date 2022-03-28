@@ -10,15 +10,26 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
             fetch-depth: 0
 
+      - name: Cache Python modules
+        env:
+          cache-name: cache-python-modules
+        with:
+          path: ~/.python
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
       # Setup Python (faster than using Python container)
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
-          python-version: "3.x"
+          python-version: ${{ matrix.python-version }}
 
       - name: Switch to Current Branch
         run: git checkout ${{ env.BRANCH }}
@@ -28,10 +39,10 @@ jobs:
           python -m pip install --upgrade pip wheel
           sudo apt install libxml2-dev libxslt-dev python3-dev libgeoip-dev
 
-          python -m pip install --no-cache-dir --disable-pip-version-check 'setuptools<58'  # https://github.com/pycrypto/pycrypto/issues/327
-          python -m pip install --no-cache-dir --disable-pip-version-check --no-deps -r requirements.txt
-          python -m pip install --no-cache-dir --disable-pip-version-check -r requirements.github.txt
-          python -m pip install --no-cache-dir --disable-pip-version-check -r requirements.tests.in
+          python -m pip install --disable-pip-version-check 'setuptools<58'  # https://github.com/pycrypto/pycrypto/issues/327
+          python -m pip install --disable-pip-version-check --no-deps -r requirements.txt
+          python -m pip install --disable-pip-version-check -r requirements.github.txt
+          python -m pip install --disable-pip-version-check -r requirements.tests.in
           pip install -e .
 
       - name: Run unit tests

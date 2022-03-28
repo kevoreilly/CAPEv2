@@ -1,3 +1,6 @@
+### [28-3-2022]
+* Monitor: Fix issue causing some exceptions in VirtualProtectEx and NtProtectVirtualMemory hooks
+
 ### [16-3-2022]
 * Monitor updates:
     * Add 'Unwind' debugger action for x86

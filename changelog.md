@@ -1,5 +1,6 @@
 ### [28-3-2022]
 * Monitor: Fix issue causing some exceptions in VirtualProtectEx and NtProtectVirtualMemory hooks
+* Unittests for core enabled on GitHub. Please help us cover as much as we can to make CAPE more stable than never.
 
 ### [16-3-2022]
 * Monitor updates:
@@ -9,7 +10,7 @@
     * Fix issues with WriteMemoryHandler invocation in hooks, update NtWow64 function prototypes
     * Show dll load notifications in behavior log, use already_hooked() on load check
     * Add module name to debugger log exception output
-    * Do RestoreHeaders() at end of init    
+    * Do RestoreHeaders() at end of init
     * Add Yara logging switch
 
 ### [4-3-2022]

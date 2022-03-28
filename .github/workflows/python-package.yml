@@ -29,16 +29,16 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache Python modules
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-python-modules
-        with:
-          path: ~/.python
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-python-modules
+      with:
+        path: ~/.python
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
 
     - name: Install dependencies
       run: |

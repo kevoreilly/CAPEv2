@@ -15,6 +15,7 @@ jobs:
             fetch-depth: 0
 
       - name: Cache Python modules
+        uses: actions/cache@v3
         env:
           cache-name: cache-python-modules
         with:

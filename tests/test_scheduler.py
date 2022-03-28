@@ -347,6 +347,8 @@ class TestAnalysisManager:
             "upload_max_size": 100000000,
         }
 
+
+    @pytest.mark.skip(reason="TODO")
     def test_build_options_pe(self, grab_sample):
         class mock_machine(object):
             resultserver_ip = "1.2.3.4"

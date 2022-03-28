@@ -90,6 +90,7 @@ class TestEmptyFile:
         for key in ["name", "size", "crc32", "md5", "sha1", "sha256", "sha512", "ssdeep", "type"]:
             assert key in empty_file["file"].get_all()[0]
 
+
 """ ToDo ReEnable
 @pytest.fixture(scope="class")
 def test_files():
@@ -168,6 +169,7 @@ def test_files():
 
 """
 
+
 @pytest.fixture
 def hello_file():
     tmp = tempfile.mkstemp()
@@ -221,6 +223,7 @@ class TestMisc:
     def test_yara_encode_string(self):
         assert File("none_existent_file")._yara_encode_string("velociraptor") == "velociraptor"
 
+
 """ ToDo reenable
 @pytest.fixture
 def proc_dump():
@@ -238,6 +241,7 @@ def proc_dump():
     if not os.environ.get("CACHE", True):
         os.unlink(location)
 """
+
 
 class TestProcDump:
     def test_init(self, proc_dump):

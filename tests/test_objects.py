@@ -240,7 +240,7 @@ def proc_dump():
     yield sha2, location
     if not os.environ.get("CACHE", True):
         os.unlink(location)
-"""
+
 
 
 class TestProcDump:
@@ -327,3 +327,4 @@ class TestProcDump:
             },
         ]
         assert ProcDump(dump_file=proc_dump[1]).parse_dump() == test_dict
+"""

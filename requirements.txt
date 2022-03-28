@@ -266,7 +266,9 @@ filelock==3.0.12 \
     # via tldextract
 fire==0.3.1 \
     --hash=sha256:9736a16227c3d469e5d2d296bce5b4d8fa8d7851e953bda327a455fc2994307f
-    # via pyattck
+    # via
+    #   -r requirements.in
+    #   pyattck
 flare-capa==3.2.0 \
     --hash=sha256:d68bfa874810143a426907046b2beab309ab7cef6510d953eb044f6d4249d744 \
     --hash=sha256:e9f10d7c5b988510eab594df511ce8ddf87e1400eaaef39dc5d88690ecb919e9

@@ -53,7 +53,6 @@ python-whois==0.7.3
 bs4==0.0.1
 pydeep==0.4
 django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
-django-allauth==0.47.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 django-crispy-forms==1.12.0
 django-settings-export==1.2.1
 django-csp==3.7
@@ -71,3 +70,7 @@ psutil==5.8.0
 matplotlib==3.3.0
 numpy==1.19.1
 imagehash==4.2.1
+
+#problematic libs
+fire==0.3.1
+django-allauth==0.47.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html

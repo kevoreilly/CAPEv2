@@ -7,7 +7,6 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8]
-    timeout-minutes: 10
 
     steps:
       - name: Check out repository code

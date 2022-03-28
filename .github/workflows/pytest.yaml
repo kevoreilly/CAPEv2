@@ -29,6 +29,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           sudo apt install libxml2-dev libxslt-dev python3-dev
           pip install -r requirements.txt
+          pip install -r requirements.tests.in
           pip install -e .
 
       - name: Run unit tests

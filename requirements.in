@@ -2,7 +2,7 @@ flor==1.1.3
 Pebble==4.6.3
 pymisp==2.4.144
 cryptography==3.3.2
-requests[security,socks]==2.26.0
+requests[security,socks]==2.27.1
 pyOpenSSL==20.0.1
 pefile==2021.9.3
 tldextract==3.1.0

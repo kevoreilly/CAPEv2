@@ -30,6 +30,8 @@ def empty_file():
 
 
 class TestUnquarantine:
+    # disabled for test
+    """
     def test_mcafee(self, grab_sample):
         sample_hash = "14f715be9d422d367d0a5233515fa1c770728e4a3ff396b1936d1fa30965cc5d"
         sample_location = grab_sample(sample_hash)
@@ -49,13 +51,6 @@ class TestUnquarantine:
             unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"0b2a20864392f2dd911aed79218e0ed44fd77b299d4b9bd9108c59fe4e551baf"
         )
 
-    """
-    def test_sep(self, grab_sample):
-        sample_hash = "24589c208c371766bfe9f12fbbc02805500cfee75b3fb051ca8d3ba51edf0cac"
-        sample_location = grab_sample(sample_hash)
-        assert unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"recycler.lnk"
-    """
-
     def test_xorff(self, grab_sample):
         sample_hash = "f78151a41250f2bb1b5ca6bd61a427ad1fcf353febb1461e68c52025490827e2"
         sample_location = grab_sample(sample_hash)
@@ -69,6 +64,14 @@ class TestUnquarantine:
         sample_hash = "d0f51ff313ede61e1c4d7d57b644507a4bd46455e3e617e66c922c8c0c07024b"
         sample_location = grab_sample(sample_hash)
         assert mbam_unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"MBAMDequarantineFile"
+    """
+
+    """
+    def test_sep(self, grab_sample):
+        sample_hash = "24589c208c371766bfe9f12fbbc02805500cfee75b3fb051ca8d3ba51edf0cac"
+        sample_location = grab_sample(sample_hash)
+        assert unquarantine(sample_location).rsplit(b"/", 1)[-1] == b"recycler.lnk"
+    """
 
     def test_ext_err(self, empty_file):
         assert unquarantine(empty_file.name) is None

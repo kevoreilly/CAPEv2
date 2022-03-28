@@ -427,9 +427,11 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
 
 def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
-    if any(["SFX: WinRAR" in string for string in data_dictionary.get("die", {})]) or \
-            any(["RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {})]) or \
-            "RAR self-extracting archive" in data_dictionary.get("type", ""):
+    if (
+        any(["SFX: WinRAR" in string for string in data_dictionary.get("die", {})])
+        or any(["RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {})])
+        or "RAR self-extracting archive" in data_dictionary.get("type", "")
+    ):
         if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
             log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
             return
@@ -438,7 +440,9 @@ def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
 
         with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
             try:
-                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
+                output = subprocess.check_output(
+                    [selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True
+                )
                 if output:
                     files = [
                         os.path.join(tempdir, extracted_file)

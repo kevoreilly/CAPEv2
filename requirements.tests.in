@@ -3,6 +3,8 @@ requests==2.27.1
 flake8==3.8.4
 pytest-cov==2.11.1
 pytest-mock==2.0.0
+pytest-django==4.5.2
+pytest-pythonpath==0.7.4
 func-timeout==4.3.5
 tenacity==7.0.0
 httpretty==0.9.7

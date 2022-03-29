@@ -5,8 +5,8 @@
 from __future__ import absolute_import
 
 from dashboard import views
-from django.conf.urls import url
+from django.conf.urls import re_path
 
 urlpatterns = [
-    url(r"^$", views.index),
+    re_path(r"^$", views.index),
 ]

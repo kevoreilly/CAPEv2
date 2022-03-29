@@ -4,11 +4,11 @@
 
 from __future__ import absolute_import
 
-from django.conf.urls import url
+from django.conf.urls import re_path
 from submission import views
 
 urlpatterns = [
-    url(r"^$", views.index, name="submission"),
-    url(r"^resubmit/(?P<resubmit_hash>[\w\d]{64})/$", views.index, name="submission"),
-    url(r"status/(?P<task_id>\d+)/$", views.status, name="submission_status"),
+    re_path(r"^$", views.index, name="submission"),
+    re_path(r"^resubmit/(?P<resubmit_hash>[\w\d]{64})/$", views.index, name="submission"),
+    re_path(r"status/(?P<task_id>\d+)/$", views.status, name="submission_status"),
 ]

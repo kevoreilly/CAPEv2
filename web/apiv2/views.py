@@ -23,7 +23,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
-from dev_utils.mongodb import mongo_delete_data
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -97,7 +97,7 @@ if repconf.compression.enabled:
     zlib_compresion = True
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_find, mongo_find_one, mongo_find_one_and_update
+    from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:

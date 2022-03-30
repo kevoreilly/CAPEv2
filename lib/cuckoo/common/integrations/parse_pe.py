@@ -620,6 +620,9 @@ class PortableExecutable(object):
                     byteio.seek(0)
                     try:
                         img = Image.open(byteio)
+                    except ValueError:
+                        log.error("parse_pe.py -> get_incon_info -> buffer is not large enough")
+                        return None, None, None, None
                     except OSError as e:
                         byteio.close()
                         log.error(e)

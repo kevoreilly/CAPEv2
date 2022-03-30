@@ -52,6 +52,7 @@ except ImportError:
 
 
 sandbox_packages = (
+    "access",
     "nsis",
     "cpl",
     "reg",

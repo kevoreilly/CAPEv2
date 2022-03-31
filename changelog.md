@@ -1,3 +1,8 @@
+### [31-3-2022]
+* Monitor updates:
+    * dump-crypto option: add dumping of Bcrypt encrypt/decrypt apis
+    * Add general typestring to options, overrides type codes
+
 ### [28-3-2022]
 * Monitor: Fix issue causing some exceptions in VirtualProtectEx and NtProtectVirtualMemory hooks
 * Unittests for core enabled on GitHub. Please help us cover as much as we can to make CAPE more stable than never.

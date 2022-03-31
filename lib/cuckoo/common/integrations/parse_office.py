@@ -37,6 +37,7 @@ except ImportError:
     HAVE_OLETOOLS = False
 
 logging.getLogger("msodde").setLevel(logging.CRITICAL)
+logging.getLogger("olevba").setLevel(logging.CRITICAL)
 
 processing_conf = Config("processing")
 

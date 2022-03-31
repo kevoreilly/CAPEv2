@@ -52,6 +52,8 @@ except ImportError:
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
 
+unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
+
 # Replace with DIE
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
@@ -393,9 +395,9 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
     if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
         return
 
-    if not os.path.exists(selfextract_conf.UnAutoIt_extract.binary):
+    if not os.path.exists(unautoit_binary):
         log.warning(
-            f"Missed UnAutoIt binary: {selfextract_conf.UnAutoIt_extract.binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
+            f"Missed UnAutoIt binary: {unautoit_binary}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt"
         )
         return
 
@@ -404,7 +406,7 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
     with tempfile.TemporaryDirectory(prefix="unautoit_") as tempdir:
         try:
             output = subprocess.check_output(
-                [selfextract_conf.UnAutoIt_extract.binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True
+                [unautoit_binary, "extract-all", "--output-dir", tempdir, file], universal_newlines=True
             )
             if output:
                 files = [

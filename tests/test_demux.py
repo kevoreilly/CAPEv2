@@ -64,7 +64,7 @@ class TestDemux:
         assert demux.demux_sample(filename=sample_location, package=None, options="foo", use_sflock=False) == [
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
-    """
+
 
     def test_demux_sample_microsoft_outlook(self, grab_sample):
         # outlook message from https://github.com/HamiltonInsurance/outlook_msg/blob/e6c0293f098e8aee9cd4124aa6a5d409c798bc49/test_data/No%20attachment.msg
@@ -81,7 +81,7 @@ class TestDemux:
         assert demux.demux_sample(filename=sample_location, package=None, options="foo", use_sflock=False) == [
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
-
+    """
     def test_demux_package(self):
         empty_file = tempfile.NamedTemporaryFile()
 

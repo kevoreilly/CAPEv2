@@ -82,6 +82,7 @@ class TestDemux:
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
     """
+
     def test_demux_package(self):
         empty_file = tempfile.NamedTemporaryFile()
 

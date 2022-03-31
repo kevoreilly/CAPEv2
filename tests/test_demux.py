@@ -65,6 +65,7 @@ class TestDemux:
             pathlib.Path(__file__).absolute().parent.as_posix() + "/test_objects/" + sample_hash
         ]
     """
+
     def test_demux_sample_microsoft_outlook(self, grab_sample):
         # outlook message from https://github.com/HamiltonInsurance/outlook_msg/blob/e6c0293f098e8aee9cd4124aa6a5d409c798bc49/test_data/No%20attachment.msg
         sample_hash = "0e16568cc1e8ddda0f0856b27857d1d043d7b18909a566ae5fa2460fc8fd3614"

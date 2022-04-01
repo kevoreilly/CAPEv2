@@ -1,3 +1,6 @@
+### [1-4-2022]
+* Monitor update: Fix issue with attempted dll load notifications in tlsdump mode causing lsass to crash
+
 ### [31-3-2022]
 * Monitor updates:
     * dump-crypto option: add dumping of Bcrypt encrypt/decrypt apis

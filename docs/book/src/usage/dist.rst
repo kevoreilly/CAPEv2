@@ -495,7 +495,7 @@ User authentication and roles::
     )
 
     # To create user to read/write on specific database
-    se cuckoo
+    use cuckoo
     db.createUser(
         {
             user: "WORKER_USERNAME",

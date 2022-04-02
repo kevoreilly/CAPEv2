@@ -177,21 +177,6 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
-
-# For older systems as ubuntu 18.04 and lower than py3.8
-# ToDo remvoe in future
-def copytree(src, dst, symlinks=False, ignore=None):
-    for item in os.listdir(src):
-        if item in ("binary", "dump_sorted.pcap", "memory.dmp", "logs"):
-            continue
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d, follow_symlinks=False)
-
-
 def node_get_report_nfs(task_id, worker_name, main_task_id):
 
     worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
@@ -201,16 +186,12 @@ def node_get_report_nfs(task_id, worker_name, main_task_id):
 
     analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
     if not os.path.exists(analyses_path):
-        os.makedirs(analyses_path, mode=0o755)
+        os.makedirs(analyses_path, mode=0o755, exist_ok=False)
 
     try:
-        # py 3.8
-        if sys.version_info[:2] >= (3, 8):
-            shutil.copytree(
-                worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True
-            )
-        else:
-            copytree(worker_path, analyses_path, True, dist_ignore_patterns)
+        shutil.copytree(
+            worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True
+        )
     except Exception as e:
         log.exception(e)
         return False

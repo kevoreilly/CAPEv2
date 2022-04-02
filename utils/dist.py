@@ -177,6 +177,7 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
+
 def node_get_report_nfs(task_id, worker_name, main_task_id):
 
     worker_path = os.path.join("/mnt", f"cape_worker_{worker_name}", "storage", "analyses", str(task_id))
@@ -189,9 +190,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id):
         os.makedirs(analyses_path, mode=0o755, exist_ok=False)
 
     try:
-        shutil.copytree(
-            worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True
-        )
+        shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
     except Exception as e:
         log.exception(e)
         return False

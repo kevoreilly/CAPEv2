@@ -2,12 +2,18 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.cents.cents_remcos import cents_remcos
-from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
-from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.utils import datetime_to_iso
+
+try:
+    HAVE_CENTS = True
+    from lib.cuckoo.common.cents.cents_remcos import cents_remcos
+    from lib.cuckoo.common.cents.cents_squirrelwaffle import cents_squirrelwaffle
+    from lib.cuckoo.common.cents.cents_trickbot import cents_trickbot
+except ImportError:
+    HAVE_CENTS = False
+    print("Missed CENTS modules, fetch community to get available modules")
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +45,8 @@ class Cents(Report):
         :type results: `dict`
         :raise CuckooReportError: if fails to write rules file.
         """
+        if not HAVE_CENTS:
+            return
         rule_list = []
         md5 = results.get("target", {}).get("file", {}).get("md5", "")  # md5 of the sample
         date = (

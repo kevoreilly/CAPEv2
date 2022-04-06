@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import contextlib
 import os
 import shutil
 
@@ -33,19 +34,14 @@ class Dll(Package):
             shutil.copy(rundll32, newname)
             rundll32 = newname
 
-        try:
+        with contextlib.suppress(ValueError, AssertionError):
             start, end = (int(_.lstrip("#")) for _ in function.replace("..", "-").split("-", 1))
             assert start < end
             args = '/c for /l %i in ({start},1,{end}) do @{rundll32} "{path}",#%i {arguments}'.format(**locals())
             # if there are multiple functions launch them by their ordinal number in a for loop via cmd.exe calling rundll32.exe
             return self.execute("C:\\Windows\\System32\\cmd.exe", args.strip(), path)
-        except (ValueError, AssertionError):
-            pass
 
-        if dllloader == "regsvcs.exe":
-            args = f'"{path}"'
-        else:
-            args = f'"{path}",{function}'
+        args = f'"{path}"' if dllloader == "regsvcs.exe" else f'"{path}",{function}'
         if arguments:
             args += f" {arguments}"
 

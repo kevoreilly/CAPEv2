@@ -12,7 +12,9 @@ from lib.common.common import check_file_extension
 class PUB(Package):
     """Word analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 

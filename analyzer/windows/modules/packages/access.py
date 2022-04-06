@@ -9,7 +9,9 @@ from lib.common.common import check_file_extension
 class ACCESS(Package):
     """ACCESS analysis package."""
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
 

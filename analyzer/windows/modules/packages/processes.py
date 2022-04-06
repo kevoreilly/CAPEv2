@@ -18,7 +18,7 @@ class PROCESSES(Package):
 
     def start(self, path):
         """
-        for i in range(20):
+        for _ in range(20):
             # calc
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()

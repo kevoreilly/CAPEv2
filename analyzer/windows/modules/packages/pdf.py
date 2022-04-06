@@ -12,8 +12,10 @@ class PDF(Package):
         ("ProgramFiles", "Adobe", "*a*", "Reader", "AcroRd32.exe"),
     ]
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.options["pdf"] = "1"

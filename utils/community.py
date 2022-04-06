@@ -68,13 +68,14 @@ def mitre():
 
     mitre = Attck(
         nested_subtechniques=True,
-        save_config=False,
         use_config=False,
+        save_config=False,
         config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
         data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
         enterprise_attck_json="https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json",
         pre_attck_json="https://raw.githubusercontent.com/mitre/cti/master/pre-attack/pre-attack.json",
         mobile_attck_json="https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json",
+        ics_attck_json="https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json",
         nist_controls_json="https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-control-framework-mappings/master/frameworks/ATT%26CK-v9.0/nist800-53-r4/stix/nist800-53-r4-controls.json",
         generated_attck_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/generated_attck_data.json",
         generated_nist_json="https://swimlane-pyattck.s3.us-west-2.amazonaws.com/attck_to_nist_controls.json",

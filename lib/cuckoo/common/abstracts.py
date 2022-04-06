@@ -797,11 +797,23 @@ class Signature(object):
                     if re.findall(name, block["name"], re.I):
                         yield "sample", self.results["target"]["file"]["path"], block
 
+            for block in target["file"].get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in block[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            yield "sample", os.path.join(self.dropped_path, block["sha256"]), block
+
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
                 for sub_block in block.get(sub_keyword, []):
                     if re.findall(name, sub_block["name"], re.I):
                         yield sub_keyword, block["path"], sub_block
+
+            for subblock in block.get("extracted_files", []):
+                for keyword in ("cape_yara", "yara"):
+                    for yara_block in subblock[keyword]:
+                        if re.findall(name, yara_block["name"], re.I):
+                            yield "sample", os.path.join(self.dropped_path, subblock["sha256"]), block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -819,6 +831,12 @@ class Signature(object):
                                 for sub_block in pe.get(sub_keyword, []) or []:
                                     if re.findall(name, sub_block["name"], re.I):
                                         yield "extracted_pe", pe["path"], sub_block
+
+                    for subblock in block.get("extracted_files", []):
+                        for keyword in ("cape_yara", "yara"):
+                            for yara_block in subblock[keyword]:
+                                if re.findall(name, yara_block["name"], re.I):
+                                    yield "sample", os.path.join(self.dropped_path, subblock["sha256"]), block
 
         macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:

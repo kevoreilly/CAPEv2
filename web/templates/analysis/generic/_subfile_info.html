@@ -298,7 +298,7 @@
             <tr>
                 <th></th><td>
                 <div class="collapse" id="flare_capa_{{sub_file.sha256}}">
-                    <div class="card card-body">
+                    <div>
                     <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
                     {% if sub_file.flare_capa.CAPABILITY %}
                         {{sub_file.flare_capa|flare_capa_capability}}
@@ -330,7 +330,7 @@
             <tr>
                 <th></th><td>
                 <div class="collapse" id="strings_{{sub_file.sha256}}">
-                    <div class="card card-body">
+                    <div>
                     {{sub_file.strings|safe}}
                     </div>
                 </div>
@@ -341,7 +341,7 @@
             <tr>
                 <th></th><td>
                 <div class="collapse" id="text_{{sub_file.sha256}}">
-                    <div class="card card-body">
+                    <div>
                     <p>{{sub_file.data|escape}}</p>
                     </div>
                 </div>
@@ -352,7 +352,7 @@
             <tr>
                 <th></th><td>
                 <div class="collapse" id="decoded_files_{{sub_file.sha256}}">
-                    <div class="card card-body">
+                    <div>
                     <p>{{sub_file.decoded_files|escape}}</p>
                     </div>
                 </div>
@@ -363,7 +363,7 @@
             <tr>
                 <th></th><td>
                 <div class="collapse" id="extracted_files_{{sub_file.sha256}}">
-                    <div class="card card-body">
+                    <div>
                         {% for sub_file in sub_file.extracted_files %}
                             {% include "analysis/generic/_subfile_info.html" %}
                         {% endfor %}
@@ -374,11 +374,11 @@
             </br>
         {% endif %}
     </table>
-    {% if file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
-    {% if file.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
-    {% if file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
-    {% if file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
-    {% if file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
-    {% if file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div class="card card-body"> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
+    {% if file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
+    {% if file.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
+    {% if file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
+    {% if file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
+    {% if file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
+    {% if file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
 </div>

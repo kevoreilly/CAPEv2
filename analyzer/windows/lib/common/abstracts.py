@@ -22,8 +22,10 @@ class Package(object):
 
     PATHS = []
 
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.pids = []
@@ -49,14 +51,11 @@ class Package(object):
         """Enumerate available paths."""
         for path in self.PATHS:
             basedir = path[0]
-            sys32 = False
-            if len(path) > 1 and path[1].lower() == "system32":
-                sys32 = True
+            sys32 = len(path) > 1 and path[1].lower() == "system32"
             if basedir == "SystemRoot":
                 if not sys32 or "PE32+" not in self.config.file_type:
                     yield os.path.join(os.getenv("SystemRoot"), *path[1:])
-                elif sys32:
-                    yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
+                yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
             elif basedir == "ProgramFiles":
                 if os.getenv("ProgramFiles(x86)"):
                     yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])
@@ -98,11 +97,8 @@ class Package(object):
         @return: executable path
         """
         for path in self.enum_paths():
-            if os.path.isfile(path):
-                if application and application.lower() not in path.lower():
-                    continue
-                else:
-                    return path
+            if os.path.isfile(path) and (not application or application.lower() in path.lower()):
+                return path
 
         raise CuckooPackageError(f"Unable to find any {application} executable")
 
@@ -147,12 +143,7 @@ class Package(object):
         if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=False):
             raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
-        is_64bit = p.is_64bit()
-
-        if is_64bit:
-            p.debug_inject(interest, childprocess=False)
-        else:
-            p.debug_inject(interest, childprocess=False)
+        p.debug_inject(interest, childprocess=False)
         p.resume()
         p.close()
 
@@ -189,8 +180,10 @@ class Package(object):
 
 
 class Auxiliary(object):
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
         """@param options: options dict."""
+        if options is None:
+            options = {}
         self.options = options
         self.config = config
 

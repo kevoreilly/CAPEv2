@@ -92,7 +92,6 @@ class NetlogConnection(object):
             self.sock = None
         except Exception as e:
             print(e)
-            pass
 
 
 class NetlogBinary(NetlogConnection):

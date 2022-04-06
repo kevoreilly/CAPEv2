@@ -90,7 +90,4 @@ class Screenshot:
         """Take a screenshot.
         @return: screenshot or None.
         """
-        if not HAVE_PIL:
-            return None
-
-        return ImageGrab.grab()
+        return ImageGrab.grab() if HAVE_PIL else None

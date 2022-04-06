@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import base64
+import contextlib
 import logging
 import os
 import platform
@@ -498,14 +499,11 @@ class Process:
         if self.h_process == 0:
             self.open()
 
-        try:
+        with contextlib.suppress(Exception):
             val = c_int(0)
             ret = KERNEL32.IsWow64Process(self.h_process, byref(val))
             if ret and not val.value and is_os_64bit():
                 return True
-        except Exception:
-            pass
-
         return False
 
     def check_inject(self):

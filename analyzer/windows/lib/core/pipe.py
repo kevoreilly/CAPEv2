@@ -225,7 +225,6 @@ class PipeServer(threading.Thread):
                     h.stop()
             except Exception as e:
                 log.error(e, exc_info=True)
-                pass
 
 
 def disconnect_pipes():

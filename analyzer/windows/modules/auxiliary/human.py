@@ -4,6 +4,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import contextlib
 import logging
 import random
 import traceback
@@ -27,82 +28,15 @@ OFFICE_CLICK_AROUND = False
 
 
 def foreach_child(hwnd, lparam):
-    # List of buttons labels to click.
-    buttons = [
-        # english
-        "yes",
-        "ok",
-        "accept",
-        "next",
-        "install",
-        "run",
-        "agree",
-        "enable",
-        "retry",
-        "don't send",
-        "don't save",
-        "continue",
-        "unzip",
-        "open",
-        "close the program",
-        "save",
-        "later",
-        "finish",
-        "end",
-        "allow access",
-        "remind me later",
-        # german
-        "ja",
-        "weiter",
-        "akzeptieren",
-        "ende",
-        "starten",
-        "jetzt starten",
-        "neustarten",
-        "neu starten",
-        "jetzt neu starten",
-        "beenden",
-        "oeffnen",
-        "schliessen",
-        "installation weiterfuhren",
-        "fertig",
-        "beenden",
-        "fortsetzen",
-        "fortfahren",
-        "stimme zu",
-        "zustimmen",
-        "senden",
-        "nicht senden",
-        "speichern",
-        "nicht speichern",
-        "ausfuehren",
-        "spaeter",
-        "einverstanden",
-    ]
-
-    # List of buttons labels to not click.
-    dontclick = [
-        # english
-        "check online for a solution",
-        "don't run",
-        "do not ask again until the next update is available",
-        "cancel",
-        "do not accept the agreement",
-        "i would like to help make reader even better",
-        # german
-        "abbrechen",
-        "online nach losung suchen",
-        "abbruch",
-        "nicht ausfuehren",
-        "hilfe",
-        "stimme nicht zu",
-    ]
-
     classname = create_unicode_buffer(128)
     USER32.GetClassNameW(hwnd, classname, 128)
 
     # Check if the class of the child is button.
-    if "button" in classname.value.lower() or classname.value in ("NUIDialog", "bosa_sdm_msword"):
+    if (
+        "button" in classname.value.lower()
+        or "button" not in classname.value.lower()
+        and classname.value in ("NUIDialog", "bosa_sdm_msword")
+    ):
         # Get the text of the button.
         length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
         if not length:
@@ -124,6 +58,77 @@ def foreach_child(hwnd, lparam):
 
         if not USER32.IsWindowVisible(hwnd):
             return True
+
+        # List of buttons labels to click.
+        buttons = (
+            # english
+            "yes",
+            "ok",
+            "accept",
+            "next",
+            "install",
+            "run",
+            "agree",
+            "enable",
+            "retry",
+            "don't send",
+            "don't save",
+            "continue",
+            "unzip",
+            "open",
+            "close the program",
+            "save",
+            "later",
+            "finish",
+            "end",
+            "allow access",
+            "remind me later",
+            # german
+            "ja",
+            "weiter",
+            "akzeptieren",
+            "ende",
+            "starten",
+            "jetzt starten",
+            "neustarten",
+            "neu starten",
+            "jetzt neu starten",
+            "beenden",
+            "oeffnen",
+            "schliessen",
+            "installation weiterfuhren",
+            "fertig",
+            "beenden",
+            "fortsetzen",
+            "fortfahren",
+            "stimme zu",
+            "zustimmen",
+            "senden",
+            "nicht senden",
+            "speichern",
+            "nicht speichern",
+            "ausfuehren",
+            "spaeter",
+            "einverstanden",
+        )
+
+        # List of buttons labels to not click.
+        dontclick = (
+            # english
+            "check online for a solution",
+            "don't run",
+            "do not ask again until the next update is available",
+            "cancel",
+            "do not accept the agreement",
+            "i would like to help make reader even better",
+            # german
+            "abbrechen",
+            "online nach losung suchen",
+            "abbruch",
+            "nicht ausfuehren",
+            "hilfe",
+            "stimme nicht zu",
+        )
 
         # Check if the button is set as "clickable" and click it.
         for button in buttons:
@@ -186,7 +191,7 @@ def get_office_window_click_around(hwnd, lparm):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any([value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")]):
+        if any(value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
             USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
@@ -205,24 +210,22 @@ def get_office_window_click_around(hwnd, lparm):
                     KERNEL32.Sleep(50)
                     click_mouse()
                     KERNEL32.Sleep(50)
-                    if USER32.IsWindowVisible(hwnd):
-                        USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, RESOLUTION["y"] // 2 + random.randint(80, 200))
-                        click_mouse()
-                        KERNEL32.Sleep(50)
-                        click_mouse()
-                        KERNEL32.Sleep(50)
-                    else:
+                    if not USER32.IsWindowVisible(hwnd):
                         break
-                    if USER32.IsWindowVisible(hwnd):
-                        USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, RESOLUTION["y"] // 2 - random.randint(80, 200))
-                        click_mouse()
-                        KERNEL32.Sleep(50)
-                        click_mouse()
-                        KERNEL32.Sleep(50)
-                    else:
+                    USER32.SetForegroundWindow(hwnd)
+                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2 + random.randint(80, 200))
+                    click_mouse()
+                    KERNEL32.Sleep(50)
+                    click_mouse()
+                    KERNEL32.Sleep(50)
+                    if not USER32.IsWindowVisible(hwnd):
                         break
+                    USER32.SetForegroundWindow(hwnd)
+                    USER32.SetCursorPos(x, RESOLUTION["y"] // 2 - random.randint(80, 200))
+                    click_mouse()
+                    KERNEL32.Sleep(50)
+                    click_mouse()
+                    KERNEL32.Sleep(50)
                     x += random.randint(150, 200)
                     KERNEL32.Sleep(50)
                 else:
@@ -239,7 +242,7 @@ def get_office_window(hwnd, lparam):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
+        if any(value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")):
             # send ALT+F4 equivalent
             log.info("Closing Office window")
             USER32.SendNotifyMessageW(hwnd, WM_CLOSE, None, None)
@@ -267,9 +270,8 @@ class Human(Auxiliary, Thread):
             # add some random data to the clipboard
             randchars = list("   aaaabcddeeeeeefghhhiiillmnnnooooprrrsssttttuwy")
             cliplen = random.randint(10, 1000)
-            clipval = []
-            for i in range(cliplen):
-                clipval.append(randchars[random.randint(0, len(randchars) - 1)])
+            clipval = [randchars[random.randint(0, len(randchars) - 1)] for _ in range(cliplen)]
+
             clipstr = "".join(clipval)
             cliprawstr = create_unicode_buffer(clipstr)
             USER32.OpenClipboard(None)
@@ -325,10 +327,8 @@ class Human(Auxiliary, Thread):
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()
                     other_hwnds = INITIAL_HWNDS[:]
-                    try:
+                    with contextlib.suppress(Exception):
                         other_hwnds.remove(USER32.GetForegroundWindow())
-                    except Exception:
-                        pass
                     if len(other_hwnds):
                         USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds) - 1)])
 

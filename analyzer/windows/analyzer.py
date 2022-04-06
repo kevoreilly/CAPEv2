@@ -359,9 +359,8 @@ class Analyzer:
             log.debug('Importing analysis package "%s"...', package)
             __import__(package_name, globals(), locals(), ["dummy"])
             # log.debug('Imported analysis package "%s"', package)
-        # If it fails, we need to abort the analysis.
-        except ImportError:
-            raise CuckooError(f'Unable to import package "{package_name}", does not exist')
+        except ImportError as e:
+            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
         except Exception as e:
             log.exception(e)
         # Initialize the package parent abstract.
@@ -370,7 +369,7 @@ class Analyzer:
         try:
             package_class = Package.__subclasses__()[0]
         except IndexError as e:
-            raise CuckooError(f"Unable to select package class (package={package_name}): {e}")
+            raise CuckooError(f"Unable to select package class (package={package_name}): {e}") from e
         except Exception as e:
             log.exception(e)
 
@@ -509,12 +508,12 @@ class Analyzer:
         # analysis package fails, we have to abort the analysis.
         try:
             pids = self.package.start(self.target)
-        except NotImplementedError:
-            raise CuckooError('The package "{package_name}" doesn\'t contain a start function')
+        except NotImplementedError as e:
+            raise CuckooError('The package "{package_name}" doesn\'t contain a start function') from e
         except CuckooPackageError as e:
-            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}')
+            raise CuckooError(f'The package "{package_name}" start function raised an error: {e}') from e
         except Exception as e:
-            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}')
+            raise CuckooError(f'The package "{package_name}" start function encountered an unhandled exception: {e}') from e
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -622,21 +621,25 @@ class Analyzer:
                         log.error("Unable to set terminate event for process %d", proc.pid)
                         continue
                     log.info("Terminate event set for process %d", proc.pid)
-                if self.config.terminate_processes:
+                if (
+                    self.config.terminate_processes
+                    and proc.is_alive()
+                    and pid not in self.CRITICAL_PROCESS_LIST
+                    and not proc.is_critical()
+                ):
                     # Try to terminate remaining active processes.
                     # (This setting may render full system memory dumps less useful!)
-                    if proc.is_alive() and pid not in self.CRITICAL_PROCESS_LIST and not proc.is_critical():
-                        log.info("Terminating process %d before shutdown", proc.pid)
-                        proc_counter = 0
-                        while proc.is_alive():
-                            if proc_counter > 5:
-                                try:
-                                    proc.terminate()
-                                except Exception:
-                                    continue
-                            log.info("Waiting for process %d to exit", proc.pid)
-                            KERNEL32.Sleep(1000)
-                            proc_counter += 1
+                    log.info("Terminating process %d before shutdown", proc.pid)
+                    proc_counter = 0
+                    while proc.is_alive():
+                        if proc_counter > 5:
+                            try:
+                                proc.terminate()
+                            except Exception:
+                                continue
+                        log.info("Waiting for process %d to exit", proc.pid)
+                        KERNEL32.Sleep(1000)
+                        proc_counter += 1
 
         # Create the shutdown mutex.
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)

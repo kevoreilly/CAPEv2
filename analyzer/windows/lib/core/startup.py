@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import contextlib
 import ctypes
 import logging
 import os
@@ -21,10 +22,8 @@ def create_folders():
         if os.path.exists(folder):
             continue
 
-        try:
+        with contextlib.suppress(OSError):
             os.makedirs(folder)
-        except OSError:
-            pass
 
 
 def init_logging():

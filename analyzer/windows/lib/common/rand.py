@@ -9,9 +9,9 @@ def random_string(minimum, maximum=None, charset=None):
 
     count = random.randint(minimum, maximum)
     if not charset:
-        return "".join(random.choice(string.ascii_letters) for x in range(count))
+        return "".join(random.choice(string.ascii_letters) for _ in range(count))
 
-    return "".join(random.choice(charset) for x in range(count))
+    return "".join(random.choice(charset) for _ in range(count))
 
 
 def random_integer(digits):

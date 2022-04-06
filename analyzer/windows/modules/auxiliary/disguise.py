@@ -4,9 +4,9 @@
 
 from __future__ import absolute_import
 import io
+import itertools
 import logging
 import os
-import platform
 import re
 import subprocess
 from random import randint
@@ -60,8 +60,7 @@ class Disguise(Auxiliary):
         commands = [["sc", "stop", "ClickToRunSvc"], ["sc", "config", "ClickToRunSvc", "start=", "disabled"]]
         for command in commands:
             try:
-                output = subprocess.check_output(command, stderr=subprocess.STDOUT)
-                # log.info(output)
+                subprocess.check_output(command, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 log.error(e.output)
 
@@ -87,11 +86,7 @@ class Disguise(Auxiliary):
                 for currentKey in range(QueryInfoKey(officeKey)[0]):
                     officeVersion = EnumKey(officeKey, currentKey)
                     if "." in officeVersion:
-                        isVersion = True
-                        for intCheck in officeVersion.split("."):
-                            if not intCheck.isdigit():
-                                isVersion = False
-                                break
+                        isVersion = all(intCheck.isdigit() for intCheck in officeVersion.split("."))
                         if isVersion:
                             installedVersions.append(officeVersion)
         except WindowsError:
@@ -136,54 +131,49 @@ class Disguise(Auxiliary):
                 for currentKey in range(QueryInfoKey(officeKey)[0]):
                     officeVersion = EnumKey(officeKey, currentKey)
                     if "." in officeVersion:
-                        isVersion = True
-                        for intCheck in officeVersion.split("."):
-                            if not intCheck.isdigit():
-                                isVersion = False
-                                break
+                        isVersion = all(intCheck.isdigit() for intCheck in officeVersion.split("."))
                         if isVersion:
                             installedVersions.append(officeVersion)
         except WindowsError:
             # Office isn't installed at all
             return
 
-        for oVersion in installedVersions:
-            for software in extensions:
-                values = []
-                mruKeyPath = ""
-                productPath = rf"{baseOfficeKeyPath}\{oVersion}\{software}"
-                try:
-                    with OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ):
-                        pass
-                    mruKeyPath = rf"{productPath}\File MRU"
-                    with CreateKeyEx(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ) as mruKey:
-                        displayValue = False
-                        for mruKeyInfo in range(QueryInfoKey(mruKey)[1]):
-                            currentValue = EnumValue(mruKey, mruKeyInfo)
-                            if currentValue[0] == "Max Display":
-                                displayValue = True
-                            values.append(currentValue)
-                except WindowsError:
-                    # An Office version was found in the registry but the
-                    # software (Word/Excel/PowerPoint) was not installed.
-                    values = "notinstalled"
+        for oVersion, software in itertools.product(installedVersions, extensions):
+            values = []
+            mruKeyPath = ""
+            productPath = rf"{baseOfficeKeyPath}\{oVersion}\{software}"
+            try:
+                with OpenKey(HKEY_CURRENT_USER, productPath, 0, KEY_READ):
+                    pass
+                mruKeyPath = rf"{productPath}\File MRU"
+                with CreateKeyEx(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_READ) as mruKey:
+                    displayValue = False
+                    for mruKeyInfo in range(QueryInfoKey(mruKey)[1]):
+                        currentValue = EnumValue(mruKey, mruKeyInfo)
+                        if currentValue[0] == "Max Display":
+                            displayValue = True
+                        values.append(currentValue)
+            except WindowsError:
+                # An Office version was found in the registry but the
+                # software (Word/Excel/PowerPoint) was not installed.
+                values = "notinstalled"
 
-                if values != "notinstalled" and len(values) < 5:
-                    with OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_SET_VALUE) as mruKey:
-                        if not displayValue:
-                            SetValueEx(mruKey, "Max Display", 0, REG_DWORD, 25)
+            if values != "notinstalled" and len(values) < 5:
+                with OpenKey(HKEY_CURRENT_USER, mruKeyPath, 0, KEY_SET_VALUE) as mruKey:
+                    if not displayValue:
+                        SetValueEx(mruKey, "Max Display", 0, REG_DWORD, 25)
 
-                        for i in range(1, randint(10, 30)):
-                            rString = random_string(minimum=11, charset="0123456789ABCDEF")
-                            baseId = f"T01D1C{rString}" if i % 2 else f"T01D1D{rString}"
-                            setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
-                                baseId,
-                                basePaths[randint(0, len(basePaths) - 1)],
-                                random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
-                                extensions[software][randint(0, len(extensions[software]) - 1)],
-                            )
-                            name = f"Item {i}"
-                            SetValueEx(mruKey, name, 0, REG_SZ, setVal)
+                    for i in range(1, randint(10, 30)):
+                        rString = random_string(minimum=11, charset="0123456789ABCDEF")
+                        baseId = f"T01D1C{rString}" if i % 2 else f"T01D1D{rString}"
+                        setVal = "[F00000000][{0}][O00000000]*{1}{2}.{3}".format(
+                            baseId,
+                            basePaths[randint(0, len(basePaths) - 1)],
+                            random_string(minimum=3, maximum=15, charset="abcdefghijkLMNOPQURSTUVwxyz_0369"),
+                            extensions[software][randint(0, len(extensions[software]) - 1)],
+                        )
+                        name = f"Item {i}"
+                        SetValueEx(mruKey, name, 0, REG_SZ, setVal)
 
     def ramnit(self):
         with OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_SET_VALUE) as key:

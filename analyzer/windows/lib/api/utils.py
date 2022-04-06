@@ -29,16 +29,12 @@ class Utils:
     """Various Utilities"""
 
     def is_valid_ipv4(self, ip):
-        if ip:
-            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) is None:
-                return False
-            else:
-                try:
-                    socket.inet_aton(ip)
-                    return True
-                except socket.error:
-                    return False
-        else:
+        if ip and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip) is None:
+            return False
+        try:
+            socket.inet_aton(ip)
+            return True
+        except socket.error:
             return False
 
     def cmd_wrapper(self, cmd):

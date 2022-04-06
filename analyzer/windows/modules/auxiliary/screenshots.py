@@ -53,9 +53,8 @@ class Screenshots(Auxiliary, Thread):
                 log.error("Cannot take screenshot: %s", e)
                 continue
 
-            if img_last:
-                if Screenshot().equal(img_last, img_current, SKIP_AREA):
-                    continue
+            if img_last and Screenshot().equal(img_last, img_current, SKIP_AREA):
+                continue
 
             img_counter += 1
             # workaround as PIL can't write to the socket file object :(

@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import base64
+import contextlib
 import logging
 import os
 import platform
@@ -84,8 +85,7 @@ def get_referrer_url(interest):
     vedstr = b"0CCEQfj" + base64.urlsafe_b64encode(random_string(random.randint(5, 8) * 3).encode())
     eistr = base64.urlsafe_b64encode(random_string(12).encode())
     usgstr = b"AFQj" + base64.urlsafe_b64encode(random_string(12).encode())
-    referrer = f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
-    return referrer
+    return f"http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd={itemidx}&ved={vedstr}&url={escapedurl}&ei={eistr}&usg={usgstr}"
 
 
 def NT_SUCCESS(val):
@@ -101,12 +101,14 @@ class Process:
     # which check whether the VM has only been up for <10 minutes.
     startup_time = random.randint(1, 30) * 20 * 60 * 1000
 
-    def __init__(self, options={}, config=None, pid=0, h_process=0, thread_id=0, h_thread=0, suspended=False):
+    def __init__(self, options=None, config=None, pid=0, h_process=0, thread_id=0, h_thread=0, suspended=False):
         """@param pid: PID.
         @param h_process: process handle.
         @param thread_id: thread id.
         @param h_thread: thread handle.
         """
+        if options is None:
+            options = {}
         self.config = config
         self.options = options
         self.pid = pid
@@ -497,14 +499,11 @@ class Process:
         if self.h_process == 0:
             self.open()
 
-        try:
+        with contextlib.suppress(Exception):
             val = c_int(0)
             ret = KERNEL32.IsWow64Process(self.h_process, byref(val))
             if ret and not val.value and is_os_64bit():
                 return True
-        except Exception:
-            pass
-
         return False
 
     def check_inject(self):
@@ -515,9 +514,9 @@ class Process:
             if (self.pid, self.thread_id) in ATTEMPTED_APC_INJECTS:
                 return False
             ATTEMPTED_APC_INJECTS[(self.pid, self.thread_id)] = True
+        elif self.pid in ATTEMPTED_THREAD_INJECTS:
+            return False
         else:
-            if self.pid in ATTEMPTED_THREAD_INJECTS:
-                return False
             ATTEMPTED_THREAD_INJECTS[self.pid] = True
 
         return True
@@ -586,10 +585,7 @@ class Process:
         if not self.pid:
             return False
 
-        thread_id = 0
-        if self.thread_id:
-            thread_id = self.thread_id
-
+        thread_id = self.thread_id or 0
         if not self.is_alive():
             log.warning("The process with pid %d is not alive, injection aborted", self.pid)
             return False
@@ -625,15 +621,13 @@ class Process:
             else:
                 ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll, str(INJECT_CREATEREMOTETHREAD)])
 
-            if ret.returncode != 0:
-                if ret.returncode == 1:
-                    log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
-                else:
-                    log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
-                return False
-            else:
+            if ret.returncode == 0:
                 return True
-
+            elif ret.returncode == 1:
+                log.info("Injected into suspended %s process with pid %d", bit_str, self.pid)
+            else:
+                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+            return False
         except Exception as e:
             log.error("Error running process: %s", e)
             return False

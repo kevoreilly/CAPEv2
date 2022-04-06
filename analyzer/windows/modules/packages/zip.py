@@ -65,13 +65,13 @@ class Zip(Package):
 
             try:
                 archive.extractall(path=extract_path, pwd=password)
-            except BadZipfile:
-                raise CuckooPackageError("Invalid Zip file")
+            except BadZipfile as e:
+                raise CuckooPackageError("Invalid Zip file") from e
             except RuntimeError:
                 try:
                     archive.extractall(path=extract_path, pwd=password)
                 except RuntimeError as e:
-                    raise CuckooPackageError(f"Unable to extract Zip file: {e}")
+                    raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
             finally:
                 if recursion_depth < 4:
                     # Extract nested archives.
@@ -100,12 +100,9 @@ class Zip(Package):
         with ZipFile(zip_path, "r") as archive:
             try:
                 # Test if zip file contains a file named as itself.
-                for name in archive.namelist():
-                    if name == os.path.basename(zip_path):
-                        return True
-                return False
-            except BadZipfile:
-                raise CuckooPackageError("Invalid Zip file")
+                return any(name == os.path.basename(zip_path) for name in archive.namelist())
+            except BadZipfile as e:
+                raise CuckooPackageError("Invalid Zip file") from e
 
     def get_infos(self, zip_path):
         """Get information from ZIP file.
@@ -115,16 +112,13 @@ class Zip(Package):
         try:
             with ZipFile(zip_path, "r") as archive:
                 return archive.infolist()
-        except BadZipfile:
-            raise CuckooPackageError("Invalid Zip file")
+        except BadZipfile as e:
+            raise CuckooPackageError("Invalid Zip file") from e
 
     def start(self, path):
         password = self.options.get("password", "")
         appdata = self.options.get("appdata")
-        if appdata:
-            root = os.environ["APPDATA"]
-        else:
-            root = os.environ["TEMP"]
+        root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
         exe_regex = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$", flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
@@ -133,18 +127,17 @@ class Zip(Package):
         # If no file name is provided via option, take the first file.
         if file_name is None:
             # No name provided try to find a better name.
-            if len(zipinfos):
-                # Attempt to find a valid exe extension in the archive
-                for f in zipinfos:
-                    if exe_regex.search(f.filename):
-                        file_name = f.filename
-                        break
-                # Default to the first one if none found
-                file_name = file_name or zipinfos[0].filename
-                log.debug("Missing file option, auto executing: %s", file_name)
-            else:
+            if not len(zipinfos):
                 raise CuckooPackageError("Empty ZIP archive")
 
+            # Attempt to find a valid exe extension in the archive
+            for f in zipinfos:
+                if exe_regex.search(f.filename):
+                    file_name = f.filename
+                    break
+            # Default to the first one if none found
+            file_name = file_name or zipinfos[0].filename
+            log.debug("Missing file option, auto executing: %s", file_name)
         file_path = os.path.join(root, file_name)
         log.debug('file_name: "%s"', file_name)
         if file_name.lower().endswith(".lnk"):

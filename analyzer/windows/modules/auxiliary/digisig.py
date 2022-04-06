@@ -50,9 +50,8 @@ class DigiSig(Auxiliary):
     def parse_digisig(self, data):
         parser_switch = None
         for line in data.splitlines():
-            if line.startswith("Hash of file (sha1)") or line.startswith("SHA1 hash of file"):
-                if not self.json_data["sha1"]:
-                    self.json_data["sha1"] = line.rsplit(": ", 1)[-1].lower()
+            if line.startswith(("Hash of file (sha1)", "SHA1 hash of file")) and not self.json_data["sha1"]:
+                self.json_data["sha1"] = line.rsplit(": ", 1)[-1].lower()
             # Start of certificate chain information
             if line.startswith("Signing Certificate Chain:"):
                 parser_switch = "cert"
@@ -79,7 +78,7 @@ class DigiSig(Auxiliary):
                 parser_switch = None
             if parser_switch == "cert":
                 self.build_output("cert", line)
-            if parser_switch == "time":
+            elif parser_switch == "time":
                 self.build_output("time", line)
 
     def jsonify(self, signType, signers):

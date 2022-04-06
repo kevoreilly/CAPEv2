@@ -18,7 +18,9 @@ __date__ = "11OCT2019"
 
 
 class Curtain(Thread, Auxiliary):
-    def __init__(self, options={}, config=None):
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
         self.config = Config(cfg="analysis.conf")

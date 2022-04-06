@@ -20,7 +20,7 @@ class JS(Package):
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext not in (".js", ".jse"):
-            if ext == ".jse" or (os.path.isfile(path) and "#@~^" == open(path, "rt").read(4)):
+            if ext == ".jse" or os.path.isfile(path) and open(path, "rt").read(4) == "#@~^":
                 if ext != ".jse":
                     os.rename(path, f"{path}.jse")
                     path = f"{path}.jse"
@@ -35,7 +35,7 @@ class JS(Package):
             # to not track calcs
             self.options["free"] = 1
             # fuck antivm
-            for i in range(20):
+            for _ in range(20):
                 # calc
                 calc = os.path.join("C:\\windows", "system32", "calc.exe")
                 # cl = Process()

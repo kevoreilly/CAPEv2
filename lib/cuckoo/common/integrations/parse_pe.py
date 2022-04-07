@@ -344,8 +344,9 @@ class PortableExecutable(object):
                 dbgst = dbg.struct
                 dbgdata = pe.__data__[dbgst.PointerToRawData : dbgst.PointerToRawData + dbgst.SizeOfData]
                 if dbgst.Type == 4:  # MISC
-                    _, length, _ = struct.unpack_from("IIB", dbgdata)
-                    return dbgdata[12:length].decode("latin-1").rstrip("\0")
+                    if len(dbgdata) == 9:
+                        _, length, _ = struct.unpack_from("IIB", dbgdata)
+                        return dbgdata[12:length].decode("latin-1").rstrip("\0")
                 elif dbgst.Type == 2:  # CODEVIEW
                     if dbgdata[:4] == b"RSDS":
                         return dbgdata[24:].decode("latin-1").rstrip("\0")

@@ -243,10 +243,18 @@
             </th>
             <td>
                 {% if not config.zipped_download %}
-                    <a href="{% url "file" tab_name id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
+                    {% if tab_name == "static" %}
+                        <a href="{% url "file" "dropped" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
+                    {% else %}
+                        <a href="{% url "file" tab_name id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
+                    {% endif %}
                 {% endif %}
-                <a href="{% url "file" tab_name|add:"zip" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{sub_file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
+                {% if tab_name == "static" %}
+                     <a href="{% url "file" "droppedzip" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                {% else %}
+                    <a href="{% url "file" tab_name|add:"zip" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
+                {% endif %}
+                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{sub_file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
                 {% if config.flare_capa %}
                     {% if not sub_file.flare_capa and on_demand.flare_capa %}
                         <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>

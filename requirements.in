@@ -22,7 +22,7 @@ orjson==3.6.0
 pyinstaller==4.4
 maec==4.1.0.17
 regex==2021.7.6
-SFlock2==0.3.31
+SFlock2==0.3.33
 pyattck==5.2.0
 #distorm3==3.5.2
 openpyxl==3.0.7

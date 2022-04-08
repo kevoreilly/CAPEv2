@@ -1316,8 +1316,8 @@ scipy==1.8.0 \
     --hash=sha256:f3720d0124aced49f6f2198a6900304411dbbeed12f56951d7c66ebef05e3df6 \
     --hash=sha256:f4a6d3b9f9797eb2d43938ac2c5d96d02aed17ef170c8b38f11798717523ddba
     # via imagehash
-sflock2==0.3.31 \
-    --hash=sha256:4bd38986b07f2c388f6b40a42e3b04db1436fa4bdf19cad7fccba6bc0ec131f2
+sflock2==0.3.33 \
+    --hash=sha256:c04eaa1d528287c1d86fb66fdc37765ca21b91ed0cffdbd6589e1010aef7feb6
     # via -r requirements.in
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \

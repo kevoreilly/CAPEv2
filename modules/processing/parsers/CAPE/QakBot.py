@@ -226,10 +226,7 @@ def extract_config(filebuf):
                     elif str(entry.name) == "5812":
                         dec_bytes = decrypt_data2(res_data)
                         config = parse_config(dec_bytes)
-                    elif str(entry.name) == "18270D2E":
-                        dec_bytes = decrypt_data3(res_data)
-                        config = parse_config(dec_bytes)
-                    elif str(entry.name) == "BABA":
+                    elif str(entry.name) in ("18270D2E", "BABA"):
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
                     elif str(entry.name) == "EBBA":

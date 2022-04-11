@@ -229,6 +229,12 @@ def extract_config(filebuf):
                     elif str(entry.name) == "18270D2E":
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
+                    elif str(entry.name) == "BABA":
+                        dec_bytes = decrypt_data3(res_data)
+                        config = parse_config(dec_bytes)
+                    elif str(entry.name) == "EBBA":
+                        dec_bytes = decrypt_data3(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
                     for k, v in config.items():
                         # log.info({ k.decode(): v.decode() })

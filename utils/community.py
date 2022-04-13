@@ -151,7 +151,7 @@ def install(enabled, force, rewrite, filepath):
             dest_file = os.path.basename(filepath)
 
             if category == 'signatures' and dest_file in signatures_modification_dict['reject_list']:
-                return
+                continue
 
             if not force:
                 while 1:

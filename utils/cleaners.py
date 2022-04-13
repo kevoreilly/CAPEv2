@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import, print_function
 import argparse
+import atexit
 import logging
 import os
 import shutil
@@ -37,6 +38,7 @@ log = logging.getLogger(__name__)
 cuckoo = Config()
 repconf = Config("reporting")
 resolver_pool = ThreadPool(50)
+atexit.register(resolver_pool.close)
 
 # Initialize the database connection.
 db = Database()

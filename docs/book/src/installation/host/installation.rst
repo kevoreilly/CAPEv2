@@ -9,7 +9,7 @@ Automated installation, read full page before start
 =============
 
 We have automated all work for you, but bear in mind, that 3rd part dependencies changes frequently and can break it,
-so please check instalation log and try to provide fix/correct issue to developers
+so please check installation log and try to provide fix/correct issue to developers
 
 .. _`cape2.sh`: https://github.com/doomedraven/Tools/edit/master/Sandbox/cape2.sh
 

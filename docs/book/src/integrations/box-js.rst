@@ -2,12 +2,12 @@
 Box-js
 ======
 
-* :ref:`instalation`
+* :ref:`installation`
 * :ref:`preparation`
 * :ref:`starting`
 * :ref:`restapi`
 
-.. _instalation:
+.. _installation:
 
 * Quick and dirty notes how to integrate box-js to CAPE::
 

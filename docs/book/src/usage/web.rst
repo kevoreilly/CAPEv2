@@ -81,7 +81,7 @@ Please refer both to the documentation of the web server of your choice as well 
 Exposed to internet
 ===================
 
-To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for instalation steps
+To get rid of many bots/scrappers so we suggest to deploy this amazing project `Nginx Ultimate bad bot blocker`_, follow readme for installation steps
 
 * Enable web auth with captcha in `conf/web.conf` preferly to avoid any bruteforce.
 * Enable `ReCaptcha`_. You will need to set ``Public`` and ``Secret`` keys in ``web/web/settings.py``

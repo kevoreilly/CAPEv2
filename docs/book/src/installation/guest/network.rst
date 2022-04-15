@@ -69,7 +69,7 @@ Open a command prompt as Administrator, and run:
 Link Local Multicast Name Resolution (LLMNR)
 ============================================
 
-Open the Group Policy editor py typing ``gpedit.msc`` into the Start Menu search box, and press enter.
+Open the Group Policy editor by typing ``gpedit.msc`` into the Start Menu search box, and press enter.
 Then navigate to Computer Configuration> Administrative Templates>
 Network> DNS Client, and open Turn off Multicast Name Resolution.
 
@@ -82,7 +82,7 @@ Network Connectivity Status Indicator, Error Reporting, etc
 Windows has many diagnostic tools such as the Network Connectivity Status Indicator and Error Reporting, that reach
 out to Microsoft servers over the internet. Fortunately, these can all be disabled with one Group Policy change.
 
-Open the Group Policy editor py typing ``gpedit.msc`` into the Start Menu search box, and press enter.
+Open the Group Policy editor by typing ``gpedit.msc`` into the Start Menu search box, and press enter.
 Then navigate to Computer Configuration> Administrative Templates>
 System> Internet Communication Management, and open Restrict Internet Communication.
 

@@ -46,6 +46,6 @@ Contribute
 ==========
 
 To submit your patch just create a Pull Request from your GitHub fork.
-If you don't now how to create a Pull Request take a look to `GitHub help`_.
+If you don't know how to create a Pull Request take a look to `GitHub help`_.
 
 .. _`GitHub help`: https://help.github.com/articles/using-pull-requests/

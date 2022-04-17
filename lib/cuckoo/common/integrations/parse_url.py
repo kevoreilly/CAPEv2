@@ -5,6 +5,7 @@
 import json
 import logging
 from datetime import datetime
+from typing import List
 
 try:
     import re2 as re
@@ -34,24 +35,21 @@ log = logging.getLogger(__name__)
 class URL(object):
     """URL 'Static' Analysis"""
 
-    def __init__(self, url):
+    def __init__(self, url: str):
         self.url = url
-        p = r"^(?:https?:\/\/)?(?:www\.)?(?P<domain>[^:\/\n]+)"
-        dcheck = re.match(p, self.url)
+        dcheck = re.match(r"^(?:https?:\/\/)?(?:www\.)?(?P<domain>[^:\/\n]+)", self.url)
         if dcheck:
             self.domain = dcheck.group("domain")
             # Work around a bug where a "." can tail a url target if
             # someone accidentally appends one during submission
-            while self.domain.endswith("."):
-                self.domain = self.domain[:-1]
+            self.domain = self.domain.rstrip(".")
         else:
             self.domain = ""
 
-    def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
-        nest_count = 0 - ignore_nest_level
-        string_buf = str()
+    def parse_json_in_javascript(self, data: str = "", ignore_nest_level: int = 0) -> List[dict]:
+        nest_count = -ignore_nest_level
+        string_buf = ""
         json_buf = []
-        json_data = []
         for character in data:
             if character == "{":
                 nest_count += 1
@@ -61,24 +59,21 @@ class URL(object):
                 nest_count -= 1
             if nest_count == 0 and len(string_buf):
                 json_buf.append(string_buf)
-                string_buf = str()
+                string_buf = ""
 
         if json_buf:
-            for data in json_buf:
-                if len(data) > 4:
-                    json_data.append(json.loads(data))
-            return json_data
+            return [json.loads(data) for data in json_buf if len(data) > 4]
 
         return []
 
-    def run(self):
+    def run(self) -> dict:
         results = {}
         if self.domain:
             try:
                 w = whois(self.domain)
                 # Create static fields if they don't exist, EG if the WHOIS
                 # data is stale.
-                fields = [
+                fields = (
                     "updated_date",
                     "status",
                     "name",
@@ -96,9 +91,9 @@ class URL(object):
                     "org",
                     "creation_date",
                     "emails",
-                ]
+                )
                 for field in fields:
-                    if field not in list(w.keys()) or not w[field]:
+                    if not w.get(field):
                         w[field] = ["None"]
             except Exception:
                 # No WHOIS data returned
@@ -106,19 +101,20 @@ class URL(object):
                 return results
 
             # These can be a list or string, just make them all lists
-            for key in w.keys():
+            for key in w:
                 buf = []
                 # Handle and format dates
                 if "_date" in key:
-                    if isinstance(w[key], list):
-                        buf = [str(dt).replace("T", " ").split(".", 1)[0] for dt in w[key]]
-                    else:
-                        buf = [str(w[key]).replace("T", " ").split(".", 1)[0]]
+                    buf = (
+                        [str(dt).replace("T", " ").split(".", 1)[0] for dt in w[key]]
+                        if isinstance(w[key], list)
+                        else [str(w[key]).replace("T", " ").split(".", 1)[0]]
+                    )
+
+                elif isinstance(w[key], list):
+                    continue
                 else:
-                    if isinstance(w[key], list):
-                        continue
-                    else:
-                        buf = [w[key]]
+                    buf = [w[key]]
                 w[key] = buf
 
             output = (
@@ -148,19 +144,19 @@ class URL(object):
             )
             results["whois"] = output
 
-        # ToDo this should be in config
+        # TODO: this should be in config
         if self.domain == "bit.ly":
             resp = requests.get(f"{self.url}+")
             soup = bs4.BeautifulSoup(resp.text, "html.parser")
             output = []
-            for script in [x.extract() for x in soup.find_all("script")]:
+            for script in (x.extract() for x in soup.find_all("script")):
                 if script.contents:
                     content = script.contents[0]
                     if "long_url_no_protocol" in content:
                         output = self.parse_json_in_javascript(content, 1)
 
             if output:
-                results["bitly"] = {k: v for d in output for k, v in d.iteritems()}
+                results["bitly"] = {k: v for d in output for k, v in d.items()}
                 newtime = datetime.fromtimestamp(int(results["bitly"]["created_at"]))
                 results["bitly"]["created_at"] = f"{newtime.strftime('%Y-%m-%d %H:%M:%S')} GMT"
 

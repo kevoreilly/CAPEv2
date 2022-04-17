@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from typing import List
+
 from lib.cuckoo.common.integrations.parse_encoded_script import EncodedScriptFile
 
 try:
@@ -23,10 +25,10 @@ class WindowsScriptFile(object):
     def __init__(self, filepath):
         self.filepath = filepath
 
-    def run(self):
-        results = {}
+    def run(self) -> List[str]:
         ret = []
-        source = open(self.filepath, "r").read()
+        with open(self.filepath, "r") as f:
+            source = f.read()
 
         # Get rid of superfluous comments.
         source = re.sub("/\\*.*?\\*/", "", source, flags=re.S)
@@ -44,8 +46,8 @@ class WindowsScriptFile(object):
             source = re.match("<.*>(.*)</.*>$", script, re.S).group(0)
 
             # Decode JScript.Encode encoding.
-            if language in ("jscript.encode", "vbscript.encode"):
-                source = EncodedScriptFile(self.filepath).decode(source)
+            if language in {"jscript.encode", "vbscript.encode"}:
+                source = EncodedScriptFile(self.filepath).decode(source.encode())
 
             if len(source) > 65536:
                 source = f"{source[:65536]}\r\n<truncated>"

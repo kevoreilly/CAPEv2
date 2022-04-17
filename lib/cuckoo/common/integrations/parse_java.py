@@ -2,9 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import contextlib
 import logging
 import os
 from subprocess import PIPE, Popen
+from typing import Any, Dict
 
 from lib.cuckoo.common.utils import convert_to_printable, store_temp_file
 
@@ -14,20 +16,18 @@ log = logging.getLogger(__name__)
 class Java(object):
     """Java Static Analysis"""
 
-    def __init__(self, file_path, decomp_jar):
+    def __init__(self, file_path: str, decomp_jar: str):
         self.file_path = file_path
         self.decomp_jar = decomp_jar
 
-    def run(self):
+    def run(self) -> Dict[str, Any]:
         """Run analysis.
         @return: analysis results dict or None.
         """
         if not os.path.exists(self.file_path):
             return None
 
-        results = {}
-
-        results["java"] = {}
+        results = {"java": {}}
 
         if self.decomp_jar:
             with open(self.file_path, "rb") as f:
@@ -42,11 +42,7 @@ class Java(object):
                 results["decompiled"] = convert_to_printable(p.stdout.read())
             except Exception as e:
                 log.error(e, exc_info=True)
-                pass
 
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(jar_file)
-            except Exception:
-                pass
-
         return results

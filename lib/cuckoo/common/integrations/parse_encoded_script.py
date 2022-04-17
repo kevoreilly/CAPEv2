@@ -5,14 +5,16 @@
 import base64
 import logging
 import struct
+from typing import Dict
 
 log = logging.getLogger(__name__)
 
-# ToDo this probably can be replaced by vbe_decoder
+
+# TODO: this probably can be replaced by vbe_decoder
 class EncodedScriptFile(object):
     """Deobfuscates and interprets Windows Script Files."""
 
-    encoding = [
+    encoding = (
         1,
         2,
         0,
@@ -77,10 +79,10 @@ class EncodedScriptFile(object):
         1,
         0,
         2,
-    ]
+    )
 
-    lookup = [
-        [
+    lookup = (
+        (
             0x00,
             0x01,
             0x02,
@@ -209,8 +211,8 @@ class EncodedScriptFile(object):
             0x5A,
             0x2C,
             0x57,
-        ],
-        [
+        ),
+        (
             0x00,
             0x01,
             0x02,
@@ -339,8 +341,8 @@ class EncodedScriptFile(object):
             0x51,
             0x20,
             0x36,
-        ],
-        [
+        ),
+        (
             0x00,
             0x01,
             0x02,
@@ -469,8 +471,8 @@ class EncodedScriptFile(object):
             0x4F,
             0x42,
             0x65,
-        ],
-    ]
+        ),
+    )
 
     unescape = {
         "#": "\r",
@@ -480,24 +482,24 @@ class EncodedScriptFile(object):
         "$": "@",
     }
 
-    def __init__(self, filepath):
+    def __init__(self, filepath: str):
         self.filepath = filepath
 
-    def run(self):
-        results = {}
+    def run(self) -> Dict[str, str]:
         try:
-            source = open(self.filepath, "rb").read()
-        except UnicodeDecodeError as e:
-            return results
+            with open(self.filepath, "rb") as f:
+                source = f.read()
+        except UnicodeDecodeError:
+            return {}
         source = self.decode(source)
         if not source:
-            return results
-        results["encscript"] = source[:65536]
+            return {}
+        results = {"enscript": source[:65536]}
         if len(source) > 65536:
             results["encscript"] += "\r\n<truncated>"
         return results
 
-    def decode(self, source, start=b"#@~^", end=b"^#~@"):
+    def decode(self, source: bytes, start: bytes = b"#@~^", end: bytes = b"^#~@") -> str:
         if start not in source or end not in source:
             return
 
@@ -507,7 +509,7 @@ class EncodedScriptFile(object):
 
         while o < end:
             ch = source[o]
-            if source[o] == 64:  # b"@":
+            if ch == 64:  # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
@@ -522,4 +524,4 @@ class EncodedScriptFile(object):
         if (c % 2**32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
-        return b"".join(ch for ch in r).decode("latin-1")
+        return b"".join(r).decode("latin-1")

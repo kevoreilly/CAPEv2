@@ -1,15 +1,17 @@
+import contextlib
 import logging
 import os
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from binascii import hexlify
 from hashlib import md5
+from typing import Dict
 
 from Crypto.Cipher import ARC4
 
 from .constants import functions, macros, operators
 
 
-def parse_args():
+def parse_args() -> Namespace:
     usage = "detokenize.py [OPTION]... [FILES]..."
     arg_parser = ArgumentParser(description=usage)
     arg_parser.add_argument(
@@ -23,13 +25,13 @@ def parse_args():
     return arg_parser.parse_args()
 
 
-def configure_logger(log_level):
+def configure_logger(log_level: int):
     log_levels = {0: logging.ERROR, 1: logging.WARNING, 2: logging.INFO, 3: logging.DEBUG}
     log_level = min(max(log_level, 0), 3)  # clamp to 0-3 inclusive
     logging.basicConfig(level=log_levels[log_level], format="%(asctime)s - %(name)s - %(levelname)-8s %(message)s")
 
 
-def CryptDeriveKey(passphrase):
+def CryptDeriveKey(passphrase) -> bytes:
     """
     Stupid MS-specific method of deriving session key from passphrase
     https://stackoverflow.com/questions/18093316/ms-cryptoapi-giving-wrong-rc4-results
@@ -41,23 +43,19 @@ class Kixtart:
     def __init__(self, path, dump_dir=None):
         self.logger = logging.getLogger("Kixtart-Detokenizer")
         self.path = path
-        if not dump_dir:
-            self.dump_dir = "."
-        else:
-            self.dump_dir = dump_dir
-
+        self.dump_dir = dump_dir or "."
         with open(path, "rb") as fp:
             self.data = bytearray(fp.read())
         self.header = self.data[:6]
 
-        # TODO one of these bytes should actually indicate if it is encrypted or not
+        # TODO: one of these bytes should actually indicate if it is encrypted or not
         if self.header != b"\x1a\xaf\x06\x00\x00\x10":
-            raise Exception(f"Unrecognized header {hexlify(self.header)}")
+            raise ValueError(f"Unrecognized header {hexlify(self.header)}")
         self.key = self.data[0x06:0x16]
         self.session_key = CryptDeriveKey(self.key)
         self.ciphertext = self.data[0x16:]
 
-    def decrypt(self):
+    def decrypt(self) -> bytes:
         arc4 = ARC4.new(key=self.session_key)
         self.logger.info("[*]\tdecrypting with session key %s", hexlify(self.session_key).decode())
         token_data = arc4.decrypt(bytes(self.ciphertext))
@@ -67,7 +65,7 @@ class Kixtart:
         self.parse()
         return self.tokenized
 
-    def parse_labels(self, data):
+    def parse_labels(self, data: bytes) -> Dict[int, str]:
         labels = {}
         string = ""
         i = 0
@@ -100,17 +98,16 @@ class Kixtart:
                     function_name += chr(buf[i])
                     i += 1
                 i += 5  # Seems to always be d9 ff ff ff
+                parameters = []
                 if buf[i] == 0:
                     i += 1
-                    parameters = []
                 else:
                     parameter_types = ""
                     while buf[i] != 0:
                         parameter_types += chr(buf[i])
                         i += 1
                     i += 1
-                    parameters = []
-                    for char in parameter_types:
+                    for _ in parameter_types:
                         param = ""
                         while buf[i] != 0:
                             param += chr(buf[i])
@@ -162,9 +159,7 @@ class Kixtart:
         # remove excessive whitespace (likely, where comments used to be)
         filtered = [self.script[0]]
         for i in range(1, len(self.script)):
-            if self.script[i] == "" and self.script[i - 1] == "":
-                pass
-            else:
+            if self.script[i] != "" or self.script[i - 1] != "":
                 filtered.append(self.script[i])
         self.script = filtered
 
@@ -202,7 +197,6 @@ class Kixtart:
         self.logger.debug("Detokenize %s: %s, labels=%s, function=%s", function, hexlify(buf), labels, function)
         i = 0
         line_num = 0
-        label_count = 0
         first_line = 9999
         last_line = 0
         while True:
@@ -217,15 +211,11 @@ class Kixtart:
                 offset_size = b - 0xEB
                 line_num = int.from_bytes(buf[i + 1 : i + 1 + offset_size], byteorder="little")
                 # record first and last lines, so that if this is a function, we can wrap it in function XYZ and endfunction
-                if line_num < first_line:
-                    first_line = line_num
-                if line_num > last_line:
-                    last_line = line_num
-                try:
+                first_line = min(line_num, first_line)
+                last_line = max(line_num, last_line)
+                # No label for some lines
+                with contextlib.suppress(KeyError):
                     self.script[line_num] += f":{labels[i]}\n"
-                except Exception:
-                    # No label for this line
-                    pass
                 i += 1 + offset_size
                 continue
 
@@ -235,17 +225,17 @@ class Kixtart:
                 i += 2
                 continue
             # 2 byte int
-            if b == 0xDB:
+            elif b == 0xDB:
                 self.script[line_num] += str(int.from_bytes(buf[i + 1 : i + 3], byteorder="little"))
                 i += 3
                 continue
             # I have no idea what this is
-            if b == 0xDC:
+            elif b == 0xDC:
                 self.logger.warning("Unknown command 0xDC. Skipping 5 bytes")
                 i += 5
                 continue
             # String literal - inline
-            if b == 0xDE:
+            elif b == 0xDE:
                 i += 1
                 name = ""
                 while buf[i] != 0:
@@ -255,7 +245,7 @@ class Kixtart:
                 i += 1
                 continue
             # Variable name - inline
-            if b == 0xDF:
+            elif b == 0xDF:
                 i += 1
                 name = "$"
                 while buf[i] != 0:
@@ -265,7 +255,7 @@ class Kixtart:
                 i += 1
                 continue
             # Macro
-            if b == 0xE0:
+            elif b == 0xE0:
                 if n in macros:
                     self.script[line_num] += f"@{macros[n]}"
                 else:
@@ -274,28 +264,28 @@ class Kixtart:
                 i += 2
                 continue
             # Variable name from vars table
-            if b == 0xE7:
+            elif b == 0xE7:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
                 self.script[line_num] += f"${self.variables[offset].decode()}"
                 i += 3
                 continue
             # object method -  Fetch method name from vars table
-            if b == 0xE8:
+            elif b == 0xE8:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
                 self.script[line_num] += f".{self.variables[offset].decode()}"
                 i += 3
                 continue
             # Function? name from var table
-            if b == 0xE9:
+            elif b == 0xE9:
                 # TODO is this null terminated or 2 bytes?
                 offset = int.from_bytes(buf[i + 1 : i + 3], byteorder="little")
                 self.script[line_num] += self.variables[offset].decode()
                 i += 3
                 continue
             # Keyword
-            if b == 0xEA:
+            elif b == 0xEA:
                 if n in functions:
                     self.script[line_num] += functions[n]
                 else:
@@ -304,19 +294,17 @@ class Kixtart:
                 i += 2
                 continue
             # Single char literal + null
-            if b == 0xEF:
+            elif b == 0xEF:
                 self.script[line_num] += chr(n)
                 i += 3
                 continue
-
             # check operators/symbols
-            if b in operators:
+            elif b in operators:
                 self.script[line_num] += f"{operators[b]}"
                 i += 1
                 continue
-
             # End Script
-            if b == 0xF1:
+            elif b == 0xF1:
                 if function:
                     if not self.script[first_line - 1]:
                         self.script[first_line - 1] = f"Function {function}"
@@ -330,9 +318,8 @@ class Kixtart:
 
 def main():
     options = parse_args()
-    if options.dump_dir:
-        if not os.path.exists(options.dump_dir):
-            os.makedirs(options.dump_dir)
+    if options.dump_dir and not os.path.exists(options.dump_dir):
+        os.makedirs(options.dump_dir)
     configure_logger(options.verbose)
 
     for arg in options.files:

@@ -158,7 +158,6 @@ functions = {
     0x44: "readvalue ",
     0x45: "redirectoutput ",
     0x47: "right ",
-    0x48: "replace ",
     0x48: "rnd ",
     0x49: "round ",
     0x4A: "rtrim ",

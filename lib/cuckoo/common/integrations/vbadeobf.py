@@ -3,9 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import binascii
+import contextlib
 import string
-from binascii import unhexlify
+from base64 import b64decode
 from itertools import chain, repeat
+from typing import Callable, List, Tuple
 
 from lib.cuckoo.common.utils import convert_to_printable
 
@@ -39,51 +42,51 @@ PATTERNS = (
 DECRYPTORS = {}
 
 
-def is_printable(s):
+def is_printable(s: str) -> bool:
     return all(c in string.printable for c in s)
 
 
-def filter_printable(s):
+def filter_printable(s: str) -> str:
     return "".join(c for c in s if c in string.printable)
 
 
-def repeating_xor(s, key):
+def repeating_xor(s: str, key: str) -> str:
     repeating_key = chain.from_iterable(repeat(key))
     return "".join(chr(ord(c) ^ ord(k)) for c, k in zip(s, repeating_key))
 
 
-def quote(f):
+def quote(f: Callable[[re.Match], str]):
     return lambda *args: f'"""{f(*args)}"""'
 
 
-def decrypt(enc_type):
-    def wrapper(f):
+def decrypt(enc_type: str) -> Callable[[Callable[[re.Match], str]], Callable[[re.Match], str]]:
+    def wrapper(f: Callable[[re.Match], str]) -> Callable[[re.Match], str]:
         DECRYPTORS[enc_type] = f
         return f
 
     return wrapper
 
 
-def normalize_code(macro):
-    macro = re.sub(r"_\s*\n", " ", macro)  # Remove underscore line continuation.
-    return macro
+def normalize_code(macro: str) -> str:
+    return re.sub(r"_\s*\n", " ", macro)  # Remove underscore line continuation.
 
 
 @quote
-def decode_chr(m):
-    ascii = re.findall(r"Chr[A-Z$]?\((\d+)\)", m.group(1))
-    return "".join(chr(int(n)) for n in ascii)
+def decode_chr(m: re.Match) -> str:
+    ascii_chars = re.findall(r"Chr[A-Z$]?\((\d+)\)", m.group(1))
+    return "".join(chr(int(n)) for n in ascii_chars)
 
 
 @quote
-def decode_base64(m):
+def decode_base64(m: re.Match) -> str:
+    print(type(m))
     s = m.group(1)
     if (len(s) % 4 != 0 and not s.endswith("=")) or ("=" in s.rstrip("=")):
         return s
 
     try:
-        decoded = s.decode("base64")
-    except Exception:
+        decoded = b64decode(s).decode()
+    except (binascii.Error, UnicodeDecodeError):
         return s
 
     if not is_printable(decoded):
@@ -92,62 +95,55 @@ def decode_base64(m):
 
 
 @quote
-def decode_hex(m):
+def decode_hex(m: re.Match) -> str:
     s = m.group(1)
     if len(s) % 2 != 0:
         return s
     try:
-        result = "".join(c for c in unhexlify(s))
-    except Exception as e:
+        result = "".join(binascii.unhexlify(s))
+    except Exception:
         return ""
     return result
 
 
 @quote
-def decode_reverse(m):
+def decode_reverse(m: re.Match) -> str:
     return m.group(1)[::-1]
 
 
 @quote
-def concatenate(m):
-    line = m.group(0)
+def concatenate(m: re.Match) -> str:
     return "".join(re.findall(r'"""(.*?)"""', m.group(0)))
 
 
 @decrypt("xor")
 @quote
-def decrypt_xor(m):
+def decrypt_xor(m: re.Match) -> str:
     return repeating_xor(m.group(1), m.group(2))
 
 
 @decrypt("sub")
 @quote
-def decrypt_sub(m):
-    try:
+def decrypt_sub(m: re.Match):
+    with contextlib.suppress(Exception):
+        # TODO: Needs a relook, will likely error
         first = int([c for c in m.group(1) if c.isdigit()])
         second = int([c for c in m.group(2) if c.isdigit()])
         if first and second:
             return chr(first - second)
-    except Exception:
-        pass
     return m.group()
 
 
-def find_enc_function(macro):
+def find_enc_function(macro) -> Tuple[str, str]:
     match, type = re.search(r"(?ims)Public Function (\w+).+? Xor .+?End Function", macro), "xor"
     if not match:
         match, type = re.search(r"(?ims)Public Function (\w+).+?\d+\s*-\s*\d+.+?End Function", macro), "sub"
     return (match.group(1), type) if match else (None, None)
 
 
-def handle_techniques(line, **opts):
-
-    vb_vars = opts["vb_vars"]
+def handle_techniques(line: str, **opts) -> str:
     enc_func_name = opts["enc_func_name"]
     decrypt_func = opts["decrypt_func"]
-
-    def var_substitute(m):
-        var = m.group(1)
 
     line = line.replace('"', '"""')
     line = re.sub(r'"""([A-F0-9]{2,})"""', decode_hex, line)
@@ -174,7 +170,7 @@ def handle_techniques(line, **opts):
     return line
 
 
-def extract_iocs(s):
+def extract_iocs(s: str) -> Tuple[str, str]:
     for desc, pattern in PATTERNS:
         m = pattern.findall(s)
         if m:
@@ -192,11 +188,11 @@ def extract_iocs(s):
     return None
 
 
-def parse_macro(macro):
+def parse_macro(macro: str) -> List[Tuple[str, str]]:
     opts = {}
     vb_vars = {}
     result = {}
-    iocs = []
+    iocs = set()
     macro = normalize_code(macro)
 
     enc_func_name, enc_type = find_enc_function(macro)
@@ -225,9 +221,9 @@ def parse_macro(macro):
         for line in substituted.splitlines():
             ioc = extract_iocs(line)
             if ioc:
-                iocs.append(ioc)
+                iocs.add(ioc)
 
     # Dedup IOCs
-    result = sorted(set(iocs), key=lambda p: p[0])
+    result = sorted(iocs, key=lambda p: p[0])
 
     return result

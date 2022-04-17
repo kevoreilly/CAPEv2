@@ -17,15 +17,16 @@ https://github.com/JohnHammond/vbe-decoder/blob/master/vbe-decoder.py
 import os
 import re
 import sys
+from typing import List
 
 
-def decode_data(data: str):
+def decode_data(data: str) -> str:
 
     # Magic number used for the VBE voodoo magic below
     decoding_offset = 9
 
     # Decoding mapping for unique bytes in the encoded scheme
-    decodings = [
+    decodings = (
         "\x57\x6E\x7B",
         "\x4A\x4C\x41",
         "\x0B\x0B\x0B",
@@ -145,10 +146,10 @@ def decode_data(data: str):
         "\x51\x4F\x5A",
         "\x20\x42\x2C",
         "\x36\x65\x57",
-    ]
+    )
 
     # The combination switching for the encoded bytes
-    combinations = [
+    combinations = (
         0,
         1,
         2,
@@ -213,37 +214,35 @@ def decode_data(data: str):
         0,
         2,
         1,
-    ]
+    )
 
     # Replace the data with some strings we already know the meaning of
-    replacements = [("@&", chr(10)), ("@#", chr(13)), ("@*", ">"), ("@!", "<"), ("@$", "@")]
-    for replacement in replacements:
-        to_replace, replace_with = replacement
+    replacements = {"@&": chr(10), "@#": chr(13), "@*": ">", "@!": "<", "@$": "@"}
+    for to_replace, replace_with in replacements.items():
         data = data.replace(to_replace, replace_with)
 
     # Now that it is prepared, replace all the other encoded data
-    result: list = []
-    index: int = -1
-    bad_bytes: list = [60, 62, 64]
+    result = ""
+    index = -1
+    bad_bytes = {60, 62, 64}
     for char in data:
         byte = ord(char)
         if byte < 128:
             index += 1
-        if (byte == decoding_offset) or (byte > 31 and byte < 128) and (byte not in bad_bytes):
-
+        if byte == decoding_offset or 31 < byte < 128 and byte not in bad_bytes:
             # Do the translation to get the right byte
-            char = [c for c in decodings[byte - decoding_offset]][combinations[index % 64]]
+            char = decodings[byte - decoding_offset][combinations[index % 64]]
 
-        result.append(char)
+        result += char
 
-    return "".join(result)
+    return result
 
 
 def fatal_error(message: str):
     """
     Convenience function to display an error message and quit.
     """
-    sys.stderr.write(f"[!] fatal error, {str(message)}\n")
+    sys.stderr.write(f"[!] fatal error, {message}\n")
     sys.exit(-1)
 
 
@@ -251,65 +250,54 @@ def success(message: str):
     """
     Convenience function to display a success message and quit.
     """
-    sys.stderr.write(f"[+] success, {str(message)}\n")
+    sys.stderr.write(f"[+] success, {message}\n")
 
 
-def validate_files(files: list):
+def validate_files(files: List[str]):
     """
     Check if the supplied files actually exist and are in fact files
     """
     for file in files:
         if not os.path.exists(file):
-            fatal_error(f"supplied file '{str(file)}' does not exist")
+            fatal_error(f"supplied file '{file}' does not exist")
         if not os.path.isfile(file):
-            fatal_error(f"supplied file '{str(file)}' is not a file (maybe directory?)")
+            fatal_error(f"supplied file '{file}' is not a file (maybe directory?)")
 
 
-def decode_files(files: list):
-    output: list = []
-    for file in files:
-        output.append(decode_file(file))
-
-    return "\n".join(output)
+def decode_files(files: List[str]) -> str:
+    return "\n".join(decode_file(file) for file in files)
 
 
-def decode_file(file: str, contents=False):
+def decode_file(file: str, contents=False) -> str:
     if not contents:
         try:
-            handle = open(file, "rb")
-            binary_content = handle.read()
-            contents: str = binary_content.decode("latin-1", errors="ignore")
+            with open(file, "rb") as handle:
+                binary_content = handle.read()
+                contents = binary_content.decode("latin-1", errors="ignore")
         except Exception as e:
             fatal_error(f"{e.message}")
-        finally:
-            handle.close()
 
-    encoded_data: list = re.findall(r"#@~\^......==(.+)......==\^#~@", contents)
-
-    decoded_data: list = []
-    for data in encoded_data:
-        decoded_data.append(decode_data(data))
-
-    return "\n".join(decoded_data)
+    encoded_data = re.findall(r"#@~\^......==(.+)......==\^#~@", contents)
+    return "\n".join(decode_data(data) for data in encoded_data)
 
 
-def main(files, output_file):
+def main(files: List[str], output_file: str):
     """
     Decode an encoded VBScript, often seen as a .vbe file
     """
 
     # Ensure we can work with these files, and then decode them
     validate_files(files)
-    output: list = decode_files(files)
+    output = decode_files(files)
 
     # Return the results as requested.
     if not output_file:
         sys.stdout.write(output)
     else:
         try:
-            handle = open(output_file, "w")
-            handle.write(output)
-            success(f"wrote decoded vbscript to '{str(output_file)}'")
+            with open(output_file, "w") as handle:
+                handle.write(output)
+            success(f"wrote decoded vbscript to '{output_file}'")
         except Exception as e:
             fatal_error(f"{e.message}")
 

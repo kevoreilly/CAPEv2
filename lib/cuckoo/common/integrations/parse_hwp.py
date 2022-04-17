@@ -4,6 +4,7 @@
 
 import logging
 import zlib
+from typing import Dict, List
 
 try:
     import olefile
@@ -20,36 +21,30 @@ log = logging.getLogger(__name__)
 class HwpDocument(object):
     """Static analysis of HWP documents."""
 
-    def __init__(self, filepath, results):
+    def __init__(self, filepath: str):
         self.filepath = filepath
-        self.files = {}
+        self.files: Dict[str, bytes] = {}
         # self.ex = ExtractManager.for_task(task_id)
 
     def unpack_hwp(self):
         """Unpacks ole-based zip files."""
-        ole = olefile.OleFileIO(self.filepath)
-        streams = ole.listdir()
-        for stream in streams:
-            stream_name = "/".join(stream)
-        # content = ole.openstream(stream).read()
-        try:
-            stream_content = zlib.decompress(ole.openstream(stream).read(), -15)
-            self.files[stream_name] = stream_content
-        except Exception as e:
-            log.error(e, exc_info=True)
-        ole.close()
+        with olefile.OleFileIO(self.filepath) as ole:
+            streams = ole.listdir()
+            for stream in streams:
+                stream_name = "/".join(stream)
+            try:
+                with ole.openstream(stream) as f:
+                    contents = f.read()
+                stream_content = zlib.decompress(contents, -15)
+                self.files[stream_name] = stream_content
+            except Exception as e:
+                log.error(e, exc_info=True)
 
-    def extract_eps(self):
+    def extract_eps(self) -> List[bytes]:
         """Extract some information from Encapsulated Post Script files."""
-        ret = []
-        for filename, content in self.files.items():
-            if filename.lower().endswith(".eps") or filename.lower().endswith(".ps"):
-                ret.append(content)
-        return ret
+        return [content for filename, content in self.files.items() if filename.lower().endswith((".eps", ".ps"))]
 
-    def run(self):
+    def run(self) -> Dict[str, List[bytes]]:
         self.unpack_hwp()
-
         self.ex.peek_office(self.files)
-
         return {"eps": self.extract_eps()}

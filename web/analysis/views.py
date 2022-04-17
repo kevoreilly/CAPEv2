@@ -2161,7 +2161,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             details = {"msg": "No results"}
 
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
-        details = xlmdeobfuscate(path, task_id, on_demand=True)
+        details = xlmdeobfuscate(path, str(task_id), on_demand=True)
         if not details:
             details = {"msg": "No results"}
     elif (

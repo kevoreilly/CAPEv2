@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from typing import Any, Dict, List
+
 from lib.cuckoo.common.utils import convert_to_printable
 
 try:
@@ -40,7 +42,7 @@ class ELF(object):
         self.elf = None
         self.result = {}
 
-    def run(self):
+    def run(self) -> Dict[str, Any]:
         try:
             with open(self.file_path, "rb") as f:
                 self.elf = ELFFile(f)
@@ -58,9 +60,9 @@ class ELF(object):
 
         return self.result
 
-    def _get_file_header(self):
+    def _get_file_header(self) -> Dict[str, str]:
         return {
-            # ToDo
+            # TODO
             "magic": convert_to_printable(self.elf.e_ident_raw[:4]),
             "class": describe_ei_class(self.elf.header.e_ident["EI_CLASS"]),
             "data": describe_ei_data(self.elf.header.e_ident["EI_DATA"]),
@@ -82,70 +84,67 @@ class ELF(object):
             "section_header_string_table_index": self.elf.header["e_shstrndx"],
         }
 
-    def _get_section_headers(self):
-        section_headers = []
-        for section in self.elf.iter_sections():
-            section_headers.append(
-                {
-                    "name": section.name,
-                    "type": describe_sh_type(section["sh_type"]),
-                    "addr": self._print_addr(section["sh_addr"]),
-                    "size": section["sh_size"],
-                }
-            )
-        return section_headers
+    def _get_section_headers(self) -> List[Dict[str, str]]:
+        return [
+            {
+                "name": section.name,
+                "type": describe_sh_type(section["sh_type"]),
+                "addr": self._print_addr(section["sh_addr"]),
+                "size": section["sh_size"],
+            }
+            for section in self.elf.iter_sections()
+        ]
 
-    def _get_program_headers(self):
-        program_headers = []
-        for segment in self.elf.iter_segments():
-            program_headers.append(
-                {
-                    "type": describe_p_type(segment["p_type"]),
-                    "addr": self._print_addr(segment["p_vaddr"]),
-                    "flags": describe_p_flags(segment["p_flags"]).strip(),
-                    "size": segment["p_memsz"],
-                }
-            )
-        return program_headers
+    def _get_program_headers(self) -> List[Dict[str, str]]:
+        return [
+            {
+                "type": describe_p_type(segment["p_type"]),
+                "addr": self._print_addr(segment["p_vaddr"]),
+                "flags": describe_p_flags(segment["p_flags"]).strip(),
+                "size": segment["p_memsz"],
+            }
+            for segment in self.elf.iter_segments()
+        ]
 
-    def _get_dynamic_tags(self):
+    def _get_dynamic_tags(self) -> List[Dict[str, str]]:
         dynamic_tags = []
         for section in self.elf.iter_sections():
             if not isinstance(section, DynamicSection):
                 continue
-            for tag in section.iter_tags():
-                dynamic_tags.append(
-                    {
-                        "tag": self._print_addr(ENUM_D_TAG.get(tag.entry.d_tag, tag.entry.d_tag)),
-                        "type": str(tag.entry.d_tag)[3:],
-                        "value": self._parse_tag(tag),
-                    }
-                )
+            dynamic_tags.extend(
+                {
+                    "tag": self._print_addr(ENUM_D_TAG.get(tag.entry.d_tag, tag.entry.d_tag)),
+                    "type": str(tag.entry.d_tag)[3:],
+                    "value": self._parse_tag(tag),
+                }
+                for tag in section.iter_tags()
+            )
 
         return dynamic_tags
 
-    def _get_symbol_tables(self):
+    def _get_symbol_tables(self) -> List[Dict[str, str]]:
         symbol_tables = []
         for section in self.elf.iter_sections():
             if not isinstance(section, SymbolTableSection):
                 continue
-            for nsym, symbol in enumerate(section.iter_symbols()):
-                symbol_tables.append(
-                    {
-                        "value": self._print_addr(symbol["st_value"]),
-                        "type": describe_symbol_type(symbol["st_info"]["type"]),
-                        "bind": describe_symbol_bind(symbol["st_info"]["bind"]),
-                        "ndx_name": symbol.name,
-                    }
-                )
+            symbol_tables.extend(
+                {
+                    "value": self._print_addr(symbol["st_value"]),
+                    "type": describe_symbol_type(symbol["st_info"]["type"]),
+                    "bind": describe_symbol_bind(symbol["st_info"]["bind"]),
+                    "ndx_name": symbol.name,
+                }
+                for symbol in section.iter_symbols()
+            )
+
         return symbol_tables
 
-    def _get_relocations(self):
+    def _get_relocations(self) -> List[Dict[str, str]]:
         relocations = []
         for section in self.elf.iter_sections():
             if not isinstance(section, RelocationSection):
                 continue
-            section_relocations = []
+            section_relocations = set()
             for rel in section.iter_relocations():
                 relocation = {
                     "offset": self._print_addr(rel["r_offset"]),
@@ -169,8 +168,7 @@ class ELF(object):
                     relocation["value"] = self._print_addr(symbol["st_value"])
                     relocation["name"] = symbol_name
 
-                if relocation not in section_relocations:
-                    section_relocations.append(relocation)
+                section_relocations.add(relocation)
 
             relocations.append(
                 {
@@ -180,27 +178,27 @@ class ELF(object):
             )
         return relocations
 
-    def _get_notes(self):
+    def _get_notes(self) -> List[Dict[str, str]]:
         notes = []
         for segment in self.elf.iter_segments():
             if not isinstance(segment, NoteSegment):
                 continue
-            for note in segment.iter_notes():
-                notes.append(
-                    {
-                        "owner": note["n_name"],
-                        "size": self._print_addr(note["n_descsz"]),
-                        "note": describe_note(note),
-                        "name": note["n_name"],
-                    }
-                )
+            notes.extend(
+                {
+                    "owner": note["n_name"],
+                    "size": self._print_addr(note["n_descsz"]),
+                    "note": describe_note(note),
+                    "name": note["n_name"],
+                }
+                for note in segment.iter_notes()
+            )
+
         return notes
 
-    def _print_addr(self, addr):
-        fmt = f"0x{addr:08x}" if self.elf.elfclass == 32 else f"0x{addr:016x}"
-        return fmt
+    def _print_addr(self, addr: int) -> str:
+        return f"0x{addr:08x}" if self.elf.elfclass == 32 else f"0x{addr:016x}"
 
-    def _decode_flags(self, flags):
+    def _decode_flags(self, flags) -> str:
         description = ""
         if self.elf["e_machine"] == "EM_ARM":
             if flags & E_FLAGS.EF_ARM_HASENTRY:
@@ -221,25 +219,20 @@ class ELF(object):
 
         return description
 
-    def _parse_tag(self, tag):
+    def _parse_tag(self, tag) -> str:
         if tag.entry.d_tag == "DT_NEEDED":
-            parsed = f"Shared library: [{tag.needed}]"
+            return f"Shared library: [{tag.needed}]"
         elif tag.entry.d_tag == "DT_RPATH":
-            parsed = f"Library rpath: [{tag.rpath}]"
+            return f"Library rpath: [{tag.rpath}]"
         elif tag.entry.d_tag == "DT_RUNPATH":
-            parsed = f"Library runpath: [{tag.runpath}]"
+            return f"Library runpath: [{tag.runpath}]"
         elif tag.entry.d_tag == "DT_SONAME":
-            parsed = f"Library soname: [{tag.soname}]"
+            return f"Library soname: [{tag.soname}]"
         elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("SZ", "ENT")):
-            parsed = f"{tag['d_val']} (bytes)"
+            return f"{tag['d_val']} (bytes)"
         elif isinstance(tag.entry.d_tag, str) and tag.entry.d_tag.endswith(("NUM", "COUNT")):
-            parsed = str(tag["d_val"])
+            return str(tag["d_val"])
         elif tag.entry.d_tag == "DT_PLTREL":
-            s = describe_dyn_tag(tag.entry.d_val)
-            if s.startswith("DT_"):
-                s = s[3:]
-            parsed = s
+            return describe_dyn_tag(tag.entry.d_val).lstrip("DT_")
         else:
-            parsed = self._print_addr(tag["d_val"])
-
-        return parsed
+            return self._print_addr(tag["d_val"])

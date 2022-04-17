@@ -79,6 +79,7 @@ Todo:
 """
 
 import binascii
+import configparser as ConfigParser
 import hashlib
 import optparse
 import os
@@ -90,9 +91,6 @@ import urllib.request
 import zipfile
 import zlib
 from io import StringIO
-
-urllib23 = urllib.request
-import configparser as ConfigParser
 
 try:
     import yara
@@ -197,10 +195,10 @@ class cPDFDocument:
         elif file.lower().startswith(("http://", "https://")):
             try:
                 if sys.hexversion >= 0x020601F0:
-                    self.infile = urllib23.urlopen(file, timeout=5)
+                    self.infile = urllib.request.urlopen(file, timeout=5)
                 else:
-                    self.infile = urllib23.urlopen(file)
-            except urllib23.HTTPError:
+                    self.infile = urllib.request.urlopen(file)
+            except urllib.request.HTTPError:
                 print("Error accessing URL %s" % file)
                 print(sys.exc_info()[1])
                 sys.exit()
@@ -1088,7 +1086,7 @@ def RunLengthDecode(data):
     return decompressed
 
 
-#### LZW code sourced from pdfminer
+# LZW code sourced from pdfminer
 # Copyright (c) 2004-2009 Yusuke Shinyama <yusuke at cs dot nyu dot edu>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated

@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import collections
 import logging
 import os
+from typing import Any, Dict, List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -67,22 +68,23 @@ if processing_conf.flare_capa.enabled:
         print("FLARE-CAPA missed, pip3 install -U flare-capa")
 
 
-def render_meta(doc, ostream):
+def render_meta(doc: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "md5": doc["meta"]["sample"]["md5"],
+        "sha1": doc["meta"]["sample"]["sha1"],
+        "sha256": doc["meta"]["sample"]["sha256"],
+        "path": doc["meta"]["sample"]["path"],
+    }
 
-    ostream["md5"] = doc["meta"]["sample"]["md5"]
-    ostream["sha1"] = doc["meta"]["sample"]["sha1"]
-    ostream["sha256"] = doc["meta"]["sample"]["sha256"]
-    ostream["path"] = doc["meta"]["sample"]["path"]
 
-
-def find_subrule_matches(doc):
+def find_subrule_matches(doc: Dict[str, Any]) -> set:
     """
     collect the rule names that have been matched as a subrule match.
     this way we can avoid displaying entries for things that are too specific.
     """
-    matches = set([])
 
-    def rec(node):
+    def rec(node: dict) -> set:
+        matches = set()
         if not node["success"]:
             # there's probably a bug here for rules that do `not: match: ...`
             # but we don't have any examples of this yet
@@ -95,28 +97,31 @@ def find_subrule_matches(doc):
         elif node["node"]["type"] == "feature":
             if node["node"]["feature"]["type"] == "match":
                 matches.add(node["node"]["feature"]["match"])
+        return matches
+
+    matches = set()
 
     for rule in rutils.capability_rules(doc):
         for node in rule["matches"].values():
-            rec(node)
+            matches = matches.union(rec(node))
 
     return matches
 
 
-def render_capabilities(doc, ostream):
+def render_capabilities(doc: Dict[str, Any]) -> Dict[str, List[str]]:
     """
     example::
-        {'CAPABILITY': {'accept command line arguments': 'host-interaction/cli',
-                'allocate thread local storage (2 matches)': 'host-interaction/process',
-                'check for time delay via GetTickCount': 'anti-analysis/anti-debugging/debugger-detection',
-                'check if process is running under wine': 'anti-analysis/anti-emulation/wine',
-                'contain a resource (.rsrc) section': 'executable/pe/section/rsrc',
-                'write file (3 matches)': 'host-interaction/file-system/write'}
+        {'accept command line arguments': ['host-interaction/cli'],
+            'allocate thread local storage (2 matches)': ['host-interaction/process'],
+            'check for time delay via GetTickCount': ['anti-analysis/anti-debugging/debugger-detection'],
+            'check if process is running under wine': ['anti-analysis/anti-emulation/wine'],
+            'contain a resource (.rsrc) section': ['executable/pe/section/rsrc'],
+            'write file (3 matches)': ['host-interaction/file-system/write']
         }
     """
     subrule_matches = find_subrule_matches(doc)
 
-    ostream["CAPABILITY"] = {}
+    capability_dict = {}
     for rule in rutils.capability_rules(doc):
         if rule["meta"]["name"] in subrule_matches:
             # rules that are also matched by other rules should not get rendered by default.
@@ -130,44 +135,44 @@ def render_capabilities(doc, ostream):
         else:
             capability = f"{rule['meta']['name']} ({count} matches)"
 
-        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], []).append(capability)
+        capability_dict.setdefault(rule["meta"]["namespace"], []).append(capability)
+    return capability_dict
 
 
-def render_attack(doc, ostream):
+def render_attack(doc: Dict[str, Any]) -> Dict[str, List[str]]:
     """
     example::
-        {'ATT&CK': {'COLLECTION': ['Input Capture::Keylogging [T1056.001]'],
+        {'COLLECTION': ['Input Capture::Keylogging [T1056.001]'],
             'DEFENSE EVASION': ['Obfuscated Files or Information [T1027]',
                                 'Virtualization/Sandbox Evasion::System Checks '
                                 '[T1497.001]'],
             'DISCOVERY': ['File and Directory Discovery [T1083]',
                           'Query Registry [T1012]',
                           'System Information Discovery [T1082]'],
-            'EXECUTION': ['Shared Modules [T1129]']}
+            'EXECUTION': ['Shared Modules [T1129]']
         }
     """
-    ostream["ATTCK"] = {}
+    attck_dict = {}
     tactics = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
-        if not rule["meta"].get("att&ck"):
-            continue
-        for attack in rule["meta"]["att&ck"]:
+        for attack in rule["meta"].get("att&ck", {}):
             tactics[attack["tactic"]].add((attack["technique"], attack.get("subtechnique"), attack["id"]))
 
     for tactic, techniques in sorted(tactics.items()):
         inner_rows = []
-        for (technique, subtechnique, id) in sorted(techniques):
+        for technique, subtechnique, id in sorted(techniques):
             if subtechnique is None:
                 inner_rows.append(f"{technique} {id}")
             else:
                 inner_rows.append(f"{technique}::{subtechnique} {id}")
-        ostream["ATTCK"].setdefault(tactic.upper(), inner_rows)
+        attck_dict.setdefault(tactic.upper(), inner_rows)
+    return attck_dict
 
 
-def render_mbc(doc, ostream):
+def render_mbc(doc: Dict[str, Any]) -> Dict[str, List[str]]:
     """
     example::
-        {'MBC': {'ANTI-BEHAVIORAL ANALYSIS': ['Debugger Detection::Timing/Delay Check '
+        {'ANTI-BEHAVIORAL ANALYSIS': ['Debugger Detection::Timing/Delay Check '
                                       'GetTickCount [B0001.032]',
                                       'Emulator Detection [B0004]',
                                       'Virtual Machine Detection::Instruction '
@@ -176,46 +181,44 @@ def render_mbc(doc, ostream):
          'COLLECTION': ['Keylogging::Polling [F0002.002]'],
          'CRYPTOGRAPHY': ['Encrypt Data::RC4 [C0027.009]',
                           'Generate Pseudo-random Sequence::RC4 PRGA '
-                          '[C0021.004]']}
+                          '[C0021.004]']
         }
     """
-    ostream["MBC"] = {}
+    mbc_dict = {}
     objectives = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
-        if not rule["meta"].get("mbc"):
-            continue
-
-        for mbc in rule["meta"]["mbc"]:
+        for mbc in rule["meta"].get("mbc", {}):
             objectives[mbc["objective"]].add((mbc["behavior"], mbc.get("method"), mbc["id"]))
 
     for objective, behaviors in sorted(objectives.items()):
         inner_rows = []
-        for (behavior, method, id) in sorted(behaviors):
+        for behavior, method, id in sorted(behaviors):
             if method is None:
                 inner_rows.append(f"{behavior} [{id}]")
             else:
                 inner_rows.append(f"{behavior}::{method} [{id}]")
-        ostream["MBC"].setdefault(objective.upper(), inner_rows)
+        mbc_dict.setdefault(objective.upper(), inner_rows)
+    return mbc_dict
 
 
-def render_dictionary(doc):
-    ostream = {}
-    render_meta(doc, ostream)
-    render_attack(doc, ostream)
-    render_mbc(doc, ostream)
-    render_capabilities(doc, ostream)
+def render_dictionary(doc: Dict[str, Any]) -> Dict[str, Any]:
+    ostream = render_meta(doc)
+    ostream["ATTCK"] = render_attack(doc)
+    ostream["MBC"] = render_mbc(doc)
+    ostream["CAPABILITY"] = render_capabilities(doc)
 
     return ostream
 
 
 # ===== CAPA END
-def flare_capa_details(file_path, category=False, on_demand=False, disable_progress=True):
-    capa_dictionary = False
+def flare_capa_details(file_path: str, category: str = False, on_demand=False, disable_progress=True) -> Dict[str, Any]:
+    capa_dictionary = {}
     if (
         HAVE_FLARE_CAPA
         and processing_conf.flare_capa.enabled
         and processing_conf.flare_capa.get(category, False)
-        and (not processing_conf.flare_capa.on_demand or on_demand)
+        and not processing_conf.flare_capa.on_demand
+        or on_demand
     ):
         try:
             extractor = capa.main.get_extractor(

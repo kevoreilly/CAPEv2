@@ -23,7 +23,7 @@ if processing_conf.vba2graph.enabled:
         HAVE_VBA2GRAPH = False
 
 
-def vba2graph_func(file_path, id, sha256, on_demand=False):
+def vba2graph_func(file_path: str, id: str, sha256: str, on_demand: bool = False):
     if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled and (not processing_conf.vba2graph.on_demand or on_demand):
         try:
             vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "vba2graph")

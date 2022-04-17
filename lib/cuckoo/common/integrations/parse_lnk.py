@@ -5,6 +5,7 @@
 import ctypes
 import logging
 import struct
+from typing import Any, Dict, Tuple
 
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
@@ -58,24 +59,24 @@ class LnkShortcut(object):
         "encrypted",
     ]
 
-    def __init__(self, filepath=None):
+    def __init__(self, filepath: str = None):
         self.filepath = filepath
 
-    def read_uint16(self, offset):
+    def read_uint16(self, offset: int) -> int:
         return struct.unpack("H", self.buf[offset : offset + 2])[0]
 
-    def read_uint32(self, offset):
+    def read_uint32(self, offset: int) -> int:
         return struct.unpack("I", self.buf[offset : offset + 4])[0]
 
-    def read_stringz(self, offset):
+    def read_stringz(self, offset: int) -> bytes:
         return self.buf[offset : self.buf.index(b"\x00", offset)]
 
-    def read_string16(self, offset):
+    def read_string16(self, offset: int) -> Tuple[int, str]:
         length = self.read_uint16(offset) * 2
         ret = self.buf[offset + 2 : offset + 2 + length].decode("utf16")
         return offset + 2 + length, ret
 
-    def run(self):
+    def run(self) -> Dict[str, Any]:
         with open(self.filepath, "rb") as f:
             buf = self.buf = f.read()
         if len(buf) < ctypes.sizeof(LnkHeader):
@@ -83,10 +84,7 @@ class LnkShortcut(object):
             return
 
         header = LnkHeader.from_buffer_copy(buf[: ctypes.sizeof(LnkHeader)])
-        if header.signature[:] != self.signature:
-            return
-
-        if header.guid[:] != self.guid:
+        if header.signature[:] != self.signature or header.guid[:] != self.guid:
             return
 
         ret = {"flags": {}, "attrs": []}

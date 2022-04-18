@@ -642,9 +642,15 @@ class PortableExecutable(object):
                     elif hasattr(entry, "Var"):
                         for var_entry in entry.Var:
                             if hasattr(var_entry, "entry"):
+                                name = list(var_entry.entry.keys())[0]
+                                value = list(var_entry.entry.values())[0]
+                                if isinstance(name, bytes):
+                                    name = name.decode("latin-1")
+                                if isinstance(value, bytes):
+                                    value = value.decode("latin-1")
                                 entry = {
-                                    "name": list(var_entry.entry.keys())[0].decode("latin-1"),
-                                    "value": list(var_entry.entry.values())[0].decode("latin-1"),
+                                    "name": name,
+                                    "value": value,
                                 }
                                 if entry["name"] == "Translation" and len(entry["value"]) == 10:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"

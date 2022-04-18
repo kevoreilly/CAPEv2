@@ -36,7 +36,7 @@ class TargetInfo(Processing):
                 static_file_info(
                     target_info["file"],
                     self.file_path,
-                    self.task["id"],
+                    str(self.task["id"]),
                     self.task.get("package", ""),
                     self.task.get("options", ""),
                     self.analysis_path,

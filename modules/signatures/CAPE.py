@@ -79,7 +79,7 @@ class CAPE_RegBinary(Signature):
             if buf:
                 if size:
                     size = int(size)
-                self.reg_binary = IsPEImage(buf, size)
+                self.reg_binary = IsPEImage(buf.encode(), size)
 
     def on_complete(self):
         if self.reg_binary:

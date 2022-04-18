@@ -127,7 +127,7 @@ class CAPE(Processing):
 
         # should we use dropped path here?
         static_file_info(
-            file_info, file_path, self.task["id"], self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
+            file_info, file_path, str(self.task["id"]), self.task.get("package", ""), self.task.get("options", ""), self.dropped_path
         )
 
         # Get the file data

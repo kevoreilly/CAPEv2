@@ -64,8 +64,9 @@ rule Emotet
         $snippetR = {8D 44 [2] 50 FF 74 [2] 8B 54 [2] 8B 4C [2] 68 [4] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
         $snippetS = {FF 74 [2] 8D 54 [2] FF 74 [2] 8B 4C [2] E8 [4] 8B D0 83 C4 0C 8B 44 [2] 8B FA 03 C2 89 54 [2] 8B 54 [2] B9 [4] 89 44 [2] E9}
         $snippetT = {8B 54 [2] 8D 44 [2] 8B 4C [2] 68 [4] 50 E8 [4] 8B 9C [3] 00 00 8B F8 59 59 03 D8 89 44 [2] 89 5C [2] B9 [4] EB}
-   		$snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
+        $snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
+        $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -88,8 +89,9 @@ rule Emotet
         $ref_eccG = {8D 84 [3] 00 00 50 FF B4 [3] 00 00 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8 [4] 83 C4 0C 89 84 [3] 00 00 8D 84 [3] 00 00 50 FF 74 [2] 8B 94 [3] 00 00 8B 8C [3] 00 00 68 [4] E8}
         $ref_eccH = {8D 84 [5] 50 68 [4] FF 74 [2] FF B4 [3] 00 00 8B 94 [3] 00 00 8B 8C [3] 00 00 E8 [4] 89 84 [3] 00 00 8D 84 [3] 00 00 50 68}
         $ref_eccI = {8B 94 [3] 00 00 8D 84 [3] 00 00 8B 8C [3] 00 00 68 [4] 50 E8 [4] 8B 54 [2] 8B 8C [3] 00 00 89 84 [3] 00 00 8D 84 [3] 00 00 68 [4] 50 E8}
-		$ref_eccJ = {8B 44 [2] 6A 6D 59 F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] C1 64 [3] C1 6C [3] 81 74 [6] C7 44 [6] 81 44 [6] 81 4C [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
+        $ref_eccJ = {8B 44 [2] 6A 6D 59 F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] C1 64 [3] C1 6C [3] 81 74 [6] C7 44 [6] 81 44 [6] 81 4C [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $ref_eccK = {81 74 [2] 82 8D 0C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
+        $ref_eccL = {4C 8D [3] 4C 8D [5] 81 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -181,10 +183,16 @@ def extract_emotet_rsakey(pe):
 
 def extract_config(filebuf):
     conf_dict = {}
-    pe = pefile.PE(data=filebuf, fast_load=False)
+    pe = None
+    try:
+        pe = pefile.PE(data=filebuf, fast_load=False)
+    except Exception:
+        pass
+
     image_base = pe.OPTIONAL_HEADER.ImageBase
     c2found = False
     c2list_va_offset = 0
+    c2_list_offset = 0
     delta = 0
 
     yara_matches = yara_scan(filebuf)
@@ -416,14 +424,22 @@ def extract_config(filebuf):
     elif yara_matches.get("$snippetV"):
         delta = 14
         c2list_va_offset = int(yara_matches["$snippetV"])
-    if c2list_va_offset and delta:
-        c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
-        c2_list_rva = c2_list_va - image_base
-        try:
+    elif yara_matches.get("$snippetW"):
+        delta = 10
+        c2_delta_offset = int(yara_matches["$snippetW"])
+    if delta:
+        if c2list_va_offset:
+            c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
+            c2_list_rva = c2_list_va - image_base
+            try:
+                c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
+            except pefile.PEFormatError as err:
+                log.error(err)
+                return
+        elif c2_delta_offset:
+            c2_delta = struct.unpack("i", filebuf[c2_delta_offset + delta : c2_delta_offset + delta + 4])[0]
+            c2_list_rva = pe.get_rva_from_offset(c2_delta_offset) + c2_delta + delta + 4
             c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-        except pefile.PEFormatError as err:
-            log.error(err)
-            return
         key = filebuf[c2_list_offset : c2_list_offset + 4]
         presize = filebuf[c2_list_offset + 4 : c2_list_offset + 8]
         if not presize:
@@ -575,15 +591,31 @@ def extract_config(filebuf):
                 ref_ecc_offset = int(yara_matches["$ref_eccK"])
                 delta1 = 14
                 delta2 = 166
-            if ref_ecc_offset:
-                ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
-                ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base
-                try:
+            if yara_matches.get("$ref_eccK"):
+                ref_ecc_offset = int(yara_matches["$ref_eccK"])
+                delta1 = 14
+                delta2 = 166
+            if yara_matches.get("$ref_eccL"):
+                ecc_delta_offset = int(yara_matches["$ref_eccL"])
+                delta1 = 8
+                delta2 = 97
+            if delta1 or delta2:
+                if ref_ecc_offset:
+                    ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
+                    ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base
+                    try:
+                        eck_offset = pe.get_offset_from_rva(ref_eck_rva)
+                        ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
+                    except Exception as e:
+                        log.error(e)
+                        return
+                elif ecc_delta_offset:
+                    eck_delta = struct.unpack("i", filebuf[ecc_delta_offset + delta1 : ecc_delta_offset + delta1 + 4])[0]
+                    ecs_delta = struct.unpack("i", filebuf[ecc_delta_offset + delta2 : ecc_delta_offset + delta2 + 4])[0]
+                    ref_eck_rva = pe.get_rva_from_offset(ecc_delta_offset) + eck_delta + delta1 + 4
+                    ref_ecs_rva = pe.get_rva_from_offset(ecc_delta_offset) + ecs_delta + delta2 + 4
                     eck_offset = pe.get_offset_from_rva(ref_eck_rva)
                     ecs_offset = pe.get_offset_from_rva(ref_ecs_rva)
-                except Exception as e:
-                    log.error(e)
-                    return
                 key = filebuf[eck_offset : eck_offset + 4]
                 size = struct.unpack("I", filebuf[eck_offset + 4 : eck_offset + 8])[0] ^ struct.unpack("I", key)[0]
                 eck_offset += 8

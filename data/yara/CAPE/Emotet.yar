@@ -35,6 +35,7 @@ rule Emotet
         $snippetT = {8B 54 [2] 8D 44 [2] 8B 4C [2] 68 [4] 50 E8 [4] 8B 9C [3] 00 00 8B F8 59 59 03 D8 89 44 [2] 89 5C [2] B9 [4] EB}
         $snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
+        $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}

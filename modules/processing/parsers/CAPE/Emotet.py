@@ -189,6 +189,9 @@ def extract_config(filebuf):
     except Exception:
         pass
 
+    if pe is None:
+        return
+
     image_base = pe.OPTIONAL_HEADER.ImageBase
     c2found = False
     c2list_va_offset = 0

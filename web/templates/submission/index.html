@@ -246,7 +246,7 @@ $(document).ready( function() {
                                                 <option value="{{ route_name }}">{{ route_name }} (will pick proper server)</option>
                                             {% endfor %}
                                         {% endif %}
-                                        <option value="none" >Drop all VM traffic</option>
+                                        <option value="none"{% if route == "none" %} selected{% endif %}>Drop all VM traffic</option>
                                     </select>
                                 </div>
                                 <div class="form-group">

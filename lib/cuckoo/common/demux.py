@@ -203,19 +203,9 @@ def demux_sflock(filename, options, package):
             return [filename]
         if unpacked.package in blacklist_extensions:
             return retlist
-        # TODO make this generic to walk all children
         for sf_child in unpacked.children or []:
             if sf_child.to_dict().get("children") and sf_child.to_dict()["children"]:
-                for ch in sf_child.children:
-                    if hasattr(ch, "children") and ch.children:
-                        for subchild in ch.children:
-                            retlist += _sf_chlildren(subchild)
-                    else:
-                        filename = _sf_chlildren(ch)
-                        if not filename:
-                            continue
-                        retlist.append(filename)
-
+                retlist += [_sf_chlildren(ch) for ch in sf_child.children]
                 # child is not available, the original file should be put into the list
                 if filter(None, retlist):
                     retlist.append(_sf_chlildren(sf_child))

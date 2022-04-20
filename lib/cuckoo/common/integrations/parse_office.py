@@ -283,6 +283,8 @@ class Office(object):
                             iocs = vbadeobf.parse_macro(vba_code)
                             for pattern, match in iocs:
                                 officeresults["Macro"]["Analysis"].setdefault("IOCs", []).append((pattern, match))
+                        except ValueError as e:
+                            log.error("Can't parse macros for %s - %s ", filepath, str(e))
                         except Exception as e:
                             log.error(e, exc_info=True)
                         for keyword, description in detect_autoexec(vba_code):

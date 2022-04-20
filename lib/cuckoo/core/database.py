@@ -22,7 +22,7 @@ from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooDependencyEr
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.utils import Singleton, SuperLock, classlock, create_folder, get_options
 
-# from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
+from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 
 try:
     from sqlalchemy import (

@@ -67,6 +67,7 @@ rule Emotet
         $snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
+        $snippetX = {4C 8D 0D [2] (00|01) 00 48 8D [2] 6B 45 [2] 89 45 7F 81 75 [5] C7 45 [5] 81 75 [5] 81 45 [5] 81 4D [5] 81 75 [5] C7 45 [5] 6B 45}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -92,6 +93,7 @@ rule Emotet
         $ref_eccJ = {8B 44 [2] 6A 6D 59 F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] C1 64 [3] C1 6C [3] 81 74 [6] C7 44 [6] 81 44 [6] 81 4C [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $ref_eccK = {81 74 [2] 82 8D 0C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $ref_eccL = {4C 8D [3] 4C 8D [5] 81 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00}
+        $ref_eccM = {4C 8D 0D [4] 81 B5 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] 6B 85}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -430,6 +432,9 @@ def extract_config(filebuf):
     elif yara_matches.get("$snippetW"):
         delta = 10
         c2_delta_offset = int(yara_matches["$snippetW"])
+    elif yara_matches.get("$snippetX"):
+        delta = 3
+        c2_delta_offset = int(yara_matches["$snippetX"])
     if delta:
         if c2list_va_offset:
             c2_list_va = struct.unpack("I", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
@@ -602,6 +607,10 @@ def extract_config(filebuf):
                 ecc_delta_offset = int(yara_matches["$ref_eccL"])
                 delta1 = 8
                 delta2 = 97
+            if yara_matches.get("$ref_eccM"):
+                ecc_delta_offset = int(yara_matches["$ref_eccM"])
+                delta1 = 3
+                delta2 = 234
             if delta1 or delta2:
                 if ref_ecc_offset:
                     ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base

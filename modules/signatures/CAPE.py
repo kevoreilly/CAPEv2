@@ -108,7 +108,7 @@ class CAPE_Decryption(Signature):
             size = self.get_argument(call, "Length")
             if size:
                 size = int(size)
-            self.encrypted_binary = IsPEImage(buf.ecndeo(), size)
+            self.encrypted_binary = IsPEImage(buf.encode(), size)
 
     def on_complete(self):
         if self.encrypted_binary:

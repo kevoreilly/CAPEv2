@@ -53,7 +53,7 @@ class DotNETExecutable(object):
             return ret
         except UnicodeDecodeError:
             log.error("UnicodeDecodeError: /usr/bin/monodis --customattr %s", self.file_path)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             log.error("Monodis: %s - %s", self.file_path, str(e))
         except Exception as e:
             log.error(e, exc_info=True)
@@ -81,7 +81,7 @@ class DotNETExecutable(object):
                 ret.append(item)
             return ret
 
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             log.error("Monodis: %s - %s", self.file_path, str(e))
         except Exception as e:
             log.error(e, exc_info=True)
@@ -100,7 +100,7 @@ class DotNETExecutable(object):
                 elif line.startswith("Version:"):
                     ret["version"] = convert_to_printable(line[8:].strip())
             return ret
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             log.error("Monodis: %s - %s", self.file_path, str(e))
         except Exception as e:
             log.error(e, exc_info=True)
@@ -125,7 +125,7 @@ class DotNETExecutable(object):
                     ret.append(item)
             return ret
 
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             log.error("Monodis: %s - %s", self.file_path, str(e))
         except Exception as e:
             log.error(e, exc_info=True)

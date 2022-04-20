@@ -1,3 +1,12 @@
+### [20-4-2022]
+* Emotet E5 update
+* Monitor updates:
+    * New hooks: LdrGetProcedureAddressForCaller, GetCommandLineW
+    * Fix issue with payload metadata incorrectly set in certain conditions
+
+### [19-4-2022]
+* Emotet E4 update (new 64-bit) 
+
 ### [1-4-2022]
 * Monitor update: Fix issue with attempted dll load notifications in tlsdump mode causing lsass to crash
 

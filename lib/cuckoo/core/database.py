@@ -824,8 +824,10 @@ class Database(object, metaclass=Singleton):
 
             if row:
                 if row.machine and row.machine != machine.label:
+                    log.debug("Task id %d - needs VM: %s - %s", row.id, row.machine, machine.label)
                     return None
             else:
+                log.debug("No task for machine with arch: %s", machine.arch)
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
@@ -1303,7 +1305,6 @@ class Database(object, metaclass=Singleton):
                         tags += ",x86"
                     else:
                         tags = "x86"
-
             try:
                 task = Task(obj.file_path)
                 task.sample_id = sample.id

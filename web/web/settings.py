@@ -131,7 +131,6 @@ except ImportError:
 
 try:
     from captcha.fields import ReCaptchaField
-    from captcha.widgets import ReCaptchaV2Checkbox
 except ImportError:
     sys.exit("Missed dependency: django-recaptcha")
 

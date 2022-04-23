@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 
 from apiv2 import views
+
 # from django.conf.urls import include
 from django.urls import path, re_path
 from rest_framework.authtoken.views import obtain_auth_token

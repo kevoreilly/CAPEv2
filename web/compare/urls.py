@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 
 from compare import views
-from django.conf.urls import re_path
+from django.urls import re_path
 
 urlpatterns = [
     re_path(r"^(?P<left_id>\d+)/$", views.left, name="compare_left"),

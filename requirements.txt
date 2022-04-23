@@ -10,9 +10,9 @@ altgraph==0.17 \
     # via
     #   macholib
     #   pyinstaller
-asgiref==3.4.0 \
-    --hash=sha256:05914d0fa65a21711e732adc6572edad6c8da5f1435c3f0c060689ced5e85195 \
-    --hash=sha256:d36fa91dd90e3aa3c81a6bd426ccc8fb20bd3d22b0cf14a12800289e9c3e2563
+asgiref==3.5.0 \
+    --hash=sha256:2f8abc20f7248433085eda803936d98992f1343ddb022065779f37c5da0181d0 \
+    --hash=sha256:88d59c13d634dcffe0510be048210188edd79aeccb6a6c9028cdad6f31d730a9
     # via django
 attrs==21.2.0 \
     --hash=sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1 \
@@ -200,9 +200,9 @@ deprecated==1.2.12 \
     --hash=sha256:08452d69b6b5bc66e8330adde0a4f8642e969b9e1702904d137eeb29c8ffc771 \
     --hash=sha256:6d2de2de7931a968874481ef30208fd4e08da39177d61d3d4ebdf4366e7dbca1
     # via pymisp
-django==3.2.12 \
-    --hash=sha256:9772e6935703e59e993960832d66a614cf0233a1c5123bc6224ecc6ad69e41e2 \
-    --hash=sha256:9b06c289f9ba3a8abea16c9c9505f25107809fb933676f6c891ded270039d965
+django==4.0.4 \
+    --hash=sha256:07c8638e7a7f548dc0acaaa7825d84b7bd42b10e8d22268b3d572946f1e9b687 \
+    --hash=sha256:4e8177858524417563cc0430f29ea249946d831eacb0068a1455686587df40b5
     # via
     #   -r requirements.in
     #   django-allauth
@@ -211,12 +211,12 @@ django==3.2.12 \
     #   django-recaptcha
     #   django-settings-export
     #   djangorestframework
-django-allauth==0.47.0 \
-    --hash=sha256:2bcf09d4c6e672620981d283f555d643982ac066b71f8947dbd81882a1d7c5e8
+django-allauth==0.50.0 \
+    --hash=sha256:ee3a174e249771caeb1d037e64b2704dd3c56cfec44f2058fae2214b224d35e8
     # via -r requirements.in
-django-crispy-forms==1.12.0 \
-    --hash=sha256:a3320356c84d0cdc631e1ec7b8908aa0117bc2a5f0ab1d053d33eba08f584808 \
-    --hash=sha256:d196db62ee8b4fc32d1f9583d0e4be1bb17328b662682c1ecb9fb77bbc0fcf77
+django-crispy-forms==1.14.0 \
+    --hash=sha256:35887b8851a931374dd697207a8f56c57a9c5cb9dbf0b9fa54314da5666cea5b \
+    --hash=sha256:bc4d2037f6de602d39c0bc452ac3029d1f5d65e88458872cc4dbc01c3a400604
     # via -r requirements.in
 django-csp==3.7 \
     --hash=sha256:01443a07723f9a479d498bd7bb63571aaa771e690f64bde515db6cdb76e8041a \
@@ -230,8 +230,9 @@ django-ratelimit==3.0.1 \
     --hash=sha256:73223d860abd5c5d7b9a807fabb39a6220068129b514be8d78044b52607ab154 \
     --hash=sha256:857e797f23de948b204a31dba9d88aea3ce731b7a5d926d0240c772e19b5486f
     # via -r requirements.in
-django-recaptcha==2.0.6 \
-    --hash=sha256:567784963fd5400feaf92e8951d8dbbbdb4b4c48a76e225d4baa63a2c9d2cd8c
+django-recaptcha==3.0.0 \
+    --hash=sha256:1aed69fd6ac8fd9e99e52665392ae6748f8b6339ace656fad779fe0c6c915a52 \
+    --hash=sha256:253197051288923cae675d7eff91b619e3775311292a5dbaf27a8a55ffebc670
     # via -r requirements.in
 django-settings-export==1.2.1 \
     --hash=sha256:fceeae49fc597f654c1217415d8e049fc81c930b7154f5d8f28c432db738ff79
@@ -1085,7 +1086,6 @@ pytz==2021.1 \
     --hash=sha256:eb10ce3e7736052ed3623d49975ce333bcd712c7bb19a58b9e2089d4057d0798
     # via
     #   -r requirements.in
-    #   django
     #   tzlocal
 pytzdata==2020.1 \
     --hash=sha256:3efa13b335a00a8de1d345ae41ec78dd11c9f8807f522d39850f2dd828681540 \

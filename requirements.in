@@ -34,7 +34,7 @@ greenlet==0.4.16
 cython==0.29.24
 pyre2==0.3.6
 six>=1.12.0
-django==3.2.12
+django==4.0.4
 sqlalchemy==1.4.22
 sqlalchemy-utils==0.37.8
 jinja2
@@ -52,8 +52,8 @@ pillow>=8.2.0
 python-whois==0.7.3
 bs4==0.0.1
 pydeep==0.4
-django-recaptcha==2.0.6 # https://pypi.org/project/django-recaptcha/
-django-crispy-forms==1.12.0
+django-recaptcha==3.0.0 # https://pypi.org/project/django-recaptcha/
+django-crispy-forms==1.14.0
 django-settings-export==1.2.1
 django-csp==3.7
 # django-otp==1.0.6
@@ -73,4 +73,4 @@ imagehash==4.2.1
 
 #problematic libs
 fire==0.3.1 # pyattck
-django-allauth==0.47.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
+django-allauth==0.50.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html

@@ -7,9 +7,9 @@ from __future__ import absolute_import
 from analysis import views as analysis_views
 from dashboard import views as dashboard_views
 from django.conf import settings
-from django.conf.urls import include, re_path
+from django.conf.urls import include
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic.base import TemplateView
 
 if settings.NOCAPTCHA:

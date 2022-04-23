@@ -7,7 +7,7 @@ rule BumbleBeeLoader
     strings:
         $str_set = {C7 ?? 53 65 74 50}
         $str_path = {C7 4? 04 61 74 68 00}
-        $openfile = {48 8B CF 8B 44 24 70 89 44 24 20 41 FF D4}
+        $openfile = {48 8B CF 8? 44 24 [0-4] 20 41 FF D4}
         $createsection = {89 44 24 20 FF 93 [2] 00 00 80 BB [2] 00 00 00 8B F? 74}
         $iternaljob = "IternalJob"
     condition:

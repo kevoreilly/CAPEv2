@@ -133,7 +133,7 @@ try:
     from captcha.fields import ReCaptchaField
     from captcha.widgets import ReCaptchaV2Checkbox
 except ImportError:
-    sys.exit("Missed dependency: pip3 install django-recaptcha==2.0.6")
+    sys.exit("Missed dependency: django-recaptcha")
 
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.

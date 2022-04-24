@@ -74,3 +74,4 @@ imagehash==4.2.1
 #problematic libs
 fire==0.3.1 # pyattck
 django-allauth==0.50.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
+enum34==1.1.10

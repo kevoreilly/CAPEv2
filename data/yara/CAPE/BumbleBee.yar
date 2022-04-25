@@ -25,5 +25,5 @@ rule BumbleBee
 	    $str_ua = "bumblebee"
         $str_gate = "/gate"
     condition:
-        uint16(0) == 0x5A4D and $antivm or all of ($str_*)
+        uint16(0) == 0x5A4D and ($antivm or all of ($str_*))
 }

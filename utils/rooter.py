@@ -189,6 +189,18 @@ def forward_disable(src, dst, ipaddr):
     run_iptables("-D", "FORWARD", "-i", dst, "-o", src, "--destination", ipaddr, "-j", "ACCEPT")
 
 
+def forward_reject_enable(src, dst, ipaddr, reject_segments):
+    """Enable forwarding a specific IP address from one interface into another
+    but reject some targets network segments."""
+    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+
+
+def forward_reject_disable(src, dst, ipaddr, reject_segments):
+    """Disable forwarding a specific IP address from one interface into another
+    but reject some targets network segments."""
+    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
+
+
 def srcroute_enable(rt_table, ipaddr):
     """Enable routing policy for specified source IP address."""
     run(settings.ip, "rule", "add", "from", ipaddr, "table", rt_table)
@@ -430,6 +442,8 @@ handlers = {
     "flush_rttable": flush_rttable,
     "forward_enable": forward_enable,
     "forward_disable": forward_disable,
+    "forward_reject_enable": forward_reject_enable,
+    "forward_reject_disable": forward_reject_disable,
     "srcroute_enable": srcroute_enable,
     "srcroute_disable": srcroute_disable,
     "inetsim_enable": inetsim_enable,

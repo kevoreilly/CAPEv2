@@ -504,6 +504,10 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
+            if routing.routing.reject_segments == "none":
+                self.reject_segments = None
+            else:
+                self.reject_segments = routing.routing.reject_segments
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table
@@ -566,6 +570,11 @@ class AnalysisManager(threading.Thread):
         if self.interface:
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)
             self._rooter_response_check()
+            if self.reject_segments:
+                self.rooter_response = rooter(
+                    "forward_reject_enable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
+                self._rooter_response_check()
 
         log.info("Enabled route '%s'", self.route)
 
@@ -576,8 +585,13 @@ class AnalysisManager(threading.Thread):
     def unroute_network(self):
         if self.interface:
             self.rooter_response = rooter("forward_disable", self.machine.interface, self.interface, self.machine.ip)
-            log.info("Disabled route '%s'", self.route)
             self._rooter_response_check()
+            if self.reject_segments:
+                self.rooter_response = rooter(
+                    "forward_reject_disable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
+                self._rooter_response_check()
+            log.info("Disabled route '%s'", self.route)
 
         if self.rt_table:
             self.rooter_response = rooter("srcroute_disable", self.rt_table, self.machine.ip)

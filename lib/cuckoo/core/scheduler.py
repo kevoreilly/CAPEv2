@@ -571,8 +571,9 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter("forward_enable", self.machine.interface, self.interface, self.machine.ip)
             self._rooter_response_check()
             if self.reject_segments:
-                self.rooter_response = rooter("forward_reject_enable", self.machine.interface, self.interface,
-                                              self.machine.ip, self.reject_segments)
+                self.rooter_response = rooter(
+                    "forward_reject_enable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
                 self._rooter_response_check()
 
         log.info("Enabled route '%s'", self.route)
@@ -586,8 +587,9 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter("forward_disable", self.machine.interface, self.interface, self.machine.ip)
             self._rooter_response_check()
             if self.reject_segments:
-                self.rooter_response = rooter("forward_reject_disable", self.machine.interface, self.interface,
-                                              self.machine.ip, self.reject_segments)
+                self.rooter_response = rooter(
+                    "forward_reject_disable", self.machine.interface, self.interface, self.machine.ip, self.reject_segments
+                )
                 self._rooter_response_check()
             log.info("Disabled route '%s'", self.route)
 

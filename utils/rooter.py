@@ -192,15 +192,13 @@ def forward_disable(src, dst, ipaddr):
 def forward_reject_enable(src, dst, ipaddr, reject_segments):
     """Enable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination",
-                 reject_segments, "-j", "REJECT")
+    run_iptables("-I", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
 
 
 def forward_reject_disable(src, dst, ipaddr, reject_segments):
     """Disable forwarding a specific IP address from one interface into another
     but reject some targets network segments."""
-    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination",
-                 reject_segments, "-j", "REJECT")
+    run_iptables("-D", "FORWARD", "-i", src, "-o", dst, "--source", ipaddr, "--destination", reject_segments, "-j", "REJECT")
 
 
 def srcroute_enable(rt_table, ipaddr):

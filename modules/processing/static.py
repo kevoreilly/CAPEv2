@@ -4,23 +4,27 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+
+import array
+import base64
+import binascii
+import ctypes
+import hashlib
 import json
 import logging
+import math
 import os
 import re
-import math
-import array
-import ctypes
 import struct
-import base64
-import hashlib
-import requests
-import binascii
-import re2 as re
-from PIL import Image
-from io import BytesIO
-from subprocess import Popen, PIPE
 from datetime import datetime
+from io import BytesIO
+from subprocess import PIPE
+from subprocess import Popen
+from typing import Union
+
+import re2 as re
+import requests
+from PIL import Image
 
 try:
     import bs4
@@ -63,9 +67,19 @@ except ImportError:
 
 try:
     from whois import whois
+
     HAVE_WHOIS = True
 except:
     HAVE_WHOIS = False
+
+try:
+    from pdfminer import pdfparser
+    from pdfminer import pdfdocument
+    from pdfminer import pdftypes
+
+    HAVE_PDFMINER = True
+except ImportError:
+    HAVE_PDFMINER = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
 from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
@@ -87,7 +101,8 @@ except ImportError:
 try:
     from oletools import oleobj
     from oletools.oleid import OleID
-    from oletools.olevba import detect_autoexec, detect_hex_strings, detect_patterns, detect_suspicious, filter_vba, VBA_Parser, UnexpectedDataError
+    from oletools.olevba import detect_autoexec, detect_hex_strings, detect_patterns, detect_suspicious, filter_vba, \
+        VBA_Parser, UnexpectedDataError
     from oletools.rtfobj import is_rtf, RtfObjParser
     from oletools.msodde import process_file as extract_dde
 
@@ -146,11 +161,13 @@ log = logging.getLogger(__name__)
 HAVE_USERDB = False
 if processing_conf.static.get("userdb_signature", False):
     import peutils
+
     userdb_path = os.path.join(CUCKOO_ROOT, "data", "peutils", "UserDB.TXT")
     userdb_signatures = peutils.SignatureDatabase()
     if os.path.exists(userdb_path):
         userdb_signatures.load(userdb_path)
         HAVE_USERDB = True
+
 
 # Obtained from
 # https://github.com/erocarrera/pefile/blob/master/pefile.py
@@ -220,13 +237,14 @@ class DotNETExecutable(object):
 
     def add_statistic(self, name, field, value):
         self.results["statistics"]["processing"].append(
-            {"name": name, field: value,}
+            {"name": name, field: value, }
         )
 
     def _get_custom_attrs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--customattr", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 splitline = line.split()
                 if not splitline or len(splitline) < 7:
@@ -243,7 +261,7 @@ class DotNETExecutable(object):
                 # also ignore empty strings
                 if endidx <= 2:
                     continue
-                valueval = rem[startidx + 2 : endidx - 2]
+                valueval = rem[startidx + 2: endidx - 2]
                 item = dict()
                 item["type"] = convert_to_printable(typeval)
                 item["name"] = convert_to_printable(nameval)
@@ -258,7 +276,8 @@ class DotNETExecutable(object):
         try:
             ret = []
             output = (
-                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+                Popen(["/usr/bin/monodis", "--assemblyref", self.file_path], stdout=PIPE,
+                      universal_newlines=True).stdout.read().split("\n")
             )
             for idx in range(len(output)):
                 splitline = output[idx].split("Version=")
@@ -282,7 +301,8 @@ class DotNETExecutable(object):
     def _get_assembly_info(self):
         try:
             ret = dict()
-            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output:
                 if line.startswith("Name:"):
                     ret["name"] = convert_to_printable(line[5:].strip())
@@ -296,7 +316,8 @@ class DotNETExecutable(object):
     def _get_type_refs(self):
         try:
             ret = []
-            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE, universal_newlines=True).stdout.read().split("\n")
+            output = Popen(["/usr/bin/monodis", "--typeref", self.file_path], stdout=PIPE,
+                           universal_newlines=True).stdout.read().split("\n")
             for line in output[1:]:
                 restline = "".join(line.split(":")[1:])
                 restsplit = restline.split("]")
@@ -331,11 +352,12 @@ class DotNETExecutable(object):
             results["dotnet"]["customattrs"] = self._get_custom_attrs()
             posttime = datetime.now()
             timediff = posttime - pretime
-            self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+            self.add_statistic("static_dotnet", "time",
+                               float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
             return results
         except Exception as e:
             log.error(e, exc_info=True)
-            return  None
+            return None
 
 
 class PortableExecutable(object):
@@ -360,9 +382,9 @@ class PortableExecutable(object):
 
         # To be able to add yara/capa and others time summary over all processing modules
         if field in self.results["temp_processing_stats"][name]:
-           self.results["temp_processing_stats"][name][field] += value
+            self.results["temp_processing_stats"][name][field] += value
         else:
-           self.results["temp_processing_stats"][name][field] = value
+            self.results["temp_processing_stats"][name][field] = value
 
     def _get_peid_signatures(self):
         """Gets PEID signatures.
@@ -390,7 +412,7 @@ class PortableExecutable(object):
         try:
             for dbg in self.pe.DIRECTORY_ENTRY_DEBUG:
                 dbgst = dbg.struct
-                dbgdata = self.pe.__data__[dbgst.PointerToRawData : dbgst.PointerToRawData + dbgst.SizeOfData]
+                dbgdata = self.pe.__data__[dbgst.PointerToRawData: dbgst.PointerToRawData + dbgst.SizeOfData]
                 if dbgst.Type == 4:  # MISC
                     _, length, _ = struct.unpack_from("IIB", dbgdata)
                     return convert_to_printable(str(dbgdata[12:length]).rstrip("\0"))
@@ -595,7 +617,8 @@ class PortableExecutable(object):
         try:
             off = self.pe.get_overlay_data_start_offset()
         except:
-            log.error("Your version of pefile is out of date.  " "Please update to the latest version on https://github.com/erocarrera/pefile")
+            log.error(
+                "Your version of pefile is out of date.  " "Please update to the latest version on https://github.com/erocarrera/pefile")
             return None
 
         if off is None:
@@ -644,7 +667,8 @@ class PortableExecutable(object):
         try:
             retstr = "0x{0:08x}".format(self.pe.generate_checksum())
         except:
-            log.warning("Detected outdated version of pefile.  " "Please update to the latest version at https://github.com/erocarrera/pefile")
+            log.warning(
+                "Detected outdated version of pefile.  " "Please update to the latest version at https://github.com/erocarrera/pefile")
         return retstr
 
     def _get_osversion(self):
@@ -654,7 +678,8 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
+        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion,
+                                self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
 
     def _get_resources(self):
         """Get resources.
@@ -679,10 +704,12 @@ class PortableExecutable(object):
                         for resource_id in resource_type.directory.entries:
                             if hasattr(resource_id, "directory"):
                                 for resource_lang in resource_id.directory.entries:
-                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
+                                    data = self.pe.get_data(resource_lang.data.struct.OffsetToData,
+                                                            resource_lang.data.struct.Size)
                                     filetype = _get_filetype(data)
                                     language = pefile.LANG.get(resource_lang.data.lang, None)
-                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang, resource_lang.data.sublang)
+                                    sublanguage = pefile.get_sublang_name_for_lang(resource_lang.data.lang,
+                                                                                   resource_lang.data.sublang)
                                     resource["name"] = name
                                     resource["offset"] = "0x{0:08x}".format(resource_lang.data.struct.OffsetToData)
                                     resource["size"] = "0x{0:08x}".format(resource_lang.data.struct.Size)
@@ -697,7 +724,7 @@ class PortableExecutable(object):
 
         return resources
 
-    def _generate_icon_dhash(self, image, hash_size = 8):
+    def _generate_icon_dhash(self, image, hash_size=8):
         # based on https://gist.github.com/fr0gger/1263395ebdaf53e67f42c201635f256c
         image = image.convert('L').resize((hash_size + 1, hash_size), Image.ANTIALIAS)
 
@@ -714,7 +741,7 @@ class PortableExecutable(object):
 
         for index, value in enumerate(difference):
             if value:
-                decimal_value += 2**(index % 8)
+                decimal_value += 2 ** (index % 8)
             if (index % 8) == 7:
                 hex_string.append(hex(decimal_value)[2:].rjust(2, '0'))
                 decimal_value = 0
@@ -766,7 +793,7 @@ class PortableExecutable(object):
                 if entry.id == bigidx:
                     offset = entry.directory.entries[0].data.struct.OffsetToData
                     size = entry.directory.entries[0].data.struct.Size
-                    icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset : offset + size])
+                    icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset: offset + size])
 
                     byteio = BytesIO()
                     byteio.write(icon)
@@ -873,7 +900,8 @@ class PortableExecutable(object):
     def _get_guest_digital_signers(self):
         retdata = dict()
         cert_data = dict()
-        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux", "DigiSig.json")
+        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux",
+                                 "DigiSig.json")
 
         if os.path.exists(cert_info):
             with open(cert_info, "r") as cert_file:
@@ -907,7 +935,8 @@ class PortableExecutable(object):
             return []
 
         if not HAVE_CRYPTO:
-            log.critical("You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography")
+            log.critical(
+                "You do not have the cryptography library installed preventing " "certificate extraction. pip3 install cryptography")
             return []
 
         if not self.pe:
@@ -921,7 +950,7 @@ class PortableExecutable(object):
         if address == 0:
             return retlist
 
-        signatures = self.pe.write()[address + 8 :]
+        signatures = self.pe.write()[address + 8:]
 
         if type(signatures) is bytearray:
             signatures = bytes(signatures)
@@ -956,9 +985,11 @@ class PortableExecutable(object):
             try:
                 for extension in cert.extensions:
                     if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
+                            extension.value.key_identifier).decode("utf-8")
                     elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
-                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
+                        cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(
+                            extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
                             if policy.policy_qualifiers:
@@ -972,16 +1003,20 @@ class PortableExecutable(object):
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data["extensions_{}_caIssuers".format(extension.oid._name)] = authority_info.access_location.value
+                                cert_data["extensions_{}_caIssuers".format(
+                                    extension.oid._name)] = authority_info.access_location.value
                             elif authority_info.access_method._name == "OCSP":
-                                cert_data["extensions_{}_OCSP".format(extension.oid._name)] = authority_info.access_location.value
+                                cert_data["extensions_{}_OCSP".format(
+                                    extension.oid._name)] = authority_info.access_location.value
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
                             if isinstance(name.value, bytes):
-                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(name.value).decode("utf-8")
+                                cert_data["extensions_{}_{}".format(extension.oid._name, index)] = base64.b64encode(
+                                    name.value).decode("utf-8")
                             else:
                                 if hasattr(name.value, "rfc4514_string"):
-                                    cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value.rfc4514_string()
+                                    cert_data["extensions_{}_{}".format(extension.oid._name,
+                                                                        index)] = name.value.rfc4514_string()
                                 else:
                                     cert_data["extensions_{}_{}".format(extension.oid._name, index)] = name.value
             except ValueError:
@@ -1030,7 +1065,8 @@ class PortableExecutable(object):
         peresults["sections"] = self._get_sections()
         peresults["overlay"] = self._get_overlay()
         peresults["resources"] = self._get_resources()
-        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"], peresults["icon_dhash"] = self._get_icon_info()
+        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"], peresults[
+            "icon_dhash"] = self._get_icon_info()
         peresults["versioninfo"] = self._get_versioninfo()
         peresults["imphash"] = self._get_imphash()
         peresults["timestamp"] = self._get_timestamp()
@@ -1108,6 +1144,40 @@ class PDF(object):
         except Exception as e:
             log.error(e, exc_info=True)
             pass
+
+    @staticmethod
+    def _search_for_url(obj: Union[pdftypes.PDFStream, dict, list]):
+        if obj is None:
+            return
+
+        if isinstance(obj, pdftypes.PDFStream):
+            yield from PDF._search_for_url(obj.attrs)
+        elif isinstance(obj, list):
+            for v in obj:
+                yield from PDF._search_for_url(v)
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == 'URI':
+                    yield v
+                yield from PDF._search_for_url(v)
+
+    @staticmethod
+    def _mine_for_urls(file_path: str):
+        urls = set()
+        try:
+            with open(file_path, 'rb') as f:
+                parser = pdfparser.PDFParser(f)
+                doc = pdfdocument.PDFDocument(parser)
+
+                for xref in doc.xrefs:
+                    for object_id in xref.get_objids():
+                        obj = doc.getobj(object_id)
+                        urls.update(PDF._search_for_url(obj))
+        except Exception as ex:
+            log.error(ex, exc_info=True)
+            log.warning('Failed opening file for pdf mining')
+
+        return urls
 
     def _parse(self, filepath):
         """Parses the PDF for static information. Uses V8Py from peepdf to
@@ -1244,10 +1314,18 @@ class PDF(object):
         if "author" in metadata:
             pdfresult["Info"]["Author"] = convert_to_printable(self._clean_string(metadata["author"]))
 
+        if pdfresult["Keywords"].get("/JS", 0) > 0 or pdfresult["Keywords"].get("/JavaScript", 0) > 0:
+            pdfresult["Info"]["JavaScript"] = "True"
+
         if len(urlset):
             pdfresult["JS_URLs"] = list(urlset)
         if len(annoturiset):
             pdfresult["Annot_URLs"] = list(annoturiset)
+
+        if HAVE_PDFMINER:
+            mined_urls = set((self.base_uri + url.decode() for url in self._mine_for_urls(self.file_path)))
+            if len(mined_urls):
+                pdfresult["All_URLs"] = list(mined_urls)
 
         return result
 
@@ -1459,7 +1537,8 @@ class Office(object):
                         ctr += 1
                         outputname = "Macro" + str(ctr)
                         macrores["Code"][outputname] = list()
-                        macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
+                        macrores["Code"][outputname].append(
+                            (convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                         autoexec = detect_autoexec(vba_code)
                         if not os.path.exists(macro_folder):
                             os.makedirs(macro_folder)
@@ -1518,9 +1597,8 @@ class Office(object):
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
                 metares["DocumentType"] = indicator.name
 
-
         if HAVE_XLM_DEOBF:
-            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"],  self.options.get("password", ""))
+            tmp_xlmmacro = xlmdeobfuscate(filepath, self.results["info"]["id"], self.options.get("password", ""))
             if tmp_xlmmacro:
                 results["office"].setdefault("XLMMacroDeobfuscator", tmp_xlmmacro)
 
@@ -1587,17 +1665,17 @@ class LnkShortcut(object):
         self.filepath = filepath
 
     def read_uint16(self, offset):
-        return struct.unpack("H", self.buf[offset : offset + 2])[0]
+        return struct.unpack("H", self.buf[offset: offset + 2])[0]
 
     def read_uint32(self, offset):
-        return struct.unpack("I", self.buf[offset : offset + 4])[0]
+        return struct.unpack("I", self.buf[offset: offset + 4])[0]
 
     def read_stringz(self, offset):
-        return self.buf[offset : self.buf.index(b"\x00", offset)]
+        return self.buf[offset: self.buf.index(b"\x00", offset)]
 
     def read_string16(self, offset):
         length = self.read_uint16(offset) * 2
-        ret = self.buf[offset + 2 : offset + 2 + length].decode("utf16")
+        ret = self.buf[offset + 2: offset + 2 + length].decode("utf16")
         return offset + 2 + length, ret
 
     def run(self):
@@ -1627,7 +1705,7 @@ class LnkShortcut(object):
             log.warning("Provided .lnk file is corrupted or incomplete.")
             return
 
-        off = LnkEntry.from_buffer_copy(buf[offset : offset + 28])
+        off = LnkEntry.from_buffer_copy(buf[offset: offset + 28])
 
         # Local volume.
         if off.volume_flags & 1:
@@ -1692,7 +1770,8 @@ class ELF(object):
             "entry_point_address": self._print_addr(self.elf.header["e_entry"]),
             "start_of_program_headers": self.elf.header["e_phoff"],
             "start_of_section_headers": self.elf.header["e_shoff"],
-            "flags": "{}{}".format(self._print_addr(self.elf.header["e_flags"]), self._decode_flags(self.elf.header["e_flags"])),
+            "flags": "{}{}".format(self._print_addr(self.elf.header["e_flags"]),
+                                   self._decode_flags(self.elf.header["e_flags"])),
             "size_of_this_header": self.elf.header["e_ehsize"],
             "size_of_program_headers": self.elf.header["e_phentsize"],
             "number_of_program_headers": self.elf.header["e_phnum"],
@@ -1792,7 +1871,7 @@ class ELF(object):
                     section_relocations.append(relocation)
 
             relocations.append(
-                {"name": section.name, "entries": section_relocations,}
+                {"name": section.name, "entries": section_relocations, }
             )
         return relocations
 
@@ -1803,7 +1882,10 @@ class ELF(object):
                 continue
             for note in segment.iter_notes():
                 notes.append(
-                    {"owner": note["n_name"], "size": self._print_addr(note["n_descsz"]), "note": describe_note(note), "name": note["n_name"],}
+                    {"owner": note["n_name"],
+                     "size": self._print_addr(note["n_descsz"]),
+                     "note": describe_note(note),
+                     "name": note["n_name"], }
                 )
         return notes
 
@@ -2574,7 +2656,7 @@ class EncodedScriptFile(object):
 
         while o < end:
             ch = source[o]
-            if source[o] == 64: # b"@":
+            if source[o] == 64:  # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
                 o, m = o + 1, m + 1
@@ -2586,7 +2668,7 @@ class EncodedScriptFile(object):
                 r.append(ch)
             o = o + 1
 
-        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o: o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return b"".join(ch for ch in r).decode("latin-1")
@@ -2645,7 +2727,8 @@ class Static(Processing):
             package = self.results.get("info", {}).get("package", "")
 
             thetype = File(self.file_path).get_type()
-            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in ("doc", "ppt", "xls", "pub"):
+            if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in (
+                    "doc", "ppt", "xls", "pub"):
                 log.info("Missed dependencies: pip3 install oletools")
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
@@ -2669,7 +2752,8 @@ class Static(Processing):
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
                 static = Office(self.file_path, self.results, self.task["options"]).run()
-            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf") or package == "hta":
+            elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(
+                    ".wsf") or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
             elif package == "js" or package == "vbs":
                 static = EncodedScriptFile(self.file_path).run()

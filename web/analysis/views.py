@@ -539,7 +539,8 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "procmemory", "memory"):
+    is_ajax = request.headers.get('x-requested-with') == "XMLHttpRequest"
+    if is_ajax and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "procmemory", "memory"):
         data = {}
         debugger_logs = {}
         bingraph_dict_content = {}
@@ -640,8 +641,9 @@ def chunk(request, task_id, pid, pagenum):
         pid, pagenum = int(pid), int(pagenum) - 1
     except Exception:
         raise PermissionDenied
-
-    if request.is_ajax():
+        
+    is_ajax = request.headers.get('x-requested-with') == "XMLHttpRequest"
+    if is_ajax:
         if enabledconf["mongodb"]:
             record = mongo_find_one(
                 "analysis",
@@ -697,7 +699,8 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     @param category: call category type
     @param apilist: comma-separated list of APIs to include, if preceded by ! specifies to exclude the list
     """
-    if request.is_ajax():
+    is_ajax = request.headers.get('x-requested-with') == "XMLHttpRequest"    
+    if is_ajax:
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             record = mongo_find_one(

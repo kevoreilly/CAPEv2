@@ -42,7 +42,7 @@ def cape_load_decoders(CUCKOO_ROOT):
 
     for name in CAPE_DECODERS:
         try:
-            cape_modules[name] = importlib.import_module(f"modules.processing.parsers.CAPE.{name}")
+            cape_modules[name.replace("_", " ")] = importlib.import_module(f"modules.processing.parsers.CAPE.{name}")
         except (ImportError, IndexError) as e:
             if "datadirs" in str(e):
                 print("You are using wrong pype32 library. pip3 uninstall pype32 && pip3 install -U pype32-py3")

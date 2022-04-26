@@ -118,7 +118,7 @@ if process_cfg.CAPE_extractors.enabled:
     cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
-    assert "test_cape" in cape_malware_parsers
+    assert "test cape" in cape_malware_parsers
 
 try:
     from modules.processing.parsers.plugxconfig import plugx

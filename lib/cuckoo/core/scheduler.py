@@ -84,6 +84,7 @@ class AnalysisManager(threading.Thread):
         self.rt_table = None
         self.route = None
         self.rooter_response = ""
+        self.reject_segments = None
 
     def init_storage(self):
         """Initialize analysis storage folder."""
@@ -504,9 +505,7 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
-            if routing.routing.reject_segments == "none":
-                self.reject_segments = None
-            else:
+            if routing.routing.reject_segments:
                 self.reject_segments = routing.routing.reject_segments
         elif self.route in vpns:
             self.interface = vpns[self.route].interface

@@ -20,6 +20,8 @@ from datetime import datetime
 from io import BytesIO
 from subprocess import PIPE
 from subprocess import Popen
+from typing import Iterable
+from typing import Set
 from typing import Union
 
 import re2 as re
@@ -1146,7 +1148,7 @@ class PDF(object):
             pass
 
     @staticmethod
-    def _search_for_url(obj: Union[pdftypes.PDFStream, dict, list]):
+    def _search_for_url(obj: Union[pdftypes.PDFStream, dict, list]) -> Iterable[str]:
         if obj is None:
             return
 
@@ -1156,13 +1158,15 @@ class PDF(object):
             for v in obj:
                 yield from PDF._search_for_url(v)
         elif isinstance(obj, dict):
-            for k, v in obj.items():
-                if k == 'URI':
-                    yield v
-                yield from PDF._search_for_url(v)
+            for key, value in obj.items():
+                if key == 'URI':
+                    yield value.decode() if isinstance(value, bytes) else value
+                    continue
+
+                yield from PDF._search_for_url(value)
 
     @staticmethod
-    def _mine_for_urls(file_path: str):
+    def _mine_for_urls(file_path: str) -> Set[str]:
         urls = set()
         try:
             with open(file_path, 'rb') as f:
@@ -1171,11 +1175,13 @@ class PDF(object):
 
                 for xref in doc.xrefs:
                     for object_id in xref.get_objids():
-                        obj = doc.getobj(object_id)
-                        urls.update(PDF._search_for_url(obj))
+                        try:
+                            obj = doc.getobj(object_id)
+                            urls.update(PDF._search_for_url(obj))
+                        except Exception as ex:
+                            log.error(ex, exc_info=True)
         except Exception as ex:
             log.error(ex, exc_info=True)
-            log.warning('Failed opening file for pdf mining')
 
         return urls
 
@@ -1323,9 +1329,9 @@ class PDF(object):
             pdfresult["Annot_URLs"] = list(annoturiset)
 
         if HAVE_PDFMINER:
-            mined_urls = set((self.base_uri + url.decode() for url in self._mine_for_urls(self.file_path)))
-            if len(mined_urls):
-                pdfresult["All_URLs"] = list(mined_urls)
+            mined_urls = [self.base_uri + url for url in self._mine_for_urls(self.file_path)]
+            if mined_urls:
+                pdfresult["All_URLs"] = mined_urls
 
         return result
 

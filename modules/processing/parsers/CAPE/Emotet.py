@@ -67,7 +67,7 @@ rule Emotet
         $snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
-        $snippetX = {4C 8D 0D [2] (00|01) 00 48 8D [2] 6B 45 [2] 89 45 7F 81 75 [5] C7 45 [5] 81 75 [5] 81 45 [5] 81 4D [5] 81 75 [5] C7 45 [5] 6B 45}
+        $snippetX = {4C 8D 0? [2] (00|01) 00 48 8D [9] 81 75 [5] C7 45 [5] 81 45 [5] 81}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -94,6 +94,7 @@ rule Emotet
         $ref_eccK = {81 74 [2] 82 8D 0C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $ref_eccL = {4C 8D [3] 4C 8D [5] 81 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00}
         $ref_eccM = {4C 8D 0D [4] 81 B5 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] 6B 85}
+        $ref_eccN = {4C 8D 05 [4-28] F7 E1 2B CA D1 E9 03 CA C1 E9 05 89 8D ?? 00 00 00 C1 AD ?? 00 00 00 ?? 81 B5 ?? 00 00 00}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -453,7 +454,7 @@ def extract_config(filebuf):
         if not presize:
             return
         size = struct.unpack("I", presize)[0] ^ struct.unpack("I", key)[0]
-        if size > 500:
+        if size > 1000:
             log.info("Anomalous C2 list size 0x%x", size)
             return
         c2_list_offset += 8
@@ -519,6 +520,8 @@ def extract_config(filebuf):
             conf_dict.setdefault("RSA public key", RSA.construct((seq[0], seq[1])).exportKey())
         else:
             ref_ecc_offset = 0
+            delta1 = 0
+            delta2 = 0
             if yara_matches.get("$ref_ecc1"):
                 ref_ecc_offset = int(yara_matches["$ref_ecc1"])
                 delta1 = 9
@@ -611,6 +614,10 @@ def extract_config(filebuf):
                 ecc_delta_offset = int(yara_matches["$ref_eccM"])
                 delta1 = 3
                 delta2 = 234
+            if yara_matches.get("$ref_eccN"):
+                ecc_delta_offset = int(yara_matches["$ref_eccN"])
+                delta1 = 3
+                delta2 = 107
             if delta1 or delta2:
                 if ref_ecc_offset:
                     ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base

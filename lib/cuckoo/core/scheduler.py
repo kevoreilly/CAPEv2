@@ -505,7 +505,7 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
-            if routing.routing.reject_segments:
+            if routing.routing.reject_segments != "none":
                 self.reject_segments = routing.routing.reject_segments
         elif self.route in vpns:
             self.interface = vpns[self.route].interface

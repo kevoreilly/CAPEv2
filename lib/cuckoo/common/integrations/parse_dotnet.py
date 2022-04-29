@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 # Note universal_newlines should be False as some binaries fails to convert bytes to text
 
 
-class DotNETExecutable(object):
+class DotNETExecutable:
     """.NET analysis"""
 
     def __init__(self, file_path):

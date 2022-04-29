@@ -43,7 +43,7 @@ yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 # set logger volatility3
 
 
-class MuteProgress(object):
+class MuteProgress:
     def __init__(self):
         self._max_message_len = 0
 
@@ -77,7 +77,7 @@ class ReturnJsonRenderer(JsonRenderer):
         return final_output[1], error
 
 
-class VolatilityAPI(object):
+class VolatilityAPI:
     def __init__(self, memdump):
         """
         @param memdump: path to memdump. Ex. file:///home/vol3/memory.dmp
@@ -179,7 +179,7 @@ class VolatilityAPI(object):
 """
 
 
-class VolatilityManager(object):
+class VolatilityManager:
     """Handle several volatility results."""
 
     def __init__(self, memfile):

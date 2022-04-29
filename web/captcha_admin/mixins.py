@@ -1,7 +1,7 @@
 from django.contrib.admin.sites import site as default_site
 
 
-class AdminSiteRegistryFix(object):
+class AdminSiteRegistryFix:
     """
     This fix links the '_registry' property to the original AdminSites
     '_registry' property. This is necessary, because of the character of

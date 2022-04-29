@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 # TODO: this probably can be replaced by vbe_decoder
-class EncodedScriptFile(object):
+class EncodedScriptFile:
     """Deobfuscates and interprets Windows Script Files."""
 
     encoding = (

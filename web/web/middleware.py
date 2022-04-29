@@ -9,7 +9,7 @@ try:  # django 1.10+
     from django.utils.deprecation import MiddlewareMixin
 except ImportError:
 
-    class MiddlewareMixin(object):
+    class MiddlewareMixin:
         def __init__(self, get_response=None):
             pass
 

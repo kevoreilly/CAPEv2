@@ -146,7 +146,7 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
     return True
 
 
-class PortableExecutable(object):
+class PortableExecutable:
     """PE analysis."""
 
     def __init__(self, file_path: str):

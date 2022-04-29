@@ -43,7 +43,7 @@ def open_exclusive(path, mode="xb", bufsize=-1):
         raise
 
 
-class Storage(object):
+class Storage:
     @staticmethod
     def get_filename_from_path(path):
         """Cross-platform filename extraction from path.

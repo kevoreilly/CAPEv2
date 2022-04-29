@@ -55,7 +55,7 @@ if not processing_conf.xlsdeobf.on_demand:
 log = logging.getLogger(__name__)
 
 
-class Office(object):
+class Office:
     """Office Document Static Analysis
     Supported formats:
     - Word 97-2003 (.doc, .dot), Word 2007+ (.docm, .dotm)

@@ -72,7 +72,7 @@ def analyzer_zipfile(platform):
     return data
 
 
-class GuestManager(object):
+class GuestManager:
     """This class represents the new Guest Manager. It operates on the new
     Cuckoo Agent which features a more abstract but more feature-rich API."""
 

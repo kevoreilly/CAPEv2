@@ -76,7 +76,7 @@ def _guess_package_name(file_type, file_name):
         return None
 
 
-class Package(object):
+class Package:
     """Base analysis package"""
 
     def __init__(self, target, **kwargs):

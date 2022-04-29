@@ -109,7 +109,7 @@ def list_plugins(group=None):
         return _modules
 
 
-class RunAuxiliary(object):
+class RunAuxiliary:
     """Auxiliary modules manager."""
 
     def __init__(self, task, machine):
@@ -190,7 +190,7 @@ class RunAuxiliary(object):
                 log.debug("Stopped auxiliary module: %s", module.__class__.__name__)
 
 
-class RunProcessing(object):
+class RunProcessing:
     """Analysis Results Processing Engine.
 
     This class handles the loading and execution of the processing modules.
@@ -320,7 +320,7 @@ class RunProcessing(object):
         return self.results
 
 
-class RunSignatures(object):
+class RunSignatures:
     """Run Signatures."""
 
     def __init__(self, task, results):
@@ -718,7 +718,7 @@ class RunReporting:
             log.info("No reporting modules loaded")
 
 
-class GetFeeds(object):
+class GetFeeds:
     """Feed Download and Parsing Engine
 
     This class handles the downloading and modification of feed modules.

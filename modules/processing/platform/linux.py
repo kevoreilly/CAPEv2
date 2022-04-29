@@ -168,7 +168,7 @@ class LinuxStrace(BehaviorHandler):
         return self.processes
 
 
-class StraceParser(object):
+class StraceParser:
     """Handle strace logs from the Linux analyzer."""
 
     def __init__(self, path):
@@ -217,7 +217,7 @@ class StraceParser(object):
             }
 
 
-class StapParser(object):
+class StapParser:
     """Handle .stap logs from the Linux analyzer."""
 
     def __init__(self, fd):

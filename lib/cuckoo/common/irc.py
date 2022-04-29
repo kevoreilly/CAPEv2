@@ -19,7 +19,7 @@ except ImportError:
 log = logging.getLogger("Processing.Pcap.irc.protocol")
 
 
-class ircMessage(object):
+class ircMessage:
     """IRC Protocol Request."""
 
     # Client commands

@@ -45,7 +45,7 @@ def upload_to_host(file_path, dump_path, pids="", ppids="", metadata="", categor
             nc.close()
 
 
-class NetlogConnection(object):
+class NetlogConnection:
     def __init__(self, proto=""):
         self.hostip, self.hostport = config.ip, config.port
         self.sock = None

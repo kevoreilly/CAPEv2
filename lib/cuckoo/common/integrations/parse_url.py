@@ -32,7 +32,7 @@ import requests
 log = logging.getLogger(__name__)
 
 
-class URL(object):
+class URL:
     """URL 'Static' Analysis"""
 
     def __init__(self, url: str):

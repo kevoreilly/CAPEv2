@@ -125,7 +125,7 @@ def file_recon(file: str, yara_category: str = "CAPE"):
         TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "modules", "packages", filename)
     elif b"def choose_package(file_type, file_name, exports, target)" in f:
         TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", "lib", "core", filename)
-    elif b"class Signature(object):" in f and b"class Processing(object):" in f:
+    elif b"class Signature:" in f and b"class Processing:" in f:
         TARGET = os.path.join(CAPE_PATH, "lib", "cuckoo", "common", filename)
     elif b"class Analyzer:" in f and b"class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
         TARGET = os.path.join(CAPE_PATH, "analyzer", "windows", filename)

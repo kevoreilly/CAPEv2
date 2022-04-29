@@ -88,7 +88,7 @@ def check_names_for_typeinfo(arginfo):
     return argnames, converters
 
 
-class BsonParser(object):
+class BsonParser:
     """Interprets .bson logs from the monitor.
     The monitor provides us with "info" messages that explain how the function
     arguments will come through later on. This class remembers these info

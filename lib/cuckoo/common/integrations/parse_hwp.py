@@ -18,7 +18,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-class HwpDocument(object):
+class HwpDocument:
     """Static analysis of HWP documents."""
 
     def __init__(self, filepath: str):

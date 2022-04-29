@@ -29,7 +29,7 @@ log.addHandler(ch)
 log.setLevel(logging.INFO)
 
 
-class s(object):
+class s:
     iptables = None
     iptables_save = None
     iptables_restore = None
@@ -516,7 +516,7 @@ if __name__ == "__main__":
 
     # Simple object to allow a signal handler to stop the rooter loop
 
-    class Run(object):
+    class Run:
         def __init__(self):
             self.run = True
 

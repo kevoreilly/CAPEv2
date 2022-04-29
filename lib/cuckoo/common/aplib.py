@@ -14,7 +14,7 @@ __version__ = "0.6"
 __author__ = "Sandor Nemes"
 
 
-class APLib(object):
+class APLib:
 
     __slots__ = "source", "destination", "tag", "bitcount", "strict"
 

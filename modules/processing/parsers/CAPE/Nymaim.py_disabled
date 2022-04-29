@@ -76,7 +76,7 @@ class NymCfgStream(Stream):
         return h, data
 
 
-class M(object):
+class M:
     def __init__(self, dbg=None, base=0, mem=""):
         self.mem = mem
         self.base = base

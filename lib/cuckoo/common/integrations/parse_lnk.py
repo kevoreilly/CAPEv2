@@ -12,7 +12,7 @@ from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 log = logging.getLogger(__name__)
 
 
-class LnkShortcut(object):
+class LnkShortcut:
     signature = [0x4C, 0x00, 0x00, 0x00]
     guid = [
         0x01,

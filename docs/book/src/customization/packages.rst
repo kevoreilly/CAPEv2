@@ -39,7 +39,7 @@ Package object:
         from lib.api.process import Process
         from lib.common.exceptions import CuckooPackageError
 
-        class Package(object):
+        class Package:
             def start(self):
                 raise NotImplementedError
 

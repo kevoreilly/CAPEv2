@@ -78,7 +78,7 @@ class Disconnect(Exception):
     pass
 
 
-class HandlerContext(object):
+class HandlerContext:
     """Holds context for protocol handlers.
     Can safely be cancelled from another thread, though in practice this will
     not occur often -- usually the connection between VM and the ResultServer
@@ -154,7 +154,7 @@ class HandlerContext(object):
         fd.flush()
 
 
-class WriteLimiter(object):
+class WriteLimiter:
     def __init__(self, fd, remain):
         self.fd = fd
         self.remain = remain

@@ -17,7 +17,7 @@ INJECT_QUEUEUSERAPC = 1
 log = logging.getLogger(__name__)
 
 
-class Package(object):
+class Package:
     """Base abstract analysis package."""
 
     PATHS = []
@@ -179,7 +179,7 @@ class Package(object):
         return newpath
 
 
-class Auxiliary(object):
+class Auxiliary:
     def __init__(self, options=None, config=None):
         """@param options: options dict."""
         if options is None:

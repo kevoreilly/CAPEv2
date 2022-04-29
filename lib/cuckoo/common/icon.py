@@ -58,7 +58,7 @@ class ICONDIRENTRY(Structure):
     ]
 
 
-class PEGroupIconDir(object):
+class PEGroupIconDir:
     def __init__(self, data):
         self.data = data
         self.icondir = None

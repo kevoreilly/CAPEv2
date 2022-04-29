@@ -19,7 +19,7 @@ except ImportError:
     HAVE_BS4 = False
 
 
-class WindowsScriptFile(object):
+class WindowsScriptFile:
     script_re = "<\\s*script\\s*.*>.*?<\\s*/\\s*script\\s*>"
 
     def __init__(self, filepath):

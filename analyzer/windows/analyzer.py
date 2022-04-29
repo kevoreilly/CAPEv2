@@ -691,7 +691,7 @@ class Analyzer:
         return True
 
 
-class Files(object):
+class Files:
     PROTECTED_NAMES = [
         "vmwareuser.exe",
         "vmwareservice.exe",
@@ -810,7 +810,7 @@ class Files(object):
             self.delete_file(list(self.files.keys())[0])
 
 
-class ProcessList(object):
+class ProcessList:
     def __init__(self):
         self.pids = []
         self.pids_notrack = []
@@ -855,7 +855,7 @@ class ProcessList(object):
             self.pids_notrack.remove(pid)
 
 
-class CommandPipeHandler(object):
+class CommandPipeHandler:
     """Pipe Handler.
     This class handles the notifications received through the Pipe Server and
     decides what to do with them.

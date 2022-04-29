@@ -91,7 +91,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.httpd.handle(self)
 
 
-class MiniHTTPServer(object):
+class MiniHTTPServer:
     def __init__(self):
         self.handler = MiniHTTPRequestHandler
 
@@ -146,7 +146,7 @@ class MiniHTTPServer(object):
         self.s._BaseServer__shutdown_request = True
 
 
-class jsonify(object):
+class jsonify:
     """Wrapper that represents Flask.jsonify functionality."""
 
     def __init__(self, **kwargs):
@@ -163,7 +163,7 @@ class jsonify(object):
         pass
 
 
-class send_file(object):
+class send_file:
     """Wrapper that represents Flask.send_file functionality."""
 
     def __init__(self, path):
@@ -191,7 +191,7 @@ class send_file(object):
         obj.send_header("Content-Length", self.length)
 
 
-class request(object):
+class request:
     form = {}
     files = {}
     client_ip = None

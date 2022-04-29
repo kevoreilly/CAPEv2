@@ -39,7 +39,7 @@ if enabledconf["elasticsearchdb"]:
 
 
 # Conditional decorator for web authentication
-class conditional_login_required(object):
+class conditional_login_required:
     def __init__(self, dec, condition):
         self.decorator = dec
         self.condition = condition

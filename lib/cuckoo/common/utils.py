@@ -871,7 +871,7 @@ def classlock(f):
     return inner
 
 
-class SuperLock(object):
+class SuperLock:
     def __init__(self):
         self.tlock = threading.Lock()
         self.mlock = multiprocessing.Lock()

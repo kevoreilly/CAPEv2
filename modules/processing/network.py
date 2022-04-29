@@ -822,7 +822,7 @@ class Pcap:
         return self.results
 
 
-class Pcap2(object):
+class Pcap2:
     """Interpret the PCAP file through the httpreplay library which parses
     the various protocols, decrypts and decodes them, and then provides us
     with the high level representation of it."""
@@ -1138,7 +1138,7 @@ def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None
 
 
 # magic
-class SortCap(object):
+class SortCap:
     """SortCap is a wrapper around the packet lib (dpkt) that allows us to sort pcaps
     together with the batch_sort function above."""
 

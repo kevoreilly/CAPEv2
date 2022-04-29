@@ -13,7 +13,7 @@ from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 log = logging.getLogger(__name__)
 
 
-class PDF(object):
+class PDF:
     """PDF Analysis."""
 
     def __init__(self, file_path: str):

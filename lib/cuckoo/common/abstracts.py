@@ -89,7 +89,7 @@ myresolver.domain = dns.name.Name("google-public-dns-a.google.com")
 myresolver.nameserver = ["8.8.8.8"]
 
 
-class Auxiliary(object):
+class Auxiliary:
     """Base abstract class for auxiliary modules."""
 
     def __init__(self):
@@ -114,7 +114,7 @@ class Auxiliary(object):
         raise NotImplementedError
 
 
-class Machinery(object):
+class Machinery:
     """Base abstract class for machinery modules."""
 
     # Default label used in machinery configuration file to supply virtual
@@ -646,7 +646,7 @@ class LibVirtMachinery(Machinery):
         return snapshot
 
 
-class Processing(object):
+class Processing:
     """Base abstract class for processing module."""
 
     order = 1
@@ -713,7 +713,7 @@ class Processing(object):
         raise NotImplementedError
 
 
-class Signature(object):
+class Signature:
     """Base class for Cuckoo signatures."""
 
     name = ""
@@ -1564,7 +1564,7 @@ class Signature(object):
         )
 
 
-class Report(object):
+class Report:
     """Base abstract class for reporting module."""
 
     order = 1
@@ -1621,7 +1621,7 @@ class Report(object):
         raise NotImplementedError
 
 
-class Feed(object):
+class Feed:
     """Base abstract class for feeds."""
 
     name = ""
@@ -1692,7 +1692,7 @@ class Feed(object):
         return
 
 
-class ProtocolHandler(object):
+class ProtocolHandler:
     """Abstract class for protocol handlers coming out of the analysis."""
 
     def __init__(self, task_id, ctx, version=None):

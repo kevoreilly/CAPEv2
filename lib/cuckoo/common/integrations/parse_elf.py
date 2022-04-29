@@ -36,7 +36,7 @@ except ImportError:
     ELFFile = False
 
 
-class ELF(object):
+class ELF:
     def __init__(self, file_path):
         self.file_path = file_path
         self.elf = None

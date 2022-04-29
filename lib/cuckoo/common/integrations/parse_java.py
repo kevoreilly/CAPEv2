@@ -13,7 +13,7 @@ from lib.cuckoo.common.utils import convert_to_printable, store_temp_file
 log = logging.getLogger(__name__)
 
 
-class Java(object):
+class Java:
     """Java Static Analysis"""
 
     def __init__(self, file_path: str, decomp_jar: str):

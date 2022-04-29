@@ -1095,7 +1095,7 @@ def RunLengthDecode(data):
 # and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 
-class LZWDecoder(object):
+class LZWDecoder:
     def __init__(self, fp):
         self.fp = fp
         self.buff = 0

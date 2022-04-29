@@ -154,7 +154,7 @@ class URL:
         self.url = url
 
 
-class File(object):
+class File:
     """Basic file object class with all useful utilities."""
 
     # The yara rules should not change during one Cuckoo run and as such we're
@@ -575,7 +575,7 @@ class Static(File):
     pass
 
 
-class ProcDump(object):
+class ProcDump:
     def __init__(self, dump_file, pretty=False):
         self._dumpfile = open(dump_file, "rb")
         self.dumpfile = mmap.mmap(self._dumpfile.fileno(), 0, access=mmap.ACCESS_READ)

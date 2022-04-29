@@ -15,7 +15,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.core.scheduler import AnalysisManager
 
 
-class mock_task(object):
+class mock_task:
     def __init__(self):
         self.id = 1234
         self.category = "file"
@@ -201,7 +201,7 @@ class TestAnalysisManager:
         assert "Unable to create symlink/copy" in caplog.text
 
     def test_acquire_machine(self, setup_machinery, setup_machine_lock):
-        class mock_machinery(object):
+        class mock_machinery:
             def availables(self):
                 return True
 
@@ -239,7 +239,7 @@ class TestAnalysisManager:
         assert analysis_man.machine.name == "mock_mach"
 
     def test_acquire_machine_machinery_not_avail(self, setup_machinery, setup_machine_lock, mocker):
-        class mock_machinery(object):
+        class mock_machinery:
             def availables(self):
                 return False
 
@@ -276,7 +276,7 @@ class TestAnalysisManager:
             print((str(e)))
 
     def test_acquire_machine_machine_not_avail(self, setup_machinery, setup_machine_lock, mocker):
-        class mock_machinery(object):
+        class mock_machinery:
             def availables(self):
                 return True
 
@@ -310,7 +310,7 @@ class TestAnalysisManager:
 
     @pytest.mark.skip(reason="TODO")
     def test_build_options(self):
-        class mock_machine(object):
+        class mock_machine:
             resultserver_ip = "1.2.3.4"
             resultserver_port = "1337"
 
@@ -350,7 +350,7 @@ class TestAnalysisManager:
 
     @pytest.mark.skip(reason="TODO")
     def test_build_options_pe(self, grab_sample):
-        class mock_machine(object):
+        class mock_machine:
             resultserver_ip = "1.2.3.4"
             resultserver_port = "1337"
 

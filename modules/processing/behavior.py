@@ -658,7 +658,7 @@ class Summary:
         }
 
 
-class Enhanced(object):
+class Enhanced:
     """Generates a more extensive high-level representation than Summary."""
 
     key = "enhanced"
@@ -948,7 +948,7 @@ class Enhanced(object):
         return self.events
 
 
-class Anomaly(object):
+class Anomaly:
 
     """Anomaly detected during analysis.
     For example: a malware tried to remove Cuckoo's hooks.

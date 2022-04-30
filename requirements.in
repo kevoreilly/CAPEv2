@@ -75,3 +75,5 @@ imagehash==4.2.1
 fire==0.3.1 # pyattck
 django-allauth==0.50.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 enum34==1.1.10
+# django 4.0.4 dependency
+backports.zoneinfo==0.2.1

@@ -14,7 +14,7 @@ import tqdm
 NETWORK_NAME = 'default'
 DEFAULT_STORAGE = '/data/vms/'
 SLEEP_TIME = 650
-DEFAULT_SNAPSHOT_NAME = 'start'
+DEFAULT_SNAPSHOT_NAME = 'clean'
 
 
 class Machine(NamedTuple):
@@ -205,6 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('--count-offset', type=int, default=1, help='At what number should the count start')
 
     parser.add_argument('--ip', type=str, required=True, help='The base IP address machines should start to be created')
+    parser.add_argument('--yes', action='store_true', help='Skip confirmation')
     args = parser.parse_args()
 
     # Handle arguments
@@ -242,9 +243,10 @@ if __name__ == '__main__':
     print('')
     print('** Not a dry run! **') if not is_dry_run else print('-- dry run --')
 
-    user_input = input('Please type [yes/y] to config: ')
-    if user_input.lower() not in ('y', 'yes'):
-        raise ValueError('Please confirm the configurations!')
+    if not args.yes:
+        user_input = input('Please type [yes/y] to config: ')
+        if user_input.lower() not in ('y', 'yes'):
+            raise ValueError('Please confirm the configurations!')
 
     machines = clone_machines(
         args.original,

@@ -95,8 +95,7 @@ multi_block_config = ("SquirrelWaffle",)
 class CAPE(Processing):
     """CAPE output file processing."""
 
-    def detect2pid(self, pid, cape_name):
-        pid = str(pid)
+    def detect2pid(self, pid: str, cape_name: str):
         self.results.setdefault("detections2pid", {}).setdefault(pid, [])
         if cape_name not in self.results["detections2pid"][pid]:
             self.results["detections2pid"][pid].append(cape_name)
@@ -266,7 +265,7 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if hit["name"] == "GuLoader":
-                self.detect2pid(file_info["pid"], "GuLoader")
+                self.detect2pid(str(file_info["pid"]), "GuLoader")
 
             cape_name = hit["name"].replace("_", " ")
             tmp_config = static_config_parsers(hit["name"], file_data)
@@ -286,7 +285,7 @@ class CAPE(Processing):
                 if processing_conf.detections.yara:
                     add_family_detection(self.results, cape_name, "Yara", file_info["sha256"])
             if file_info.get("pid"):
-                self.detect2pid(file_info["pid"], cape_name)
+                self.detect2pid(str(file_info["pid"]), cape_name)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:

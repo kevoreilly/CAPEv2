@@ -270,7 +270,7 @@ class CAPE(Processing):
             cape_name = hit["name"].replace("_", " ")
             tmp_config = static_config_parsers(hit["name"], file_data)
             if tmp_config and tmp_config.get(cape_name):
-                config.update(tmp_config[cape_name])
+                config.setdefault(cape_name, {}).update(tmp_config[cape_name])
 
         if type_string:
             log.info("CAPE: type_string: %s", type_string)

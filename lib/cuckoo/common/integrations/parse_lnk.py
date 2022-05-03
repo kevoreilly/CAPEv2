@@ -108,7 +108,11 @@ class LnkShortcut:
             ret["basepath"] = self.read_stringz(offset + off.base_path)
         # Network volume.
         else:
-            ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
+            try:
+                ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
+            except TypeError:
+                log.error("parse_lnk: subsection not found")
+
             network_drive = self.read_uint32(offset + off.net_volume + 12)
             if network_drive:
                 ret["network_drive"] = self.read_stringz(offset + network_drive)

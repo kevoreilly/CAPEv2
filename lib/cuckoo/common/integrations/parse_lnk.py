@@ -11,6 +11,7 @@ from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
 try:
     import LnkParse3
+
     HAVE_LNK3 = True
 except ImportError:
     HAVE_LNK3 = False

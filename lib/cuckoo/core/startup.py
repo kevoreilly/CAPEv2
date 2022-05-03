@@ -28,6 +28,7 @@ from lib.cuckoo.core.rooter import rooter, socks5s, vpns
 
 try:
     import yara
+
     HAVE_YARA = True
     if not int(yara.__version__[0]) >= 4:
         raise ImportError("Missed library: pip3 install yara-python>=4.0.0 -U")

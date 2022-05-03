@@ -17,6 +17,7 @@ xmltodict==0.12.0
 future==0.18.2
 python-dateutil==2.8.2
 requests_file==1.5.1
+# On ubuntu 22 you need -> gevent==21.12.0
 gevent==20.4.0
 orjson==3.6.0
 pyinstaller==4.4
@@ -57,7 +58,7 @@ django-crispy-forms==1.14.0
 django-settings-export==1.2.1
 django-csp==3.7
 # django-otp==1.0.6
-django-extensions==3.1.3
+django-extensions==3.1.5
 # qrcode==7.2
 python-tlsh==4.5.0
 djangorestframework==3.12.4
@@ -70,8 +71,10 @@ psutil==5.8.0
 matplotlib==3.3.0
 numpy==1.19.1
 imagehash==4.2.1
+LnkParse3==1.2.0
 
-#problematic libs
+
+# problematic libs
 fire==0.3.1 # pyattck
 django-allauth==0.50.0 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 enum34==1.1.10

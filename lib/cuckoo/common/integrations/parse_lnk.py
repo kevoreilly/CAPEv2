@@ -9,6 +9,12 @@ from typing import Any, Dict, Tuple
 
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
+try:
+    import LnkParse3
+    HAVE_LNK3 = True
+except ImportError:
+    HAVE_LNK3 = False
+
 log = logging.getLogger(__name__)
 
 
@@ -79,55 +85,59 @@ class LnkShortcut:
     def run(self) -> Dict[str, Any]:
         with open(self.filepath, "rb") as f:
             buf = self.buf = f.read()
-        if len(buf) < ctypes.sizeof(LnkHeader):
-            log.warning("Provided .lnk file is corrupted or incomplete")
-            return
 
-        header = LnkHeader.from_buffer_copy(buf[: ctypes.sizeof(LnkHeader)])
-        if header.signature[:] != self.signature or header.guid[:] != self.guid:
-            return
-
-        ret = {"flags": {}, "attrs": []}
-
-        for x in range(7):
-            ret["flags"][self.flags[x]] = bool(header.flags & (1 << x))
-
-        for x in range(14):
-            if header.attrs & (1 << x):
-                ret["attrs"].append(self.attrs[x])
-
-        offset = 78 + self.read_uint16(76)
-        if len(buf) < offset + 28:
-            log.warning("Provided .lnk file is corrupted or incomplete")
-            return
-
-        off = LnkEntry.from_buffer_copy(buf[offset : offset + 28])
-
-        # Local volume.
-        if off.volume_flags & 1:
-            ret["basepath"] = self.read_stringz(offset + off.base_path)
-        # Network volume.
+        if HAVE_LNK3:
+            return LnkParse3.lnk_file(buf).get_json(get_all=True)
         else:
-            try:
-                ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
-            except TypeError:
-                log.error("parse_lnk: subsection not found")
+            if len(buf) < ctypes.sizeof(LnkHeader):
+                log.warning("Provided .lnk file is corrupted or incomplete")
+                return
 
-            network_drive = self.read_uint32(offset + off.net_volume + 12)
-            if network_drive:
-                ret["network_drive"] = self.read_stringz(offset + network_drive)
+            header = LnkHeader.from_buffer_copy(buf[: ctypes.sizeof(LnkHeader)])
+            if header.signature[:] != self.signature or header.guid[:] != self.guid:
+                return
 
-        ret["remaining_path"] = self.read_stringz(offset + off.path_remainder)
+            ret = {"flags": {}, "attrs": []}
 
-        extra = offset + off.length
-        if ret["flags"]["description"]:
-            extra, ret["description"] = self.read_string16(extra)
-        if ret["flags"]["relapath"]:
-            extra, ret["relapath"] = self.read_string16(extra)
-        if ret["flags"]["workingdir"]:
-            extra, ret["workingdir"] = self.read_string16(extra)
-        if ret["flags"]["cmdline"]:
-            extra, ret["cmdline"] = self.read_string16(extra)
-        if ret["flags"]["icon"]:
-            extra, ret["icon"] = self.read_string16(extra)
-        return ret
+            for x in range(7):
+                ret["flags"][self.flags[x]] = bool(header.flags & (1 << x))
+
+            for x in range(14):
+                if header.attrs & (1 << x):
+                    ret["attrs"].append(self.attrs[x])
+
+            offset = 78 + self.read_uint16(76)
+            if len(buf) < offset + 28:
+                log.warning("Provided .lnk file is corrupted or incomplete")
+                return
+
+            off = LnkEntry.from_buffer_copy(buf[offset : offset + 28])
+
+            # Local volume.
+            if off.volume_flags & 1:
+                ret["basepath"] = self.read_stringz(offset + off.base_path)
+            # Network volume.
+            else:
+                try:
+                    ret["net_share"] = self.read_stringz(offset + off.net_volume + 20)
+                except TypeError:
+                    log.error("parse_lnk: subsection not found")
+
+                network_drive = self.read_uint32(offset + off.net_volume + 12)
+                if network_drive:
+                    ret["network_drive"] = self.read_stringz(offset + network_drive)
+
+            ret["remaining_path"] = self.read_stringz(offset + off.path_remainder)
+
+            extra = offset + off.length
+            if ret["flags"]["description"]:
+                extra, ret["description"] = self.read_string16(extra)
+            if ret["flags"]["relapath"]:
+                extra, ret["relapath"] = self.read_string16(extra)
+            if ret["flags"]["workingdir"]:
+                extra, ret["workingdir"] = self.read_string16(extra)
+            if ret["flags"]["cmdline"]:
+                extra, ret["cmdline"] = self.read_string16(extra)
+            if ret["flags"]["icon"]:
+                extra, ret["icon"] = self.read_string16(extra)
+            return ret

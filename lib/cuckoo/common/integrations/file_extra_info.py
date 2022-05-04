@@ -151,7 +151,7 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     """
     metadata = []
     filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
-    if files is None:
+    if not files:
         files = os.listdir(folder)
     with open(filelog, "a") as f:
         for file in files:

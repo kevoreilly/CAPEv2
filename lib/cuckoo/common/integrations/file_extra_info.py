@@ -236,7 +236,7 @@ def _generic_post_extraction_process(file: str, decoded: str, destination_folder
     data_dictionary.setdefault("decoded_files_tool", tool_name)
 
 
-def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def batch_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     # https://github.com/DissectMalware/batch_deobfuscator
     # https://www.fireeye.com/content/dam/fireeye-www/blog/pdfs/dosfuscation-report.pdf
 
@@ -260,7 +260,7 @@ def batch_extract(file: str, destination_folder: str, filetype: str, data_dictio
     _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Batch")
 
 
-def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
 
     if not HAVE_VBE_DECODER:
         log.debug("Missed VBE decoder")

@@ -286,8 +286,7 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
     _generic_post_extraction_process(file, decoded, destination_folder, data_dictionary, "Vbe")
 
 
-def msi_extract(
-    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+def msi_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
@@ -301,7 +300,9 @@ def msi_extract(
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
-            files = subprocess.check_output([selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True)
+            files = subprocess.check_output(
+                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True
+            )
             if files:
                 files = [
                     extracted_file
@@ -432,9 +433,13 @@ def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dicti
     with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
         try:
             if options.get("password"):
-                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e",  "-p{options['password']}", file, tempdir], universal_newlines=True)
+                output = subprocess.check_output(
+                    [selfextract_conf.RarSFX_extract.binary, "e", "-p{options['password']}", file, tempdir], universal_newlines=True
+                )
             else:
-                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
+                output = subprocess.check_output(
+                    [selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True
+                )
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)

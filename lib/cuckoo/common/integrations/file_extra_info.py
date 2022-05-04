@@ -84,7 +84,7 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
-    elif package == "lnk":
+    elif package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if selfextract_conf.procyon.binary and not os.path.exists(selfextract_conf.procyon.binary):

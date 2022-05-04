@@ -919,6 +919,7 @@ search_term_map = {
         "network.smtp_ex.dport",
     ),
     "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
+    "package": "info.package",
 }
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
@@ -935,6 +936,7 @@ normalized_lower_terms = (
     "dhash",
     "iconhash",
     "imphash",
+    "package",
 )
 
 normalized_int_terms = (

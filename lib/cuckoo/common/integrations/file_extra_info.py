@@ -69,13 +69,15 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
+    options_dict = get_options(options)
+
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
         data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
         if "Mono" in data_dictionary["type"]:
             data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
     elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"}:
         # options is dict where we need to get pass get_options
-        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], get_options(options)).run()
+        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif "PDF" in data_dictionary["type"] or file_path.endswith(".pdf"):
         data_dictionary["pdf"] = PDF(file_path).run()
     elif package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf"):
@@ -108,7 +110,7 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     if processing_conf.die.enabled:
         detect_it_easy_info(file_path, data_dictionary)
 
-    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
+    generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary, options_dict)
 
 
 def detect_it_easy_info(file_path: str, data_dictionary: dict):
@@ -188,12 +190,13 @@ def _extracted_files_metadata(folder: str, destination_folder: str, files: list 
     return metadata
 
 
-def generic_file_extractors(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def generic_file_extractors(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     """
     file - path to binary
     destination_folder - where to move extracted files
     filetype - magic string
     data_dictionary - where to add data
+    options - initial task options, might contain password
 
     Run all extra extractors/unpackers/extra scripts here, each extractor should check file header/type/identification:
     """
@@ -214,7 +217,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
             continue
 
         try:
-            funcname(file, destination_folder, filetype, data_dictionary)
+            funcname(file, destination_folder, filetype, data_dictionary, options)
         except Exception as e:
             log.error(e, exc_info=True)
 
@@ -284,7 +287,7 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
 
 
 def msi_extract(
-    file: str, destination_folder: str, filetype: str, data_dictionary: dict, msiextract="/usr/bin/msiextract"
+    file: str, destination_folder: str, filetype: str, data_dictionary: dict, msiextract="/usr/bin/msiextract", options: dict
 ):  # dropped_path
     """Work on MSI Installers"""
 
@@ -318,7 +321,7 @@ def msi_extract(
     data_dictionary.setdefault("extracted_files_tool", "MsiExtract")
 
 
-def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def Inno_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     """Work on Inno Installers"""
 
     if all("Inno Setup" not in string for string in data_dictionary.get("die", {})):
@@ -348,7 +351,7 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
         data_dictionary.setdefault("extracted_files_tool", "InnoExtract")
 
 
-def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     """
     https://github.com/jhumble/Kixtart-Detokenizer/blob/main/detokenize.py
     """
@@ -377,7 +380,7 @@ def kixtart_extract(file: str, destination_folder: str, filetype: str, data_dict
         data_dictionary.setdefault("extracted_files_tool", "Kixtart")
 
 
-def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
         return
 
@@ -414,7 +417,7 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
 
-def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     if (
         all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
         and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
@@ -429,7 +432,10 @@ def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dicti
 
     with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
         try:
-            output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
+            if options.get("password"):
+                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e",  "-p{options['password']}", file, tempdir], universal_newlines=True)
+            else:
+                output = subprocess.check_output([selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True)
             if output:
                 files = [
                     os.path.join(tempdir, extracted_file)
@@ -451,7 +457,7 @@ def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dicti
         data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
 
 
-def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     # TODO: maybe check yara for UPX?
     # hit["name"] == "UPX":
     if "UPX compressed" not in filetype:
@@ -486,7 +492,7 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         data_dictionary.setdefault("extracted_files_tool", "UnUPX")
 
 
-def NSIS_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict):
+def NSIS_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     if "Nullsoft Installer self-extracting archive" not in filetype:
         return
 

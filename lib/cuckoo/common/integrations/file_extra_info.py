@@ -287,14 +287,13 @@ def vbe_extract(file: str, destination_folder: str, filetype: str, data_dictiona
 
 
 def msi_extract(
-    file: str, destination_folder: str, filetype: str, data_dictionary: dict, msiextract="/usr/bin/msiextract", options: dict
-):  # dropped_path
+    file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
         return
 
-    if not os.path.exists(msiextract):
+    if not os.path.exists(selfextract_conf.msi_extract.binary):
         logging.error("Missed dependency: sudo apt install msitools")
         return
 
@@ -302,7 +301,7 @@ def msi_extract(
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
-            files = subprocess.check_output([msiextract, file, "--directory", tempdir], universal_newlines=True)
+            files = subprocess.check_output([selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True)
             if files:
                 files = [
                     extracted_file

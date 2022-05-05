@@ -4,9 +4,10 @@ import os
 import smtplib
 import sys
 from datetime import datetime
-from email import Encoders
-from email.MIMEBase import MIMEBase
-from email.MIMEMultipart import MIMEMultipart
+from email.encoders import encode_base64
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 
 # Cuckoo root
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
@@ -23,7 +24,7 @@ if True:  # try:
     msg["To"] = email_config.email["to"]
     part = MIMEBase("application", "octet-stream")
     part.set_payload(data)
-    Encoders.encode_base64(part)
+    encode_base64(part)
     part.add_header("Content-Disposition", 'attachment; filename="cuckoo.eml"')
     msg.attach(part)
     print(email_config.email["server"], email_config.email["port"])

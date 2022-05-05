@@ -23,6 +23,12 @@ from lib.cuckoo.common.objects import File
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.utils import get_options, is_text_file
 
+try:
+    from sflock import unpack
+    HAVE_SFLOCK = True
+except ImportError:
+    HAVE_SFLOCK = False
+
 log = logging.getLogger(__name__)
 
 logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
@@ -209,7 +215,7 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         UnAutoIt_extract,
         RarSFX_extract,
         UPX_unpack,
-        NSIS_unpack,
+        SevenZip_unpack,
         Inno_extract,
     ):
 
@@ -416,7 +422,6 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
 
-
 def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     if (
         all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
@@ -424,23 +429,17 @@ def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dicti
         and "RAR self-extracting archive" not in data_dictionary.get("type", "")
     ):
         return
-    if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
-        log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
-        return
 
     metadata = []
 
     with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
         try:
-            if options.get("password"):
-                output = subprocess.check_output(
-                    [selfextract_conf.RarSFX_extract.binary, "e", "-p{options['password']}", file, tempdir], universal_newlines=True
-                )
-            else:
-                output = subprocess.check_output(
-                    [selfextract_conf.RarSFX_extract.binary, "e", file, tempdir], universal_newlines=True
-                )
-            if output:
+
+            if HAVE_SFLOCK:
+                unpacked = unpack(file.encode(), password=options.get("password"))
+                for child in unpacked:
+                    with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:
+                        f.write(child.contents)
                 files = [
                     os.path.join(tempdir, extracted_file)
                     for extracted_file in tempdir
@@ -496,13 +495,22 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         data_dictionary.setdefault("extracted_files_tool", "UnUPX")
 
 
-def NSIS_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
-    if "Nullsoft Installer self-extracting archive" not in filetype:
+def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
+    tool = False
+    if "Nullsoft Installer self-extracting archive" in filetype:
+        tool = "UnNSIS"
+        prefix = "unnsis_"
+
+    elif any("7-zip Installer data" in string for string in data_dictionary.get("die", {})):
+        tool = "7Zip"
+        prefix = "7zip_"
+
+    else:
         return
 
     metadata = []
 
-    with tempfile.TemporaryDirectory(prefix="unnsis_") as tempdir:
+    with tempfile.TemporaryDirectory(prefix=prefix) as tempdir:
         try:
             output = subprocess.check_output(
                 [
@@ -521,7 +529,7 @@ def NSIS_unpack(file: str, destination_folder: str, filetype: str, data_dictiona
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
-            logging.error("Can't unpack NSIS for %s", file)
+            logging.error("Can't unpack with 7Zip for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 
@@ -530,4 +538,4 @@ def NSIS_unpack(file: str, destination_folder: str, filetype: str, data_dictiona
             is_text_file(meta, destination_folder, 8192)
 
         data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", "UnNSIS")
+        data_dictionary.setdefault("extracted_files_tool", tool)

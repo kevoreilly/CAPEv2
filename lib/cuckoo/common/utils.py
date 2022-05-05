@@ -30,6 +30,7 @@ from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
+from data.family_detection_names import family_detection_names
 
 try:
     import re2 as re
@@ -651,6 +652,8 @@ def store_temp_file(filedata, filename, path=None):
 def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):
     results.setdefault("detections", [])
     detection = {detected_by: detected_on}
+    # Normalize family names
+    family = family_detection_names.get(family, family)
     for block in results["detections"]:
         if family == block.get("family", ""):
             if not any(map(lambda d: d == detection, block["details"])):

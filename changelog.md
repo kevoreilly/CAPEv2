@@ -1,3 +1,16 @@
+### [5-5-2022]
+* Monitor updates:
+    * Increase GlobalMemoryStatusEx faked return value
+    * Loosen requirements in TestPERequirements to allow zero-sized sections
+    * Fix issue with missing dropped files (e.g. 64-bit Al-khaser log.txt)
+    * Crypto hooks: add buffer length to logs, add dump-crypto to NCrypt APIs & use DumpMemoryRaw()
+    * Trace improvements (64-bit set register range and DoStepOver function)
+    * Debugger improvements (NoSetThreadContext for Win 10 breakpoints)
+    * Fix off-by-one in ReverseScanForNonZero()
+
+### [3-5-2022]
+*  lnkparse3 integration
+
 ### [20-4-2022]
 * Emotet E5 update
 * Monitor updates:

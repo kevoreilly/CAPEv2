@@ -25,6 +25,7 @@ from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
     from sflock import unpack
+
     HAVE_SFLOCK = True
 except ImportError:
     HAVE_SFLOCK = False
@@ -421,6 +422,7 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
 
         data_dictionary.setdefault("extracted_files", metadata)
         data_dictionary.setdefault("extracted_files_tool", "UnAutoIt")
+
 
 def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict):
     if (

@@ -25,12 +25,12 @@ from datetime import datetime
 from io import BytesIO
 from typing import Tuple
 
+from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
-from data.family_detection_names import family_detection_names
 
 try:
     import re2 as re

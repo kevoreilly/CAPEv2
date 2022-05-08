@@ -84,3 +84,4 @@ netstruct
 pymongo>=3.11.3
 django-ratelimit
 pdfminer==20191125
+requests-html==0.10.0

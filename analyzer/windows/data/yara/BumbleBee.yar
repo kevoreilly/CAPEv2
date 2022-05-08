@@ -12,7 +12,7 @@ rule BumbleBeeLoader
         $hook = {48 85 C9 74 20 48 85 D2 74 1B 4C 8B C9 45 85 C0 74 13 48 2B D1 42 8A 04 0A 41 88 01 49 FF C1 41 83 E8 01 75 F0 48 8B C1 C3}
         $iternaljob = "IternalJob"
     condition:
-        uint16(0) == 0x5A4D and any of them
+        uint16(0) == 0x5A4D and 2 of them
 }
 
 rule Bumblebee

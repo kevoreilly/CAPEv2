@@ -31,6 +31,8 @@ crl\.microsoft\.com
 \.windows\.com\.akadns\.net$
 \.microsoft\.com\.nsatc\.net$
 
+kms8\.msguides\.com
+
 # Google
 update\.googleapis\.com$
 
@@ -206,6 +208,18 @@ geo2\.adobe\.com
 armmf\.adobe\.com
 p13n\.adobe\.io
 ardownload3\.adobe\.com
+armmf\.adobe\.com
+
+# firefox
+firefox\.settings\.services\.mozilla\.com
+location\.services\.mozilla\.com
+locprod2-elb-us-west-2\.prod\.mozaws\.net
+detectportal\.firefox\.com
+prod\.detectportal\.prod\.cloudops\.mozgcp\.net
+shavar\.services\.mozilla\.com
+shavar\.prod\.mozaws.net
+push\.services\.mozilla\.com
+autopush\.prod\.mozaws\.net
 
 # digicert
 \.digicert\.com$

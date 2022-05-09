@@ -3,6 +3,8 @@
     "encrypted_ioc.py": {},
     "network_docfile_http.py": {},
     "network_cnc_encrypted.py": {},
-    "http_request.py": {}
+    "http_request.py": {},
+    "stealth_network.py": {},
+    "infostealer_cookies.py": {}
   }
 }

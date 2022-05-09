@@ -3,6 +3,7 @@ import json
 import logging
 
 import requests
+
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Processing
@@ -18,7 +19,7 @@ REVERSING_LABS_DETAILED_ANALYSIS_ENDPOINT = "/api/samples/v2/list/details/"
 log = logging.getLogger(__name__)
 
 
-def reversing_labs_lookup(target: str):
+def reversing_labs_lookup(target: str, is_hash: bool = False):
     _headers = {
         "User-Agent": "Cuckoo Sandbox",
         "Content-Type": "application/json",
@@ -53,8 +54,10 @@ def reversing_labs_lookup(target: str):
         "ticloud",
         "aliases",
     ]
-
-    sha256 = target if len(target) == 64 else File(target).get_sha256()
+    if not is_hash:
+        sha256 = target if len(target) == 64 else File(target).get_sha256()
+    else:
+        sha256 = target
     full_report_lookup = {"hash_values": [sha256], "report_fields": report_fields}
     try:
         r = requests.post(
@@ -87,6 +90,7 @@ def reversing_labs_lookup(target: str):
     scanner_total = scanner_summary["scanner_count"]
     scanner_evil = scanner_summary["scanner_match"]
     classification = sample_summary["classification"]
+    classification_result = sample_summary["classification_result"]
     file = ticore["info"]["file"]
     malicious = (
         classification in ["malicious", "suspicious"]
@@ -107,6 +111,7 @@ def reversing_labs_lookup(target: str):
         "sha256": sha256,
         "malicious": malicious,
         "classification": classification,
+        "classification_result": classification_result,
         "riskscore": riskscore,
         "detected": scanner_evil,
         "total": scanner_total,

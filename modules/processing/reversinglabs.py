@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 
 import requests
 from lib.cuckoo.common.objects import File
@@ -13,6 +14,8 @@ KEY = processing_conf.reversinglabs.key
 URL = processing_conf.reversinglabs.url
 
 REVERSING_LABS_DETAILED_ANALYSIS_ENDPOINT = "/api/samples/v2/list/details/"
+
+log = logging.getLogger(__name__)
 
 
 def reversing_labs_lookup(target: str):
@@ -52,7 +55,7 @@ def reversing_labs_lookup(target: str):
     ]
 
     sha256 = target if len(target) == 64 else File(target).get_sha256()
-    full_report_lookup = {"hash_values": [target], "report_fields": report_fields}
+    full_report_lookup = {"hash_values": [sha256], "report_fields": report_fields}
     try:
         r = requests.post(
             url=URL + REVERSING_LABS_DETAILED_ANALYSIS_ENDPOINT,
@@ -124,6 +127,7 @@ class ReversingLabs(Processing):
             return {}
 
         target = self.task["target"]
+        log.debug(f"Looking up: {target}")
         reversing_labs_response = reversing_labs_lookup(target)
         if "error" in reversing_labs_response:
             raise CuckooProcessingError(reversing_labs_response["msg"])

@@ -2,6 +2,7 @@ import os
 import json
 
 import requests
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
@@ -50,6 +51,7 @@ def reversing_labs_lookup(target: str):
         "aliases",
     ]
 
+    sha256 = target if len(target) == 64 else File(target).get_sha256()
     full_report_lookup = {"hash_values": [target], "report_fields": report_fields}
     try:
         r = requests.post(
@@ -118,8 +120,11 @@ class ReversingLabs(Processing):
 
         if not KEY:
             raise CuckooProcessingError("VirusTotal API key not configured, skipping")
+        if self.task["category"] != "file":
+            return {}
 
-        reversing_labs_response = reversing_labs_lookup(self.task["target"])
+        target = self.task["target"]
+        reversing_labs_response = reversing_labs_lookup(target)
         if "error" in reversing_labs_response:
             raise CuckooProcessingError(reversing_labs_response["msg"])
         return reversing_labs_response

@@ -86,7 +86,11 @@ class LnkShortcut:
     def run(self) -> Dict[str, Any]:
         with open(self.filepath, "rb") as f:
             if HAVE_LNK3:
-                data = LnkParse3.lnk_file(f).get_json(get_all=True)
+                try:
+                    data = LnkParse3.lnk_file(f).get_json(get_all=True)
+                except struct.error as e:
+                    log.error("Parse LNK error: %s", str(e))
+                    return data
                 # breaks json due to datetime objects
                 if "target" in data:
                     del data["target"]

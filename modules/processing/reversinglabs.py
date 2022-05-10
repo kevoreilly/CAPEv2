@@ -1,13 +1,13 @@
-import os
 import json
 import logging
+import os
 
 import requests
 
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.objects import File
 
 processing_conf = Config("processing")
 
@@ -92,10 +92,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     classification = sample_summary["classification"]
     classification_result = sample_summary["classification_result"]
     file = ticore["info"]["file"]
-    malicious = (
-        classification in ["malicious", "suspicious"]
-        and sample_summary["goodware_override"] is False
-    )
+    malicious = classification in ["malicious", "suspicious"] and sample_summary["goodware_override"] is False
     md5 = sample_summary["md5"]
     sha1 = sample_summary["sha1"]
     sha256 = sample_summary["sha256"]

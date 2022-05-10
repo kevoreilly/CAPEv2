@@ -102,7 +102,7 @@ Fake-rdtsc
 Practical examples
 ==================
 
-* Those examples can be outdated, but to get an idea is more than enough
+* For more and latest versions of examples can be found `here <https://github.com/kevoreilly/CAPEv2/tree/master/analyzer/windows/data/yara>`_
 
 .. code-block:: bash
 

@@ -6,3 +6,5 @@ files:
 false_positives:
   ignore:
     - rule: "CobaltStrikeBeacon"
+    - file: "analyzer/windows/data/yara/*"
+      rule: "Blister"

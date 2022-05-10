@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 def reversing_labs_lookup(target: str, is_hash: bool = False):
     _headers = {
-        "User-Agent": "Cuckoo Sandbox",
+        "User-Agent": "CAPE Sandbox",
         "Content-Type": "application/json",
         "Authorization": f"Token {processing_conf.reversinglabs.key}",
     }

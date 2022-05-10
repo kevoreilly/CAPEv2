@@ -439,7 +439,7 @@ def RarSFX_extract(file: str, destination_folder: str, filetype: str, data_dicti
 
             if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=options.get("password"))
-                for child in unpacked:
+                for child in unpacked.children:
                     with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:
                         f.write(child.contents)
                 files = [

@@ -1,20 +1,15 @@
-import os
 import json
 import logging
+import os
 
 import requests
 
-from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.objects import File
 
 processing_conf = Config("processing")
-
-KEY = processing_conf.reversinglabs.key
-URL = processing_conf.reversinglabs.url
-
-REVERSING_LABS_DETAILED_ANALYSIS_ENDPOINT = "/api/samples/v2/list/details/"
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +18,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     _headers = {
         "User-Agent": "Cuckoo Sandbox",
         "Content-Type": "application/json",
-        "Authorization": "Token {token}".format(token=KEY),
+        "Authorization": f"Token {processing_conf.reversinglabs.key}",
     }
 
     report_fields = [
@@ -61,7 +56,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     full_report_lookup = {"hash_values": [sha256], "report_fields": report_fields}
     try:
         r = requests.post(
-            url=URL + REVERSING_LABS_DETAILED_ANALYSIS_ENDPOINT,
+            url=processing_conf.reversinglabs.url + "/api/samples/v2/list/details/",
             headers=_headers,
             data=json.dumps(full_report_lookup),
         )
@@ -80,7 +75,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     if not reversing_labs_response.get("results"):
         return {"error": True, "msg": "No results found."}
     results = reversing_labs_response["results"][0]
-    most_recent_scan_engines = results["av_scanners"][-1]
+    # most_recent_scan_engines = results["av_scanners"][-1]
 
     scanner_summary = results["av_scanners_summary"]
     sample_summary = results["sample_summary"]
@@ -92,10 +87,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
     classification = sample_summary["classification"]
     classification_result = sample_summary["classification_result"]
     file = ticore["info"]["file"]
-    malicious = (
-        classification in ["malicious", "suspicious"]
-        and sample_summary["goodware_override"] is False
-    )
+    malicious = classification in ["malicious", "suspicious"] and sample_summary["goodware_override"] is False
     md5 = sample_summary["md5"]
     sha1 = sample_summary["sha1"]
     sha256 = sample_summary["sha256"]
@@ -116,7 +108,7 @@ def reversing_labs_lookup(target: str, is_hash: bool = False):
         "detected": scanner_evil,
         "total": scanner_total,
         "story": story,
-        "permalink": os.path.join(URL, sha256),
+        "permalink": os.path.join(processing_conf.reversinglabs.url, sha256),
     }
 
     return reversing_labs
@@ -126,9 +118,9 @@ class ReversingLabs(Processing):
     def run(self):
         self.key = "reversinglabs"
 
-        if not KEY:
-            raise CuckooProcessingError("VirusTotal API key not configured, skipping")
-        if self.task["category"] != "file":
+        if not processing_conf.reversinglabs.key:
+            raise CuckooProcessingError("ReversingLabs API key not configured, skipping")
+        if self.task["category"] not in ("file", "static"):
             return {}
 
         target = self.task["target"]

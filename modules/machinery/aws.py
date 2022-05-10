@@ -3,10 +3,11 @@ import logging
 import time
 
 import boto3
+from sqlalchemy.exc import SQLAlchemyError
+
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
-from sqlalchemy.exc import SQLAlchemyError
 
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
@@ -292,7 +293,7 @@ class AWS(Machinery):
                 {
                     "DeviceIndex": 0,
                     "SubnetId": autoscale_options["subnet_id"],
-                    "Groups": autoscale_options["security_groups"].split(','),
+                    "Groups": autoscale_options["security_groups"].split(","),
                 }
             ],
             TagSpecifications=[{"ResourceType": "instance", "Tags": tags}],

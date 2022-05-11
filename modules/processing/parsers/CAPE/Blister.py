@@ -7,9 +7,9 @@
 
 import binascii
 import json
+import logging
 import os
 import sys
-import logging
 from optparse import OptionParser
 from struct import pack, unpack
 

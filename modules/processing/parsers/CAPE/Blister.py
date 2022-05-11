@@ -68,6 +68,7 @@ class Rabbit_ctx(object):
         self.m = Rabbit_state()
         self.w = Rabbit_state()
 
+
 class Rabbit(object):
     def __init__(self, key, iv):
         self.ctx = Rabbit_ctx()
@@ -205,6 +206,7 @@ def st(b):
         a += chr(x)
     return a
 
+
 def p32(a):
     return pack("<I", a)
 
@@ -287,9 +289,7 @@ def decrypt_memory(file):
     rsrc_data = section.get_data()
     encrypted_memory_offset = rsrc_data.find(tag)
 
-    decrypted_memory = dexor(
-        rsrc_data[encrypted_memory_offset + 4 :], key
-    )  # DECRYPTED MEMORY
+    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4 :], key)  # DECRYPTED MEMORY
 
     key_pattern_rule32 = """
         rule key_pattern_rule
@@ -310,14 +310,10 @@ def decrypt_memory(file):
 
     if key_pattern_offset32:  # 32bit samples
         key_pattern_offset = key_pattern_offset32[0].strings[0][0]
-        key_pattern = decrypted_memory[
-            key_pattern_offset + 12 : key_pattern_offset + 12 + 4
-        ]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
         key_pattern_offset = key_pattern_offset64[0].strings[0][0]
-        key_pattern = decrypted_memory[
-            key_pattern_offset + 12 : key_pattern_offset + 12 + 4
-        ]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         print("[-] key_pattern_rule Error signature not found")
         print("-" * 100)
@@ -336,9 +332,7 @@ def decrypt_memory(file):
     config_size = 0x644
 
     decrypted_config = dexor(
-        rsrc_data[
-            encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size
-        ],
+        rsrc_data[encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size],
         key,
     )
 
@@ -353,12 +347,7 @@ def decrypt_memory(file):
     sleep_after_injection = True if (flag & 0x100) != 0 else False
     persistance = True if (flag & 1) != 0 else False
     if persistance:
-        w_payload_filename_and_cmdline = (
-            decrypted_config[6:0x210]
-            .split(b"\x00\x00")[0]
-            .replace(b"\x00", b"")
-            .decode()
-        )
+        w_payload_filename_and_cmdline = decrypted_config[6:0x210].split(b"\x00\x00")[0].replace(b"\x00", b"").decode()
     if (flag & 2) != 0:
         injection_method = "Reflective injection"
     elif (flag & 0x40) != 0:
@@ -389,12 +378,7 @@ def decrypt_memory(file):
     # decrypt payload
 
     encrypted_payload = rsrc_data[
-        encrypted_config_offset
-        + 4
-        + config_size : encrypted_config_offset
-        + 4
-        + config_size
-        + u32(compressed_data_size)
+        encrypted_config_offset + 4 + config_size : encrypted_config_offset + 4 + config_size + u32(compressed_data_size)
     ]  # 4 == tag size
 
     cipher = Rabbit(bytes(key), bytes(iv))
@@ -405,11 +389,7 @@ def decrypt_memory(file):
 
     save_payload_path = "{}_payload".format(file)
 
-    print(
-        "\033[92m[+] Payload extracted and saved to: {} \033[0m".format(
-            save_payload_path
-        )
-    )
+    print("\033[92m[+] Payload extracted and saved to: {} \033[0m".format(save_payload_path))
 
     if MZ:
         uncompressed_payload = b"MZ" + uncompressed_payload[2:]
@@ -509,9 +489,7 @@ def extract_config(data):
     rsrc_data = section.get_data()
     encrypted_memory_offset = rsrc_data.find(tag)
 
-    decrypted_memory = dexor(
-        rsrc_data[encrypted_memory_offset + 4 :], key
-    )  # DECRYPTED MEMORY
+    decrypted_memory = dexor(rsrc_data[encrypted_memory_offset + 4 :], key)  # DECRYPTED MEMORY
 
     key_pattern_rule32 = """
         rule key_pattern_rule
@@ -532,14 +510,10 @@ def extract_config(data):
 
     if key_pattern_offset32:  # 32bit samples
         key_pattern_offset = key_pattern_offset32[0].strings[0][0]
-        key_pattern = decrypted_memory[
-            key_pattern_offset + 12 : key_pattern_offset + 12 + 4
-        ]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     elif key_pattern_offset64:  # 64bit samples
         key_pattern_offset = key_pattern_offset64[0].strings[0][0]
-        key_pattern = decrypted_memory[
-            key_pattern_offset + 12 : key_pattern_offset + 12 + 4
-        ]
+        key_pattern = decrypted_memory[key_pattern_offset + 12 : key_pattern_offset + 12 + 4]
     else:
         log.info("key_pattern_rule: Error signature not found")
         return 0
@@ -555,9 +529,7 @@ def extract_config(data):
     config_size = 0x644
 
     decrypted_config = dexor(
-        rsrc_data[
-            encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size
-        ],
+        rsrc_data[encrypted_config_offset + 4 : encrypted_config_offset + 4 + config_size],
         key,
     )
 
@@ -572,12 +544,7 @@ def extract_config(data):
     sleep_after_injection = True if (flag & 0x100) != 0 else False
     persistance = True if (flag & 1) != 0 else False
     if persistance:
-        w_payload_filename_and_cmdline = (
-            decrypted_config[6:0x210]
-            .split(b"\x00\x00")[0]
-            .replace(b"\x00", b"")
-            .decode()
-        )
+        w_payload_filename_and_cmdline = decrypted_config[6:0x210].split(b"\x00\x00")[0].replace(b"\x00", b"").decode()
     if (flag & 2) != 0:
         injection_method = "Reflective injection"
     elif (flag & 0x40) != 0:

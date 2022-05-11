@@ -1,3 +1,6 @@
+### [10-5-2022]
+* Added AWS machinery and ReversingLabs file lookup by @JaminB
+
 ### [5-5-2022]
 * Monitor updates:
     * Increase GlobalMemoryStatusEx faked return value
@@ -18,7 +21,7 @@
     * Fix issue with payload metadata incorrectly set in certain conditions
 
 ### [19-4-2022]
-* Emotet E4 update (new 64-bit) 
+* Emotet E4 update (new 64-bit)
 
 ### [1-4-2022]
 * Monitor update: Fix issue with attempted dll load notifications in tlsdump mode causing lsass to crash

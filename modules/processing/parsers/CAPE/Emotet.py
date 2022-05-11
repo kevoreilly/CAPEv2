@@ -67,7 +67,7 @@ rule Emotet
         $snippetU = {89 44 [2] 33 D2 8B 44 [2] F7 F1 B9 [4] 89 44 [2] 8D 44 [2] 81 74 [6] C7 44 [6] 81 44 [6] 81 74 [6] FF 74 [2] 50 FF 74 [2] FF 74 [2] 8B 54 [2] E8}
         $snippetV = {81 74 [2] ED BC 9C 00 FF 74 [2] 50 68 [4] FF 74 [2] 8B 54 [2] 8B 4C [2] E8}
         $snippetW = {4C 8D [2] 8B [2] 4C 8D 05 [4] F7 E1 2B CA D1 E9 03 CA C1 E9 06 89}
-        $snippetX = {4C 8D 0? [2] (00|01) 00 48 8D [9] 81 75 [5] C7 45 [5] 81 45 [5] 81}
+        $snippetX = {4C 8D 0? [2] (00|01) 00 [0-80] 48 8D [0-9] 81 75 [5] C7 45 [5-14] 81}
         $comboA1 = {83 EC 28 56 FF 75 ?? BE}
         $comboA2 = {83 EC 38 56 57 BE}
         $comboA3 = {EB 04 40 89 4? ?? 83 3C C? 00 75 F6}
@@ -95,6 +95,7 @@ rule Emotet
         $ref_eccL = {4C 8D [3] 4C 8D [5] 81 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00}
         $ref_eccM = {4C 8D 0D [4] 81 B5 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] C7 85 ?? 00 00 00 [4] 81 B5 ?? 00 00 00 [4] 6B 85}
         $ref_eccN = {4C 8D 05 [4-28] F7 E1 2B CA D1 E9 03 CA C1 E9 05 89 8D ?? 00 00 00 C1 AD ?? 00 00 00 ?? 81 B5 ?? 00 00 00}
+        $ref_eccO = {4C 8D 0D [4] 8B 45 ?? 8D 0C ?? B8 [4] 03 C9 89 4D ?? 8B 4D ?? F7 E1 B8 [4] 2B CA D1 E9 03 CA C1 E9 05}
     condition:
         uint16(0) == 0x5A4D and any of ($snippet*) or 2 of ($comboA*) or $ref_rsa or any of ($ref_ecc*)
 }
@@ -618,6 +619,10 @@ def extract_config(filebuf):
                 ecc_delta_offset = int(yara_matches["$ref_eccN"])
                 delta1 = 3
                 delta2 = 107
+            if yara_matches.get("$ref_eccO"):
+                ecc_delta_offset = int(yara_matches["$ref_eccO"])
+                delta1 = 3
+                delta2 = 206
             if delta1 or delta2:
                 if ref_ecc_offset:
                     ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base

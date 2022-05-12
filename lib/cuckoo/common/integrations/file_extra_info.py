@@ -486,7 +486,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
 
     with tempfile.TemporaryDirectory(prefix=prefix) as tempdir:
         try:
-             if HAVE_SFLOCK:
+            if HAVE_SFLOCK:
                 unpacked = unpack(file.encode(), password=options.get("password"))
                 for child in unpacked.children:
                     with open(os.path.join(tempdir, child["filename"].decode()), "wb") as f:

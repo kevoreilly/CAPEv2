@@ -1215,6 +1215,7 @@ def search_behavior(request, task_id):
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def report(request, task_id):
     network_report = False
+    report = {}
     if enabledconf["mongodb"]:
         report = mongo_find_one(
             "analysis",
